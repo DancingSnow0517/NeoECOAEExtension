@@ -304,6 +304,7 @@ tasks.named('test', Test) {
     systemProperty 'storage.performance', providers.systemProperty('storage.performance').getOrElse('false')
     systemProperty 'storage.performance.label', providers.systemProperty('storage.performance.label').getOrElse('current')
     systemProperty 'storage.performance.extended', providers.systemProperty('storage.performance.extended').getOrElse('false')
+    systemProperty 'crafting.performance', providers.systemProperty('crafting.performance').getOrElse('false')
     systemProperty 'planner.challenge.enabled', providers.systemProperty('planner.challenge.enabled').getOrElse('false')
     systemProperty 'planner.challenge.profile', providers.systemProperty('planner.challenge.profile').getOrElse('default')
     systemProperty 'planner.challenge.case', providers.systemProperty('planner.challenge.case').getOrElse('')

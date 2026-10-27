@@ -21,7 +21,7 @@ final class ECOCraftingInputResolver {
             KeyCounter expectedContainerItems,
             ECOCraftingRemainderCache remainderCache) {
         return extractPatternInputs(details, sourceInventory, level, expectedOutputs,
-            expectedContainerItems, remainderCache, true);
+            expectedContainerItems, remainderCache, true, null);
     }
 
     /** Resolve against a fresh overlay whose virtual removals are discarded after a failed attempt. */
@@ -34,7 +34,19 @@ final class ECOCraftingInputResolver {
             KeyCounter expectedContainerItems,
             ECOCraftingRemainderCache remainderCache) {
         return extractPatternInputs(details, sourceInventory, level, expectedOutputs,
-            expectedContainerItems, remainderCache, false);
+            expectedContainerItems, remainderCache, false, null);
+    }
+
+    @Nullable
+    static KeyCounter[] extractPatternInputsFromDisposablePreview(
+            IPatternDetails details,
+            ECOCraftingInputPreview sourceInventory,
+            Level level,
+            ECOCraftingInputBuffer buffer,
+            ECOCraftingRemainderCache remainderCache) {
+        var inputs = buffer.prepare(details.getInputs().length);
+        return extractPatternInputs(details, sourceInventory, level, buffer.outputs(),
+            buffer.remainders(), remainderCache, false, inputs);
     }
 
     @Nullable
@@ -45,14 +57,16 @@ final class ECOCraftingInputResolver {
             KeyCounter expectedOutputs,
             KeyCounter expectedContainerItems,
             ECOCraftingRemainderCache remainderCache,
-            boolean rollbackOnFailure) {
+            boolean rollbackOnFailure,
+            @Nullable KeyCounter[] reusableInputs) {
         var inputs = details.getInputs();
-        KeyCounter[] inputHolder = new KeyCounter[inputs.length];
+        KeyCounter[] inputHolder = reusableInputs == null ? new KeyCounter[inputs.length] : reusableInputs;
         boolean found = true;
 
         for (int slot = 0; slot < inputs.length; slot++) {
             var input = inputs[slot];
-            var extractedInputs = inputHolder[slot] = new KeyCounter();
+            var extractedInputs = inputHolder[slot];
+            if (extractedInputs == null) extractedInputs = inputHolder[slot] = new KeyCounter();
             long remainingMultiplier = input.getMultiplier();
             if (sourceInventory instanceof ECOCraftingInputPreview preview) {
                 long primaryCrafts = preview.extractPrimaryInput(input, remainingMultiplier, level,

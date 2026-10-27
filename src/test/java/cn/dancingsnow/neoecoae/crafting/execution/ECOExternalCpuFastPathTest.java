@@ -9,7 +9,6 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.*;
 import appeng.crafting.CraftingLink;
-import appeng.crafting.execution.CraftingCpuHelper;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.me.service.CraftingService;
 import appeng.helpers.patternprovider.PatternProviderLogic;
@@ -33,6 +32,7 @@ class ECOExternalCpuFastPathTest {
     final AEKey output = mock(AEKey.class, RETURNS_DEEP_STUBS);
     final AEKey container = mock(AEKey.class, RETURNS_DEEP_STUBS);
     final IPatternDetails pattern = mock(IPatternDetails.class, RETURNS_DEEP_STUBS);
+    final IPatternDetails.IInput ingredient = mock(IPatternDetails.IInput.class);
     final IEnergyService energy = mock(IEnergyService.class);
     final CraftingService service = mock(CraftingService.class);
     final Level level = mock(Level.class);
@@ -49,6 +49,13 @@ class ECOExternalCpuFastPathTest {
 
     void setup(String engine) {
         when(pattern.getDefinition()).thenReturn(AEItemKey.of(net.minecraft.world.item.Items.PAPER));
+        when(ingredient.getPossibleInputs()).thenReturn(new GenericStack[] {new GenericStack(input, 2)});
+        when(ingredient.getMultiplier()).thenReturn(1L);
+        when(ingredient.isValid(any(), any())).thenReturn(true);
+        when(ingredient.getRemainingKey(input)).thenReturn(container);
+        when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[] {ingredient});
+        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(output, 2)));
+        when(input.getAmountPerOperation()).thenReturn(2);
         var link = mock(CraftingLink.class);
         when(link.getCraftingID()).thenReturn(jobId);
         if (engine.equals("advancedae")) {
@@ -98,20 +105,7 @@ class ECOExternalCpuFastPathTest {
     }
 
     int dispatch(int pushSlots) {
-        // Recipe extraction is stubbed; facade, planner, material lease, energy and accounting are real.
-        try (var helper = mockStatic(CraftingCpuHelper.class)) {
-            helper.when(() -> CraftingCpuHelper.extractPatternInputs(eq(pattern), any(), eq(level), any(), any()))
-                    .thenAnswer(c -> {
-                        ListCraftingInventory preview = c.getArgument(1);
-                        if (preview.extract(input, 2, Actionable.MODULATE) != 2) return null;
-                        ((KeyCounter) c.getArgument(3)).add(output, 2);
-                        ((KeyCounter) c.getArgument(4)).add(container, 1);
-                        var counter = new KeyCounter(); counter.add(input, 2);
-                        return new KeyCounter[]{counter};
-                    });
-            helper.when(() -> CraftingCpuHelper.calculatePatternPower(any())).thenReturn(1.0);
-            return dispatcher.execute(this, job, inventory, pushSlots, service, energy, level);
-        }
+        return dispatcher.execute(this, job, inventory, pushSlots, service, energy, level);
     }
 
     @ParameterizedTest @ValueSource(strings = {"ae2", "omnicell", "advancedae"})
@@ -298,5 +292,125 @@ class ECOExternalCpuFastPathTest {
         // 非ECO providers完全被跳过
         verify(nonEcoProvider1, never()).isBusy();
         verify(nonEcoProvider2, never()).isBusy();
+    }
+
+    @Test void unavailableProvidersNeverResolveInputs() {
+        setup("ae2");
+        var ordinary = mock(ICraftingProvider.class);
+        when(service.getProviders(pattern)).thenReturn(List.of(ordinary, provider));
+        when(provider.isBusy()).thenReturn(true);
+        assertEquals(0, dispatch(1));
+        verify(pattern, never()).getInputs();
+        verifyNoInteractions(ingredient);
+        assertEquals(2048, inventory.list.get(input));
+    }
+
+    @Test void blockedProviderNeverResolvesInputs() {
+        setup("ae2");
+        var blocked = mock(PatternProviderLogic.class,
+                withSettings().extraInterfaces(ECOFastPathDispatchProvider.class));
+        when(blocked.isBlocking()).thenReturn(true);
+        when(service.getProviders(pattern)).thenReturn(List.of(blocked));
+        assertEquals(0, dispatch(1));
+        verify(pattern, never()).getInputs();
+        verifyNoInteractions(ingredient);
+    }
+
+    @Test void failedPreparationReusesResolvedInputsForNextProvider() {
+        setup("ae2");
+        var unavailable = mock(FastProvider.class);
+        when(service.getProviders(pattern)).thenReturn(List.of(unavailable, provider));
+        assertEquals(1, dispatch(1));
+        verify(ingredient, times(1)).isValid(input, level);
+        assertEquals(1024, inventory.list.get(input));
+        assertEquals(1, deliveries.size());
+    }
+
+    @Test void readyTaskAfter1024UnavailableTasksIsDispatchedImmediately() {
+        setup("ae2");
+        Object ready = tasks.remove(pattern);
+        for (int taskIndex = 0; taskIndex < 1024; taskIndex++) {
+            var unavailable = mock(IPatternDetails.class);
+            var progress = mock(ECOExternalCpuJob.Task.class);
+            when(progress.neoecoae$value()).thenReturn(2L);
+            tasks.put(unavailable, progress);
+            when(service.getProviders(unavailable)).thenReturn(List.of());
+        }
+        tasks.put(pattern, ready);
+        assertEquals(1, dispatch(1));
+        assertEquals(512, remaining.get());
+        assertEquals(1, deliveries.size());
+    }
+
+    @Test void repeatedDispatchesInOneTickKeepBatchSizeAndAcceptedSnapshots() {
+        setup("ae2");
+        int batches = 128;
+        remaining.set(batches * 512L);
+        inventory.list.set(input, batches * 1024L);
+        for (int batch = 0; batch < batches; batch++) assertEquals(1, dispatch(1));
+        assertEquals(batches, deliveries.size());
+        for (var delivery : deliveries) {
+            assertEquals(512, delivery.craftCount());
+            assertEquals(1024, delivery.inputTotal().getFirst().amount());
+            assertEquals(1024, delivery.outputTotal().getFirst().amount());
+            assertEquals(512, delivery.remainingTotal().getFirst().amount());
+        }
+        assertEquals(0, inventory.list.get(input));
+        assertEquals(batches * 1024L, waiting.list.get(output));
+        assertEquals(batches * 512L, waiting.list.get(container));
+        assertTrue(tasks.isEmpty());
+    }
+
+    @Test void oneTraversalFillsNativePushSlotsWithoutRescanningUnavailableTasks() {
+        setup("ae2");
+        remaining.set(512);
+        Object ready = tasks.remove(pattern);
+        var unavailablePatterns = new ArrayList<IPatternDetails>();
+        for (int taskIndex = 0; taskIndex < 128; taskIndex++) {
+            var unavailable = mock(IPatternDetails.class);
+            var progress = mock(ECOExternalCpuJob.Task.class);
+            when(progress.neoecoae$value()).thenReturn(2L);
+            tasks.put(unavailable, progress);
+            when(service.getProviders(unavailable)).thenReturn(List.of());
+            unavailablePatterns.add(unavailable);
+        }
+        tasks.put(pattern, ready);
+        var second = mock(IPatternDetails.class);
+        var definition = pattern.getDefinition();
+        when(second.getDefinition()).thenReturn(definition);
+        when(second.getInputs()).thenReturn(new IPatternDetails.IInput[] {ingredient});
+        when(second.getOutputs()).thenReturn(List.of(new GenericStack(output, 2)));
+        when(service.getProviders(second)).thenReturn(List.of(provider));
+        var secondProgress = mock(ECOExternalCpuJob.Task.class);
+        var secondRemaining = new AtomicLong(512);
+        when(secondProgress.neoecoae$value()).thenAnswer(call -> secondRemaining.get());
+        doAnswer(call -> { secondRemaining.set(call.getArgument(0)); return null; })
+                .when(secondProgress).neoecoae$value(anyLong());
+        tasks.put(second, secondProgress);
+
+        assertEquals(2, dispatch(2));
+        assertEquals(2, deliveries.size());
+        assertEquals(0, remaining.get());
+        assertEquals(0, secondRemaining.get());
+        assertEquals(0, inventory.list.get(input));
+        assertEquals(2048, waiting.list.get(output));
+        for (var unavailable : unavailablePatterns) verify(service, times(1)).getProviders(unavailable);
+    }
+
+    @Test void newInventoryAndLiveValidityAreCheckedOnEveryAttempt() {
+        setup("ae2");
+        reject = true;
+        assertEquals(0, dispatch(1));
+        when(ingredient.isValid(input, level)).thenReturn(false);
+        reject = false;
+        assertEquals(0, dispatch(1));
+        assertEquals(2048, inventory.list.get(input));
+        when(ingredient.isValid(input, level)).thenReturn(true);
+        var replacement = new ListCraftingInventory(ignored -> {});
+        replacement.insert(input, 20, Actionable.MODULATE);
+        assertEquals(1, dispatcher.execute(this, job, replacement, 1, service, energy, level));
+        assertEquals(0, replacement.list.get(input));
+        assertEquals(2048, inventory.list.get(input));
+        assertEquals(10, deliveries.getLast().craftCount());
     }
 }

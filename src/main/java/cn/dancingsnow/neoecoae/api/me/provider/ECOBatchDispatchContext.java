@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me.provider;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -55,14 +56,16 @@ public final class ECOBatchDispatchContext {
 
     public static ECOBatchDispatchContext create(IPatternDetails pattern, KeyCounter[] inputs,
             KeyCounter outputs, KeyCounter containers, Level level, @Nullable UUID jobId) {
-        return new ECOBatchDispatchContext(pattern,
-            java.util.Arrays.stream(inputs).map(ECOFastPathStacks::copyCounter)
-                .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new)),
+        var inputSnapshots = new ArrayList<List<GenericStack>>(inputs.length);
+        for (var input : inputs) inputSnapshots.add(ECOFastPathStacks.copyCounter(input));
+        return new ECOBatchDispatchContext(pattern, inputSnapshots,
             ECOFastPathStacks.copyCounter(outputs), ECOFastPathStacks.copyCounter(containers), level, jobId);
     }
 
     public KeyCounter[] inputCounters() {
-        return inputs.stream().map(ECOBatchDispatchContext::counter).toArray(KeyCounter[]::new);
+        var counters = new KeyCounter[inputs.size()];
+        for (int slot = 0; slot < counters.length; slot++) counters[slot] = counter(inputs.get(slot));
+        return counters;
     }
 
     public List<GenericStack> inputItems() {

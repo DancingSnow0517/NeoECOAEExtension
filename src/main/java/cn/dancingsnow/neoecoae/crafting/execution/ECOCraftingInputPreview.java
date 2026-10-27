@@ -63,6 +63,10 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
         this.templateCache = templateCache;
     }
 
+    void reset() {
+        removed.clear();
+    }
+
     Iterable<InputTemplate> inputTemplates(IPatternDetails.IInput input, Level level) {
         if (templateCache == null) {
             return appeng.crafting.execution.CraftingCpuHelper.getValidItemTemplates(this, input, level);

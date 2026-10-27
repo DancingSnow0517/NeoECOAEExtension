@@ -46,6 +46,7 @@ final class ECOCraftingTaskScheduler {
 
     private final ECOProviderCursor providerCursor = new ECOProviderCursor();
     private final ECOCraftingInputTemplateCache inputTemplateCache = new ECOCraftingInputTemplateCache();
+    private ECOCraftingInputBuffer inputBuffer = new ECOCraftingInputBuffer();
     private final ECOCraftingRemainderCache remainderCache = ECOCraftingRemainderCache.shared();
     private final ECODispatchStallDiagnostics stallDiagnostics = new ECODispatchStallDiagnostics();
     private final ECOCraftingProviderDispatcher providerDispatcher;
@@ -72,6 +73,7 @@ final class ECOCraftingTaskScheduler {
 
     void resetDispatchState() {
         inputTemplateCache.clear();
+        inputBuffer = new ECOCraftingInputBuffer();
         providerCursor.clear();
         resumeDispatchPattern = null;
         fallbackDispatchPattern = null;
@@ -280,8 +282,6 @@ final class ECOCraftingTaskScheduler {
                 long seedGenerationBeforeResolve = current.executionRuntime == null
                         ? 0L : current.executionRuntime.startupSeedGeneration();
                 long reloadGenerationBeforeResolve = AE2PatternIntrospection.reloadGeneration();
-                var outputs = new appeng.api.stacks.KeyCounter();
-                var remainders = new appeng.api.stacks.KeyCounter();
                 var protectedStartupSeed = current.executionRuntime == null
                         ? java.util.Map.<AEKey, Long>of()
                         : current.executionRuntime.protectedStartupSeed(candidate);
@@ -290,8 +290,9 @@ final class ECOCraftingTaskScheduler {
                         : new ECOCraftingInputPreview(inventory, pattern, protectedStartupSeed, remainderCache,
                             current.fuzzyPlanningItemIds);
                 stallDiagnostics.resolveAttempt();
+                var inputBuffer = this.inputBuffer;
                 var inputs = ECOCraftingInputResolver.extractPatternInputsFromDisposablePreview(
-                        pattern, inputInventory, level, outputs, remainders, remainderCache);
+                        pattern, inputInventory, level, inputBuffer, remainderCache);
                 if (inputs == null) {
                     advanceAfterFailure(pattern, nextPattern);
                     logReason(current, candidate, "required-inputs-unavailable",
@@ -330,7 +331,8 @@ final class ECOCraftingTaskScheduler {
                     : new ECOExecutionRuntime.DispatchCandidate(candidate.taskId(), candidate.phaseIndex(), pattern,
                         allowedCount, candidate.blocksOrderedPhase(), candidate.orderedStepIndex());
                 var request = new ECOCraftingDispatchRequest(
-                        current, dispatchCandidate, pattern, inputs, outputs, remainders, allowedCount, inventory, level);
+                        current, dispatchCandidate, pattern, inputs, inputBuffer.outputs(), inputBuffer.remainders(),
+                        allowedCount, inventory, level);
                 ECOCraftingProviderDispatcher.Result dispatch;
                 boolean[] providerAttempted = {false};
                 try (var ignored = cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching
