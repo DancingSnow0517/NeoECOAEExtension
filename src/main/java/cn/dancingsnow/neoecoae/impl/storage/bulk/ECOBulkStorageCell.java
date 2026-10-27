@@ -244,6 +244,10 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
         return selected;
     }
 
+    @Override public List<AEItemKey> getCompressionChain(AEItemKey item) {
+        return ECOCompressionService.units(item).items();
+    }
+
     public void setCompressionCutoff(AEItemKey selected) {
         BulkUnits units = ECOCompressionService.units(selected);
         cutoffs.put(units.items().getFirst(), selected);

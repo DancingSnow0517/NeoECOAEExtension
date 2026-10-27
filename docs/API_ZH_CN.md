@@ -638,7 +638,7 @@ public final class EcoStorageExample {
 
 `ECOBigIntegerStorage.insert` 返回**已插入数量**，不是剩余数量。调用方用提供数量减去返回值。long 范围内走普通 AE2 插入；超出 long 后，优先使用精确存储实现，否则只提供一段 `Long.MAX_VALUE`。它不保证一次完全插入，也不会循环插入所有分段。区分 `Actionable.SIMULATE` 与 `MODULATE`。
 
-只有能无损枚举、清空、模拟插入、持久化和恢复的库存，才实现 `IECOStorageMigrationCell` 参与可恢复迁移。`IECOBulkMarkableCellItem` 只开启手动压缩标记面板，不注册存储后端，也不开启自动转移。`IECOBulkDisplayCell` 独立控制压缩显示截止等级。
+只有能无损枚举、清空、模拟插入、持久化和恢复的库存，才实现 `IECOStorageMigrationCell` 参与可恢复迁移。`IECOBulkMarkableCellItem` 只开启手动压缩标记面板，不注册存储后端，也不开启自动转移。`IECOBulkDisplayCell` 独立控制压缩显示截止等级；`IECOBulkDisplayCell.getCompressionChain(AEItemKey)` 返回该物品所在压缩链的全部等级，无压缩链时返回只含自身的一元素列表，调用方据此合并同链标记。
 
 ### 注册表与客户端模型
 
