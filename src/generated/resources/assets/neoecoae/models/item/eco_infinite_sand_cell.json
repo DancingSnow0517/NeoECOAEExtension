@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "neoecoae:item/eco_cells/infinite_resource_cell",
+    "layer1": "neoecoae:item/eco_cells/cell_status_light"
+  }
+}
