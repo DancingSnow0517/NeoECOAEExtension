@@ -628,6 +628,23 @@ To use the handler facade directly, pass the host that owns the cell when one ex
 
 The facade is synchronized. It does not transfer item ownership or authenticate the caller; those are host/terminal responsibilities.
 
+### Restricting insertion into native ME drives and ME chests
+
+Implement the public `INativeMEStorageRestrictedItem` interface on your cell Item to reuse the insertion restriction. No ECO cell superclass or registration is required:
+
+```java
+import cn.dancingsnow.neoecoae.api.storage.INativeMEStorageRestrictedItem;
+import net.minecraft.world.item.Item;
+
+public final class AddonCellItem extends Item implements INativeMEStorageRestrictedItem {
+    public AddonCellItem(Properties properties) { super(properties); }
+}
+```
+
+`isNativeMEStorageRestricted(ItemStack stack)` defaults to true and can be overridden per stack. False leaves AE2's normal validation in place; it does not grant insertion. The callback must be read-only and available on both logical sides. The native inventory filter enforces the restriction for GUI and automation insertions that honor it. Existing cells are not removed, other mods' drives are unaffected, and no cell inventory is registered. Built-in `ECOStorageCellItem` and its subclasses use the same contract.
+
+See the [addon API contract](ADDON_API_ZH_CN.md); the feature name is `native_me_storage_restrictions`. A NeoECOAE version providing this API is required at runtime.
+
 ### Cell slots and priority
 
 Query `blockEntity instanceof ICellHost`. `getCellStack()` returns null for empty and may return a live stack: treat it as read-only. To install, pass one valid cell; to remove, pass **null**. `ItemStack.EMPTY` is rejected. Check `isItemValid`, `canExtractCell`, and the optional `getCellExtractionBlockReasonText()`. The void setter can reject a request silently, so re-read the slot before moving either stack. Remove and account for the old cell before inserting its replacement.

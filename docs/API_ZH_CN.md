@@ -628,6 +628,23 @@ public final class EcoStorageExample {
 
 门面自身提供同步访问，但不转移物品所有权，也不代替调用方或终端执行权限检查。
 
+### 禁止进入原版 ME 驱动器与 ME 箱子
+
+盘物品实现公开接口 `INativeMEStorageRestrictedItem` 即可复用插入拦截，无需继承 ECO 盘类或调用注册器：
+
+```java
+import cn.dancingsnow.neoecoae.api.storage.INativeMEStorageRestrictedItem;
+import net.minecraft.world.item.Item;
+
+public final class AddonCellItem extends Item implements INativeMEStorageRestrictedItem {
+    public AddonCellItem(Properties properties) { super(properties); }
+}
+```
+
+默认 `isNativeMEStorageRestricted(ItemStack stack)` 返回 true，可按栈覆写；返回 false 只表示继续 AE2 原有校验。回调必须只读且两端可用。拦截位于原版库存过滤器，适用于遵守过滤器的 GUI/自动化插入，不移除已安装的盘，不改变其他 Mod 的驱动器，也不自动注册存储库存。内置 `ECOStorageCellItem` 及其子类使用相同接口。
+
+完整接入约定见[附属扩展 API](ADDON_API_ZH_CN.md)，功能名为 `native_me_storage_restrictions`，运行时需要安装提供该 API 的 NeoECOAE 版本。
+
 ### 盘槽与优先级
 
 通过 `blockEntity instanceof ICellHost` 查询。`getCellStack()` 空槽返回 null，也可能返回主机正在持有的栈，因此不能直接修改。安装时传一个有效盘；移除时传 **null**。`ItemStack.EMPTY` 会被拒绝。先检查 `isItemValid`、`canExtractCell` 及可选的 `getCellExtractionBlockReasonText()`。void setter 可能静默拒绝，因此在转移物品所有权之前重新读取盘槽。先移除并处理旧盘，再安装替代盘。

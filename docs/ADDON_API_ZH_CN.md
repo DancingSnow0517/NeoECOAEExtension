@@ -20,6 +20,7 @@
 | 按驱动器宿主选择线缆模型 | `ECOComputationModels` 的宿主重载/模型提供器 | `host_cable_models` |
 | 高级功能资格 | `IECOTier.supportsFeature(ECOFeature)` | `tier_features` |
 | 存储资源名称、图标、色条、别名 | `ECOStorageChannelDisplays` | `storage_channel_displays` |
+| 禁止物品进入原版 ME 驱动器和 ME 箱子 | `INativeMEStorageRestrictedItem` | `native_me_storage_restrictions` |
 | 外部工作站配方适配 | `ECOWorkstationRecipeAdapters` | `workstation_adapters` |
 | 自定义工作站模块、升级卡及外观 | `ECOWorkstationModules` | `workstation_modules` |
 
@@ -84,6 +85,23 @@ ECOComputationModels.registerCableModel(tier, hostBlock, disconnectedModel, conn
 `ECOFeature` 区分网络交换机、虚拟合成、无限存储主机和无限存储盘资格。档位通过 `supportsFeature` 自述；旧档位默认判定保持原有数值比较/内置 L9 身份判定。组件档位兼容仍走 `supportsComponentTier`。
 
 资格判断已用于实际准入与相关诊断。附属声明资格后，仍须满足本体的物理拓扑、最大结构、材料/冷却和持久化恢复条件。无限盘还必须实现完整的迁移接口并显式允许参与无限存储。
+
+## 原版 ME 存储插入限制
+
+附属的盘物品可以独立实现 [`INativeMEStorageRestrictedItem`](../src/main/java/cn/dancingsnow/neoecoae/api/storage/INativeMEStorageRestrictedItem.java)，声明禁止放入 AE2 原版 ME 驱动器和 ME 箱子：
+
+```java
+import cn.dancingsnow.neoecoae.api.storage.INativeMEStorageRestrictedItem;
+import net.minecraft.world.item.Item;
+
+public final class AddonCellItem extends Item implements INativeMEStorageRestrictedItem {
+    public AddonCellItem(Properties properties) { super(properties); }
+}
+```
+
+默认 `isNativeMEStorageRestricted(stack)` 返回 true；按物品栈决定限制时可覆写该方法。返回 false 表示继续 AE2 原有校验，不保证允许插入。无需注册，也无需继承 `ECOStorageCellItem`；内置 ECO 盘及其子类使用同一个接口。该方法可能在两端反复调用，必须只读。
+
+限制由原版库存过滤器执行，覆盖遵守该过滤器的 GUI 和自动化插入；不清理已经存在的盘，不影响其他 Mod 的自定义驱动器，也不自动提供存储库存或 ECO 驱动器接入。功能检测使用 `ECOAddonApi.supports("native_me_storage_restrictions")`。API 随完整模组 JAR 分发，运行时需要安装提供该功能的 NeoECOAE 版本。
 
 ## 存储通道展示
 

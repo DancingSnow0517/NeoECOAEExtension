@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.api.computation.IECOComputationCellItem;
 import cn.dancingsnow.neoecoae.api.multiblock.*;
 import cn.dancingsnow.neoecoae.api.power.ECOPowerProfiles;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageChannelDisplays;
+import cn.dancingsnow.neoecoae.api.storage.INativeMEStorageRestrictedItem;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationRecipeAdapters;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
@@ -59,6 +60,11 @@ public final class AddonApiExample {
         public MemoryItem(Properties properties, IECOTier tier) { super(properties); this.tier = tier; }
         @Override public IECOTier getTier() { return tier; }
         @Override public long getComputationBytes(ItemStack stack) { return tier.getCPUTotalBytes() * 2; }
+    }
+
+    /** Rejected by AE2's native ME drive and ME chest without extending an ECO cell class. */
+    public static final class RestrictedCellItem extends Item implements INativeMEStorageRestrictedItem {
+        public RestrictedCellItem(Properties properties) { super(properties); }
     }
 
     private static ResourceLocation id(String path) { return ResourceLocation.fromNamespaceAndPath("example_addon", path); }

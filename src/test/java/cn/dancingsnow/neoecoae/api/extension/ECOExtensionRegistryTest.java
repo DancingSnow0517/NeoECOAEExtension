@@ -26,6 +26,7 @@ class ECOExtensionRegistryTest {
     @Test void apiAdvertisesTheDocumentedExtensionFamilies() {
         assertEquals(1, ECOAddonApi.VERSION);
         assertTrue(ECOAddonApi.supports("workstation_modules"));
+        assertTrue(ECOAddonApi.supports("native_me_storage_restrictions"));
         assertFalse(ECOAddonApi.supports("unknown_future_api"));
     }
     private static ResourceLocation id(String path) { return ResourceLocation.fromNamespaceAndPath("addon_api_test", path); }
