@@ -5,7 +5,7 @@ license="GPLv3"
 modId="neoeco_compat"
 version="1"
 displayName="NeoECO GTL Compatibility Probe"
-description='''Test-only planner observations in an isolated production GTL server.'''
+description='''Shared GTL base checks and additional NeoECO machine checks in isolated servers.'''
 [[dependencies.neoeco_compat]]
 modId="ae2"
 mandatory=true
