@@ -67,6 +67,12 @@ jobs:
           set -o pipefail
           mkdir -p build/compat-build-evidence
           bash ./gradlew -I tools/compat/compat.init.gradle reobfJar reobfCompatTestJar --no-daemon --max-workers=2 --console=plain 2>&1 | tee build/compat-build-evidence/build.log
+      - name: Verify KubeJS Recipe Schemas
+        env:
+          CI: 'false'
+        run: |
+          set -o pipefail
+          bash ./gradlew upstreamSyncTest --tests 'cn.dancingsnow.neoecoae.integration.kubejs.schema.KubeJSRecipeSchemaTest' --no-daemon --max-workers=2 --console=plain 2>&1 | tee build/compat-build-evidence/kubejs-schemas.log
       - name: Verify Production Artifacts
         run: python3 tools/compat/check_artifacts.py
       - name: Upload a Build Artifact
@@ -86,6 +92,8 @@ jobs:
           path: |
             build/compat-build-evidence/
             build/reports/problems/
+            build/test-results/upstreamSyncTest/
+            build/reports/tests/upstreamSyncTest/
           if-no-files-found: ignore
           retention-days: 14
 
