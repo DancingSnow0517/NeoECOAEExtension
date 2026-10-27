@@ -203,6 +203,9 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
     private int cutoff(AEItemKey key, Account account) {
         BulkUnits units = account.units();
         if (!isCurrent(units)) return 0;
+        return configuredCutoff(key, units);
+    }
+    private int configuredCutoff(AEItemKey key, BulkUnits units) {
         AEItemKey selected = cutoffs.get(units.items().getFirst());
         if (selected == null) selected = getEffectiveConfiguredFilters().stream().filter(units::contains).findFirst().orElse(key);
         return units.cutoff(selected);
@@ -242,6 +245,22 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
         AEItemKey selected = units.items().get(Math.floorMod(units.cutoff(before) + delta, units.items().size()));
         setCompressionCutoff(selected);
         return selected;
+    }
+
+    @Override public List<AEItemKey> getCompressionChain(AEItemKey item) {
+        return ECOCompressionService.units(item).items();
+    }
+
+    @Override public AEItemKey getCompressionCutoff(AEItemKey item) {
+        refreshUnresolved();
+        BulkUnits units = ECOCompressionService.units(item);
+        for (var entry : accounts.entrySet()) {
+            Account account = entry.getValue();
+            if (account.units().contains(item) || account.units().items().stream().anyMatch(units::contains)) {
+                return account.units().items().get(cutoff(entry.getKey(), account));
+            }
+        }
+        return units.items().get(configuredCutoff(item, units));
     }
 
     public void setCompressionCutoff(AEItemKey selected) {
