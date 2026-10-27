@@ -50,8 +50,8 @@ public class StorageAmounts {
         HugeAmount before = get(key);
         if (before.equals(value)) return;
         if (value.isZero()) amounts.removeLong(key); else amounts.put(key, value.toLongSaturated());
-        if (value.isBig()) overflow.put(key, new OverflowAmount(value.toBigInteger())); else overflow.remove(key);
-        total.subtract(before.toBigInteger()); total.add(value.toBigInteger());
+        if (value.isBig()) overflow.put(key, new OverflowAmount(value)); else overflow.remove(key);
+        total.subtract(before); total.add(value);
         contentRevision++;
         if (before.isZero() != value.isZero()) structureRevision++;
     }
@@ -61,10 +61,10 @@ public class StorageAmounts {
         OverflowAmount big = current == Long.MAX_VALUE ? overflow.get(key) : null;
         if (big != null) { big.add(amount); total.add(amount); contentRevision++; return; }
         if (amount <= Long.MAX_VALUE - current) setLong(key, current + amount);
-        else set(key, HugeAmount.of(get(key).toBigInteger().add(BigInteger.valueOf(amount))));
+        else set(key, get(key).add(amount));
     }
     public void add(AEKey key, BigInteger amount) {
-        if (amount.signum() > 0) set(key, HugeAmount.of(get(key).toBigInteger().add(amount)));
+        if (amount.signum() > 0) set(key, get(key).add(HugeAmount.of(amount)));
     }
     public void subtract(AEKey key, long amount) { subtract(key, visible(key), amount); }
     public long subtract(AEKey key, long current, long amount) {
@@ -111,11 +111,10 @@ public class StorageAmounts {
         private final StorageTotal value = new StorageTotal();
         private long untilLong;
         private boolean big = true;
-        OverflowAmount(BigInteger amount) { value.add(amount); updateThreshold(amount); }
-        private void updateThreshold(BigInteger amount) {
-            BigInteger excess = amount.subtract(BigInteger.valueOf(Long.MAX_VALUE));
-            big = excess.signum() > 0;
-            untilLong = big ? excess.min(BigInteger.valueOf(Long.MAX_VALUE)).longValue() : 0;
+        OverflowAmount(HugeAmount amount) { value.add(amount); updateThreshold(amount); }
+        private void updateThreshold(HugeAmount amount) {
+            big = amount.isBig();
+            untilLong = big ? amount.subtract(Long.MAX_VALUE).toLongSaturated() : 0;
         }
         void add(long amount) {
             value.add(amount);
@@ -124,7 +123,7 @@ public class StorageAmounts {
         long subtract(long amount) {
             value.subtract(amount);
             if (amount < untilLong) { untilLong -= amount; return Long.MAX_VALUE; }
-            HugeAmount exact = value.snapshot(); updateThreshold(exact.toBigInteger()); return exact.toLongSaturated();
+            HugeAmount exact = value.snapshot(); updateThreshold(exact); return exact.toLongSaturated();
         }
         boolean isBig() { return big; }
         HugeAmount snapshot() { return value.snapshot(); }

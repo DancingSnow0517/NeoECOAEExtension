@@ -6,36 +6,41 @@ import java.util.Objects;
 /**
  * Exact non-allocating-for-the-common-case arithmetic used by the planner.
  *
- * <p>Values that fit in a signed {@code long} stay on the fast path. The first
- * overflowing operation promotes the value to {@link BigInteger}; subsequent
- * operations on that value remain exact. The type is signed because subtraction
- * is useful while calculating deltas, although ordinary material quantities are
- * non-negative.
+ * <p>Three tiers, always normalized to the smallest that fits: a signed {@code long}; a sign plus a {@link U126}
+ * magnitude for anything below 2^126 in absolute value; and {@link BigInteger} only beyond that. The type is signed
+ * because subtraction is useful while calculating deltas, although ordinary material quantities are non-negative.
  */
 public final class PlannerAmount implements Comparable<PlannerAmount> {
     public static final PlannerAmount ZERO = new PlannerAmount(0L);
     public static final PlannerAmount ONE = new PlannerAmount(1L);
 
-    private static final BigInteger LONG_MIN = BigInteger.valueOf(Long.MIN_VALUE);
-    private static final BigInteger LONG_MAX = BigInteger.valueOf(Long.MAX_VALUE);
+    private static final U126 LONG_MIN_MAGNITUDE = U126.of(Long.MAX_VALUE).add(1L);
 
     private final long fastValue;
+    /** Middle tier: magnitude outside the long range, below 2^126. */
+    private final U126 magnitude;
+    private final boolean negative;
     private final BigInteger wideValue;
 
     private PlannerAmount(long value) {
         this.fastValue = value;
+        this.magnitude = null;
+        this.negative = false;
+        this.wideValue = null;
+    }
+
+    private PlannerAmount(boolean negative, U126 magnitude) {
+        this.fastValue = 0L;
+        this.magnitude = magnitude;
+        this.negative = negative;
         this.wideValue = null;
     }
 
     private PlannerAmount(BigInteger value) {
-        Objects.requireNonNull(value, "value");
-        if (fitsLong(value)) {
-            this.fastValue = value.longValue();
-            this.wideValue = null;
-        } else {
-            this.fastValue = 0L;
-            this.wideValue = value;
-        }
+        this.fastValue = 0L;
+        this.magnitude = null;
+        this.negative = false;
+        this.wideValue = value;
     }
 
     public static PlannerAmount of(long value) {
@@ -46,21 +51,45 @@ public final class PlannerAmount implements Comparable<PlannerAmount> {
 
     public static PlannerAmount of(BigInteger value) {
         Objects.requireNonNull(value, "value");
-        if (value.signum() == 0) return ZERO;
-        if (value.equals(BigInteger.ONE)) return ONE;
-        return new PlannerAmount(value);
+        if (value.bitLength() < Long.SIZE) return of(value.longValue());
+        U126 magnitude = U126.of(value.abs());
+        return magnitude == null ? new PlannerAmount(value) : signed(value.signum() < 0, magnitude);
+    }
+
+    /** Normalizes a signed magnitude; {@code null} magnitude means the 126-bit tier overflowed. */
+    private static PlannerAmount signed(boolean negative, U126 magnitude) {
+        if (magnitude.fitsLong()) return of(negative ? -magnitude.longValue() : magnitude.longValue());
+        if (negative && magnitude.equals(LONG_MIN_MAGNITUDE)) return of(Long.MIN_VALUE);
+        return new PlannerAmount(negative, magnitude);
+    }
+
+    private boolean isWide() { return wideValue != null; }
+
+    private boolean isNegative() { return magnitude != null ? negative : fastValue < 0L; }
+
+    /** Magnitude of a non-wide value. */
+    private U126 magnitude() {
+        if (magnitude != null) return magnitude;
+        if (fastValue == Long.MIN_VALUE) return LONG_MIN_MAGNITUDE;
+        return U126.of(Math.abs(fastValue));
     }
 
     public PlannerAmount add(PlannerAmount other) {
         Objects.requireNonNull(other, "other");
-        if (wideValue == null && other.wideValue == null) {
-            try {
-                return of(Math.addExact(fastValue, other.fastValue));
-            } catch (ArithmeticException ignored) {
-                return of(BigInteger.valueOf(fastValue).add(BigInteger.valueOf(other.fastValue)));
-            }
+        if (fitsLong() && other.fitsLong()) {
+            long sum = fastValue + other.fastValue;
+            if (((fastValue ^ sum) & (other.fastValue ^ sum)) >= 0L) return of(sum);
         }
-        return of(toBigInteger().add(other.toBigInteger()));
+        if (isWide() || other.isWide()) return of(toBigInteger().add(other.toBigInteger()));
+        boolean leftNegative = isNegative(), rightNegative = other.isNegative();
+        U126 left = magnitude(), right = other.magnitude();
+        if (leftNegative == rightNegative) {
+            U126 sum = left.add(right);
+            return sum == null ? of(toBigInteger().add(other.toBigInteger())) : signed(leftNegative, sum);
+        }
+        return left.compareTo(right) >= 0
+            ? signed(leftNegative, left.subtract(right))
+            : signed(rightNegative, right.subtract(left));
     }
 
     public PlannerAmount add(long other) {
@@ -69,30 +98,35 @@ public final class PlannerAmount implements Comparable<PlannerAmount> {
 
     public PlannerAmount subtract(PlannerAmount other) {
         Objects.requireNonNull(other, "other");
-        if (wideValue == null && other.wideValue == null) {
-            try {
-                return of(Math.subtractExact(fastValue, other.fastValue));
-            } catch (ArithmeticException ignored) {
-                return of(BigInteger.valueOf(fastValue).subtract(BigInteger.valueOf(other.fastValue)));
-            }
+        if (fitsLong() && other.fitsLong()) {
+            long difference = fastValue - other.fastValue;
+            if (((fastValue ^ other.fastValue) & (fastValue ^ difference)) >= 0L) return of(difference);
         }
-        return of(toBigInteger().subtract(other.toBigInteger()));
+        return add(other.negate());
     }
 
     public PlannerAmount subtract(long other) {
         return subtract(of(other));
     }
 
+    private PlannerAmount negate() {
+        if (isWide()) return of(wideValue.negate());
+        if (magnitude != null) return signed(!negative, magnitude);
+        return fastValue == Long.MIN_VALUE ? signed(false, LONG_MIN_MAGNITUDE) : of(-fastValue);
+    }
+
     public PlannerAmount multiply(PlannerAmount other) {
         Objects.requireNonNull(other, "other");
-        if (wideValue == null && other.wideValue == null) {
-            try {
-                return of(Math.multiplyExact(fastValue, other.fastValue));
-            } catch (ArithmeticException ignored) {
-                return of(BigInteger.valueOf(fastValue).multiply(BigInteger.valueOf(other.fastValue)));
-            }
+        if (fitsLong() && other.fitsLong()) {
+            long high = Math.multiplyHigh(fastValue, other.fastValue);
+            long low = fastValue * other.fastValue;
+            if ((high == 0L && low >= 0L) || (high == -1L && low < 0L)) return of(low);
         }
-        return of(toBigInteger().multiply(other.toBigInteger()));
+        if (isZero() || other.isZero()) return ZERO;
+        if (isWide() || other.isWide()) return of(toBigInteger().multiply(other.toBigInteger()));
+        U126 product = magnitude().multiply(other.magnitude());
+        return product == null ? of(toBigInteger().multiply(other.toBigInteger()))
+            : signed(isNegative() != other.isNegative(), product);
     }
 
     public PlannerAmount multiply(long other) {
@@ -105,9 +139,15 @@ public final class PlannerAmount implements Comparable<PlannerAmount> {
         if (signum() < 0 || divisor.signum() <= 0) {
             throw new IllegalArgumentException("ceilDiv requires value >= 0 and divisor > 0");
         }
-        if (wideValue == null && divisor.wideValue == null) {
+        if (fitsLong() && divisor.fitsLong()) {
             long quotient = fastValue / divisor.fastValue;
             return of(fastValue % divisor.fastValue == 0L ? quotient : quotient + 1L);
+        }
+        if (!isWide() && divisor.fitsLong()) {
+            U126 value = magnitude();
+            U126 quotient = value.divide(divisor.fastValue);
+            // quotient <= value / 2 when the divisor exceeds 1, so the increment cannot overflow.
+            return signed(false, value.remainder(divisor.fastValue) == 0L ? quotient : quotient.add(1L));
         }
         BigInteger[] result = toBigInteger().divideAndRemainder(divisor.toBigInteger());
         return of(result[1].signum() == 0 ? result[0] : result[0].add(BigInteger.ONE));
@@ -116,11 +156,13 @@ public final class PlannerAmount implements Comparable<PlannerAmount> {
     public PlannerAmount divide(PlannerAmount divisor) {
         Objects.requireNonNull(divisor, "divisor");
         if (divisor.isZero()) throw new ArithmeticException("division by zero");
-        if (wideValue == null && divisor.wideValue == null) {
-            if (fastValue == Long.MIN_VALUE && divisor.fastValue == -1L) {
-                return of(BigInteger.valueOf(fastValue).divide(BigInteger.valueOf(divisor.fastValue)));
-            }
+        if (fitsLong() && divisor.fitsLong()) {
+            if (fastValue == Long.MIN_VALUE && divisor.fastValue == -1L) return signed(false, LONG_MIN_MAGNITUDE);
             return of(fastValue / divisor.fastValue);
+        }
+        if (!isWide() && divisor.fitsLong() && divisor.fastValue != Long.MIN_VALUE) {
+            // Truncates toward zero, like long and BigInteger division.
+            return signed(isNegative() != divisor.fastValue < 0L, magnitude().divide(Math.abs(divisor.fastValue)));
         }
         return of(toBigInteger().divide(divisor.toBigInteger()));
     }
@@ -128,9 +170,14 @@ public final class PlannerAmount implements Comparable<PlannerAmount> {
     public PlannerAmount remainder(PlannerAmount divisor) {
         Objects.requireNonNull(divisor, "divisor");
         if (divisor.isZero()) throw new ArithmeticException("division by zero");
-        if (wideValue == null && divisor.wideValue == null) {
+        if (fitsLong() && divisor.fitsLong()) {
             if (fastValue == Long.MIN_VALUE && divisor.fastValue == -1L) return ZERO;
             return of(fastValue % divisor.fastValue);
+        }
+        if (!isWide() && divisor.fitsLong() && divisor.fastValue != Long.MIN_VALUE) {
+            // The remainder takes the dividend's sign, like long and BigInteger remainder.
+            long remainder = magnitude().remainder(Math.abs(divisor.fastValue));
+            return of(isNegative() ? -remainder : remainder);
         }
         return of(toBigInteger().remainder(divisor.toBigInteger()));
     }
@@ -155,7 +202,9 @@ public final class PlannerAmount implements Comparable<PlannerAmount> {
     }
 
     public int signum() {
-        return wideValue == null ? Long.compare(fastValue, 0L) : wideValue.signum();
+        if (isWide()) return wideValue.signum();
+        if (magnitude != null) return negative ? -1 : 1;
+        return Long.compare(fastValue, 0L);
     }
 
     public boolean isZero() {
@@ -163,22 +212,29 @@ public final class PlannerAmount implements Comparable<PlannerAmount> {
     }
 
     public boolean fitsLong() {
-        return wideValue == null;
+        return magnitude == null && wideValue == null;
     }
 
     public long longValueExact() {
-        return wideValue == null ? fastValue : wideValue.longValueExact();
+        if (fitsLong()) return fastValue;
+        throw new ArithmeticException("BigInteger out of long range");
     }
 
     public BigInteger toBigInteger() {
-        return wideValue == null ? BigInteger.valueOf(fastValue) : wideValue;
+        if (isWide()) return wideValue;
+        if (magnitude != null) return negative ? magnitude.toBigInteger().negate() : magnitude.toBigInteger();
+        return BigInteger.valueOf(fastValue);
     }
 
     @Override
     public int compareTo(PlannerAmount other) {
         Objects.requireNonNull(other, "other");
-        if (wideValue == null && other.wideValue == null) return Long.compare(fastValue, other.fastValue);
-        return toBigInteger().compareTo(other.toBigInteger());
+        if (fitsLong() && other.fitsLong()) return Long.compare(fastValue, other.fastValue);
+        if (isWide() || other.isWide()) return toBigInteger().compareTo(other.toBigInteger());
+        int sign = Integer.compare(signum(), other.signum());
+        if (sign != 0) return sign;
+        int byMagnitude = magnitude().compareTo(other.magnitude());
+        return isNegative() ? -byMagnitude : byMagnitude;
     }
 
     @Override
@@ -193,10 +249,6 @@ public final class PlannerAmount implements Comparable<PlannerAmount> {
 
     @Override
     public String toString() {
-        return wideValue == null ? Long.toString(fastValue) : wideValue.toString();
-    }
-
-    private static boolean fitsLong(BigInteger value) {
-        return value.compareTo(LONG_MIN) >= 0 && value.compareTo(LONG_MAX) <= 0;
+        return fitsLong() ? Long.toString(fastValue) : toBigInteger().toString();
     }
 }

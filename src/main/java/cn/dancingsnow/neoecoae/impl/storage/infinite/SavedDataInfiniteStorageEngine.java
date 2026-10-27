@@ -61,7 +61,7 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         data.amounts.forEach((key, amount) -> {
             MutableTypeStats stats = typeStats.computeIfAbsent(key.getType(), ignored -> new MutableTypeStats());
             stats.types++;
-            stats.total.add(amount.toBigInteger());
+            stats.total.add(amount);
         });
     }
 
@@ -351,7 +351,7 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
             HugeAmount remaining = data.getAmount(entry.getKey());
             MutableTypeStats stats = typeStats.get(entry.getKey().getType());
             if (stats != null) {
-                stats.total.subtract(previous.subtract(remaining).toBigInteger());
+                stats.total.subtract(previous.subtract(remaining));
                 if (remaining.isZero() && --stats.types == 0) removeStats(entry.getKey().getType());
             }
         }

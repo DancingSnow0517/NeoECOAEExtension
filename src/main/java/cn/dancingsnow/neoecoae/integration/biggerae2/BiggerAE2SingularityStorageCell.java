@@ -11,6 +11,7 @@ import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import net.minecraft.world.item.ItemStack;
@@ -24,8 +25,8 @@ import java.util.function.BiConsumer;
 
 /** Quantity is unbounded, type count is finite. This is stored inventory, never a resource source. */
 final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements ECOBigIntegerStorage, ExactAmountSource {
-    private static final BigInteger MAX_LONG = BigInteger.valueOf(Long.MAX_VALUE);
-    private final Map<AEKey, BigInteger> amounts = new LinkedHashMap<>();
+    // long, then U126, then BigInteger only past 2^126: ordinary transfers never allocate a BigInteger.
+    private final Map<AEKey, HugeAmount> amounts = new LinkedHashMap<>();
     private final BiggerAE2StorageCellItem item;
     private final ISaveProvider host;
     private boolean dirty;
@@ -35,7 +36,7 @@ final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements EC
         item = (BiggerAE2StorageCellItem) stack.getItem();
         this.host = host;
         for (var entry : BiggerAE2SingularityContents.read(stack).entries()) {
-            amounts.put(entry.key(), entry.amount());
+            amounts.put(entry.key(), HugeAmount.of(entry.amount()));
         }
     }
 
@@ -49,10 +50,10 @@ final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements EC
     public long getRemainingItemTypes() { return Math.max(0, getTotalItemTypes() - amounts.size()); }
 
     @Override
-    public long getStoredItemCount() { return saturated(total()); }
+    public long getStoredItemCount() { return total().toLongSaturated(); }
 
     @Override
-    public BigInteger getStoredItemCountExact() { return total(); }
+    public BigInteger getStoredItemCountExact() { return total().toBigInteger(); }
 
     @Override
     public long getRemainingItemCount() { return Long.MAX_VALUE; }
@@ -66,7 +67,7 @@ final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements EC
     @Override
     public long getUsedBytes() {
         BigInteger divisor = BigInteger.valueOf(Math.max(1, getKeyType().getAmountPerByte()));
-        return saturated(total().add(divisor).subtract(BigInteger.ONE).divide(divisor));
+        return saturated(total().toBigInteger().add(divisor).subtract(BigInteger.ONE).divide(divisor));
     }
 
     @Override
@@ -77,33 +78,39 @@ final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements EC
 
     @Override
     public long insert(AEKey key, long amount, Actionable mode, IActionSource source) {
-        if (amount <= 0) return 0;
-        return insertBigInteger(key, BigInteger.valueOf(amount), mode, source).longValueExact();
+        if (amount <= 0 || !canAccept(key)) return 0;
+        if (mode == Actionable.MODULATE) store(key, HugeAmount.of(amount));
+        return amount;
     }
 
     @Override
     public BigInteger insertBigInteger(AEKey key, BigInteger amount, Actionable mode, IActionSource source) {
-        if (amount.signum() <= 0 || ECOInfiniteStorageMember.isSealed(cellStack) || !acceptsKey(key)
-            || !getPartitionList().matchesFilter(key, getPartitionListMode()) || item.isBlackListed(cellStack, key)) {
-            return BigInteger.ZERO;
-        }
-        if (!amounts.containsKey(key) && (amounts.size() >= getTotalItemTypes()
-            || !canStoreKeyInsideStorageCell(key))) return BigInteger.ZERO;
-        if (mode == Actionable.MODULATE) {
-            amounts.merge(key, amount, BigInteger::add);
-            saveChanges();
-        }
+        if (amount.signum() <= 0 || !canAccept(key)) return BigInteger.ZERO;
+        if (mode == Actionable.MODULATE) store(key, HugeAmount.of(amount));
         return amount;
+    }
+
+    private boolean canAccept(AEKey key) {
+        if (ECOInfiniteStorageMember.isSealed(cellStack) || !acceptsKey(key)
+            || !getPartitionList().matchesFilter(key, getPartitionListMode()) || item.isBlackListed(cellStack, key)) {
+            return false;
+        }
+        return amounts.containsKey(key) || amounts.size() < getTotalItemTypes() && canStoreKeyInsideStorageCell(key);
+    }
+
+    private void store(AEKey key, HugeAmount amount) {
+        amounts.merge(key, amount, HugeAmount::add);
+        saveChanges();
     }
 
     @Override
     public long extract(AEKey key, long amount, Actionable mode, IActionSource source) {
         if (amount <= 0 || ECOInfiniteStorageMember.isSealed(cellStack)) return 0;
-        BigInteger current = amounts.getOrDefault(key, BigInteger.ZERO);
-        long extracted = current.min(BigInteger.valueOf(amount)).longValueExact();
+        HugeAmount current = amounts.getOrDefault(key, HugeAmount.ZERO);
+        long extracted = Math.min(current.toLongSaturated(), amount);
         if (mode == Actionable.MODULATE && extracted > 0) {
-            BigInteger next = current.subtract(BigInteger.valueOf(extracted));
-            if (next.signum() == 0) amounts.remove(key);
+            HugeAmount next = current.subtract(extracted);
+            if (next.isZero()) amounts.remove(key);
             else amounts.put(key, next);
             saveChanges();
         }
@@ -113,11 +120,12 @@ final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements EC
     @Override
     public BigInteger extractBigInteger(AEKey key, BigInteger offered, Actionable mode, IActionSource source) {
         if (offered == null || offered.signum() <= 0 || ECOInfiniteStorageMember.isSealed(cellStack)) return BigInteger.ZERO;
-        BigInteger current = amounts.getOrDefault(key, BigInteger.ZERO);
-        BigInteger extracted = current.min(offered);
+        HugeAmount current = amounts.getOrDefault(key, HugeAmount.ZERO);
+        HugeAmount extractedAmount = current.min(HugeAmount.of(offered));
+        BigInteger extracted = extractedAmount.toBigInteger();
         if (mode == Actionable.MODULATE && extracted.signum() > 0) {
-            BigInteger remaining = current.subtract(extracted);
-            if (remaining.signum() == 0) amounts.remove(key);
+            HugeAmount remaining = current.subtract(extractedAmount);
+            if (remaining.isZero()) amounts.remove(key);
             else amounts.put(key, remaining);
             saveChanges();
         }
@@ -129,7 +137,7 @@ final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements EC
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
-        if (!ECOInfiniteStorageMember.isSealed(cellStack)) amounts.forEach((key, amount) -> out.add(key, saturated(amount)));
+        if (!ECOInfiniteStorageMember.isSealed(cellStack)) amounts.forEach((key, amount) -> out.add(key, amount.toLongSaturated()));
     }
 
     @Override
@@ -142,7 +150,7 @@ final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements EC
     public void persist() {
         if (!dirty) return;
         BiggerAE2SingularityContents.write(cellStack, new BiggerAE2SingularityContents(amounts.entrySet().stream()
-            .map(entry -> new BiggerAE2SingularityContents.Entry(entry.getKey(), entry.getValue())).toList()));
+            .map(entry -> new BiggerAE2SingularityContents.Entry(entry.getKey(), entry.getValue().toBigInteger())).toList()));
         dirty = false;
     }
 
@@ -175,22 +183,26 @@ final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements EC
     public void getMigrationStacks(KeyCounter out) { getAvailableStacks(out); }
 
     @Override
-    public long getMigrationAmount(AEKey key) { return saturated(amounts.getOrDefault(key, BigInteger.ZERO)); }
+    public long getMigrationAmount(AEKey key) { return amounts.getOrDefault(key, HugeAmount.ZERO).toLongSaturated(); }
 
     @Override
     public Iterator<Object2LongMap.Entry<AEKey>> migrationEntries() {
         Object2LongMap<AEKey> snapshot = new Object2LongOpenHashMap<>();
-        amounts.forEach((key, amount) -> snapshot.put(key, saturated(amount)));
+        amounts.forEach((key, amount) -> snapshot.put(key, amount.toLongSaturated()));
         return snapshot.object2LongEntrySet().iterator();
     }
 
     @Override
     public void neoecoae$visitExactAmounts(BiConsumer<AEKey, ExactAmount> visitor) {
         if (!ECOInfiniteStorageMember.isSealed(cellStack))
-            amounts.forEach((key, amount) -> visitor.accept(key, ExactAmount.finite(amount)));
+            amounts.forEach((key, amount) -> visitor.accept(key, ExactAmount.finite(amount.toBigInteger())));
     }
 
-    private BigInteger total() { return amounts.values().stream().reduce(BigInteger.ZERO, BigInteger::add); }
+    private HugeAmount total() {
+        HugeAmount total = HugeAmount.ZERO;
+        for (HugeAmount amount : amounts.values()) total = total.add(amount);
+        return total;
+    }
 
-    private static long saturated(BigInteger amount) { return amount.min(MAX_LONG).longValueExact(); }
+    private static long saturated(BigInteger amount) { return amount.min(BigInteger.valueOf(Long.MAX_VALUE)).longValueExact(); }
 }
