@@ -1,17 +1,25 @@
 package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
+import cn.dancingsnow.neoecoae.crafting.amount.U126;
 import java.math.BigInteger;
 import java.util.Objects;
 import net.minecraft.nbt.CompoundTag;
 
+/**
+ * Non-negative exact amount in three tiers, normalized to the smallest that fits: {@code long}, {@link U126} below
+ * 2^126, and {@link BigInteger} only beyond that. The serialized form is unchanged.
+ */
 public final class HugeAmount implements Comparable<HugeAmount> {
-    public static final HugeAmount ZERO = new HugeAmount(0L, null);
+    public static final HugeAmount ZERO = new HugeAmount(0L, null, null);
 
     private final long longValue;
+    /** Middle tier: above Long.MAX_VALUE, below 2^126. */
+    private final U126 wideValue;
     private final BigInteger bigValue;
 
-    private HugeAmount(long longValue, BigInteger bigValue) {
+    private HugeAmount(long longValue, U126 wideValue, BigInteger bigValue) {
         this.longValue = longValue;
+        this.wideValue = wideValue;
         this.bigValue = bigValue;
     }
 
@@ -19,7 +27,7 @@ public final class HugeAmount implements Comparable<HugeAmount> {
         if (value < 0L) {
             throw new IllegalArgumentException("Amount must not be negative");
         }
-        return value == 0L ? ZERO : new HugeAmount(value, null);
+        return value == 0L ? ZERO : new HugeAmount(value, null, null);
     }
 
     public static HugeAmount of(BigInteger value) {
@@ -27,13 +35,16 @@ public final class HugeAmount implements Comparable<HugeAmount> {
         if (value.signum() < 0) {
             throw new IllegalArgumentException("Amount must not be negative");
         }
-        if (value.signum() == 0) {
-            return ZERO;
-        }
-        if (value.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) <= 0) {
+        if (value.bitLength() < Long.SIZE) {
             return of(value.longValue());
         }
-        return new HugeAmount(0L, value);
+        U126 wide = U126.of(value);
+        return wide != null ? new HugeAmount(0L, wide, null) : new HugeAmount(0L, null, value);
+    }
+
+    public static HugeAmount of(U126 value) {
+        Objects.requireNonNull(value, "value");
+        return value.fitsLong() ? of(value.longValue()) : new HugeAmount(0L, value, null);
     }
 
     public static HugeAmount read(CompoundTag tag) {
@@ -49,7 +60,7 @@ public final class HugeAmount implements Comparable<HugeAmount> {
     public CompoundTag write() {
         CompoundTag tag = new CompoundTag();
         if (isBig()) {
-            tag.putString("big", bigValue.toString());
+            tag.putString("big", toBigInteger().toString());
         } else {
             tag.putLong("long", longValue);
         }
@@ -66,6 +77,10 @@ public final class HugeAmount implements Comparable<HugeAmount> {
         if (!isBig() && !other.isBig() && Long.MAX_VALUE - longValue >= other.longValue) {
             return of(longValue + other.longValue);
         }
+        if (bigValue == null && other.bigValue == null) {
+            U126 sum = toU126().add(other.toU126());
+            if (sum != null) return of(sum);
+        }
         return of(toBigInteger().add(other.toBigInteger()));
     }
 
@@ -79,6 +94,10 @@ public final class HugeAmount implements Comparable<HugeAmount> {
         if (!isBig() && Long.MAX_VALUE - longValue >= other) {
             return of(longValue + other);
         }
+        if (bigValue == null) {
+            U126 sum = toU126().add(other);
+            if (sum != null) return of(sum);
+        }
         return of(toBigInteger().add(BigInteger.valueOf(other)));
     }
 
@@ -91,6 +110,9 @@ public final class HugeAmount implements Comparable<HugeAmount> {
         }
         if (!isBig() && !other.isBig()) {
             return of(longValue - other.longValue);
+        }
+        if (bigValue == null && other.bigValue == null) {
+            return of(toU126().subtract(other.toU126()));
         }
         return of(toBigInteger().subtract(other.toBigInteger()));
     }
@@ -108,7 +130,8 @@ public final class HugeAmount implements Comparable<HugeAmount> {
             }
             return of(longValue - other);
         }
-        return of(bigValue.subtract(BigInteger.valueOf(other)));
+        // Big values exceed Long.MAX_VALUE, so subtracting a long can never become negative.
+        return wideValue != null ? of(wideValue.subtract(other)) : of(bigValue.subtract(BigInteger.valueOf(other)));
     }
 
     public HugeAmount min(HugeAmount other) {
@@ -119,16 +142,24 @@ public final class HugeAmount implements Comparable<HugeAmount> {
         return !isBig() && longValue == 0L;
     }
 
+    /** Whether the amount exceeds {@code Long.MAX_VALUE}. */
     public boolean isBig() {
-        return bigValue != null;
+        return wideValue != null || bigValue != null;
     }
 
     public long toLongSaturated() {
         return isBig() ? Long.MAX_VALUE : longValue;
     }
 
+    /** {@code null} only for values of 2^126 and above. */
+    public U126 toU126() {
+        if (bigValue != null) return null;
+        return wideValue != null ? wideValue : U126.of(longValue);
+    }
+
     public BigInteger toBigInteger() {
-        return isBig() ? bigValue : BigInteger.valueOf(longValue);
+        if (bigValue != null) return bigValue;
+        return wideValue != null ? wideValue.toBigInteger() : BigInteger.valueOf(longValue);
     }
 
     @Override
@@ -142,7 +173,11 @@ public final class HugeAmount implements Comparable<HugeAmount> {
         if (isBig() != other.isBig()) {
             return isBig() ? 1 : -1;
         }
-        return bigValue.compareTo(other.bigValue);
+        // Normalized tiers: every BigInteger value is larger than every U126 value.
+        if ((bigValue == null) != (other.bigValue == null)) {
+            return bigValue != null ? 1 : -1;
+        }
+        return bigValue != null ? bigValue.compareTo(other.bigValue) : wideValue.compareTo(other.wideValue);
     }
 
     @Override
@@ -157,6 +192,6 @@ public final class HugeAmount implements Comparable<HugeAmount> {
 
     @Override
     public String toString() {
-        return isBig() ? bigValue.toString() : Long.toString(longValue);
+        return isBig() ? toBigInteger().toString() : Long.toString(longValue);
     }
 }
