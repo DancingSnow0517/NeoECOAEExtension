@@ -16,6 +16,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.ItemStack;
+import net.neoforged.fml.util.thread.EffectiveSide;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +26,8 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
     private static final String UUID_TAG = "ae_universal_cell_uuid";
     public static final ECOUniversalCellHandler INSTANCE = new ECOUniversalCellHandler();
 
+    // Server-thread only: UUID claims and releases are skipped on the client (they would also rewrite the client's
+    // copy of the disk), so no lock is needed.
     private final Map<UUID, ISaveProvider> owners = new HashMap<>();
     private final Map<ISaveProvider, UUID> ownerIds = new IdentityHashMap<>();
 
@@ -41,15 +44,15 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
             return null;
         }
         StorageCell delegate = AEUniversalCellHandler.INSTANCE.getCellInventory(stack, host);
-        if (delegate != null && host != null && claimUniqueStorage(stack, host)) {
+        if (delegate != null && host != null && EffectiveSide.get().isServer() && claimUniqueStorage(stack, host)) {
             delegate = AEUniversalCellHandler.INSTANCE.getCellInventory(stack, host);
         }
         return delegate == null ? null : new ECOUniversalStorageCell(delegate, stack, item);
     }
 
     @Override
-    public synchronized void releaseCellInventory(@Nullable ItemStack stack, @Nullable ISaveProvider host) {
-        if (host == null) return;
+    public void releaseCellInventory(@Nullable ItemStack stack, @Nullable ISaveProvider host) {
+        if (host == null || !EffectiveSide.get().isServer()) return;
         UUID id = ownerIds.get(host);
         if (id == null) id = getStorageId(stack);
         if (id != null && owners.get(id) == host) {
@@ -59,12 +62,12 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
     }
 
     @Override
-    public synchronized void clearRuntimeState() {
+    public void clearRuntimeState() {
         owners.clear();
         ownerIds.clear();
     }
 
-    private synchronized boolean claimUniqueStorage(ItemStack stack, ISaveProvider host) {
+    private boolean claimUniqueStorage(ItemStack stack, ISaveProvider host) {
         UUID currentId = getStorageId(stack);
         if (currentId == null) return false;
         ISaveProvider owner = owners.get(currentId);

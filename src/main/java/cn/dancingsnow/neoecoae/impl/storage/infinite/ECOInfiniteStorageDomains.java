@@ -17,6 +17,9 @@ import org.slf4j.LoggerFactory;
  * Looks up the storage engine of an infinite domain. Domains are world-global, so their data lives in the overworld's
  * data storage no matter which dimension the storage host stands in; the map here is only a cache of engines over that
  * data, discarded when the server stops. Loading and saving belong entirely to the vanilla {@code DimensionDataStorage}.
+ *
+ * <p>Server-thread owned: hosts mount and unmount from their server-side tick, and the stop event and commands
+ * run on the server thread. No lock is needed.
  */
 public final class ECOInfiniteStorageDomains {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOInfiniteStorageDomains.class);
@@ -30,7 +33,7 @@ public final class ECOInfiniteStorageDomains {
     /**
      * Mounts one host on a domain. Every successful acquire must be paired with {@link #release}.
      */
-    public static synchronized ECOInfiniteStorageEngine acquire(ServerLevel level, UUID domainId) {
+    public static ECOInfiniteStorageEngine acquire(ServerLevel level, UUID domainId) {
         MinecraftServer server = level.getServer();
         DomainEntry entry = ENGINES.computeIfAbsent(server, ignored -> new Object2ObjectOpenHashMap<>())
                 .computeIfAbsent(domainId, ignored -> new DomainEntry(create(server, domainId)));
@@ -42,7 +45,7 @@ public final class ECOInfiniteStorageDomains {
      * Releases one host mount. The engine stays cached for the rest of the server session: it is only a view over the
      * level's SavedData, which the vanilla save cycle persists whether or not any host is mounted.
      */
-    public static synchronized void release(MinecraftServer server, UUID domainId) {
+    public static void release(MinecraftServer server, UUID domainId) {
         Map<UUID, DomainEntry> engines = ENGINES.get(server);
         if (engines != null) {
             DomainEntry entry = engines.get(domainId);
@@ -51,11 +54,11 @@ public final class ECOInfiniteStorageDomains {
     }
 
     /** The world has already been saved by vanilla shutdown; only drop the cached views. */
-    public static synchronized void onServerStopped(MinecraftServer server) {
+    public static void onServerStopped(MinecraftServer server) {
         ENGINES.remove(server);
     }
 
-    public static synchronized com.google.gson.JsonObject diagnosticReport(MinecraftServer server) {
+    public static com.google.gson.JsonObject diagnosticReport(MinecraftServer server) {
         com.google.gson.JsonObject report = new com.google.gson.JsonObject();
         report.addProperty("generatedAt", java.time.Instant.now().toString());
         com.google.gson.JsonArray domains = new com.google.gson.JsonArray();
