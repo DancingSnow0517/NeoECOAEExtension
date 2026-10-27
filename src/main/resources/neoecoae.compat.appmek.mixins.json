@@ -1,0 +1,14 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "cn.dancingsnow.neoecoae.mixins.compat.appmek",
+  "plugin": "cn.dancingsnow.neoecoae.mixins.compat.ECOOptionalAddonMixinPlugin",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+    "MekanismExternalStorageStrategyMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "refmap": "neoecoae.refmap.json"
+}

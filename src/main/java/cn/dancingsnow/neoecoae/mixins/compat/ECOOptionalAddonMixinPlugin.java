@@ -12,6 +12,8 @@ public final class ECOOptionalAddonMixinPlugin implements IMixinConfigPlugin {
 
     @Override public void onLoad(String mixinPackage) {
         anchor = switch (mixinPackage) {
+            case "cn.dancingsnow.neoecoae.mixins.compat.appmek" ->
+                    "me/ramidzkh/mekae2/ae2/stack/MekanismExternalStorageStrategy.class";
             case "cn.dancingsnow.neoecoae.mixins.compat.ae2omnicells" ->
                     "com/wintercogs/ae2omnicells/common/me/IAEUniversalCell.class";
             case "cn.dancingsnow.neoecoae.mixins.compat.advancedae" ->
@@ -25,6 +27,8 @@ public final class ECOOptionalAddonMixinPlugin implements IMixinConfigPlugin {
     }
 
     @Override public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+        if (mixinClassName.endsWith(".MekanismExternalStorageStrategyMixin")
+            && getClass().getClassLoader().getResource("mekanism/api/chemical/IChemicalHandler.class") == null) return false;
         if (mixinClassName.endsWith(".OmniWasteCellRecognitionMixin")
             && getClass().getClassLoader().getResource("me/ramidzkh/mekae2/ae2/MekanismKey.class") == null) return false;
         return anchor != null && getClass().getClassLoader().getResource(anchor) != null;
