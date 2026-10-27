@@ -103,6 +103,11 @@ public interface ECOInfiniteStorageEngine {
         return 0L;
     }
 
+    /** See {@link cn.dancingsnow.neoecoae.impl.storage.StorageListingVersion}; unlike {@link #revision()}, also covers quantities. */
+    default long listingVersion() {
+        return cn.dancingsnow.neoecoae.impl.storage.StorageListingVersion.UNKNOWN;
+    }
+
     default boolean reserveRestore(AEKey key, UUID transaction) {
         return false;
     }

@@ -37,6 +37,7 @@
     "ae2.storage.NativeMEStorageCellFilterMixin",
     "ae2.storage.NetworkStorageMixin",
     "ae2.storage.StorageBusInventoryMixin",
+    "ae2.storage.StorageServiceMixin",
     "ae2.storage.StoredEnergyAmountMixin",
     "ldlib.AsyncThreadDataMixin",
     "minecraft.LightningBoltMixin"

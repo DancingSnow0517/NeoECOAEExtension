@@ -127,6 +127,10 @@ final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements EC
     @Override
     public boolean neoecoae$hasSaturatingListing() { return true; }
 
+    /** The listing is the seal state plus {@link #amounts}, which change only through {@link #saveChanges}. */
+    @Override
+    public long neoecoae$listingVersion() { return contentListingVersion(); }
+
     /** Shares the ECO infinite storage terminal path without reading each cell's contents twice. */
     @Override
     public void neoecoae$listWithExactAmounts(KeyCounter out, BiConsumer<AEKey, ExactAmount> visitor) {

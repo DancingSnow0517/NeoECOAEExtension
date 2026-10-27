@@ -10,6 +10,7 @@ import appeng.api.storage.StorageCells;
 import appeng.me.cells.BasicCellInventory;
 import appeng.items.storage.BasicStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.impl.storage.StorageListingVersion;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
@@ -20,7 +21,8 @@ import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.CombinedExactAmountSource;
 import it.unimi.dsi.fastutil.objects.Object2ByteLinkedOpenHashMap;
 
-public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountSource, ECOBigIntegerStorage {
+public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountSource, ECOBigIntegerStorage,
+        StorageListingVersion {
     private static final int ADMISSION_CACHE_LIMIT = 512;
     private static final BigInteger MAX_LONG = BigInteger.valueOf(Long.MAX_VALUE);
     private final ECOInfiniteStorageEngine engine;
@@ -89,6 +91,12 @@ public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountS
 
     @Override
     public boolean neoecoae$hasSaturatingListing() { return engine instanceof SavedDataInfiniteStorageEngine; }
+
+    @Override
+    public long neoecoae$listingVersion() {
+        // A disabled view lists nothing, whatever the engine holds.
+        return allowInsert.getAsBoolean() ? engine.listingVersion() : -1L;
+    }
 
     @Override
     public boolean isPreferredStorageFor(AEKey what, IActionSource source) {

@@ -36,7 +36,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ECOStorageCell implements IECOStorageMigrationCell {
+public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingVersion {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     @Nullable
@@ -62,6 +62,18 @@ public class ECOStorageCell implements IECOStorageMigrationCell {
     private long contentRevision;
 
     public long contentRevision() { return contentRevision; }
+
+    @Override
+    public long neoecoae$listingVersion() {
+        // Subclasses whose listing depends on other state must opt in by overriding this.
+        return getClass() == ECOStorageCell.class ? contentListingVersion() : UNKNOWN;
+    }
+
+    /** For listings derived only from contents changed through {@link #saveChanges} or {@link #markContentChanged}. */
+    protected final long contentListingVersion() {
+        return cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)
+            ? -1L : contentRevision;
+    }
 
     @Override
     public int getStoragePriority() { return ECOStorageCellSettings.priority(cellStack); }

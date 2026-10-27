@@ -14,6 +14,13 @@ import java.util.function.BiConsumer;
 final class InfiniteStorageAmounts {
     private final Object2LongOpenHashMap<AEKey> amounts = new Object2LongOpenHashMap<>();
     private final Map<AEKey, HugeAmount> overflow = new Object2ObjectOpenHashMap<>();
+    private long changes;
+
+    /** Advances on every quantity change and on {@link #touch()}; keys network listing caches. */
+    long changes() { return changes; }
+
+    /** Records a change to the visible listing that is not a quantity change. */
+    void touch() { changes++; }
 
     long visible(AEKey key) { return amounts.getLong(key); }
 
@@ -24,6 +31,7 @@ final class InfiniteStorageAmounts {
     }
 
     void set(AEKey key, HugeAmount amount) {
+        changes++;
         if (amount.isZero()) amounts.removeLong(key);
         else amounts.put(key, amount.toLongSaturated());
         if (amount.isBig()) overflow.put(key, amount);
@@ -35,6 +43,7 @@ final class InfiniteStorageAmounts {
     }
 
     void add(AEKey key, long current, long amount) {
+        changes++;
         if (amount <= Long.MAX_VALUE - current) {
             amounts.put(key, current + amount);
         } else {
@@ -54,6 +63,7 @@ final class InfiniteStorageAmounts {
 
     /** Returns the new long projection, including a possible downgrade from the overflow table. */
     long subtract(AEKey key, long current, long amount) {
+        changes++;
         HugeAmount big = current == Long.MAX_VALUE ? overflow.get(key) : null;
         if (big != null) {
             HugeAmount next = big.subtract(amount);

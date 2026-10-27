@@ -232,6 +232,11 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     }
 
     @Override
+    public long listingVersion() {
+        return data.listingVersion();
+    }
+
+    @Override
     public CommitResult commit() {
         data.setDirty();
         return new CommitResult(data.canWrite(), data.revision(), data.lastFailureReason());

@@ -262,6 +262,8 @@ public final class ECOInfiniteStorageData extends SavedData {
     @Override
     public void setDirty() {
         revision++;
+        // Restore reservations and similar structural changes hide or reveal keys.
+        amounts.touch();
         refreshMountedStorageAvailability();
         super.setDirty();
     }
@@ -274,6 +276,11 @@ public final class ECOInfiniteStorageData extends SavedData {
 
     public long revision() {
         return revision;
+    }
+
+    /** Advances whenever the visible listing may change, including plain quantity changes. */
+    public long listingVersion() {
+        return amounts.changes();
     }
 
     public String lastFailureReason() {
@@ -418,12 +425,14 @@ public final class ECOInfiniteStorageData extends SavedData {
 
     public void markUnreadable(String reason) {
         unreadable = true;
+        amounts.touch();
         refreshMountedStorageAvailability();
         failure = reason;
     }
 
     public void markIncompleteLegacy(List<String> failures) {
         incompleteLegacy = true;
+        amounts.touch();
         refreshMountedStorageAvailability();
         failure = String.join("; ", failures);
     }
