@@ -3,6 +3,9 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
+import appeng.api.stacks.GenericStack;
+import cn.dancingsnow.neoecoae.storage.bulk.BulkUnits;
+import cn.dancingsnow.neoecoae.storage.bulk.ECOCompressionService;
 import appeng.util.ConfigInventory;
 import cn.dancingsnow.neoecoae.api.storage.IECOBulkMarkableCellItem;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
@@ -17,12 +20,37 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.math.BigInteger;
 
 import static cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageMegaController.EcoMegaFilterResult.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class ECOStorageMegaControllerTest {
+    @Test
+    void anotherMatrixOwnsEveryFormOfItsMarkedChain() {
+        Fixture first = new Fixture(25);
+        Fixture second = new Fixture(25);
+        when(second.drive.getBlockPos()).thenReturn(new BlockPos(1, 0, 0));
+        when(first.host.getStorageDrivesForIntegration()).thenReturn(List.of(first.drive, second.drive));
+        var ingot = AEItemKey.of(Items.IRON_INGOT);
+        var block = AEItemKey.of(Items.IRON_BLOCK);
+        ECOCompressionService.install(List.of(new BulkUnits(List.of(ingot, block),
+            List.of(BigInteger.ONE, BigInteger.valueOf(9)))));
+        first.config.setStack(0, new GenericStack(ingot, 0));
+        try (var integration = mockStatic(StorageBulkMarkingIntegration.class)) {
+            integration.when(() -> StorageBulkMarkingIntegration.normalizeMarker(any()))
+                .thenAnswer(call -> cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkingService.normalizeMarker(call.getArgument(0)));
+            integration.when(() -> StorageBulkMarkingIntegration.isSameMarkerChain(any(), any()))
+                .thenAnswer(call -> cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkingService.isSameMarkerChain(
+                    call.getArgument(0), call.getArgument(1)));
+            assertEquals(DUPLICATE_CHAIN,
+                first.controller.setEcoMegaFilterDirect(1, 0, 0, new ItemStack(Items.IRON_BLOCK)));
+        }
+        assertNull(second.config.getKey(0));
+        verify(second.drive, never()).onCellConfigurationChanged();
+    }
+
     @BeforeAll
     static void bootstrap() {
         InventoryTestBootstrap.initialize();

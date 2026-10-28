@@ -18,6 +18,7 @@ import cn.dancingsnow.neoecoae.storage.transfer.StorageExtractionExclusions;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.MarkResult;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.Status;
 import cn.dancingsnow.neoecoae.items.ECOBulkStorageCellItem;
+import cn.dancingsnow.neoecoae.api.storage.IECOBulkMarkableCellItem;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.core.BlockPos;
@@ -36,6 +37,32 @@ public final class ECOBulkMarkingService {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOBulkMarkingService.class);
 
     private ECOBulkMarkingService() {
+    }
+
+    /** All installed marker owners on this network, including other ECO storage hosts. */
+    public static List<ECODriveBlockEntity> markerDrives(ECOStorageSystemBlockEntity host) {
+        List<ECODriveBlockEntity> drives = new ArrayList<>(host.getStorageDrivesForIntegration());
+        var node = host.getMainNode();
+        var grid = node == null ? null : node.getGrid();
+        if (grid != null) {
+            for (var drive : grid.getMachines(ECODriveBlockEntity.class)) {
+                if (!drives.contains(drive)) drives.add(drive);
+            }
+        }
+        return drives;
+    }
+
+    private static List<AEItemKey> occupiedMarkers(ECOStorageSystemBlockEntity host) {
+        List<AEItemKey> markers = new ArrayList<>();
+        for (var drive : markerDrives(host)) {
+            var stack = drive.getCellStack();
+            if (stack == null || stack.isEmpty() || !(stack.getItem() instanceof IECOBulkMarkableCellItem item)) continue;
+            var config = item.getConfigInventory(stack);
+            for (int slot = 0; slot < config.size(); slot++) {
+                if (config.getKey(slot) instanceof AEItemKey key) markers.add(key);
+            }
+        }
+        return markers;
     }
 
     public static boolean hasBulkCell(ECOStorageSystemBlockEntity host) {
@@ -170,7 +197,7 @@ public final class ECOBulkMarkingService {
             collectPreviewItems(inventory, selected.storage(), source, unboundedKeys, items);
         }
         if (grid != null) {
-            try (var ignored = StorageExtractionExclusions.open(List.of(selected.storage()))) {
+            try (var ignored = StorageExtractionExclusions.openBulkMigration()) {
                 collectPreviewItems(grid.getStorageService().getInventory(), selected.storage(), source,
                     unboundedKeys, items);
             }
@@ -204,14 +231,14 @@ public final class ECOBulkMarkingService {
             collectPreviewItems(inventory, selected.storage(), source, unboundedKeys, items);
         }
         if (grid != null) {
-            try (var ignored = StorageExtractionExclusions.open(List.of(selected.storage()))) {
+            try (var ignored = StorageExtractionExclusions.openBulkMigration()) {
                 collectPreviewItems(grid.getStorageService().getInventory(), selected.storage(), source,
                     unboundedKeys, items);
             }
         }
 
         int freeSlots = freeSlotCount(selected);
-        List<AEItemKey> occupied = new ArrayList<>(selected.storage().getEffectiveConfiguredFilters());
+        List<AEItemKey> occupied = occupiedMarkers(host);
         for (Candidate candidate : collectCandidates(host, threshold)) {
             if (freeSlots <= 0) break;
             if (occupied.stream().anyMatch(existing -> sameMarker(existing, candidate.key()))) continue;
@@ -323,14 +350,7 @@ public final class ECOBulkMarkingService {
         boolean migrate,
         Set<AEKey> unboundedKeys
     ) {
-        List<AEItemKey> occupiedMarkers = new ArrayList<>();
-        for (TargetCell target : targets) {
-            for (AEItemKey itemKey : target.storage().getEffectiveConfiguredFilters()) {
-                if (occupiedMarkers.stream().noneMatch(existing -> sameMarker(existing, itemKey))) {
-                    occupiedMarkers.add(itemKey);
-                }
-            }
-        }
+        List<AEItemKey> occupiedMarkers = occupiedMarkers(host);
         List<SlotTarget> freeSlots = new ArrayList<>();
         for (TargetCell target : targets) {
             var config = ((ECOBulkStorageCellItem) target.drive().getCellStack().getItem())
@@ -428,8 +448,7 @@ public final class ECOBulkMarkingService {
             var network = grid.getStorageService().getInventory();
             KeyCounter available = new KeyCounter();
             network.getAvailableStacks(available);
-            try (var ignored = StorageExtractionExclusions.open(
-                    targets.stream().map(TargetCell::storage).toList());
+            try (var ignored = StorageExtractionExclusions.openBulkMigration();
                  var batch = ECOCellMutationBatch.open()) {
                 for (var entry : available) {
                     if (entry.getLongValue() <= 0L || unboundedKeys.contains(entry.getKey())

@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.storage.bulk.BulkUnits;
 import cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell;
 import cn.dancingsnow.neoecoae.storage.bulk.ECOCompressionService;
+import cn.dancingsnow.neoecoae.storage.transfer.StorageExtractionExclusions;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -59,7 +60,7 @@ class BiggerAE2BulkStorageCellTest {
     }
 
     @Test
-    void compressionWorks() {
+    void compressionWorksAndMigrationCannotExtractAnotherMatrix() {
         var ingot = AEItemKey.of(Items.IRON_INGOT);
         var block = AEItemKey.of(Items.IRON_BLOCK);
         ECOCompressionService.install(List.of(new BulkUnits(List.of(ingot, block),
@@ -72,6 +73,10 @@ class BiggerAE2BulkStorageCellTest {
             var cell = (ECOBulkStorageCell) item.createCellInventory(stack, null);
             assertEquals(25, cell.getTotalItemTypes());
             assertEquals(18, cell.insert(ingot, 18, Actionable.MODULATE, null));
+            try (var scope = StorageExtractionExclusions.openBulkMigration()) {
+                assertEquals(0, cell.extract(block, 2, Actionable.SIMULATE, null));
+                assertEquals(0, cell.extract(block, 2, Actionable.MODULATE, null));
+            }
             assertEquals(2, cell.extract(block, 2, Actionable.MODULATE, null));
             assertEquals(BigInteger.ZERO, cell.getExactUsedBytes());
             assertTrue(BiggerAE2SingularityPowerService.isSingularity(stack));

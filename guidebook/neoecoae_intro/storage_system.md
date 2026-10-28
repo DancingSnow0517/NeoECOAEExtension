@@ -145,6 +145,8 @@ Storage matrices for AE2 Omni Cells and AE2 Lightning Tech are documented in [Co
 
 The ECO Digital Singularity Item Storage Matrix requires Bigger AE2 and provides ECO's built-in compression without compression cards or decompression modules. Configure resource markers in the host panel or cell workbench, then insert the disk into a compatible ECO drive. It supports 25 resource types, or 50 with an ECO Bulk Expansion Card supplied by the MEGA Cells integration. Stored quantities have no fixed upper bound; terminal tooltips show exact totals. The old ECO Bulk Storage Matrix remains compatible but is deprecated and has no assembly or disassembly recipes.
 
+Matrices in the same ME network share occupied markers: a compression chain already marked on one matrix cannot be marked on another. Automatic marking and migration check all network markers, and migration never extracts stock from other bulk matrices.
+
 Reversible crafting recipes form chains such as iron nugget, ingot and block. Any form in a chain can be inserted or extracted, and the whole chain occupies one marker. Shift + left-click raises the display denomination; Shift + right-click lowers it. Remainders stay visible in lower forms.
 
 A formed and powered ECO storage host in normal storage mode automatically publishes virtual compression and decompression patterns. Pending outputs stay on the accepting disk and retry when network storage is available. Disks containing stock, pending outputs or quarantined data cannot be disassembled. Changed recipe tables preserve historical quantities for recovery in their original base form. Bulk disks do not join infinite-domain migration.

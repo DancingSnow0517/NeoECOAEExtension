@@ -201,6 +201,7 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
     }
 
     @Override public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
+        if (cn.dancingsnow.neoecoae.storage.transfer.StorageExtractionExclusions.contains(this)) return 0;
         refreshUnresolved();
         if (amount <= 0 || !(what instanceof AEItemKey item)) return 0;
         long remaining = amount;
