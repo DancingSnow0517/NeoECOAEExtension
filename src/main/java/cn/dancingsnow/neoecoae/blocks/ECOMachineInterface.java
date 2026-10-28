@@ -23,13 +23,13 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
 
 public class ECOMachineInterface<C extends NECluster<C>> extends NEBlock<ECOMachineInterfaceBlockEntity<C>> implements BlockUIMenuType.BlockUI {
-    public static final EnumProperty<cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode> STORAGE_MODE =
-        EnumProperty.create("storage_mode", cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.class);
+    public static final EnumProperty<cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode> STORAGE_MODE =
+        EnumProperty.create("storage_mode", cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode.class);
 
     public ECOMachineInterface(Properties properties) {
         super(properties);
         registerDefaultState(defaultBlockState().setValue(STORAGE_MODE,
-            cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.STORAGE));
+            cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode.STORAGE));
     }
 
     @Override

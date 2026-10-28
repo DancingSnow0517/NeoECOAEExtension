@@ -65,7 +65,7 @@ class StorageInteractionLockTest {
         assertTrue(drive.canExtractCell());
         assertNull(cellHost.getCellExtractionBlockReasonText());
 
-        cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember.beginMigration(
+        cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.beginMigration(
             stack, java.util.UUID.randomUUID());
         assertEquals(ECODriveBlockEntity.CellExtractionBlockReason.INFINITE_MIGRATION,
             drive.getCellExtractionBlockReason());

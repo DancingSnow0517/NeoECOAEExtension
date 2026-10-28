@@ -38,7 +38,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.route.AcyclicRoutePlan;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
-import cn.dancingsnow.neoecoae.impl.storage.ECOCreativeCell;
+import cn.dancingsnow.neoecoae.storage.ECOCreativeCell;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.world.item.Item;

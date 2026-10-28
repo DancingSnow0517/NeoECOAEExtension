@@ -2,10 +2,10 @@ package cn.dancingsnow.neoecoae.event;
 
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageDomains;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.PatternBusUpdateScheduler;
 import cn.dancingsnow.neoecoae.crafting.planner.growth.NetGrowthPatternValidationRegistry;
-import cn.dancingsnow.neoecoae.impl.storage.ECOCellMutationBatch;
+import cn.dancingsnow.neoecoae.storage.ECOCellMutationBatch;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -24,7 +24,7 @@ public final class ECOStorageLifecycleEvents {
     public static void onServerStopping(net.minecraftforge.event.server.ServerStoppingEvent event) {
         ECOCellMutationBatch.clearThreadState();
         ECOCellMutationBatch.drainRetries();
-        try { cn.dancingsnow.neoecoae.impl.storage.persistence.ECOStorageRepository.flush(event.getServer()); }
+        try { cn.dancingsnow.neoecoae.storage.persistence.ECOStorageRepository.flush(event.getServer()); }
         catch (RuntimeException failure) { org.slf4j.LoggerFactory.getLogger(ECOStorageLifecycleEvents.class)
             .error("ECO shutdown checkpoint failed; vanilla world save will retry dirty records", failure); }
     }
@@ -39,7 +39,7 @@ public final class ECOStorageLifecycleEvents {
         ECOCellMutationBatch.drainRetries();
         ECOStorageCells.clearRuntimeState();
         ECOInfiniteStorageDomains.onServerStopped(server);
-        cn.dancingsnow.neoecoae.impl.storage.persistence.ECOStorageRepository.stopped(server);
+        cn.dancingsnow.neoecoae.storage.persistence.ECOStorageRepository.stopped(server);
     }
 
     public static void onLevelUnload(LevelEvent.Unload event) {
@@ -54,7 +54,7 @@ public final class ECOStorageLifecycleEvents {
             NELogicalNetworkManager.tick(level);
         }
         ECOCellMutationBatch.retry();
-        cn.dancingsnow.neoecoae.impl.storage.persistence.ECOStorageRepository.tick(event.getServer(), event.getServer().getTickCount());
+        cn.dancingsnow.neoecoae.storage.persistence.ECOStorageRepository.tick(event.getServer(), event.getServer().getTickCount());
         PatternBusUpdateScheduler.tick(event.getServer());
         if (!FMLEnvironment.production) {
             ECOCellMutationBatch.assertClean();

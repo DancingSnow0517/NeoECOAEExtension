@@ -7,7 +7,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
-import cn.dancingsnow.neoecoae.impl.storage.StorageInterfaceFilter;
+import cn.dancingsnow.neoecoae.storage.StorageInterfaceFilter;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.slot.LocalSlot;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.impl.DataBindingBuilder;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.rpc.RPCEmitter;

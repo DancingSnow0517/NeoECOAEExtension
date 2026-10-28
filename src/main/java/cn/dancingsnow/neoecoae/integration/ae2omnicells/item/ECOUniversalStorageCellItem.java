@@ -10,7 +10,7 @@ import cn.dancingsnow.neoecoae.integration.ae2omnicells.OmniLongCapacityProvider
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import com.wintercogs.ae2omnicells.common.items.AEUniversalCellItem;
 import com.wintercogs.ae2omnicells.common.me.IAEUniversalCell;
 import com.wintercogs.ae2omnicells.common.me.localization.AEUniversalTooltips;

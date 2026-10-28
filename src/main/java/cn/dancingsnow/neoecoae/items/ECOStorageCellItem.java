@@ -21,9 +21,9 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
-import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import lombok.Getter;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -334,7 +334,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     public static class Handler implements IECOCellHandler {
         @Override public void releaseCellInventory(ItemStack stack, ISaveProvider host) {
-            cn.dancingsnow.neoecoae.impl.storage.persistence.ECOStorageRepository.release(stack, host);
+            cn.dancingsnow.neoecoae.storage.persistence.ECOStorageRepository.release(stack, host);
         }
 
 

@@ -28,7 +28,7 @@ import cn.dancingsnow.neoecoae.data.NEDataGen;
 import cn.dancingsnow.neoecoae.event.ECOStorageLifecycleEvents;
 import cn.dancingsnow.neoecoae.util.DrainOnlyFluidHandler;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
-import cn.dancingsnow.neoecoae.impl.storage.ECOCreativeCell;
+import cn.dancingsnow.neoecoae.storage.ECOCreativeCell;
 import cn.dancingsnow.neoecoae.network.ECONetwork;
 import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;

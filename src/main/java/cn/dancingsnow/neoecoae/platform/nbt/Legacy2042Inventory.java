@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.platform.nbt;
 
-import cn.dancingsnow.neoecoae.impl.storage.persistence.Legacy2042Storage;
+import cn.dancingsnow.neoecoae.storage.persistence.Legacy2042Storage;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;

@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.megacells.backend;
 
 import appeng.api.stacks.AEItemKey;
-import cn.dancingsnow.neoecoae.impl.storage.bulk.BulkUnits;
+import cn.dancingsnow.neoecoae.storage.bulk.BulkUnits;
 import gripe._90.megacells.misc.CompressionChain;
 
 import java.util.ArrayList;

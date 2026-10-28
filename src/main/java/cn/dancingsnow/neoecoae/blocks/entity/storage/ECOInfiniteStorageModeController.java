@@ -5,12 +5,12 @@ import cn.dancingsnow.neoecoae.platform.JdkCompat;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorage;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageTransfer;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOStorageHostMode;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorage;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageDomains;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageTransfer;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOStorageHostMode;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.IStorageProvider;
 import appeng.api.storage.MEStorage;
@@ -287,9 +287,9 @@ final class ECOInfiniteStorageModeController {
             throw new IllegalStateException("Cell handler does not support resumable migration");
         }
         UUID migration = ECOInfiniteStorageMember.beginMigration(drive.getCellStack(), domainId);
-        var releaseCompatibility = cell instanceof cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell ordinary
-                && engine instanceof cn.dancingsnow.neoecoae.impl.storage.infinite.SavedDataInfiniteStorageEngine saved
-            ? cn.dancingsnow.neoecoae.impl.storage.persistence.Legacy2042Transfers.aliases(ordinary.storageData(), saved,
+        var releaseCompatibility = cell instanceof cn.dancingsnow.neoecoae.storage.ECOStorageCell ordinary
+                && engine instanceof cn.dancingsnow.neoecoae.storage.infinite.SavedDataInfiniteStorageEngine saved
+            ? cn.dancingsnow.neoecoae.storage.persistence.Legacy2042Transfers.aliases(ordinary.storageData(), saved,
                 domainId, host.getLevel().dimension().location().toString(), drive.getBlockPos().asLong(), drive.getCellStack())
             : java.util.Map.<AEKey, java.util.Set<UUID>>of();
         boolean finished = transfer.step(drive.getCellStack(), migrationCell, domainId, engine,
@@ -412,7 +412,7 @@ final class ECOInfiniteStorageModeController {
                 : ECOInfiniteStorageDomains.acquire(serverLevel, host.infiniteDomainId());
             refreshHostAccess();
         }
-        if (host.getCluster() != null && mountedEngine instanceof cn.dancingsnow.neoecoae.impl.storage.infinite.SavedDataInfiniteStorageEngine saved)
+        if (host.getCluster() != null && mountedEngine instanceof cn.dancingsnow.neoecoae.storage.infinite.SavedDataInfiniteStorageEngine saved)
             for (ECODriveBlockEntity drive : host.getCluster().getDrives())
                 if (drive.hasLegacyRestoreReceipts()) { saved.blockLegacyRestore(); break; }
         return mountedEngine;

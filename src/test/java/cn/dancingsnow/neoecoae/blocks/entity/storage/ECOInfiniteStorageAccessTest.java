@@ -19,7 +19,7 @@ import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.CombinedExactAmountSource;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.*;
+import cn.dancingsnow.neoecoae.storage.infinite.*;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.math.BigInteger;

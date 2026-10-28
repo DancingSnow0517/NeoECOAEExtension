@@ -9,7 +9,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
@@ -89,7 +89,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
             return;
         }
         if (cellStack != null && !isItemValid(cellStack)) return;
-        if (this.cellStack != null && cachedCellInventory instanceof cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell ordinary
+        if (this.cellStack != null && cachedCellInventory instanceof cn.dancingsnow.neoecoae.storage.ECOStorageCell ordinary
             && !ordinary.storageData().flush()) return;
         if (cellStack != null) {
             try { ECOStorageCells.getCellInventory(cellStack, this); }
@@ -140,7 +140,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     /** Shared by manual interaction and automation; querying this never releases ownership. */
     public CellExtractionBlockReason getCellExtractionBlockReason() {
         if (!unresolvedCellStack.isEmpty()) return CellExtractionBlockReason.PERSISTENCE_FAILED;
-        if (cachedCellInventory instanceof cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell ordinary
+        if (cachedCellInventory instanceof cn.dancingsnow.neoecoae.storage.ECOStorageCell ordinary
             && (!ordinary.storageData().canMutate() || ordinary.storageData().writeFailure() != null))
             return CellExtractionBlockReason.PERSISTENCE_FAILED;
         if (ECOInfiniteStorageMember.isMigrating(cellStack)) {
@@ -218,9 +218,9 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
             cachedCellStack = cellStack;
             cachedCellInventory = ECOStorageCells.getCellInventory(cellStack, this);
         }
-        if (hasLegacyRestoreReceipts() && cachedCellInventory instanceof cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell ordinary) {
+        if (hasLegacyRestoreReceipts() && cachedCellInventory instanceof cn.dancingsnow.neoecoae.storage.ECOStorageCell ordinary) {
             CompoundTag metadata = ordinary.storageData().metadata();
-            String key = cn.dancingsnow.neoecoae.impl.storage.persistence.Legacy2042Storage.RESTORE_BARRIER;
+            String key = cn.dancingsnow.neoecoae.storage.persistence.Legacy2042Storage.RESTORE_BARRIER;
             if (!metadata.contains(key)) {
                 metadata.put(key, legacy2042RestoreData.copy()); ordinary.storageData().metadata(metadata);
                 ordinary.storageData().flush();
@@ -231,7 +231,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     }
 
     public boolean hasLegacyRestoreReceipts() { return !legacy2042RestoreData.isEmpty()
-        || cellStack != null && NEItemData.read(cellStack).contains(cn.dancingsnow.neoecoae.impl.storage.persistence.Legacy2042Storage.RESTORE_BARRIER); }
+        || cellStack != null && NEItemData.read(cellStack).contains(cn.dancingsnow.neoecoae.storage.persistence.Legacy2042Storage.RESTORE_BARRIER); }
 
     @Override
     public void loadTag(CompoundTag data) {
@@ -243,7 +243,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
                 .error("20.4.2 restore receipts at {} require reconciliation; disk and domain will remain locked", worldPosition);
         }
         if (cellStack != null && !legacy2042RestoreData.isEmpty())
-            NEItemData.update(cellStack, tag -> tag.put(cn.dancingsnow.neoecoae.impl.storage.persistence.Legacy2042Storage.RESTORE_BARRIER,
+            NEItemData.update(cellStack, tag -> tag.put(cn.dancingsnow.neoecoae.storage.persistence.Legacy2042Storage.RESTORE_BARRIER,
                 legacy2042RestoreData.copy()));
         invalidateCellInventoryCache();
     }
@@ -418,14 +418,14 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         CompoundTag receipts = NEItemData.read(cellStack).getCompound(RESTORE_RECEIPTS_TAG);
         String key = transactionId.toString();
         return receipts.contains(key, net.minecraft.nbt.Tag.TAG_LONG) ? java.math.BigInteger.valueOf(receipts.getLong(key))
-            : cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount.read(receipts.getCompound(key)).toBigInteger();
+            : cn.dancingsnow.neoecoae.storage.infinite.HugeAmount.read(receipts.getCompound(key)).toBigInteger();
     }
 
     public void putRestoreReceipt(UUID transactionId, java.math.BigInteger amount) {
         if (cellStack == null || cellStack.isEmpty() || amount.signum() <= 0) return;
         CompoundTag custom = NEItemData.copy(cellStack), receipts = custom.getCompound(RESTORE_RECEIPTS_TAG);
         if (amount.bitLength() < 64) receipts.putLong(transactionId.toString(), amount.longValueExact());
-        else receipts.put(transactionId.toString(), cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount.of(amount).write());
+        else receipts.put(transactionId.toString(), cn.dancingsnow.neoecoae.storage.infinite.HugeAmount.of(amount).write());
         custom.put(RESTORE_RECEIPTS_TAG, receipts); NEItemData.write(cellStack, custom); setChanged();
     }
 
@@ -449,7 +449,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         custom.remove(RESTORE_RECEIPTS_TAG);
         if (custom.isEmpty()) cellStack.setTag(null);
         else NEItemData.write(cellStack, custom);
-        cn.dancingsnow.neoecoae.impl.storage.persistence.ECOStorageRepository.persistMetadata(cellStack, true);
+        cn.dancingsnow.neoecoae.storage.persistence.ECOStorageRepository.persistMetadata(cellStack, true);
         setChanged();
     }
 }

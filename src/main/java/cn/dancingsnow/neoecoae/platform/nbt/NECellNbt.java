@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.platform.nbt;
 
 import appeng.api.config.FuzzyMode;
 import appeng.api.stacks.GenericStack;
-import cn.dancingsnow.neoecoae.impl.storage.persistence.Legacy2042Storage;
+import cn.dancingsnow.neoecoae.storage.persistence.Legacy2042Storage;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;

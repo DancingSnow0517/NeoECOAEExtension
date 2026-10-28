@@ -190,7 +190,7 @@ class ECOExactOrderTest {
         when(cpu.getGrid()).thenReturn(grid);
         when(cpu.getActionSource()).thenReturn(IActionSource.empty());
         var drive = mock(cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity.class);
-        var creative = mock(cn.dancingsnow.neoecoae.impl.storage.ECOCreativeCell.class);
+        var creative = mock(cn.dancingsnow.neoecoae.storage.ECOCreativeCell.class);
         when(grid.getMachines(cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity.class))
             .thenReturn(Set.of(drive));
         when(drive.isOnline()).thenReturn(true);

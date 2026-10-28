@@ -10,7 +10,7 @@ import cn.dancingsnow.neoecoae.compat.storage.ECOOptionalUnboundedCells;
 import cn.dancingsnow.neoecoae.crafting.planner.solve.PlannerInventorySnapshot;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
 import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
-import cn.dancingsnow.neoecoae.impl.storage.ECOCreativeCell;
+import cn.dancingsnow.neoecoae.storage.ECOCreativeCell;
 
 import java.util.HashSet;
 import java.util.Set;

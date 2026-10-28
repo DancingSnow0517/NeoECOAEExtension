@@ -6,7 +6,7 @@ import appeng.api.stacks.AEKeyTypes;
 import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
-import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;

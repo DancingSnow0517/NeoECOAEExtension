@@ -11,9 +11,9 @@ import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
-import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
-import cn.dancingsnow.neoecoae.impl.storage.persistence.ECOCellReference;
+import cn.dancingsnow.neoecoae.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageDomains;
+import cn.dancingsnow.neoecoae.storage.persistence.ECOCellReference;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.platform.nbt.NEAtomicNbtFile;
 import com.google.gson.GsonBuilder;
@@ -209,7 +209,7 @@ public final class Legacy2042ServerProbe {
         ((ECODriveBlockEntity) world.getBlockEntity(BLOCKED_DRIVE)).load(legacy);
         CompoundTag domain = domainTemplate.copy(); domain.putUUID("domain", domainId);
         writeOld(root.resolve("data/neoecoae_infinite/domain_" + domainId + ".dat"), domain);
-        var engine = (cn.dancingsnow.neoecoae.impl.storage.infinite.SavedDataInfiniteStorageEngine)
+        var engine = (cn.dancingsnow.neoecoae.storage.infinite.SavedDataInfiniteStorageEngine)
             ECOInfiniteStorageDomains.acquireExisting(world, domainId);
         engine.blockLegacyRestore(); ECOInfiniteStorageDomains.release(world.getServer(), domainId);
         fixture.putUUID("blockedDomain", domainId);

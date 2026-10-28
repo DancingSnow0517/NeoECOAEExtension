@@ -126,7 +126,7 @@ class ECOMegaLongBulkStorageCellTest {
     }
 
     private static void initializeState(ECOMegaLongBulkStorageCell cell) throws Exception {
-        doReturn(new cn.dancingsnow.neoecoae.impl.storage.persistence.ECOCellSavedData(java.util.UUID.randomUUID()))
+        doReturn(new cn.dancingsnow.neoecoae.storage.persistence.ECOCellSavedData(java.util.UUID.randomUUID()))
             .when(cell).storageData();
         for (String name : List.of("definitions", "cutoffs")) {
             var field = ECOMegaLongBulkStorageCell.class.getDeclaredField(name);

@@ -6,10 +6,10 @@ import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.storage.MEStorage;
 import appeng.me.storage.NetworkStorage;
-import cn.dancingsnow.neoecoae.impl.storage.transfer.StorageBusTransferFilter;
+import cn.dancingsnow.neoecoae.storage.transfer.StorageBusTransferFilter;
 import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.StorageListingAccumulator;
-import cn.dancingsnow.neoecoae.impl.storage.NetworkInventoryCache;
+import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import org.spongepowered.asm.mixin.Mixin;
@@ -147,10 +147,10 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, Netwo
             appeng.api.config.Actionable mode, appeng.api.networking.security.IActionSource source,
             Operation<Long> original) {
         if (StorageBusTransferFilter.excludes(storage)
-                || cn.dancingsnow.neoecoae.impl.storage.transfer.StorageExtractionExclusions.contains(storage)) {
+                || cn.dancingsnow.neoecoae.storage.transfer.StorageExtractionExclusions.contains(storage)) {
             return 0L;
         }
-        return cn.dancingsnow.neoecoae.impl.storage.transfer.ECOCreativeExtractionFilter.extractSource(
+        return cn.dancingsnow.neoecoae.storage.transfer.ECOCreativeExtractionFilter.extractSource(
             storage, key, mode, () -> original.call(storage, key, amount, mode, source));
     }
 

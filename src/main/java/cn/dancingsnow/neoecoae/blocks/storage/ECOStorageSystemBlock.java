@@ -32,8 +32,8 @@ public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> 
 
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final BooleanProperty MIRRORED = BooleanProperty.create("mirrored");
-    public static final EnumProperty<cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode> STORAGE_MODE =
-        EnumProperty.create("storage_mode", cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.class);
+    public static final EnumProperty<cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode> STORAGE_MODE =
+        EnumProperty.create("storage_mode", cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode.class);
 
     public ECOStorageSystemBlock(BlockBehaviour.Properties properties) {
         super(properties);
@@ -41,7 +41,7 @@ public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> 
             .setValue(FORMED, false)
             .setValue(FACING, Direction.NORTH)
             .setValue(MIRRORED, false)
-            .setValue(STORAGE_MODE, cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.STORAGE)
+            .setValue(STORAGE_MODE, cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode.STORAGE)
         );
     }
 
