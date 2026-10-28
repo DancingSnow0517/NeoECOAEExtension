@@ -9,7 +9,7 @@ English | [简体中文](/README_ZH_CN.md) | [繁體中文](/README_ZH_HK.md) | 
 
 ## Overview
 
-Developer documentation: [English and Chinese API guides and ECO planner explanations](docs/README.md).
+API documentation: [English](docs/API.md) · [简体中文](docs/API_ZH_CN.md).
 
 Neo Eco AE Extension is an upgraded version of [Eco AE Extension](https://github.com/sddsd2332/NovaEngineering-ECOAEExtension), incorporating the MMCE multi-block structures from [Nova Engineering - World](https://www.mcmod.cn/modpack/784.html). With the original author's consent, it is distributed under the GNU GENERAL PUBLIC LICENSE Version 3 (GPLv3).
 

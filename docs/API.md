@@ -1,221 +1,64 @@
-# API integration guide
+# NeoECOAE API integration guide
 
-[简体中文](API_ZH_CN.md) · [Documentation index](README.md) · [ECO planner](ECO_PLANNER.md)
+[简体中文](API_ZH_CN.md) · [Project](../README.md) · [API sources](../src/main/java/cn/dancingsnow/neoecoae/api)
 
-Scope: **Minecraft 1.21.1 / NeoForge**. Use the guide from the same revision as your source or JAR; build and dependency configuration are linked in the [index](README.md).
+For addon authors targeting this **Minecraft 1.21.1 / NeoForge / Java 21** branch. The mod version is `mod_version` in [gradle.properties](../gradle.properties); dependencies and publishing are configured in [build.gradle](../build.gradle). Use documentation from the same revision as the target JAR.
 
-## 1. Dependency setup and API boundaries
+## Dependencies and compatibility
 
-The API is in the full mod JAR; there is no separate `-api` artifact. [Addon API v1](ADDON_API_ZH_CN.md) documents the supported extension families and their compatibility policy. Other public implementation classes do not automatically carry that guarantee. The build publishes to the local `repo/` directory; it does not declare a public NeoECOAE Maven endpoint. Pin the supplied artifact and its Minecraft/NeoForge/AE2 dependencies. The project license is GPLv3.
-
-In an existing NeoForge Java 21 addon project, copy the matching JAR to `libs/`:
+The API ships in the full mod JAR, without a separate `-api` artifact. Publishing targets a local `repo/` directory; the build declares no public Maven endpoint. In an addon already configured for NeoForge, AE2 and Java 21:
 
 ```groovy
 dependencies {
-    compileOnly files("libs/neoecoae-21.2.1.jar")
-    // ModDevGradle development runs; omit when the mod is already installed by another mechanism.
-    localRuntime files("libs/neoecoae-21.2.1.jar")
+    compileOnly files("libs/neoecoae-21.2.11.jar")
+    localRuntime files("libs/neoecoae-21.2.11.jar")
 }
 ```
 
-This snippet assumes the addon already configures NeoForge and AE2. It does not bundle NeoECOAE into your addon. Declare a required dependency if the addon cannot load without ECO:
+Replace the version with the tested artifact. `localRuntime` is for ModDevGradle development runs; omit it if the mod is supplied another way. Do not bundle another copy of NeoECOAE into the addon. Declare the dependency in your addon's `neoforge.mods.toml`:
 
 ```toml
 [[dependencies.examplemod]]
 modId = "neoecoae"
 type = "required"
-versionRange = "[21.2.1]"
+versionRange = "[21.2.11]"
 ordering = "AFTER"
 side = "BOTH"
 ```
 
-Replace `examplemod` and the version range with the actual addon and tested artifact. For an optional integration, use `type = "optional"` and load the class containing ECO references only after confirming that `neoecoae` is present. Optional metadata alone does not prevent Java linkage errors.
+Replace `examplemod` and the version range. Optional integrations use `type = "optional"` and isolate ECO references in classes loaded only after checking that the mod is present. Optional metadata alone does not prevent Java linkage errors. See [LICENSE](../LICENSE).
 
-| Need | Preferred entry point | Source |
-| --- | --- | --- |
-| Explicit ECO calculation | `ECOPlanningService.begin` | [planning service](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/ECOPlanningService.java) |
-| Mark an AE2 calculation | `ECOPlannerRequester`, `ECOPlannerOptions` | [requester](../src/main/java/cn/dancingsnow/neoecoae/api/me/planning/ECOPlannerRequester.java) |
-| Read grid settings | `ECOCraftingNetworkSettings.of(grid)` | [settings](../src/main/java/cn/dancingsnow/neoecoae/api/me/network/ECOCraftingNetworkSettings.java) |
-| Observe and extend jobs | Lifecycle listeners and attachment factories | [lifecycle](../src/main/java/cn/dancingsnow/neoecoae/api/me/lifecycle/ECOCraftingLifecycle.java), [attachments](../src/main/java/cn/dancingsnow/neoecoae/api/me/attachment/ECOCraftingJobAttachmentRegistry.java) |
-| Provider integration | Parallel or FastPath contract | [parallel](../src/main/java/cn/dancingsnow/neoecoae/api/me/provider/ECOParallelCraftingProvider.java), [FastPath](../src/main/java/cn/dancingsnow/neoecoae/api/me/provider/ECOFastPathDispatchProvider.java) |
-| Dynamic output delivery | `ECOCraftingOutputClaimSink` | [output claims](../src/main/java/cn/dancingsnow/neoecoae/api/me/output/ECOCraftingOutputClaimSink.java) |
-| Route encoded patterns | `IECOPatternStorageService` | [pattern service](../src/main/java/cn/dancingsnow/neoecoae/api/IECOPatternStorageService.java) |
-| Storage integration | `ICellHost`, `IECOCellHandler`, exact insertion | [cell host](../src/main/java/cn/dancingsnow/neoecoae/api/storage/ICellHost.java), [storage helper](../src/main/java/cn/dancingsnow/neoecoae/api/storage/ECOBigIntegerStorage.java) |
+[ECOAddonApi](../src/main/java/cn/dancingsnow/neoecoae/api/extension/ECOAddonApi.java) currently has `VERSION == 1`. Its `supports(feature)` checks only the addon extension families below, not the entire crafting API. Within one API major version on the same Minecraft/loader branch, those contracts retain existing signatures and add overloads/default methods. JARs from different Minecraft versions are not interchangeable. Other public implementation classes do not automatically carry that compatibility policy.
 
-Classes under `crafting.planner` expose some version-sensitive entry points used below. Solver, runtime, worker, persistence, and compatibility-loader internals are implementation details. The deprecated `api.me.ECOCraftingCPU`, `ECOCraftingCPULogic`, and `ExecutingCraftingJob` preserve existing addons' binary/Mixin targets; do not construct or subclass them for a new integration.
+[ECOPlanningService](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/ECOPlanningService.java) is the public planning boundary used here, but lives in an implementation package; pin the mod version. Solvers, Workers, CPU mutable internals and persistence engines are not addon extension points. Deprecated `api.me.ECOCraftingCPU`, `ECOCraftingCPULogic` and `ExecutingCraftingJob` preserve existing binary/Mixin targets; do not construct or subclass them for new integrations.
 
-## 2. Thread and ownership rules
+## Entry points
 
-Call planning entry points on the **owning server thread** so inventory capture is safe. They return a `Future`; poll `isDone()` from a tick and call `get()` only after completion. Submission, provider commits, storage mutations, and output bookkeeping also run on the server thread.
-
-Authenticate the player/machine and check access to the grid before starting and before submitting. The low-level ECO interfaces do not implement those checks for you. Keep the same grid, action source, and intended requester throughout one calculation. Cancel abandoned futures when a menu, machine, or network is removed. Handle `ExecutionException`, cancellation, and executor `RejectedExecutionException`; the ECO executor has a bounded queue.
-
-The following Java examples are complete integration skeletons with imports. Machine transactions supplied by abstract methods and caller-provided callbacks still need implementation.
-
-## 3. Start a calculation, inspect it, and submit once
-
-`ECOPlanningService.begin(level, grid, source, goal, amount, strategy, options)` directly chooses ECO. It does not invoke `ICraftingService.beginCraftingCalculation`, so other service-entry planner wrappers do not choose this calculation. The example follows the confirmation screen's eligibility rule and consumes each future once.
-
-Use `CalculationStrategy.REPORT_MISSING_ITEMS` to keep the original requested amount and its complete shortage report. `CRAFT_LESS` probes smaller amounts when the original request cannot execute; read the returned `finalOutput().amount()` rather than assuming it still equals your request. Those probes share the session's snapshot and budget. When a non-`CRAFT_LESS` calculation already produced a report plan, the service returns it without repeating the same calculation just to build a simulation report.
-
-```java
-import appeng.api.networking.IGrid;
-import appeng.api.networking.crafting.*;
-import appeng.api.networking.security.IActionSource;
-import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
-import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
-import cn.dancingsnow.neoecoae.api.me.planning.*;
-import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService;
-import cn.dancingsnow.neoecoae.crafting.planner.result.*;
-import net.minecraft.server.level.ServerLevel;
-import java.util.concurrent.*;
-
-public final class EcoPlanningExample {
-    private final ServerLevel level;
-    private final IGrid grid;
-    private final IActionSource source;
-    private Future<ICraftingPlan> pending;
-    private ECOPlanningResult lastResult;
-
-    public EcoPlanningExample(ServerLevel level, IGrid grid, IActionSource source) {
-        this.level = level;
-        this.grid = grid;
-        this.source = source;
-    }
-
-    public void begin(AEKey goal, long amount) {
-        checkThread();
-        if (amount <= 0 || pending != null) throw new IllegalStateException("Invalid request");
-        var settings = ECOCraftingNetworkSettings.of(grid);
-        if (settings == null || !settings.neoecoae$isFastPlannerEnabled()
-                || !settings.neoecoae$hasComputationHost(source)) {
-            throw new IllegalStateException("No eligible ECO planning host");
-        }
-        lastResult = null;
-        pending = ECOPlanningService.begin(level, grid, source, goal, amount,
-            CalculationStrategy.REPORT_MISSING_ITEMS, ECOPlannerOptions.from(settings));
-    }
-
-    // Call from a server tick, after rechecking access to the original grid.
-    // Null means no submission: still pending, cancelled, or a diagnostic-only result.
-    public ICraftingSubmitResult poll(ICraftingRequester requester, ICraftingCPU target)
-            throws InterruptedException, ExecutionException {
-        checkThread();
-        var future = pending;
-        if (future == null || !future.isDone()) return null;
-        pending = null; // Consume once: repeated ticks cannot submit the same plan twice.
-        if (future.isCancelled()) return null;
-        var plan = future.get();
-        if (plan == null) return null;
-        lastResult = diagnostics(plan);
-        if (plan.simulation() || lastResult != null && lastResult.status() != PlanningStatus.SUCCESS) {
-            return null;
-        }
-        var contract = ECOPlanningResultRegistry.resolveContract(plan, lastResult);
-        if (lastResult != null && (contract == null || !contract.executable())) return null;
-        return ECOPlanningResultRegistry.withSubmissionAlias(plan, lastResult,
-            () -> grid.getCraftingService().submitJob(plan, requester, target, false, source));
-    }
-
-    public ECOPlanningResult lastResult() { return lastResult; }
-
-    public void cancel() {
-        checkThread();
-        if (pending != null) pending.cancel(true);
-        pending = null;
-    }
-
-    private void checkThread() {
-        if (!level.getServer().isSameThread()) throw new IllegalStateException("Server thread required");
-    }
-
-    public static ECOPlanningResult diagnostics(ICraftingPlan plan) {
-        if (plan instanceof ECOCraftingPlanDiagnostics bridge) {
-            var attached = bridge.neoecoae$getPlanningResult();
-            if (attached != null) return attached;
-        }
-        return ECOPlanningResultRegistry.find(plan);
-    }
-}
-```
-
-Construct one instance per request owner. After validating access, call `begin(goal, amount)`; call `poll(requester, target)` from subsequent server ticks. A nullable requester means a standalone task. A nullable target lets AE2/ECO select a CPU. Inspect `ICraftingSubmitResult.successful()` and its error information; a plan can become invalid after the snapshot because materials, capacity, or topology changed.
-
-Read `lastResult()` to display `status()`, `trace().diagnostics()`, `exactMissingItems()`, and `theoreticalBytes()`. The diagnostic result can be absent for a foreign plan. Keep diagnostic collections read-only. `executionPlan()` can throw when no phased plan exists; query `resolveContract` instead of assuming that every successful DAG owns phases.
-
-`withSubmissionAlias` preserves metadata only during this synchronous submission. It never replaces the submitted plan. Do not copy just `finalOutput()`, rescale the task counts, or associate another plan with a result because their output matches. The registry checks the complete execution identity and expires metadata after ten minutes; it is not persistent job storage.
-
-### Options and grid defaults
-
-| Option | Meaning |
+| Need | Entry points |
 | --- | --- |
-| `cyclePlanningEnabled` | Allow unavoidable cyclic components to enter the cycle solver. |
-| `ignorePatternSubstitutions` | Plan using encoded primary inputs instead of considering substitutions. |
-| `fuzzyPlanningItemIds` | Item IDs selected for component-insensitive intermediate planning; not an unrestricted fuzzy recipe guarantee. |
-| `planningLogEnabled` | Legacy compatibility field; logging now follows server debug configuration. |
+| Planning and grid settings | [ECOPlanningService](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/ECOPlanningService.java), [ECOPlannerRequester](../src/main/java/cn/dancingsnow/neoecoae/api/me/planning/ECOPlannerRequester.java), [ECOCraftingNetworkSettings](../src/main/java/cn/dancingsnow/neoecoae/api/me/network/ECOCraftingNetworkSettings.java) |
+| Exact parent orders | [ECOBigOrderRequest](../src/main/java/cn/dancingsnow/neoecoae/api/me/bigorder/ECOBigOrderRequest.java), [ECOBigOrderAdmission](../src/main/java/cn/dancingsnow/neoecoae/api/me/bigorder/ECOBigOrderAdmission.java) |
+| Events, attachments, dispatch policies | [ECOCraftingLifecycle](../src/main/java/cn/dancingsnow/neoecoae/api/me/lifecycle/ECOCraftingLifecycle.java), [ECOCraftingJobAttachmentRegistry](../src/main/java/cn/dancingsnow/neoecoae/api/me/attachment/ECOCraftingJobAttachmentRegistry.java), [ECOCraftingDispatchPolicyRegistry](../src/main/java/cn/dancingsnow/neoecoae/api/me/dispatch/ECOCraftingDispatchPolicyRegistry.java) |
+| Parallel and FastPath providers | [ECOParallelCraftingProvider](../src/main/java/cn/dancingsnow/neoecoae/api/me/provider/ECOParallelCraftingProvider.java), [ECOFastPathDispatchProvider](../src/main/java/cn/dancingsnow/neoecoae/api/me/provider/ECOFastPathDispatchProvider.java), [ECOFastPathFacade](../src/main/java/cn/dancingsnow/neoecoae/api/me/ECOFastPathFacade.java) |
+| Output, virtual completion, progress | [ECOCraftingOutputClaimSink](../src/main/java/cn/dancingsnow/neoecoae/api/me/output/ECOCraftingOutputClaimSink.java), [ECOVirtualCraftingCompletionSink](../src/main/java/cn/dancingsnow/neoecoae/api/me/completion/ECOVirtualCraftingCompletionSink.java), [ECOCraftingProgressView](../src/main/java/cn/dancingsnow/neoecoae/api/me/progress/ECOCraftingProgressView.java) |
+| Pattern semantics, optimization, insertion | [ECOPatternSemanticsRegistry](../src/main/java/cn/dancingsnow/neoecoae/api/me/pattern/ECOPatternSemanticsRegistry.java), [ECOExecutionOptimizationRegistry](../src/main/java/cn/dancingsnow/neoecoae/api/me/pattern/ECOExecutionOptimizationRegistry.java), [IECOPatternStorageService](../src/main/java/cn/dancingsnow/neoecoae/api/IECOPatternStorageService.java) |
+| Cells, slots, exact insertion | [ECOStorageCells](../src/main/java/cn/dancingsnow/neoecoae/api/storage/ECOStorageCells.java), [ICellHost](../src/main/java/cn/dancingsnow/neoecoae/api/storage/ICellHost.java), [ECOBigIntegerStorage](../src/main/java/cn/dancingsnow/neoecoae/api/storage/ECOBigIntegerStorage.java) |
+| Tiers, structures, workstations | [Addon extension registration](#addon-extension-registration) |
+| Host panel appearance | [IECOTier](../src/main/java/cn/dancingsnow/neoecoae/api/IECOTier.java), [IHostPanelTextureProvider](../src/main/java/cn/dancingsnow/neoecoae/api/IHostPanelTextureProvider.java); [panels and models](#panels-and-models) |
 
-`ECOPlannerOptions.from(settings)` captures current defaults. `from(null)` disables cycle planning and substitution ignoring and uses an empty fuzzy set. Explicit options can be supplied with `new ECOPlannerOptions(true, false, Set.of())`.
+## Threads, registration and ownership
 
-Grid settings expose `neoecoae$setFastPlannerEnabled`, `neoecoae$setCyclePlanningEnabled`, and `neoecoae$setIgnoringPatternSubstitutions`. Changes affect the shared network and its computation hosts, so perform them after permission checks. A host may accept only player or machine requests: use the source-aware `neoecoae$hasComputationHost(source)`.
+Begin planning on the owning server thread: it captures grid inventory before handing work to the executor. Submission, provider acceptance, storage mutations and output claims also run on that thread. The caller checks player/machine access before calculation and again before submission; these low-level APIs do not authenticate callers.
 
-### Enter through AE2's calculation service
+Poll `Future.isDone()` from a later tick before calling `get()`. Clear the stored request reference before consuming it so a plan can be submitted only once. Cancel requests when their menu, machine or grid disappears. Handle cancellation, `ExecutionException`, interruption and executor `RejectedExecutionException`. Never block a server tick waiting for a result.
 
-If another integration needs the normal AE2 entry point, wrap its existing simulation requester:
+Register once during initialization, using stable addon IDs. Process-wide registrations survive world changes; retain listener/policy instances for removal. Description and preparation callbacks are read-only. Pattern semantic callbacks may run on planning threads and must not access mutable world state or move resources. Register client models before baking; keep client-only classes out of common initialization.
 
-```java
-import appeng.api.networking.IGrid;
-import appeng.api.networking.crafting.*;
-import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.api.me.planning.*;
-import net.minecraft.server.level.ServerLevel;
-import java.util.concurrent.Future;
+Quantities use the corresponding AEKey's units. Simulation changes no resources. Transfer ownership only for the returned accepted amount, retaining rejected resources; requested amounts, previews and progress displays are not receipts.
 
-public final class EcoRequesterExample {
-    public static Future<ICraftingPlan> begin(ServerLevel level, IGrid grid,
-            ICraftingSimulationRequester original, AEKey goal, long amount,
-            ECOPlannerOptions options) {
-        var marked = new ECOPlannerRequester(original, options);
-        return grid.getCraftingService().beginCraftingCalculation(
-            level, marked, goal, amount, CalculationStrategy.REPORT_MISSING_ITEMS);
-    }
-}
-```
+## Planning and submission
 
-The wrapper delegates `getActionSource()` and marks one calculation. If AE2 creates its `CraftingCalculation`, ECO's Mixin recognizes the marker. A different service wrapper can return its own future before that happens; ECO does not cancel or replace that future. Check the returned plan's provenance before applying ECO rules.
-
-The vanilla confirmation **menu** routes to the direct ECO service when fast planning is enabled and an eligible computation host exists. Merely enabling a grid flag does not globally convert every unmarked addon/AE2 request into ECO planning. Explicit ECO requests return ECO diagnostic results for unsupported cases; they do not automatically retry the same request with the native planner.
-
-## 4. Exact parent orders and menu admission
-
-A parent can keep a positive exact amount beyond `Long.MAX_VALUE`. Current validation accepts at most 1024 decimal digits. Pass a `BigInteger` to the request; do not narrow it through `longValue()`.
-
-For a server-side integration that wants ECO to choose a bounded child segment first, use the asynchronous segment probe:
-
-```java
-import appeng.api.networking.IGrid;
-import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
-import cn.dancingsnow.neoecoae.crafting.planner.ECOBigOrderPlanner;
-import java.util.concurrent.*;
-
-public final class EcoSegmentExample {
-    // Begin on the owning server thread; maximum and bytes describe a single segment.
-    public static Future<ECOBigOrderPlanner.Answer> begin(IGrid grid, AEKey goal,
-            long maximum, long bytes, ECOPlannerOptions options) {
-        return ECOBigOrderPlanner.begin(grid, goal, maximum, bytes, options);
-    }
-
-    // Poll from the server tick. The caller must consume a completed answer only once.
-    public static ECOBigOrderPlanner.Answer completed(Future<ECOBigOrderPlanner.Answer> future)
-            throws InterruptedException, ExecutionException {
-        if (!future.isDone() || future.isCancelled()) return null;
-        return future.get();
-    }
-}
-```
-
-`ECOBigOrderPlanner.begin` captures fresh inventory for this invocation. The `maximumChildCrafts` and `cpuBytes` arguments describe one bounded segment. To create a parent ledger that coordinates successive segments, submit an `ECOBigOrderRequest`:
+This helper demonstrates explicit ECO planning, execution-contract checks and exact parent-order submission. The caller supplies permission checks, request lifecycle management and CPU selection.
 
 ```java
 import appeng.api.networking.IGrid;
@@ -223,450 +66,264 @@ import appeng.api.networking.crafting.*;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderRequest;
-import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
+import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
+import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
+import cn.dancingsnow.neoecoae.api.me.planning.*;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService;
+import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
+import net.minecraft.server.level.ServerLevel;
 import java.math.BigInteger;
 import java.util.Objects;
+import java.util.concurrent.Future;
 
-public final class EcoBigOrderExample {
-    // ecoTarget must be an eligible ECO CPU or the grid's idle ECO placeholder.
+public final class EcoApiExample {
+    public static Future<ICraftingPlan> begin(ServerLevel level, IGrid grid,
+            IActionSource source, AEKey goal, long amount) {
+        if (!level.getServer().isSameThread()) {
+            throw new IllegalStateException("Server thread required");
+        }
+        if (amount <= 0) throw new IllegalArgumentException("Positive amount required");
+        var settings = ECOCraftingNetworkSettings.of(grid);
+        if (settings == null || !settings.neoecoae$isFastPlannerEnabled()
+                || !settings.neoecoae$hasComputationHost(source)) {
+            throw new IllegalStateException("No eligible ECO computation host");
+        }
+        return ECOPlanningService.begin(level, grid, source, goal, amount,
+            CalculationStrategy.REPORT_MISSING_ITEMS, ECOPlannerOptions.from(settings));
+    }
+
+    // Call once on the server thread after the Future completes and access is rechecked.
     public static ICraftingSubmitResult submit(IGrid grid, IActionSource source,
+            ICraftingRequester requester, ICraftingCPU target, ICraftingPlan plan) {
+        var result = plan instanceof ECOCraftingPlanDiagnostics bridge
+            ? bridge.neoecoae$getPlanningResult() : null;
+        if (result == null) result = ECOPlanningResultRegistry.find(plan);
+        if (result == null || plan.simulation() || result.status() != PlanningStatus.SUCCESS) {
+            throw new IllegalArgumentException("An executable ECO plan is required");
+        }
+        var contract = ECOPlanningResultRegistry.resolveContract(plan, result);
+        if (contract == null || !contract.executable()) {
+            throw new IllegalArgumentException("Missing execution contract");
+        }
+        return ECOPlanningResultRegistry.withSubmissionAlias(plan, result,
+            () -> grid.getCraftingService().submitJob(plan, requester, target, false, source));
+    }
+
+    // ecoTarget must be an eligible ECO CPU or its idle ECO placeholder.
+    public static ICraftingSubmitResult submitBigOrder(IGrid grid, IActionSource source,
             ICraftingRequester requester, ICraftingCPU ecoTarget, AEKey goal,
             BigInteger amount, ECOPlannerOptions options) {
         Objects.requireNonNull(ecoTarget, "Select an ECO CPU");
-        var request = new ECOBigOrderRequest(goal, amount, false, options);
-        return request.submit(carrier -> grid.getCraftingService().submitJob(
-            carrier, requester, ecoTarget, false, source));
+        return new ECOBigOrderRequest(goal, amount, false, options).submit(
+            carrier -> grid.getCraftingService().submitJob(
+                carrier, requester, ecoTarget, false, source));
     }
 }
 ```
 
-Call this on the server thread after permission and CPU eligibility checks. The explicit target must be an existing ECO CPU or the idle ECO placeholder advertised by a computation host; a native CPU cannot interpret the parent carrier. Do not use automatic selection here unless your integration proves the parent will reach ECO.
+Consume a completed Future from a server tick, call `submit` once, then check `ICraftingSubmitResult.successful()`. Inventory, capacity and topology can change after the snapshot. For ordinary submission, a null `target` allows CPU selection and a null `requester` creates an independent job.
 
-`request.submit(...)` creates a carrier and binds the exact request to that **same object** during the synchronous callback. Submitting `carrier()` later, returning an asynchronous callback, or copying the carrier loses that binding. The carrier's bounded final-output amount is not the exact order quantity.
+`ECOPlanningService.begin` bypasses AE2's calculation service entry. To keep the normal service chain, wrap an `ICraftingSimulationRequester` with `new ECOPlannerRequester(originalRequester, options)` and call `beginCraftingCalculation`. ECO does not cancel or replace a Future returned earlier by another planner. Enabling the grid switch alone does not redirect every unmarked third-party request.
 
-The parent plans bounded child segments from fresh stock, waits for materials/capacity, and credits completed child delivery. Read `ECOBigOrderProgress` through `ECOCraftingProgressView.bigOrder()` when exposed by the CPU. States include `PLANNING`, `RUNNING_CHILD`, `WAITING_MATERIALS`, `WAITING_CAPACITY`, `COMPLETED`, `CANCELLED`, and `FAILED`.
-
-`ECOBigOrderAdmission.allows(result, forced)` is for converting eligible confirmation diagnostics: it allows `PLANNED_BUT_AMOUNT_UNREPRESENTABLE`, or forced `MISSING_ITEMS`, subject to component checks. It rejects unresolved, unsupported, and solved-but-unemitted components. `ECOBigOrderRequest.fromPlanningResult` takes the goal amount from the plan's long projection; use the constructor above when the requested quantity itself exceeds long. Forced mode does not create materials or make an unknown route executable.
-
-The current confirmation menu has a separate exact-order path. Its big-order action checks admission, the selected ECO CPU, and, in non-forced mode, the current stock, then submits an internal `ECOExactCraftingPlan` directly to that CPU. The adapter retains the complete exact task vector and deferred stock/emission amounts, with bounded long windows for AE2 calls. This menu action does not bind an `ECOBigOrderRequest` or create the segmented parent described above. The adapter is an implementation detail; use the parent API when you want its segment planning and parent progress contract.
-
-Source: [parent request](../src/main/java/cn/dancingsnow/neoecoae/api/me/bigorder/ECOBigOrderRequest.java), [admission](../src/main/java/cn/dancingsnow/neoecoae/api/me/bigorder/ECOBigOrderAdmission.java), [segment planner](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/ECOBigOrderPlanner.java), [confirmation menu](../src/main/java/cn/dancingsnow/neoecoae/mixins/ae2/menu/CraftConfirmMenuMixin.java), [exact adapter](../src/main/java/cn/dancingsnow/neoecoae/crafting/adapter/ae2/ECOExactCraftingPlan.java).
-
-## 5. Job events, attachments, and policies
-
-### Observe jobs
-
-Register one listener during common setup and retain it for teardown:
-
-```java
-import cn.dancingsnow.neoecoae.api.me.lifecycle.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-public final class EcoLifecycleExample implements AutoCloseable {
-    private static final Logger LOG = LoggerFactory.getLogger("examplemod.eco");
-    private final ECOCraftingLifecycleListener listener = new ECOCraftingLifecycleListener() {
-        @Override public void onJobStarted(ECOCraftingJobContext job) {
-            LOG.info("Job {} started", job.craftingJobId());
-        }
-        @Override public void onPatternDispatched(ECOCraftingDispatchEvent event) {
-            LOG.debug("Job {} accepted {} crafts",
-                event.job().craftingJobId(), event.exactDispatchedCrafts());
-        }
-        @Override public void onJobFinished(ECOCraftingJobContext job, ECOCraftingJobResult result) {
-            LOG.info("Job {} ended: {}", job.craftingJobId(), result.status());
-        }
-    };
-
-    public EcoLifecycleExample() { ECOCraftingLifecycle.register(listener); }
-    @Override public void close() { ECOCraftingLifecycle.unregister(listener); }
-}
-```
-
-Events describe ECO job start, **accepted** provider dispatch, and terminal results. Use `exactDispatchedCrafts()` for exact dispatch counts; the compatibility long field may be bounded. Job-context and terminal-result amount fields remain long views. Listen without extracting inputs, pushing providers, or changing task state. Listener runtime exceptions are logged and isolated.
-
-### Persist a per-job attachment
-
-An attachment belongs to one job and owns a private NBT payload:
-
-```java
-import cn.dancingsnow.neoecoae.api.me.attachment.*;
-import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingJobResult;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
-
-public final class EcoLabelAttachment implements ECOCraftingJobAttachment {
-    private static final ResourceLocation ID =
-        ResourceLocation.fromNamespaceAndPath("examplemod", "label");
-    private String label;
-
-    private EcoLabelAttachment(String label) { this.label = label; }
-
-    public static void register() {
-        ECOCraftingJobAttachmentRegistry.register(ID,
-            context -> new EcoLabelAttachment(context.craftingJobId().toString()));
-    }
-
-    @Override public ResourceLocation id() { return ID; }
-    @Override public CompoundTag save(HolderLookup.Provider registries) {
-        var tag = new CompoundTag();
-        tag.putString("label", label);
-        return tag;
-    }
-    @Override public void load(CompoundTag tag, HolderLookup.Provider registries) {
-        label = tag.getString("label");
-    }
-    @Override public void clear(ECOCraftingJobResult result) { label = ""; }
-}
-```
-
-Call `EcoLabelAttachment.register()` once during common setup. Registration IDs must be unique, and each factory result's `id()` must match its registration. ECO invokes `save`, `load`, and `clear`; terminal statuses are `SUCCESS`, `FAILURE`, or `CANCELLED`. Unknown/unbound saved payloads are retained for later resolution. Factory and load failures do not authorize dropping the job's physical inventory. Attachment creation/binding methods are ECO internals.
-
-### Pause dispatch
-
-```java
-import cn.dancingsnow.neoecoae.api.me.dispatch.*;
-import java.util.function.BooleanSupplier;
-
-public final class EcoPolicyExample {
-    public static ECOCraftingDispatchPolicy install(BooleanSupplier enabled) {
-        var policy = new ECOCraftingDispatchPolicy() {
-            @Override public boolean mayTick(ECOCraftingCpuContext cpu) {
-                return enabled.getAsBoolean();
-            }
-        };
-        ECOCraftingDispatchPolicyRegistry.register(policy);
-        return policy; // Unregister this same instance during teardown.
-    }
-}
-```
-
-All installed policies must permit the tick/provider. Override `isProviderAvailable(cpu, provider)` for additional selection rules; its default respects `provider.isBusy()`. Exceptions deny the current operation. These callbacks must not debit inputs, push patterns, or mutate tasks. Use `ECOCraftingDispatchPolicyRegistry.unregister(policy)` to remove the same installed instance.
-
-## 6. Provider integration
-
-### Ordinary parallel intake
-
-```java
-import appeng.api.crafting.IPatternDetails;
-import appeng.api.networking.crafting.ICraftingProvider;
-import appeng.api.stacks.KeyCounter;
-import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
-import java.util.UUID;
-
-public abstract class EcoParallelProviderExample
-        implements ICraftingProvider, ECOParallelCraftingProvider {
-    @Override public int eco$getAvailableParallelSlots() { return freeLanes(); }
-
-    @Override public boolean eco$pushPatternBatch(IPatternDetails pattern,
-            KeyCounter[] inputTotal, long craftCount, UUID jobId) {
-        if (craftCount <= 0 || craftCount > freeLanes()) return false;
-        return acceptWholeBatch(pattern, inputTotal, craftCount, jobId);
-    }
-
-    protected abstract int freeLanes();
-    // Implement one atomic reservation/acceptance of the full batch in your machine.
-    protected abstract boolean acceptWholeBatch(IPatternDetails pattern,
-        KeyCounter[] inputTotal, long craftCount, UUID jobId);
-}
-```
-
-Implement the abstract methods using your machine's queue transaction. `inputTotal` contains **all inputs for `craftCount` copies**, in AE2 key units. Return true only after owning the entire batch. On false, leave inputs untouched; partial acceptance cannot be reported as clean rejection. The job ID may be null.
-
-For a foreign provider class, register `ECOParallelCraftingProviders.register(providerClass, adapter)` during setup. The adapter returns an `ECOParallelCraftingProvider` for that instance, or null. Resolve contracts with `ECOParallelCraftingProviders.find(provider)` to support both direct implementations and adapters. Cached wrappers must query live capacity. Avoid overlapping class registrations: adapter iteration has no declared priority order. Registration persists for the session.
-
-### FastPath provider contract
-
-`ECOFastPathDispatchProvider` is the separate contract for verified atomic FastPath execution. A preparation probe must not move resources. Providers validate the concrete recipe, return/container semantics, capacity, and commit target.
-
-For an optional integration, reuse `ECOParallelCraftingProviders.register(providerClass, adapter)` and return an adapter implementing both `ECOParallelCraftingProvider` and `ECOFastPathDispatchProvider`. Keep this adapter and its registration in integration code loaded only when NeoECOAE is present, so the machine class itself remains loadable without NeoECOAE. `ECOFastPathFacade.supports`, `resolveProvider`, `prepare`, `prepareAllocated`, and `prepareExactAllocated` discover its FastPath capability. Direct FastPath implementations take precedence, followed by registered adapters and then the built-in compatibility bridges. An ordinary-only adapter does not enable FastPath.
-
-`Preparation.capacity` is a positive `long`, independent of the ordinary `int` slot count; return null when no complete copy fits. `ECOBatchDispatchContext.inputs()` describes **one copy**, while `Batch.inputTotal()` contains **the full batch total**. Do not mutate the batch collections: the CPU retains them for rollback. Exact allocated batches require a separate `eco$prepareExactFastPath` implementation; its default still declines support.
-
-| Method/value | Meaning |
+| Option | Contract |
 | --- | --- |
-| `eco$prepareFastPath(context)` | Null declines support; otherwise returns positive capacity and a dispatch callback. |
-| `ECOBatchDispatchContext` | Concrete input slots, outputs, and remainders for **one pattern copy**. |
-| `Preparation.statefulCalculator` | Optional calculator for changing/reused material state; honor `statefulCalculatorRequired`. |
-| `Batch.inputTotal/outputTotal/remainingTotal` | Complete totals of the accepted batch. |
-| `supportsExactInputs`, `Batch.exactInputTotal` | Explicit opt-in to exact debit; never truncate exact inputs for a legacy provider. |
-| `eco$prepareExactFastPath(context, requested)` | Separate exact-count contract; its default declines support. |
-| `ECOBatchCapacityProvider` | Deprecated bridge; use `ECOFastPathDispatchProvider` for new integrations. |
+| `cyclePlanningEnabled` | Allow unavoidable cyclic components into the solver |
+| `ignorePatternSubstitutions` | Plan only the encoded preferred input |
+| `fuzzyPlanningItemIds` | Ignore components for selected items during planning; actual inputs must still pass pattern validation |
+| `planningLogEnabled` | Legacy compatibility field; logging uses the global Calculating debug configuration |
 
-A provider returns true only after full acceptance. False or an ordinary exception guarantees no acceptance, allowing CPU rollback. If acceptance may have happened, throw `ECOIndeterminateBatchException`; resources remain owned by the transaction and the job must stop for reconciliation. Never refund and retry an uncertain acceptance.
+`ECOPlannerOptions.from(settings)` captures current options. `from(null)` disables cycle planning and ignored substitutions and uses an empty fuzzy set. Mutating shared grid settings requires authorization. Check source-specific eligibility with `neoecoae$hasComputationHost(source)`.
 
-### External CPU using ECO's transaction facade
+`REPORT_MISSING_ITEMS` retains the original request and shortage report. `CRAFT_LESS` may return a smaller amount; read `plan.finalOutput().amount()`. A non-null plan can be a simulation report. Read status, `exactMissingItems()`, `theoreticalBytes()` and `trace().diagnostics()` through [ECOCraftingPlanDiagnostics](../src/main/java/cn/dancingsnow/neoecoae/api/me/diagnostics/ECOCraftingPlanDiagnostics.java) or [ECOPlanningResultRegistry.find](../src/main/java/cn/dancingsnow/neoecoae/api/me/planning/ECOPlanningResultRegistry.java); verify `resolveContract(...).executable()` before submission. Do not assume every plan provides stage `executionPlan()` metadata.
 
-```java
-import appeng.api.crafting.IPatternDetails;
-import appeng.api.networking.crafting.ICraftingProvider;
-import appeng.api.networking.energy.IEnergyService;
-import appeng.api.stacks.KeyCounter;
-import appeng.crafting.inv.ListCraftingInventory;
-import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
-import net.minecraft.world.level.Level;
-import java.util.UUID;
-import java.util.function.Consumer;
+`withSubmissionAlias` binds metadata only during a synchronous submission callback. Keep execution identity intact; do not copy or scale task vectors to reuse another plan's metadata. The registry is bounded and expiring, not persistent storage.
 
-public final class EcoFastPathExample {
-    // oneCopyInputs/Outputs/Remainders are previews; inputs are still in cpuInventory.
-    public static boolean dispatch(ICraftingProvider provider, IPatternDetails pattern,
-            KeyCounter[] oneCopyInputs, KeyCounter oneCopyOutputs, KeyCounter oneCopyRemainders,
-            ListCraftingInventory cpuInventory, long maxCrafts, double powerPerCraft,
-            IEnergyService energy, Level level, UUID jobId,
-            ECOFastPathFacade.EnergyAccount energyAccount,
-            Consumer<ECOFastPathFacade.PreparedBatch> accountAccepted) {
-        var prepared = ECOFastPathFacade.prepare(provider, pattern,
-            oneCopyInputs, oneCopyOutputs, oneCopyRemainders, cpuInventory,
-            maxCrafts, powerPerCraft, energy, level, jobId);
-        if (prepared == null || !prepared.submit(energyAccount)) return false;
-        // Provider acceptance already happened. Do not retry if accounting throws.
-        accountAccepted.accept(prepared);
-        return true;
-    }
-}
-```
+### Exact parent orders
 
-Prepare and submit in the same server-thread tick. Physical inputs stay in the CPU inventory until the facade extracts them. The CPU must not extract/refund those inputs separately. The CPU's `EnergyAccount.reserve` returns a reservation whose `commit()` cannot throw and whose `refund()` retains energy the network cannot receive as persistent CPU credit.
+`ECOBigOrderRequest` accepts positive `BigInteger` totals, currently limited to 1024 decimal digits. The helper's explicit target must be an eligible ECO CPU or its advertised idle ECO placeholder; ordinary AE2 CPUs cannot interpret the parent carrier.
 
-`PreparedBatch` is single-use, including rejection. Null preparation or false submission permits clean fallback after rollback. An indeterminate exception requires stopping the job. After true, the CPU accounts task counts, outputs, and remainders **once** using the returned totals; an accounting failure cannot undo provider acceptance.
+`request.submit(callback)` binds the request to that exact carrier object for the synchronous callback. Do not submit a separately obtained `carrier()` later, copy the carrier or run the callback asynchronously. Its long output is a bounded projection. `fromPlanningResult` reads a long plan projection; construct the request directly for totals exceeding long.
 
-`prepareParallel` adapts the ordinary parallel contract. `prepareAllocated` is restricted to already allocated, stateless uniform copies without returned inputs; its ownership rules differ from inventory-backed preparation. Read the [facade contract](../src/main/java/cn/dancingsnow/neoecoae/api/me/ECOFastPathFacade.java) before using either.
+The parent plans bounded child segments against fresh inventory. [ECOBigOrderPlanner.begin](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/ECOBigOrderPlanner.java) probes one segment without creating a parent. [ECOBigOrderAdmission.allows](../src/main/java/cn/dancingsnow/neoecoae/api/me/bigorder/ECOBigOrderAdmission.java) checks diagnostic/forced admission; forced mode creates no materials and does not accept unknown or unsupported routes. Read exact parent state through `ECOCraftingProgressView.bigOrder()`.
 
-`api.fastpath.EcoFastpathHost` is a separate inspect/submit capability protocol. Requests carry its capability ID, API version, nonce, processing definition, and per-craft inputs. Obtain an actual host implementation from your integration; this interface does not provide a global capability lookup or replace CPU transactions.
+The confirmation menu's full exact-plan submission and the segmented parent API have distinct contracts. Do not construct parent orders from internal menu adapters.
 
-## 7. Output delivery, virtual completion, and progress
+## Job events, attachments and policies
 
-```java
-import appeng.api.config.Actionable;
-import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.api.me.output.*;
-import java.util.UUID;
-
-public final class EcoOutputExample {
-    public static ECOCraftingOutputClaimResult deliver(ECOCraftingOutputClaimSink sink,
-            UUID jobId, AEKey expected, AEKey actual, long offered) {
-        return sink.claimCraftingOutput(new ECOCraftingOutputClaimRequest(
-            jobId, expected, actual, offered, Actionable.MODULATE));
-    }
-}
-```
-
-Obtain the sink through the integration's CPU/logic bridge; the legacy ECO CPU exposes `getOutputClaimSink()`. Expected and actual keys may differ for a dynamic output. The claim operation validates job identity, consumes reserved demand, routes the actual product, and updates completion together.
-
-Remove only `claimedAmount()` from your producer's physical buffer after a modulating call. Retain the unclaimed remainder. Simulation reports matching demand and projected routing without consuming resources. A claim can be accepted into the CPU even when the destination is full; inspect `deliveredToRequester()`, `deliveredToNetwork()`, and `storedInCpu()` separately. Never insert the claimed amount again through another route.
-
-| Interface | Call and responsibility |
+| Capability | Registration and contract |
 | --- | --- |
-| `ECOCraftingOutputClaimSink` | `claimCraftingOutput(request)`; read status and actual claimed amount. |
-| `ECOCraftingOutputRouter` | `neoecoae$insertIntoCpuForJob(jobId, key, amount, mode)`; route outputs to their owner and retain the unaccepted remainder. |
-| `ECOJobOutputReceiver` | `neoecoae$insertWorkerOutput(...)`; CPU-side receipt, including surplus. |
-| `ECOVirtualCraftingCompletionSink` | `tryCompleteVirtualCrafting(pattern, completedCrafts)`; accepted logical executions do not necessarily finish the entire job. |
-| `ECOCraftingProgressSink` | `recordCompletedCraftingWork(amount, keyType)`; only report work already completed. |
-| `ECOCraftingProgressView` | Read `progress()`, `elapsedTimeNanos()`, work by key type, and optional parent-order progress. |
+| Lifecycle | `ECOCraftingLifecycle.register(listener)`; remove that instance with `unregister`. Callbacks: `onJobStarted`, `onPatternDispatched`, `onJobFinished` |
+| Persistent attachments | `ECOCraftingJobAttachmentRegistry.register(id, factory)`; implement [ECOCraftingJobAttachment](../src/main/java/cn/dancingsnow/neoecoae/api/me/attachment/ECOCraftingJobAttachment.java) `id/save/load/clear`, with an independent instance per job |
+| Dispatch policy | `ECOCraftingDispatchPolicyRegistry.register(policy)`; implement `mayTick(cpu)` and `isProviderAvailable(cpu, provider)`; unregister the same instance |
 
-Progress accounting does not deliver physical resources. Do not independently report completion when the output-claim path already updated it. Keep simulation, actual delivery, and virtual completion separate.
+A dispatch event reports provider acceptance, not completion. Read exact counts with `exactDispatchedCrafts()`. Listener exceptions are isolated; observers must not debit inputs, dispatch again or mutate the job.
 
-Source: [claim result](../src/main/java/cn/dancingsnow/neoecoae/api/me/output/ECOCraftingOutputClaimResult.java), [virtual completion](../src/main/java/cn/dancingsnow/neoecoae/api/me/completion/ECOVirtualCraftingCompletionSink.java), [progress](../src/main/java/cn/dancingsnow/neoecoae/api/me/progress/ECOCraftingProgressView.java).
+Attachment IDs must be unique and match the returned object's ID. ECO owns save/load/clear. Unbound historical data is retained for recovery; a factory failure does not authorize discarding job resources.
 
-### Register virtual crafting coolants
+Every policy must allow the operation. Default provider availability checks `isBusy()`; policy exceptions reject the operation. Pausing does not change ownership of an accepted batch.
 
-The crafting host's Infinite Mode allows Cryotheum Solution by default. Add-ons can allow additional fluid registry IDs during common setup:
+## Providers and FastPath
 
-```java
-import cn.dancingsnow.neoecoae.api.me.cooling.ECOVirtualCraftingCoolantRegistry;
-import net.minecraft.resources.ResourceLocation;
-import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+Ordinary providers implement AE2 `ICraftingProvider`. For atomic parallel acceptance, implement `ECOParallelCraftingProvider`:
 
-public static void commonSetup(FMLCommonSetupEvent event) {
-    event.enqueueWork(() -> ECOVirtualCraftingCoolantRegistry.register(
-        ResourceLocation.fromNamespaceAndPath("yourmod", "supercoolant")));
-}
-```
+- `eco$getAvailableParallelSlots()` returns current free capacity.
+- `eco$pushPatternBatch(pattern, inputTotal, craftCount, jobId)` receives the complete batch total; `jobId` may be null.
+- Return true only after accepting all inputs. False guarantees unchanged inputs, never partial acceptance.
 
-Registration only allows the fluid to fund virtual crafting. Supply a matching `neoecoae:cooling` recipe with `max_overclock >= 9` and enough coolant points. Each executing FX lane consumes 10,000 points per tick from the shared exchange network. Structure, overclock, active cooling, and power requirements still apply.
+Adapt external classes with [ECOParallelCraftingProviders.register(providerClass, adapter)](../src/main/java/cn/dancingsnow/neoecoae/api/me/provider/ECOParallelCraftingProviders.java). Return the capability or null. Query live capacity; overlapping adapter types have no priority guarantee.
 
-`register` is idempotent; `unregister` revokes a custom registration while the built-in Cryotheum Solution remains allowed. Changes immediately affect buffered coolant and server diagnostics; the information tooltip lists the allowed fluids by name. Registrations are process-wide and are not saved per world. A buffer containing another fluid must still be emptied through ordinary crafting before replacement; different fluids cannot mix.
+FastPath uses the separate `ECOFastPathDispatchProvider`:
 
-Source: [virtual crafting coolant registry](../src/main/java/cn/dancingsnow/neoecoae/api/me/cooling/ECOVirtualCraftingCoolantRegistry.java).
-
-## 8. Pattern routing and container ownership
-
-### Standard patterns and optional capabilities
-
-Ordinary patterns implement AE2's `IPatternDetails` and need no ECO registration or base class. ECO preserves the original pattern instance and AEKey components, reads input multipliers and remainders through `IInput`, and dispatches through `ICraftingProvider`. Only primary input alternatives are autocrafted; other alternatives are inventory choices. The crafting service determines which outputs advertise a producer; remaining outputs still count as byproducts. Component-insensitive planning never overrides `IInput.isValid`.
-
-Additional semantics belong in `api.me.pattern`. Register once during common initialization, before starting jobs:
-
-```java
-import appeng.api.crafting.IPatternDetails;
-import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemanticAdapter;
-import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemantics;
-import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemanticsRegistry;
-import net.minecraft.resources.ResourceLocation;
-
-public final class EcoPatternIntegration {
-    public static void register(ECOPatternSemanticAdapter specialSemantics) {
-        ECOPatternSemanticsRegistry.register(
-            ResourceLocation.fromNamespaceAndPath("examplemod", "special_pattern"), 100,
-            specialSemantics);
-    }
-
-    // Example for a CPU-specific contract whose execution cannot be proved by static AE2 analysis.
-    public static abstract class CpuRestrictedPattern implements ECOPatternSemanticAdapter {
-        @Override public abstract boolean supports(IPatternDetails pattern);
-        @Override public ECOPatternSemantics analyze(IPatternDetails pattern, ECOPatternSemantics base) {
-            return new ECOPatternSemantics(pattern, base.physicalDefinition(), base.consumedInputs(),
-                base.producedOutputs(), base.returnedOutputs(), base.feedbackEdges(), base.matchingMode(),
-                ECOPatternSemantics.ExecutionRestriction.CPU, base.exactStaticAnalysis(), false,
-                base.unsupportedReason());
-        }
-    }
-}
-```
-
-An adapter refines the ordinary AE2 result supplied as `base`. Use `ECOPatternSemantics.unsupported(pattern, base.physicalDefinition(), reason)` if the special contract cannot be analyzed. The immutable description uses `BigInteger` for exact normalized input/feedback amounts and AE2 `GenericStack` for outputs. Return the **same physical pattern instance**. Optional `ignoresComponents` and `preferredInputKey` hooks describe special matching; actual inputs must remain accepted by the pattern. Callbacks are pure and may run on planning workers.
-
-Registration IDs must be unique. Higher priority wins; equal priorities use lexicographic ID order. Only the first matching adapter applies; no match uses ordinary AE2 semantics. Matching/analysis failures produce unsupported semantics instead of silently falling through to a broader adapter. `unregister(id)` removes a custom registration. Registration changes and recipe reloads invalidate compiled structures, phase semantics, cached verification, and previously issued optimization credentials. Register during initialization; changing contracts during a calculation makes that calculation fail safely and requires a fresh calculation.
-
-`ECOExecutionOptimizationRegistry.register(id, priority, adapter)` independently authorizes optional execution guarantees. `ECOExecutionOptimization.VERIFIED_ASSEMBLER` is only for deterministic molecular-assembler-compatible patterns whose concrete outputs/remainders ECO can verify; it never turns an ordinary processing pattern into virtual crafting. Unregistered patterns retain ordinary dispatch. Provider capacity, transaction admission, and virtual completion remain governed by their existing provider APIs. The same ID/priority rules apply; callback failures deny optimization, and `unregister` revokes existing credentials.
-
-Provider lookup wrappers may implement `ECOPatternWrappers.Wrapper.ecoProviderPattern()` or register a known external interface using `ECOPatternWrappers.register(id, priority, contractClass, accessor)`. ECO does not guess delegate method names. Unregistered patterns remain unchanged; cycles, null delegates, failing accessors, or chains beyond 128 wrappers reject unwrapping and cannot authorize optimized dispatch.
-
-Sources: [semantic registry](../src/main/java/cn/dancingsnow/neoecoae/api/me/pattern/ECOPatternSemanticsRegistry.java), [execution capabilities](../src/main/java/cn/dancingsnow/neoecoae/api/me/pattern/ECOExecutionOptimizationRegistry.java), [wrapper contracts](../src/main/java/cn/dancingsnow/neoecoae/api/me/pattern/ECOPatternWrappers.java).
-
-### Route encoded patterns
-
-```java
-import appeng.api.crafting.IPatternDetails;
-import appeng.api.networking.IGrid;
-import appeng.api.stacks.AEItemKey;
-import cn.dancingsnow.neoecoae.api.*;
-import net.minecraft.world.item.ItemStack;
-
-public final class EcoPatternExample {
-    public static ECOPatternInsertion insert(IGrid grid, ItemStack encoded,
-            IPatternDetails decoded) {
-        var service = grid.getService(IECOPatternStorageService.class);
-        var prepared = new ECOPreparedPattern(encoded, decoded, AEItemKey.of(encoded));
-        return service.insertPreparedPatternReporting(prepared);
-    }
-}
-```
-
-Use already decoded details that match the encoded stack. The grid service handles routing and duplicate detection:
-
-| Result | Caller action |
+| Phase/data | Contract |
 | --- | --- |
-| `INSERTED` | Commit the source transfer according to the reporting result. |
-| `ALREADY_PRESENT` | The recipe already exists; do not assume the source item was moved. |
-| `NO_SPACE` | Keep the source and retry when capacity changes. |
-| `INCOMPATIBLE`, `NO_TARGET` | Keep the source and report the unsupported/missing destination. |
+| `eco$prepareFastPath(context)` | Read-only probe; null for unsupported, otherwise positive long capacity and commit callback |
+| `ECOBatchDispatchContext.inputs()` | Inputs for one execution |
+| `Batch.inputTotal/outputTotal/remainingTotal` | Whole-batch totals; do not modify rollback collections |
+| `supportsExactInputs`, `exactInputTotal` | Explicit exact-input support, without truncation for legacy providers |
+| `eco$prepareExactFastPath(context, requested)` | Separate exact-count capability, unsupported by default |
 
-When the destination stores the encoded **item**, no blank is owed. When `consumedSource()` is true, a container absorbed the recipe; `blankReplacement()` must be non-empty. Secure delivery of the complete replacement before clearing the source. Track a partially completed migration transaction so retry does not duplicate insertion or blanks.
+Resolution checks direct implementations, external adapters, then built-in bridges. Parallel-only adapters do not gain FastPath automatically. `ECOBatchCapacityProvider` is deprecated; use the new contract.
 
-`IECOPatternStorage` is an AE2 node service for writable destinations. Register it on the managed node. Its `KnownUnique` methods require a prior duplicate proof; they are not general insertion shortcuts. `canAcceptIntoAuxiliary` must be side-effect-free. Hosts indexed by the catalog expose `PatternStorageHost` and `AuxiliaryPatternHolder`: use real slot inventories, cheap revision tokens, stable auxiliary ordering, and refreshed advertised patterns.
+True means full acceptance. False or an ordinary exception guarantees no acceptance and permits CPU rollback. If acceptance is uncertain, throw [ECOIndeterminateBatchException](../src/main/java/cn/dancingsnow/neoecoae/api/me/provider/ECOIndeterminateBatchException.java) and stop for reconciliation; never refund then retry uncertain acceptance. Providers do not debit/refund CPU inputs or energy themselves.
 
-External migration uses owner UUID claims from `claimExternalPatternCandidates`. Candidates can be processed before the scan's `ready` flag becomes true. Release claims on every exit; release one candidate for a temporary no-space result and remove a candidate after its source is emptied. Do not retain source-slot references through topology changes.
+External CPUs call `ECOFastPathFacade.prepare(...)` and single-use `PreparedBatch.submit(energyAccount)` in one server tick. Inputs remain in CPU inventory until the facade debits them. After true, account the returned totals once; later accounting failure cannot undo provider acceptance. `EnergyAccount.commit()` must not throw; persist energy refunds the network cannot accept. `prepareAllocated` has different ownership for preallocated inputs; read the facade Javadoc before using it.
 
-`PatternStorageHost` is excluded from network pattern migration sources by default, preserving the host's installed patterns. An addon host that also implements AE2's `PatternContainer` can override this method to opt in; it must still be an active machine on the same AE2 network:
+[EcoFastpathHost](../src/main/java/cn/dancingsnow/neoecoae/api/fastpath/EcoFastpathHost.java) is a separate inspect/submit protocol obtained from an actual host integration, without global capability discovery or replacement of CPU transactions.
 
-```java
-@Override
-public boolean allowsPatternMigrationSource() {
-    return true;
-}
-```
+## Outputs, progress and machine diagnostics
 
-Migration reads the physical slots from `getPatternSlotInventory()`, leaving auxiliary recipes appended by the terminal view alone. This switch controls source eligibility; destination routing, duplicate detection, and network scope keep their existing rules.
+[ECOCraftingOutputClaimSink.claimCraftingOutput](../src/main/java/cn/dancingsnow/neoecoae/api/me/output/ECOCraftingOutputClaimSink.java) accepts `ECOCraftingOutputClaimRequest(jobId, expected, actual, amount, mode)`, combining job identity, expected demand, actual output routing and accounting. Expected and actual keys may differ.
 
-Source: [reporting result](../src/main/java/cn/dancingsnow/neoecoae/api/ECOPatternInsertion.java), [writable storage](../src/main/java/cn/dancingsnow/neoecoae/api/IECOPatternStorage.java), [catalog host](../src/main/java/cn/dancingsnow/neoecoae/api/PatternStorageHost.java).
+Remove only the returned `claimedAmount()` from the producer's physical buffer. Keep unclaimed resources. Inspect `deliveredToRequester()`, `deliveredToNetwork()` and `storedInCpu()`; never deliver an already claimed amount through another path. `SIMULATE` transfers nothing.
 
-## 9. Storage calls and cell integration
+| Entry point | Responsibility |
+| --- | --- |
+| [ECOCraftingOutputRouter](../src/main/java/cn/dancingsnow/neoecoae/api/me/output/ECOCraftingOutputRouter.java) | Route output to a CPU by job ID |
+| [ECOJobOutputReceiver](../src/main/java/cn/dancingsnow/neoecoae/api/me/output/ECOJobOutputReceiver.java) | Accept Worker outputs and surplus |
+| [ECOVirtualCraftingCompletionSink](../src/main/java/cn/dancingsnow/neoecoae/api/me/completion/ECOVirtualCraftingCompletionSink.java) | Accept virtual completion counts, not necessarily finish the whole job |
+| [ECOCraftingProgressSink](../src/main/java/cn/dancingsnow/neoecoae/api/me/progress/ECOCraftingProgressSink.java) | Report completed work without delivering resources |
+| [ECOCraftingProgressView](../src/main/java/cn/dancingsnow/neoecoae/api/me/progress/ECOCraftingProgressView.java) | Read progress, elapsed time, key-type work and optional parent progress |
+| [ECOProcessingStatusRegistry](../src/main/java/cn/dancingsnow/neoecoae/api/me/diagnostics/ECOProcessingStatusRegistry.java) | Register [ECOProcessingStatusReader](../src/main/java/cn/dancingsnow/neoecoae/api/me/diagnostics/ECOProcessingStatusReader.java) under a stable ID; remove with `unregister(id)` |
 
-```java
-import appeng.api.config.Actionable;
-import appeng.api.networking.security.IActionSource;
-import appeng.api.stacks.AEKey;
-import appeng.api.storage.MEStorage;
-import appeng.api.storage.cells.ISaveProvider;
-import net.minecraft.world.item.ItemStack;
-import cn.dancingsnow.neoecoae.api.storage.*;
-import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
-import java.math.BigInteger;
+Do not report progress twice if the output path already recorded it. Machine readers observe without loading chunks or advancing machines; providers can expose processing targets through [ECOProcessingTargetProvider](../src/main/java/cn/dancingsnow/neoecoae/api/me/diagnostics/ECOProcessingTargetProvider.java).
 
-public final class EcoStorageExample {
-    public static void register(FMLCommonSetupEvent event, IECOCellHandler handler) {
-        event.enqueueWork(() -> ECOStorageCells.register(handler));
-    }
+[ECOVirtualCraftingCoolantRegistry.register(fluidId)](../src/main/java/cn/dancingsnow/neoecoae/api/me/cooling/ECOVirtualCraftingCoolantRegistry.java) extends the virtual-crafting fluid allowlist. A qualifying `neoecoae:cooling` recipe and normal cooling, structure and power requirements still apply. Registration is idempotent; `unregister` removes custom entries while preserving built-ins. The registry is process-wide, not saved in worlds.
 
-    public static IECOStorageCell inventory(ItemStack cell, ISaveProvider host) {
-        return ECOStorageCells.getCellInventory(cell, host);
-    }
+## Pattern semantics and insertion
 
-    public static void release(ItemStack cell, ISaveProvider host) {
-        ECOStorageCells.releaseCellInventory(cell, host);
-    }
+Standard patterns need only AE2 `IPatternDetails`. Register special [ECOPatternSemanticAdapter](../src/main/java/cn/dancingsnow/neoecoae/api/me/pattern/ECOPatternSemanticAdapter.java) instances with `ECOPatternSemanticsRegistry.register(id, priority, adapter)`:
 
-    public static void setPriority(Object host, int priority) {
-        if (host instanceof IECOStoragePriorityHost target) target.setStoragePriority(priority);
-    }
+- Extend the generic analysis while preserving the same physical pattern instance.
+- Return `ECOPatternSemantics.unsupported(...)` when accurate analysis is unavailable.
+- Higher priority wins, with ID ordering for ties; only the first matching adapter applies. Analysis failure does not fall through to a more permissive adapter.
+- Normalized input/feedback amounts stay exact; actual inputs must still satisfy `IInput.isValid`.
 
-    public static BigInteger insertExact(MEStorage storage, AEKey key,
-            BigInteger offered, IActionSource source) {
-        return ECOBigIntegerStorage.insert(storage, key, offered, Actionable.MODULATE, source);
-    }
-}
-```
+Execution optimization requires separate `ECOExecutionOptimizationRegistry` authorization. `VERIFIED_ASSEMBLER` cannot turn arbitrary processing into virtual crafting. Wrappers implement [ECOPatternWrappers.Wrapper](../src/main/java/cn/dancingsnow/neoecoae/api/me/pattern/ECOPatternWrappers.java) or register a specific contract/accessor; delegate names are not guessed. Registration changes invalidate related caches and old optimization credentials; avoid changing contracts mid-calculation.
 
-Register each `IECOCellHandler` once in enqueued common setup. The first non-null inventory wins. Keep recognition, inventory creation, host-bound cache release, and runtime-state clearing consistent. Implement `IECOStorageCell` for the inventory and `IECOStorageCellItem`/`IBasicECOCellItem` for item metadata.
+For encoded items, obtain `grid.getService(IECOPatternStorageService.class)`, construct [ECOPreparedPattern](../src/main/java/cn/dancingsnow/neoecoae/api/ECOPreparedPattern.java) from the item, its matching decoded pattern and `AEItemKey.of(encoded)`, then call `insertPreparedPatternReporting`.
 
-To use the handler facade directly, pass the host that owns the cell when one exists and release it when the host is discarded:
+| Result | Ownership |
+| --- | --- |
+| `INSERTED` | Complete the source transfer according to [ECOPatternInsertion](../src/main/java/cn/dancingsnow/neoecoae/api/ECOPatternInsertion.java) |
+| `ALREADY_PRESENT` | The recipe exists; this does not mean the source item was accepted |
+| `NO_SPACE` | Retain the source and retry after capacity changes |
+| `INCOMPATIBLE/NO_TARGET` | Retain the source and report the missing compatible target |
 
-`EcoStorageExample.inventory` resolves the host-bound inventory, and `release` releases that binding when the host is removed.
+Physical item storage returns no blank. When a container absorbs the recipe, `consumedSource()` is true: deliver `blankReplacement()` before clearing the source. Persist partially completed transfers to prevent duplicate insertion or blank returns.
 
-The facade is synchronized. It does not transfer item ownership or authenticate the caller; those are host/terminal responsibilities.
+Writable node services implement [IECOPatternStorage](../src/main/java/cn/dancingsnow/neoecoae/api/IECOPatternStorage.java); `KnownUnique` methods require proof of uniqueness. Directory hosts use [PatternStorageHost](../src/main/java/cn/dancingsnow/neoecoae/api/PatternStorageHost.java) and [AuxiliaryPatternHolder](../src/main/java/cn/dancingsnow/neoecoae/api/AuxiliaryPatternHolder.java) to expose real slots, revisions and stable content ordering. Opt into migration sourcing with `allowsPatternMigrationSource()`.
 
-### Restricting insertion into native ME drives and ME chests
+Claim external candidates under an owner UUID and release claims on every exit path. Remove candidates after clearing the source. An unfinished scan can still expose usable candidates; discard old slot references after topology changes.
 
-Implement the public `INativeMEStorageRestrictedItem` interface on your cell Item to reuse the insertion restriction. No ECO cell superclass or registration is required:
+## Storage cells and exact amounts
 
-```java
-import cn.dancingsnow.neoecoae.api.storage.INativeMEStorageRestrictedItem;
-import net.minecraft.world.item.Item;
+Register handlers with `ECOStorageCells.register(IECOCellHandler)`. `getCellInventory(stack, saveProvider)` may return null. On cell replacement or host unload, call `releaseCellInventory` so the handler saves/releases owned state. [IECOStorageCell](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStorageCell.java) defines inventory behavior; [IECOStorageCellItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStorageCellItem.java) and [IBasicECOCellItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IBasicECOCellItem.java) expose item capabilities.
 
-public final class AddonCellItem extends Item implements INativeMEStorageRestrictedItem {
-    public AddonCellItem(Properties properties) { super(properties); }
-}
-```
+For `ICellHost`, install exactly one valid cell; null requests removal, while `ItemStack.EMPTY` does not. Check `isItemValid/canExtractCell`, call void `setCellStack`, then re-read the slot before transferring source/old-cell ownership. Do not mutate its returned live stack. [IECOStoragePriorityHost.setStoragePriority](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStoragePriorityHost.java) saves and refreshes mounts on the server.
 
-`isNativeMEStorageRestricted(ItemStack stack)` defaults to true and can be overridden per stack. False leaves AE2's normal validation in place; it does not grant insertion. The callback must be read-only and available on both logical sides. The native inventory filter enforces the restriction for GUI and automation insertions that honor it. Existing cells are not removed, other mods' drives are unaffected, and no cell inventory is registered. Built-in `ECOStorageCellItem` and its subclasses use the same contract.
+`ECOBigIntegerStorage.insert(storage, key, amount, mode, source)` returns the **inserted amount**, not the remainder. Within long it uses normal AE2 insertion. Beyond long it prefers exact storage; otherwise it attempts one `Long.MAX_VALUE` segment without looping. Exact implementations must return an amount between zero and the offered total.
 
-See the [addon API contract](ADDON_API_ZH_CN.md); the feature name is `native_me_storage_restrictions`. A NeoECOAE version providing this API is required at runtime.
+| Optional capability | Requirement |
+| --- | --- |
+| [IECOStorageMigrationCell](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStorageMigrationCell.java) | Lossless enumeration, clearing, simulation, persistence and recovery before migration |
+| [IECOBulkMarkableCellItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOBulkMarkableCellItem.java) | Enables the marking UI, without registering a backend |
+| [IECOBulkDisplayCell](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOBulkDisplayCell.java) | Exposes the complete compression chain and effective display cutoff |
+| [INativeMEStorageRestrictedItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/INativeMEStorageRestrictedItem.java) | Defaults to rejecting native ME drive/chest insertion; false resumes normal validation, not guaranteed acceptance |
 
-### Cell slots and priority
+Native restrictions do not remove existing cells, affect other mods' drives or supply ECO storage. Infinite cells still need complete migration support and explicit eligibility.
 
-Query `blockEntity instanceof ICellHost`. `getCellStack()` returns null for empty and may return a live stack: treat it as read-only. To install, pass one valid cell; to remove, pass **null**. `ItemStack.EMPTY` is rejected. Check `isItemValid`, `canExtractCell`, and the optional `getCellExtractionBlockReasonText()`. The void setter can reject a request silently, so re-read the slot before moving either stack. Remove and account for the old cell before inserting its replacement.
+## Addon extension registration
 
-`IECOStoragePriorityHost.setStoragePriority(int)` accepts a signed configured priority, persists/synchronizes changes, and refreshes storage mounts. It is a server-thread mutation after caller-side permission checks; client or detached hosts ignore it.
+Query these feature names with `ECOAddonApi.supports(name)`:
 
-### Exact insertion and migration
+| Feature | Entry point | Capability |
+| --- | --- | --- |
+| `power_profiles` | [ECOPowerProfiles](../src/main/java/cn/dancingsnow/neoecoae/api/power/ECOPowerProfiles.java) | Host, part and cell idle power |
+| `multiblock_definitions` | [ECOMultiblockDefinitions](../src/main/java/cn/dancingsnow/neoecoae/api/multiblock/ECOMultiblockDefinitions.java) | Build definitions by host kind |
+| `multiblock_parts` | [ECOMultiblockParts](../src/main/java/cn/dancingsnow/neoecoae/api/multiblock/ECOMultiblockParts.java) | Part roles, drive rows and ordering |
+| `multiblock_requirements` | [ECOMultiblockRequirements](../src/main/java/cn/dancingsnow/neoecoae/api/multiblock/ECOMultiblockRequirements.java) | Alternative blocks for structure slots |
+| `computation_cells` | [ECOComputationCells](../src/main/java/cn/dancingsnow/neoecoae/api/computation/ECOComputationCells.java) | Independent computation items and per-stack capacity |
+| `host_cable_models` | [ECOComputationModels](../src/main/java/cn/dancingsnow/neoecoae/api/ECOComputationModels.java) | Models by tier and host |
+| `tier_features` | [IECOTier.supportsFeature](../src/main/java/cn/dancingsnow/neoecoae/api/IECOTier.java) | Switch, virtual crafting and infinite storage eligibility |
+| `storage_channel_displays` | [ECOStorageChannelDisplays](../src/main/java/cn/dancingsnow/neoecoae/api/storage/ECOStorageChannelDisplays.java) | Storage channel names, icons and aliases |
+| `native_me_storage_restrictions` | [INativeMEStorageRestrictedItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/INativeMEStorageRestrictedItem.java) | Native ME drive/chest insertion restrictions |
+| `workstation_adapters` | [ECOWorkstationRecipeAdapters](../src/main/java/cn/dancingsnow/neoecoae/api/workstation/ECOWorkstationRecipeAdapters.java) | Complete external recipe conversion |
+| `workstation_modules` | [ECOWorkstationModules](../src/main/java/cn/dancingsnow/neoecoae/api/workstation/ECOWorkstationModules.java) | Module cards, source types and appearance |
 
-`ECOBigIntegerStorage.insert` returns the **inserted amount**, not the remainder. Subtract it from the offered amount. Within long range it calls AE2's usual insertion. Above long range it uses an exact implementation when available, otherwise offers one `Long.MAX_VALUE` slice. It does not guarantee a full exact insertion or loop through all slices. Respect `Actionable.SIMULATE` versus `MODULATE`.
+[ECOExtensionRegistry](../src/main/java/cn/dancingsnow/neoecoae/api/extension/ECOExtensionRegistry.java) sorts by descending priority, then ID. Duplicate IDs throw; unregister before replacing your entry. `entries()` is immutable and successful registration/removal advances `revision()`. This ordering does not apply to every legacy registry, including parallel adapters.
 
-Implement `IECOStorageMigrationCell` only when enumeration, clearing, simulated insertion, persistence, and restoration can preserve contents through resumable migration. `IECOBulkMarkableCellItem` opts an item into manual compression markers; it does not register a backend or enable automatic transfers. `IECOBulkDisplayCell` independently controls compression display cutoff. `IECOBulkDisplayCell.getCompressionChain(AEItemKey)` returns every denomination of the chain containing the item, or a single-element list when the item has no chain; `getCompressionCutoff(AEItemKey)` returns the cutoff in effect for that chain, so a display never shows a marker the cell will ignore.
+Power callbacks return total AE/t. Zero is valid; negative, NaN and infinity are invalid. Scale `context.defaultPower()` when needed and refresh changed hosts through `NEBlockEntity.refreshIdlePower()`. This controls idle power only.
 
-### Registries and client rendering
+Build definitions resolve through the registry, `IECOTier.getBuildDefinition(kind)`, then built-ins; kinds separate computation/crafting/storage. Actual formation uses `NEBlockEntity.registerCalculatorFactory(type, factory)`: a build preview alone supplies no formation logic. [ECOMultiblockRequirement](../src/main/java/cn/dancingsnow/neoecoae/api/multiblock/ECOMultiblockRequirement.java) describes default/alternative states, transformed together for rotation/mirroring and checked again before placement. `Context.level` may be null.
 
-Custom tiers and cell types use synchronized `neoecoae:eco_tier` and `neoecoae:cell_type` registries exposed by `NERegistries.Keys`. Register matching IDs on both sides through NeoForge registry events. Supply every required `IECOTier` value; tier comparison governs compatible components.
+Roles provide classification/ordering, not execution backends; cores and drives still require compatible entities/calculators. `IECOComputationCellItem` reports nonnegative bytes per actual stack; adapt external Items without caching dynamic capacity by Item. `IECOTier.supportsFeature(ECOFeature)` declares eligibility without bypassing physical, material or recovery requirements.
 
-Client integrations may register storage/computation cell models with `ECOCellModels.register` and `ECOComputationModels.registerCellModel/registerCableModel`. Keep client GUI/render references in client-only setup. Do not call global deferred-registration internals or edit model maps during gameplay.
+`ECOStorageChannelDisplays.Display` aliases merge display channels, never distinct AEKey inventories. Names, colors and texture IDs travel in server snapshots; statistics stay exact. Icons/bars use separate 8×8 images with bar borders.
 
-## 10. Diagnostics and integration limits
+[AddonApiExample.java](../src/test/java/cn/dancingsnow/neoecoae/api/extension/AddonApiExample.java) provides a compilable registration skeleton; replace IDs, blocks, entities and recipe adapters with registered addon objects.
 
-Use `ECOCraftingServiceDiagnostics.neoecoae$describeCpuSelection(plan, source)` for CPU eligibility and `ECOPatternPushDiagnostics.neoecoae$getPushDiagnostics()` for the most recent push failure. These are observations; they never authorize replay or refund.
+### Workstation recipes and modules
 
-A simulation shell may exist for missing, unsupported, unresolved, or unrepresentable results. A non-null plan alone is insufficient for submission. Read the [planner status table](ECO_PLANNER.md#8-results-and-diagnostics) and preserve blocked execution metadata.
+`ECOWorkstationRecipeAdapters.register(id, priority, sourceRecipeType, adapter)` preserves source ID/type, inputs, outputs, time, AE/FE costs and extra resources. Disable recipes that cannot be represented accurately instead of omitting costs. `LargeWorkstationRecipe.processing(ticks, feEnergy, feAlternative)` specifies time/FE; `energy()` is the AE budget. Nonzero AE and FE with alternative false require both; true makes them alternatives. FE-only recipes set AE to zero.
 
-For a reproducible report, include exact artifact versions, action source, settings, planning ID/status/diagnostics, CPU submission result, and provider/output logs. Planning, CPU reservation, provider acceptance, and final delivery are separate stages. This guide's examples are compile-time integration examples; they do not establish an in-game compatibility result.
+`ECOWorkstationModules.Module` supplies stable ID, card, source types, names and optional appearance. Read `getInstalledModuleId/getInstalledModuleDescription`; the legacy enum's `OTHER` cannot distinguish custom modules. Icons are 15×15, circuit images 28×28; provide complete north-facing controller models.
+
+[LargeWorkstationRecipes](../src/main/java/cn/dancingsnow/neoecoae/recipe/LargeWorkstationRecipes.java) `getAll` returns display representatives, `getGroups/getGroup` exposes groups and `getAvailable(level, moduleId)` returns legal card-specific variants. `availableVariants(moduleId)` retains original batch sizes/costs. Persist the actual variant ID returned by `findScaled`. A display representative grants no execution permissions or arbitrary smaller batches. Recipe/tag reloads and adapter/module changes invalidate relevant caches.
+
+## Panels and models
+
+Register custom tiers and cell types with matching IDs on both sides in synchronized registries exposed by [NERegistries.Keys](../src/main/java/cn/dancingsnow/neoecoae/all/NERegistries.java). Implement required `IECOTier` values; use `supportsComponentTier` for component compatibility and `supportsFeature` for advanced eligibility.
+
+`IECOTier.getPanelTierName()` supplies names, `getHostMarkerTexture()` supplies markers and `getPanelAtlas(String)` replaces full atlases for that tier. Null preserves defaults. Resolution is tier atlas, global LDLib2 `ui-eco` provider, then original image. Preserve atlas dimensions and crop layout.
+
+| atlas argument, without `ui-eco:` | Default under `assets/neoecoae/textures/guis/` |
+| --- | --- |
+| `Computation-BACKGROUND_ATLAS` | `eco_cpu_controller.png` |
+| `Computation-WIDGETS_ATLAS` | `cpu_widget.png` |
+| `Storage-CONTROLLER_ATLAS` | `storage/storage_controller.png` |
+| `Storage-ATLAS` | `storage/storage_widget.png` |
+| `Crafting-CONTROLLER_ATLAS` | `crafting_controller.png` |
+| `Crafting-WIDGETS_ATLAS` | `crafting_widgets.png` |
+
+Blocks implement `IHostPanelTextureProvider.getPanelTexture(BlockState, Part)` for members, tier badges and markers. The five-argument overload adds `index, active, hovered` for status/buttons and delegates to the two-argument method by default. Use actual placed state; null falls back per state.
+
+| Part | Separate image layout |
+| --- | --- |
+| `COMPUTATION_UPPER` | 10×5 |
+| `COMPUTATION_CORE/COMPUTATION_LOWER` | 10×6 |
+| `STORAGE_TIER/COMPUTATION_TIER/CRAFTING_TIER` | 13×18 |
+| `STORAGE_MARKER/COMPUTATION_MARKER/CRAFTING_MARKER` | 13×16, two stacked 13×8 markers |
+| `COMPUTATION_STATUS` | 12×12 |
+| `COMPUTATION_SWITCH/CRAFTING_MODE` | 15×26 |
+
+Status indices 0–5 represent connection, substitutions, cycles, fast planning, normal switch and high-energy switch; hovered is false. The high-energy blue state uses column 5, its pink state column 4. Computation switch indices 0–2 are substitutions/cycles/fast planning; crafting indices 0–1 are active cooling/overclock, with active/hovered selecting state images.
+
+When constructing panels such as [StorageHostUI](../src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageHostUI.java), use overloads accepting `Supplier<IECOTier>` and `Supplier<BlockState>`. The server captures placed-state texture IDs for synchronization; old factory signatures remain available.
+
+Register `ECOCellModels.register` and `ECOComputationModels.registerCellModel/registerCableModel` on the client. Cables support `(tier, hostBlock)` entries. Additional models returned by dynamic providers require `registerAdditionalModel` before baking. Panel providers change images, not button semantics.
+
+## Integration diagnostics
+
+[ECOCraftingServiceDiagnostics.neoecoae$describeCpuSelection](../src/main/java/cn/dancingsnow/neoecoae/api/me/diagnostics/ECOCraftingServiceDiagnostics.java) describes CPU eligibility; [ECOPatternPushDiagnostics.neoecoae$getPushDiagnostics](../src/main/java/cn/dancingsnow/neoecoae/api/me/diagnostics/ECOPatternPushDiagnostics.java) reports recent push failure. Diagnostics do not authorize replay, refunds or skipped checks.
+
+Include actual JAR/dependency versions, action source, options, planning status, submission results and provider acceptance/delivery logs in compatibility reports. Signature/contract checks establish API behavior; machine transactions, assets and modpack interoperability require runtime validation.
