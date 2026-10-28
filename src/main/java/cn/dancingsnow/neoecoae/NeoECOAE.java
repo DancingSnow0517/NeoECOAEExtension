@@ -142,12 +142,12 @@ public class NeoECOAE {
         ForgeBlockCapabilities.register(
             ForgeCapabilities.FLUID_HANDLER,
             NEBlockEntities.INPUT_HATCH.get(),
-            (be, side) -> be.tank
+            (be, side) -> be.getFluidTankHandler()
         );
         ForgeBlockCapabilities.register(
             ForgeCapabilities.FLUID_HANDLER,
             NEBlockEntities.OUTPUT_HATCH.get(),
-            (be, side) -> new DrainOnlyFluidHandler(be.tank)
+            (be, side) -> new DrainOnlyFluidHandler(be.getFluidTankHandler())
         );
         ForgeBlockCapabilities.register(
             ForgeCapabilities.FLUID_HANDLER,

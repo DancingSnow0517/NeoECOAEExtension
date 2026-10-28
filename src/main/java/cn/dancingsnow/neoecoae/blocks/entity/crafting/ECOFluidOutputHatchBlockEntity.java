@@ -30,6 +30,9 @@ public class ECOFluidOutputHatchBlockEntity extends cn.dancingsnow.neoecoae.bloc
         super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator::new);
     }
 
+    /** Stable addon handler view, matching the 1.21.1 accessor. */
+    public FluidTank getFluidTankHandler() { return tank; }
+
     @Override
     public void saveAdditional(CompoundTag data) {
         super.saveAdditional(data);

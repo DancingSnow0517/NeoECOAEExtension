@@ -30,6 +30,12 @@ public class ECOFluidInputHatchBlockEntity extends cn.dancingsnow.neoecoae.block
         super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator::new);
     }
 
+    /** Stable addon handler view, matching the 1.21.1 accessor. */
+    public FluidTank getFluidTankHandler() { return tank; }
+
+    /** Exact amount in mB; 1.20.1 keeps an int-sized tank, so this never exceeds its capacity. */
+    public long getStoredFluidAmount() { return tank.getFluidAmount(); }
+
     public void tick(Level level, BlockPos pos, BlockState state) {
         for (Direction face : Direction.values()) {
             IFluidHandler sourceHandler = cn.dancingsnow.neoecoae.platform.ForgeBlockCapabilities.find(level, pos.relative(face), ForgeCapabilities.FLUID_HANDLER, face.getOpposite());
