@@ -314,7 +314,10 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         }
 
         ECOStorageCell cellInventory = getCellInventory(stack);
-        if (cellInventory == null || !cellInventory.storageData().canMutate() || cellInventory.getStoredItemTypes() != 0) {
+        if (cellInventory == null || !cellInventory.storageData().canMutate() || cellInventory.getStoredItemTypes() != 0
+                // Bulk disks also own queued conversion outputs, which are not counted as stored types.
+                || cellInventory instanceof cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell bulk
+                    && !bulk.canFitInsideCell()) {
             player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
             return false;
         }

@@ -149,6 +149,10 @@ public final class OptionalStorageServerProbe {
                 if (phase.equals("write")) {
                     ItemStack stack = new ItemStack(item);
                     AEKey resource = sample(family.channel);
+                    if (item instanceof cn.dancingsnow.neoecoae.items.ECOBulkStorageCellItem bulk) {
+                        // Bulk matrices accept only marked resources.
+                        bulk.getConfigInventory(stack).setStack(0, new appeng.api.stacks.GenericStack(resource, 0));
+                    }
                     ISaveProvider owner = () -> {};
                     IECOStorageCell cell = ECOStorageCells.getCellInventory(stack, owner);
                     check(cell != null, "Missing handler: " + id);

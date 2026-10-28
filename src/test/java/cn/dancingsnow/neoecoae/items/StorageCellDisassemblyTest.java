@@ -34,7 +34,7 @@ class StorageCellDisassemblyTest {
     @CsvSource({
         "false,client", "true,client", "false,occupied", "true,occupied",
         "false,unavailable", "true,unavailable", "false,read_only", "true,read_only",
-        "false,empty", "true,empty"
+        "false,empty", "true,empty", "false,queued", "true,queued"
     })
     void onlyServerConfirmedEmptyCellsCanBeDisassembled(boolean onBlock, String state) {
         ECOStorageCellItem item = mock(ECOStorageCellItem.class, CALLS_REAL_METHODS);
@@ -55,7 +55,9 @@ class StorageCellDisassemblyTest {
 
         IUpgradeInventory upgrades = mock(IUpgradeInventory.class);
         doReturn(upgrades).when(item).getUpgrades(stack);
-        ECOStorageCell basicCell = mock(ECOStorageCell.class);
+        // A queued bulk disk has no stored types but still owns conversion outputs.
+        ECOStorageCell basicCell = state.equals("queued")
+            ? mock(cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell.class) : mock(ECOStorageCell.class);
         when(basicCell.getStoredItemTypes()).thenReturn(state.equals("occupied") ? 1L : 0L);
         var data = mock(ECOCellSavedData.class);
         when(data.canMutate()).thenReturn(!state.equals("read_only"));

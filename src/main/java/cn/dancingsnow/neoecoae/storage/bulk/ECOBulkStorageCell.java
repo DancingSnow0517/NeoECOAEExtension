@@ -71,7 +71,10 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
             for (AEItemKey key : accounts.keySet()) {
                 if (markers.stream().noneMatch(marker -> marker != null && marker.what() instanceof AEItemKey item
                         && ECOCompressionService.sameChain(item, key))) {
-                    markers.add(new GenericStack(key, 0));
+                    // 1.20.1 stores a fixed slot list; use the first empty slot instead of appending.
+                    int free = markers.indexOf(null);
+                    if (free < 0) throw new IllegalStateException("No marker slot for imported bulk contents");
+                    markers.set(free, new GenericStack(key, 0));
                 }
             }
             ECOBulkStorageCellItem.writeConfiguredStacks(stack, markers);
@@ -201,34 +204,34 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
         return amount;
     }
 
-    @Override public BigInteger extractBigInteger(AEKey what, BigInteger amount, Actionable mode, IActionSource source) {
-        if (amount == null || amount.signum() <= 0) return BigInteger.ZERO;
-        return BigInteger.valueOf(extract(what, BulkUnits.clamp(amount), mode, source));
-    }
     @Override public BigInteger insertForMigrationBigInteger(AEKey what, BigInteger amount, Actionable mode, IActionSource source) {
         return amount == null ? BigInteger.ZERO : insertBigInteger(what, amount, mode, source);
     }
 
     @Override public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
-        if (cn.dancingsnow.neoecoae.storage.transfer.StorageExtractionExclusions.contains(this)) return 0;
+        return amount <= 0 ? 0 : extractBigInteger(what, BigInteger.valueOf(amount), mode, source).longValueExact();
+    }
+    /** Exact extraction; the long API is a bounded projection of the same accounting. */
+    @Override public BigInteger extractBigInteger(AEKey what, BigInteger amount, Actionable mode, IActionSource source) {
+        if (cn.dancingsnow.neoecoae.storage.transfer.StorageExtractionExclusions.contains(this)) return BigInteger.ZERO;
         refreshUnresolved();
-        if (amount <= 0 || !(what instanceof AEItemKey item)) return 0;
-        long remaining = amount;
-        for (var iterator = accounts.entrySet().iterator(); iterator.hasNext() && remaining > 0;) {
+        if (amount == null || amount.signum() <= 0 || !(what instanceof AEItemKey item)) return BigInteger.ZERO;
+        BigInteger remaining = amount;
+        for (var iterator = accounts.entrySet().iterator(); iterator.hasNext() && remaining.signum() > 0;) {
             var entry = iterator.next(); Account account = entry.getValue();
             BigInteger factor = account.units().factor(item);
             if (factor.signum() <= 0 || !isCurrent(account.units()) && !item.equals(account.units().items().get(0))) continue;
-            long taken = account.amount().divide(factor).min(BigInteger.valueOf(remaining)).longValueExact();
-            if (taken == 0) continue;
-            remaining -= taken;
+            BigInteger taken = account.amount().divide(factor).min(remaining);
+            if (taken.signum() == 0) continue;
+            remaining = remaining.subtract(taken);
             if (mode == Actionable.MODULATE) {
-                BigInteger after = account.amount().subtract(factor.multiply(BigInteger.valueOf(taken)));
+                BigInteger after = account.amount().subtract(factor.multiply(taken));
                 if (after.signum() == 0) iterator.remove();
                 else entry.setValue(new Account(account.units(), after));
             }
         }
-        if (remaining != amount && mode == Actionable.MODULATE) saveChanges();
-        return amount - remaining;
+        if (!remaining.equals(amount) && mode == Actionable.MODULATE) saveChanges();
+        return amount.subtract(remaining);
     }
 
     private boolean isCurrent(BulkUnits units) { return units.equals(ECOCompressionService.units(units.items().get(0))); }

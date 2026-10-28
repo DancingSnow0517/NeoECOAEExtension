@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
+import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
@@ -27,7 +28,8 @@ public final class BiggerAE2SingularityPowerService implements IGridService, IGr
 
     public static boolean isSingularity(@Nullable ItemStack stack) {
         return stack != null && !stack.isEmpty()
-            && stack.getItem() instanceof BiggerAE2StorageCellItem item && item.isSingularity();
+            && (stack.getItem() instanceof BiggerAE2BulkStorageCellItem
+                || stack.getItem() instanceof BiggerAE2StorageCellItem item && item.isSingularity());
     }
 
     /** Every installed matrix uses the same tier; six or more matrices keep the final per-cell rate. */
@@ -70,7 +72,7 @@ public final class BiggerAE2SingularityPowerService implements IGridService, IGr
             var stack = drive.getCellStack();
             if (!isSingularity(stack)) continue;
             var host = drive.getStorageController();
-            var item = (BiggerAE2StorageCellItem) stack.getItem();
+            var item = (ECOStorageCellItem) stack.getItem();
             if (host == null || host.isStorageInterfaceTransferMode()
                 || host.getTier().compareTo(item.getTier()) < 0) continue;
             cellCount++;
