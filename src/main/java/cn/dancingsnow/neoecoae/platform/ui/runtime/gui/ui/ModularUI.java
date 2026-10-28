@@ -11,7 +11,7 @@ public final class ModularUI {
     private com.lowdragmc.lowdraglib.gui.modular.ModularUI nativeUI;
     UIElement hovered;
     private int lastMouseDownButton=-1;
-    private float mouseDownX,mouseDownY;
+    private float mouseDownX,mouseDownY,lastMouseX,lastMouseY;
     private final DragHandler dragHandler=new DragHandler();
     public ModularUI(UI ui){this(ui,net.minecraft.client.Minecraft.getInstance().player);}
     public ModularUI(UI ui,Player player){this.ui=ui;this.player=player;ui.root().attachUI(this);}
@@ -34,7 +34,15 @@ public final class ModularUI {
     public UIElement getLastHoveredElement(){return hovered;}
     public boolean isDrawTooltips(){return true;}
     public int getLastMouseDownButton(){return lastMouseDownButton;}
-    void pointerDown(int button,float x,float y){lastMouseDownButton=button;mouseDownX=x;mouseDownY=y;}
+    void pointerDown(int button,float x,float y){lastMouseDownButton=button;mouseDownX=x;mouseDownY=y;pointerMove(x,y);}
+    void pointerMove(float x,float y){lastMouseX=x;lastMouseY=y;}
+    /** Last pointer position, in the same absolute coordinates as element positions. */
+    public float getLastMouseX(){return lastMouseX;}
+    public float getLastMouseY(){return lastMouseY;}
+    public int getScreenWidth(){return nativeUI==null?0:nativeUI.getScreenWidth();}
+    public int getScreenHeight(){return nativeUI==null?0:nativeUI.getScreenHeight();}
+    public int getLeftPos(){return nativeUI==null?0:nativeUI.getGuiLeft();}
+    public int getTopPos(){return nativeUI==null?0:nativeUI.getGuiTop();}
     void pointerUp(){lastMouseDownButton=-1;dragHandler.clear();}
     public <T extends UIElement>java.util.List<T> getElementsByType(Class<T> type){var result=new java.util.ArrayList<T>();collect(ui.root(),type,result);return result;}
     private static <T extends UIElement>void collect(UIElement root,Class<T> type,java.util.List<T> result){if(type.isInstance(root))result.add(type.cast(root));for(var child:root.getChildren())collect(child,type,result);}

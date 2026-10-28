@@ -343,10 +343,13 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage.bulk_mark", "Right-click: only mark network compressible items above %s; Shift + right-click: mark and migrate all matching network items into this host's bulk cells");
         provider.add("gui.neoecoae.storage.bulk_mark.result.success",
             "Auto-marked %s; already marked %s; no space %s; migrated %s");
-        provider.add("gui.neoecoae.storage.bulk_mark.result.no_bulk_cell", "No ECO MEGA long bulk cell installed");
+        provider.add("gui.neoecoae.storage.bulk_mark.result.no_bulk_cell", "No ECO bulk storage matrix installed");
+        provider.add("gui.neoecoae.storage.cell.action.configure", "Adjust stored resource types");
+        provider.add("gui.neoecoae.storage.cell.priority.title", "Cell priority (relative to host)");
+        provider.add("gui.neoecoae.storage.cell.priority.tooltip", "Storage cell priority: %s");
         provider.add("gui.neoecoae.storage.bulk_mark.result.busy", "Storage transfer or migration is in progress");
         provider.add("gui.neoecoae.storage.bulk_mark.result.invalid_threshold", "The auto-mark threshold is invalid");
-        provider.add("gui.neoecoae.storage.bulk_mark.result.unavailable", "MEGA bulk-cell integration is unavailable");
+        provider.add("gui.neoecoae.storage.bulk_mark.result.unavailable", "ECO bulk marking is unavailable");
         provider.add("gui.neoecoae.host.metric.types", "Types");
         provider.add("gui.neoecoae.host.metric.bytes", "Bytes");
 
@@ -761,5 +764,15 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_graph.status.unknown_budget", "Planning budget exhausted");
         provider.add("gui.neoecoae.crafting_graph.status.too_complex", "Too complex");
         provider.add("gui.neoecoae.crafting_graph.status.cancelled", "Cancelled");
+        provider.add("gui.neoecoae.storage.bulk_cell.action.migrate", "Mark and migrate matching resources now");
+        provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.title", "Confirm automatic migration");
+        provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.description", "Move matching items into this bulk cell");
+        provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.loading", "Checking available items...");
+        provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.unavailable", "Migration preview is unavailable");
+        provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.empty", "No matching items can be migrated");
+        provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.more", "%s more item types will also be migrated");
+        provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.hint", "Click OK to start the migration");
+        provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.help",
+            "Moves matching items from this host and the ME network. At most six item types are shown; all matching items are included when confirmed.");
     }
 }

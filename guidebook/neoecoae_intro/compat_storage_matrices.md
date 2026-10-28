@@ -8,11 +8,11 @@ navigation:
 
 # Compatibility Storage Matrices
 
-Bigger AE2 Quantum matrices are L6 with 128 MiB shared capacity, 65,536 bytes overhead per type and 20 AE/t idle power. Quantum and L9 Digital Singularity each offer items, fluids, chemicals, FE, experience and source: 12 cells total. The first three channels support five types per cell, the others one. Assemble an ECO housing with the upstream component; empty-cell disassembly returns both. Digital Singularity preserves exact stored amounts, visible in terminal hover text.
+Bigger AE2 Quantum matrices are L6 with 128 MiB shared capacity, 65,536 bytes overhead per type and 20 AE/t idle power. Quantum and L9 Digital Singularity each offer items, fluids, chemicals, FE, experience and source: 12 cells total. Quantum's first three channels support five types per cell, the others one. Assemble an ECO housing with the upstream component; empty-cell disassembly returns both. Digital Singularity preserves exact stored amounts, visible in terminal hover text.
 
 ## Digital Singularity Matrices: Network Power Tiers
 
-ECO Digital Singularity matrices require **Bigger AE2**. Item, fluid and chemical matrices each store five resource types with unlimited quantities. FE, Experience and Source matrices each store one type.
+ECO Digital Singularity matrices require **Bigger AE2**. Item matrices use [bulk compression storage](storage_system.md) with 5 marker slots, or 25 with an ECO Bulk Expansion Card. Fluid and chemical matrices each store five resource types. FE, Experience and Source matrices each store one type. Quantities are unlimited.
 
 All usable ECO Digital Singularity matrices in one ME network share a count `N`, which sets the idle drain of **each matrix**. Different resource types, drives and storage controllers share this count, including empty matrices. Ordinary and Quantum matrices do not contribute.
 
@@ -134,7 +134,9 @@ Chemical storage matrices require **AppMek** and store valid Mekanism chemicals.
 
 Experience, air, soul, matter and stress cells require their resource integrations. Standard tiers use 16 / 64 / 256 MiB, normally one type or three for matter. Data Energistics cells use 256 MiB / 1 GiB / 4 GiB and four types. Resource units, assembly and empty-cell disassembly follow the current JEI / EMI recipes.
 
-Regular ECO MEGA cells require MEGA Cells and are L9, 4 GiB, with 1,024 AE/t base idle power. Item and fluid cells each support 315 types; external channels also require their integrations. Radioactive chemical cells form a separate L4 / L6 / L9 single-type family. The bulk matrix has 25 configuration slots, or 50 with an ECO MEGA Upgrade Card. Compression variants are currently disabled; use actual quantities rather than theoretical compression-chain capacity.
+Regular ECO MEGA cells require MEGA Cells and are L9, 4 GiB, with 1,024 AE/t base idle power. Item and fluid cells each support 315 types; external channels also require their integrations. Radioactive chemical cells form a separate L4 / L6 / L9 single-type family.
+
+The ECO Bulk Storage Matrix and Expansion Card are registered only when MEGA Cells is installed, and their recipes use the same condition. The matrix has 25 resource markers, or 50 with an ECO Bulk Expansion Card, and stores unlimited quantities with exact integers. Compression is built in; an ECO storage host automatically provides virtual conversion patterns. See the [storage system](storage_system.md).
 
 ## Lightning Storage Matrices
 

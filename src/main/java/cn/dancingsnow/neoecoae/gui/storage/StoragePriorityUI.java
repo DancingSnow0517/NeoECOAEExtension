@@ -25,6 +25,7 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.List;
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 
 public final class StoragePriorityUI {
     private static final int[] POSITIVE_STEPS = {1, 10, 100, 1000};
@@ -44,8 +45,12 @@ public final class StoragePriorityUI {
     public record Config(
         IntSupplier priority,
         IntConsumer setPriority,
-        IntConsumer changePriority
+        IntConsumer changePriority,
+        Supplier<Component> title
     ) {
+        public Config(IntSupplier priority, IntConsumer setPriority, IntConsumer changePriority) {
+            this(priority, setPriority, changePriority, () -> Component.translatable("gui.ae2.Priority"));
+        }
     }
 
     public static UIElement createFloatingPanel(Config config) {
@@ -73,7 +78,7 @@ public final class StoragePriorityUI {
                     yield dragBar;
                 }
                 case "title" -> new TextElement()
-                    .setText(Component.translatable("gui.ae2.Priority"))
+                    .setText(config.title().get())
                     .textStyle(StoragePriorityUI::titleTextStyle);
                 case "back" -> HostSubWindowControls.backButton(() -> window.layout(layout -> layout.display(TaffyDisplay.NONE)))
                     .addEventListener(UIEvents.HOVER_TOOLTIPS,

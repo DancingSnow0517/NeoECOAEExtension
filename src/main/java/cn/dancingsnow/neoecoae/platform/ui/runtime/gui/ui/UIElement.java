@@ -95,6 +95,15 @@ public class UIElement extends WidgetGroup {
     protected void onRemoved(){}
     public UIElement setFocusable(boolean value){focusable=value;return this;}
     public void focus(){if(focusable&&effectivelyVisible())setFocus(true);}
+    public void blur(){if(isFocus())setFocus(false);}
+    /** LDLib1 offers keys to every widget; only visible elements with a KEY_DOWN listener observe them. */
+    @Override public boolean keyPressed(int keyCode,int scanCode,int modifiers){
+        if(listeners.containsKey(UIEvents.KEY_DOWN)&&effectivelyVisible()){
+            var event=new UIEvent(UIEvents.KEY_DOWN,this,0,0,-1);event.keyCode=keyCode;event.scanCode=scanCode;event.modifiers=modifiers;
+            invoke(event,false);if(event.isPropagationStopped())return true;
+        }
+        return super.keyPressed(keyCode,scanCode,modifiers);
+    }
     public HoverTooltips collectHoverTooltips(){var event=new UIEvent(UIEvents.HOVER_TOOLTIPS,this,0,0,-1);dispatchEvent(event);return event.hoverTooltips;}
     private final java.util.Map<String,java.util.List<java.util.function.Consumer<Object>>> messages=new java.util.HashMap<>();
     public void onMessage(String name,java.util.function.Consumer<Object> listener){messages.computeIfAbsent(name,key->new java.util.ArrayList<>()).add(listener);}
@@ -190,7 +199,7 @@ public class UIElement extends WidgetGroup {
     @Override public boolean mouseMoved(double x,double y){
         var target=hitTest(x,y);var path=new HashSet<UIElement>();
         for(var node=target;node!=null;node=node.getParentElement())path.add(node);
-        updateHover(x,y,path);if(modularUI!=null)modularUI.hovered=target;
+        updateHover(x,y,path);if(modularUI!=null){modularUI.hovered=target;modularUI.pointerMove((float)x,(float)y);}
         var event=pointer(UIEvents.MOUSE_MOVE,target==null?this:target,x,y,-1,0);
         return nativePointer(target,UIEvents.MOUSE_MOVE,x,y,-1,0)||event.hasHandler;
     }

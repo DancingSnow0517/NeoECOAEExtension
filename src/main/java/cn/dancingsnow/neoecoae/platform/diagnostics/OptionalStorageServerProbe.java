@@ -5,14 +5,12 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
-import appeng.api.stacks.GenericStack;
 import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
-import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.recipe.StorageCellDisassemblyRecipe;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -74,7 +72,7 @@ public final class OptionalStorageServerProbe {
             tiered("spent_nuclear_waste", "eco_spent_nuclear_waste_cell_", "eco_spent_nuclear_waste_cell_housing", "ae2omnicells", "appmek"),
             single("item", "eco_mega_item_cell_4g", "mega_item_cell_housing", "megacells"),
             single("fluid", "eco_mega_fluid_cell_4g", "mega_fluid_cell_housing", "megacells"),
-            single("item", "eco_mega_long_bulk_cell", "eco_bulk_item_cell_housing", "megacells"),
+            // The deprecated MEGA bulk matrix keeps compatibility only and has no assembly recipes.
             single("fe", "eco_mega_energy_cell_4g", "mega_energy_cell_housing", "megacells", "appflux"),
             single("chemical", "eco_mega_chemical_cell_4g", "mega_chemical_cell_housing", "megacells", "appmek"),
             tiered("radioactive_chemical", "eco_radioactive_chemical_cell_", "eco_radioactive_chemical_cell_housing", "megacells", "appmek")
@@ -151,9 +149,6 @@ public final class OptionalStorageServerProbe {
                 if (phase.equals("write")) {
                     ItemStack stack = new ItemStack(item);
                     AEKey resource = sample(family.channel);
-                    if (id.equals("eco_mega_long_bulk_cell")) {
-                        ((ECOStorageCellItem) item).getConfigInventory(stack).setStack(0, new GenericStack(resource, 0));
-                    }
                     ISaveProvider owner = () -> {};
                     IECOStorageCell cell = ECOStorageCells.getCellInventory(stack, owner);
                     check(cell != null, "Missing handler: " + id);

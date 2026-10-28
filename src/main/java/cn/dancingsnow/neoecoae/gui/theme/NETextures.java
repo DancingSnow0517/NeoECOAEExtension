@@ -90,6 +90,12 @@ public class NETextures {
         .setSpriteSize(Size.of(20, 20))
         .setBorder(2, 3, 2, 5);
 
+    // The bottom highlight and shadow occupy four rows; keep them out of the stretched center.
+    public static IGuiTexture AE2_CONTEXT_BACKGROUND =
+        SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/context_background.png"))
+            .setSprite(0, 0, 256, 256)
+            .setBorder(2, 2, 2, 4);
+
     // Priority controls use the bundled AE2 artwork in our own namespace.
     public static IGuiTexture AE2_BUTTON = SpriteTexture.of(NeoECOAE.id("textures/gui/vendor/ae2/sprites/button.png"))
         .setSprite(0, 0, 200, 20)

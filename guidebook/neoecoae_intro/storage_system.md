@@ -20,6 +20,8 @@ item_ids:
   - neoecoae:eco_fluid_storage_cell_16m
   - neoecoae:eco_fluid_storage_cell_64m
   - neoecoae:eco_fluid_storage_cell_256m
+  - neoecoae:eco_mega_long_bulk_cell
+  - neoecoae:eco_mega_upgrade_card
 ---
 
 # ECO Storage System
@@ -132,6 +134,21 @@ The following ECO storage cells can be used in the drives:
 - <ItemLink id="neoecoae:eco_fluid_storage_cell_256m" /> - 256 MiB capacity
 
 Storage matrices for AE2 Omni Cells and AE2 Lightning Tech are documented in [Compatibility Storage Matrices](compat_storage_matrices.md).
+
+## Bulk Compression Storage (Bigger AE2)
+
+<ItemGrid>
+  <ItemIcon id="neoecoae:eco_digital_singularity_item_storage_cell" />
+  <ItemIcon id="neoecoae:eco_mega_upgrade_card" />
+</ItemGrid>
+
+The ECO Digital Singularity Item Storage Matrix requires Bigger AE2 and provides ECO's built-in compression without compression cards or decompression modules. Configure resource markers in the host panel or cell workbench, then insert the disk into a compatible ECO drive. It supports 5 resource types, or 25 with an ECO Bulk Expansion Card supplied by the MEGA Cells integration. Stored quantities have no fixed upper bound; terminal tooltips show exact totals. The old ECO Bulk Storage Matrix remains compatible but is deprecated and has no assembly or disassembly recipes.
+
+Matrices in the same ME network share occupied markers: a compression chain already marked on one matrix cannot be marked on another. Automatic marking and migration check all network markers, and migration never extracts stock from other bulk matrices.
+
+Reversible crafting recipes form chains such as iron nugget, ingot and block. Any form in a chain can be inserted or extracted, and the whole chain occupies one marker. Shift + left-click raises the display denomination; Shift + right-click lowers it. Remainders stay visible in lower forms.
+
+A formed and powered ECO storage host in normal storage mode automatically publishes virtual compression and decompression patterns. Pending outputs stay on the accepting disk and retry when network storage is available. Disks containing stock, pending outputs or quarantined data cannot be disassembled. Changed recipe tables preserve historical quantities for recovery in their original base form. Bulk disks do not join infinite-domain migration.
 
 ## Usage
 

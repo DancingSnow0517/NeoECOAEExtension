@@ -424,10 +424,13 @@ final class StorageHostCharts {
                     nameWidth, nameFontScale, type.color());
                 text(context, usage(HostText.ae2Amount(type.usedTypes()), type.usedTypes(), type.totalTypes(),
                     StorageCellGrid.capacity(type.totalTypes())), 3, row * 29 + 13, 29, valueFontScale, TEXT);
-                text(context, usage(type.bytesText(), type.usedBytes(), type.totalBytes(),
-                    StorageCellGrid.capacity(type.totalBytes())), 35, row * 29 + 13, 30, valueFontScale, TEXT);
+                long byteCapacity = byteCapacity(type);
+                text(context, usage(HostText.ae2Amount(type.exactUsedBytes()), type.usedBytes(), byteCapacity,
+                    StorageCellGrid.capacity(byteCapacity)), 35, row * 29 + 13, 30, valueFontScale, TEXT);
                 bar(context, StoragePanelTextures.BLUE_BAR, type.usedTypes(), type.totalTypes(), 3, y + 21);
-                bar(context, StoragePanelTextures.PINK_BAR, type.usedBytes(), type.totalBytes(), 36, y + 21);
+                if (byteCapacity >= 0) {
+                    bar(context, StoragePanelTextures.PINK_BAR, type.usedBytes(), byteCapacity, 36, y + 21);
+                }
             }
         }
 
@@ -439,25 +442,31 @@ final class StorageHostCharts {
                 texture.spritePosition.y, width, 4), getPositionX() + x, y, width, 4);
         }
 
-        /** Panel figure: coloured used part over a bounded total, or the plain used figure when unbounded. */
+        /** Panel figure: used over capacity, with an infinity symbol for unbounded byte storage. */
         private Component usage(String used, long usedValue, long totalValue, String total) {
-            if (totalValue < 0 || state().unbounded()) return HostText.totalPart(used).withStyle(neColor -> neColor.withColor(StoragePanelTextures.VALUE_TEXT));
+            if (totalValue < 0) return HostText.usedOfTotal(HostText.usedPart(used, usedValue, -1), "/",
+                HostText.totalPart("∞").withStyle(neColor -> neColor.withColor(StoragePanelTextures.VALUE_TEXT)));
+            if (state().unbounded()) return HostText.totalPart(used).withStyle(neColor -> neColor.withColor(StoragePanelTextures.VALUE_TEXT));
             return HostText.usedOfTotal(HostText.usedPart(used, usedValue, totalValue), "/",
                 HostText.totalPart(total).withStyle(neColor -> neColor.withColor(StoragePanelTextures.VALUE_TEXT)));
+        }
+
+        private long byteCapacity(StoragePanelState.TypeLine type) {
+            return state().unbounded() || type.totalBytes() == Long.MAX_VALUE ? -1 : type.totalBytes();
         }
 
         List<Component> tooltip(int row) {
             int index = currentOffset() + row;
             if (index >= state().types().size()) return List.of();
             StoragePanelState.TypeLine type = state().types().get(index);
+            long byteCapacity = byteCapacity(type);
             return List.of(type.name(),
                 Component.translatable("gui.neoecoae.storage.legacy.cell_types",
                     HostText.usedPart(HostText.ae2Amount(type.usedTypes()), type.usedTypes(), type.totalTypes()),
                     HostText.totalPart(state().unbounded() ? "∞" : StorageCellGrid.capacity(type.totalTypes()))),
                 Component.translatable("gui.neoecoae.storage.legacy.cell_bytes",
-                    HostText.usedPart(HostText.fullBytes(type.exactUsedBytes()), type.usedBytes(), type.totalBytes()),
-                    HostText.totalPart(state().unbounded() ? "∞" : HostText.fullBytes(type.totalBytes()))),
-                Component.translatable("gui.neoecoae.storage.ui.scroll_types").withStyle(neColor -> neColor.withColor(HostText.MUTED)));
+                    HostText.usedPart(HostText.fullBytes(type.exactUsedBytes()), type.usedBytes(), byteCapacity),
+                    HostText.totalPart(byteCapacity < 0 ? "∞" : HostText.fullBytes(byteCapacity))));
         }
     }
 
@@ -547,9 +556,7 @@ final class StorageHostCharts {
     }
 
     private static String fullUsedBytes(StoragePanelState state) {
-        BigInteger used = state.types().stream().map(StoragePanelState.TypeLine::exactUsedBytes)
-            .reduce(BigInteger.ZERO, BigInteger::add);
-        return HostText.fullBytes(used);
+        return HostText.fullBytes(state.exactUsedBytes());
     }
 
     private List<Component> capacityTooltip() {

@@ -118,9 +118,10 @@ class StoragePanelStateTest {
 
     @Test
     void specialCellCapacityIsExcludedFromHostTotalsAndUsageAcrossPages() {
-        CellEntry special = cell(1_000, Long.MAX_VALUE);
+        CellEntry special = cell(Long.MAX_VALUE, Long.MAX_VALUE).withExactUsedBytes(BigInteger.TEN.pow(40));
         StoragePanelState onlySpecial = StoragePanelState.capture(config(List.of(special), false), 0, 33);
         assertEquals(BigInteger.ZERO, onlySpecial.totalBytes());
+        assertEquals(BigInteger.ZERO, onlySpecial.exactUsedBytes());
         assertEquals(0, onlySpecial.usage());
         assertFalse(onlySpecial.unbounded());
         assertEquals(special, cn.dancingsnow.neoecoae.platform.JdkCompat.first(onlySpecial.cells()));
@@ -130,9 +131,11 @@ class StoragePanelStateTest {
         for (int offset : List.of(0, 33)) {
             StoragePanelState captured = StoragePanelState.capture(config(mixed, false), offset, 33);
             assertEquals(BigInteger.valueOf(3_500), captured.totalBytes());
+            assertEquals(BigInteger.valueOf(1_750), captured.exactUsedBytes());
             assertEquals(0.5, captured.usage(), 1.0E-14);
             StoragePanelState synced = StoragePanelState.fromTag(captured.toTag());
             assertEquals(captured.totalBytes(), synced.totalBytes());
+            assertEquals(captured.exactUsedBytes(), synced.exactUsedBytes());
             assertEquals(captured.usage(), synced.usage());
         }
     }

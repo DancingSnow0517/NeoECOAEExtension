@@ -6,6 +6,7 @@ public final class UIEvent {
     public UIElement target, currentTarget;
     public float x,y,mouseX,mouseY,deltaX,deltaY,wheelDelta;
     public int button;
+    public int keyCode, scanCode, modifiers;
     public boolean hasHandler;
     public Object customData;
     public float dragStartX,dragStartY;

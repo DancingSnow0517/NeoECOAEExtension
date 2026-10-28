@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
@@ -21,8 +21,6 @@ import net.minecraft.resources.ResourceLocation;
 
 /** Contextual actions with separate choices for pattern holders and actual processing machines. */
 final class ComputationItemActionsPopup extends UIElement {
-    private static final SpriteTexture BACKGROUND = SpriteTexture.of(new ResourceLocation("neoecoae", "textures/gui/vendor/ae2/context_background.png"))
-        .setSprite(0, 0, 256, 256).setBorder(2);
     private static final int PAGE_SIZE = 4;
     private enum Mode { MENU, CHOOSE, CHOOSE_MACHINE, MESSAGE }
     private final Consumer<CompoundTag> request;
@@ -46,7 +44,8 @@ final class ComputationItemActionsPopup extends UIElement {
         this.chat = chat;
         setId("computation-item-actions");
         setDisplay(false);
-        style(style -> style.zIndex(100));
+        // Vanilla item models render above the base GUI plane, including their depth buffer writes.
+        style(style -> style.zIndex(400));
         setOverflowVisible(true);
         addEventListener(UIEvents.MOUSE_DOWN, event -> {
             pressed = event.button == 0 ? row(event.x, event.y) : -1;
@@ -64,7 +63,9 @@ final class ComputationItemActionsPopup extends UIElement {
             event.stopImmediatePropagation();
         });
         addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-            int row = row(event.x, event.y);
+            var ui = getModularUI();
+            if (ui == null) return;
+            int row = row(ui.getLastMouseX(), ui.getLastMouseY());
             if (mode == Mode.MENU && row == 3) event.hoverTooltips = HoverTooltips.empty().append(
                 Component.translatable("gui.neoecoae.processing.stop_hint"));
             if (mode == Mode.MENU && (row == 0 || row == 1) && loaded && sources.isEmpty()) event.hoverTooltips =
@@ -202,7 +203,8 @@ final class ComputationItemActionsPopup extends UIElement {
     @Override public void drawBackgroundAdditional(GUIContext context) {
         float x = getPositionX(), y = getPositionY(), width = getSizeWidth();
         context.graphics.flush();
-        context.drawTexture(BACKGROUND, x, y, width, getSizeHeight());
+        context.drawTexture(NETextures.AE2_CONTEXT_BACKGROUND, x, y, width, getSizeHeight());
+        context.graphics.flush();
         Component title = item == null ? Component.empty() : item.key().getDisplayName();
         if (mode == Mode.CHOOSE || mode == Mode.CHOOSE_MACHINE) title = title.copy().append(" · " + (page + 1) + "/" + Math.max(1, (choices().size() + PAGE_SIZE - 1) / PAGE_SIZE));
         text(context, title, 7, 6, 0x413F54);
