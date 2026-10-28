@@ -202,7 +202,9 @@ file="META-INF/accesstransformer.cfg"
     modId="ae2lt"
     type="optional"
     versionRange="[1.1.3,)"
-    ordering="AFTER"
+    # Lightning items use deferred registration; runtime bridges do not need constructor ordering.
+    # AFTER closes a cycle with AE2LT AFTER ExtendedAE Plus and ExtendedAE Plus AFTER NeoECOAE.
+    ordering="NONE"
     side="BOTH"
 
 [[dependencies.${mod_id}]]
