@@ -86,6 +86,6 @@ ECOCraftConfirmScreen.submit(false)
 
 ### 2026-10-28 提交前复核
 
-在当前 20.5.3 工作区通过 `build-local.ps1` 使用 Java 17 重新运行上述 4 个测试类，18 项全部通过（0 失败、0 错误、0 跳过），`jar` / `reobfJar` 成功。当前结果位于 `build/test-results/test/`，产物为 `build/libs/neoecoae-20.5.3.jar`；JAR 已检查包含 `CraftSubmissionPacketFeedback` 的 Java 17 字节码，且未混入提交探针。
+在版本号调整前的 20.5.3 工作区通过 `build-local.ps1` 使用 Java 17 重新运行上述 4 个测试类，18 项全部通过（0 失败、0 错误、0 跳过），`jar` / `reobfJar` 成功。当前结果位于 `build/test-results/test/`，产物为 `build/libs/neoecoae-20.5.3.jar`；JAR 已检查包含 `CraftSubmissionPacketFeedback` 的 Java 17 字节码，且未混入提交探针。
 
 本次复核没有重跑前述 Forge/Mixin 探针，也没有进行客户端或存档中的实际提交交互；前述探针结果仍仅对应原排查环境。没有修改原整合包、恢复全局距离绕过或修改 CPU 名字。

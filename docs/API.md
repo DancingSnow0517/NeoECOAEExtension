@@ -1,6 +1,6 @@
 # NeoECOAE API integration guide
 
-[简体中文](API_ZH_CN.md) · [API sources](../src/main/java/cn/dancingsnow/neoecoae/api) · [Release notes](releases/20.5.3.md)
+[简体中文](API_ZH_CN.md) · [API sources](../src/main/java/cn/dancingsnow/neoecoae/api) · [Release notes](releases/20.5.2.md)
 
 For addon authors targeting **Minecraft 1.20.1 / Forge / Java 17**. Organization follows 1.21.1 main at `6dfbee3a`; signatures, examples and limitations are checked against this branch. The mod version is `mod_version` in [gradle.properties](../gradle.properties); dependencies are defined in [build.gradle](../build.gradle) and [mods.toml](../src/main/resources/META-INF/mods.toml). Use documentation from the same revision as the target JAR.
 
@@ -10,9 +10,9 @@ The API ships in the full mod JAR, without a separate `-api` artifact. This bran
 
 ```groovy
 dependencies {
-    modCompileOnly files("libs/neoecoae-20.5.3.jar")
+    modCompileOnly files("libs/neoecoae-20.5.2.jar")
     // For this project's Legacy ModDevGradle setup; adapt for other build plugins.
-    modRuntimeOnly files("libs/neoecoae-20.5.3.jar")
+    modRuntimeOnly files("libs/neoecoae-20.5.2.jar")
 }
 ```
 
@@ -22,7 +22,7 @@ Replace the version with the tested artifact. `modCompileOnly/modRuntimeOnly` ar
 [[dependencies.examplemod]]
 modId = "neoecoae"
 mandatory = true
-versionRange = "[20.5.3]"
+versionRange = "[20.5.2]"
 ordering = "AFTER"
 side = "BOTH"
 ```
@@ -263,7 +263,7 @@ This branch has no general `INativeMEStorageRestrictedItem` restriction interfac
 
 [LargeWorkstationRecipes](../src/main/java/cn/dancingsnow/neoecoae/recipe/LargeWorkstationRecipes.java) `getAll(level)` returns display representatives, `getGroups(level)/getGroup(level, id)` exposes groups, and `getAvailable(level, LargeWorkstationModule)` returns executable variants for the installed module. Group `availableVariants(module)` preserves original batch sizes and costs. Persist the actual variant ID returned by `findScaled`. A display representative grants no execution permissions or arbitrary smaller batches.
 
-[LargeWorkstationRecipe](../src/main/java/cn/dancingsnow/neoecoae/recipe/LargeWorkstationRecipe.java) preserves source ID/type, inputs, outputs, processing time and AE/FE costs. `processing(ticks, feEnergy, feAlternative)` describes source time/FE; `energy()` is the AE budget. Nonzero AE and FE with alternative false require both; true makes them alternatives. FE-only recipes set AE to zero. Since 20.5.3, new Large Integrated Workstation runtime batches take 1 tick; JEI/EMI still show source time and throughput depends on parallelism. Source time is not the runtime progress duration.
+[LargeWorkstationRecipe](../src/main/java/cn/dancingsnow/neoecoae/recipe/LargeWorkstationRecipe.java) preserves source ID/type, inputs, outputs, processing time and AE/FE costs. `processing(ticks, feEnergy, feAlternative)` describes source time/FE; `energy()` is the AE budget. Nonzero AE and FE with alternative false require both; true makes them alternatives. FE-only recipes set AE to zero. In this revised 20.5.2 build, new Large Integrated Workstation runtime batches take 1 tick; JEI/EMI still show source time and throughput depends on parallelism. Source time is not the runtime progress duration.
 
 Modules are controlled by the fixed [LargeWorkstationModule](../src/main/java/cn/dancingsnow/neoecoae/recipe/LargeWorkstationModule.java) enum and built-in recipe adapters. The port's defined scope is regular, AdvancedAE, ExtendedAE and AE2LT recipes; other enum placeholders are not a support guarantee. This branch exposes no dynamic `ECOWorkstationRecipeAdapters` / `ECOWorkstationModules` registration, nor the 1.21.1 registries for power, structures, standalone computation cells or storage channel displays. Additional sources need a separately implemented and verified business adapter.
 

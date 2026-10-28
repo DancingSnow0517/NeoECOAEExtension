@@ -1,6 +1,6 @@
 # NeoECOAE API 接入指南
 
-[English](API.md) · [源码接口](../src/main/java/cn/dancingsnow/neoecoae/api) · [发布记录](releases/20.5.3.md)
+[English](API.md) · [源码接口](../src/main/java/cn/dancingsnow/neoecoae/api) · [发布记录](releases/20.5.2.md)
 
 本文面向附属模组作者，适用于 **Minecraft 1.20.1 / Forge / Java 17**。组织方式参考 1.21.1 main 的 `6dfbee3a`，接口、示例与限制按本分支源码核对。模组版本以 [gradle.properties](../gradle.properties) 的 `mod_version` 为准，依赖以 [build.gradle](../build.gradle) 和 [mods.toml](../src/main/resources/META-INF/mods.toml) 为准。请使用与目标 JAR 同一修订的文档。
 
@@ -10,9 +10,9 @@ API 随完整模组 JAR 分发，没有独立的 `-api` 产物。本分支没有
 
 ```groovy
 dependencies {
-    modCompileOnly files("libs/neoecoae-20.5.3.jar")
+    modCompileOnly files("libs/neoecoae-20.5.2.jar")
     // 本工程使用的 Legacy ModDevGradle 环境；其他构建插件使用各自的开发运行配置。
-    modRuntimeOnly files("libs/neoecoae-20.5.3.jar")
+    modRuntimeOnly files("libs/neoecoae-20.5.2.jar")
 }
 ```
 
@@ -22,7 +22,7 @@ dependencies {
 [[dependencies.examplemod]]
 modId = "neoecoae"
 mandatory = true
-versionRange = "[20.5.3]"
+versionRange = "[20.5.2]"
 ordering = "AFTER"
 side = "BOTH"
 ```
@@ -263,7 +263,7 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 
 [LargeWorkstationRecipes](../src/main/java/cn/dancingsnow/neoecoae/recipe/LargeWorkstationRecipes.java) 的 `getAll(level)` 返回展示代表，`getGroups(level)/getGroup(level, id)` 提供配方组，`getAvailable(level, LargeWorkstationModule)` 返回当前模块可执行的变体。组的 `availableVariants(module)` 保留各来源的原始批量与费用；`findScaled` 返回的实际变体 ID 用于保存任务。展示代表不代替执行权限，也不能将大批量配方缩为任意小批量。
 
-[LargeWorkstationRecipe](../src/main/java/cn/dancingsnow/neoecoae/recipe/LargeWorkstationRecipe.java) 保留源 ID/类型、输入输出、加工时间与 AE/FE 成本，`processing(ticks, feEnergy, feAlternative)` 描述来源配方的时间/FE 合同。`energy()` 为 AE 预算；AE 与 FE 均非零且非 alternative 时同时支付，alternative 时二选一，FE-only 的 AE 设零。自 20.5.3 起，大型集成工作站实际新批次固定为 1 tick；JEI/EMI 继续展示来源时间，吞吐由并行数量决定。来源时间不能用作运行进度时长。
+[LargeWorkstationRecipe](../src/main/java/cn/dancingsnow/neoecoae/recipe/LargeWorkstationRecipe.java) 保留源 ID/类型、输入输出、加工时间与 AE/FE 成本，`processing(ticks, feEnergy, feAlternative)` 描述来源配方的时间/FE 合同。`energy()` 为 AE 预算；AE 与 FE 均非零且非 alternative 时同时支付，alternative 时二选一，FE-only 的 AE 设零。当前 20.5.2 修订中，大型集成工作站实际新批次固定为 1 tick；JEI/EMI 继续展示来源时间，吞吐由并行数量决定。来源时间不能用作运行进度时长。
 
 运行模块由固定枚举 [LargeWorkstationModule](../src/main/java/cn/dancingsnow/neoecoae/recipe/LargeWorkstationModule.java) 与内置配方适配器决定。移植约定中的大集成范围为常规、AdvancedAE、ExtendedAE、AE2LT 四类；源码中的其他枚举占位不构成已接入承诺。本分支没有公开的 `ECOWorkstationRecipeAdapters` / `ECOWorkstationModules` 动态注册入口，也没有 1.21.1 的功耗、结构、独立晶阵或存储通道扩展注册器。接入额外来源需另行实现并验证对应业务适配。
 
