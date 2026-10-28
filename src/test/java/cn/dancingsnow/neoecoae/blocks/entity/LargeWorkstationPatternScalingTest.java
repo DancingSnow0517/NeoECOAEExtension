@@ -86,7 +86,7 @@ class LargeWorkstationPatternScalingTest {
         var batch = cn.dancingsnow.neoecoae.platform.JdkCompat.first(((Deque<?>) value(controller, "pendingBatches")));
         assertEquals(3L, value(batch, "craftCount"));
         assertEquals(200L, value(batch, "energyPerCraft"));
-        assertEquals(200, value(batch, "processingTicks"));
+        assertEquals(1, value(batch, "processingTicks"), "Runtime processing is fixed to one tick; parallelism controls throughput");
         assertEquals(false, value(batch, "legacyTiming"));
         assertEquals(job, value(batch, "craftingJobId"));
         assertEquals(24L, ((KeyCounter) value(batch, "inputTotal")).get(AEItemKey.of(Items.IRON_INGOT)));
@@ -157,7 +157,7 @@ class LargeWorkstationPatternScalingTest {
             var batch = ((Deque<?>) value(controller, "pendingBatches")).getFirst();
             assertEquals(installed ? 0L : 100L, value(batch, "energyPerCraft"));
             assertEquals(installed ? 200L : 0L, value(batch, "fePerCraft"));
-            assertEquals(4, value(batch, "processingTicks"));
+            assertEquals(1, value(batch, "processingTicks"));
         }
     }
 
@@ -175,7 +175,7 @@ class LargeWorkstationPatternScalingTest {
             var batch = ((Deque<?>) value(controller, "pendingBatches")).getFirst();
             assertEquals(0L, value(batch, "energyPerCraft"));
             assertEquals(200L, value(batch, "fePerCraft"));
-            assertEquals(4, value(batch, "processingTicks"));
+            assertEquals(1, value(batch, "processingTicks"));
         }
     }
 
