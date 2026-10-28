@@ -21,7 +21,7 @@ Java 包路径均相对于 `src/main/java/cn/dancingsnow/neoecoae/`。
 | 规划、循环、精确订单 | `api/me/planning/`、`api/me/bigorder/`、`crafting/planner/`、`crafting/adapter/` 和对应测试 |
 | CPU、发配、事务、产物 | `api/me/provider/`、`api/me/output/`、`crafting/execution/`；先区分准备、接收、记账与交付 |
 | 样板导入或迁移 | `api/IECOPatternStorage*.java`、`api/ECOPatternInsertion.java`、`api/PatternStorageHost.java` 及服务实现 |
-| 存储盘、精确数量、迁移 | `api/storage/`、`impl/storage/`、`impl/storage/bulk/` 和对应持久化/恢复测试 |
+| 存储盘、精确数量、迁移 | `api/storage/`、`storage/`、`storage/bulk/` 和对应持久化/恢复测试 |
 | 多方块、档位、模型 | `api/IECOTier.java`、`api/multiblock/`、`multiblock/`、`blocks/entity/` 与客户端模型实现 |
 | 工作站、配方、温控 | `recipe/`、`api/workstation/`、`blocks/entity/ECOLargeIntegratedWorkingStationBlockEntity.java`、`config/NEConfig.java` |
 | UI、同步、面板贴图 | `gui/`、`menu/`、`network/`、`src/main/resources/assets/neoecoae/screens/`；面板扩展见 [API](docs/API_ZH_CN.md#面板与模型) |

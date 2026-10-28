@@ -10,7 +10,7 @@ import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.common.SampledValue;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
-import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
+import cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import com.google.gson.JsonObject;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;

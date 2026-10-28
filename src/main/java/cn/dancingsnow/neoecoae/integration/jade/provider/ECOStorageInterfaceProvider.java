@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.integration.jade.provider;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
-import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
+import cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;

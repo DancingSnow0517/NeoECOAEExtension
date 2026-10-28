@@ -6,7 +6,7 @@ import appeng.items.contents.CellConfig;
 import appeng.util.ConfigInventory;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
-import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Rarity;

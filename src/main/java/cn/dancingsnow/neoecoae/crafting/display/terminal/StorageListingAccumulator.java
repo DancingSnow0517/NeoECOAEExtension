@@ -4,7 +4,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
-import cn.dancingsnow.neoecoae.impl.storage.SaturatingStackAccumulator;
+import cn.dancingsnow.neoecoae.storage.SaturatingStackAccumulator;
 import java.math.BigInteger;
 import java.util.Map;
 import java.util.function.Consumer;

@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import java.util.List;
 import java.util.UUID;

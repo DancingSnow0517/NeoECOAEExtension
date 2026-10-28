@@ -2,10 +2,10 @@ package cn.dancingsnow.neoecoae.event;
 
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageDomains;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.PatternBusUpdateScheduler;
 import cn.dancingsnow.neoecoae.crafting.planner.growth.NetGrowthPatternValidationRegistry;
-import cn.dancingsnow.neoecoae.impl.storage.ECOCellMutationBatch;
+import cn.dancingsnow.neoecoae.storage.ECOCellMutationBatch;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;

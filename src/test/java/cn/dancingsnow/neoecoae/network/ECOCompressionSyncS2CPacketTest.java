@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.network;
 
 import appeng.api.stacks.AEItemKey;
-import cn.dancingsnow.neoecoae.impl.storage.bulk.BulkUnits;
-import cn.dancingsnow.neoecoae.impl.storage.bulk.ECOCompressionService;
+import cn.dancingsnow.neoecoae.storage.bulk.BulkUnits;
+import cn.dancingsnow.neoecoae.storage.bulk.ECOCompressionService;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import io.netty.buffer.Unpooled;
 import java.math.BigInteger;

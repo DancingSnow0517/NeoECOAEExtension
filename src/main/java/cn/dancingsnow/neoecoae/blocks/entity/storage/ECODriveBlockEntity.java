@@ -11,7 +11,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
@@ -290,15 +290,15 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     }
 
     public int getConfiguredCellPriority() {
-        return cellStack == null ? 0 : cn.dancingsnow.neoecoae.impl.storage.ECOStorageCellSettings.priority(cellStack);
+        return cellStack == null ? 0 : cn.dancingsnow.neoecoae.storage.ECOStorageCellSettings.priority(cellStack);
     }
 
     public void setConfiguredCellPriority(int priority) {
-        if (cellStack == null || !cn.dancingsnow.neoecoae.impl.storage.ECOStorageCellSettings.canConfigure(cellStack)) return;
-        if (getCellInventory() instanceof cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkStorageCell bulk) {
+        if (cellStack == null || !cn.dancingsnow.neoecoae.storage.ECOStorageCellSettings.canConfigure(cellStack)) return;
+        if (getCellInventory() instanceof cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell bulk) {
             bulk.setConfiguredStoragePriority(priority);
         } else {
-            cn.dancingsnow.neoecoae.impl.storage.ECOStorageCellSettings.setPriority(cellStack, priority);
+            cn.dancingsnow.neoecoae.storage.ECOStorageCellSettings.setPriority(cellStack, priority);
         }
         onCellConfigurationChanged();
         var controller = getStorageController();

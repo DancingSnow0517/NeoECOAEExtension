@@ -22,9 +22,9 @@ import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.INativeMEStorageRestrictedItem;
-import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import lombok.Getter;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -316,7 +316,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem, INati
 
         ECOStorageCell cellInventory = getCellInventory(stack);
         if (cellInventory == null || !cellInventory.getAvailableStacks().isEmpty()
-                || cellInventory instanceof cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkStorageCell bulk
+                || cellInventory instanceof cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell bulk
                     && !bulk.canFitInsideCell()) {
             player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
             return false;

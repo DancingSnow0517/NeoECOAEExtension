@@ -705,7 +705,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
             source = appeng.api.networking.security.IActionSource.ofPlayer(player, source.machine().orElse(null));
         }
         for (var entry : job.deferredStock.entrySet()) {
-            var generated = cn.dancingsnow.neoecoae.impl.storage.ECOCreativeSupply.extract(
+            var generated = cn.dancingsnow.neoecoae.storage.ECOCreativeSupply.extract(
                 grid, entry.getKey(), entry.getValue(), source);
             if (generated.signum() > 0) {
                 ((cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) inventory)

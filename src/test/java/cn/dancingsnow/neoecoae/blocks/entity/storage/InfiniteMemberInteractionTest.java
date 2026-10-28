@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import net.minecraft.nbt.CompoundTag;
@@ -77,7 +77,7 @@ class InfiniteMemberInteractionTest {
         assertEquals(1, host.getMissingInfiniteMembers());
 
         ItemStack controller = new ItemStack(Items.DIRT);
-        field(host, "hostMode", cn.dancingsnow.neoecoae.impl.storage.infinite.ECOStorageHostMode.FORMED_INFINITE);
+        field(host, "hostMode", cn.dancingsnow.neoecoae.storage.infinite.ECOStorageHostMode.FORMED_INFINITE);
         host.applyInfiniteDomainToControllerDrop(controller);
         var restored = host(domain);
         var load = ECOStorageSystemBlockEntity.class.getDeclaredMethod("loadInfiniteMembers", CompoundTag.class);
@@ -99,12 +99,12 @@ class InfiniteMemberInteractionTest {
     @Test
     void infiniteInterfaceStorageIncludesSpecialCells() {
         var host = mock(ECOStorageSystemBlockEntity.class);
-        when(host.storageHostMode()).thenReturn(cn.dancingsnow.neoecoae.impl.storage.infinite.ECOStorageHostMode.FORMED_INFINITE);
+        when(host.storageHostMode()).thenReturn(cn.dancingsnow.neoecoae.storage.infinite.ECOStorageHostMode.FORMED_INFINITE);
         when(host.canUseHostDomainStorage()).thenReturn(true);
         when(host.canInsertIntoInfiniteDomain()).thenReturn(true);
         var tier = mock(cn.dancingsnow.neoecoae.api.IECOTier.class);
         when(host.getTier()).thenReturn(tier);
-        var engine = mock(cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine.class);
+        var engine = mock(cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine.class);
         var domain = mock(appeng.api.storage.MEStorage.class);
         when(host.getInfiniteEngine()).thenReturn(engine);
         when(host.createInfiniteStorageView(engine)).thenReturn(domain);
@@ -130,7 +130,7 @@ class InfiniteMemberInteractionTest {
         UUID domain = UUID.randomUUID();
         var host = host(domain);
         field(host, "hostMode",
-                cn.dancingsnow.neoecoae.impl.storage.infinite.ECOStorageHostMode.MIGRATING_TO_INFINITE);
+                cn.dancingsnow.neoecoae.storage.infinite.ECOStorageHostMode.MIGRATING_TO_INFINITE);
         ItemStack source = new ItemStack(Items.STONE);
         UUID migration = ECOInfiniteStorageMember.beginMigration(source, domain);
         host.infiniteMigrationSourceIds().add(migration);

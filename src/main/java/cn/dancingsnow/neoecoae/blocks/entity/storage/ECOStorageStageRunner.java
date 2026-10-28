@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
-import cn.dancingsnow.neoecoae.impl.storage.StorageFaults;
+import cn.dancingsnow.neoecoae.storage.StorageFaults;
 import net.minecraft.world.level.Level;
 
 import java.util.HashMap;

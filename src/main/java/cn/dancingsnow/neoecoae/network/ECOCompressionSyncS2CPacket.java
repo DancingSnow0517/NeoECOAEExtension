@@ -2,8 +2,8 @@ package cn.dancingsnow.neoecoae.network;
 
 import appeng.api.stacks.AEItemKey;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.impl.storage.bulk.BulkUnits;
-import cn.dancingsnow.neoecoae.impl.storage.bulk.ECOCompressionService;
+import cn.dancingsnow.neoecoae.storage.bulk.BulkUnits;
+import cn.dancingsnow.neoecoae.storage.bulk.ECOCompressionService;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;

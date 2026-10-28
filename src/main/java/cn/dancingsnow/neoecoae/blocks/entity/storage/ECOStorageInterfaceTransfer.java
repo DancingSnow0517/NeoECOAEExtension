@@ -18,9 +18,9 @@ import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.CombinedExactAmountSource;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountCollector;
-import cn.dancingsnow.neoecoae.impl.storage.SaturatingStackAccumulator;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
-import cn.dancingsnow.neoecoae.impl.storage.transfer.ECOIOPortTransfer;
+import cn.dancingsnow.neoecoae.storage.SaturatingStackAccumulator;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine;
+import cn.dancingsnow.neoecoae.storage.transfer.ECOIOPortTransfer;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 
 /** Moves storage contents in full-key batches using AE2 ME IO Port transfer semantics. */

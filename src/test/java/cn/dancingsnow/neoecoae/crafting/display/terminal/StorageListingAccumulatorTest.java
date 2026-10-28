@@ -47,7 +47,7 @@ class StorageListingAccumulatorTest {
         output.add(key, 64);
         accumulator.append(source, output, counter -> {
             assertSame(output, counter);
-            cn.dancingsnow.neoecoae.impl.storage.SaturatingStackAccumulator.add(counter, key, Long.MAX_VALUE);
+            cn.dancingsnow.neoecoae.storage.SaturatingStackAccumulator.add(counter, key, Long.MAX_VALUE);
         });
         assertEquals(Long.MAX_VALUE, output.get(key));
         verify((ExactAmountSource) source, never()).neoecoae$visitExactAmounts(any());

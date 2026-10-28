@@ -8,7 +8,7 @@ import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
-import cn.dancingsnow.neoecoae.impl.storage.ECOInfiniteResourceCell;
+import cn.dancingsnow.neoecoae.storage.ECOInfiniteResourceCell;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.math.BigInteger;
 import java.util.List;

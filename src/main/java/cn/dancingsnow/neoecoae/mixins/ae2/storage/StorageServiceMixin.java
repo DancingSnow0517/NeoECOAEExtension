@@ -4,7 +4,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.me.service.StorageService;
 import appeng.me.storage.NetworkStorage;
-import cn.dancingsnow.neoecoae.impl.storage.NetworkInventoryCache;
+import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
 import com.google.common.math.StatsAccumulator;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import net.minecraft.server.MinecraftServer;

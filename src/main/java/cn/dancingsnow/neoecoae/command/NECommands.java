@@ -36,7 +36,7 @@ public final class NECommands {
 
     private static int storageReport(net.minecraft.commands.CommandSourceStack source, net.minecraft.core.BlockPos pos) {
         try {
-            var report = cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains.diagnosticReport(source.getServer());
+            var report = cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageDomains.diagnosticReport(source.getServer());
             if (pos != null && source.getLevel().getBlockEntity(pos)
                 instanceof cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity controller) {
                 report.addProperty("controller", pos.toShortString());

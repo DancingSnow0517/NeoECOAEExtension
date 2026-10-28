@@ -30,7 +30,7 @@ import cn.dancingsnow.neoecoae.data.NEDataGen;
 import cn.dancingsnow.neoecoae.event.ECOStorageLifecycleEvents;
 import cn.dancingsnow.neoecoae.util.DrainOnlyFluidHandler;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
-import cn.dancingsnow.neoecoae.impl.storage.ECOCreativeCell;
+import cn.dancingsnow.neoecoae.storage.ECOCreativeCell;
 import cn.dancingsnow.neoecoae.network.ECONetwork;
 import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
@@ -87,17 +87,17 @@ public class NeoECOAE {
         NECellTypes.register();
         NERecipeTypes.register(modBus);
         NEDataComponents.register(modBus);
-        cn.dancingsnow.neoecoae.impl.storage.bulk.ECOCompressionService.init();
+        cn.dancingsnow.neoecoae.storage.bulk.ECOCompressionService.init();
         cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.register(
-            cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::autoMark,
-            cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::hasBulkCell,
-            cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::normalizeMarker,
-            cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::isSameMarkerChain,
-            cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::migrateMarkedCell,
-            cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::previewMarkedCell);
+            cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkingService::autoMark,
+            cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkingService::hasBulkCell,
+            cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkingService::normalizeMarker,
+            cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkingService::isSameMarkerChain,
+            cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkingService::migrateMarkedCell,
+            cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkingService::previewMarkedCell);
         cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.registerCellMarking(
-            cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::markAndMigrateCell,
-            cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkMarkingService::previewMarkAndMigrateCell);
+            cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkingService::markAndMigrateCell,
+            cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkingService::previewMarkAndMigrateCell);
 
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Loading Integrations");
         integrationManager.compileContent();
@@ -205,7 +205,7 @@ public class NeoECOAE {
                 Upgrades.add(AEItems.VOID_CARD, cell, 1, storageCellGroup);
             }
             appeng.api.crafting.PatternDetailsHelper.registerDecoder(
-                cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkConversionPattern.DECODER);
+                cn.dancingsnow.neoecoae.storage.bulk.ECOBulkConversionPattern.DECODER);
         });
     }
 

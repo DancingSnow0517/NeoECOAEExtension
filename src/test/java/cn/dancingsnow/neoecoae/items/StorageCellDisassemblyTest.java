@@ -5,8 +5,8 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import appeng.util.InteractionUtil;
-import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
-import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOUniversalStorageCellItem;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.wintercogs.ae2omnicells.common.me.AEUniversalCellData;
@@ -74,7 +74,7 @@ class StorageCellDisassemblyTest {
             contents.add(AEItemKey.of(Items.DIAMOND), 1);
         }
         ECOStorageCell basicCell = state.equals("queued")
-            ? mock(cn.dancingsnow.neoecoae.impl.storage.bulk.ECOBulkStorageCell.class) : mock(ECOStorageCell.class);
+            ? mock(cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell.class) : mock(ECOStorageCell.class);
         when(basicCell.getAvailableStacks()).thenReturn(contents);
         ItemStack housing = new ItemStack(Items.IRON_INGOT);
 

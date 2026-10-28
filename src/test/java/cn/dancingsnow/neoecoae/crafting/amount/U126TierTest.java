@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.amount;
 
-import cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount;
+import cn.dancingsnow.neoecoae.storage.infinite.HugeAmount;
 import java.math.BigInteger;
 import java.util.Random;
 import org.junit.jupiter.api.Test;
