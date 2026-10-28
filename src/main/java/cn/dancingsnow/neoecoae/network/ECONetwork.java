@@ -36,6 +36,8 @@ public final class ECONetwork {
             ECOForceCraftStartFlagC2SPacket.STREAM_CODEC, ECOForceCraftStartFlagC2SPacket::handle);
         register(4, ECOImportJeiBookmarksC2SPacket.class, NetworkDirection.PLAY_TO_SERVER,
             ECOImportJeiBookmarksC2SPacket.STREAM_CODEC, ECOImportJeiBookmarksC2SPacket::handle);
+        register(5, ECOCompressionSyncS2CPacket.class, NetworkDirection.PLAY_TO_CLIENT,
+            ECOCompressionSyncS2CPacket.STREAM_CODEC, ECOCompressionSyncS2CPacket::handle);
     }
 
     private static <P> void register(int id, Class<P> type, NetworkDirection direction,
@@ -51,6 +53,9 @@ public final class ECONetwork {
     public static void sendToServer(Object packet) { channel.sendToServer(packet); }
     public static void sendToPlayer(ServerPlayer player, Object packet) {
         channel.send(PacketDistributor.PLAYER.with(() -> player), packet);
+    }
+    public static void sendToAllPlayers(Object packet) {
+        channel.send(PacketDistributor.ALL.noArg(), packet);
     }
 
     static String protocolVersion(String modVersion) {

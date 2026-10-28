@@ -88,6 +88,18 @@ public class NeoECOAE {
         NERecipeTypes.register(modBus);
         cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes.configure(() -> NEConfig.largeWorkstationIgnoreUpgradeCards);
 
+        cn.dancingsnow.neoecoae.storage.bulk.ECOCompressionService.init();
+        cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.register(
+            cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkingService::autoMark,
+            cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkingService::hasBulkCell,
+            cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkingService::normalizeMarker,
+            cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkingService::isSameMarkerChain,
+            cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkingService::migrateMarkedCell,
+            cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkingService::previewMarkedCell);
+        cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.registerCellMarking(
+            cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkingService::markAndMigrateCell,
+            cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkingService::previewMarkAndMigrateCell);
+
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Loading Integrations");
         integrationManager.compileContent();
         integrationManager.loadAllIntegrations();
@@ -221,6 +233,8 @@ public class NeoECOAE {
         event.enqueueWork(() -> {
             ECOStorageCells.register(ECOStorageCellItem.Handler.INSTANCE);
             ECOStorageCells.register(ECOCreativeCell.Handler.INSTANCE);
+            appeng.api.crafting.PatternDetailsHelper.registerDecoder(
+                cn.dancingsnow.neoecoae.storage.bulk.ECOBulkConversionPattern.DECODER);
         });
     }
 

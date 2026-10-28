@@ -121,6 +121,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     // Keep LDLib-managed fields on the block entity; delegate domain-specific behavior and caches.
     private final ECOStorageHostStatistics statistics = new ECOStorageHostStatistics(this);
     private final ECOStorageMegaController megaController = new ECOStorageMegaController(this);
+    private final ECOBulkCraftingProvider bulkCrafting = new ECOBulkCraftingProvider(this);
     private final ECOStorageInterfaceTransfer interfaceTransfer = new ECOStorageInterfaceTransfer(this);
     private final ECOStorageInfiniteRestore infiniteRestore = new ECOStorageInfiniteRestore(this);
     private final ECOInfiniteStorageModeController infiniteModeController =
@@ -165,6 +166,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         super(type, pos, blockState, NEStorageClusterCalculator::new);
         this.tier = tier;
         getMainNode().addService(IStorageProvider.class, this);
+        getMainNode().addService(appeng.api.networking.crafting.ICraftingProvider.class, bulkCrafting);
     }
 
     public static ECOStorageSystemBlockEntity createL4(
@@ -236,6 +238,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 })) return;
             }
             stageRunner.run("construction", () -> buildController.tick(level));
+            stageRunner.run("bulk_crafting", bulkCrafting::tick);
         } finally {
             long elapsed = System.nanoTime() - startNanos;
             recordPerformanceSample(elapsed);

@@ -6,9 +6,7 @@ import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
-import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
 import cn.dancingsnow.neoecoae.integration.megacells.backend.MegaCellsBackend;
-import cn.dancingsnow.neoecoae.integration.megacells.backend.MegaBulkMarkingService;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import net.minecraftforge.fml.ModList;
@@ -24,12 +22,6 @@ public final class MegaCellsIntegration {
     private final List<MegaExternalCell> externalCells = new ArrayList<>();
 
     public void apply() {
-        StorageBulkMarkingIntegration.register(
-            MegaBulkMarkingService::autoMark,
-            MegaBulkMarkingService::hasBulkCell,
-            MegaBulkMarkingService::normalizeMarker,
-            MegaBulkMarkingService::isSameMarkerChain
-        );
         NEMegaCellTypes.register();
         NEMegaItems.register();
         NEMegaBaseItems.register();

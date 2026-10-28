@@ -229,8 +229,9 @@ final class ECOStorageMegaController {
         int visualSlot,
         ItemStack candidate
     ) {
-        for (int index = 0; index < drives.size(); index++) {
-            ItemStack cellStack = drives.get(index).getCellStack();
+        ECODriveBlockEntity selected = drives.get(driveIndex);
+        for (var drive : cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkingService.markerDrives(host)) {
+            ItemStack cellStack = drive.getCellStack();
             if (cellStack == null || cellStack.isEmpty()
                 || !(cellStack.getItem() instanceof IECOBulkMarkableCellItem cellItem)) {
                 continue;
@@ -238,7 +239,7 @@ final class ECOStorageMegaController {
             var config = cellItem.getConfigInventory(cellStack);
             int activeSlots = getActiveMarkerSlots(cellStack);
             for (int slot = 0; slot < Math.min(config.size(), activeSlots); slot++) {
-                if (index == driveIndex
+                if (drive == selected
                     && slot == page * ECO_MEGA_SLOTS_PER_PAGE + visualSlot) {
                     continue;
                 }

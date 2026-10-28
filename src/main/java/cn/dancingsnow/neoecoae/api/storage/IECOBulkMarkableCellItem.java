@@ -6,9 +6,9 @@ import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Opts an ECO drive-compatible item into the storage host's manual MEGA compression marker panel.
+ * Opts an ECO drive-compatible item into the storage host's manual bulk marker panel.
  * This does not register a storage backend or opt the cell into automatic marking/item transfers.
- * MEGA Cells integration must be available for compression-chain validation.
+ * ECO's compression service performs component-aware chain validation without optional mods.
  */
 public interface IECOBulkMarkableCellItem {
     /**
@@ -21,7 +21,7 @@ public interface IECOBulkMarkableCellItem {
     ConfigInventory getConfigInventory(ItemStack stack);
 
     /**
-     * Optional upgrade inventory for the panel's ECO MEGA Upgrade Card slot.
+     * Optional upgrade inventory for the panel's ECO Bulk Expansion Card slot.
      * Return null if the cell does not support this slot. The inventory must enforce its own
      * supported upgrades and removal restrictions. Pagination depends on configuration size.
      */

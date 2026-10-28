@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.integration.megacells.backend;
+package cn.dancingsnow.neoecoae.storage.bulk;
 
 import appeng.api.config.Actionable;
 import appeng.api.storage.MEStorage;
@@ -17,11 +17,11 @@ import cn.dancingsnow.neoecoae.storage.ECOCreativeCell;
 import cn.dancingsnow.neoecoae.storage.transfer.StorageExtractionExclusions;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.MarkResult;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.Status;
-import cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaLongBulkStorageCellItem;
-import gripe._90.megacells.misc.CompressionChain;
-import gripe._90.megacells.misc.CompressionService;
+import cn.dancingsnow.neoecoae.items.ECOBulkStorageCellItem;
+import cn.dancingsnow.neoecoae.api.storage.IECOBulkMarkableCellItem;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,18 +32,44 @@ import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
 
-/** Writes host-wide compression-chain filters into ECO MEGA long bulk cells. */
-public final class MegaBulkMarkingService {
-    private static final Logger LOGGER = LoggerFactory.getLogger(MegaBulkMarkingService.class);
+/** Writes host-wide compression-chain filters into ECO bulk cells. */
+public final class ECOBulkMarkingService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ECOBulkMarkingService.class);
 
-    private MegaBulkMarkingService() {
+    private ECOBulkMarkingService() {
+    }
+
+    /** All installed marker owners on this network, including other ECO storage hosts. */
+    public static List<ECODriveBlockEntity> markerDrives(ECOStorageSystemBlockEntity host) {
+        List<ECODriveBlockEntity> drives = new ArrayList<>(host.getStorageDrivesForIntegration());
+        var node = host.getMainNode();
+        var grid = node == null ? null : node.getGrid();
+        if (grid != null) {
+            for (var drive : grid.getMachines(ECODriveBlockEntity.class)) {
+                if (!drives.contains(drive)) drives.add(drive);
+            }
+        }
+        return drives;
+    }
+
+    private static List<AEItemKey> occupiedMarkers(ECOStorageSystemBlockEntity host) {
+        List<AEItemKey> markers = new ArrayList<>();
+        for (var drive : markerDrives(host)) {
+            var stack = drive.getCellStack();
+            if (stack == null || stack.isEmpty() || !(stack.getItem() instanceof IECOBulkMarkableCellItem item)) continue;
+            var config = item.getConfigInventory(stack);
+            for (int slot = 0; slot < config.size(); slot++) {
+                if (config.getKey(slot) instanceof AEItemKey key) markers.add(key);
+            }
+        }
+        return markers;
     }
 
     public static boolean hasBulkCell(ECOStorageSystemBlockEntity host) {
         for (ECODriveBlockEntity drive : host.getStorageDrivesForIntegration()) {
             ItemStack stack = drive.getCellStack();
             if (stack != null && !stack.isEmpty()
-                && stack.getItem() instanceof ECOMegaLongBulkStorageCellItem) {
+                && stack.getItem() instanceof ECOBulkStorageCellItem) {
                 return true;
             }
         }
@@ -64,8 +90,8 @@ public final class MegaBulkMarkingService {
         if (leftKey.equals(rightKey)) {
             return true;
         }
-        CompressionChain leftChain = MegaCompressionChains.getChain(leftKey);
-        return !leftChain.isEmpty() && leftChain.equals(MegaCompressionChains.getChain(rightKey));
+        BulkUnits leftChain = ECOCompressionService.units(leftKey);
+        return leftChain.compressible() && leftChain.equals(ECOCompressionService.units(rightKey));
     }
 
     public static MarkResult autoMark(ECOStorageSystemBlockEntity host, long threshold, boolean migrate) {
@@ -89,6 +115,145 @@ public final class MegaBulkMarkingService {
         Set<AEKey> unboundedKeys = new HashSet<>();
         if (grid != null) unboundedKeys.addAll(ECOPlannerInventory.collectUnboundedKeys(grid));
         collectUnboundedKeys(drives, unboundedKeys);
+        // Mark-only is the convenience scan governed by the configured threshold. Once the
+        // player explicitly requests migration, include every positive-stock recognised chain;
+        // otherwise a small but valid stock (for example 512 copper ingots) is silently skipped.
+        List<Candidate> candidates = collectCandidates(host, migrate ? 0L : threshold);
+        return markCandidates(host, drives, targets, candidates, migrate, unboundedKeys);
+    }
+
+    /** Marks candidates into one selected bulk cell and immediately transfers all matching chains. */
+    public static MarkResult markAndMigrateCell(
+        ECOStorageSystemBlockEntity host, BlockPos position, long threshold
+    ) {
+        if (threshold < 0L) return result(Status.INVALID_THRESHOLD);
+        if (!(host.getLevel() instanceof ServerLevel serverLevel)
+            || !serverLevel.getServer().isSameThread()) return result(Status.BUSY);
+        if (host.isInfiniteMode()) return result(Status.BUSY);
+
+        List<ECODriveBlockEntity> drives = host.getStorageDrivesForIntegration();
+        TargetCell selected = findTargetCell(host, position, drives);
+        if (selected == null) return result(Status.NO_BULK_CELL);
+
+        var grid = host.getMainNode().getGrid();
+        Set<AEKey> unboundedKeys = new HashSet<>();
+        if (grid != null) unboundedKeys.addAll(ECOPlannerInventory.collectUnboundedKeys(grid));
+        collectUnboundedKeys(drives, unboundedKeys);
+        return markCandidates(host, drives, List.of(selected),
+            collectCandidates(host, threshold), true, unboundedKeys);
+    }
+
+    /**
+     * Moves the resources matching one already configured bulk cell immediately. The cell's
+     * filters are authoritative; this operation never creates or changes marker slots.
+     */
+    public static cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.MigrationResult migrateMarkedCell(
+        ECOStorageSystemBlockEntity host, BlockPos position
+    ) {
+        if (!(host.getLevel() instanceof ServerLevel serverLevel)
+            || !serverLevel.getServer().isSameThread()) {
+            return new cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.MigrationResult(
+                Status.BUSY, 0L);
+        }
+        if (host.isInfiniteMode()) {
+            return new cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.MigrationResult(
+                Status.BUSY, 0L);
+        }
+        List<ECODriveBlockEntity> drives = host.getStorageDrivesForIntegration();
+        TargetCell selected = findTargetCell(host, position, drives);
+        if (selected == null) {
+            return new cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.MigrationResult(
+                Status.NO_BULK_CELL, 0L);
+        }
+        Set<AEKey> unboundedKeys = new HashSet<>();
+        var grid = host.getMainNode().getGrid();
+        if (grid != null) unboundedKeys.addAll(ECOPlannerInventory.collectUnboundedKeys(grid));
+        collectUnboundedKeys(drives, unboundedKeys);
+        long transferred = transferMarkedChains(host, drives, List.of(selected), unboundedKeys);
+        if (transferred > 0L) host.notifyStorageConfigurationChanged();
+        return new cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.MigrationResult(
+            Status.SUCCESS, transferred);
+    }
+
+    /** Read-only preview: probes the same sources and filters without moving any resources. */
+    public static List<ItemStack> previewMarkedCell(ECOStorageSystemBlockEntity host, BlockPos position) {
+        if (!(host.getLevel() instanceof ServerLevel serverLevel)
+            || !serverLevel.getServer().isSameThread() || host.isInfiniteMode()) return List.of();
+        var drives = host.getStorageDrivesForIntegration();
+        TargetCell selected = findTargetCell(host, position, drives);
+        if (selected == null) return List.of();
+        Set<AEKey> unboundedKeys = new HashSet<>();
+        var grid = host.getMainNode().getGrid();
+        if (grid != null) unboundedKeys.addAll(ECOPlannerInventory.collectUnboundedKeys(grid));
+        collectUnboundedKeys(drives, unboundedKeys);
+        Set<AEItemKey> items = new HashSet<>();
+        IActionSource source = IActionSource.ofMachine(host);
+        for (var drive : drives) {
+            ItemStack stack = drive.getCellStack();
+            IECOStorageCell inventory = drive.getCellInventory();
+            if (stack == null || stack.isEmpty() || stack.getItem() instanceof ECOBulkStorageCellItem
+                || host.isInfiniteMemberCell(stack) || inventory == null
+                || host.getTier().compareTo(inventory.getTier()) < 0) continue;
+            collectPreviewItems(inventory, selected.storage(), source, unboundedKeys, items);
+        }
+        if (grid != null) {
+            try (var ignored = StorageExtractionExclusions.openBulkMigration()) {
+                collectPreviewItems(grid.getStorageService().getInventory(), selected.storage(), source,
+                    unboundedKeys, items);
+            }
+        }
+        return items.stream().sorted(Comparator.comparing(key -> key.getId().toString()))
+            .map(AEItemKey::toStack).toList();
+    }
+
+    /** Read-only preview for the selected-cell mark-and-migrate operation. */
+    public static List<ItemStack> previewMarkAndMigrateCell(
+        ECOStorageSystemBlockEntity host, BlockPos position, long threshold
+    ) {
+        if (threshold < 0L || !(host.getLevel() instanceof ServerLevel serverLevel)
+            || !serverLevel.getServer().isSameThread() || host.isInfiniteMode()) return List.of();
+        List<ECODriveBlockEntity> drives = host.getStorageDrivesForIntegration();
+        TargetCell selected = findTargetCell(host, position, drives);
+        if (selected == null) return List.of();
+
+        Set<AEKey> unboundedKeys = new HashSet<>();
+        var grid = host.getMainNode().getGrid();
+        if (grid != null) unboundedKeys.addAll(ECOPlannerInventory.collectUnboundedKeys(grid));
+        collectUnboundedKeys(drives, unboundedKeys);
+        Set<AEItemKey> items = new HashSet<>();
+        IActionSource source = IActionSource.ofMachine(host);
+        for (var drive : drives) {
+            ItemStack stack = drive.getCellStack();
+            IECOStorageCell inventory = drive.getCellInventory();
+            if (stack == null || stack.isEmpty() || stack.getItem() instanceof ECOBulkStorageCellItem
+                || host.isInfiniteMemberCell(stack) || inventory == null
+                || host.getTier().compareTo(inventory.getTier()) < 0) continue;
+            collectPreviewItems(inventory, selected.storage(), source, unboundedKeys, items);
+        }
+        if (grid != null) {
+            try (var ignored = StorageExtractionExclusions.openBulkMigration()) {
+                collectPreviewItems(grid.getStorageService().getInventory(), selected.storage(), source,
+                    unboundedKeys, items);
+            }
+        }
+
+        int freeSlots = freeSlotCount(selected);
+        List<AEItemKey> occupied = occupiedMarkers(host);
+        for (Candidate candidate : collectCandidates(host, threshold)) {
+            if (freeSlots <= 0) break;
+            if (occupied.stream().anyMatch(existing -> sameMarker(existing, candidate.key()))) continue;
+            items.add(candidate.key());
+            occupied.add(candidate.key());
+            freeSlots--;
+        }
+        return items.stream().sorted(Comparator.comparing(key -> key.getId().toString()))
+            .map(AEItemKey::toStack).toList();
+    }
+
+    private static List<Candidate> collectCandidates(
+        ECOStorageSystemBlockEntity host, long threshold
+    ) {
+        var grid = host.getMainNode().getGrid();
         KeyCounter available = host.collectLocalStorageStacksForIntegration();
         if (grid != null && !host.isStorageInterfaceTransferMode()) {
             available = new KeyCounter();
@@ -99,16 +264,47 @@ public final class MegaBulkMarkingService {
             // Unbounded sources may still be marked so the player can see/use the chain. They
             // are filtered only from physical migration below; explicit decompression inserts
             // into the bulk cell continue to work normally.
-            if (entry.getLongValue() <= threshold || !(entry.getKey() instanceof AEItemKey itemKey)) {
-                continue;
-            }
-            CompressionChain chain = MegaCompressionChains.getChain(itemKey);
-            if (!chain.isEmpty()) {
-                candidates.add(new Candidate(itemKey, entry.getLongValue(), chain));
-            }
+            if (entry.getLongValue() <= threshold || !(entry.getKey() instanceof AEItemKey itemKey)) continue;
+            BulkUnits chain = ECOCompressionService.units(itemKey);
+            if (chain.compressible()) candidates.add(new Candidate(itemKey, entry.getLongValue(), chain));
         }
         candidates.sort(Comparator.comparingLong(Candidate::amount).reversed());
-        return markCandidates(host, drives, targets, candidates, migrate, unboundedKeys);
+        return candidates;
+    }
+
+    private static int freeSlotCount(TargetCell target) {
+        var config = ((ECOBulkStorageCellItem) target.drive().getCellStack().getItem())
+            .getConfigInventory(target.drive().getCellStack());
+        int free = 0;
+        for (int slot = 0; slot < config.size(); slot++) if (config.getKey(slot) == null) free++;
+        return free;
+    }
+
+    private static void collectPreviewItems(MEStorage from, ECOBulkStorageCell to, IActionSource source,
+        Set<AEKey> unboundedKeys, Set<AEItemKey> items) {
+        KeyCounter available = new KeyCounter();
+        from.getAvailableStacks(available);
+        for (var entry : available) {
+            if (entry.getLongValue() <= 0L || !(entry.getKey() instanceof AEItemKey key)
+                || unboundedKeys.contains(key) || items.contains(key)) continue;
+            if (to.insert(key, 1L, Actionable.SIMULATE, source) > 0L
+                && from.extract(key, 1L, Actionable.SIMULATE, source) > 0L) items.add(key);
+        }
+    }
+
+    private static TargetCell findTargetCell(ECOStorageSystemBlockEntity host, BlockPos position,
+        List<ECODriveBlockEntity> drives) {
+        for (ECODriveBlockEntity drive : drives) {
+            if (!drive.getBlockPos().equals(position)) continue;
+            ItemStack stack = drive.getCellStack();
+            if (stack != null && !stack.isEmpty() && stack.getItem() instanceof ECOBulkStorageCellItem
+                && drive.getCellInventory() instanceof ECOBulkStorageCell bulk
+                && host.getTier().compareTo(bulk.getTier()) >= 0) {
+                return new TargetCell(drive, bulk);
+            }
+            break;
+        }
+        return null;
     }
 
     private static void collectUnboundedKeys(List<ECODriveBlockEntity> drives, Set<AEKey> target) {
@@ -133,11 +329,11 @@ public final class MegaBulkMarkingService {
             .forEach(drive -> {
                 ItemStack stack = drive.getCellStack();
                 if (stack == null || stack.isEmpty()
-                    || !(stack.getItem() instanceof ECOMegaLongBulkStorageCellItem)) {
+                    || !(stack.getItem() instanceof ECOBulkStorageCellItem)) {
                     return;
                 }
                 IECOStorageCell inventory = drive.getCellInventory();
-                if (!(inventory instanceof ECOMegaLongBulkStorageCell bulkStorage)
+                if (!(inventory instanceof ECOBulkStorageCell bulkStorage)
                     || host.getTier().compareTo(bulkStorage.getTier()) < 0) {
                     return;
                 }
@@ -154,17 +350,10 @@ public final class MegaBulkMarkingService {
         boolean migrate,
         Set<AEKey> unboundedKeys
     ) {
-        List<AEItemKey> occupiedMarkers = new ArrayList<>();
-        for (TargetCell target : targets) {
-            for (AEItemKey itemKey : target.storage().getEffectiveConfiguredFilters()) {
-                if (occupiedMarkers.stream().noneMatch(existing -> sameMarker(existing, itemKey))) {
-                    occupiedMarkers.add(itemKey);
-                }
-            }
-        }
+        List<AEItemKey> occupiedMarkers = occupiedMarkers(host);
         List<SlotTarget> freeSlots = new ArrayList<>();
         for (TargetCell target : targets) {
-            var config = ((ECOMegaLongBulkStorageCellItem) target.drive().getCellStack().getItem())
+            var config = ((ECOBulkStorageCellItem) target.drive().getCellStack().getItem())
                 .getConfigInventory(target.drive().getCellStack());
             for (int slot = 0; slot < config.size(); slot++) {
                 if (config.getKey(slot) == null) {
@@ -195,7 +384,7 @@ public final class MegaBulkMarkingService {
         for (int index = 0; index < count; index++) {
             SlotTarget slotTarget = freeSlots.get(index);
             ItemStack cellStack = slotTarget.target().drive().getCellStack();
-            var cellItem = (ECOMegaLongBulkStorageCellItem) cellStack.getItem();
+            var cellItem = (ECOBulkStorageCellItem) cellStack.getItem();
             cellItem.getConfigInventory(cellStack).setStack(
                 slotTarget.slot(), new GenericStack(accepted.get(index).key(), 0L));
             slotTarget.target().drive().onCellConfigurationChanged();
@@ -223,7 +412,7 @@ public final class MegaBulkMarkingService {
                 .toList()) {
                 ItemStack stack = drive.getCellStack();
                 if (stack == null || stack.isEmpty()
-                    || stack.getItem() instanceof ECOMegaLongBulkStorageCellItem
+                    || stack.getItem() instanceof ECOBulkStorageCellItem
                     || host.isInfiniteMemberCell(stack)) {
                     continue;
                 }
@@ -259,8 +448,7 @@ public final class MegaBulkMarkingService {
             var network = grid.getStorageService().getInventory();
             KeyCounter available = new KeyCounter();
             network.getAvailableStacks(available);
-            try (var ignored = StorageExtractionExclusions.open(
-                    targets.stream().map(TargetCell::storage).toList());
+            try (var ignored = StorageExtractionExclusions.openBulkMigration();
                  var batch = ECOCellMutationBatch.open()) {
                 for (var entry : available) {
                     if (entry.getLongValue() <= 0L || unboundedKeys.contains(entry.getKey())
@@ -285,7 +473,7 @@ public final class MegaBulkMarkingService {
         List<ChainTarget> result = new ArrayList<>();
         for (TargetCell target : targets) {
             for (AEItemKey itemKey : target.storage().getEffectiveConfiguredFilters()) {
-                CompressionChain chain = MegaCompressionChains.getChain(itemKey);
+                BulkUnits chain = ECOCompressionService.units(itemKey);
                 if (result.stream().noneMatch(existing -> existing.storage() == target.storage()
                         && sameMarker(existing.marker(), itemKey))) {
                     result.add(new ChainTarget(itemKey, chain, target.storage()));
@@ -303,7 +491,7 @@ public final class MegaBulkMarkingService {
      */
     private static long transfer(
         MEStorage from,
-        ECOMegaLongBulkStorageCell to,
+        ECOBulkStorageCell to,
         AEItemKey key,
         long amount,
         IActionSource actionSource
@@ -345,14 +533,14 @@ public final class MegaBulkMarkingService {
         return Long.MAX_VALUE - left < right ? Long.MAX_VALUE : left + right;
     }
 
-    private static boolean sameChain(CompressionChain first, CompressionChain second) {
-        return !first.isEmpty() && first.equals(second);
+    private static boolean sameChain(BulkUnits first, BulkUnits second) {
+        return first.compressible() && first.equals(second);
     }
 
     private static boolean sameMarker(AEItemKey first, AEItemKey second) {
         if (first.equals(second)) return true;
-        CompressionChain firstChain = MegaCompressionChains.getChain(first);
-        return !firstChain.isEmpty() && firstChain.equals(MegaCompressionChains.getChain(second));
+        BulkUnits firstChain = ECOCompressionService.units(first);
+        return firstChain.compressible() && firstChain.equals(ECOCompressionService.units(second));
     }
 
     private static MarkResult result(Status status) {
@@ -361,16 +549,16 @@ public final class MegaBulkMarkingService {
 
     private record TargetCell(
         ECODriveBlockEntity drive,
-        ECOMegaLongBulkStorageCell storage
+        ECOBulkStorageCell storage
     ) {
     }
 
     private record SlotTarget(TargetCell target, int slot) {
     }
 
-    private record ChainTarget(AEItemKey marker, CompressionChain chain, ECOMegaLongBulkStorageCell storage) {
+    private record ChainTarget(AEItemKey marker, BulkUnits chain, ECOBulkStorageCell storage) {
     }
 
-    private record Candidate(AEItemKey key, long amount, CompressionChain chain) {
+    private record Candidate(AEItemKey key, long amount, BulkUnits chain) {
     }
 }

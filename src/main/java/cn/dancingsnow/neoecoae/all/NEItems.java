@@ -1041,6 +1041,14 @@ public class NEItems {
         .model(ItemModelUtil.infiniteCellModel("infinite_resource_cell"))
         .register();
 
+    // Virtual carrier for ECO bulk compression and decompression patterns.
+    public static final ItemEntry<MaterialItem> ECO_BULK_PATTERN =
+        REGISTRATE.item("eco_bulk_conversion_pattern", MaterialItem::new)
+            .lang("ECO Bulk Conversion")
+            .model((ctx, prov) -> prov.generated(ctx::get, prov.mcLoc("item/paper")))
+            .removeTab(NECreativeTabs.ECO.getKey())
+            .register();
+
     public static final ItemEntry<ECOInfiniteResourceCellItem> ECO_INFINITE_SAND_CELL = REGISTRATE
         .item("eco_infinite_sand_cell", p -> new ECOInfiniteResourceCellItem(
             p.stacksTo(1).rarity(Rarity.EPIC), ECOTier.L9, NECellTypes.ITEM,
