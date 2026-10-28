@@ -22,6 +22,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.ChatFormatting;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -36,7 +37,7 @@ import static org.mockito.Mockito.*;
 
 class BiggerAE2BulkStorageCellTest {
     @Test
-    void tooltipHasOnlyNativeColoredTypeCountAndAnOptionalNativeContentPreview() {
+    void tooltipHasNativeColoredTypeCountCompressionStatusAndOptionalNativeContentPreview() {
         var stack = stack();
         var item = (BiggerAE2BulkStorageCellItem) stack.getItem();
         var cell = mock(ECOBulkStorageCell.class);
@@ -49,11 +50,16 @@ class BiggerAE2BulkStorageCellTest {
             types.when(AEKeyTypesInternal::getAllTypes).thenReturn(Set.of(AEKeyType.items()));
             var lines = new ArrayList<Component>();
             item.appendHoverText(stack, null, lines, TooltipFlag.NORMAL);
-            assertEquals(1, lines.size());
+            assertEquals(2, lines.size());
             var line = (TranslatableContents) lines.getFirst().getContents();
             assertEquals("tooltip.neoecoae.bulk.used_types", line.getKey());
             assertEquals(Tooltips.ofUnformattedNumberWithRatioColor(0, 0, false), line.getArgs()[0]);
             assertEquals(Tooltips.ofUnformattedNumber(5), line.getArgs()[1]);
+            var compression = (TranslatableContents) lines.get(1).getContents();
+            assertEquals("tooltip.neoecoae.bulk.compression", compression.getKey());
+            var enabled = (Component) compression.getArgs()[0];
+            assertEquals("tooltip.neoecoae.bulk.compression_enabled", ((TranslatableContents) enabled.getContents()).getKey());
+            assertEquals(ChatFormatting.GREEN.getColor(), enabled.getStyle().getColor().getValue());
             assertTrue(item.getTooltipImage(stack).isEmpty());
 
             var aeConfig = mock(AEConfig.class);
@@ -72,7 +78,7 @@ class BiggerAE2BulkStorageCellTest {
             when(cell.getStoredItemTypes()).thenReturn(1L);
             lines.clear();
             item.appendHoverText(stack, null, lines, TooltipFlag.NORMAL);
-            assertEquals(1, lines.size());
+            assertEquals(2, lines.size());
             preview = (StorageCellTooltipComponent) item.getTooltipImage(stack).orElseThrow();
             assertEquals(List.of(new GenericStack(key, 42)), preview.content());
         }

@@ -369,6 +369,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage.bulk_mark.result.no_bulk_cell", "No ECO bulk storage matrix installed");
         provider.add("gui.neoecoae.storage.cell.action.configure", "Adjust stored resource types");
         provider.add("gui.neoecoae.storage.cell.priority.title", "Cell priority (relative to host)");
+        provider.add("gui.neoecoae.storage.cell.priority.tooltip", "Storage cell priority: %s");
         provider.add("gui.neoecoae.storage.bulk_mark.result.busy", "Storage transfer or migration is in progress");
         provider.add("gui.neoecoae.storage.bulk_mark.result.invalid_threshold", "The auto-mark threshold is invalid");
         provider.add("gui.neoecoae.storage.bulk_mark.result.unavailable", "ECO bulk marking is unavailable");

@@ -677,5 +677,9 @@
   "item.neoecoae.eco_spent_nuclear_waste_cell_64m": "ECO - LE6 乏核廢料存儲矩陣",
   "item.neoecoae.eco_spent_nuclear_waste_cell_housing": "ECO乏核廢料存儲矩陣外殼",
   "tooltip.neoecoae.bulk.deprecated": "UNLOCALIZED: Deprecated",
-  "tooltip.neoecoae.bulk.used_types": "UNLOCALIZED: Resource types used: %s / %s"
+  "tooltip.neoecoae.bulk.used_types": "UNLOCALIZED: Resource types used: %s / %s",
+  "tooltip.neoecoae.bulk.moved": "UNLOCALIZED: Functionality moved to the Digital Singularity Item Storage Matrix",
+  "tooltip.neoecoae.bulk.compression": "UNLOCALIZED: Compression: %s",
+  "tooltip.neoecoae.bulk.compression_enabled": "UNLOCALIZED: Enabled",
+  "gui.neoecoae.storage.cell.priority.tooltip": "UNLOCALIZED: Storage cell priority: %s"
 }

@@ -52,6 +52,7 @@ public final class NEMegaItems {
                 @Override
                 public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
                     lines.add(Component.translatable("tooltip.neoecoae.bulk.deprecated").withStyle(ChatFormatting.RED));
+                    lines.add(Component.translatable("tooltip.neoecoae.bulk.moved").withStyle(ChatFormatting.GRAY));
                 }
 
                 @Override

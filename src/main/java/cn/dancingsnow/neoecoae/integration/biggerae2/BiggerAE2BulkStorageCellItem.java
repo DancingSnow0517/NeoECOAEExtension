@@ -16,6 +16,7 @@ import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
 import org.jetbrains.annotations.Nullable;
 
 import java.math.BigInteger;
@@ -45,6 +46,8 @@ final class BiggerAE2BulkStorageCellItem extends ECOBulkStorageCellItem {
         lines.add(Component.translatable("tooltip.neoecoae.bulk.used_types",
             Tooltips.ofUnformattedNumberWithRatioColor(used, (double) used / total, false),
             Tooltips.ofUnformattedNumber(total)));
+        lines.add(Component.translatable("tooltip.neoecoae.bulk.compression",
+            Component.translatable("tooltip.neoecoae.bulk.compression_enabled").withStyle(ChatFormatting.GREEN)));
     }
 
     @Override

@@ -916,5 +916,9 @@
   "tooltip.neoecoae.bulk.bytes": "Bytes used: %s / %s",
   "gui.neoecoae.storage.bulk_cell.priority.title": "Bulk cell priority (relative to host)",
   "tooltip.neoecoae.bulk.deprecated": "pǝʇɐɔǝɹdǝᗡ",
-  "tooltip.neoecoae.bulk.used_types": "%2$s \\ %1$s :pǝsn sǝdʎʇ ǝɔɹnosǝᴚ"
+  "tooltip.neoecoae.bulk.used_types": "%2$s \\ %1$s :pǝsn sǝdʎʇ ǝɔɹnosǝᴚ",
+  "tooltip.neoecoae.bulk.moved": "xıɹʇɐW ǝbɐɹoʇS ɯǝʇI ʎʇıɹɐןnbuıS ןɐʇıbıᗡ ǝɥʇ oʇ pǝʌoɯ ʎʇıןɐuoıʇɔunℲ",
+  "tooltip.neoecoae.bulk.compression": "%1$s :uoıssǝɹdɯoƆ",
+  "tooltip.neoecoae.bulk.compression_enabled": "pǝןqɐuƎ",
+  "gui.neoecoae.storage.cell.priority.tooltip": "%1$s :ʎʇıɹoıɹd ןןǝɔ ǝbɐɹoʇS"
 }
