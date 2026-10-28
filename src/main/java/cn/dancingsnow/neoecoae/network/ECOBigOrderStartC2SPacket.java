@@ -35,7 +35,8 @@ public record ECOBigOrderStartC2SPacket(int containerId, boolean forced) {
                     appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
                 return;
             }
-            mode.neoecoae$startBigOrder(packet.forced);
+            CraftSubmissionPacketFeedback.submit(menu, "big-order", packet.forced,
+                () -> mode.neoecoae$startBigOrder(packet.forced));
         });
     }
 }

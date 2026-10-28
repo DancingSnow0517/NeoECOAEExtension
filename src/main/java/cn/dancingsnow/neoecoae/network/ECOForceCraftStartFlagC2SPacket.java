@@ -38,13 +38,15 @@ public record ECOForceCraftStartFlagC2SPacket(int containerId, boolean forceStar
                     appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
                 return;
             }
-            sync.neoecoae$setForceCraftStart(packet.forceStart);
-            menu.startJob();
-            var error = menu.submitError.result();
-            if (error != null && !error.successful()) {
-                logger.warn("[craft-submit] Submission failed: container={}, error={}, detail={}",
-                    packet.containerId, error.errorCode(), error.errorDetail());
-            }
+            CraftSubmissionPacketFeedback.submit(menu, "ordinary", packet.forceStart, () -> {
+                sync.neoecoae$setForceCraftStart(packet.forceStart);
+                menu.startJob();
+                var error = menu.submitError.result();
+                if (error != null && !error.successful()) {
+                    logger.warn("[craft-submit] Submission failed: container={}, error={}, detail={}",
+                        packet.containerId, error.errorCode(), error.errorDetail());
+                }
+            });
         });
     }
 
