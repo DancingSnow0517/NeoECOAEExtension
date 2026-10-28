@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
@@ -17,7 +16,6 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
 /** Modal, read-only preview; only the explicit confirmation sends a migration request. */
@@ -31,9 +29,6 @@ final class ECOBulkMigrationDialog extends UIElement {
     private static final int ROW_HEIGHT = ICON_SIZE;
     private static final int BUTTON_WIDTH = 100;
     private static final int BUTTON_HEIGHT = 20;
-    private static final SpriteTexture BACKGROUND = SpriteTexture.of(
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/vendor/ae2/context_background.png"))
-        .setSprite(0, 0, 256, 256).setBorder(2);
 
     private final HolderLookup.Provider registries;
     private final BiConsumer<BlockPos, UUID> confirm;
@@ -174,7 +169,7 @@ final class ECOBulkMigrationDialog extends UIElement {
         context.graphics.flush();
         context.graphics.fill(Math.round(getPositionX()), Math.round(getPositionY()),
             Math.round(getPositionX() + getSizeWidth()), Math.round(getPositionY() + getSizeHeight()), 0x88000000);
-        context.drawTexture(BACKGROUND, x, y, WIDTH, panelHeight());
+        context.drawTexture(NETextures.AE2_CONTEXT_BACKGROUND, x, y, WIDTH, panelHeight());
         context.graphics.flush();
         drawText(context, text("title"), PADDING, 10, 0x413F54, WIDTH - PADDING * 2);
         for (int i = 0; i < items.size(); i++) {

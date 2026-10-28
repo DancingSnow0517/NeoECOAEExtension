@@ -914,5 +914,7 @@
   "gui.neoecoae.storage.bulk_cell.migrate.result.busy": "Storage migration is busy; the bulk-cell migration cannot run now",
   "gui.neoecoae.storage.bulk_cell.migrate.result.unavailable": "ECO bulk migration is unavailable",
   "tooltip.neoecoae.bulk.bytes": "Bytes used: %s / %s",
-  "gui.neoecoae.storage.bulk_cell.priority.title": "Bulk cell priority (relative to host)"
+  "gui.neoecoae.storage.bulk_cell.priority.title": "Bulk cell priority (relative to host)",
+  "tooltip.neoecoae.bulk.deprecated": "pǝʇɐɔǝɹdǝᗡ",
+  "tooltip.neoecoae.bulk.used_types": "%2$s \\ %1$s :pǝsn sǝdʎʇ ǝɔɹnosǝᴚ"
 }

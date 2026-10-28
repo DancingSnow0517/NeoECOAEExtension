@@ -675,5 +675,7 @@
   "item.neoecoae.eco_spent_nuclear_waste_cell_16m": "ECO - LE4 乏核廢料存儲矩陣",
   "item.neoecoae.eco_spent_nuclear_waste_cell_256m": "ECO - LE9 乏核廢料存儲矩陣",
   "item.neoecoae.eco_spent_nuclear_waste_cell_64m": "ECO - LE6 乏核廢料存儲矩陣",
-  "item.neoecoae.eco_spent_nuclear_waste_cell_housing": "ECO乏核廢料存儲矩陣外殼"
+  "item.neoecoae.eco_spent_nuclear_waste_cell_housing": "ECO乏核廢料存儲矩陣外殼",
+  "tooltip.neoecoae.bulk.deprecated": "UNLOCALIZED: Deprecated",
+  "tooltip.neoecoae.bulk.used_types": "UNLOCALIZED: Resource types used: %s / %s"
 }

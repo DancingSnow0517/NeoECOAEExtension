@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
 import appeng.api.stacks.AEKey;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
@@ -17,12 +17,9 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 
 /** One contextual menu and a provider chooser; locating a provider also highlights it in the world. */
 final class ComputationItemActionsPopup extends UIElement {
-    private static final SpriteTexture BACKGROUND = SpriteTexture.of(ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/vendor/ae2/context_background.png"))
-        .setSprite(0, 0, 256, 256).setBorder(2);
     private static final int PAGE_SIZE = 4;
     private enum Mode { MENU, CHOOSE, MESSAGE }
     private final Consumer<CompoundTag> request;
@@ -197,7 +194,7 @@ final class ComputationItemActionsPopup extends UIElement {
     @Override public void drawBackgroundAdditional(GUIContext context) {
         float x = getPositionX(), y = getPositionY(), width = getSizeWidth();
         context.graphics.flush();
-        context.drawTexture(BACKGROUND, x, y, width, getSizeHeight());
+        context.drawTexture(NETextures.AE2_CONTEXT_BACKGROUND, x, y, width, getSizeHeight());
         context.graphics.flush();
         Component title = item == null ? Component.empty() : item.key().getDisplayName();
         if (mode == Mode.CHOOSE) title = title.copy().append(" · " + (page + 1) + "/" + Math.max(1, (sources.size() + PAGE_SIZE - 1) / PAGE_SIZE));

@@ -12,7 +12,7 @@ Bigger AE2 Quantum matrices are L6 with 128 MiB shared capacity, 65,536 bytes ov
 
 ## Digital Singularity Matrices: Network Power Tiers
 
-ECO Digital Singularity matrices require **Bigger AE2**. Item matrices use [bulk compression storage](storage_system.md) with 25 marker slots, or 50 with an ECO Bulk Expansion Card. Fluid and chemical matrices each store five resource types. FE, Experience and Source matrices each store one type. Quantities are unlimited.
+ECO Digital Singularity matrices require **Bigger AE2**. Item matrices use [bulk compression storage](storage_system.md) with 5 marker slots, or 25 with an ECO Bulk Expansion Card. Fluid and chemical matrices each store five resource types. FE, Experience and Source matrices each store one type. Quantities are unlimited.
 
 All usable ECO Digital Singularity matrices in one ME network share a count `N`, which sets the idle drain of **each matrix**. Different resource types, drives and storage controllers share this count, including empty matrices. Ordinary and Quantum matrices do not contribute.
 

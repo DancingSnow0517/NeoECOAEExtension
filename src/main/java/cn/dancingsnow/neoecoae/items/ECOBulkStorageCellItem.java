@@ -40,7 +40,7 @@ public class ECOBulkStorageCellItem extends ECOStorageCellItem implements IECOBu
     public ECOBulkStorageCellItem(Properties properties, IECOTier tier, Supplier<ECOCellType> type, int baseTypeLimit) {
         super(properties, tier, AEKeyType.items(), type, Long.MAX_VALUE,
             1 << (12 + tier.getTier()), baseTypeLimit == 1 ? (double) tier.getStorageTotalBytes() / (1L << 20) : 1024.0);
-        if (baseTypeLimit != 1 && baseTypeLimit != TYPE_LIMIT) throw new IllegalArgumentException("Unsupported bulk type limit");
+        if (baseTypeLimit != 1 && baseTypeLimit != 5 && baseTypeLimit != TYPE_LIMIT) throw new IllegalArgumentException("Unsupported bulk type limit");
         this.baseTypeLimit = baseTypeLimit;
     }
 
@@ -55,10 +55,17 @@ public class ECOBulkStorageCellItem extends ECOStorageCellItem implements IECOBu
     }
 
     public int activeSlots(ItemStack stack) {
-        if (baseTypeLimit == 1) return 1;
-        return BuiltInRegistries.ITEM.getOptional(EXPANSION_CARD)
-            .filter(card -> getUpgrades(stack).isInstalled(card)).isPresent() ? UPGRADED_TYPE_LIMIT : TYPE_LIMIT;
+        int base = getTotalTypes();
+        if (base == 1) return 1;
+        return hasExpansionCard(stack) ? upgradedTypeLimit() : base;
     }
+
+    protected boolean hasExpansionCard(ItemStack stack) {
+        return BuiltInRegistries.ITEM.getOptional(EXPANSION_CARD)
+            .filter(card -> getUpgrades(stack).isInstalled(card)).isPresent();
+    }
+
+    protected int upgradedTypeLimit() { return UPGRADED_TYPE_LIMIT; }
 
     private static boolean isExpansionCard(ItemStack stack) {
         return !stack.isEmpty() && BuiltInRegistries.ITEM.getOptional(EXPANSION_CARD).map(stack::is).orElse(false);
@@ -78,7 +85,7 @@ public class ECOBulkStorageCellItem extends ECOStorageCellItem implements IECOBu
 
     @Override
     public IUpgradeInventory getUpgrades(ItemStack stack) {
-        return new LockedUpgradeInventory(stack, super.getUpgrades(stack));
+        return new LockedUpgradeInventory(stack, super.getUpgrades(stack), getTotalTypes());
     }
 
     private static ConfigInventory createPreservingConfigInventory(ItemStack stack, int activeSlots) {
@@ -114,10 +121,10 @@ public class ECOBulkStorageCellItem extends ECOStorageCellItem implements IECOBu
         stack.set(AEComponents.STORAGE_CELL_CONFIG_INV, stored);
     }
 
-    private static boolean hasTooManyMarkers(ItemStack stack) {
+    private static boolean hasTooManyMarkers(ItemStack stack, int baseTypeLimit) {
         List<GenericStack> configured = stack.getOrDefault(AEComponents.STORAGE_CELL_CONFIG_INV, List.of());
         return configured.stream().filter(java.util.Objects::nonNull).count()
-            > TYPE_LIMIT;
+            > baseTypeLimit;
     }
 
     private static void compactMarkers(ItemStack stack) {
@@ -129,10 +136,12 @@ public class ECOBulkStorageCellItem extends ECOStorageCellItem implements IECOBu
     private static final class LockedUpgradeInventory implements IUpgradeInventory {
         private final ItemStack cellStack;
         private final IUpgradeInventory delegate;
+        private final int baseTypeLimit;
 
-        private LockedUpgradeInventory(ItemStack cellStack, IUpgradeInventory delegate) {
+        private LockedUpgradeInventory(ItemStack cellStack, IUpgradeInventory delegate, int baseTypeLimit) {
             this.cellStack = cellStack;
             this.delegate = delegate;
+            this.baseTypeLimit = baseTypeLimit;
         }
 
         @Override
@@ -194,7 +203,7 @@ public class ECOBulkStorageCellItem extends ECOStorageCellItem implements IECOBu
             ItemStack installed = delegate.getStackInSlot(slot);
             return !installed.isEmpty()
                 && isExpansionCard(installed)
-                && hasTooManyMarkers(cellStack);
+                && hasTooManyMarkers(cellStack, baseTypeLimit);
         }
 
         @Override

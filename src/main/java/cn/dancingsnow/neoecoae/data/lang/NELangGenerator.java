@@ -5,6 +5,7 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
         provider.add("tooltip.neoecoae.bulk.deprecated", "Deprecated");
+        provider.add("tooltip.neoecoae.bulk.used_types", "Resource types used: %s / %s");
         provider.add("tooltip.neoecoae.bulk.capacity", "Unlimited quantity; %s / %s marked resource types");
         provider.add("tooltip.neoecoae.bulk.configure", "25 resource types; an ECO Bulk Expansion Card expands this to 50");
         provider.add("tooltip.neoecoae.bulk.legacy_configure", "Legacy single-resource bulk matrix; all forms of one compression chain share its marker");

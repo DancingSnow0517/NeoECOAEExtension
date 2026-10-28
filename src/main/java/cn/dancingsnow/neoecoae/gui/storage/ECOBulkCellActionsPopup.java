@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.storage.ECOStorageCellSettings;
 import cn.dancingsnow.neoecoae.items.ECOBulkStorageCellItem;
-import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
@@ -17,7 +17,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 
 /** Context actions for an installed cell, with additional actions for bulk cells. */
 final class ECOBulkCellActionsPopup extends UIElement {
@@ -29,9 +28,6 @@ final class ECOBulkCellActionsPopup extends UIElement {
     private static final int ROW_HEIGHT = 20;
     private static final int ACTIONS_TOP = VERTICAL_PADDING + FIRST_ROW_HEIGHT + DIVIDER_GAP * 2 + DIVIDER_HEIGHT;
     private static final int PRIORITY_COLOR = 0xFF006600;
-    private static final SpriteTexture BACKGROUND = SpriteTexture.of(
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/vendor/ae2/context_background.png"))
-        .setSprite(0, 0, 256, 256).setBorder(2);
     private enum Action {
         MIGRATE("gui.neoecoae.storage.bulk_cell.action.migrate"),
         PRIORITY("gui.neoecoae.storage.bulk_cell.action.priority"),
@@ -65,7 +61,7 @@ final class ECOBulkCellActionsPopup extends UIElement {
         setId("eco-bulk-cell-actions");
         setFocusable(true);
         setDisplay(false);
-        style(style -> style.zIndex(400).backgroundTexture(BACKGROUND));
+        style(style -> style.zIndex(400).backgroundTexture(NETextures.AE2_CONTEXT_BACKGROUND));
         setOverflowVisible(true);
         // Stop tooltip lookup here instead of falling through to the disk underneath the menu.
         addEventListener(UIEvents.HOVER_TOOLTIPS,

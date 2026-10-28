@@ -7,6 +7,9 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypesInternal;
 import appeng.api.stacks.GenericStack;
 import appeng.api.upgrades.IUpgradeInventory;
+import appeng.core.AEConfig;
+import appeng.core.localization.Tooltips;
+import appeng.items.storage.StorageCellTooltipComponent;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.storage.bulk.BulkUnits;
@@ -17,17 +20,64 @@ import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.network.chat.contents.TranslatableContents;
+import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Set;
+import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class BiggerAE2BulkStorageCellTest {
+    @Test
+    void tooltipHasOnlyNativeColoredTypeCountAndAnOptionalNativeContentPreview() {
+        var stack = stack();
+        var item = (BiggerAE2BulkStorageCellItem) stack.getItem();
+        var cell = mock(ECOBulkStorageCell.class);
+        when(cell.getTotalItemTypes()).thenReturn(5L);
+        when(cell.getAvailableStacks()).thenReturn(new appeng.api.stacks.KeyCounter());
+        try (var factory = mockStatic(ECOStorageCellItem.class);
+             var types = mockStatic(AEKeyTypesInternal.class);
+             var config = mockStatic(AEConfig.class)) {
+            factory.when(() -> ECOStorageCellItem.getCellInventory(stack)).thenReturn(cell);
+            types.when(AEKeyTypesInternal::getAllTypes).thenReturn(Set.of(AEKeyType.items()));
+            var lines = new ArrayList<Component>();
+            item.appendHoverText(stack, null, lines, TooltipFlag.NORMAL);
+            assertEquals(1, lines.size());
+            var line = (TranslatableContents) lines.getFirst().getContents();
+            assertEquals("tooltip.neoecoae.bulk.used_types", line.getKey());
+            assertEquals(Tooltips.ofUnformattedNumberWithRatioColor(0, 0, false), line.getArgs()[0]);
+            assertEquals(Tooltips.ofUnformattedNumber(5), line.getArgs()[1]);
+            assertTrue(item.getTooltipImage(stack).isEmpty());
+
+            var aeConfig = mock(AEConfig.class);
+            config.when(AEConfig::instance).thenReturn(aeConfig);
+            when(aeConfig.getTooltipMaxCellContentShown()).thenReturn(5);
+            var key = AEItemKey.of(Items.IRON_INGOT);
+            stack.set(AEComponents.STORAGE_CELL_CONFIG_INV, List.of(new GenericStack(key, 0)));
+            var preview = (StorageCellTooltipComponent) item.getTooltipImage(stack).orElseThrow();
+            assertEquals(List.of(new GenericStack(key, 0)), preview.content());
+            assertTrue(preview.upgrades().isEmpty());
+            assertFalse(preview.hasMoreContent());
+
+            var available = new appeng.api.stacks.KeyCounter();
+            available.add(key, 42);
+            when(cell.getAvailableStacks()).thenReturn(available);
+            when(cell.getStoredItemTypes()).thenReturn(1L);
+            lines.clear();
+            item.appendHoverText(stack, null, lines, TooltipFlag.NORMAL);
+            assertEquals(1, lines.size());
+            preview = (StorageCellTooltipComponent) item.getTooltipImage(stack).orElseThrow();
+            assertEquals(List.of(new GenericStack(key, 42)), preview.content());
+        }
+    }
+
     @BeforeAll
     static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
@@ -71,7 +121,8 @@ class BiggerAE2BulkStorageCellTest {
             types.when(AEKeyTypesInternal::getAllTypes).thenReturn(Set.of(AEKeyType.items()));
             var item = (BiggerAE2BulkStorageCellItem) stack.getItem();
             var cell = (ECOBulkStorageCell) item.createCellInventory(stack, null);
-            assertEquals(25, cell.getTotalItemTypes());
+            assertEquals(5, cell.getTotalItemTypes());
+            assertEquals(25, item.upgradedTypeLimit());
             assertEquals(18, cell.insert(ingot, 18, Actionable.MODULATE, null));
             try (var scope = StorageExtractionExclusions.openBulkMigration()) {
                 assertEquals(0, cell.extract(block, 2, Actionable.SIMULATE, null));
@@ -87,8 +138,8 @@ class BiggerAE2BulkStorageCellTest {
         var item = mock(BiggerAE2BulkStorageCellItem.class, CALLS_REAL_METHODS);
         doReturn(ECOTier.L9).when(item).getTier();
         doReturn(AEKeyType.items()).when(item).getKeyType();
-        doReturn(new ECOCellType(Component.literal("Test"), 25)).when(item).getCellType();
-        doReturn(25).when(item).getTotalTypes();
+        doReturn(new ECOCellType(Component.literal("Test"), 5)).when(item).getCellType();
+        doReturn(5).when(item).getTotalTypes();
         doReturn(Long.MAX_VALUE).when(item).getBytes();
         doReturn(65_536).when(item).getBytesPerType();
         doReturn(mock(IUpgradeInventory.class)).when(item).getUpgrades(any());

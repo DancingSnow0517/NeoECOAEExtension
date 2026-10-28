@@ -1354,5 +1354,7 @@
   "gui.neoecoae.storage.bulk_cell.migrate.confirm.help": "Moves matching items from this host and the ME network. At most six item types are shown; all matching items are included when confirmed.",
   "item.neoecoae.eco_infinite_sand_cell": "ECO Infinite Sand Resource Storage Matrix",
   "tooltip.neoecoae.infinite_sand.contents": "Infinite supply: Sand",
-  "tooltip.neoecoae.infinite_sand.sink": "Accepts only sand; inserted sand is destroyed"
+  "tooltip.neoecoae.infinite_sand.sink": "Accepts only sand; inserted sand is destroyed",
+  "tooltip.neoecoae.bulk.deprecated": "Deprecated",
+  "tooltip.neoecoae.bulk.used_types": "Resource types used: %s / %s"
 }

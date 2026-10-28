@@ -19,6 +19,8 @@ import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.ChatFormatting;
 import java.util.List;
+import java.util.Optional;
+import net.minecraft.world.inventory.tooltip.TooltipComponent;
 
 import java.util.function.Supplier;
 
@@ -50,7 +52,11 @@ public final class NEMegaItems {
                 @Override
                 public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
                     lines.add(Component.translatable("tooltip.neoecoae.bulk.deprecated").withStyle(ChatFormatting.RED));
-                    super.appendHoverText(stack, context, lines, flag);
+                }
+
+                @Override
+                public Optional<TooltipComponent> getTooltipImage(ItemStack stack) {
+                    return Optional.empty();
                 }
             })
             .lang("ECO Bulk Storage Matrix")
