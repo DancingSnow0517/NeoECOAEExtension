@@ -138,12 +138,12 @@ public class NeoECOAE {
         event.registerBlockEntity(
             Capabilities.FluidHandler.BLOCK,
             NEBlockEntities.INPUT_HATCH.get(),
-            (be, side) -> be.tank
+            (be, side) -> be.getFluidTankHandler()
         );
         event.registerBlockEntity(
             Capabilities.FluidHandler.BLOCK,
             NEBlockEntities.OUTPUT_HATCH.get(),
-            (be, side) -> new DrainOnlyFluidHandler(be.tank)
+            (be, side) -> new DrainOnlyFluidHandler(be.getFluidTankHandler())
         );
         event.registerBlockEntity(
             Capabilities.FluidHandler.BLOCK,

@@ -59,7 +59,7 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
     static UIElement createRoot(ECOFluidInputHatchBlockEntity host, Player player) {
         var context = new FluidInputHatchUI(host, player);
         // One inventory and one upgrade slot keep menu indices stable across mode changes.
-        UIElement root = FluidHatchUI.createRoot(host.tank, "block.neoecoae.input_hatch", true, true);
+        UIElement root = FluidHatchUI.createRoot(host.getFluidTankHandler(), "block.neoecoae.input_hatch", true, true);
         root.setId("fluid-input-hatch-root");
         root.setOverflowVisible(true);
         UIElement legacy = root.getChildren().get(1);
@@ -152,14 +152,14 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
     }
 
     private final class BufferSlot extends FluidSlot {
-        private final BindableValue<Long> exactAmount = new BindableValue<>(host.tank.getStoredAmount());
+        private final BindableValue<Long> exactAmount = new BindableValue<>(host.getStoredFluidAmount());
 
         BufferSlot() {
-            bind(host.tank, 0);
+            bind(host.getFluidTankHandler(), 0);
             style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
             amountLabel.setDisplay(false);
             exactAmount.setDisplay(false);
-            exactAmount.bind(DataBindingBuilder.longValS2C(host.tank::getStoredAmount).build());
+            exactAmount.bind(DataBindingBuilder.longValS2C(host::getStoredFluidAmount).build());
             addChild(exactAmount);
         }
 

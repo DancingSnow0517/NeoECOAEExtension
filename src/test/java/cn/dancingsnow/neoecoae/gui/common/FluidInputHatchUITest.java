@@ -226,6 +226,8 @@ class FluidInputHatchUITest {
     private static ECOFluidInputHatchBlockEntity host() {
         var host = mock(ECOFluidInputHatchBlockEntity.class);
         host.tank = new LongFluidTank();
+        when(host.getFluidTankHandler()).thenCallRealMethod();
+        when(host.getStoredFluidAmount()).thenCallRealMethod();
         when(host.getMarkedFluid()).thenReturn(FluidStack.EMPTY);
         when(host.getTargetAmount()).thenReturn(16_000L);
         when(host.getMainNode()).thenReturn(mock(IManagedGridNode.class));

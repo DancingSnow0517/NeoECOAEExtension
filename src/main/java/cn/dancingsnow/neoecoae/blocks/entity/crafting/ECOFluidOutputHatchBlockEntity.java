@@ -17,6 +17,8 @@ import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 
 public class ECOFluidOutputHatchBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOFluidOutputHatchBlockEntity> {
 
+    /** @deprecated Use {@link #getFluidTankHandler()}; operate on the buffer without replacing it. */
+    @Deprecated
     public FluidTank tank = new FluidTank(16000) {
         @Override
         protected void onContentsChanged() {
@@ -28,6 +30,9 @@ public class ECOFluidOutputHatchBlockEntity extends cn.dancingsnow.neoecoae.bloc
     public ECOFluidOutputHatchBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator::new);
     }
+
+    /** Stable addon handler view. */
+    public FluidTank getFluidTankHandler() { return tank; }
 
     @Override
     public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {

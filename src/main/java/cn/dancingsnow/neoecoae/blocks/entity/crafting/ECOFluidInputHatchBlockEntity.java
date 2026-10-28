@@ -33,10 +33,17 @@ import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.fluids.FluidUtil;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 import java.util.List;
 
-public class ECOFluidInputHatchBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOFluidInputHatchBlockEntity> implements IUpgradeableObject, InterfaceLogicHost {
+public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyFields implements IUpgradeableObject, InterfaceLogicHost {
 
+    /**
+     * Retained for addons compiled against 21.2.11; the superclass retains the older descriptor.
+     * @deprecated Use {@link #getFluidTankHandler()} and {@link #getStoredFluidAmount()}.
+     * Read and operate on the buffer; replacing either public field reference is unsupported.
+     */
+    @Deprecated
     public LongFluidTank tank = new LongFluidTank() {
         @Override
         public int getCapacity() {
@@ -65,9 +72,16 @@ public class ECOFluidInputHatchBlockEntity extends cn.dancingsnow.neoecoae.block
     private final IConfigManager stockMenuConfigManager = new ConfigManager(this::saveChanges);
 
     public ECOFluidInputHatchBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
-        super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator::new);
+        super(type, pos, blockState);
+        super.tank = tank;
         upgrades = UpgradeInventories.forMachine(blockState.getBlock(), 1, this::saveChanges);
     }
+
+    /** Stable addon handler view. Its int-sized quantities saturate at {@link Integer#MAX_VALUE}. */
+    public FluidTank getFluidTankHandler() { return tank; }
+
+    /** Exact amount in mB, including stock above the handler's int-sized view. */
+    public long getStoredFluidAmount() { return tank.getStoredAmount(); }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
         if (level.isClientSide) return;

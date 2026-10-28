@@ -46,6 +46,14 @@ Replace `examplemod` and the version range. Optional integrations use `type = "o
 | Tiers, structures, workstations | [Addon extension registration](#addon-extension-registration) |
 | Host panel appearance | [IECOTier](../src/main/java/cn/dancingsnow/neoecoae/api/IECOTier.java), [IHostPanelTextureProvider](../src/main/java/cn/dancingsnow/neoecoae/api/IHostPanelTextureProvider.java); [panels and models](#panels-and-models) |
 
+## Crafting fluid hatches
+
+[ECOFluidInputHatchBlockEntity](../src/main/java/cn/dancingsnow/neoecoae/blocks/entity/crafting/ECOFluidInputHatchBlockEntity.java) and [ECOFluidOutputHatchBlockEntity](../src/main/java/cn/dancingsnow/neoecoae/blocks/entity/crafting/ECOFluidOutputHatchBlockEntity.java) expose a stable `public FluidTank getFluidTankHandler()`. New addons should use this method for panels and handler integration; its name, parameters and return type are retained within the same Minecraft/loader branch. The input hatch also exposes `public long getStoredFluidAmount()` for the exact amount in mB. Its ordinary int-sized handler view saturates at `Integer.MAX_VALUE`; never overwrite exact stock with that projection.
+
+Builds fixing #143 retain both input-hatch binary read signatures: 21.2.10's `tank: FluidTank` and 21.2.11's `tank: LongFluidTank`. Both reference the same buffer. A compatibility superclass supplies the older descriptor and is not an addon extension point. The fields only support existing binaries: callers may read and operate on the buffer, but must not replace either field reference. Adding a getter alone cannot repair existing JARs, so both field signatures remain available. The output hatch also retains its original `tank: FluidTank` field.
+
+Handler operations and quantity reads follow the server-thread, simulation/execution and accepted-quantity rules below. The output hatch's registered fluid capability remains drain-only; third-party capability queries should use NeoForge capabilities rather than bypassing that restriction through the getter.
+
 ## Threads, registration and ownership
 
 Begin planning on the owning server thread: it captures grid inventory before handing work to the executor. Submission, provider acceptance, storage mutations and output claims also run on that thread. The caller checks player/machine access before calculation and again before submission; these low-level APIs do not authenticate callers.

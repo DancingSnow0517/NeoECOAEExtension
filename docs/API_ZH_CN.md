@@ -46,6 +46,14 @@ side = "BOTH"
 | 档位、结构、工作站 | [附属扩展注册](#附属扩展注册) |
 | 主机面板外观 | [IECOTier](../src/main/java/cn/dancingsnow/neoecoae/api/IECOTier.java)、[IHostPanelTextureProvider](../src/main/java/cn/dancingsnow/neoecoae/api/IHostPanelTextureProvider.java)；见[面板与模型](#面板与模型) |
 
+## 合成流体仓
+
+[ECOFluidInputHatchBlockEntity](../src/main/java/cn/dancingsnow/neoecoae/blocks/entity/crafting/ECOFluidInputHatchBlockEntity.java) 与 [ECOFluidOutputHatchBlockEntity](../src/main/java/cn/dancingsnow/neoecoae/blocks/entity/crafting/ECOFluidOutputHatchBlockEntity.java) 提供稳定的 `public FluidTank getFluidTankHandler()`。新附属用该方法接入面板或流体处理器；在同一 Minecraft/加载器分支中保留此方法的名称、参数和返回类型。输入仓另提供 `public long getStoredFluidAmount()`，以 mB 返回精确存量；普通处理器的 int 数量视图在 `Integer.MAX_VALUE` 饱和，不能据此覆盖精确存量。
+
+修复 #143 后，输入仓同时保留 21.2.10 的 `tank: FluidTank` 与 21.2.11 的 `tank: LongFluidTank` 字节码读取入口，二者引用同一个储罐。旧描述符由兼容父类提供，不是附属继承入口。字段仅用于兼容已有二进制；读取后可按处理器规则操作储罐，不支持直接替换任一字段引用。新增 getter 本身不能修复旧 JAR，因此两个字段入口会继续保留。输出仓的旧 `tank: FluidTank` 字段也保留。
+
+处理器访问与数量读取遵循下文的服务器线程、模拟/执行和实际接收量规则。输出仓对外注册的流体能力仍为只允许抽取；第三方模组查询能力时应使用 NeoForge capability，而非用 getter 绕过该限制。
+
 ## 线程、注册与资源所有权
 
 规划入口先读取库存快照，因此在所属服务器线程调用。提交、供应器接收、存储变更和产物认领也在服务器线程执行。调用方在开始计算和提交前检查玩家/机器的网络访问权限；底层接口不代替鉴权。
