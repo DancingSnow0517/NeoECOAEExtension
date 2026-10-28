@@ -298,6 +298,27 @@ Roles provide classification/ordering, not execution backends; cores and drives 
 
 [LargeWorkstationRecipes](../src/main/java/cn/dancingsnow/neoecoae/recipe/LargeWorkstationRecipes.java) `getAll` returns display representatives, `getGroups/getGroup` exposes groups and `getAvailable(level, moduleId)` returns legal card-specific variants. `availableVariants(moduleId)` retains original batch sizes/costs. Persist the actual variant ID returned by `findScaled`. A display representative grants no execution permissions or arbitrary smaller batches. Recipe/tag reloads and adapter/module changes invalidate relevant caches.
 
+### KubeJS large integrated workstation recipes
+
+With KubeJS installed, add native recipes restricted to the large integrated workstation from `kubejs/server_scripts/`:
+
+```js
+ServerEvents.recipes(event => {
+    event.recipes.neoecoae.large_integrated_working_station(10000)
+        .require('2x minecraft:iron_ingot')
+        .require('minecraft:redstone')
+        .requireFluid(Fluid.of('minecraft:water', 1000))
+        .itemOutput('minecraft:gold_ingot')
+        .fluidOutput(Fluid.of('minecraft:lava', 250))
+        .processingTicks(100)
+        .id('kubejs:large_workstation/example')
+})
+```
+
+The first argument, `energy`, is the total AE cost per recipe operation, in `0..2147483647`; `.energy(value)` overrides it. `.require(...)` appends a sized item ingredient, including item tags, with at most 12 entries. `.requireFluid(...)` sets one fluid ingredient; calling it again replaces it. `.itemOutput(...)` and `.fluidOutput(...)` each set one output. Unused inputs and outputs may be omitted; recipes should have valid inputs and outputs.
+
+Positional arguments `(energy, inputItems, inputFluid, itemOutput, fluidOutput)` are also supported, as is a sixth `processingTicks` argument. `processingTicks` must be positive and defaults to 100. It supplies the original processing time displayed by JEI/EMI; the large workstation currently runs each batch in 1 tick. Inputs, energy and outputs follow the native recipe rules. Reload server scripts to apply changes. The existing `integrated_working_station` interface remains unchanged.
+
 ## Panels and models
 
 Register custom tiers and cell types with matching IDs on both sides in synchronized registries exposed by [NERegistries.Keys](../src/main/java/cn/dancingsnow/neoecoae/all/NERegistries.java). Implement required `IECOTier` values; use `supportsComponentTier` for component compatibility and `supportsFeature` for advanced eligibility.

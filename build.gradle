@@ -296,6 +296,8 @@ dependencies {
 
     // KubeJS integration API used by the recipe schema plugin.
     compileOnly("dev.latvian.mods:kubejs-neoforge:${kubejs_version}")
+    // KubeJS embeds this library; plain JVM recipe tests do not unpack nested mod JARs.
+    testRuntimeOnly("dev.latvian.apps:tiny-java-server:1.0.0-build.33") { transitive = false }
 }
 
 tasks.named('test', Test) {
@@ -368,7 +370,6 @@ sourceSets.test.runtimeClasspath += sourceSets.main.compileClasspath
 
 sourceSets.main.resources {
     srcDirs 'src/generated/resources'
-    exclude 'kubejs.plugins.txt'
 }
 
 configurations {

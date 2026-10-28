@@ -298,6 +298,27 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 
 [LargeWorkstationRecipes](../src/main/java/cn/dancingsnow/neoecoae/recipe/LargeWorkstationRecipes.java) 的 `getAll` 返回展示代表，`getGroups/getGroup` 提供组，`getAvailable(level, moduleId)` 返回卡片合法变体。`availableVariants(moduleId)` 保留原始批量与费用；`findScaled` 的实际变体 ID 用于保存任务。展示代表不能代替执行权限或将大批量配方缩为任意小批量。适配器、模块与配方/标签重载会使相关缓存失效。
 
+### KubeJS 大型集成工作站配方
+
+安装 KubeJS 后，在 `kubejs/server_scripts/` 中使用以下接口添加仅供大型集成工作站执行的原生配方：
+
+```js
+ServerEvents.recipes(event => {
+    event.recipes.neoecoae.large_integrated_working_station(10000)
+        .require('2x minecraft:iron_ingot')
+        .require('minecraft:redstone')
+        .requireFluid(Fluid.of('minecraft:water', 1000))
+        .itemOutput('minecraft:gold_ingot')
+        .fluidOutput(Fluid.of('minecraft:lava', 250))
+        .processingTicks(100)
+        .id('kubejs:large_workstation/example')
+})
+```
+
+首个参数 `energy` 是单份配方的 AE 总能耗，范围为 `0..2147483647`；链式 `.energy(value)` 可覆盖它。`.require(...)` 追加带数量的物品原料，支持物品标签，最多 12 项；`.requireFluid(...)` 设置一种流体原料，再次调用会替换。`.itemOutput(...)` 和 `.fluidOutput(...)` 分别设置一种物品和一种流体产物。未设置的输入或产物可省略，配方应具有有效输入和产物。
+
+也支持位置参数 `(energy, inputItems, inputFluid, itemOutput, fluidOutput)`，以及末尾追加 `processingTicks` 的六参数形式。`processingTicks` 为正整数，默认 100，用于 JEI/EMI 展示原始加工时间；当前大型工作站运行时每批固定为 1 tick。输入、能耗和产物沿用原生配方规则，重载服务器脚本后生效。原有 `integrated_working_station` 接口保持不变。
+
 ## 面板与模型
 
 自定义档位与盘类型在 [NERegistries.Keys](../src/main/java/cn/dancingsnow/neoecoae/all/NERegistries.java) 对应同步注册表中，以两端相同 ID 注册。实现 `IECOTier` 的必需参数；组件兼容用 `supportsComponentTier`，高级能力用 `supportsFeature`。
