@@ -87,7 +87,7 @@ class LargeWorkstationPatternScalingTest {
         var batch = ((Deque<?>) value(controller, "pendingBatches")).getFirst();
         assertEquals(3L, value(batch, "craftCount"));
         assertEquals(200L, value(batch, "energyPerCraft"));
-        assertEquals(200, value(batch, "processingTicks"), "Doubled patterns occupy their lanes for twice the base duration");
+        assertEquals(1, value(batch, "processingTicks"), "Runtime processing is fixed to one tick; parallelism controls throughput");
         assertEquals(false, value(batch, "legacyTiming"));
         assertEquals(job, value(batch, "craftingJobId"));
         assertEquals(24L, ((KeyCounter) value(batch, "inputTotal")).get(AEItemKey.of(Items.IRON_INGOT)));
@@ -100,8 +100,8 @@ class LargeWorkstationPatternScalingTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"20,100", "50,40", "80,1"})
-    void overclockedDoubledPatternsLockTheAdjustedDurationAndFullEnergy(double temperature, int ticks) throws Exception {
+    @ValueSource(doubles = {20, 50, 80})
+    void overclockedDoubledPatternsKeepFixedRuntimeDurationAndFullEnergy(double temperature) throws Exception {
         var controller = controller();
         field(controller, "overclocked", true);
         field(controller, "temperature", temperature);
@@ -113,7 +113,7 @@ class LargeWorkstationPatternScalingTest {
             assertTrue(controller.acceptPatternBatch(pattern(8, 4), holders, 1, null));
         }
         var batch = ((Deque<?>) value(controller, "pendingBatches")).getFirst();
-        assertEquals(ticks, value(batch, "processingTicks"));
+        assertEquals(1, value(batch, "processingTicks"));
         assertEquals(200L, value(batch, "energyPerCraft"));
         assertEquals(4L, ((KeyCounter) value(batch, "outputTotal")).get(AEItemKey.of(Items.DIAMOND)));
     }
@@ -177,7 +177,7 @@ class LargeWorkstationPatternScalingTest {
             var batch = ((Deque<?>) value(controller, "pendingBatches")).getFirst();
             assertEquals(installed ? 0L : 100L, value(batch, "energyPerCraft"));
             assertEquals(installed ? 200L : 0L, value(batch, "fePerCraft"));
-            assertEquals(4, value(batch, "processingTicks"));
+            assertEquals(1, value(batch, "processingTicks"));
         }
     }
 
