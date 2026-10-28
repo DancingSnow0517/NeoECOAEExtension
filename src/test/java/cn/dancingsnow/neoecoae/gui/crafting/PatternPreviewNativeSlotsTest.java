@@ -182,15 +182,20 @@ class PatternPreviewNativeSlotsTest {
             state = new CraftingPatternPreviewState(host, player);
             var preview = CraftingInterfaceUI.patternPreview(state);
             List<SlotWidget> widgets = new ArrayList<>();
+            var backpackSlots = new ArrayList<cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot>();
             for (var child : preview.getChildren()) widgets.add((SlotWidget) child.widgets.get(0));
             for (int i = 0; i < 36; i++) {
                 int physical = i < 27 ? i + 9 : i - 27;
                 var element = new cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot(new Slot(inventory, physical, 0, 0));
                 state.bindPlayerNativeClick(element);
+                backpackSlots.add(element);
                 widgets.add((SlotWidget) element.widgets.get(0));
             }
             menu = new NativeMenu(widgets);
             player.containerMenu = menu;
+            cn.dancingsnow.neoecoae.util.UiTestSupport.bindActiveMenu(preview, player, menu);
+            for (var owner : backpackSlots)
+                cn.dancingsnow.neoecoae.util.UiTestSupport.bindActiveMenu(owner, player, menu);
             when(host.getNativePatternPreviewStack(eq(player), eq(10L), anyInt(), anyInt()))
                 .thenAnswer(call -> contents[(int) call.getArgument(2)]);
             when(host.canInsertNativePatternPreview(eq(player), eq(10L), anyInt(), any()))

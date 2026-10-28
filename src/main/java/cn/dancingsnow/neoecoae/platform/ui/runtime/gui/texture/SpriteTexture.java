@@ -49,6 +49,7 @@ public class SpriteTexture implements IGuiTexture {
             .setBorder(borderLT.x,borderLT.y,borderRB.x,borderRB.y).setColor(color).setWrapMode(wrapMode);
         result.copyTransform(this); return result;
     }
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
     @Override public void draw(GuiGraphics graphics,float mouseX,float mouseY,float x,float y,float width,float height,float partialTicks) {
         graphics.pose().pushPose();
         graphics.pose().translate(x+width/2+offsetX,y+height/2+offsetY,0);
@@ -57,6 +58,7 @@ public class SpriteTexture implements IGuiTexture {
         drawInternal(graphics,mouseX,mouseY,-width/2,-height/2,width,height,partialTicks);
         graphics.pose().popPose();
     }
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
     protected void drawInternal(GuiGraphics graphics,float mouseX,float mouseY,float x,float y,float width,float height,float partialTicks) {
         if (image == null || width <= 0 || height <= 0) return;
         int[] dimensions=DIMENSIONS.computeIfAbsent(image, location -> {

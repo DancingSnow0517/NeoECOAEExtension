@@ -22,6 +22,7 @@ final class ECORemoteMachineUI {
             } catch (ReflectiveOperationException | RuntimeException | LinkageError unsupported) { return null; }
         }
 
+        @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
         @Override protected Holder readHolderFromSyncData(FriendlyByteBuf buffer) {
             return FMLEnvironment.dist == Dist.CLIENT ? ClientHolderReader.read(buffer) : null;
         }

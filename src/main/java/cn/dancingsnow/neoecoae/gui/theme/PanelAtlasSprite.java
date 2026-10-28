@@ -45,6 +45,7 @@ final class PanelAtlasSprite extends SpriteTexture {
     }
 
     @Override
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
     protected void drawInternal(GuiGraphics graphics, float mouseX, float mouseY,
         float x, float y, float width, float height, float partialTicks) {
         resolve().draw(graphics, mouseX, mouseY, x, y, width, height, partialTicks);

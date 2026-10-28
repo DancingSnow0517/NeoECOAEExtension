@@ -4,6 +4,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 public record UIResourceTexture(BuiltinPath path) implements IGuiTexture {
     @Override public IGuiTexture getRawTexture(){var texture=TexturesResource.INSTANCE.getResource(path);return texture==null?IGuiTexture.EMPTY:texture.getRawTexture();}
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
     @Override public void draw(GuiGraphics graphics,float mx,float my,float x,float y,float w,float h,float tick){getRawTexture().draw(graphics,mx,my,x,y,w,h,tick);}
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
     @Override public void draw(GUIContext context,float x,float y,float w,float h){getRawTexture().draw(context,x,y,w,h);}
 }

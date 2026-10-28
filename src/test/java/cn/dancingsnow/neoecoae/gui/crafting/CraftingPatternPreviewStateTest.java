@@ -76,6 +76,7 @@ class CraftingPatternPreviewStateTest {
             assertNull(f.sync.clientSnapshot(), "a partial view must not be cached as complete");
             patterns.verifyNoInteractions();
             var preview = CraftingInterfaceUI.patternPreview(state);
+            cn.dancingsnow.neoecoae.util.UiTestSupport.bindActiveMenu(preview, f.player, f.player.containerMenu);
             var targets = NativePatternPreviewTestSupport.acknowledge(state);
             assertEquals(0, targets[0].slot());
             assertEquals(10, targets[0].bus());

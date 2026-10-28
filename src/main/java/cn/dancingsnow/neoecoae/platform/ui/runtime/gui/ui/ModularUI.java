@@ -13,6 +13,7 @@ public final class ModularUI {
     private int lastMouseDownButton=-1;
     private float mouseDownX,mouseDownY,lastMouseX,lastMouseY;
     private final DragHandler dragHandler=new DragHandler();
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
     public ModularUI(UI ui){this(ui,net.minecraft.client.Minecraft.getInstance().player);}
     public ModularUI(UI ui,Player player){this.ui=ui;this.player=player;ui.root().attachUI(this);}
     public com.lowdragmc.lowdraglib.gui.modular.ModularUI nativeUI(IUIHolder holder){
@@ -22,6 +23,7 @@ public final class ModularUI {
         return nativeUI;
     }
     public AbstractContainerMenu getMenu(){return nativeUI==null?null:nativeUI.getModularUIContainer();}
+    public boolean hasValidHolder(){return nativeUI!=null&&nativeUI.holder!=null&&!nativeUI.holder.isInvalid();}
     public UI getUi(){return ui;}
     public UIElement getRootElement(){return ui.root();}
     public Player getPlayer(){return player;}

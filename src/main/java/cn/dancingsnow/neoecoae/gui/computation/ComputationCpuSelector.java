@@ -5,7 +5,6 @@ import cn.dancingsnow.neoecoae.platform.JdkCompat;
 import appeng.api.client.AEKeyRendering;
 import appeng.api.config.CpuSelectionMode;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
-import appeng.client.gui.widgets.Scrollbar;
 import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
@@ -73,7 +72,7 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
         addChildren(selectionRequest, scrollRequest);
         for (int row = 0; row < ROWS; row++) addChild(rowHitbox(row));
 
-        scrollbar = new ComputationScrollbar(this, TRACK_X, TRACK_Y, TRACK_HEIGHT, Scrollbar.SMALL, ComputationScrollbar.SMALL_WIDTH, this::scrollTo);
+        scrollbar = new ComputationScrollbar(this, TRACK_X, TRACK_Y, TRACK_HEIGHT, true, ComputationScrollbar.SMALL_WIDTH, this::scrollTo);
         addChild(scrollbar);
         addEventListener(UIEvents.MOUSE_WHEEL, event -> {
             if (event.x < getPositionX() + LIST_X || event.x >= getPositionX() + TRACK_X + ComputationScrollbar.SMALL_WIDTH

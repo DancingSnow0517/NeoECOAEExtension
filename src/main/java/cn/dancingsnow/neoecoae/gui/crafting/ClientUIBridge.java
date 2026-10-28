@@ -10,6 +10,9 @@ public final class ClientUIBridge {
     }
 
     public static <T> T call(String methodName, Class<?> paramType, Object arg, Class<T> resultType, Supplier<T> fallback) {
+        if (net.minecraftforge.fml.loading.FMLEnvironment.dist != net.minecraftforge.api.distmarker.Dist.CLIENT) {
+            return fallback.get();
+        }
         try {
             Object result = Class.forName(CLIENT_UI_CLASS).getMethod(methodName, paramType).invoke(null, arg);
             if (resultType.isInstance(result)) {

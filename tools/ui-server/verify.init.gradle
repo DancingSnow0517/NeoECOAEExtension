@@ -1,0 +1,26 @@
+// Opt-in isolated dedicated-server validation; no probe enters the production JAR.
+gradle.projectsEvaluated {
+    def project = rootProject
+    def probe = project.sourceSets.create('uiServerProbe') {
+        java.setSrcDirs(['tools/ui-server/src'])
+        resources.setSrcDirs(['tools/ui-server/resources'])
+        compileClasspath += project.sourceSets.main.compileClasspath + project.sourceSets.main.output
+    }
+    project.legacyForge.mods.create('neoeco_ui_probe') { sourceSet(probe) }
+    def directory = project.file(project.providers.gradleProperty('uiServerRunDirectory')
+        .getOrElse('build/ui-server-run'))
+    project.legacyForge.runs.server.gameDirectory = directory
+    project.legacyForge.runs.server.systemProperty('neoeco.uiProbe.report', new File(directory, 'ui-report.json').absolutePath)
+    project.tasks.named('runServer').configure {
+        dependsOn(project.tasks.named(probe.classesTaskName))
+        doFirst {
+            def report = new File(directory, 'ui-report.json')
+            if (report.exists() && !report.delete()) throw new GradleException('Cannot clear the previous UI report')
+        }
+        doLast {
+            def report = new groovy.json.JsonSlurper().parse(new File(directory, 'ui-report.json'))
+            if (report.failures != 0 || report.menus < 28 || report.factoryOpens < 28)
+                throw new GradleException("Dedicated UI checks failed: ${report}")
+        }
+    }
+}

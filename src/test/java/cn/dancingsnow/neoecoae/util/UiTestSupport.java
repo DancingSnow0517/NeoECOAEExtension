@@ -38,6 +38,17 @@ public final class UiTestSupport {
         set(level,"isClientSide",true);
         return new ModularUI(ui,player);
     }
+    /** Supplies the valid-menu boundary for isolated vanilla-slot tests without Forge's menu mixins. */
+    public static void bindActiveMenu(UIElement root, net.minecraft.world.entity.player.Player player,
+            net.minecraft.world.inventory.AbstractContainerMenu menu) {
+        var ui = org.mockito.Mockito.mock(ModularUI.class);
+        set(ui,"player",player);
+        org.mockito.Mockito.when(ui.getMenu()).thenReturn(menu);
+        org.mockito.Mockito.when(ui.hasValidHolder()).thenReturn(true);
+        if (org.mockito.Mockito.mockingDetails(menu).isMock())
+            org.mockito.Mockito.when(menu.stillValid(player)).thenReturn(true);
+        root.attachUI(ui);
+    }
     public static void init(ModularUI ui,int width,int height) {
         var root=ui.getRootElement();root.arrange();
         root.setSelfPosition(new com.lowdragmc.lowdraglib.utils.Position((width-root.getSizeWidth())/2,(height-root.getSizeHeight())/2));

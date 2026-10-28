@@ -168,6 +168,7 @@ class CraftingInterfaceRenderingTest {
             reuse.putBoolean("reuse", true);
             state.receive(reuse);
             preview = CraftingInterfaceUI.patternPreview(state);
+            cn.dancingsnow.neoecoae.util.UiTestSupport.bindActiveMenu(preview, player, player.containerMenu);
             var targets = NativePatternPreviewTestSupport.acknowledge(state);
             for (int visual = 0; visual < targets.length; visual++) {
                 var target = targets[visual];

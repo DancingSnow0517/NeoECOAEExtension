@@ -14,20 +14,29 @@ import net.minecraft.client.renderer.Rect2i;
 final class ComputationScrollbar extends UIElement {
     static final int WIDTH = 12, THUMB_HEIGHT = 15;
     static final int SMALL_WIDTH = 7;
-    private final Scrollbar scrollbar;
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
+    private Scrollbar scrollbar;
     private final IntConsumer onScroll;
     private int published;
     private boolean pressed;
 
     ComputationScrollbar(UIElement owner, int x, int y, int height, IntConsumer onScroll) {
-        this(owner, x, y, height, cn.dancingsnow.neoecoae.client.gui.widget.NEScrollbars.BIG, WIDTH, onScroll);
+        this(owner, x, y, height, false, WIDTH, onScroll);
     }
 
-    ComputationScrollbar(UIElement owner, int x, int y, int height, Scrollbar.Style style, int width,
+    ComputationScrollbar(UIElement owner, int x, int y, int height, boolean small, int width,
             IntConsumer onScroll) {
-        scrollbar = new Scrollbar(style);
         this.onScroll = onScroll;
         HostElements.absolute(this, x, y, width, height);
+        if (net.minecraftforge.fml.loading.FMLEnvironment.dist == net.minecraftforge.api.distmarker.Dist.CLIENT) {
+            initializeClient(owner, x, y, height, small, width, onScroll);
+        }
+    }
+
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
+    private void initializeClient(UIElement owner, int x, int y, int height, boolean small, int width,
+            IntConsumer onScroll) {
+        scrollbar = new Scrollbar(clientStyle(small));
         scrollbar.setHeight(height).setCaptureMouseWheel(false);
         addEventListener(UIEvents.MOUSE_DOWN, event -> {
             if (event.button != 0) return;
@@ -58,12 +67,21 @@ final class ComputationScrollbar extends UIElement {
     }
 
     void update(int value, int max, int pageSize) {
+        published = Math.max(0, Math.min(value, Math.max(0, max)));
+        if (net.minecraftforge.fml.loading.FMLEnvironment.dist == net.minecraftforge.api.distmarker.Dist.CLIENT) {
+            updateClient(value, max, pageSize);
+        }
+    }
+
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
+    private void updateClient(int value, int max, int pageSize) {
         scrollbar.setRange(0, Math.max(0, max), pageSize);
         scrollbar.setCurrentScroll(value);
         published = scrollbar.getCurrentScroll();
     }
 
     @Override
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
     public void drawBackgroundAdditional(GUIContext context) {
         position();
         if (pressed) {
@@ -79,15 +97,18 @@ final class ComputationScrollbar extends UIElement {
             new Point(Math.round(context.mouseX), Math.round(context.mouseY)));
     }
 
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
     private void position() {
         scrollbar.setPosition(new Point(Math.round(getPositionX()), Math.round(getPositionY())));
     }
 
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
     private void release() {
         scrollbar.onMouseUp(new Point(0, 0), 0);
         pressed = false;
     }
 
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
     private void publish() {
         int value = scrollbar.getCurrentScroll();
         if (value != published) {
@@ -96,7 +117,13 @@ final class ComputationScrollbar extends UIElement {
         }
     }
 
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
     private static Point mouse(UIEvent event) {
         return new Point(Math.round(event.x), Math.round(event.y));
     }
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
+    private static Scrollbar.Style clientStyle(boolean small) {
+        return small ? Scrollbar.SMALL : cn.dancingsnow.neoecoae.client.gui.widget.NEScrollbars.BIG;
+    }
+
 }

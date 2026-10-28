@@ -59,6 +59,6 @@ public final class ECONetwork {
     }
 
     static String protocolVersion(String modVersion) {
-        return "3/" + modVersion;
+        return "4/" + modVersion;
     }
 }

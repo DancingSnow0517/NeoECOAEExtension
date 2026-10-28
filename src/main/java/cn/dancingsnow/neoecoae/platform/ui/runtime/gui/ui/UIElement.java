@@ -312,7 +312,12 @@ public class UIElement extends WidgetGroup {
             Object result=spec.handler().apply(args);if(spec.result()!=null)writeUpdateInfo(701,b->{b.writeVarInt(request);b.writeVarInt(event);ValueWire.write(b,spec.result(),result);});}
         else super.handleClientAction(id,buffer);
     }
-    public boolean activeMenu(){return modularUI!=null&&modularUI.getMenu()!=null&&modularUI.player.containerMenu==modularUI.getMenu()&&modularUI.getMenu().stillValid(modularUI.player);}
+    public boolean activeMenu() {
+        if (modularUI == null) return false;
+        var menu = modularUI.getMenu();
+        return menu != null && modularUI.player.containerMenu == menu && menu.stillValid(modularUI.player)
+            && modularUI.hasValidHolder();
+    }
     public RPCEmitter addRPCEvent(RPCEventBuilder.Event event){int index=rpcEvents.size();rpcEvents.add(event);return new RPCEmitter(this,index);}
     public boolean sendRpc(int index,Consumer<Object> callback,Object... values){
         if(!activeMenu()||index<0||index>=rpcEvents.size())return false;var spec=rpcEvents.get(index);if(values.length!=spec.parameters().length)throw new IllegalArgumentException("RPC arity mismatch");

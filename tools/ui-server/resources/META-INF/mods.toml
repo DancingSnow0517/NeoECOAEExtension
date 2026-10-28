@@ -1,0 +1,13 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="GPLv3"
+[[mods]]
+modId="neoeco_ui_probe"
+version="1.0"
+displayName="NeoECOAE dedicated UI regression probe"
+[[dependencies.neoeco_ui_probe]]
+modId="neoecoae"
+mandatory=true
+versionRange="*"
+ordering="AFTER"
+side="SERVER"
