@@ -51,9 +51,31 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
     private record Account(BulkUnits units, BigInteger amount) {}
 
     public ECOBulkStorageCell(ItemStack stack, @Nullable ISaveProvider container) {
+        this(stack, container, Map.of());
+    }
+
+    /** Imports physical item quantities from an older exact cell format without a long projection. */
+    public ECOBulkStorageCell(ItemStack stack, @Nullable ISaveProvider container,
+            Map<AEItemKey, BigInteger> legacyContents) {
         super(stack, container);
         this.stack = stack;
         load();
+        if (!legacyContents.isEmpty()) {
+            for (var entry : legacyContents.entrySet()) {
+                if (entry.getValue().signum() <= 0) throw new IllegalArgumentException("Nonpositive legacy amount");
+                BulkUnits units = ECOCompressionService.units(entry.getKey());
+                merge(entry.getKey(), new Account(units, units.factor(entry.getKey()).multiply(entry.getValue())));
+            }
+            List<GenericStack> markers = new ArrayList<>(stack.getOrDefault(AEComponents.STORAGE_CELL_CONFIG_INV, List.of()));
+            for (AEItemKey key : accounts.keySet()) {
+                if (markers.stream().noneMatch(marker -> marker != null && marker.what() instanceof AEItemKey item
+                        && ECOCompressionService.sameChain(item, key))) {
+                    markers.add(new GenericStack(key, 0));
+                }
+            }
+            stack.set(AEComponents.STORAGE_CELL_CONFIG_INV, markers);
+            persisted = false;
+        }
     }
 
     @Override public boolean isInfiniteStorageEligible() { return false; }

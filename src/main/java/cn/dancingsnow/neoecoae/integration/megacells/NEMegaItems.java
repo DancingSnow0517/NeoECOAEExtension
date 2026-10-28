@@ -14,6 +14,11 @@ import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
+import java.util.List;
 
 import java.util.function.Supplier;
 
@@ -40,8 +45,14 @@ public final class NEMegaItems {
     public static final ItemEntry<ECOMegaFluidStorageCellItem> ECO_MEGA_FLUID_CELL_4G =
         fluidCell("4g", MEGA_4G_CAPACITY, Rarity.EPIC);
     public static final ItemEntry<ECOBulkStorageCellItem> ECO_MEGA_LONG_BULK_CELL =
-        REGISTRATE.item("eco_mega_long_bulk_cell", p -> new ECOBulkStorageCellItem(
-                p.stacksTo(1).rarity(Rarity.EPIC), ECOTier.L9, NECellTypes.BULK_ITEM))
+        REGISTRATE.<ECOBulkStorageCellItem>item("eco_mega_long_bulk_cell", p -> new ECOBulkStorageCellItem(
+                p.stacksTo(1).rarity(Rarity.EPIC), ECOTier.L9, NECellTypes.BULK_ITEM) {
+                @Override
+                public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
+                    lines.add(Component.translatable("tooltip.neoecoae.bulk.deprecated").withStyle(ChatFormatting.RED));
+                    super.appendHoverText(stack, context, lines, flag);
+                }
+            })
             .lang("ECO Bulk Storage Matrix")
             .model((ctx, prov) -> {})
             .register();

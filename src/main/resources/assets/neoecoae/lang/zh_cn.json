@@ -1303,6 +1303,7 @@
   "gui.neoecoae.processing.close": "关闭",
   "gui.neoecoae.processing.context_hint": "右键定位、突出显示或打开样板供应器",
   "item.neoecoae.eco_bulk_conversion_pattern": "ECO 大宗形态转换",
+  "tooltip.neoecoae.bulk.deprecated": "已弃用",
   "tooltip.neoecoae.bulk.capacity": "数量不限；已用资源种类 %s / %s",
   "tooltip.neoecoae.bulk.configure": "默认支持 25 类资源，ECO 大宗扩展卡可扩至 50 类",
   "tooltip.neoecoae.bulk.legacy_configure": "旧式单类大宗矩阵；同一压缩链的所有形态共用一个标记",

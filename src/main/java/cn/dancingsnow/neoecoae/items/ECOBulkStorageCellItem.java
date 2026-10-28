@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
 
-public final class ECOBulkStorageCellItem extends ECOStorageCellItem implements IECOBulkMarkableCellItem {
+public class ECOBulkStorageCellItem extends ECOStorageCellItem implements IECOBulkMarkableCellItem {
     public static final int TYPE_LIMIT = 25;
     public static final int UPGRADED_TYPE_LIMIT = 50;
     // Resolve by registry id so legacy disks never initialize the optional MEGA item registrations.

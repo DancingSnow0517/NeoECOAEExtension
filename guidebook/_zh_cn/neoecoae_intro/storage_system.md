@@ -93,14 +93,14 @@ ECO 存储系统为 ME 网络提供大容量存储。上方是最小结构，可
 
 安装 AE2 Omni Cells、AE2 闪电科技、AppFlux 等模组后，还可以使用[兼容存储矩阵](compat_storage_matrices.md)存放更多资源类型。
 
-## 大宗存储（MEGA Cells）
+## 大宗压缩存储（Bigger AE2）
 
 <ItemGrid>
-  <ItemIcon id="neoecoae:eco_mega_long_bulk_cell" />
+  <ItemIcon id="neoecoae:eco_digital_singularity_item_storage_cell" />
   <ItemIcon id="neoecoae:eco_mega_upgrade_card" />
 </ItemGrid>
 
-ECO 大宗存储矩阵和扩展卡仅在安装 MEGA Cells 后注册，组装和拆解配方也需要 MEGA Cells。压缩能力由 ECO 内置，无需压缩卡或解压模块。先在主机标记面板或元件工作台配置资源，再放入等级兼容的驱动器；默认支持 25 类资源，安装 ECO 大宗扩展卡后为 50 类。数量没有固定上限，终端悬停可查看精确数量。
+ECO 数字奇点物品存储矩阵需要 Bigger AE2，使用 ECO 内置压缩能力，无需压缩卡或解压模块。先在主机标记面板或元件工作台配置资源，再放入等级兼容的驱动器；默认支持 25 类资源，安装由 MEGA Cells 联动提供的 ECO 大宗扩展卡后为 50 类。数量没有固定上限，终端悬停可查看精确数量。旧 ECO 大宗存储矩阵保留兼容功能，但已弃用，且不再提供任何组装或拆解配方。
 
 可逆工作台配方会形成压缩链，例如铁粒、铁锭、铁块。同链形态可以互相存取，只占一个资源标记。Shift + 左键上调、Shift + 右键下调展示层级；显示铁锭时，少于一锭的余数仍显示为铁粒，不会消失。
 
