@@ -85,6 +85,44 @@ public interface ECOInfiniteStorageEngine {
         return isHealthy();
     }
 
+    /**
+     * Why this domain cannot accept migrated contents right now. {@code code} selects the
+     * {@code gui.neoecoae.storage.migration.blocked.<code>} translation; {@code detail} is its single argument.
+     */
+    record MigrationBlock(String code, String detail) {
+        public MigrationBlock {
+            code = code == null || code.isEmpty() ? "unknown" : code;
+            detail = detail == null ? "" : detail;
+        }
+
+        public String translationKey() {
+            return "gui.neoecoae.storage.migration.blocked." + code;
+        }
+
+        /** Server-side diagnostic text for {@link cn.dancingsnow.neoecoae.storage.StorageFaults}. */
+        public String message() {
+            String base = switch (code) {
+                case "unreadable" -> "Infinite storage domain is unreadable";
+                case "read_only" -> "Infinite storage domain is in read-only recovery";
+                case "write_failed" -> "Infinite storage snapshot write failed";
+                case "undecodable" -> "Infinite storage domain retains undecodable entries";
+                case "unresolved_metadata" -> "Infinite storage domain retains unresolved transfer metadata";
+                case "not_writable" -> "Infinite storage domain is not writable";
+                case "source_unavailable" -> "Source disk is unavailable";
+                case "rejected" -> "Infinite storage domain rejected a migrated resource";
+                case "commit_failed" -> "Infinite storage domain did not accept the migration commit";
+                case "not_durable" -> "Migration could not be saved yet";
+                default -> "Migration is blocked";
+            };
+            return detail.isEmpty() ? base : base + ": " + detail;
+        }
+    }
+
+    /** {@code null} when migrated contents may be imported; otherwise the reason a migration cannot progress. */
+    default MigrationBlock migrationBlock() {
+        return isHealthy() ? null : new MigrationBlock("not_writable", "");
+    }
+
     Collection<TypeStats> getTypeStats();
 
     boolean hasHugeStacks();
@@ -116,6 +154,11 @@ public interface ECOInfiniteStorageEngine {
     /** See {@link cn.dancingsnow.neoecoae.storage.StorageListingVersion}; unlike {@link #revision()}, also covers quantities. */
     default long listingVersion() {
         return cn.dancingsnow.neoecoae.storage.StorageListingVersion.UNKNOWN;
+    }
+
+    /** See {@link cn.dancingsnow.neoecoae.storage.StorageListingDelta}; false when only a full listing is valid. */
+    default boolean visitListingChanges(long since, long current, java.util.function.ObjLongConsumer<AEKey> visitor) {
+        return false;
     }
 
     default boolean reserveRestore(AEKey key, UUID transaction) {

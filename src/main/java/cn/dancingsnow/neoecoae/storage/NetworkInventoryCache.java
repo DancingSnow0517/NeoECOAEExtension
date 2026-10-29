@@ -19,8 +19,9 @@ import java.util.function.ObjLongConsumer;
 
 /**
  * Keeps AE2's per-grid cached inventory current by listing each mount separately and applying only
- * the per-key differences. A mount with an unchanged {@link StorageListingVersion} is not listed at all;
- * every other mount, including all third-party storage, is still listed on each refresh.
+ * the per-key differences. A mount with an unchanged {@link StorageListingVersion} is not listed at all, and a
+ * {@link StorageListingDelta} mount reports only its changed keys; every other mount, including all third-party
+ * storage, is still listed on each refresh.
  * Server-thread owned, apart from {@link #invalidate()}.
  */
 public final class NetworkInventoryCache {
@@ -156,6 +157,11 @@ public final class NetworkInventoryCache {
                 mounts.put(inventory, mount);
                 for (var entry : mount.content) adjust(amounts, entry.getKey(), entry.getLongValue());
             } else if (remounted || version == StorageListingVersion.UNKNOWN || version != mount.version) {
+                if (!remounted && applyChanges(inventory, mount, version, amounts)) {
+                    mount.version = version;
+                    mount.epoch = current;
+                    continue;
+                }
                 KeyCounter fresh = scratch;
                 fresh.clear();
                 list(inventory, fresh);
@@ -183,6 +189,23 @@ public final class NetworkInventoryCache {
                 iterator.remove();
             }
         }
+    }
+
+    /** Applies a mount's reported key changes; false when it must be listed in full instead. */
+    private boolean applyChanges(MEStorage inventory, Mount mount, long version, Object2LongMap<AEKey> amounts) {
+        if (!(inventory instanceof StorageListingDelta delta) || version < 0L || mount.version < 0L
+                || version < mount.version) {
+            return false;
+        }
+        KeyCounter content = mount.content;
+        return delta.neoecoae$visitListingChanges(mount.version, version, (key, now) -> {
+            long before = content.get(key);
+            if (now == before) return;
+            adjust(amounts, key, now - before);
+            // Contents never hold zeros, matching a full listing after removeZeros().
+            if (now == 0L) content.remove(key);
+            else content.set(key, now);
+        });
     }
 
     private void publish(KeyCounter published, Object2LongMap<AEKey> amounts, ObjLongConsumer<AEKey> changes) {

@@ -76,7 +76,21 @@ public final class StorageHostUI {
         BooleanSupplier infiniteStorage, BooleanSupplier migratingToInfinite,
         BooleanSupplier canExtractInfiniteComponents, Supplier<String> domainId, IntSupplier missingMembers,
         IItemHandlerModifiable infiniteComponentInventory, @Nullable Player player, CellExtractor cellExtractor,
-        CellInserter cellInserter, Supplier<ItemStack> hostItem, CellActions cellActions) {
+        CellInserter cellInserter, Supplier<ItemStack> hostItem, CellActions cellActions,
+        IntSupplier migrationProgressPercent, Supplier<Component> migrationBlockedReason) {
+        public Config(Supplier<Component> title, IntSupplier tier, BooleanSupplier formed,
+            LongSupplier storedEnergy, LongSupplier maxEnergy, LongSupplier energyConsumePerTick,
+            Supplier<String> totalUsedBytesText, Supplier<List<CellEntry>> cellEntries, List<StorageTypeLine> storageTypes,
+            BooleanSupplier infiniteStorage, BooleanSupplier migratingToInfinite,
+            BooleanSupplier canExtractInfiniteComponents, Supplier<String> domainId, IntSupplier missingMembers,
+            IItemHandlerModifiable infiniteComponentInventory, @Nullable Player player, CellExtractor cellExtractor,
+            CellInserter cellInserter, Supplier<ItemStack> hostItem, CellActions cellActions) {
+            this(title, tier, formed, storedEnergy, maxEnergy, energyConsumePerTick, totalUsedBytesText, cellEntries,
+                storageTypes, infiniteStorage, migratingToInfinite, canExtractInfiniteComponents, domainId,
+                missingMembers, infiniteComponentInventory, player, cellExtractor, cellInserter, hostItem,
+                cellActions, () -> 0, () -> null);
+        }
+
         public Config(Supplier<Component> title, IntSupplier tier, BooleanSupplier formed,
             LongSupplier storedEnergy, LongSupplier maxEnergy, LongSupplier energyConsumePerTick,
             Supplier<String> totalUsedBytesText, Supplier<List<CellEntry>> cellEntries, List<StorageTypeLine> storageTypes,

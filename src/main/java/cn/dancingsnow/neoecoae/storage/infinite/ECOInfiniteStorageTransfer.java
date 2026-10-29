@@ -6,14 +6,16 @@ import appeng.api.networking.security.IActionSource;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
-import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.BiFunction;
+import java.util.function.LongSupplier;
 
 import net.minecraft.world.item.ItemStack;
 
@@ -21,12 +23,84 @@ import net.minecraft.world.item.ItemStack;
  * Bounded finite-to-infinite transfer. The sealed source stays intact until the destination is durable.
  */
 public final class ECOInfiniteStorageTransfer {
+    /** Restore completions handled per tick. Migration uses {@link Budget}; sealing uses {@link #SEALS_PER_TICK}. */
     public static final int KEYS_PER_TICK = 5;
+    /** Source drives sealed (and their contents saved) per tick before they may be migrated. */
+    public static final int SEALS_PER_TICK = 5;
     private final Map<UUID, Cursor> cursors = new HashMap<>();
+
+    /** Legacy controller receipt; {@code encodedKey} is {@code key.toTagGeneric().toString()}, computed once. */
+    @FunctionalInterface
+    public interface LegacyReceipt {
+        UUID apply(AEKey key, String encodedKey, long amount);
+    }
+
+    public enum Outcome { COMPLETE, IN_PROGRESS, BLOCKED }
+
+    /** Result of one migration attempt; {@code block} is set only for {@link Outcome#BLOCKED}. */
+    public record StepResult(Outcome outcome, ECOInfiniteStorageEngine.MigrationBlock block) {
+        static final StepResult COMPLETE = new StepResult(Outcome.COMPLETE, null);
+        static final StepResult IN_PROGRESS = new StepResult(Outcome.IN_PROGRESS, null);
+
+        static StepResult blocked(ECOInfiniteStorageEngine.MigrationBlock block) {
+            return new StepResult(Outcome.BLOCKED,
+                block == null ? new ECOInfiniteStorageEngine.MigrationBlock("unknown", "") : block);
+        }
+
+        static StepResult blocked(String code, String detail) {
+            return blocked(new ECOInfiniteStorageEngine.MigrationBlock(code, detail));
+        }
+
+        public boolean complete() { return outcome == Outcome.COMPLETE; }
+        public boolean blocked() { return outcome == Outcome.BLOCKED; }
+    }
+
+    /**
+     * One tick's migration allowance, shared by every drive of a host. The first resource is always allowed, so a
+     * migration progresses even when a tick starts past its deadline.
+     */
+    public static final class Budget {
+        private final LongSupplier clock;
+        private final long deadline;
+        private final int maxKeys;
+        private int used;
+
+        public Budget(LongSupplier clock, long budgetNanos, int maxKeys) {
+            this.clock = clock;
+            this.deadline = clock.getAsLong() + Math.max(0L, budgetNanos);
+            this.maxKeys = Math.max(1, maxKeys);
+        }
+
+        public static Budget perTick() {
+            return new Budget(System::nanoTime, NEConfig.infiniteMigrationTickBudgetMicros * 1_000L,
+                NEConfig.infiniteMigrationMaxKeysPerTick);
+        }
+
+        public boolean canContinue() {
+            return used == 0 || used < maxKeys && clock.getAsLong() - deadline < 0L;
+        }
+
+        public void consume(int keys) {
+            int amount = Math.max(1, keys);
+            used = used > Integer.MAX_VALUE - amount ? Integer.MAX_VALUE : used + amount;
+        }
+
+        public int used() { return used; }
+    }
 
     public static boolean isEligible(IECOStorageCell cell) {
         return cell instanceof IECOStorageMigrationCell && cell.isInfiniteStorageEligible()
                 && cell.getTier() == ECOTier.L9;
+    }
+
+    /** {@code key.toTagGeneric()} in the exact text both receipt formulas have always hashed. */
+    public static String encodedKey(AEKey key) {
+        return key.toTagGeneric().toString();
+    }
+
+    /** Receipt of the sealed source; byte-identical to {@code migration + ":" + key.toTagGeneric()}. */
+    public static UUID sealedReceipt(UUID migration, String encodedKey) {
+        return UUID.nameUUIDFromBytes((migration + ":" + encodedKey).getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -41,16 +115,26 @@ public final class ECOInfiniteStorageTransfer {
     public boolean step(ItemStack source, IECOStorageMigrationCell cell, UUID domain,
                         ECOInfiniteStorageEngine engine, Runnable persistSeal, Runnable complete, BiFunction<AEKey, Long, UUID> legacyReceipt,
                         Map<AEKey, java.util.Set<UUID>> releaseCompatibility) {
-        if (!isEligible(cell) || !engine.isHealthy()) return false;
+        return migrate(source, cell, domain, engine, persistSeal, complete, adapt(legacyReceipt), releaseCompatibility,
+            Budget.perTick()).complete();
+    }
+
+    public StepResult migrate(ItemStack source, IECOStorageMigrationCell cell, UUID domain,
+                              ECOInfiniteStorageEngine engine, Runnable persistSeal, Runnable complete, LegacyReceipt legacyReceipt,
+                              Map<AEKey, java.util.Set<UUID>> releaseCompatibility, Budget budget) {
+        if (!isEligible(cell)) return StepResult.blocked("source_unavailable", "");
+        if (!engine.isHealthy()) return StepResult.blocked(domainBlock(engine));
         UUID migration = ECOInfiniteStorageMember.beginMigration(source, domain);
         if (cell instanceof cn.dancingsnow.neoecoae.storage.ECOStorageCell ordinary
             && engine instanceof SavedDataInfiniteStorageEngine saved && ordinary.storageSession() != null) {
-            if (!ordinary.storageWritable()) return false;
+            if (!ordinary.storageWritable()) return sourceBlocked(ordinary);
             ordinary.storageData().metadata(cn.dancingsnow.neoecoae.storage.persistence.ECOCellReference.metadata(source));
+            int keys = ordinary.storageData().amounts().size();
             Map<AEKey, java.util.Set<UUID>> compatibility = new HashMap<>();
             if (ordinary.storageData().legacyMigration()) ordinary.storageData().amounts().visitVisible((key, amount) -> {
-                UUID legacy = legacyReceipt.apply(key, amount);
-                UUID sealed = UUID.nameUUIDFromBytes((migration + ":" + key.toTagGeneric()).getBytes(StandardCharsets.UTF_8));
+                String encoded = encodedKey(key);
+                UUID legacy = legacyReceipt.apply(key, encoded, amount);
+                UUID sealed = sealedReceipt(migration, encoded);
                 java.util.Set<UUID> ids = new java.util.HashSet<>(); if (legacy != null) ids.add(legacy); ids.add(sealed);
                 compatibility.put(key, java.util.Set.copyOf(ids));
             });
@@ -59,51 +143,105 @@ public final class ECOInfiniteStorageTransfer {
                 combined.addAll(ids); compatibility.put(key, java.util.Set.copyOf(combined));
             });
             if (!cn.dancingsnow.neoecoae.storage.persistence.StorageTransferCoordinator.transfer(
-                ordinary.storageSession(), ordinary.storageData(), domain, saved, migration, compatibility)) return false;
+                ordinary.storageSession(), ordinary.storageData(), domain, saved, migration, compatibility)) {
+                return ordinaryBlocked(ordinary, engine);
+            }
             cn.dancingsnow.neoecoae.storage.persistence.ECOCellReference.applyMetadata(source, ordinary.storageData().metadata());
             complete.run();
-            return true;
+            // The disk moves as one durable transaction; it still counts every resource it carried.
+            budget.consume(keys);
+            return StepResult.COMPLETE;
         }
-        return step(migration, source, cell, engine, persistSeal, complete, legacyReceipt);
+        return migrate(migration, source, cell, engine, persistSeal, complete, legacyReceipt, budget);
     }
 
     boolean step(UUID migration, Object source, IECOStorageMigrationCell cell,
                  ECOInfiniteStorageEngine engine, Runnable persistSeal, Runnable complete, BiFunction<AEKey, Long, UUID> legacyReceipt) {
-        if (!cell.isInfiniteStorageEligible() || !engine.isHealthy()) return false;
+        return migrate(migration, source, cell, engine, persistSeal, complete, adapt(legacyReceipt), Budget.perTick()).complete();
+    }
+
+    StepResult migrate(UUID migration, Object source, IECOStorageMigrationCell cell,
+                       ECOInfiniteStorageEngine engine, Runnable persistSeal, Runnable complete, LegacyReceipt legacyReceipt,
+                       Budget budget) {
+        if (!cell.isInfiniteStorageEligible()) return StepResult.blocked("source_unavailable", "");
+        if (!engine.isHealthy()) return StepResult.blocked(domainBlock(engine));
         Cursor cursor = cursors.get(migration);
         if (cursor == null || cursor.source != source || cursor.cell != cell) {
             cell.persist();
             persistSeal.run();
-            cursor = new Cursor(source, cell, cell.migrationEntries());
+            // The source is sealed, so this snapshot is its complete and final contents.
+            List<Entry> entries = new ArrayList<>();
+            var iterator = cell.migrationEntries();
+            while (iterator.hasNext()) {
+                var entry = iterator.next();
+                entries.add(new Entry(entry.getKey(), entry.getLongValue()));
+            }
+            cursor = new Cursor(source, cell, entries);
             cursors.put(migration, cursor);
         }
-        int visited = 0;
-        while (visited < KEYS_PER_TICK) {
-            if (cursor.key == null) {
-                if (!cursor.entries.hasNext()) break;
-                var entry = cursor.entries.next();
-                cursor.key = entry.getKey();
-                cursor.amount = entry.getLongValue();
-            }
-            if (cursor.amount > 0) {
-                UUID legacy = legacyReceipt.apply(cursor.key, cursor.amount);
-                UUID sealed = UUID.nameUUIDFromBytes(
-                        (migration + ":" + cursor.key.toTagGeneric()).getBytes(StandardCharsets.UTF_8));
-                if (engine.insertOnce(java.util.Set.of(legacy, sealed), cursor.key, cursor.amount) != cursor.amount) {
-                    return false;
+        while (cursor.index < cursor.entries.size()) {
+            if (!budget.canContinue()) return StepResult.IN_PROGRESS;
+            Entry entry = cursor.entries.get(cursor.index);
+            if (entry.amount > 0) {
+                String encoded = encodedKey(entry.key);
+                UUID legacy = legacyReceipt.apply(entry.key, encoded, entry.amount);
+                UUID sealed = sealedReceipt(migration, encoded);
+                if (engine.insertOnce(java.util.Set.of(legacy, sealed), entry.key, entry.amount) != entry.amount) {
+                    var block = engine.migrationBlock();
+                    return StepResult.blocked(block != null ? block
+                        : new ECOInfiniteStorageEngine.MigrationBlock("rejected", String.valueOf(entry.key)));
                 }
             }
-            cursor.key = null;
-            visited++;
+            cursor.index++;
+            budget.consume(1);
         }
-        if (cursor.key != null || cursor.entries.hasNext() || !engine.acceptChanges().successful() || !engine.flush()) return false;
+        var accepted = engine.acceptChanges();
+        if (!accepted.successful()) {
+            var block = engine.migrationBlock();
+            return StepResult.blocked(block != null ? block
+                : new ECOInfiniteStorageEngine.MigrationBlock("commit_failed", accepted.failure()));
+        }
+        if (!engine.flush()) {
+            var block = engine.migrationBlock();
+            return StepResult.blocked(block != null ? block : new ECOInfiniteStorageEngine.MigrationBlock("not_durable", ""));
+        }
         complete.run();
         cursors.remove(migration);
-        return true;
+        return StepResult.COMPLETE;
+    }
+
+    /** Share of a started per-resource migration already imported, in {@code [0, 1]}; 0 when not started. */
+    public double progress(UUID migration) {
+        Cursor cursor = cursors.get(migration);
+        if (cursor == null) return 0.0D;
+        return cursor.entries.isEmpty() ? 1.0D : (double) cursor.index / cursor.entries.size();
     }
 
     public void reset() {
         cursors.clear();
+    }
+
+    private static LegacyReceipt adapt(BiFunction<AEKey, Long, UUID> legacyReceipt) {
+        return (key, encoded, amount) -> legacyReceipt.apply(key, amount);
+    }
+
+    private static ECOInfiniteStorageEngine.MigrationBlock domainBlock(ECOInfiniteStorageEngine engine) {
+        var block = engine.migrationBlock();
+        return block != null ? block : new ECOInfiniteStorageEngine.MigrationBlock("not_writable", "");
+    }
+
+    private static StepResult sourceBlocked(cn.dancingsnow.neoecoae.storage.ECOStorageCell ordinary) {
+        String failure = ordinary.storageData().failure();
+        return StepResult.blocked("source_unavailable", failure == null ? "" : failure);
+    }
+
+    private static StepResult ordinaryBlocked(cn.dancingsnow.neoecoae.storage.ECOStorageCell ordinary,
+                                              ECOInfiniteStorageEngine engine) {
+        var block = engine.migrationBlock();
+        if (block != null) return StepResult.blocked(block);
+        if (!ordinary.storageWritable()) return sourceBlocked(ordinary);
+        String failure = ordinary.storageData().failure();
+        return StepResult.blocked("not_durable", failure == null ? "" : failure);
     }
 
     /**
@@ -121,14 +259,16 @@ public final class ECOInfiniteStorageTransfer {
         return inserted.equals(remaining) && cell.getMigrationAmountBigInteger(key).equals(goal.afterExact());
     }
 
+    private record Entry(AEKey key, long amount) {
+    }
+
     private static final class Cursor {
         private final Object source;
         private final IECOStorageMigrationCell cell;
-        private final Iterator<Object2LongMap.Entry<AEKey>> entries;
-        private AEKey key;
-        private long amount;
+        private final List<Entry> entries;
+        private int index;
 
-        private Cursor(Object source, IECOStorageMigrationCell cell, Iterator<Object2LongMap.Entry<AEKey>> entries) {
+        private Cursor(Object source, IECOStorageMigrationCell cell, List<Entry> entries) {
             this.source = source;
             this.cell = cell;
             this.entries = entries;

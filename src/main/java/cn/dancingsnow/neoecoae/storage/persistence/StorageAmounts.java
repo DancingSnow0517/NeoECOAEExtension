@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.storage.persistence;
 
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.storage.infinite.HugeAmount;
+import it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMaps;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
@@ -18,6 +19,11 @@ public class StorageAmounts {
     private final StorageTotal total = new StorageTotal();
     private long contentRevision;
     private long structureRevision;
+    // Optional bounded change log: key -> content revision of its latest change, oldest change first.
+    private Object2LongLinkedOpenHashMap<AEKey> changeLog;
+    private int changeLogCapacity;
+    // Changes at or before this revision may be missing from the log.
+    private long changeLogFloor;
 
     public long visible(AEKey key) { return amounts.getLong(key); }
     public Object2LongMap<AEKey> visibleAmounts() { return view; }
@@ -28,6 +34,42 @@ public class StorageAmounts {
     public boolean isBig(AEKey key) { return overflow.containsKey(key); }
     public long contentRevision() { return contentRevision; }
     public long structureRevision() { return structureRevision; }
+
+    /**
+     * Starts recording which keys change, keeping at most {@code capacity} distinct keys. Earlier changes are unknown,
+     * so only readers that listed at or after the current revision can use {@link #visitChangedSince}.
+     */
+    public void enableChangeLog(int capacity) {
+        changeLog = new Object2LongLinkedOpenHashMap<>();
+        changeLogCapacity = Math.max(1, capacity);
+        changeLogFloor = contentRevision;
+    }
+
+    /**
+     * Visits every key whose amount may have changed after content revision {@code since}, newest first. Returns
+     * false, visiting nothing, when those changes are no longer (or were never) recorded.
+     */
+    public boolean visitChangedSince(long since, java.util.function.Consumer<AEKey> visitor) {
+        if (changeLog == null || since < changeLogFloor || since > contentRevision) return false;
+        if (since == contentRevision || changeLog.isEmpty()) return true;
+        var iterator = changeLog.keySet().iterator(changeLog.lastKey());
+        // The iterator starts after the newest key; walk back until changes are older than the reader.
+        while (iterator.hasPrevious()) {
+            AEKey key = iterator.previous();
+            if (changeLog.getLong(key) <= since) break;
+            visitor.accept(key);
+        }
+        return true;
+    }
+
+    private void changed(AEKey key) {
+        contentRevision++;
+        if (changeLog == null) return;
+        changeLog.putAndMoveToLast(key, contentRevision);
+        if (changeLog.size() > changeLogCapacity) {
+            changeLogFloor = Math.max(changeLogFloor, changeLog.removeFirstLong());
+        }
+    }
 
     public HugeAmount get(AEKey key) {
         long value = visible(key);
@@ -41,7 +83,7 @@ public class StorageAmounts {
         if (before == value) return;
         if (value == 0) amounts.removeLong(key); else amounts.put(key, value);
         total.subtract(before); total.add(value);
-        contentRevision++;
+        changed(key);
         if ((before == 0) != (value == 0)) structureRevision++;
     }
     public void set(AEKey key, HugeAmount value) {
@@ -52,14 +94,14 @@ public class StorageAmounts {
         if (value.isZero()) amounts.removeLong(key); else amounts.put(key, value.toLongSaturated());
         if (value.isBig()) overflow.put(key, new OverflowAmount(value)); else overflow.remove(key);
         total.subtract(before); total.add(value);
-        contentRevision++;
+        changed(key);
         if (before.isZero() != value.isZero()) structureRevision++;
     }
     public void add(AEKey key, long amount) { add(key, visible(key), amount); }
     public void add(AEKey key, long current, long amount) {
         if (amount <= 0) return;
         OverflowAmount big = current == Long.MAX_VALUE ? overflow.get(key) : null;
-        if (big != null) { big.add(amount); total.add(amount); contentRevision++; return; }
+        if (big != null) { big.add(amount); total.add(amount); changed(key); return; }
         if (amount <= Long.MAX_VALUE - current) setLong(key, current + amount);
         else set(key, get(key).add(amount));
     }
@@ -73,7 +115,7 @@ public class StorageAmounts {
         if (big == null) setLong(key, current - amount);
         else {
             long remaining = big.subtract(amount);
-            total.subtract(amount); contentRevision++;
+            total.subtract(amount); changed(key);
             if (remaining < Long.MAX_VALUE || !big.isBig()) {
                 overflow.remove(key);
                 if (remaining == 0) { amounts.removeLong(key); structureRevision++; }
@@ -86,6 +128,7 @@ public class StorageAmounts {
         if (amounts.isEmpty()) return;
         amounts.clear(); overflow.clear(); amounts.trim(); overflow.trim(); total.clear();
         contentRevision++; structureRevision++;
+        if (changeLog != null) { changeLog.clear(); changeLogFloor = contentRevision; }
     }
     public boolean isEmpty() { return amounts.isEmpty(); }
     public boolean hasOverflow() { return !overflow.isEmpty(); }

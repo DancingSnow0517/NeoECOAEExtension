@@ -60,6 +60,8 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.storag
     private long revision;
     // Visibility changes that are not quantity changes; see listingVersion().
     private long listingChanges;
+    // listingVersion() at the latest structural change; incremental readers must have listed at or after it.
+    private long listingBarrier;
     // Last sequence of the retired write-ahead journal already folded into this snapshot.
     private long journalSequence;
     private KeyCodec codec;
@@ -296,9 +298,34 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.storag
     public void setDirty() {
         revision++;
         // Restore reservations and similar structural changes hide or reveal keys.
-        listingChanges++;
+        listingStructureChanged();
         refreshMountedStorageAvailability();
         super.setDirty();
+    }
+
+    /**
+     * A key appeared or disappeared through an ordinary quantity change. Revision-keyed caches refresh as for
+     * {@link #setDirty()}, but the listing change is fully described by the quantity table, so incremental
+     * listings remain valid.
+     */
+    void keyPresenceChanged() {
+        revision++;
+        refreshMountedStorageAvailability();
+        super.setDirty();
+    }
+
+    private void listingStructureChanged() {
+        listingChanges++;
+        listingBarrier = listingVersion();
+    }
+
+    /**
+     * Visits every key whose listed amount may differ from the listing taken at {@code version}. Returns false,
+     * visiting nothing, after a structural change or when the bounded change log no longer covers that version.
+     */
+    boolean visitListingChangesSince(long version, java.util.function.Consumer<AEKey> visitor) {
+        if (unreadable || version < listingBarrier || version > listingVersion()) return false;
+        return amounts.visitChangedSince(version - listingChanges, visitor);
     }
 
     private void refreshMountedStorageAvailability() {
@@ -358,6 +385,20 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.storag
 
     public boolean canMigrate() {
         return canExitOrRestore();
+    }
+
+    /** The specific reason {@link #canMigrate()} is false, or {@code null} when it is true. */
+    public ECOInfiniteStorageEngine.MigrationBlock migrationBlock() {
+        if (unreadable) return new ECOInfiniteStorageEngine.MigrationBlock("unreadable", failure);
+        if (incompleteLegacy) return new ECOInfiniteStorageEngine.MigrationBlock("read_only", failure);
+        if (legacy2042RestoreBlocked) return new ECOInfiniteStorageEngine.MigrationBlock("read_only",
+            "Interrupted 20.4.2 restore requires reconciliation");
+        String write = writeFailure();
+        if (write != null) return new ECOInfiniteStorageEngine.MigrationBlock("write_failed", write);
+        if (!rawEntries.isEmpty()) return new ECOInfiniteStorageEngine.MigrationBlock("undecodable",
+            Integer.toString(rawEntries.size()));
+        if (!unresolvedMetadata.isEmpty()) return new ECOInfiniteStorageEngine.MigrationBlock("unresolved_metadata", "");
+        return null;
     }
 
     // Quantity changes only mark the snapshot due; they leave revision() alone so hot FE/item transfers don't
@@ -465,14 +506,14 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.storag
 
     public void markUnreadable(String reason) {
         unreadable = true;
-        listingChanges++;
+        listingStructureChanged();
         refreshMountedStorageAvailability();
         failure = reason;
     }
 
     public void markIncompleteLegacy(List<String> failures) {
         incompleteLegacy = true;
-        listingChanges++;
+        listingStructureChanged();
         refreshMountedStorageAvailability();
         failure = String.join("; ", failures);
     }

@@ -56,8 +56,12 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         return true;
     }
 
+    /** Distinct recently changed keys an incremental network listing can catch up on. */
+    static final int LISTING_CHANGE_LOG_CAPACITY = 4096;
+
     public SavedDataInfiniteStorageEngine(ECOInfiniteStorageData data) {
         this.data = data;
+        data.amounts.enableChangeLog(LISTING_CHANGE_LOG_CAPACITY);
         data.amounts.forEach((key, amount) -> {
             MutableTypeStats stats = typeStats.computeIfAbsent(key.getType(), ignored -> new MutableTypeStats());
             stats.types++;
@@ -118,7 +122,7 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         stats.total.subtract(extracted);
         if (remaining == 0) {
             if (--stats.types == 0) removeStats(key.getType());
-            data.setDirty();
+            data.keyPresenceChanged();
         } else data.setDirty(true);
         statisticsDirty = true;
         return extracted;
@@ -156,7 +160,7 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         stats.total.add(amount);
         if (current == 0) {
             stats.types++;
-            data.setDirty();
+            data.keyPresenceChanged();
         } else data.setDirty(true);
         statisticsDirty = true;
     }
@@ -259,6 +263,11 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     }
 
     @Override
+    public MigrationBlock migrationBlock() {
+        return data.migrationBlock();
+    }
+
+    @Override
     public boolean hasHugeStacks() {
         return data.amounts.hasOverflow();
     }
@@ -276,6 +285,14 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     @Override
     public long listingVersion() {
         return data.listingVersion();
+    }
+
+    @Override
+    public boolean visitListingChanges(long since, long current, java.util.function.ObjLongConsumer<AEKey> visitor) {
+        if (current != data.listingVersion()) return false;
+        // Same visibility rule and saturated long projection as getAvailableStacks.
+        return data.visitListingChangesSince(since,
+            key -> visitor.accept(key, data.canRead(key) ? data.amounts.visible(key) : 0L));
     }
 
     @Override

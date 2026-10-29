@@ -10,7 +10,7 @@ import appeng.api.storage.StorageCells;
 import appeng.me.cells.BasicCellInventory;
 import appeng.items.storage.BasicStorageCell;
 import cn.dancingsnow.neoecoae.storage.ECOStorageCell;
-import cn.dancingsnow.neoecoae.storage.StorageListingVersion;
+import cn.dancingsnow.neoecoae.storage.StorageListingDelta;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
@@ -22,7 +22,7 @@ import cn.dancingsnow.neoecoae.crafting.display.terminal.CombinedExactAmountSour
 import it.unimi.dsi.fastutil.objects.Object2ByteLinkedOpenHashMap;
 
 public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountSource, ECOBigIntegerStorage,
-        StorageListingVersion {
+        StorageListingDelta {
     private static final int ADMISSION_CACHE_LIMIT = 512;
     private static final BigInteger MAX_LONG = BigInteger.valueOf(Long.MAX_VALUE);
     private final ECOInfiniteStorageEngine engine;
@@ -101,6 +101,13 @@ public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountS
     public long neoecoae$listingVersion() {
         // A disabled view lists nothing, whatever the engine holds.
         return allowInsert.getAsBoolean() ? engine.listingVersion() : -1L;
+    }
+
+    @Override
+    public boolean neoecoae$visitListingChanges(long since, long current, java.util.function.ObjLongConsumer<AEKey> visitor) {
+        // A disabled view reports -1 and lists nothing; any transition through it needs a full listing.
+        if (since < 0L || current < 0L || !allowInsert.getAsBoolean()) return false;
+        return engine.visitListingChanges(since, current, visitor);
     }
 
     @Override

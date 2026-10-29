@@ -334,7 +334,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                     position -> previewBulkCellMigration(holder.player, position),
                     // The AE2 15 cell workbench is not opened remotely; the popup omits this action.
                     (position, expected) -> {}
-                )
+                ),
+                this::getInfiniteMigrationProgressPercent,
+                this::getInfiniteMigrationBlockText
         ), this::getTier, this::getBlockState);
         actionUI.addTo(root, MultiblockBuildUI.create(this, holder.player));
         root.addChild(cellPriorityWindow);
@@ -800,6 +802,13 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     private int getInfiniteMigrationProgressPercent() {
         return infiniteModeController.migrationProgressPercent();
+    }
+
+    /** Server-side reason the running migration is not progressing; {@code null} while it progresses. */
+    @Nullable
+    public net.minecraft.network.chat.Component getInfiniteMigrationBlockText() {
+        var block = infiniteModeController.migrationBlock();
+        return block == null ? null : net.minecraft.network.chat.Component.translatable(block.translationKey(), block.detail());
     }
 
     public boolean canUseHostDomainStorage() {

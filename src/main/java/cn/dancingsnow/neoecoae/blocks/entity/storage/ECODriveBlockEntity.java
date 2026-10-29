@@ -69,6 +69,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     @Getter
     @DescSynced
     private CellState cellState = CellState.ABSENT;
+    private boolean persistenceNotificationQueued;
     @Nullable
     private ItemStack cachedCellStack;
     @Nullable
@@ -339,11 +340,16 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     @Override
     public void notifyPersistence() {
-        if (level instanceof ServerLevel serverLevel) {
+        // Frequent transfers (for example FE) notify every tick; keep at most one pending notification per drive.
+        if (level instanceof ServerLevel serverLevel && !persistenceNotificationQueued) {
+            persistenceNotificationQueued = true;
             ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
+                persistenceNotificationQueued = false;
+                CellState previous = cellState;
                 updateCellState();
                 setChanged();
-                markForUpdate();
+                // cellState and cellStack are DescSynced; a block update is only needed for a visible state change.
+                if (cellState != previous) markForUpdate();
             });
         }
     }

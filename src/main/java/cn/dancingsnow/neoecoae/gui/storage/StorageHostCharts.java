@@ -612,6 +612,14 @@ final class StorageHostCharts {
         List<Component> lines = new ArrayList<>();
         lines.add(Component.translatable(state().migrating() ? "gui.neoecoae.storage.ui.migrating"
             : state().infinite() ? "gui.neoecoae.storage.ui.infinite" : "gui.neoecoae.storage.ui.normal"));
+        if (state().migrating()) {
+            lines.add(Component.translatable("gui.neoecoae.storage.ui.migration_progress", state().migrationPercent())
+                .withStyle(neColor -> neColor.withColor(0x55FFFF)));
+            if (!state().migrationBlocked().getString().isEmpty()) {
+                lines.add(Component.translatable("gui.neoecoae.storage.ui.migration_blocked", state().migrationBlocked())
+                    .withStyle(neColor -> neColor.withColor(0xFF6A75)));
+            }
+        }
         if (!state().domainId().isEmpty()) lines.add(Component.literal("UUID: " + state().domainId()).withStyle(neColor -> neColor.withColor(0x55FFFF)));
         if (state().missingMembers() > 0) {
             lines.add(Component.translatable("gui.neoecoae.storage.members_missing", state().missingMembers()).withStyle(neColor -> neColor.withColor(0xFF6A75)));
