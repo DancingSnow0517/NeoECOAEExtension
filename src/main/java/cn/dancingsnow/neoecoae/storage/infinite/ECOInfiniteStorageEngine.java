@@ -108,6 +108,18 @@ public interface ECOInfiniteStorageEngine {
         return cn.dancingsnow.neoecoae.storage.StorageListingVersion.UNKNOWN;
     }
 
+    /** See {@link cn.dancingsnow.neoecoae.storage.StorageListingDelta}; false requires a full listing. */
+    default boolean visitListingChanges(long since, long current, java.util.function.Consumer<AEKey> changed) {
+        return false;
+    }
+
+    /** Amount {@link #getAvailableStacks} currently lists for {@code key}, or 0 when it is hidden. */
+    default long listedAmount(AEKey key) {
+        KeyCounter keys = new KeyCounter();
+        getAvailableStacks(keys);
+        return Math.max(0L, keys.get(key));
+    }
+
     default boolean reserveRestore(AEKey key, UUID transaction) {
         return false;
     }

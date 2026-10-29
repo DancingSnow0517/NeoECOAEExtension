@@ -89,7 +89,7 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         stats.total.subtract(extracted);
         if (remaining == 0) {
             if (--stats.types == 0) removeStats(key.getType());
-            data.setDirty();
+            data.keySetChanged();
         } else data.setDirty(true);
         statisticsDirty = true;
         return extracted;
@@ -114,7 +114,7 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         stats.total.add(amount);
         if (current == 0) {
             stats.types++;
-            data.setDirty();
+            data.keySetChanged();
         } else data.setDirty(true);
         statisticsDirty = true;
     }
@@ -126,7 +126,7 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         stats.total.add(amount);
         if (wasEmpty) {
             stats.types++;
-            data.setDirty();
+            data.keySetChanged();
         }
         statisticsDirty = true;
     }
@@ -234,6 +234,17 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     @Override
     public long listingVersion() {
         return data.listingVersion();
+    }
+
+    @Override
+    public boolean visitListingChanges(long since, long current, java.util.function.Consumer<AEKey> changed) {
+        return data.visitListingChanges(since, current, changed);
+    }
+
+    @Override
+    public long listedAmount(AEKey key) {
+        // Same filter and long saturation as getAvailableStacks.
+        return key != null && data.canRead(key) ? data.amounts.visible(key) : 0L;
     }
 
     @Override

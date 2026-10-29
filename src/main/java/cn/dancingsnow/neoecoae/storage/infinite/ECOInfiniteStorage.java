@@ -10,7 +10,7 @@ import appeng.api.storage.StorageCells;
 import appeng.me.cells.BasicCellInventory;
 import appeng.items.storage.BasicStorageCell;
 import cn.dancingsnow.neoecoae.storage.ECOStorageCell;
-import cn.dancingsnow.neoecoae.storage.StorageListingVersion;
+import cn.dancingsnow.neoecoae.storage.StorageListingDelta;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
@@ -22,7 +22,7 @@ import cn.dancingsnow.neoecoae.crafting.display.terminal.CombinedExactAmountSour
 import it.unimi.dsi.fastutil.objects.Object2ByteLinkedOpenHashMap;
 
 public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountSource, ECOBigIntegerStorage,
-        StorageListingVersion {
+        StorageListingDelta {
     private static final int ADMISSION_CACHE_LIMIT = 512;
     private static final BigInteger MAX_LONG = BigInteger.valueOf(Long.MAX_VALUE);
     private final ECOInfiniteStorageEngine engine;
@@ -31,6 +31,10 @@ public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountS
     // Only stack-owned built-in inventories and keys with no registered handler are stable.
     // UUID-backed or third-party handlers are probed on every insertion.
     private final Object2ByteLinkedOpenHashMap<AEKey> admission = new Object2ByteLinkedOpenHashMap<>();
+    // Known component-backed cells: independent of the ordinary-item window above, only a safety bound.
+    private static final int CELL_ADMISSION_CACHE_LIMIT = 65_536;
+    private final it.unimi.dsi.fastutil.objects.Object2ByteOpenHashMap<AEKey> cellAdmission =
+            new it.unimi.dsi.fastutil.objects.Object2ByteOpenHashMap<>();
 
     public ECOInfiniteStorage(ECOInfiniteStorageEngine engine, Component description, BooleanSupplier allowInsert) {
         this.engine = engine;
@@ -61,18 +65,23 @@ public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountS
             // A key already admitted by this domain does not need another nested-cell probe.
             return true;
         }
-        byte cached = admission.getByte(key);
+        byte cached = cellAdmission.getByte(key);
+        if (cached == 0) cached = admission.getByte(key);
         if (cached != 0) return cached > 0;
         var stack = itemKey.getReadOnlyStack();
         var inventory = StorageCells.getCellInventory(stack, null);
         boolean accepted = inventory == null || inventory.canFitInsideCell();
-        if (inventory == null && StorageCells.getHandler(stack) == null
-                || inventory != null && (inventory.getClass() == BasicCellInventory.class
+        byte result = (byte) (accepted ? 1 : -1);
+        if (inventory != null && (inventory.getClass() == BasicCellInventory.class
                 && stack.getItem().getClass() == BasicStorageCell.class
                 || inventory.getClass() == ECOStorageCell.class
                 && stack.getItem().getClass() == ECOStorageCellItem.class)) {
+            // Contents and seal live in the key's own components, so the answer can never change for this key.
+            if (cellAdmission.size() >= CELL_ADMISSION_CACHE_LIMIT) cellAdmission.clear();
+            cellAdmission.put(key, result);
+        } else if (inventory == null && StorageCells.getHandler(stack) == null) {
             if (admission.size() == ADMISSION_CACHE_LIMIT) admission.removeFirstByte();
-            admission.put(key, (byte) (accepted ? 1 : -1));
+            admission.put(key, result);
         }
         return accepted;
     }
@@ -96,6 +105,19 @@ public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountS
     public long neoecoae$listingVersion() {
         // A disabled view lists nothing, whatever the engine holds.
         return allowInsert.getAsBoolean() ? engine.listingVersion() : -1L;
+    }
+
+    @Override
+    public boolean neoecoae$visitListingChanges(long since, long current,
+            java.util.function.Consumer<AEKey> changed) {
+        // -1 (disabled view) and UNKNOWN are never incremental; an access toggle therefore lists again.
+        if (since < 0 || current < 0 || !allowInsert.getAsBoolean()) return false;
+        return engine.visitListingChanges(since, current, changed);
+    }
+
+    @Override
+    public long neoecoae$listedAmount(AEKey key) {
+        return allowInsert.getAsBoolean() ? engine.listedAmount(key) : 0L;
     }
 
     @Override

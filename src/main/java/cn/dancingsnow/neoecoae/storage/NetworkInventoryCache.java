@@ -10,6 +10,7 @@ import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMaps;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import java.math.BigInteger;
@@ -19,8 +20,9 @@ import java.util.function.ObjLongConsumer;
 
 /**
  * Keeps AE2's per-grid cached inventory current by listing each mount separately and applying only
- * the per-key differences. A mount with an unchanged {@link StorageListingVersion} is not listed at all;
- * every other mount, including all third-party storage, is still listed on each refresh.
+ * the per-key differences. A mount with an unchanged {@link StorageListingVersion} is not listed at all, and a
+ * {@link StorageListingDelta} mount only re-reads the keys it reports as changed; every other mount, including all
+ * third-party storage, is still listed on each refresh.
  * Server-thread owned, apart from {@link #invalidate()}.
  */
 public final class NetworkInventoryCache {
@@ -49,6 +51,7 @@ public final class NetworkInventoryCache {
     /** Published amount before the current refresh, for every key it touched. */
     private final Object2LongOpenHashMap<AEKey> previous = new Object2LongOpenHashMap<>();
     private final ReferenceOpenHashSet<MEStorage> seen = new ReferenceOpenHashSet<>();
+    private final ObjectOpenHashSet<AEKey> changedKeys = new ObjectOpenHashSet<>();
     private final StorageListingAccumulator listing = new StorageListingAccumulator();
     private KeyCounter scratch = new KeyCounter();
     // Volatile: a stray off-thread AE2 refresh invalidates the server thread's per-mount state.
@@ -156,6 +159,12 @@ public final class NetworkInventoryCache {
                 mounts.put(inventory, mount);
                 for (var entry : mount.content) adjust(amounts, entry.getKey(), entry.getLongValue());
             } else if (remounted || version == StorageListingVersion.UNKNOWN || version != mount.version) {
+                if (!remounted && inventory instanceof StorageListingDelta delta
+                        && applyChanges(delta, mount, version, amounts)) {
+                    mount.version = version;
+                    mount.epoch = current;
+                    continue;
+                }
                 KeyCounter fresh = scratch;
                 fresh.clear();
                 list(inventory, fresh);
@@ -182,6 +191,29 @@ public final class NetworkInventoryCache {
                 for (var entry : mount.content) adjust(amounts, entry.getKey(), -entry.getLongValue());
                 iterator.remove();
             }
+        }
+    }
+
+    /** Updates only the keys the inventory reports as changed; false leaves everything for a full listing. */
+    private boolean applyChanges(StorageListingDelta delta, Mount mount, long version, Object2LongMap<AEKey> amounts) {
+        if (version == StorageListingVersion.UNKNOWN || mount.version == StorageListingVersion.UNKNOWN) return false;
+        changedKeys.clear();
+        try {
+            if (!delta.neoecoae$visitListingChanges(mount.version, version, changedKeys::add)) return false;
+            for (AEKey key : changedKeys) {
+                long now = Math.max(0L, delta.neoecoae$listedAmount(key));
+                long old = mount.content.get(key);
+                if (now == old) continue;
+                // Both sides are in [0, Long.MAX_VALUE], so the difference cannot overflow.
+                adjust(amounts, key, now - old);
+                if (now == 0) mount.content.remove(key);
+                else mount.content.set(key, now);
+            }
+            return true;
+        } finally {
+            boolean large = changedKeys.size() > TRIM_THRESHOLD;
+            changedKeys.clear();
+            if (large) changedKeys.trim();
         }
     }
 

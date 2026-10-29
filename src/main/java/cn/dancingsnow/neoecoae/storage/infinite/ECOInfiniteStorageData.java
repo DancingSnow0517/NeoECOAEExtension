@@ -268,6 +268,21 @@ public final class ECOInfiniteStorageData extends SavedData {
         super.setDirty();
     }
 
+    /**
+     * A key appeared or disappeared through a quantity change that the amount table already logged: advances
+     * {@link #revision()} like {@link #setDirty()} but keeps incremental listings valid.
+     */
+    void keySetChanged() {
+        revision++;
+        refreshMountedStorageAvailability();
+        super.setDirty();
+    }
+
+    /** See {@link cn.dancingsnow.neoecoae.storage.StorageListingDelta}; false whenever a full listing is required. */
+    boolean visitListingChanges(long since, long current, java.util.function.Consumer<AEKey> changed) {
+        return canRead() && amounts.visitChangesSince(since, current, changed);
+    }
+
     private void refreshMountedStorageAvailability() {
         mountedStorageAvailable = canWrite() && restores.isEmpty();
     }
