@@ -272,6 +272,11 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingV
         contentRevision++;
         this.isPersisted = false;
         if (ECOCellMutationBatch.defer(this)) return;
+        if (this.container instanceof DeferredCellPersistence host && host.neoecoae$canDeferCellPersistence()) {
+            // Frequent transfers outside a controller tick write the component once, at the end of the server tick.
+            ECOCellMutationBatch.deferToTickEnd(this, this.container);
+            return;
+        }
         flushBatchedChanges();
     }
 

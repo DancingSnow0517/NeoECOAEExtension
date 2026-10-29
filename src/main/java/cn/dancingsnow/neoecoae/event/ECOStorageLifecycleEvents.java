@@ -43,6 +43,8 @@ public final class ECOStorageLifecycleEvents {
         for (ServerLevel level : event.getServer().getAllLevels()) {
             NELogicalNetworkManager.tick(level);
         }
+        // Component writes deferred by drives outside their controller tick land once per tick.
+        ECOCellMutationBatch.flushDeferred();
         ECOCellMutationBatch.retry();
         PatternBusUpdateScheduler.tick(event.getServer());
         if (!FMLEnvironment.production) {

@@ -13,9 +13,10 @@ import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
+import cn.dancingsnow.neoecoae.storage.DeferredCellPersistence;
+import cn.dancingsnow.neoecoae.storage.ECOCellMutationBatch;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
-import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.RequireRerender;
@@ -23,6 +24,7 @@ import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBloc
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
@@ -39,7 +41,7 @@ import java.util.List;
 import java.util.UUID;
 
 public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster, ECODriveBlockEntity>
-    implements ISyncPersistRPCBlockEntity, IStorageProvider, ICellHost, ISaveProvider {
+    implements ISyncPersistRPCBlockEntity, IStorageProvider, ICellHost, ISaveProvider, DeferredCellPersistence {
     private static final String RESTORE_RECEIPTS_TAG = "neoecoae_restore_receipts";
 
     @Getter
@@ -47,7 +49,6 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     public final IItemHandler HANDLER = new CellHostItemHandler(this);
 
-    @Getter
     @DescSynced
     @Persisted
     @RequireRerender
@@ -68,6 +69,8 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     @Getter
     @DescSynced
     private CellState cellState = CellState.ABSENT;
+    // At most one persistence notification is pending per drive.
+    private boolean persistenceNotifyQueued;
     @Nullable
     private ItemStack cachedCellStack;
     @Nullable
@@ -82,12 +85,40 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         getMainNode().addService(IStorageProvider.class, this);
     }
 
+    /**
+     * The installed cell. Server-side, contents whose component write was deferred to the end of the tick are
+     * written first, so callers always see current components and may copy or move the stack.
+     */
+    @Override
+    @Nullable
+    public ItemStack getCellStack() {
+        flushPendingCellWrites();
+        return cellStack;
+    }
+
+    /** Writes cell contents deferred to the end of the tick; required before the stack is read, saved or moved. */
+    public void flushPendingCellWrites() {
+        if (level != null && !level.isClientSide) {
+            ECOCellMutationBatch.flushDeferred(this);
+        }
+    }
+
+    @Override
+    public boolean neoecoae$canDeferCellPersistence() {
+        if (!(level instanceof ServerLevel serverLevel) || serverLevel.getServer() == null || isRemoved()) {
+            return false;
+        }
+        return !isServerStopping() && serverLevel.getServer().isSameThread();
+    }
+
     @Override
     public void setCellStack(@Nullable ItemStack cellStack) {
         if (!canExtractCell()) {
             return;
         }
         if (cellStack != null && !isItemValid(cellStack)) return;
+        // The outgoing stack must carry every accepted transfer before it leaves this drive.
+        flushPendingCellWrites();
         ECOStorageSystemBlockEntity controller = getStorageController();
         if (controller != null) controller.rememberInfiniteMembers();
         ECOStorageCells.releaseCellInventory(this.cellStack, this);
@@ -188,6 +219,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
+        flushPendingCellWrites();
         if (cellStack != null) {
             drops.add(cellStack);
         }
@@ -213,14 +245,29 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     @Override
     public void onChunkUnloaded() {
+        flushPendingCellWrites();
         ECOStorageCells.releaseCellInventory(cellStack, this);
         super.onChunkUnloaded();
     }
 
     @Override
     public void setRemoved() {
+        flushPendingCellWrites();
         ECOStorageCells.releaseCellInventory(cellStack, this);
         super.setRemoved();
+    }
+
+    @Override
+    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
+        // Chunk saves serialize the cell stack; deferred contents must be in its components first.
+        flushPendingCellWrites();
+        super.saveAdditional(data, registries);
+    }
+
+    @Override
+    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        flushPendingCellWrites();
+        return super.getUpdateTag(registries);
     }
 
     @Override
@@ -267,12 +314,24 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     @Override
     public void notifyPersistence() {
-        if (level instanceof ServerLevel serverLevel) {
-            ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
+        if (!(level instanceof ServerLevel serverLevel) || persistenceNotifyQueued) {
+            return;
+        }
+        persistenceNotifyQueued = true;
+        try {
+            serverLevel.getServer().executeIfPossible(() -> {
+                persistenceNotifyQueued = false;
+                CellState previous = cellState;
                 updateCellState();
                 setChanged();
-                markForUpdate();
+                // Contents are saved by setChanged; clients only need a block update when the indicator changes.
+                if (previous != cellState) {
+                    markForUpdate();
+                }
             });
+        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+            // The server is already shutting down; the late indicator refresh can be dropped.
+            persistenceNotifyQueued = false;
         }
     }
 
@@ -308,6 +367,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     /** Flush balances before replacing the handler that cached the old partition and upgrade settings. */
     public void reloadCellConfiguration() {
         if (level == null || level.isClientSide) return;
+        flushPendingCellWrites();
         if (cachedCellInventory != null) cachedCellInventory.persist();
         ECOStorageCells.releaseCellInventory(cellStack, this);
         invalidateCellInventoryCache();
