@@ -1,0 +1,42 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "energy": 1000,
+  "inputFluid": {
+    "amount": 1000,
+    "fluid": "neoecoae:cryotheum_solution"
+  },
+  "inputItems": [
+    {
+      "count": 4,
+      "item": "neoecoae:cryogenic_aluminum_alloy_casing"
+    },
+    {
+      "count": 1,
+      "item": "neoecoae:large_integrated_working_station_input_hatch"
+    },
+    {
+      "count": 4,
+      "item": "neoecoae:phase_change_air_cooler"
+    },
+    {
+      "count": 4,
+      "item": "neoecoae:superconducting_processor"
+    },
+    {
+      "count": 4,
+      "item": "neoecoae:energized_superconductive_block"
+    },
+    {
+      "count": 1,
+      "item": "ae2:interface"
+    },
+    {
+      "count": 4,
+      "item": "neoecoae:crystal_matrix"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "neoecoae:large_integrated_working_station_smart_cooling_module"
+  }
+}

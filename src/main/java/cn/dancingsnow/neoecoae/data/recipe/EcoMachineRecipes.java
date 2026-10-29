@@ -14,11 +14,40 @@ import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.tags.FluidTags;
-import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.common.Tags;
 
 public class EcoMachineRecipes {
     public static void init(RegistrateRecipeProvider provider) {
+        IntegratedWorkingStationRecipe.builder()
+            .require(NEBlocks.ALUMINUM_ALLOY_CASING, 4)
+            .require(NEItems.CRYOTHEUM_CRYSTAL, 8)
+            .require(NETags.Items.ENERGIZED_CRYSTAL_DUST, 8)
+            .requireFluid(NEFluids.CRYOTHEUM_SOLUTION.getSource(), 2000)
+            .itemOutput(NEBlocks.CRYOGENIC_ALUMINUM_ALLOY_CASING)
+            .save(provider);
+
+        IntegratedWorkingStationRecipe.builder()
+            .require(NEBlocks.CRYOGENIC_ALUMINUM_ALLOY_CASING, 8)
+            .require(NETags.Items.ENERGIZED_CRYSTAL_DUST, 8)
+            .require(NEItems.CRYOTHEUM_CRYSTAL, 8)
+            .require(AEItems.ENGINEERING_PROCESSOR, 2)
+            .require(AEBlocks.SKY_STONE_TANK)
+            .requireFluid(NEFluids.CRYOTHEUM_SOLUTION.getSource(), 1000)
+            .itemOutput(NEItems.PHASE_CHANGE_AIR_COOLER)
+            .save(provider);
+
+        IntegratedWorkingStationRecipe.builder()
+            .require(NEBlocks.CRYOGENIC_ALUMINUM_ALLOY_CASING, 4)
+            .require(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH)
+            .require(NEItems.PHASE_CHANGE_AIR_COOLER, 4)
+            .require(NEItems.SUPERCONDUCTING_PROCESSOR, 4)
+            .require(NEBlocks.ENERGIZED_SUPERCONDUCTIVE_BLOCK, 4)
+            .require(AEBlocks.INTERFACE)
+            .require(NEItems.CRYSTAL_MATRIX, 4)
+            .requireFluid(NEFluids.CRYOTHEUM_SOLUTION.getSource(), 1000)
+            .itemOutput(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_SMART_COOLING_MODULE)
+            .save(provider);
+
         //Energized crystal
         IntegratedWorkingStationRecipe.builder()
             .require(AEItems.CERTUS_QUARTZ_CRYSTAL_CHARGED, 4)
@@ -184,9 +213,9 @@ public class EcoMachineRecipes {
             .pattern("ABA")
             .pattern("BCB")
             .pattern("ABA")
-            .define('A', Items.BLUE_ICE)
+            .define('A', NEItems.SUPERCONDUCTING_PROCESSOR)
             .define('B', NEBlocks.COMPUTATION_CASING)
-            .define('C', NEItems.SUPERCONDUCTING_PROCESSOR)
+            .define('C', NEItems.PHASE_CHANGE_AIR_COOLER)
             .unlockedBy("has_computation_casing", RegistrateRecipeProvider.has(NEBlocks.COMPUTATION_CASING))
             .save(provider);
 

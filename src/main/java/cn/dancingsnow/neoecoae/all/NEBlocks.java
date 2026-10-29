@@ -304,6 +304,21 @@ public class NEBlocks {
         .simpleItem()
         .register();
 
+    public static final BlockEntry<CasingBlock> CRYOGENIC_ALUMINUM_ALLOY_CASING = REGISTRATE
+        .block("cryogenic_aluminum_alloy_casing", CasingBlock::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .properties(p -> p.noOcclusion().requiresCorrectToolForDrops())
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL)
+        .blockstate((ctx, prov) -> {
+            BlockModelBuilder model = prov.models().withExistingParent(ctx.getName(), prov.modLoc("block/casing_base"))
+                .texture("base", prov.modLoc("block/" + ctx.getName()))
+                .texture("particle", prov.modLoc("block/" + ctx.getName()));
+            prov.simpleBlock(ctx.get(), model);
+        })
+        .lang("Cryogenic Aluminum Alloy Machine Casing")
+        .simpleItem()
+        .register();
+
     public static final BlockEntry<Block> BLACK_TUNGSTEN_ALLOY_BLOCK = REGISTRATE
         .block("black_tungsten_alloy_block", Block::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
@@ -609,6 +624,7 @@ public class NEBlocks {
             .require(NEItems.ECO_CELL_COMPONENT_64M)
             .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 8)
             .require(NEItems.SUPERCONDUCTING_PROCESSOR, 8)
+            .require(NEItems.CRYSTAL_MATRIX, 8)
             .itemOutput(ctx.get())
             .energy(256_000)
             .save(prov))
@@ -616,6 +632,23 @@ public class NEBlocks {
         .model((ctx, prov) -> {})
         .build()
         .lang("Large Integrated Working Station Casing")
+        .register();
+
+    public static final BlockEntry<ECOLargeIntegratedWorkingStationSmartCoolingModule> LARGE_INTEGRATED_WORKING_STATION_SMART_COOLING_MODULE = REGISTRATE
+        .block("large_integrated_working_station_smart_cooling_module", ECOLargeIntegratedWorkingStationSmartCoolingModule::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .properties(p -> p.strength(5.0F, 6.0F).requiresCorrectToolForDrops())
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .blockstate((ctx, prov) -> {
+            BlockModelBuilder model = prov.models().orientableWithBottom(ctx.getName(),
+                prov.modLoc("block/working_station/smart_cooling_module_side"),
+                prov.modLoc("block/working_station/smart_cooling_module_front"),
+                prov.modLoc("block/working_station/smart_cooling_module_side"),
+                prov.modLoc("block/working_station/smart_cooling_module_top"));
+            prov.horizontalBlock(ctx.get(), model);
+        })
+        .lang("Large Integrated Working Station Smart Cooling Module")
+        .simpleItem()
         .register();
 
     public static final BlockEntry<ECOLargeIntegratedWorkingStationInputHatch> LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH = REGISTRATE
@@ -627,6 +660,8 @@ public class NEBlocks {
         .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
             .require(LARGE_INTEGRATED_WORKING_STATION_CASING, 4)
             .require(AEParts.IMPORT_BUS, 2)
+            .require(CRYOGENIC_ALUMINUM_ALLOY_CASING, 4)
+            .require(AEBlocks.SKY_STONE_TANK)
             .require(AEBlocks.INTERFACE)
             .require(NEItems.ECO_FLUID_CELL_HOUSING)
             .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 2)
@@ -649,6 +684,8 @@ public class NEBlocks {
         .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
             .require(LARGE_INTEGRATED_WORKING_STATION_CASING, 4)
             .require(AEParts.EXPORT_BUS, 2)
+            .require(CRYOGENIC_ALUMINUM_ALLOY_CASING, 4)
+            .require(AEBlocks.SKY_STONE_TANK)
             .require(AEBlocks.INTERFACE)
             .require(NEItems.ECO_FLUID_CELL_HOUSING)
             .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 2)
@@ -872,8 +909,8 @@ public class NEBlocks {
                 .pattern("BCB")
                 .pattern("ABA")
                 .define('A', NEBlocks.STORAGE_CASING)
-                .define('B', Blocks.BLUE_ICE)
-                .define('C', AEBlocks.QUARTZ_BLOCK)
+                .define('B', NEBlocks.ENERGIZED_SUPERCONDUCTIVE_BLOCK)
+                .define('C', NEItems.PHASE_CHANGE_AIR_COOLER)
                 .unlockedBy("has_storage_casing", RegistrateRecipeProvider.has(NEBlocks.STORAGE_CASING))
                 .save(prov);
         })
@@ -1312,8 +1349,8 @@ public class NEBlocks {
                 .pattern("BCB")
                 .pattern("ABA")
                 .define('A', NEBlocks.CRAFTING_CASING)
-                .define('B', Blocks.BLUE_ICE)
-                .define('C', AEBlocks.QUARTZ_BLOCK)
+                .define('B', NEBlocks.ENERGIZED_SUPERCONDUCTIVE_BLOCK)
+                .define('C', NEItems.PHASE_CHANGE_AIR_COOLER)
                 .unlockedBy("has_crafting_casing", RegistrateRecipeProvider.has(NEBlocks.CRAFTING_CASING))
                 .save(prov);
         })

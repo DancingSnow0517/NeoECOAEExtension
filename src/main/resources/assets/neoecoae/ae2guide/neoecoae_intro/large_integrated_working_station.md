@@ -7,11 +7,18 @@ navigation:
 item_ids:
   - neoecoae:large_integrated_working_station_casing
   - neoecoae:large_integrated_working_station_input_hatch
+  - neoecoae:large_integrated_working_station_smart_cooling_module
   - neoecoae:large_integrated_working_station_output_hatch
   - neoecoae:large_integrated_working_station_interface
 ---
 
 # Large Integrated Working Station
+
+## Smart cooling module
+
+Replace the coolant input hatch in its original position with a **Large Integrated Working Station Smart Cooling Module**. Right-click the module to set a saved target temperature from 0 to 99% (default 75%). While cooling is requested, it draws the strongest available coolant from the same ME network into a one-second buffer. Byproducts still go to the output hatch.
+
+Cooling starts 0.25 percentage points above the target and stops at the target. Overheating overrides the target and requests cryotheum for the existing continuous recovery process. The module controls cooling only; it does not directly change temperature or provide additional heating. Existing cooling strength, fluid costs, shortages and blocked-output rules still apply, so insufficient cooling may allow temperature to rise. With temperature mechanics disabled, the module supplies coolant and enables active cooling; overclock limits still follow the actual coolant tier.
 
 ## Communication block pattern storage
 

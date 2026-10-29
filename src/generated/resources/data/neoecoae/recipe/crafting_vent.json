@@ -6,10 +6,10 @@
       "item": "neoecoae:crafting_casing"
     },
     "B": {
-      "item": "minecraft:blue_ice"
+      "item": "neoecoae:energized_superconductive_block"
     },
     "C": {
-      "item": "ae2:quartz_block"
+      "item": "neoecoae:phase_change_air_cooler"
     }
   },
   "pattern": [

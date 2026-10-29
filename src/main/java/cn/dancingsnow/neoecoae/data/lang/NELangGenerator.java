@@ -4,6 +4,14 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("gui.neoecoae.smart_cooling.target", "Target temperature (0-99%)");
+        provider.add("gui.neoecoae.smart_cooling.control", "Automatic cooling, target %s%%; configure by right-clicking the module");
+        provider.add("gui.neoecoae.smart_cooling.status", "Temperature: %s%% | %s");
+        provider.add("gui.neoecoae.smart_cooling.running", "Automatic cooling requested");
+        provider.add("gui.neoecoae.smart_cooling.standby", "Standby");
+        provider.add("gui.neoecoae.smart_cooling.unformed", "Waiting for a formed workstation");
+        provider.add("gui.neoecoae.smart_cooling.coolant_mode", "Coolant mode: automatic ME supply; temperature control is disabled");
+        provider.add("gui.neoecoae.smart_cooling.help", "Automatically draws the strongest available ME coolant while cooling is requested. Byproducts use the output hatch. Actual cooling requires coolant and output space.");
         provider.add("tooltip.neoecoae.bulk.deprecated", "Deprecated");
         provider.add("tooltip.neoecoae.bulk.moved", "Functionality moved to the Digital Singularity Item Storage Matrix");
         provider.add("tooltip.neoecoae.bulk.compression", "Compression: %s");

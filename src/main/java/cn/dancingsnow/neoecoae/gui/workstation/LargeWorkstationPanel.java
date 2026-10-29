@@ -399,6 +399,10 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     private List<Component> coolingTooltip() {
         List<Component> lines = new ArrayList<>();
         lines.add(title("active_cooling"));
+        if (state.getBoolean("smartCooling")) {
+            lines.add(Component.translatable("gui.neoecoae.smart_cooling.control", state.getInt("coolingTarget"))
+                .withStyle(ChatFormatting.AQUA));
+        }
         lines.add(settingState(state.getBoolean("activeCooling")));
         lines.add(tr("coolant_value", coolantTitle()));
         if (temperatureEnabled()) {

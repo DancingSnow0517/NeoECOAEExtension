@@ -426,6 +426,16 @@ public class NEBlockEntities {
         .serverTicker(ECOLargeIntegratedWorkingStationInputHatchBlockEntity::tick)
         .register();
 
+    public static final NEBlockEntityEntry<ECOLargeIntegratedWorkingStationInputHatchBlockEntity> LARGE_INTEGRATED_WORKING_STATION_SMART_COOLING_MODULE = REGISTRATE
+        .blockEntityBlockLinked(
+            "large_integrated_working_station_smart_cooling_module",
+            ECOLargeIntegratedWorkingStationInputHatchBlockEntity::new
+        )
+        .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_SMART_COOLING_MODULE)
+        .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_SMART_COOLING_MODULE)
+        .serverTicker(ECOLargeIntegratedWorkingStationInputHatchBlockEntity::tick)
+        .register();
+
     public static final NEBlockEntityEntry<ECOLargeIntegratedWorkingStationOutputHatchBlockEntity> LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH = REGISTRATE
         .blockEntityBlockLinked(
             "large_integrated_working_station_output_hatch",

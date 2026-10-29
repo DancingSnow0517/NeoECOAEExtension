@@ -7,11 +7,18 @@ navigation:
 item_ids:
   - neoecoae:large_integrated_working_station_casing
   - neoecoae:large_integrated_working_station_input_hatch
+  - neoecoae:large_integrated_working_station_smart_cooling_module
   - neoecoae:large_integrated_working_station_output_hatch
   - neoecoae:large_integrated_working_station_interface
 ---
 
 # 大型集成工作站
+
+## 智能冷却模块
+
+可将结构中的冷却液输入仓原位替换为**大型集成工作站智能冷却模块**。右键模块设置目标温度（0–99%，默认 75%），设置随存档保存。模块自动从同一 ME 网络抽取可用的最高等级冷却液，内部保留最多一秒用量的补液缓冲；冷却副产物仍进入原输出仓。
+
+温度高于目标 0.25 个百分点时启用冷却，降至目标后停止；过热时持续请求凛冰溶液并执行原有连续恢复流程。温控只管理冷却启停，不直接修改温度，也不额外提供加热。冷却能力、耗液量、缺液及副产物堵塞规则保持原样，供液或散热能力不足时温度仍可能上升。关闭温度机制时，模块仅自动供液并启用主动冷却，超频仍按实际冷却液分档。
 
 ## 通讯方块样板容量
 

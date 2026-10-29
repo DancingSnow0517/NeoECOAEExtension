@@ -57,6 +57,11 @@ public class NEItems {
         REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
     }
 
+    public static final ItemEntry<Item> PHASE_CHANGE_AIR_COOLER = REGISTRATE
+        .item("phase_change_air_cooler", Item::new)
+        .lang("Phase-Change Air-Cooled Heat Sink")
+        .register();
+
     public static final ItemEntry<Item> NETWORK_PULL_CARD = REGISTRATE
         .item("network_pull_card", Upgrades::createUpgradeCardItem)
         .lang("Network Pull Card")

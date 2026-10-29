@@ -407,6 +407,29 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         return activeCooling;
     }
 
+    public boolean isOverheated() { return isTemperatureEnabled() && overheated; }
+
+    private boolean hasSmartCoolingModule() {
+        return cluster != null && cluster.getInputHatch() != null && cluster.getInputHatch().isSmartCoolingModule();
+    }
+
+    private void updateSmartCooling(double processingLoad) {
+        if (!formed || !hasSmartCoolingModule()) return;
+        double target = cluster.getInputHatch().getTargetTemperature();
+        double projected = temperature + LargeWorkstationThermal.heatingPerSecond(temperature)
+            * Math.max(0, processingLoad) / LargeWorkstationThermal.TICKS_PER_SECOND;
+        boolean cooling = !isTemperatureEnabled() || overheated
+            || projected > target + (activeCooling ? 0 : 0.25);
+        if (activeCooling != cooling) {
+            activeCooling = cooling;
+            settingsChanged();
+        }
+        if (cooling && preheating) {
+            preheating = false;
+            setChanged();
+        }
+    }
+
     public void toggleOverclocked() {
         overclocked = !overclocked;
         if (!overclocked) preheating = false;
@@ -414,6 +437,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     public void toggleActiveCooling() {
+        if (hasSmartCoolingModule()) return;
         activeCooling = !activeCooling;
         if (activeCooling) preheating = false;
         settingsChanged();
@@ -722,6 +746,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         snapshot.putInt("totalTasks", total);
         snapshot.putBoolean("overclocked", overclocked);
         snapshot.putBoolean("activeCooling", activeCooling);
+        snapshot.putBoolean("smartCooling", hasSmartCoolingModule());
+        if (hasSmartCoolingModule()) snapshot.putInt("coolingTarget", cluster.getInputHatch().getTargetTemperature());
         snapshot.putBoolean("temperatureEnabled", isTemperatureEnabled());
         snapshot.putBoolean("preheating", isTemperatureEnabled() && preheating);
         snapshot.putBoolean("overheated", isTemperatureEnabled() && overheated);
@@ -1464,6 +1490,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (tickLevel.isClientSide) return;
         double processingLoad = pendingThermalLoad;
         pendingThermalLoad = 0;
+        updateSmartCooling(processingLoad);
         if (!isTemperatureEnabled()) {
             uiThermalUsage.clear();
             // Freeze saved thermal state while disabled; it applies again when temperature mode is enabled.
