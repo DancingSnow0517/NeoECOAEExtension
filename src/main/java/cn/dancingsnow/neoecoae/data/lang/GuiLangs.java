@@ -284,6 +284,17 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage.ui.normal", "Normal storage mode");
         provider.add("gui.neoecoae.storage.ui.infinite", "Infinite storage mode");
         provider.add("gui.neoecoae.storage.ui.migrating", "Migrating to infinite storage");
+        provider.add("gui.neoecoae.storage.ui.migration_progress", "Migration progress: %s%%");
+        provider.add("gui.neoecoae.storage.ui.migration_blocked", "Migration paused: %s");
+        provider.add("gui.neoecoae.storage.migration.blocked.unreadable", "infinite storage data cannot be read (%s)");
+        provider.add("gui.neoecoae.storage.migration.blocked.recovery_read_only", "infinite storage is read-only during recovery (%s)");
+        provider.add("gui.neoecoae.storage.migration.blocked.write_failed", "the last infinite storage save failed and is retried on the next save (%s)");
+        provider.add("gui.neoecoae.storage.migration.blocked.undecodable_entries", "%s stored entries cannot be decoded");
+        provider.add("gui.neoecoae.storage.migration.blocked.unresolved_metadata", "unresolved transfer metadata is retained (%s)");
+        provider.add("gui.neoecoae.storage.migration.blocked.not_writable", "infinite storage is not writable");
+        provider.add("gui.neoecoae.storage.migration.blocked.insert_rejected", "infinite storage rejected a resource (%s)");
+        provider.add("gui.neoecoae.storage.migration.blocked.commit_failed", "infinite storage rejected the migration commit (%s)");
+        provider.add("gui.neoecoae.storage.migration.blocked.source_ineligible", "a source matrix can no longer be migrated");
         provider.add("gui.neoecoae.storage.ui.cell_state.absent", "No storage cell installed");
         provider.add("gui.neoecoae.storage.ui.cell_state.empty", "Available: empty cell");
         provider.add("gui.neoecoae.storage.ui.cell_state.not_empty", "Available: contains resources");

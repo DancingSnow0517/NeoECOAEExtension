@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.api.capability.ECOFeature;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorage;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageDomains;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine;
@@ -22,16 +23,20 @@ import org.jetbrains.annotations.Nullable;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.LongSupplier;
 
 /**
  * Coordinates infinite-storage mode transitions and the mounted domain lifetime.
  */
 final class ECOInfiniteStorageModeController {
     private static final int MINIMUM_MIGRATION_SOURCES = 12;
+    // Distinct from the "migration" stage, whose runner clears its own fault after every successful run.
+    static final String MIGRATION_FAULT = "migration blocked";
 
     private final ECOStorageSystemBlockEntity host;
     private final ECOInfiniteStorageTransfer transfer = new ECOInfiniteStorageTransfer();
@@ -42,7 +47,11 @@ final class ECOInfiniteStorageModeController {
     private long modeCheckTick = Long.MIN_VALUE;
     private long backendGeneration;
     private boolean hostAccess;
-    private int migrationDriveCursor;
+    // Injectable for tests; the per-tick migration budget is measured with it.
+    LongSupplier migrationClock = System::nanoTime;
+    @Nullable
+    private ECOInfiniteStorageEngine.MigrationBlock migrationBlock;
+    private double migrationProgressHighWater;
 
     @Nullable
     private MinecraftServer mountedServer;
@@ -165,14 +174,48 @@ final class ECOInfiniteStorageModeController {
         if (host.storageHostMode() == ECOStorageHostMode.FORMED_INFINITE) {
             return 100;
         }
-        if (host.storageHostMode() != ECOStorageHostMode.MIGRATING_TO_INFINITE) {
-            return 0;
+        // Floor, so 100% is only shown once the host has actually left the migration state.
+        return Math.clamp((int) Math.floor(migrationProgress() * 100.0D), 0, 100);
+    }
+
+    /**
+     * Completed sources plus the processed share of every source in progress, over all sources. Never decreases
+     * during one migration, even when a matrix is added or a cursor is rebuilt after a reload.
+     */
+    double migrationProgress() {
+        if (host.storageHostMode() == ECOStorageHostMode.FORMED_INFINITE) {
+            return 1.0D;
+        }
+        if (host.storageHostMode() != ECOStorageHostMode.MIGRATING_TO_INFINITE || host.getCluster() == null) {
+            return 0.0D;
         }
         int migrated = countInfiniteMembers();
-        int totalTargets = migrated + countPendingMigrationTargets();
-        return totalTargets == 0
-                ? 100
-                : Math.clamp(Math.round(migrated * 100.0F / totalTargets), 0, 100);
+        int pending = 0;
+        double partial = 0.0D;
+        for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
+            ItemStack stack = drive.getCellStack();
+            IECOStorageCell cell = drive.getCellInventory();
+            if (stack != null && !stack.isEmpty() && ECOInfiniteStorageTransfer.isEligible(cell)
+                    && !ECOInfiniteStorageMember.isMember(stack)) {
+                pending++;
+                partial += transfer.progress(ECOInfiniteStorageMember.getMigrationId(stack));
+            }
+        }
+        migrationProgressHighWater = Math.max(migrationProgressHighWater,
+                combinedMigrationProgress(migrated, partial, pending));
+        return migrationProgressHighWater;
+    }
+
+    static double combinedMigrationProgress(int completed, double partial, int pending) {
+        int total = completed + pending;
+        if (total <= 0) return 1.0D;
+        return Math.clamp((completed + Math.clamp(partial, 0.0D, pending)) / total, 0.0D, 1.0D);
+    }
+
+    /** The reason the running migration currently cannot advance, or {@code null}. */
+    @Nullable
+    ECOInfiniteStorageEngine.MigrationBlock migrationBlock() {
+        return host.storageHostMode() == ECOStorageHostMode.MIGRATING_TO_INFINITE ? migrationBlock : null;
     }
 
     private int countMigrationSources() {
@@ -230,16 +273,24 @@ final class ECOInfiniteStorageModeController {
         }
         UUID domainId = ensureDomainId();
         ECOInfiniteStorageEngine engine = getEngine();
-        if (engine == null || !engine.isHealthy()) {
+        if (engine == null) {
             return;
         }
-        sealTransferSources(serverLevel, domainId);
+        long tick = host.getLevel().getGameTime();
+        // A blocked domain keeps every source sealed and waits without a cooldown: the domain state, not a drive,
+        // has to change before anything can advance.
+        ECOInfiniteStorageEngine.MigrationBlock blocked = engine.migrationBlock();
+        boolean domainBlocked = blocked != null;
+        if (!domainBlocked) {
+            sealTransferSources(serverLevel, domainId);
+        }
+        var budget = new ECOInfiniteStorageTransfer.Budget(migrationClock,
+                Math.max(0L, NEConfig.infiniteMigrationTickBudgetMicros) * 1_000L,
+                NEConfig.infiniteMigrationKeysPerTick);
         boolean hasPending = false;
-        List<ECODriveBlockEntity> drives = new ArrayList<>(host.getCluster().getDrives());
-        for (int visited = 0; visited < drives.size(); visited++) {
-            ECODriveBlockEntity drive = drives.get(Math.floorMod(migrationDriveCursor++, drives.size()));
+        // One source at a time in a stable order; leftover budget moves on to the next source in the same tick.
+        for (ECODriveBlockEntity drive : migrationOrder()) {
             String stage = "migration drive " + drive.getBlockPos();
-            long tick = host.getLevel().getGameTime();
             if (tick < host.storageStageRetryTicks().getOrDefault(stage, Long.MIN_VALUE)) {
                 hasPending = true;
                 continue;
@@ -259,44 +310,70 @@ final class ECOInfiniteStorageModeController {
                     continue;
                 }
                 hasPending = true;
-                if (!preparedSourceSeals.contains(ECOInfiniteStorageMember.getMigrationId(stack))) {
+                if (domainBlocked || !preparedSourceSeals.contains(ECOInfiniteStorageMember.getMigrationId(stack))
+                        || !budget.hasRemaining()) {
                     continue;
                 }
-                migrateDrive(drive, cell, engine, domainId);
-                host.storageFaults().recovered(stage);
-                break;
+                ECOInfiniteStorageTransfer.StepResult result = migrateDrive(drive, cell, engine, domainId, budget);
+                if (result.state() == ECOInfiniteStorageTransfer.State.BLOCKED) {
+                    if (blocked == null) blocked = result.block();
+                } else {
+                    host.storageFaults().recovered(stage);
+                }
             } catch (RuntimeException exception) {
                 hasPending = true;
                 host.storageStageRetryTicks().put(stage, tick + 200L);
                 host.storageFaults().report(stage, exception.toString(), tick, exception);
             }
         }
-        if (!hasPending && host.infiniteMigrationSourceIds().isEmpty()) {
+        if (blocked != null) {
+            reportMigrationBlock(blocked, tick);
+        } else if (migrationBlock != null) {
+            migrationBlock = null;
+            host.storageFaults().recovered(MIGRATION_FAULT);
+        }
+        // As before, an unwritable domain never completes the transition; a degraded readable one may.
+        if (!hasPending && host.infiniteMigrationSourceIds().isEmpty() && engine.isHealthy()) {
             host.setStorageHostMode(ECOStorageHostMode.FORMED_INFINITE);
         }
     }
 
-    private void migrateDrive(
+    private void reportMigrationBlock(ECOInfiniteStorageEngine.MigrationBlock block, long tick) {
+        migrationBlock = block;
+        host.storageFaults().report(MIGRATION_FAULT, block.describe(), tick);
+    }
+
+    private List<ECODriveBlockEntity> migrationOrder() {
+        List<ECODriveBlockEntity> drives = new ArrayList<>(host.getCluster().getDrives());
+        drives.sort(Comparator.comparingLong(drive -> drive.getBlockPos().asLong()));
+        return drives;
+    }
+
+    private ECOInfiniteStorageTransfer.StepResult migrateDrive(
             ECODriveBlockEntity drive,
             IECOStorageCell cell,
             ECOInfiniteStorageEngine engine,
-            UUID domainId
+            UUID domainId,
+            ECOInfiniteStorageTransfer.Budget budget
     ) {
         if (!(cell instanceof IECOStorageMigrationCell migrationCell)) {
             throw new IllegalStateException("Cell handler does not support resumable migration");
         }
         UUID migration = ECOInfiniteStorageMember.beginMigration(drive.getCellStack(), domainId);
-        boolean finished = transfer.step(drive.getCellStack(), migrationCell, domainId, engine,
-                host.getLevel().registryAccess(),
+        long position = drive.getBlockPos().asLong();
+        ECOInfiniteStorageTransfer.StepResult result = transfer.step(drive.getCellStack(), migrationCell, domainId,
+                engine, host.getLevel().registryAccess(),
                 () -> {
                     if (!preparedSourceSeals.contains(migration)) {
                         throw new IllegalStateException("Source seal has not been prepared");
                     }
                 },
                 () -> drive.convertCellToInfiniteMember(domainId),
-                (key, amount) -> migrationTransactionId(domainId, drive, key, amount, "to-domain"));
-        if (!finished) {
-            return;
+                (key, keyTag, amount) -> ECOInfiniteStorageTransfer.legacyReceipt(
+                        domainId, "to-domain", position, keyTag, amount),
+                budget);
+        if (result.state() != ECOInfiniteStorageTransfer.State.COMPLETED) {
+            return result;
         }
         host.rememberInfiniteMembers();
         preparedSourceSeals.remove(migration);
@@ -306,12 +383,13 @@ final class ECOInfiniteStorageModeController {
         drive.setChanged();
         host.setChanged();
         host.markForUpdate();
+        return result;
     }
 
     private void sealTransferSources(ServerLevel serverLevel, UUID domainId) {
         Set<UUID> prepared = new HashSet<>();
         for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
-            if (prepared.size() >= ECOInfiniteStorageTransfer.KEYS_PER_TICK) break;
+            if (prepared.size() >= ECOInfiniteStorageTransfer.SEALS_PER_TICK) break;
             String stage = "migration drive " + drive.getBlockPos();
             if (host.getLevel().getGameTime() < host.storageStageRetryTicks().getOrDefault(stage, Long.MIN_VALUE)) {
                 continue;
@@ -330,6 +408,7 @@ final class ECOInfiniteStorageModeController {
                 if (preparedSourceSeals.contains(migration)) {
                     continue;
                 }
+                drive.flushPendingCellWrites();
                 ((IECOStorageMigrationCell) cell).persistMigrationContents(serverLevel);
                 drive.setChanged();
                 IStorageProvider.requestUpdate(drive.getMainNode());
@@ -354,9 +433,8 @@ final class ECOInfiniteStorageModeController {
             drive.setChanged();
             return UUID.nameUUIDFromBytes((restore + ":" + identity).getBytes(StandardCharsets.UTF_8));
         }
-        String value = domainId + ":" + direction + ":" + drive.getBlockPos().asLong() + ":"
-                + key.toTagGeneric(host.getLevel().registryAccess()) + ":" + amount;
-        return UUID.nameUUIDFromBytes(value.getBytes(StandardCharsets.UTF_8));
+        return ECOInfiniteStorageTransfer.legacyReceipt(domainId, direction, drive.getBlockPos().asLong(),
+                String.valueOf(key.toTagGeneric(host.getLevel().registryAccess())), amount);
     }
 
     void exitIfSafe() {
@@ -442,6 +520,12 @@ final class ECOInfiniteStorageModeController {
 
     void hostModeChanged() {
         backendGeneration++;
+        migrationProgressHighWater = 0.0D;
+        if (migrationBlock != null) {
+            // Leaving the migration (for example to restore) also retires its block diagnostics.
+            migrationBlock = null;
+            host.storageFaults().recovered(MIGRATION_FAULT);
+        }
         refreshHostAccess();
     }
 

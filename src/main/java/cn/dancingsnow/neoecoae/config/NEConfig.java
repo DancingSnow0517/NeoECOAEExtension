@@ -74,6 +74,22 @@ public class NEConfig {
         .translation("neoecoae.configuration.megaBulkAutoMarkThreshold")
         .defineInRange("megaBulkAutoMarkThreshold", 20_000L, 0L, Long.MAX_VALUE);
 
+    private static final ModConfigSpec.IntValue INFINITE_MIGRATION_TICK_BUDGET_MICROS = BUILDER
+        .comment(
+            "存储主机迁移到无限存储时，每 tick 最多使用的时间（微秒），同一主机的所有矩阵共享。",
+            "每 tick 至少迁移一种资源，因此迁移总会推进；调低可减轻卡顿，调高可加快迁移。",
+            "Time budget, in microseconds, that a storage host may spend per tick migrating into infinite storage; shared by all its matrices.",
+            "At least one resource type is migrated per tick, so a migration always advances; lower values reduce lag, higher values migrate faster.")
+        .translation("neoecoae.configuration.infiniteMigrationTickBudgetMicros")
+        .defineInRange("infiniteMigrationTickBudgetMicros", 2_000, 0, 1_000_000);
+
+    private static final ModConfigSpec.IntValue INFINITE_MIGRATION_KEYS_PER_TICK = BUILDER
+        .comment(
+            "存储主机迁移到无限存储时，每 tick 最多迁移的资源种类数，同一主机的所有矩阵共享。",
+            "Maximum number of resource types a storage host migrates into infinite storage per tick; shared by all its matrices.")
+        .translation("neoecoae.configuration.infiniteMigrationKeysPerTick")
+        .defineInRange("infiniteMigrationKeysPerTick", 512, 1, 1_000_000);
+
     static {
         BUILDER.pop();
     }
@@ -256,6 +272,8 @@ public class NEConfig {
     public static int computationSystemMaxLength;
     public static int storageSystemMaxLength;
     public static long megaBulkAutoMarkThreshold = 20_000L;
+    public static int infiniteMigrationTickBudgetMicros = 2_000;
+    public static int infiniteMigrationKeysPerTick = 512;
     public static boolean postCraftingEvent;
     public static boolean largeWorkstationIgnoreUpgradeCards = false;
     public static boolean largeWorkstationTemperatureEnabled = true;
@@ -285,6 +303,8 @@ public class NEConfig {
         computationSystemMaxLength = COMPUTATION_SYSTEM_MAX_LENGTH.get();
         storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.get();
         megaBulkAutoMarkThreshold = MEGA_BULK_AUTO_MARK_THRESHOLD.get();
+        infiniteMigrationTickBudgetMicros = INFINITE_MIGRATION_TICK_BUDGET_MICROS.get();
+        infiniteMigrationKeysPerTick = INFINITE_MIGRATION_KEYS_PER_TICK.get();
         postCraftingEvent = POST_CRAFTING_EVENT.get();
         largeWorkstationIgnoreUpgradeCards = LARGE_WORKSTATION_IGNORE_UPGRADE_CARDS.get();
         largeWorkstationTemperatureEnabled = LARGE_WORKSTATION_TEMPERATURE_ENABLED.get();

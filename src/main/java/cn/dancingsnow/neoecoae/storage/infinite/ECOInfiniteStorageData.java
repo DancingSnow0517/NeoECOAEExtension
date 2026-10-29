@@ -336,6 +336,28 @@ public final class ECOInfiniteStorageData extends SavedData {
         return canExitOrRestore();
     }
 
+    /** The reason {@link #canMigrate()} is false, or {@code null} when it is true. */
+    public ECOInfiniteStorageEngine.MigrationBlock migrationBlock() {
+        if (unreadable) return block(ECOInfiniteStorageEngine.MigrationBlock.Kind.UNREADABLE, failure);
+        if (incompleteLegacy) return block(ECOInfiniteStorageEngine.MigrationBlock.Kind.RECOVERY_READ_ONLY, failure);
+        String write = writeFailure;
+        if (write != null) return block(ECOInfiniteStorageEngine.MigrationBlock.Kind.WRITE_FAILED, write);
+        if (!rawEntries.isEmpty()) {
+            return block(ECOInfiniteStorageEngine.MigrationBlock.Kind.UNDECODABLE_ENTRIES,
+                    String.valueOf(rawEntries.size()));
+        }
+        if (!unresolvedMetadata.isEmpty()) {
+            return block(ECOInfiniteStorageEngine.MigrationBlock.Kind.UNRESOLVED_METADATA,
+                    String.join(", ", unresolvedMetadata.getAllKeys()));
+        }
+        return null;
+    }
+
+    private static ECOInfiniteStorageEngine.MigrationBlock block(ECOInfiniteStorageEngine.MigrationBlock.Kind kind,
+                                                               String detail) {
+        return new ECOInfiniteStorageEngine.MigrationBlock(kind, detail);
+    }
+
     // Quantity changes only mark the snapshot due; they leave revision() alone so hot FE/item transfers don't
     // invalidate revision-keyed caches every operation. Callers bump the revision for structural changes.
     void add(AEKey key, long amount) {

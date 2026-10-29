@@ -81,6 +81,40 @@ public interface ECOInfiniteStorageEngine {
         return isHealthy();
     }
 
+    /**
+     * Why a migration into this domain cannot advance right now, or {@code null} when it can. Mirrors the
+     * {@link #insertOnce(java.util.Set, AEKey, long)} admission check so a stalled migration can say why.
+     */
+    default MigrationBlock migrationBlock() {
+        return isHealthy() ? null : new MigrationBlock(MigrationBlock.Kind.NOT_WRITABLE, "");
+    }
+
+    /** A concrete reason a finite-to-infinite migration is waiting. {@code detail} is untranslated diagnostics. */
+    record MigrationBlock(Kind kind, String detail) {
+        public enum Kind {
+            UNREADABLE, RECOVERY_READ_ONLY, WRITE_FAILED, UNDECODABLE_ENTRIES, UNRESOLVED_METADATA, NOT_WRITABLE,
+            INSERT_REJECTED, COMMIT_FAILED, SOURCE_INELIGIBLE;
+
+            public String translationKey() {
+                return "gui.neoecoae.storage.migration.blocked." + name().toLowerCase(java.util.Locale.ROOT);
+            }
+        }
+
+        public MigrationBlock {
+            if (kind == null) throw new IllegalArgumentException("kind");
+            detail = detail == null ? "" : detail;
+        }
+
+        public net.minecraft.network.chat.Component toComponent() {
+            return net.minecraft.network.chat.Component.translatable(kind.translationKey(), detail);
+        }
+
+        /** Untranslated form for logs and {@link cn.dancingsnow.neoecoae.storage.StorageFaults}. */
+        public String describe() {
+            return detail.isEmpty() ? "Migration blocked: " + kind : "Migration blocked: " + kind + " (" + detail + ")";
+        }
+    }
+
     Collection<TypeStats> getTypeStats();
 
     boolean hasHugeStacks();

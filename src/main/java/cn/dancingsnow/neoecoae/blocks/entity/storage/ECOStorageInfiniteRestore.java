@@ -256,7 +256,7 @@ final class ECOStorageInfiniteRestore {
         java.util.Set<IECOStorageMigrationCell> changedCells = new java.util.HashSet<>();
         IActionSource source = IActionSource.ofMachine(host);
         for (AEKey key : restoreQueue) {
-            if (completed.size() >= ECOInfiniteStorageTransfer.KEYS_PER_TICK) break;
+            if (completed.size() >= ECOInfiniteStorageTransfer.RESTORE_KEYS_PER_TICK) break;
             var goals = engine.restorePlan(key);
             for (RestoreTarget target : plan.targets()) {
                 var goal = goals.get(target.identity);

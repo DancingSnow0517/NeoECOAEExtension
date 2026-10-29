@@ -217,6 +217,11 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     }
 
     @Override
+    public MigrationBlock migrationBlock() {
+        return data.migrationBlock();
+    }
+
+    @Override
     public boolean hasHugeStacks() {
         return data.amounts.hasOverflow();
     }

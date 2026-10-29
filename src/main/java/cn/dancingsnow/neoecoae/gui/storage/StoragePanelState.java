@@ -27,7 +27,20 @@ import net.minecraft.world.item.ItemStack;
 record StoragePanelState(Component title, int tier, boolean formed, boolean infinite, boolean migrating,
     long energy, long maxEnergy, long drain, String usedBytes, double usage, int cellCount, int cellOffset,
     List<CellEntry> cells, List<TypeLine> types, String domainId, int missingMembers, boolean componentPresent,
-    BigInteger totalBytes, BigInteger exactUsedBytes) {
+    BigInteger totalBytes, BigInteger exactUsedBytes, int migrationProgress, Component migrationBlocked) {
+
+    StoragePanelState {
+        migrationProgress = Math.clamp(migrationProgress, 0, 100);
+        migrationBlocked = migrationBlocked == null ? Component.empty() : migrationBlocked;
+    }
+
+    StoragePanelState(Component title, int tier, boolean formed, boolean infinite, boolean migrating,
+        long energy, long maxEnergy, long drain, String usedBytes, double usage, int cellCount, int cellOffset,
+        List<CellEntry> cells, List<TypeLine> types, String domainId, int missingMembers, boolean componentPresent,
+        BigInteger totalBytes, BigInteger exactUsedBytes) {
+        this(title, tier, formed, infinite, migrating, energy, maxEnergy, drain, usedBytes, usage, cellCount, cellOffset,
+            cells, types, domainId, missingMembers, componentPresent, totalBytes, exactUsedBytes, 0, Component.empty());
+    }
 
     StoragePanelState(Component title, int tier, boolean formed, boolean infinite, boolean migrating,
         long energy, long maxEnergy, long drain, String usedBytes, double usage, int cellCount, int cellOffset,
@@ -100,7 +113,9 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
             cellPage(all, offset, pageSize), List.copyOf(types),
             config.domainId().get(), config.missingMembers().getAsInt(),
             !config.infiniteComponentInventory().getStackInSlot(0).isEmpty(), totalCapacity(all),
-            totalUsedBytes(all, types, infinite || migrating));
+            totalUsedBytes(all, types, infinite || migrating),
+            migrating ? config.migrationProgress().getAsInt() : 0,
+            migrating ? config.migrationBlocked().get() : Component.empty());
     }
 
     static int pageOffset(int requested, int total, int pageSize) {
@@ -175,6 +190,8 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
         tag.putInt("cellCount", cellCount); tag.putInt("cellOffset", cellOffset);
         tag.putString("domain", domainId); tag.putInt("missing", missingMembers);
         tag.putBoolean("component", componentPresent);
+        tag.putInt("migrationProgress", migrationProgress);
+        if (!Component.empty().equals(migrationBlocked)) putComponent(tag, "migrationBlocked", migrationBlocked);
         ListTag entries = new ListTag();
         for (CellEntry cell : cells) {
             CompoundTag entry = new CompoundTag();
@@ -246,7 +263,9 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
             tag.getInt("missing"), tag.getBoolean("component"),
             tag.contains("totalBytes") ? new BigInteger(tag.getString("totalBytes")) : totalCapacity(cells),
             tag.contains("exactUsedBytes") ? new BigInteger(tag.getString("exactUsedBytes"))
-                : totalUsedBytes(cells, types, tag.getBoolean("infinite") || tag.getBoolean("migrating")));
+                : totalUsedBytes(cells, types, tag.getBoolean("infinite") || tag.getBoolean("migrating")),
+            tag.getInt("migrationProgress"),
+            tag.contains("migrationBlocked") ? component(tag, "migrationBlocked") : Component.empty());
     }
 
     private static void putComponent(CompoundTag tag, String key, Component component) {

@@ -321,6 +321,11 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 (position, expected, shift) -> StorageCellUiExtraction.extract(this, holder.player, position, expected, shift),
                 (position, expected) -> StorageCellUiInsertion.insert(this, holder.player, position, expected),
                 () -> new ItemStack(getBlockState().getBlock()),
+                this::getInfiniteMigrationProgressPercent,
+                () -> {
+                    var block = getInfiniteMigrationBlock();
+                    return block == null ? net.minecraft.network.chat.Component.empty() : block.toComponent();
+                },
                 new StorageHostUI.CellActions(
                     (position, expected) -> markAndMigrateBulkCell(holder.player, position, expected),
                     (position, expected) -> {
@@ -815,8 +820,15 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return hostMode == ECOStorageHostMode.FORMED_INFINITE;
     }
 
-    private int getInfiniteMigrationProgressPercent() {
+    /** Migration progress in percent; 0 outside a migration and 100 once infinite mode is formed. */
+    public int getInfiniteMigrationProgressPercent() {
         return infiniteModeController.migrationProgressPercent();
+    }
+
+    /** Why the running migration is waiting, or {@code null} while it advances or no migration runs. */
+    @Nullable
+    public cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine.MigrationBlock getInfiniteMigrationBlock() {
+        return infiniteModeController.migrationBlock();
     }
 
     public boolean canUseHostDomainStorage() {
