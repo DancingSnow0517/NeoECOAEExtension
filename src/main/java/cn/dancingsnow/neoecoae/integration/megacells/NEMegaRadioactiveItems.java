@@ -6,7 +6,9 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.integration.megacells.item.ECORadioactiveChemicalStorageCellItem;
 import cn.dancingsnow.neoecoae.registration.NECellTypeEntry;
 import cn.dancingsnow.neoecoae.util.ItemModelUtil;
+import com.tterrag.registrate.providers.ProviderType;
 import com.tterrag.registrate.util.entry.ItemEntry;
+import com.tterrag.registrate.util.nullness.NonNullBiConsumer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
@@ -15,7 +17,10 @@ import java.util.List;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
-/** Registered only with MEGA Cells, Applied Mekanistics and Mekanism present. */
+/**
+ * Registered only with MEGA Cells, Applied Mekanistics and Mekanism present. Names come from NELangGenerator,
+ * which must also cover datagen runs without these mods, so Registrate's per-entry lang stays disabled.
+ */
 final class NEMegaRadioactiveItems {
     static final NECellTypeEntry RADIOACTIVE_CHEMICAL = REGISTRATE.cellType("radioactive_chemical")
         .desc(Component.translatable("cell_type.neoecoae.radioactive_chemical").withColor(0x508457))
@@ -23,7 +28,7 @@ final class NEMegaRadioactiveItems {
         .register();
 
     static final ItemEntry<Item> HOUSING = REGISTRATE.item("eco_radioactive_chemical_cell_housing", Item::new)
-        .lang("ECO Storage Matrix Housing (Radioactive Chemical)")
+        .setData(ProviderType.LANG, NonNullBiConsumer.noop())
         .model(ItemModelUtil.compatHousingModel("megacells", "radioactive_chemical_cell_housing"))
         .register();
 
@@ -35,8 +40,7 @@ final class NEMegaRadioactiveItems {
         return REGISTRATE.item("eco_radioactive_chemical_cell_" + size,
                 properties -> new ECORadioactiveChemicalStorageCellItem(
                     properties.stacksTo(1).rarity(rarity), tier, RADIOACTIVE_CHEMICAL))
-            .lang("ECO - LE" + switch (tier) { case L4 -> "4"; case L6 -> "6"; case L9 -> "9"; }
-                + " Storage Matrix (Radioactive Chemical)")
+            .setData(ProviderType.LANG, NonNullBiConsumer.noop())
             .model(ItemModelUtil.compatCellModel("megacells", "radioactive_chemical_cell_housing", size))
             .register();
     }

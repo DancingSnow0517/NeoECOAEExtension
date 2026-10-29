@@ -4,7 +4,9 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.integration.ExternalCellKeyTypes;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.util.ItemModelUtil;
+import com.tterrag.registrate.providers.ProviderType;
 import com.tterrag.registrate.util.entry.ItemEntry;
+import com.tterrag.registrate.util.nullness.NonNullBiConsumer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
 
@@ -12,10 +14,11 @@ import java.util.List;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
+/** Names come from NELangGenerator so datagen without Applied Replicatics still emits them. */
 final class NEAppRepItems {
     static final ItemEntry<Item> MATTER_CELL_HOUSING = REGISTRATE
         .item("eco_matter_cell_housing", Item::new)
-        .lang("ECO Storage Matrix Housing (Matter)")
+        .setData(ProviderType.LANG, NonNullBiConsumer.noop())
         .model(ItemModelUtil.compatHousingModel("apprep", "matter_cell_housing"))
         .register();
 
@@ -27,8 +30,7 @@ final class NEAppRepItems {
         return REGISTRATE.item("eco_matter_cell_" + size, properties -> new ECOStorageCellItem(
                 properties.stacksTo(1).rarity(rarity), tier,
                 ExternalCellKeyTypes.byId("apprep", "m"), NEAppRepCellTypes.MATTER))
-            .lang("ECO - LE" + switch (tier) { case L4 -> "4"; case L6 -> "6"; case L9 -> "9"; }
-                + " Storage Matrix (Matter)")
+            .setData(ProviderType.LANG, NonNullBiConsumer.noop())
             .model(ItemModelUtil.compatCellModel("apprep", "matter_cell_housing", size))
             .register();
     }
