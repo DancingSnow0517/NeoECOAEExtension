@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import appeng.api.orientation.RelativeSide;
+import appeng.api.networking.IManagedGridNode;
 import appeng.items.tools.NetworkToolItem;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
@@ -20,10 +22,14 @@ import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.FluidSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Toggle;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
@@ -31,10 +37,20 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.layout.LayoutProperties;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
+import com.google.gson.JsonParser;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import net.minecraft.core.BlockPos;
+import net.minecraft.client.StringSplitter;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.Slot;
@@ -63,6 +79,132 @@ class WorkstationUIInteractionTest {
             Class.forName(NETextures.class.getName());
             AccessorRegistries.init();
         }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void smartCoolingTextAndControlsStayInSeparateRegionsAfterStatusUpdatesAndResize() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            LayoutProperties.init();
+            UIElement root = SmartCoolingModuleUI.createRoot(smartCoolingHost());
+            ModularUI ui = new ModularUI(UI.of(root));
+            BindableValue<Component> status = (BindableValue<Component>) root.selectId("status-sync").findFirst().orElseThrow();
+            for (int[] size : List.of(new int[] {320, 240}, new int[] {640, 360}, new int[] {800, 480})) {
+                for (Component state : List.of(
+                    Component.translatable("gui.neoecoae.smart_cooling.unformed"),
+                    Component.translatable("gui.neoecoae.smart_cooling.coolant_mode"),
+                    Component.translatable("gui.neoecoae.smart_cooling.status", "99.99",
+                        Component.translatable("gui.neoecoae.smart_cooling.running")))) {
+                    status.setValue(state);
+                    ui.init(size[0], size[1]);
+                    assertTrue(root.getPositionX() >= 0 && root.getPositionY() >= 0);
+                    assertTrue(root.getPositionX() + root.getSizeWidth() <= size[0]);
+                    assertTrue(root.getPositionY() + root.getSizeHeight() <= size[1]);
+                    assertEquals(state, ((TextElement) root.selectId("status").findFirst().orElseThrow()).getText());
+                    for (String id : List.of("title", "target-label", "status", "buffer-label", "buffer-amount", "help")) {
+                        TextElement text = (TextElement) root.selectId(id).findFirst().orElseThrow();
+                        assertEquals(TextWrap.WRAP, text.getTextStyle().textWrap());
+                        assertFalse(text.getTextStyle().textShadow());
+                        assertFalse(text.getTextStyle().adaptiveWidth());
+                        assertFalse(text.getTextStyle().adaptiveHeight());
+                        assertTrue(text.getSizeHeight() > 0);
+                        assertInside(text, text.getParent());
+                    }
+                    List<UIElement> regions = List.of("title", "settings", "status-card", "buffer", "help")
+                        .stream().map(id -> root.selectId(id).findFirst().orElseThrow()).toList();
+                    for (int index = 0; index < regions.size(); index++) {
+                        assertInside(regions.get(index), root);
+                        if (index > 0) assertTrue(regions.get(index - 1).getPositionY()
+                            + regions.get(index - 1).getSizeHeight() <= regions.get(index).getPositionY());
+                    }
+                    UIElement label = root.selectId("target-label").findFirst().orElseThrow();
+                    UIElement field = root.selectId("target").findFirst().orElseThrow();
+                    assertTrue(label.getPositionX() + label.getSizeWidth() <= field.getPositionX());
+                    assertInside(field, field.getParent());
+                }
+            }
+        }
+    }
+
+    @Test
+    void smartCoolingKeepsTargetEditingAndShowsTheSynchronizedCoolantAmount() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            var host = smartCoolingHost();
+            host.setLevel(mock(Level.class));
+            UIElement root = SmartCoolingModuleUI.createRoot(host);
+            TextField field = (TextField) root.selectId("target").findFirst().orElseThrow();
+            for (int target : List.of(0, 99, 75)) {
+                field.setText(String.valueOf(target));
+                assertEquals(target, host.getTargetTemperature());
+            }
+            field.setText("");
+            assertEquals(75, host.getTargetTemperature());
+            FluidSlot coolant = (FluidSlot) root.selectId("coolant").findFirst().orElseThrow();
+            assertFalse(coolant.isAllowClickFilled());
+            assertTrue(coolant.isAllowClickDrained());
+            TextElement amount = (TextElement) root.selectId("buffer-amount").findFirst().orElseThrow();
+            for (int quantity : List.of(2_000, 1_024_000, 0)) {
+                coolant.setValue(quantity == 0 ? FluidStack.EMPTY : new FluidStack(Fluids.WATER, quantity), false);
+                var contents = assertInstanceOf(TranslatableContents.class, amount.getText().getContents());
+                assertEquals("gui.neoecoae.fluid_input_hatch.stored", contents.getKey());
+                assertArrayEquals(new Object[] {String.format(java.util.Locale.ROOT, "%,d", quantity)}, contents.getArgs());
+            }
+        }
+    }
+
+    @Test
+    void smartCoolingChineseAndEnglishTranslationsFitTheirWrappedTextRegions() throws Exception {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            UIElement root = SmartCoolingModuleUI.createRoot(smartCoolingHost());
+            new ModularUI(UI.of(root)).init(320, 240);
+            // Conservative glyph widths exercise Minecraft's wrapping without creating a GL client.
+            StringSplitter splitter = new StringSplitter((codePoint, style) -> codePoint == ' ' ? 4 : codePoint < 128 ? 6 : 9);
+            for (String locale : List.of("zh_cn", "en_us")) {
+                try (var stream = getClass().getClassLoader().getResourceAsStream("assets/neoecoae/lang/" + locale + ".json")) {
+                    assertNotNull(stream);
+                    var translations = JsonParser.parseString(new String(stream.readAllBytes(), StandardCharsets.UTF_8)).getAsJsonObject();
+                    for (String id : List.of("title", "target-label", "buffer-label", "help")) {
+                        TextElement text = (TextElement) root.selectId(id).findFirst().orElseThrow();
+                        String key = ((TranslatableContents) text.getText().getContents()).getKey();
+                        assertTextFits(splitter, text, translations.get(key).getAsString(), locale);
+                    }
+                    TextElement status = (TextElement) root.selectId("status").findFirst().orElseThrow();
+                    for (String key : List.of("unformed", "coolant_mode", "status")) {
+                        String translated = translations.get("gui.neoecoae.smart_cooling." + key).getAsString();
+                        if (key.equals("status")) translated = String.format(java.util.Locale.ROOT, translated,
+                            "99.99", translations.get("gui.neoecoae.smart_cooling.running").getAsString());
+                        assertTextFits(splitter, status, translated, locale);
+                    }
+                }
+            }
+        }
+    }
+
+    private static void assertTextFits(StringSplitter splitter, TextElement text, String translated, String locale) {
+        int lines = splitter.splitLines(translated, Math.round(text.getContentWidth()), Style.EMPTY).size();
+        var style = text.getTextStyle();
+        float renderedHeight = lines * style.fontSize() + Math.max(0, lines - 1) * style.lineSpacing();
+        assertTrue(renderedHeight <= text.getContentHeight(), locale + ": " + translated);
+    }
+
+    private static ECOLargeIntegratedWorkingStationInputHatchBlockEntity smartCoolingHost() {
+        var type = mock(BlockEntityType.class);
+        when(type.isValid(any())).thenReturn(true);
+        return new ECOLargeIntegratedWorkingStationInputHatchBlockEntity(type, BlockPos.ZERO, Blocks.AIR.defaultBlockState()) {
+            @Override protected IManagedGridNode createMainNode() { return mock(IManagedGridNode.class, RETURNS_SELF); }
+            @Override public void setChanged() {}
+            @Override public void markForUpdate() {}
+        };
+    }
+
+    private static void assertInside(UIElement child, UIElement parent) {
+        assertTrue(child.getPositionX() >= parent.getPositionX(), child.getId());
+        assertTrue(child.getPositionY() >= parent.getPositionY(), child.getId());
+        assertTrue(child.getPositionX() + child.getSizeWidth() <= parent.getPositionX() + parent.getSizeWidth(), child.getId());
+        assertTrue(child.getPositionY() + child.getSizeHeight() <= parent.getPositionY() + parent.getSizeHeight(), child.getId());
     }
 
     @Test
