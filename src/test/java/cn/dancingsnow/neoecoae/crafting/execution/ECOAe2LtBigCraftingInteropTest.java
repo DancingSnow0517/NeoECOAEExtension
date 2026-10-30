@@ -29,6 +29,9 @@ import java.math.BigInteger;
 import java.util.*;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.tree.ClassNode;
 
 /** Exact Tianshu escrow -> public ECO admission -> real FX thread -> exact directed receipt. */
 class ECOAe2LtBigCraftingInteropTest {
@@ -37,6 +40,7 @@ class ECOAe2LtBigCraftingInteropTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
     @Test void verifiedFxLaneAcceptsAndReturnsMoreThanLongWithoutPerWindowLoops() throws Exception {
+        requireCpuExactDispatch();
         var f = fixture();
         var worker = mock(ECOCraftingWorkerBlockEntity.class, RETURNS_DEEP_STUBS);
         var controller = mock(ECOCraftingSystemBlockEntity.class);
@@ -112,6 +116,7 @@ class ECOAe2LtBigCraftingInteropTest {
     }
 
     @Test void indeterminateExactFxCommitStopsTheJobWithoutRefundingOrRetrying() throws Exception {
+        requireCpuExactDispatch();
         var f = fixture();
         when(f.provider.eco$prepareExactFastPath(any(), any())).thenAnswer(call ->
                 new ECOFastPathDispatchProvider.ExactPreparation(call.getArgument(1), () -> {
@@ -144,6 +149,7 @@ class ECOAe2LtBigCraftingInteropTest {
     }
 
     @Test void aLongCraftCountStillUsesExactTransportWhenItsMaterialTotalsOverflow() throws Exception {
+        requireCpuExactDispatch();
         var count = BigInteger.valueOf(Long.MAX_VALUE).divide(BigInteger.TWO).add(BigInteger.ONE);
         var f = fixture(count);
         when(f.provider.eco$prepareExactFastPath(any(), any())).thenAnswer(call ->
@@ -155,6 +161,7 @@ class ECOAe2LtBigCraftingInteropTest {
     }
 
     @Test void exactProviderCapacityLeavesTheUnacceptedCopiesInCpuEscrow() throws Exception {
+        requireCpuExactDispatch();
         var f = fixture();
         var accepted = COUNT.subtract(BigInteger.valueOf(7));
         when(f.provider.eco$prepareExactFastPath(any(), any())).thenReturn(
@@ -165,16 +172,60 @@ class ECOAe2LtBigCraftingInteropTest {
         assertEquals(accepted.multiply(BigInteger.valueOf(3)), waiting(f.job).get(f.output));
     }
 
-    @Test void bigCpuCancellationPublishesTheSameWorkerRecoveryNotice() throws Exception {
+    @Test void bigCpuCancellationPreservesEscrowAndMarksTheJobTerminal() throws Exception {
         var f = fixture();
         var service = new BigCraftingService(mock(TianshuSupercomputerControllerBlockEntity.class));
         field(BigCraftingService.class, "job").set(service, f.job);
         try (var lifecycle = mockStatic(cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle.class)) {
             service.cancel();
-            lifecycle.verify(() -> cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle
-                    .cancelAndRecover(null, f.job.id));
+            if (cpuExactDispatchAvailable()) {
+                lifecycle.verify(() -> cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle
+                        .cancelAndRecover(null, f.job.id));
+            } else {
+                lifecycle.verifyNoInteractions();
+            }
         }
         assertTrue(f.job.cancelled);
+        assertEquals(COUNT.multiply(BigInteger.TWO), f.job.escrow.get(f.input));
+        assertTrue(waiting(f.job).isEmpty());
+    }
+
+    @Test void releasedCpuWithoutExactDispatchLeavesResourcesForTheNormalLane() throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeFalse(cpuExactDispatchAvailable(),
+                "This fallback contract applies to the released AE2LT placeholder dispatcher");
+        for (var count : List.of(BigInteger.ONE, BigInteger.valueOf(Long.MAX_VALUE), COUNT)) {
+            var f = fixture(count);
+            assertFalse(f.dispatch());
+            assertEquals(count.multiply(BigInteger.TWO), f.job.escrow.get(f.input));
+            assertEquals(BigInteger.ZERO, f.job.acceptedCopies);
+            assertTrue(waiting(f.job).isEmpty());
+            assertFalse(f.job.cancelled);
+            verifyNoInteractions(f.provider, f.energy);
+        }
+    }
+
+    private static void requireCpuExactDispatch() throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeTrue(cpuExactDispatchAvailable(),
+                "Released AE2LT 2.1.2 keeps its exact CPU dispatcher as a false-returning placeholder");
+    }
+
+    private static boolean cpuExactDispatchAvailable() throws Exception {
+        // Method presence is insufficient: the released 2.1.2 JAR retains the signature but
+        // deliberately declines every exact batch. Retain full interop checks for implementations
+        // that supply this optional lane, and exercise the released fallback above.
+        String path = "/com/moakiee/ae2lt/crafting/big/NeoEcoBigIntegerCompat.class";
+        try (var input = ECOAe2LtBigCraftingInteropTest.class.getResourceAsStream(path)) {
+            assertNotNull(input, path);
+            var node = new ClassNode();
+            new ClassReader(input).accept(node, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+            var dispatch = node.methods.stream().filter(method -> method.name.equals("dispatch"))
+                    .findFirst().orElseThrow();
+            var opcodes = new ArrayList<Integer>();
+            for (var instruction : dispatch.instructions) {
+                if (instruction.getOpcode() >= 0) opcodes.add(instruction.getOpcode());
+            }
+            return !opcodes.equals(List.of(Opcodes.ICONST_0, Opcodes.IRETURN));
+        }
     }
 
     @Test void oldCpuRouterReceivesOnlyOneSafeLongWindow() {

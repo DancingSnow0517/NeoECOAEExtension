@@ -242,6 +242,9 @@ class CreativeSupplyPlanningTest {
 
     @Test void ae2LtInfiniteStorageCellStillConsumesFiniteStock() {
         var item = mock(InfiniteStorageCellItem.class, CALLS_REAL_METHODS);
+        // The released cell writes a registered tooltip component. This isolated inventory test
+        // has no AE2LT registry lifecycle; keep real finite storage and omit only that display write.
+        doNothing().when(item).writeSummary(any(), any());
         doAnswer(invocation -> {
             IndexedStorage storage = invocation.getArgument(1);
             var tracker = new ByteTracker(storage::getTotalTypes);
