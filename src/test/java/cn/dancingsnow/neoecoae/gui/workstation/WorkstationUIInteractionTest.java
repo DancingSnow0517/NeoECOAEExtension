@@ -94,6 +94,8 @@ class WorkstationUIInteractionTest {
                 for (Component state : List.of(
                     Component.translatable("gui.neoecoae.smart_cooling.unformed"),
                     Component.translatable("gui.neoecoae.smart_cooling.coolant_mode"),
+                    Component.translatable("gui.neoecoae.smart_cooling.status", "80.00",
+                        Component.translatable("gui.neoecoae.smart_cooling.holding")),
                     Component.translatable("gui.neoecoae.smart_cooling.status", "99.99",
                         Component.translatable("gui.neoecoae.smart_cooling.running")))) {
                     status.setValue(state);

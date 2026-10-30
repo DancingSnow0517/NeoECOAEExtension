@@ -116,7 +116,9 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
             if (returned > 0) tank.drain((int) returned, IFluidHandler.FluidAction.EXECUTE);
             if (!tank.isEmpty()) return;
         }
-        if (tank.getFluidAmount() >= 2000) return;
+        int bufferAmount = (int) Math.min(tank.getCapacity(),
+            (long) controller.getCoolantPerTick() * LargeWorkstationThermal.TICKS_PER_SECOND);
+        if (tank.getFluidAmount() >= bufferAmount) return;
         AEFluidKey selected = tank.isEmpty() ? null : AEFluidKey.of(tank.getFluid());
         if (selected == null) {
             int bestTier = 0;
@@ -135,7 +137,7 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
             }
         }
         if (selected == null) return;
-        int space = tank.fill(selected.toStack(2000 - tank.getFluidAmount()), IFluidHandler.FluidAction.SIMULATE);
+        int space = tank.fill(selected.toStack(bufferAmount - tank.getFluidAmount()), IFluidHandler.FluidAction.SIMULATE);
         if (space <= 0) return;
         long extracted = StorageHelper.poweredExtraction(grid.getEnergyService(), inventory, selected,
             space, IActionSource.ofMachine(this));

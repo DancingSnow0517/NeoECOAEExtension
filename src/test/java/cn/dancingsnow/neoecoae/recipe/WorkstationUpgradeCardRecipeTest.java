@@ -258,6 +258,29 @@ class WorkstationUpgradeCardRecipeTest {
         assertThrows(IllegalStateException.class, () -> decodeWithVanillaItems(json));
     }
 
+    @Test
+    void smartCoolingRecipeUsesTwelveDistinctInputsAnd512BucketsOfCryotheum() throws IOException {
+        var path = Path.of("src/generated/resources/data/neoecoae/recipe/large_integrated_working_station_smart_cooling_module.json");
+        var json = JsonParser.parseString(Files.readString(path)).getAsJsonObject();
+        assertEquals("neoecoae:large_integrated_working_station", json.get("type").getAsString());
+        assertEquals(1, json.getAsJsonObject("itemOutput").get("count").getAsInt());
+        assertEquals("neoecoae:large_integrated_working_station_smart_cooling_module",
+            json.getAsJsonObject("itemOutput").get("id").getAsString());
+        var inputs = new LinkedHashMap<String, Integer>();
+        for (var input : json.getAsJsonArray("inputItems")) {
+            var ingredient = input.getAsJsonObject();
+            assertNull(inputs.put(ingredient.get("item").getAsString(), ingredient.get("count").getAsInt()));
+        }
+        assertEquals(12, inputs.size());
+        assertEquals(16, inputs.get("neoecoae:large_integrated_working_station_input_hatch"));
+        assertEquals(16, inputs.get("neoecoae:network_pull_card"));
+        assertEquals("neoecoae:cryotheum_solution", json.getAsJsonObject("inputFluid").get("fluid").getAsString());
+        assertEquals(512_000, json.getAsJsonObject("inputFluid").get("amount").getAsInt());
+        var decoded = decodeWithVanillaItems(json);
+        assertEquals(12, decoded.display().inputItems().size());
+        assertEquals(512_000, decoded.display().inputFluid().amount());
+    }
+
     private static JsonObject resource(String variant) throws IOException {
         var path = Path.of("src/main/resources/data/neoecoae/recipe/large_integrated_working_station/"
             + "integrated_working_station_module_" + variant + ".json");

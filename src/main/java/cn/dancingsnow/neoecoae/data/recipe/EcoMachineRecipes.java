@@ -37,16 +37,21 @@ public class EcoMachineRecipes {
             .save(provider);
 
         IntegratedWorkingStationRecipe.builder()
-            .require(NEBlocks.CRYOGENIC_ALUMINUM_ALLOY_CASING, 4)
-            .require(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH)
-            .require(NEItems.PHASE_CHANGE_AIR_COOLER, 4)
-            .require(NEItems.SUPERCONDUCTING_PROCESSOR, 4)
-            .require(NEBlocks.ENERGIZED_SUPERCONDUCTIVE_BLOCK, 4)
-            .require(AEBlocks.INTERFACE)
-            .require(NEItems.CRYSTAL_MATRIX, 4)
-            .requireFluid(NEFluids.CRYOTHEUM_SOLUTION.getSource(), 1000)
+            .require(NEBlocks.CRYOGENIC_ALUMINUM_ALLOY_CASING, 64)
+            .require(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH, 16)
+            .require(NEItems.PHASE_CHANGE_AIR_COOLER, 16)
+            .require(NEItems.SUPERCONDUCTING_PROCESSOR, 32)
+            .require(NEBlocks.ENERGIZED_SUPERCONDUCTIVE_BLOCK, 32)
+            .require(AEBlocks.INTERFACE, 16)
+            .require(NEItems.CRYSTAL_MATRIX, 32)
+            .require(NEItems.NETWORK_PULL_CARD, 16)
+            .require(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH, 16)
+            .require(NEItems.CRYOTHEUM_CRYSTAL, 64)
+            .require(AEItems.ENGINEERING_PROCESSOR, 32)
+            .require(AEItems.CALCULATION_PROCESSOR, 32)
+            .requireFluid(NEFluids.CRYOTHEUM_SOLUTION.getSource(), 512_000)
             .itemOutput(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_SMART_COOLING_MODULE)
-            .save(provider);
+            .saveLarge(provider);
 
         //Energized crystal
         IntegratedWorkingStationRecipe.builder()

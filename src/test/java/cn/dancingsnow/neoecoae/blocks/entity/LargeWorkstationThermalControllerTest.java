@@ -1392,6 +1392,266 @@ class LargeWorkstationThermalControllerTest {
         }
     }
 
+    @Test
+    void smartModuleChargesOncePerTickAcrossProcessingIdleAndBlockedOutput() throws Exception {
+        installSmartModule(75);
+        coolant(Fluids.WATER, 2, FluidStack.EMPTY);
+        input.setFluid(new FluidStack(Fluids.WATER, 100_000));
+        var paid = unlimitedPower();
+        host.tickingRequest(mock(IGridNode.class), 1);
+        tick();
+        assertEquals(100_000, paid.sum());
+        var batch = timedBatch(10, 0);
+        for (int i = 1; i <= 4; i++) {
+            gameTime++;
+            host.tickingRequest(mock(IGridNode.class), 1);
+            host.tickThermal(level, BlockPos.ZERO, Blocks.AIR.defaultBlockState());
+            assertEquals(i, value(batch, "progress"));
+            assertEquals(100_000 + i * 100_005, paid.sum());
+        }
+        gameTime++;
+        host.tickingRequest(mock(IGridNode.class), 1);
+        host.tickThermal(level, BlockPos.ZERO, Blocks.AIR.defaultBlockState());
+        assertEquals(600_020, paid.sum(), "The thermostat keeps running while recipe output is blocked");
+    }
+
+    @Test
+    void smartModuleOperatingCostIsChargedOnlyOnceWithinOneServerTick() throws Exception {
+        installSmartModule(75);
+        var paid = unlimitedPower();
+        var batch = timedBatch(10, 0);
+        host.tickingRequest(mock(IGridNode.class), 1);
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertEquals(2, value(batch, "progress"));
+        assertEquals(100_010, paid.sum());
+    }
+
+    @Test
+    void smartModulePowerShortagePreservesInputsAndResumesWithoutChargingPausedTicks() throws Exception {
+        installSmartModule(75);
+        var batch = timedBatch(10, 0);
+        doAnswer(call -> Math.min(call.<Double>getArgument(0), 100_004.0))
+            .when(host).extractAEPower(anyDouble(), any(), any());
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertEquals(0, value(batch, "progress"));
+        assertEquals(2, ((KeyCounter) value(batch, "inputTotal")).get(AEItemKey.of(Items.IRON_INGOT)));
+        verify(host, never()).extractAEPower(anyDouble(), eq(Actionable.MODULATE), any());
+        var paid = unlimitedPower();
+        gameTime++;
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertEquals(1, value(batch, "progress"));
+        assertEquals(100_005, paid.sum());
+    }
+
+    @Test
+    void smartModuleAutomaticallyHeatsToItsExactTargetAndKeepsPayingToHoldIt() throws Exception {
+        installSmartModule(80);
+        field(host, "temperature", 79.95);
+        coolant(cryotheum, 9, FluidStack.EMPTY);
+        input.setFluid(new FluidStack(cryotheum, 1000));
+        var paid = unlimitedPower();
+        tick();
+        assertEquals(100_000, paid.sum());
+        assertEquals(80, host.getTemperature());
+        assertEquals(700, input.getFluidAmount());
+        tick();
+        assertEquals(200_000, paid.sum());
+        assertEquals(80, host.getTemperature());
+        assertEquals(400, input.getFluidAmount());
+    }
+
+    @Test
+    void smartModulePowerShortageStopsHeatingAndResumesAfterPowerReturns() throws Exception {
+        installSmartModule(80);
+        field(host, "temperature", 79.0);
+        coolant(cryotheum, 9, FluidStack.EMPTY);
+        input.setFluid(new FluidStack(cryotheum, 1000));
+        doAnswer(call -> Math.min(call.<Double>getArgument(0), 99_999.0))
+            .when(host).extractAEPower(anyDouble(), any(), any());
+        tick();
+        assertEquals(78.995, host.getTemperature(), 1e-10);
+        assertEquals(1000, input.getFluidAmount());
+        verify(host, never()).extractAEPower(anyDouble(), eq(Actionable.MODULATE), any());
+        var paid = unlimitedPower();
+        tick();
+        assertTrue(host.getTemperature() > 78.995);
+        assertEquals(100_000, paid.sum());
+        assertEquals(700, input.getFluidAmount());
+    }
+
+    @Test
+    void smartCoolingUsesTripleCoolantAndByproductsForControlledCooling() throws Exception {
+        installSmartModule(0);
+        field(host, "temperature", 50.0);
+        coolant(Fluids.WATER, 6, new FluidStack(Fluids.LAVA, 200));
+        input.setFluid(new FluidStack(Fluids.WATER, 1000));
+        var paid = unlimitedPower();
+        tick();
+        assertEquals(300, host.getCoolantPerTick());
+        assertEquals(700, input.getFluidAmount());
+        assertEquals(600, output.getFluidAmount());
+        assertEquals(49.95, host.getTemperature(), 1e-10);
+        assertEquals(100_000, paid.sum());
+    }
+
+    @Test
+    void smartCoolingShortagesAndBlockedByproductsDoNotDrainFluid() throws Exception {
+        installSmartModule(0);
+        field(host, "temperature", 50.0);
+        coolant(Fluids.WATER, 6, new FluidStack(Fluids.LAVA, 100));
+        var paid = unlimitedPower();
+        input.setFluid(new FluidStack(Fluids.WATER, 299));
+        tick();
+        assertEquals(299, input.getFluidAmount());
+        assertTrue(output.isEmpty());
+        input.setFluid(new FluidStack(Fluids.WATER, 1000));
+        output.setFluid(new FluidStack(Fluids.LAVA, 99_701));
+        tick();
+        assertEquals(1000, input.getFluidAmount());
+        assertEquals(99_701, output.getFluidAmount());
+        assertEquals(0, paid.sum());
+    }
+
+    @Test
+    void smartModuleUsesTripleCoolantDuringCoolantModeProgress() throws Exception {
+        NEConfig.largeWorkstationTemperatureEnabled = false;
+        installSmartModule(75);
+        var batch = timedBatch(10, 0);
+        field(batch, "coolingTier", 2);
+        field(host, "overclocked", true);
+        field(host, "activeCooling", true);
+        coolant(Fluids.WATER, 2, new FluidStack(Fluids.LAVA, 100));
+        input.setFluid(new FluidStack(Fluids.WATER, 1000));
+        var paid = unlimitedPower();
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertEquals(1, value(batch, "progress"));
+        assertEquals(700, input.getFluidAmount());
+        assertEquals(300, output.getFluidAmount());
+        assertEquals(100_005, paid.sum());
+        input.setFluid(new FluidStack(Fluids.WATER, 299));
+        gameTime++;
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertEquals(1, value(batch, "progress"));
+        assertEquals(299, input.getFluidAmount());
+        assertEquals(100_005, paid.sum());
+    }
+
+    @Test
+    void smartModuleRecoveryUsesTripleCryotheumAndPaysItsOperatingCost() throws Exception {
+        installSmartModule(75);
+        field(host, "temperature", 100.0);
+        field(host, "overheated", true);
+        coolant(cryotheum, 9, FluidStack.EMPTY);
+        input.setFluid(new FluidStack(cryotheum, 1000));
+        var paid = unlimitedPower();
+        tick();
+        assertEquals(700, input.getFluidAmount());
+        assertEquals(1, value(host, "recoveryTicks"));
+        assertEquals(100_000, paid.sum());
+    }
+
+    @Test
+    void smartModuleHoldsEightyPercentUnderChangingLoadAndIncreasesActualFluidCosts() throws Exception {
+        installSmartModule(80);
+        field(host, "temperature", 80.0);
+        coolant(Fluids.WATER, 2, new FluidStack(Fluids.LAVA, 100));
+        var paid = unlimitedPower();
+        long consumed = 0;
+        for (double load : List.of(0.0, 1.0, 2.0, 10.0, 0.0)) {
+            input.setFluid(new FluidStack(Fluids.WATER, 10_000));
+            output.setFluid(FluidStack.EMPTY);
+            field(host, "pendingThermalLoad", load);
+            tick();
+            assertEquals(80, host.getTemperature());
+            int amount = 10_000 - input.getFluidAmount();
+            assertTrue(amount >= 300);
+            if (load >= 1) assertTrue(amount > 300);
+            assertEquals(amount, output.getFluidAmount());
+            consumed += amount;
+        }
+        assertTrue(consumed > 1500);
+        assertEquals(500_000, paid.sum());
+    }
+
+    @Test
+    void smartModuleChangesTargetsWithoutOvershootAndCannotHeatWithoutCoolant() throws Exception {
+        var hatch = installSmartModule(80);
+        field(host, "temperature", 80.0);
+        coolant(cryotheum, 9, FluidStack.EMPTY);
+        var paid = unlimitedPower();
+        tick();
+        assertEquals(79.995, host.getTemperature(), 1e-10);
+        assertEquals(0, paid.sum());
+        when(hatch.getTargetTemperature()).thenReturn(79);
+        input.setFluid(new FluidStack(cryotheum, 10_000));
+        for (int i = 0; i < 20; i++) tick();
+        assertEquals(79, host.getTemperature());
+        when(hatch.getTargetTemperature()).thenReturn(80);
+        input.setFluid(new FluidStack(cryotheum, 10_000));
+        for (int i = 0; i < 20; i++) tick();
+        assertEquals(80, host.getTemperature());
+        assertEquals(4_000_000, paid.sum());
+    }
+
+    @Test
+    void shortThermostatPaymentIsRefundedWithoutFluidOrTemperatureControl() throws Exception {
+        installSmartModule(80);
+        field(host, "temperature", 79.0);
+        coolant(cryotheum, 9, FluidStack.EMPTY);
+        input.setFluid(new FluidStack(cryotheum, 1000));
+        doAnswer(call -> call.getArgument(1) == Actionable.SIMULATE ? call.<Double>getArgument(0) : 40_000.0)
+            .when(host).extractAEPower(anyDouble(), any(), any());
+        doReturn(0.0).when(host).injectAEPower(anyDouble(), any());
+        tick();
+        assertEquals(78.995, host.getTemperature(), 1e-10);
+        assertEquals(1000, input.getFluidAmount());
+        verify(host).injectAEPower(eq(40_000.0), eq(Actionable.MODULATE));
+        assertEquals(0, ((LargeWorkstationEnergyUsage) value(host, "uiEnergyUsage")).average(gameTime));
+    }
+
+    @Test
+    void refusedThermostatByproductRollsBackPowerAndFluidWithoutHeating() throws Exception {
+        installSmartModule(80);
+        field(host, "temperature", 79.0);
+        coolant(Fluids.WATER, 2, new FluidStack(Fluids.LAVA, 100));
+        input.setFluid(new FluidStack(Fluids.WATER, 1000));
+        var rejecting = new FluidTank(100_000) {
+            @Override
+            public int fill(FluidStack resource, net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction action) {
+                return action.execute() ? 0 : super.fill(resource, action);
+            }
+        };
+        doReturn(rejecting).when(host).getOutputTank();
+        unlimitedPower();
+        doReturn(0.0).when(host).injectAEPower(anyDouble(), any());
+        tick();
+        assertEquals(78.995, host.getTemperature(), 1e-10);
+        assertEquals(1000, input.getFluidAmount());
+        assertTrue(rejecting.isEmpty());
+        verify(host).injectAEPower(eq(100_000.0), eq(Actionable.MODULATE));
+        assertEquals(0, ((LargeWorkstationEnergyUsage) value(host, "uiEnergyUsage")).average(gameTime));
+    }
+
+    private ECOLargeIntegratedWorkingStationInputHatchBlockEntity installSmartModule(int target) throws Exception {
+        var cluster = mock(cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster.class);
+        var hatch = mock(ECOLargeIntegratedWorkingStationInputHatchBlockEntity.class);
+        when(hatch.isSmartCoolingModule()).thenReturn(true);
+        when(hatch.getTargetTemperature()).thenReturn(target);
+        when(cluster.getInputHatch()).thenReturn(hatch);
+        field(host, "cluster", cluster);
+        return hatch;
+    }
+
+    private java.util.concurrent.atomic.DoubleAdder unlimitedPower() {
+        var paid = new java.util.concurrent.atomic.DoubleAdder();
+        doAnswer(call -> {
+            double amount = call.getArgument(0);
+            if (call.getArgument(1) == Actionable.MODULATE) paid.add(amount);
+            return amount;
+        }).when(host).extractAEPower(anyDouble(), any(), any());
+        return paid;
+    }
+
     private Object timedBatch(long ae, long fe) throws Exception {
         var type = Class.forName(ECOLargeIntegratedWorkingStationBlockEntity.class.getName() + "$PendingBatch");
         var constructor = type.getDeclaredConstructors()[0];

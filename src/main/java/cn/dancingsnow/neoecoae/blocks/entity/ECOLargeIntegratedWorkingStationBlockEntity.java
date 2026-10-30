@@ -100,6 +100,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     /** Maximum simultaneous encoded pattern executions; does not accelerate recipe time. */
     public static final int PARALLELISM = 256;
     private static final int COOLANT_PER_PROCESSING_TICK = LargeWorkstationThermal.COOLANT_PER_TICK;
+    public static final int SMART_COOLING_COOLANT_MULTIPLIER = 3;
+    public static final int SMART_COOLING_AE_PER_TICK = 100_000;
     private static final int MAX_PENDING_BATCHES = 512;
     private static final long MAX_PENDING_OUTPUT_STACKS = 100_000L;
     private static final long MAX_SAVE_STACKS = 50_000L;
@@ -143,6 +145,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     @DescSynced
     private int outputBlockedReasonId;
     private double pendingPowerRefund;
+    private boolean smartCoolingPowerPaid;
+    private long smartCoolingPowerPaidTick;
+    private int smartCoolingCoolantDemand;
     private LargeWorkstationEnergyUsage uiEnergyUsage = new LargeWorkstationEnergyUsage();
     private final LargeWorkstationEnergyUsage uiFluxUsage = new LargeWorkstationEnergyUsage();
     /** FE already withdrawn from ME but not yet committed; retained if AE/coolant payment fails. */
@@ -416,20 +421,37 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         return cluster != null && cluster.getInputHatch() != null && cluster.getInputHatch().isSmartCoolingModule();
     }
 
-    private void updateSmartCooling(double processingLoad) {
+    public int getCoolantPerTick() {
+        if (!hasSmartCoolingModule()) return COOLANT_PER_PROCESSING_TICK;
+        int minimum = COOLANT_PER_PROCESSING_TICK * SMART_COOLING_COOLANT_MULTIPLIER;
+        return isTemperatureEnabled() ? Math.max(minimum, smartCoolingCoolantDemand) : minimum;
+    }
+
+    public Component getSmartCoolingStatusText() {
+        if (coolingProblemId > 0) return Component.translatable(PauseReason.values()[coolingProblemId].translationKey);
+        if (overheated) return Component.translatable(PauseReason.OVERHEATED.translationKey);
+        int target = cluster == null || cluster.getInputHatch() == null ? 75 : cluster.getInputHatch().getTargetTemperature();
+        return Component.translatable(temperature < target ? "gui.neoecoae.smart_cooling.heating"
+            : temperature > target ? "gui.neoecoae.smart_cooling.cooling" : "gui.neoecoae.smart_cooling.holding");
+    }
+
+    private double smartCoolingOperatingPower() {
+        return hasSmartCoolingModule()
+            && (!smartCoolingPowerPaid || smartCoolingPowerPaidTick != level.getGameTime())
+            ? SMART_COOLING_AE_PER_TICK : 0;
+    }
+
+    private void recordSmartCoolingPayment(double amount) {
+        if (amount <= 0) return;
+        smartCoolingPowerPaid = true;
+        smartCoolingPowerPaidTick = level.getGameTime();
+    }
+
+    private void updateSmartCooling() {
         if (!formed || !hasSmartCoolingModule()) return;
-        double target = cluster.getInputHatch().getTargetTemperature();
-        double projected = temperature + LargeWorkstationThermal.heatingPerSecond(temperature)
-            * Math.max(0, processingLoad) / LargeWorkstationThermal.TICKS_PER_SECOND;
-        boolean cooling = !isTemperatureEnabled() || overheated
-            || projected > target + (activeCooling ? 0 : 0.25);
-        if (activeCooling != cooling) {
-            activeCooling = cooling;
+        if (!activeCooling) {
+            activeCooling = true;
             settingsChanged();
-        }
-        if (cooling && preheating) {
-            preheating = false;
-            setChanged();
         }
     }
 
@@ -447,6 +469,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     public void togglePreheating() {
+        if (hasSmartCoolingModule()) return;
         if (!isTemperatureEnabled() || overheated) return;
         preheating = !preheating;
         if (preheating) {
@@ -759,6 +782,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         snapshot.putInt("currentTier", isTemperatureEnabled()
             ? LargeWorkstationOverclock.forTemperature(true, temperature).coolingTier() : getCurrentBatchProfile().coolingTier());
         snapshot.putInt("coolantTier", getCoolingTierId());
+        snapshot.putInt("coolantPerTick", getCoolantPerTick());
         snapshot.putDouble("temperature", isTemperatureEnabled() ? temperature : 0);
         var thermalRates = isTemperatureEnabled()
             ? uiThermalUsage.rates(level == null ? 0 : level.getGameTime()) : LargeWorkstationThermalUsage.Rates.ZERO;
@@ -1184,11 +1208,13 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         long work = batch.segmented
             ? Math.min(Math.max(0L, portionWork - completedWork), (batch.legacyTiming ? (long) getParallelism() : 1L) * portionCount)
             : (long) advance * batch.craftCount - batch.progressRemainder;
-        double required = (double) batch.energyPerCraft * work / batch.processingTicks;
+        double operatingPower = smartCoolingOperatingPower();
+        double required = (double) batch.energyPerCraft * work / batch.processingTicks + operatingPower;
         IEnergySource source = processingEnergySource(required);
 
         double available = source.extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG);
         if (required > 0.0D && available + 0.001D < required) {
+            available = Math.max(0, available - operatingPower);
             if (batch.segmented) {
                 work = Math.min(work, Math.max(0L, (long) Math.floor(available * batch.processingTicks / batch.energyPerCraft)));
             } else {
@@ -1203,7 +1229,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 setPauseReason(PauseReason.POWER_MISSING);
                 return TickRateModulation.SLOWER;
             }
-            required = (double) batch.energyPerCraft * work / batch.processingTicks;
+            required = (double) batch.energyPerCraft * work / batch.processingTicks + operatingPower;
         }
 
         LargeWorkstationProcessing.FluxPayment flux;
@@ -1263,6 +1289,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         batch.feRemainder = flux.remainder();
         if (level != null && consumedFe > 0) uiFluxUsage.record(level.getGameTime(), consumedFe);
         recordUiEnergy(required);
+        recordSmartCoolingPayment(operatingPower);
         preheating = false;
 
         if (thermal && overclocked) {
@@ -1493,7 +1520,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (tickLevel.isClientSide) return;
         double processingLoad = pendingThermalLoad;
         pendingThermalLoad = 0;
-        updateSmartCooling(processingLoad);
+        updateSmartCooling();
         if (!isTemperatureEnabled()) {
             uiThermalUsage.clear();
             // Freeze saved thermal state while disabled; it applies again when temperature mode is enabled.
@@ -1509,6 +1536,10 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         }
         if (!formed) {
             settleThermalTick(tickLevel.getGameTime(), 0, 0, 0, false);
+            return;
+        }
+        if (hasSmartCoolingModule()) {
+            tickSmartTemperature(processingLoad);
             return;
         }
         double preheatFraction = 0;
@@ -1560,6 +1591,52 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (tickLevel.getGameTime() % 20 == 0) markForUpdate();
     }
 
+    private void tickSmartTemperature(double processingLoad) {
+        var before = thermalState();
+        var result = LargeWorkstationThermal.step(before, processingLoad, 0, 0, false);
+        preheating = false;
+        coolingProblemId = PauseReason.NONE.ordinal();
+        RecipeHolder<CoolingRecipe> holder = getCoolingRecipeForInput();
+        if (!getMainNode().isActive()) {
+            coolingProblemId = PauseReason.POWER_MISSING.ordinal();
+        } else if (holder == null) {
+            coolingProblemId = PauseReason.COOLANT_MISSING.ordinal();
+        } else if (LargeWorkstationOverclock.forCoolingTier(holder.value().maxOverclock()) == null) {
+            coolingProblemId = PauseReason.COOLANT_TIER_LOW.ordinal();
+        } else if (overheated && !ResourceLocation.fromNamespaceAndPath("neoecoae", "cryotheum_solution")
+            .equals(BuiltInRegistries.FLUID.getKey(getInputTank().getFluid().getFluid()))) {
+            coolingProblemId = PauseReason.COOLANT_TIER_LOW.ordinal();
+        } else {
+            var regulation = LargeWorkstationThermal.regulate(before, processingLoad,
+                cluster.getInputHatch().getTargetTemperature(), holder.value().maxOverclock(),
+                COOLANT_PER_PROCESSING_TICK * SMART_COOLING_COOLANT_MULTIPLIER);
+            smartCoolingCoolantDemand = regulation.coolantAmount();
+            CoolingTickPlan coolant = prepareCoolingTick(holder, regulation.coolantAmount());
+            if (coolant != null) {
+                double required = smartCoolingOperatingPower();
+                IEnergySource source = processingEnergySource(required);
+                if (source.extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG) + 0.001D < required) {
+                    coolingProblemId = PauseReason.POWER_MISSING.ordinal();
+                } else {
+                    var payment = LargeWorkstationTickPayment.commit(source, required,
+                        () -> consumeCoolingTick(coolant), amount -> refundProcessingPower(source, amount));
+                    if (payment == LargeWorkstationTickPayment.Result.PAID) {
+                        recordUiEnergy(required);
+                        recordSmartCoolingPayment(required);
+                        result = regulation.result();
+                        preheating = result.preheatHeat() > 0;
+                    } else {
+                        coolingProblemId = (payment == LargeWorkstationTickPayment.Result.POWER_MISSING
+                            ? PauseReason.POWER_MISSING : PauseReason.COOLANT_OUTPUT_BLOCKED).ordinal();
+                    }
+                }
+            }
+        }
+        uiThermalUsage.record(level.getGameTime(), before, result);
+        applyThermalState(result.state());
+        if (level.getGameTime() % 20 == 0) markForUpdate();
+    }
+
     private void settleThermalTick(long tick, double processingLoad, double preheatFraction, int coolingTier, boolean consumed) {
         var before = thermalState();
         var result = LargeWorkstationThermal.step(before, processingLoad, preheatFraction, coolingTier, consumed);
@@ -1587,6 +1664,11 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     @Nullable
     private CoolingTickPlan prepareCoolingTick(@Nullable RecipeHolder<CoolingRecipe> holder) {
+        return prepareCoolingTick(holder, getCoolantPerTick());
+    }
+
+    @Nullable
+    private CoolingTickPlan prepareCoolingTick(@Nullable RecipeHolder<CoolingRecipe> holder, int coolantPerTick) {
         if (holder == null) {
             coolingProblemId = PauseReason.COOLANT_MISSING.ordinal();
             return null;
@@ -1597,13 +1679,13 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             coolingProblemId = PauseReason.COOLANT_TIER_LOW.ordinal();
             return null;
         }
-        if (getInputTank().getFluidAmount() < COOLANT_PER_PROCESSING_TICK) {
+        if (getInputTank().getFluidAmount() < coolantPerTick) {
             coolingProblemId = PauseReason.COOLANT_INSUFFICIENT.ordinal();
             return null;
         }
 
         LargeWorkstationCoolingOutput.Plan output = coolingOutput.plan(
-            holder.id(), recipe.output(), recipe.inputAmount(), recipe.outputAmount(), COOLANT_PER_PROCESSING_TICK);
+            holder.id(), recipe.output(), recipe.inputAmount(), recipe.outputAmount(), coolantPerTick);
         if (output == null) {
             coolingProblemId = PauseReason.COOLANT_OUTPUT_BLOCKED.ordinal();
             return null;
@@ -1615,12 +1697,13 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             return null;
         }
         coolingProblemId = PauseReason.NONE.ordinal();
-        return new CoolingTickPlan(getInputTank().getFluid().copyWithAmount(COOLANT_PER_PROCESSING_TICK), output);
+        return new CoolingTickPlan(getInputTank().getFluid().copyWithAmount(coolantPerTick), output);
     }
 
     private boolean consumeCoolingTick(CoolingTickPlan plan) {
-        FluidStack drained = getInputTank().drain(COOLANT_PER_PROCESSING_TICK, IFluidHandler.FluidAction.EXECUTE);
-        if (drained.getAmount() != COOLANT_PER_PROCESSING_TICK
+        int coolantPerTick = plan.input.getAmount();
+        FluidStack drained = getInputTank().drain(coolantPerTick, IFluidHandler.FluidAction.EXECUTE);
+        if (drained.getAmount() != coolantPerTick
             || !FluidStack.isSameFluidSameComponents(drained, plan.input)) {
             if (!drained.isEmpty()) getInputTank().fill(drained, IFluidHandler.FluidAction.EXECUTE);
             return false;

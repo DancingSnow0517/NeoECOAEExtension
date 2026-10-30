@@ -137,6 +137,14 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
 
     @Override
     public void save(RecipeOutput recipeOutput, ResourceLocation id) {
+        save(recipeOutput, id, false);
+    }
+
+    public void saveLarge(RecipeOutput recipeOutput) {
+        save(recipeOutput, NeoECOAE.id(BuiltInRegistries.ITEM.getKey(itemOutput.getItem()).getPath()), true);
+    }
+
+    private void save(RecipeOutput recipeOutput, ResourceLocation id, boolean large) {
         // check
         if (itemOutput.isEmpty() && fluidOutput.isEmpty()) {
             throw new IllegalStateException("Recipe must have at least one output");
@@ -146,6 +154,6 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
         }
 
         IntegratedWorkingStationRecipe recipe = new IntegratedWorkingStationRecipe(inputItems, inputFluid, itemOutput, fluidOutput, energy, processingTicks);
-        recipeOutput.accept(id, recipe, null);
+        recipeOutput.accept(id, large ? new LargeIntegratedWorkingStationRecipe(recipe) : recipe, null);
     }
 }

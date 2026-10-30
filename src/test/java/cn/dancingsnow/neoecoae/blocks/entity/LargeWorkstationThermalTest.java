@@ -10,6 +10,46 @@ class LargeWorkstationThermalTest {
         return new LargeWorkstationThermal.State(heat, false, 0);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"0,2", "0,6", "0,9", "20,2", "50,6", "80,2", "80,9", "99,9"})
+    void paidRegulationHoldsAnyTargetAgainstIdleCoolingAndProcessingHeat(int target, int tier) {
+        var state = at(target);
+        for (int i = 0; i < 2000; i++) {
+            double load = switch (i % 4) { case 0 -> 0; case 1 -> 0.5; case 2 -> 1; default -> 4; };
+            var plan = LargeWorkstationThermal.regulate(state, load, target, tier, 300);
+            assertTrue(plan.coolantAmount() >= 300);
+            assertEquals(target, plan.result().state().temperature());
+            assertFalse(plan.result().state().overheated());
+            double accounted = state.temperature() + plan.result().processingHeat() + plan.result().preheatHeat()
+                - plan.result().cooling() - plan.result().naturalCooling();
+            assertEquals(plan.result().state().temperature(), accounted, 1e-10);
+            state = plan.result().state();
+        }
+    }
+
+    @Test
+    void regulationApproachesChangedTargetsWithoutOvershootingOrBypassingRecovery() {
+        var state = at(0);
+        for (int i = 0; i < 2000; i++) {
+            state = LargeWorkstationThermal.regulate(state, 0, 80, 9, 300).result().state();
+            assertTrue(state.temperature() <= 80);
+        }
+        assertEquals(at(80), state);
+        for (int i = 0; i < 2000; i++) {
+            state = LargeWorkstationThermal.regulate(state, 1, 0, 9, 300).result().state();
+            assertTrue(state.temperature() >= 0);
+        }
+        assertEquals(at(0), state);
+        var locked = LargeWorkstationThermal.regulate(at(100), 0, 80, 6, 300).result().state();
+        assertTrue(locked.overheated());
+        assertEquals(0, locked.recoveryTicks());
+        for (int i = 0; i < 299; i++) {
+            locked = LargeWorkstationThermal.regulate(locked, 0, 80, 9, 300).result().state();
+            assertTrue(locked.overheated());
+        }
+        assertEquals(at(0), LargeWorkstationThermal.regulate(locked, 0, 80, 9, 300).result().state());
+    }
+
     @Test
     void increasingTemperatureSlowsHeatingAndActualWorkScalesIt() {
         assertEquals(2.794, LargeWorkstationThermal.heatingPerSecond(20), 1e-12);

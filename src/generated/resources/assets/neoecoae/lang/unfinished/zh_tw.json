@@ -1,7 +1,10 @@
 {
-  "gui.neoecoae.smart_cooling.control": "UNLOCALIZED: Automatic cooling, target %s%%; configure by right-clicking the module",
+  "gui.neoecoae.smart_cooling.control": "UNLOCALIZED: Automatic temperature control, target %s%%; configure by right-clicking the module",
   "gui.neoecoae.smart_cooling.coolant_mode": "UNLOCALIZED: Coolant mode: automatic ME supply; temperature control is disabled",
-  "gui.neoecoae.smart_cooling.help": "UNLOCALIZED: Automatically draws the strongest available ME coolant while cooling is requested. Byproducts use the output hatch. Actual cooling requires coolant and output space.",
+  "gui.neoecoae.smart_cooling.cooling": "UNLOCALIZED: Cooling to target",
+  "gui.neoecoae.smart_cooling.heating": "UNLOCALIZED: Heating to target",
+  "gui.neoecoae.smart_cooling.help": "UNLOCALIZED: Heats and cools to target, including idle. Costs 100,000 AE/t and at least 300 mB/t coolant; heat raises fluid use. Needs power, coolant and output space.",
+  "gui.neoecoae.smart_cooling.holding": "UNLOCALIZED: Holding target",
   "gui.neoecoae.smart_cooling.running": "UNLOCALIZED: Automatic cooling requested",
   "gui.neoecoae.smart_cooling.standby": "UNLOCALIZED: Standby",
   "gui.neoecoae.smart_cooling.status": "UNLOCALIZED: Temperature: %s%% | %s",

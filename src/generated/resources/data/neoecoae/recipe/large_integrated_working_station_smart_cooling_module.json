@@ -1,38 +1,58 @@
 {
-  "type": "neoecoae:integrated_working_station",
+  "type": "neoecoae:large_integrated_working_station",
   "energy": 1000,
   "inputFluid": {
-    "amount": 1000,
+    "amount": 512000,
     "fluid": "neoecoae:cryotheum_solution"
   },
   "inputItems": [
     {
-      "count": 4,
+      "count": 64,
       "item": "neoecoae:cryogenic_aluminum_alloy_casing"
     },
     {
-      "count": 1,
+      "count": 16,
       "item": "neoecoae:large_integrated_working_station_input_hatch"
     },
     {
-      "count": 4,
+      "count": 16,
       "item": "neoecoae:phase_change_air_cooler"
     },
     {
-      "count": 4,
+      "count": 32,
       "item": "neoecoae:superconducting_processor"
     },
     {
-      "count": 4,
+      "count": 32,
       "item": "neoecoae:energized_superconductive_block"
     },
     {
-      "count": 1,
+      "count": 16,
       "item": "ae2:interface"
     },
     {
-      "count": 4,
+      "count": 32,
       "item": "neoecoae:crystal_matrix"
+    },
+    {
+      "count": 16,
+      "item": "neoecoae:network_pull_card"
+    },
+    {
+      "count": 16,
+      "item": "neoecoae:large_integrated_working_station_output_hatch"
+    },
+    {
+      "count": 64,
+      "item": "neoecoae:cryotheum_crystal"
+    },
+    {
+      "count": 32,
+      "item": "ae2:engineering_processor"
+    },
+    {
+      "count": 32,
+      "item": "ae2:calculation_processor"
     }
   ],
   "itemOutput": {

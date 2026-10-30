@@ -116,8 +116,7 @@ public final class SmartCoolingModuleUI {
         if (!controller.isTemperatureEnabled()) return Component.translatable("gui.neoecoae.smart_cooling.coolant_mode");
         return Component.translatable("gui.neoecoae.smart_cooling.status",
             String.format(Locale.ROOT, "%.2f", controller.getTemperature()),
-            Component.translatable(controller.isActiveCooling()
-                ? "gui.neoecoae.smart_cooling.running" : "gui.neoecoae.smart_cooling.standby"));
+            controller.getSmartCoolingStatusText());
     }
 
     private static void setTarget(ECOLargeIntegratedWorkingStationInputHatchBlockEntity host, String text) {

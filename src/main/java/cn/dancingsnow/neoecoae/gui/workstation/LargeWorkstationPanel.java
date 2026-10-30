@@ -349,7 +349,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         lines.add(tr("parallel_capacity", HostText.expandedNumber(state.getLong("parallelCapacity"))));
         lines.add(hint(temperatureEnabled() ? "overclock_thermal_hint" : "overclock_coolant_hint"));
         lines.add(hint("overclock_energy_hint"));
-        if (temperatureEnabled()) {
+        if (temperatureEnabled() && !state.getBoolean("smartCooling")) {
             lines.add(hint("preheat_right_click_hint"));
             lines.add(tr(state.getBoolean("preheating") ? "preheat_on" : "preheat_off"));
             lines.add(tr("preheat_energy", HostText.expandedNumber((long) LargeWorkstationThermal.PREHEAT_AE_PER_TICK)));
@@ -402,20 +402,25 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         if (state.getBoolean("smartCooling")) {
             lines.add(Component.translatable("gui.neoecoae.smart_cooling.control", state.getInt("coolingTarget"))
                 .withStyle(ChatFormatting.AQUA));
+            lines.add(Component.translatable("gui.neoecoae.smart_cooling.help").withStyle(ChatFormatting.GRAY));
         }
         lines.add(settingState(state.getBoolean("activeCooling")));
         lines.add(tr("coolant_value", coolantTitle()));
         if (temperatureEnabled()) {
             lines.add(tr("cooling_rate", precise(state.getDouble("coolingPerSecond"))));
-            lines.add(tr("cooling_capacity", decimal(LargeWorkstationThermal.coolingPerSecond(state.getInt("coolantTier"))))
+            double circulation = state.getBoolean("smartCooling")
+                ? (double) state.getInt("coolantPerTick") / LargeWorkstationThermal.COOLANT_PER_TICK : 1;
+            lines.add(tr("cooling_capacity", decimal(LargeWorkstationThermal.coolingPerSecond(state.getInt("coolantTier")) * circulation))
                 .withStyle(ChatFormatting.GRAY));
         }
-        lines.add(hint(temperatureEnabled() ? "cooling_thermal_hint" : "cooling_coolant_hint"));
+        if (!state.getBoolean("smartCooling")) {
+            lines.add(hint(temperatureEnabled() ? "cooling_thermal_hint" : "cooling_coolant_hint"));
+        }
         String problem = state.getString("coolingProblem");
         if (state.getBoolean("activeCooling") && !problem.isEmpty() && !problem.endsWith(".none")) {
             lines.add(Component.translatable(problem).withStyle(ChatFormatting.GOLD));
         }
-        lines.add(hint("cooling_preheat_hint"));
+        if (!state.getBoolean("smartCooling")) lines.add(hint("cooling_preheat_hint"));
         return lines;
     }
 
