@@ -13,6 +13,7 @@ import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationParallelCore;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationThreadingCore;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
+import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
 import com.tterrag.registrate.util.entry.BlockEntry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -101,10 +102,7 @@ public class NEMultiBlocks {
             .setBlock(pos(2, 0, 1), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH.getDefaultState())
             .onFormed((blockPos, level) -> {
                 BlockState state = level.getBlockState(blockPos);
-                BlockState next = state;
-                if (next.hasProperty(NEBlock.FORMED)) {
-                    next = next.setValue(NEBlock.FORMED, true);
-                }
+                BlockState next = MultiBlockContext.formedPreviewState(state);
                 if (next.hasProperty(ECOMachineCasing.INVISIBLE)) {
                     next = next.setValue(ECOMachineCasing.INVISIBLE, true);
                 }

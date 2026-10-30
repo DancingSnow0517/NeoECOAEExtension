@@ -585,7 +585,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return powered.completed();
     }
 
-    private int calculateProgressPerTick(int overclockTimes) {
+    /** Shared with the client preview so advertised speed follows the execution rule. */
+    public static int calculateProgressPerTick(int overclockTimes) {
         return Math.clamp(10 + Math.max(0, overclockTimes) * 10, 10, MAX_PROGRESS);
     }
 

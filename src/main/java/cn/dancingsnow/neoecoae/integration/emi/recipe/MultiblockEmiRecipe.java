@@ -9,7 +9,6 @@ import com.lowdragmc.lowdraglib2.utils.virtuallevel.TrackedDummyWorld;
 import dev.emi.emi.api.recipe.EmiRecipeCategory;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
-import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
@@ -61,12 +60,7 @@ public class MultiblockEmiRecipe extends ModularUIEMIRecipe {
 
     @Override
     public int getDisplayHeight() {
-        int screenHeight = Minecraft.getInstance().getWindow().getGuiScaledHeight();
-        return Math.clamp(
-            screenHeight - MultiBlockInfoWrapper.EMI_VERTICAL_RESERVE,
-            MultiBlockInfoWrapper.MIN_HEIGHT,
-            MultiBlockInfoWrapper.DEFAULT_HEIGHT
-        );
+        return MultiBlockInfoWrapper.DEFAULT_HEIGHT;
     }
 
     private static final class RecipeState {

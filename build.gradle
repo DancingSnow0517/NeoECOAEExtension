@@ -245,13 +245,14 @@ dependencies {
         testImplementation(files(localAe2LtJar))
         devMods(files(localAe2LtJar))
     } else {
-        compileOnly("maven.modrinth:ae2-lightning-tech:AosdXlfS") { transitive = false } // 2.1.2-beta3
-        testImplementation("maven.modrinth:ae2-lightning-tech:AosdXlfS") { transitive = false }
-        devMods("maven.modrinth:ae2-lightning-tech:AosdXlfS") { transitive = false }
+        // 2.1.2 uses static transfer hooks compatible with JEI's optimized local-slot reuse.
+        compileOnly("maven.modrinth:ae2-lightning-tech:wchBNoWt") { transitive = false }
+        testImplementation("maven.modrinth:ae2-lightning-tech:wchBNoWt") { transitive = false }
+        devMods("maven.modrinth:ae2-lightning-tech:wchBNoWt") { transitive = false }
     }
-    compileOnly("maven.modrinth:thunderbolt-core:oyVnlG5A") { transitive = false } // 2.0.3-beta2
-    testImplementation("maven.modrinth:thunderbolt-core:oyVnlG5A") { transitive = false }
-    devMods("maven.modrinth:thunderbolt-core:oyVnlG5A") { transitive = false }
+    compileOnly("maven.modrinth:thunderbolt-core:i3H7uX2O") { transitive = false } // 2.0.3, required by AE2LT 2.1.2
+    testImplementation("maven.modrinth:thunderbolt-core:i3H7uX2O") { transitive = false }
+    devMods("maven.modrinth:thunderbolt-core:i3H7uX2O") { transitive = false }
     // JDT Time Accelerators is optional and requires the separate
     // Just Dire Things mod, so it is not included in the default dev runtime.
     implementation("com.lowdragmc.ldlib2:ldlib2-neoforge-${minecraft_version}:${ldlib2_version}:all") { transitive = false }
