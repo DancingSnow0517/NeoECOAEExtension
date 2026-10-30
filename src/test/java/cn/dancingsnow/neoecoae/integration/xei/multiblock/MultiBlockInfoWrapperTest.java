@@ -94,14 +94,42 @@ class MultiBlockInfoWrapperTest {
             assertNotSame(scene.getParentElement(), length.getParentElement());
             assertSame(scene.getParentElement(), selected.getParentElement());
             assertFalse(selected.isDisplayed());
-            assertEquals(4, fixture.root().getChildren().size());
-            assertEquals(10F, fixture.root().getChildren().get(0).getLayoutStyle().height);
-            assertEquals(16F, length.getParentElement().getLayoutStyle().height);
-            assertEquals(27F, fixture.root().getChildren().get(3).getLayoutStyle().height);
+            UIElement artwork = fixture.root().getChildren().get(1);
+            assertEquals(3, fixture.root().getChildren().size());
+            assertEquals(168F, artwork.getLayoutStyle().width);
+            assertEquals(138F, artwork.getLayoutStyle().height);
+            assertEquals(10F, artwork.getLayoutStyle().top);
+            assertEquals(8F, length.getLayoutStyle().width);
+            assertEquals(8F, length.getLayoutStyle().height);
+            assertEquals(1F, length.getParentElement().getLayoutStyle().top);
+            assertEquals(90F, artwork.getChildren().get(2).getLayoutStyle().width);
+            assertEquals(36F, artwork.getChildren().get(2).getLayoutStyle().height);
         });
     }
 
-    private static void withPreview(Consumer<Fixture> test) {
+    @Test
+    void materialGridScrollsWithoutReplacingRecipeSlotsOrChangingAmounts() {
+        withPreview(true, fixture -> {
+            fixture.root().arrange();
+            var wrapper = fixture.wrapper();
+            List<ItemSlot> slots = field(wrapper, "requiredItemSlots");
+            assertEquals(12, slots.size());
+            var scroller = (cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ScrollerView) field(wrapper, "requiredItems");
+            assertEquals(18F, slots.get(1).getPositionX() - slots.get(0).getPositionX());
+            assertEquals(18F, slots.get(5).getPositionY() - slots.get(0).getPositionY());
+            assertEquals(18F, slots.get(10).getPositionY() - slots.get(5).getPositionY());
+            assertEquals(36F, scroller.getSizeHeight());
+            float before = slots.get(10).getPositionY();
+            assertTrue(scroller.mouseWheelMove(scroller.getPositionX() + 3, scroller.getPositionY() + 3, -1));
+            assertTrue(slots.get(10).getPositionY() < before);
+            assertSame(slots.get(0), ((List<?>) field(wrapper, "requiredItemSlots")).get(0));
+            assertEquals(1, slots.get(0).getValue().getCount());
+        });
+    }
+
+    private static void withPreview(Consumer<Fixture> test) { withPreview(false, test); }
+
+    private static void withPreview(boolean manyMaterials, Consumer<Fixture> test) {
         try (var ldlib = mockStatic(LDLib.class); var minecraft = mockStatic(Minecraft.class);
              var worlds = mockConstruction(TrackedDummyWorld.class);
              var scenes = mockConstruction(SceneWidget.class)) {
@@ -110,10 +138,18 @@ class MultiBlockInfoWrapperTest {
             when(client.getSoundManager()).thenReturn(mock(SoundManager.class));
             minecraft.when(Minecraft::getInstance).thenReturn(client);
             AtomicInteger length = new AtomicInteger();
-            var definition = MultiBlockDefinition.builder(Holder.direct(Blocks.STONE))
+            var builder = MultiBlockDefinition.builder(Holder.direct(Blocks.STONE))
                 .setBlockRepeatable(BlockPos.ZERO, Direction.EAST, Blocks.STONE.defaultBlockState())
-                .setBlock(new BlockPos(0, 1, 0), Blocks.GLASS.defaultBlockState())
-                .expandMax(3).create(ignored -> {});
+                .setBlock(new BlockPos(0, 1, 0), Blocks.GLASS.defaultBlockState());
+            if (manyMaterials) {
+                var extra = List.of(Blocks.DIRT, Blocks.SAND, Blocks.GRAVEL, Blocks.COBBLESTONE,
+                    Blocks.OAK_PLANKS, Blocks.IRON_BLOCK, Blocks.GOLD_BLOCK, Blocks.DIAMOND_BLOCK,
+                    Blocks.EMERALD_BLOCK, Blocks.COPPER_BLOCK);
+                for (int i = 0; i < extra.size(); i++) {
+                    builder.setBlock(new BlockPos(i, 2, 0), extra.get(i).defaultBlockState());
+                }
+            }
+            var definition = builder.expandMax(3).create(ignored -> {});
             var wrapper = new MultiBlockInfoWrapper(definition, 170, 190, length::set);
             var ui = wrapper.createModularUI();
             test.accept(new Fixture(wrapper, ui.getRootElement(), length));

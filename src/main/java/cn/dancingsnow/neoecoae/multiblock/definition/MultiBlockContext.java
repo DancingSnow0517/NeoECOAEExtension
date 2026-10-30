@@ -25,6 +25,17 @@ public abstract class MultiBlockContext {
 
     public abstract boolean isFormed();
 
+    /** Use the state's own property instance; identical property names can have different identities. */
+    public static BlockState formedPreviewState(BlockState state) {
+        for (var property : state.getProperties()) {
+            if (property instanceof net.minecraft.world.level.block.state.properties.BooleanProperty formed
+                && formed.getName().equals("formed")) {
+                return state.setValue(formed, true);
+            }
+        }
+        return state;
+    }
+
     public static MultiBlockContext.DummyDelegated dummyDelegated(int repeats, TrackedDummyWorld world) {
         return new DummyDelegated(repeats, world);
     }

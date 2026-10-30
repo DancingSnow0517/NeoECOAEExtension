@@ -4,6 +4,31 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class GuiLangs {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("gui.neoecoae.multiblock.preview.info.parallel", "Parallel");
+        provider.add("gui.neoecoae.multiblock.preview.info.memory", "Memory");
+        provider.add("gui.neoecoae.multiblock.preview.info.threads", "Threads");
+        provider.add("gui.neoecoae.multiblock.preview.info.speed", "Speed");
+        provider.add("gui.neoecoae.multiblock.preview.info.batch", "Batch");
+        provider.add("gui.neoecoae.multiblock.preview.info.workers", "Cores");
+        provider.add("gui.neoecoae.multiblock.preview.info.slots", "Cells");
+        provider.add("gui.neoecoae.multiblock.preview.info.energy", "Energy");
+        provider.add("gui.neoecoae.multiblock.preview.info.capacity", "Capacity");
+        provider.add("gui.neoecoae.multiblock.preview.info.by_cells", "By cells");
+        provider.add("gui.neoecoae.multiblock.preview.info.max_parallel", "OC limit");
+        provider.add("gui.neoecoae.multiblock.preview.info.structure", "Size");
+        provider.add("gui.neoecoae.multiblock.preview.info.blocks", "Blocks");
+        provider.add("gui.neoecoae.multiblock.preview.info.materials", "Types");
+        provider.add("gui.neoecoae.multiblock.preview.info.scope", "Single machine at the previewed length; excludes exchange-network bonuses. Extend to the configured maximum length to see its full build.");
+        provider.add("gui.neoecoae.multiblock.preview.info.computation_help", "Parallelism and threads supplied by the component tiers shown in this structure.");
+        provider.add("gui.neoecoae.multiblock.preview.info.memory_help", "Capacity with every memory slot filled by a computation cell matching the displayed core tier. Actual capacity depends on the installed cells.");
+        provider.add("gui.neoecoae.multiblock.preview.info.speed_help", "Theoretical single-machine crafts per tick with overclock enabled, sufficient power and suitable coolant. Uses the execution progress rule; dispatch and output backpressure can reduce throughput.");
+        provider.add("gui.neoecoae.multiblock.preview.info.batch_help", "%s crafts per FX core × %s FX cores with overclock enabled. This is batch capacity, not crafts per second.");
+        provider.add("gui.neoecoae.multiblock.preview.info.storage_help", "Each drive holds one storage cell. Capacity depends on the cells and the host storage mode.");
+        provider.add("gui.neoecoae.multiblock.preview.info.energy_help", "Total capacity of the energy cells in this structure, in AE.");
+        provider.add("gui.neoecoae.multiblock.preview.info.workstation_help", "Base and maximum overclock parallelism. Maximum requires the corresponding cooling/temperature conditions.");
+        provider.add("gui.neoecoae.multiblock.preview.info.materials_scroll", "Required materials. Scroll to view more than ten material types.");
+        provider.add("gui.neoecoae.multiblock.preview.info.formed_on", "Formed appearance: on");
+        provider.add("gui.neoecoae.multiblock.preview.info.formed_off", "Formed appearance: off");
         provider.add("gui.neoecoae.large_integrated_working_station.module_any", "Supported upgrade cards (any one): %s");
         provider.add("gui.neoecoae.large_integrated_working_station.variant_costs", "Each route retains its own batch size and costs:");
         provider.add("gui.neoecoae.large_integrated_working_station.recipe_energy_value", "Energy: %s");

@@ -1,7 +1,5 @@
 package cn.dancingsnow.neoecoae.integration.emi.recipe;
 
-import cn.dancingsnow.neoecoae.platform.JdkCompat;
-
 import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
 import cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapper;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
@@ -11,7 +9,6 @@ import com.lowdragmc.lowdraglib.utils.TrackedDummyWorld;
 import dev.emi.emi.api.recipe.EmiRecipeCategory;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
-import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
@@ -63,12 +60,7 @@ public class MultiblockEmiRecipe extends ModularUIEMIRecipe {
 
     @Override
     public int getDisplayHeight() {
-        int screenHeight = Minecraft.getInstance().getWindow().getGuiScaledHeight();
-        return JdkCompat.clamp(
-            screenHeight - MultiBlockInfoWrapper.EMI_VERTICAL_RESERVE,
-            MultiBlockInfoWrapper.MIN_HEIGHT,
-            MultiBlockInfoWrapper.DEFAULT_HEIGHT
-        );
+        return MultiBlockInfoWrapper.DEFAULT_HEIGHT;
     }
 
     private static final class RecipeState {

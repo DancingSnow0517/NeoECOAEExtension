@@ -46,6 +46,7 @@
   ],
   "client": [
     "client.jei.RecipeLayoutMixin",
+    "client.jei.MultiblockRecipesGuiMixin",
     "client.jei.RecipeLayoutBuilderMixin",
     "client.ldlib.UIFactoryMixin",
     "client.accessor.MenuScreensAccessor",

@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.xei.multiblock;
 
-import cn.dancingsnow.neoecoae.platform.JdkCompat;
-
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
@@ -10,28 +9,31 @@ import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.RequiredItem;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.impl.SupplierDataSource;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UI;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.data.TextWrap;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.data.ScrollDisplay;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.data.ScrollerMode;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Button;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Scene;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ScrollerView;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.TextElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib.jei.IngredientIO;
-import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.util.DrawerHelper;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.sounds.SoundEvents;
 import com.lowdragmc.lowdraglib.utils.TrackedDummyWorld;
-import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.FlexDirection;
 import lombok.Getter;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
@@ -42,17 +44,16 @@ import java.util.function.IntConsumer;
 
 public class MultiBlockInfoWrapper {
 
-    public static final int DEFAULT_WIDTH = 170;
-    public static final int DEFAULT_HEIGHT = 190;
-    public static final int MIN_HEIGHT = 120;
-    public static final int EMI_VERTICAL_RESERVE = 105;
+    public static final int DEFAULT_WIDTH = 168;
+    public static final int DEFAULT_HEIGHT = 148;
+    public static final int MIN_HEIGHT = DEFAULT_HEIGHT;
 
-    private static final int PADDING = 4;
-    private static final int GAP = 3;
-    private static final int TITLE_HEIGHT = 10;
-    private static final int CONTROL_HEIGHT = 16;
-    private static final int MATERIALS_HEIGHT = 27;
+    private static final int TOOLBAR_HEIGHT = 10;
+    private static final int CONTROL_SIZE = 8;
+    private static final int MATERIAL_COLUMNS = 5;
     private static final int TITLE_COLOR = 0x3f3d52;
+    private static final IGuiTexture BACKGROUND = SpriteTexture.of(
+        NeoECOAE.id("textures/guis/multiblock_preview.png")).setSprite(0, 0, 168, 138);
 
     @Getter
     private final MultiBlockDefinition definition;
@@ -62,6 +63,7 @@ public class MultiBlockInfoWrapper {
     private final IntConsumer expandChanged;
 
     private Scene scene;
+    private final java.util.Map<UIElement, List<Component>> controlTooltips = new java.util.IdentityHashMap<>();
     private Button expandButton;
     private Button layerButton;
     private Button formedButton;
@@ -74,6 +76,8 @@ public class MultiBlockInfoWrapper {
 
     private ItemStack selectedItem = ItemStack.EMPTY;
     private ScrollerView requiredItems;
+    private int materialRowOffset;
+    private List<MultiBlockPreviewInfo.Row> infoRows = List.of();
     private final List<RequiredItemSlot> requiredItemSlots = new ArrayList<>();
 
     public MultiBlockInfoWrapper(MultiBlockDefinition definition) {
@@ -95,32 +99,22 @@ public class MultiBlockInfoWrapper {
         this.width = Math.max(width, DEFAULT_WIDTH);
         this.height = Math.max(height, MIN_HEIGHT);
         this.expandChanged = expandChanged;
+        this.expand = definition.getExpandMin();
     }
 
     public ModularUI createModularUI() {
-        var root = new UIElement().layout(layout -> layout
-            .width(width)
-            .height(height)
-            .paddingAll(PADDING)
-            .gapAll(GAP)
-        ).style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
-
-        root.addChild(new TextElement()
+        var root = new UIElement().layout(layout -> layout.width(width).height(height).paddingAll(0))
+            .style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
+        root.addChild(HostElements.absolute(new TextElement()
             .setText(definition.getName())
-            .textStyle(textStyle -> textStyle
-                .adaptiveWidth(false)
-                .adaptiveHeight(false)
-                .textWrap(TextWrap.HOVER_ROLL)
-                .textColor(TITLE_COLOR)
-                .textShadow(false))
-            .layout(layout -> layout
-                .widthPercent(100)
-                .height(TITLE_HEIGHT)));
+            .textStyle(style -> style.adaptiveWidth(false).adaptiveHeight(false)
+                .fontSize(8).textWrap(TextWrap.HOVER_ROLL).textColor(TITLE_COLOR).textShadow(false)),
+            4, 0, 124, TOOLBAR_HEIGHT));
 
-        UIElement sceneContainer = new UIElement()
-            .layout(layout -> layout.widthPercent(100).flexGrow(1).flexShrink(1))
-            .style(style -> style.backgroundTexture(NETextures.CARD_BACKGROUND));
-        root.addChild(sceneContainer);
+        UIElement artwork = new UIElement().style(style -> style.backgroundTexture(BACKGROUND));
+        root.addChild(HostElements.absolute(artwork, 0, TOOLBAR_HEIGHT, DEFAULT_WIDTH, 138));
+        UIElement sceneContainer = new UIElement().style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
+        artwork.addChild(HostElements.absolute(sceneContainer, 6, 6, 156, 83));
 
         scene = new Scene()
             .createScene(world)
@@ -138,37 +132,51 @@ public class MultiBlockInfoWrapper {
         HostElements.absolute(selectedSlot, 3, 3, 18, 18).setDisplay(false);
         sceneContainer.addChild(selectedSlot);
 
-        UIElement controls = new UIElement().layout(layout -> layout
-            .widthPercent(100)
-            .height(CONTROL_HEIGHT)
-            .flexDirection(FlexDirection.ROW)
-            .gapAll(GAP));
-        expandButton = cycleButton(this::cycleExpand);
-        HostElements.tooltips(expandButton,
-            Component.translatable("gui.neoecoae.multiblock.preview.length.tooltip",
-                definition.getExpandMin(), definition.getExpandMax()),
-            Component.translatable("gui.neoecoae.multiblock.preview.cycle_hint"));
-        layerButton = cycleButton(this::cycleLayer);
-        HostElements.tooltips(layerButton,
-            Component.translatable("gui.neoecoae.multiblock.preview.layer.tooltip"),
-            Component.translatable("gui.neoecoae.multiblock.preview.cycle_hint"));
-        formedButton = new Button().setText("gui.neoecoae.multiblock.preview.formed", true)
-            .setOnClick(event -> toggleFormed());
-        formedButton.layout(layout -> layout.width(40).height(CONTROL_HEIGHT).paddingAll(0));
-        HostElements.tooltips(formedButton, Component.translatable("gui.neoecoae.multiblock.preview.formed.tooltip"));
-        controls.addChildren(expandButton, layerButton, formedButton);
-        root.addChild(controls);
+        UIElement controls = new UIElement().style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
+        root.addChild(HostElements.absolute(controls, 132, 1, 32, CONTROL_SIZE));
+        expandButton = cycleButton(this::cycleExpand, 0);
+        layerButton = cycleButton(this::cycleLayer, 1);
+        formedButton = new MiniButton(2).setOnClick(event -> toggleFormed());
+        controls.addChildren(HostElements.absolute(expandButton, 0, 0, CONTROL_SIZE, CONTROL_SIZE),
+            HostElements.absolute(layerButton, 12, 0, CONTROL_SIZE, CONTROL_SIZE),
+            HostElements.absolute(formedButton, 24, 0, CONTROL_SIZE, CONTROL_SIZE));
 
-        requiredItems = new ScrollerView();
+        UIElement info = new UIElement().style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
+        artwork.addChild(HostElements.absolute(info, 5, 99, 62, 34));
+        for (int i = 0; i < 3; i++) {
+            final int index = i;
+            UIElement row = new UIElement() {
+                @Override public void drawBackgroundAdditional(GUIContext context) { drawInfoRow(context, this, index); }
+            };
+            row.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+                if (index < infoRows.size()) {
+                    var value = infoRows.get(index);
+                    event.hoverTooltips = HoverTooltips.empty().append(
+                        value.label().copy().append(": ").append(value.value()), value.help(),
+                        Component.translatable(MultiBlockPreviewInfo.PREFIX + "scope"));
+                }
+            });
+            info.addChild(HostElements.absolute(row, 0, 2 + i * 10, 62, 10));
+        }
+
+        requiredItems = new ScrollerView().scrollerStyle(style -> style.mode(ScrollerMode.VERTICAL)
+            .horizontalScrollDisplay(ScrollDisplay.NEVER).verticalScrollDisplay(ScrollDisplay.NEVER));
         requiredItems.style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
-        requiredItems.viewPort(c -> c
-            .layout(layout -> layout.paddingAll(0).paddingBottom(3))
+        requiredItems.viewPort(view -> view.layout(layout -> layout.paddingAll(0))
             .style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
-        requiredItems.viewContainer(c -> c
-            .layout(layout -> layout.flexDirection(FlexDirection.ROW))
+        requiredItems.viewContainer(view -> view.layout(layout -> layout.width(90).paddingAll(0))
             .style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
-        requiredItems.layout(layout -> layout.widthPercent(100).height(MATERIALS_HEIGHT).flexShrink(0));
-        root.addChild(requiredItems);
+        HostElements.tooltips(requiredItems, Component.translatable(MultiBlockPreviewInfo.PREFIX + "materials_scroll"));
+        requiredItems.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
+            if (event.deltaY == 0) return;
+            int lastRow = Math.max(0, (requiredItemSlots.size() + 4) / 5 - 2);
+            if (lastRow == 0) return;
+            materialRowOffset = Math.max(0, Math.min(lastRow, materialRowOffset + (event.deltaY > 0 ? -1 : 1)));
+            requiredItems.verticalScroller(scroller -> scroller.setValue(materialRowOffset / (float) lastRow));
+            event.hasHandler = true;
+            event.stopImmediatePropagation();
+        }, true);
+        artwork.addChild(HostElements.absolute(requiredItems, 74, 98, 90, 36));
 
         initializeRequiredItemSlots();
         expandChanged.accept(expand);
@@ -177,12 +185,12 @@ public class MultiBlockInfoWrapper {
     }
 
     /** Left click steps forward, right click steps back; both wrap around. */
-    private Button cycleButton(IntConsumer step) {
-        Button button = new Button().setAcceptedButtons(0, 1).setOnClick(event -> {
+    private Button cycleButton(IntConsumer step, int icon) {
+        Button button = new MiniButton(icon).setAcceptedButtons(0, 1).setOnClick(event -> {
             Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
             step.accept(event.button == 1 ? -1 : 1);
         });
-        button.layout(layout -> layout.flexGrow(1).width(0).height(CONTROL_HEIGHT).paddingAll(0));
+        button.layout(layout -> layout.width(CONTROL_SIZE).height(CONTROL_SIZE).paddingAll(0));
         return button;
     }
 
@@ -226,21 +234,41 @@ public class MultiBlockInfoWrapper {
     }
 
     private void updateControlText() {
-        expandButton.setText(Component.translatable("gui.neoecoae.multiblock.preview.length", expand));
-        layerButton.setText(layer == -1
+        setControlTooltip(expandButton, List.of(
+            Component.translatable("gui.neoecoae.multiblock.preview.length", expand + 4),
+            Component.translatable("gui.neoecoae.multiblock.preview.length.tooltip",
+                definition.getExpandMin() + 4, definition.getExpandMax() + 4),
+            Component.translatable("gui.neoecoae.multiblock.preview.cycle_hint")));
+        setControlTooltip(layerButton, List.of(layer == -1
             ? Component.translatable("gui.neoecoae.multiblock.preview.layer.all")
-            : Component.translatable("gui.neoecoae.multiblock.preview.layer", layer + 1, layerMax + 1));
+            : Component.translatable("gui.neoecoae.multiblock.preview.layer", layer + 1, layerMax + 1),
+            Component.translatable("gui.neoecoae.multiblock.preview.layer.tooltip"),
+            Component.translatable("gui.neoecoae.multiblock.preview.cycle_hint")));
+        setControlTooltip(formedButton, List.of(
+            Component.translatable("gui.neoecoae.multiblock.preview.formed.tooltip"),
+            Component.translatable(MultiBlockPreviewInfo.PREFIX + (formed ? "formed_on" : "formed_off"))));
+    }
+
+    private void setControlTooltip(UIElement element, List<Component> lines) {
+        if (!controlTooltips.containsKey(element)) {
+            element.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
+                event.hoverTooltips = HoverTooltips.empty().append(controlTooltips.get(element).toArray(Component[]::new)));
+        }
+        controlTooltips.put(element, lines);
     }
 
     private void createScene() {
+        // Build without the previous layer/length filter hiding newly added preview blocks.
+        world.setRenderFilter(null);
         world.clear();
         MultiBlockContext.DummyDelegated context = MultiBlockContext.dummyDelegated(expand, world);
         context.setFormed(formed);
         definition.createLevel(context);
         this.layerMax = context.getYMax();
-        layer = JdkCompat.clamp(layer, -1, layerMax);
+        layer = Math.max(-1, Math.min(layer, layerMax));
         if (layer == -1) {
             scene.setRenderedCore(context.allBlocks());
+            world.setRenderFilter(context.allBlocks()::contains);
         } else {
             List<BlockPos> rendered = new ArrayList<>();
             for (BlockPos pos : context.allBlocks()) {
@@ -249,8 +277,10 @@ public class MultiBlockInfoWrapper {
                 }
             }
             scene.setRenderedCore(rendered);
+            world.setRenderFilter(rendered::contains);
         }
         updateControlText();
+        infoRows = MultiBlockPreviewInfo.rows(definition.getOwner().value(), context.getRequiredItems());
         updateRequiredItemSlots(context.getRequiredItems());
     }
 
@@ -267,12 +297,15 @@ public class MultiBlockInfoWrapper {
         );
         definition.createLevel(context);
 
-        for (int i = 0; i < context.getRequiredItems().size(); i++) {
+        int size = context.getRequiredItems().size();
+        requiredItems.viewContainer(view -> view.layout(layout -> layout.height(Math.max(36, ((size + 4) / 5) * 18))));
+        for (int i = 0; i < size; i++) {
             RequiredItemSlot slot = new RequiredItemSlot(0);
             slot.xeiRecipeIngredient(IngredientIO.INPUT)
                 .xeiRecipeSlot(IngredientIO.INPUT, 1);
             requiredItemSlots.add(slot);
-            requiredItems.addScrollViewChild(slot);
+            requiredItems.addScrollViewChild(HostElements.absolute(slot, i % MATERIAL_COLUMNS * 18,
+                i / MATERIAL_COLUMNS * 18, 18, 18));
         }
     }
 
@@ -295,13 +328,62 @@ public class MultiBlockInfoWrapper {
         }
     }
 
+    private void drawInfoRow(GUIContext context, UIElement element, int index) {
+        if (index >= infoRows.size()) return;
+        var row = infoRows.get(index);
+        var font = Minecraft.getInstance().font;
+        int x = Math.round(element.getPositionX()), y = Math.round(element.getPositionY());
+        context.graphics.fill(x, y, x + 62, y + 10, index % 2 == 0 ? 0xffadb0c4 : 0xff9a9fb4);
+        // Fit both columns as one line, including languages with wider labels.
+        float scale = Math.min(0.7f, 59f / Math.max(1, font.width(row.label()) + font.width(row.value()) + 4));
+        context.pose.pushPose();
+        context.pose.translate(x + 1, y + (10 - 9 * scale) / 2, 0);
+        context.pose.scale(scale, scale, 1);
+        context.graphics.drawString(font, row.label(), 0, 0, 0x555563, false);
+        context.graphics.drawString(font, row.value(), Math.round(60 / scale) - font.width(row.value()), 0, 0x242432, false);
+        context.pose.popPose();
+    }
+
+    /** Pixel glyphs remain legible without shrinking a normal 20px button's borders. */
+    private final class MiniButton extends Button {
+        private final int icon;
+        private MiniButton(int icon) {
+            this.icon = icon;
+            noText();
+            layout(layout -> layout.width(CONTROL_SIZE).height(CONTROL_SIZE).paddingAll(0));
+        }
+
+        @Override public void drawBackgroundAdditional(GUIContext context) {
+            int x = Math.round(getPositionX()), y = Math.round(getPositionY());
+            var graphics = context.graphics;
+            graphics.fill(x, y, x + 8, y + 8, 0xff878fa5);
+            graphics.fill(x + 1, y + 1, x + 7, y + 7,
+                icon == 2 && formed ? 0xffb9d4c4 : getState() == State.DEFAULT ? 0xffcbccd4 : 0xfff2f2f2);
+            int ink = 0xff3f3d52;
+            if (icon == 0) {
+                graphics.fill(x + 1, y + 3, x + 7, y + 4, ink);
+                graphics.fill(x + 1, y + 2, x + 2, y + 5, ink);
+                graphics.fill(x + 6, y + 2, x + 7, y + 5, ink);
+            } else if (icon == 1) {
+                graphics.fill(x + 2, y + 2, x + 6, y + 3, ink);
+                graphics.fill(x + 2, y + 4, x + 6, y + 5, ink);
+                graphics.fill(x + 2, y + 6, x + 6, y + 7, ink);
+            } else {
+                graphics.fill(x + 2, y + 2, x + 6, y + 6, ink);
+                graphics.fill(x + 3, y + 3, x + 5, y + 5, 0xffcbccd4);
+            }
+        }
+    }
+
     private static final class RequiredItemSlot extends ItemSlot {
         private int count;
         private ItemStack requiredItem = ItemStack.EMPTY;
 
         private RequiredItemSlot(int count) {
             this.count = count;
-            getStyle().backgroundTexture(NETextures.ITEM_SLOT);
+            getStyle().backgroundTexture(IGuiTexture.EMPTY);
+            layout(layout -> layout.width(18).height(18).paddingAll(1).flexShrink(0));
+            slotStyle(style -> style.slotOverlay(IGuiTexture.EMPTY));
         }
 
         private void setRequiredItem(@Nullable RequiredItem requiredItem) {
@@ -329,11 +411,10 @@ public class MultiBlockInfoWrapper {
             if (itemStack.isEmpty()) {
                 return;
             }
-            DrawerHelper.drawItemStack(guiContext.graphics, itemStack.copyWithCount(1), 0, 0, -1, null);
-            guiContext.graphics.pose().pushPose();
-            guiContext.graphics.pose().translate(0, 0, 240);
-            DrawerHelper.drawStringFixedCorner(guiContext.graphics, String.valueOf(count), 17, 17, 0xffffff, true, 0.8f);
-            guiContext.graphics.pose().popPose();
+            ItemStack icon = itemStack.copyWithCount(1);
+            guiContext.graphics.renderItem(icon, 0, 0);
+            guiContext.graphics.renderItemDecorations(Minecraft.getInstance().font, icon, 0, 0,
+                count == 1 ? null : String.valueOf(count));
         }
     }
 }
