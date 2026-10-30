@@ -171,13 +171,15 @@ class WorkstationArtworkTest {
                 for (boolean formed : new boolean[] {false, true}) {
                     for (boolean working : new boolean[] {false, true}) {
                         for (LargeWorkstationModule module : LargeWorkstationModule.values()) {
-                            String key = "facing=" + facing + ",formed=" + formed + ",module="
-                                + module.getSerializedName() + ",working=" + working;
-                            assertTrue(variants.has(key), "Missing external-model variant: " + key);
-                            String model = variants.getAsJsonObject(key).get("model").getAsString();
-                            assertEquals("neoecoae:" + (formed ? module.modelPath(working)
-                                : "block/integrated_working_station" + (working ? "_on" : "")), model);
-                            assertNotNull(getClass().getResource("/assets/neoecoae/models/" + model.substring(9) + ".json"));
+                            for (boolean smartCooling : new boolean[] {false, true}) {
+                                String key = "facing=" + facing + ",formed=" + formed + ",module="
+                                    + module.getSerializedName() + ",smart_cooling=" + smartCooling + ",working=" + working;
+                                assertTrue(variants.has(key), "Missing external-model variant: " + key);
+                                String model = variants.getAsJsonObject(key).get("model").getAsString();
+                                assertEquals("neoecoae:" + (formed ? module.modelPath(working, smartCooling)
+                                    : "block/integrated_working_station" + (working ? "_on" : "")), model);
+                                assertNotNull(getClass().getResource("/assets/neoecoae/models/" + model.substring(9) + ".json"));
+                            }
                         }
                     }
                 }

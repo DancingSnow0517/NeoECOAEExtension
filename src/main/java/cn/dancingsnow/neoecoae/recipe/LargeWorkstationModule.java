@@ -77,6 +77,11 @@ public enum LargeWorkstationModule implements StringRepresentable {
             : "block/large_integrated_working_station_compat/" + model + (working ? "_on" : "_off");
     }
 
+    public String modelPath(boolean working, boolean smartCooling) {
+        return smartCooling ? modelPath(working).replace("large_integrated_working_station",
+            "large_integrated_working_station_smart_cooling") : modelPath(working);
+    }
+
     public static LargeWorkstationModule fromSourceType(ResourceLocation type) {
         if (type == null || type.equals(LargeWorkstationRecipe.NATIVE_TYPE)) return REGULAR;
         return switch (type.getNamespace()) {

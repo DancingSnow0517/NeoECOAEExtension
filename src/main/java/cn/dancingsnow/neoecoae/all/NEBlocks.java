@@ -577,7 +577,8 @@ public class NEBlocks {
                     boolean working = s.getValue(ECOIntegratedWorkingStation.WORKING);
                     boolean formed = s.getValue(ECOIntegratedWorkingStation.FORMED);
                     ModelFile formedModel = prov.models().getExistingFile(prov.modLoc(
-                        s.getValue(ECOIntegratedWorkingStation.MODULE).modelPath(working)));
+                        s.getValue(ECOIntegratedWorkingStation.MODULE).modelPath(working,
+                            s.getValue(ECOIntegratedWorkingStation.SMART_COOLING))));
                     return ConfiguredModel.builder()
                         .modelFile(formed ? formedModel : (working ? modelFileWorking : modelFile))
                         .rotationY(((int) s.getValue(ECOIntegratedWorkingStation.FACING).toYRot() + 180) % 360)
@@ -640,11 +641,12 @@ public class NEBlocks {
         .properties(p -> p.strength(5.0F, 6.0F).requiresCorrectToolForDrops())
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate((ctx, prov) -> {
-            BlockModelBuilder model = prov.models().orientableWithBottom(ctx.getName(),
-                prov.modLoc("block/working_station/smart_cooling_module_side"),
-                prov.modLoc("block/working_station/smart_cooling_module_front"),
-                prov.modLoc("block/working_station/smart_cooling_module_side"),
-                prov.modLoc("block/working_station/smart_cooling_module_top"));
+            BlockModelBuilder model = prov.models().withExistingParent(ctx.getName(),
+                prov.modLoc("block/smart_cooling_module_base"))
+                .texture("side", prov.modLoc("block/working_station/smart_cooling_module_side"))
+                .texture("front", prov.modLoc("block/working_station/smart_cooling_module_front"))
+                .texture("bottom", prov.modLoc("block/working_station/smart_cooling_module_side"))
+                .texture("top", prov.modLoc("block/working_station/smart_cooling_module_top"));
             prov.horizontalBlock(ctx.get(), model);
         })
         .lang("Large Integrated Working Station Smart Cooling Module")

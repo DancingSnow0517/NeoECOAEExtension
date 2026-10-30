@@ -227,10 +227,11 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     public void updateState(boolean updateExposed) {
         if (level == null || level.isClientSide || isRemoved()) return;
         BlockState state = level.getBlockState(worldPosition);
-        if (state.getBlock() == NEBlocks.INTEGRATED_WORKING_STATION.get()) {
+        if (state.getBlock() instanceof ECOIntegratedWorkingStation) {
             BlockState next = state
                 .setValue(cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation.WORKING, isWorking())
                 .setValue(cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation.FORMED, formed)
+                .setValue(ECOIntegratedWorkingStation.SMART_COOLING, formed && hasSmartCoolingModule())
                 .setValue(cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation.MODULE, getInstalledModule());
             if (next != state) {
                 level.setBlock(worldPosition, next, Block.UPDATE_CLIENTS);
@@ -284,6 +285,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     public void updateCluster(@Nullable NEIntegratedWorkingStationCluster next) {
         cluster = next;
         setFormed(next != null);
+        // Rebuilding an already formed cluster can replace its cooling component.
+        updateState(false);
     }
 
     private void transferStoredFluid(FluidTank source, FluidTank destination) {

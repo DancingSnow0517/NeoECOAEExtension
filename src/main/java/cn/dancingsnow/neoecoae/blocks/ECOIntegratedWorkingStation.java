@@ -34,6 +34,7 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
     public static final Property<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final Property<Boolean> WORKING = BooleanProperty.create("working");
     public static final BooleanProperty FORMED = BooleanProperty.create("formed");
+    public static final BooleanProperty SMART_COOLING = BooleanProperty.create("smart_cooling");
     public static final EnumProperty<LargeWorkstationModule> MODULE = EnumProperty.create("module", LargeWorkstationModule.class);
 
     private static final VoxelShape NORTH = Stream.of(
@@ -86,7 +87,7 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
         // The recessed screen and cutout models must not hide neighbouring block faces.
         super(props.noOcclusion());
         registerDefaultState(getStateDefinition().any().setValue(FACING, Direction.NORTH).setValue(WORKING, false)
-            .setValue(FORMED, false).setValue(MODULE, LargeWorkstationModule.REGULAR));
+            .setValue(FORMED, false).setValue(SMART_COOLING, false).setValue(MODULE, LargeWorkstationModule.REGULAR));
     }
 
     @Override
@@ -97,7 +98,7 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
-        builder.add(WORKING, FORMED, MODULE);
+        builder.add(WORKING, FORMED, SMART_COOLING, MODULE);
     }
 
     @Override

@@ -1,5 +1,5 @@
 {
-  "parent": "minecraft:block/orientable_with_bottom",
+  "parent": "neoecoae:block/smart_cooling_module_base",
   "textures": {
     "bottom": "neoecoae:block/working_station/smart_cooling_module_side",
     "front": "neoecoae:block/working_station/smart_cooling_module_front",
