@@ -89,6 +89,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
     private ECOGrowthDispatchBarrier growthBarrier;
     final ElapsedTimeTracker timeTracker;
     GenericStack finalOutput;
+    /** Undelivered final output. Clamped to non-negative where it enters (constructor/NBT) and on every decrement. */
     long remainingAmount;
     boolean exactOrder;
     final Map<AEKey, java.math.BigInteger> deferredStock = new LinkedHashMap<>();
@@ -116,7 +117,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
             CraftingDifferenceListener postCraftingDifference, CraftingLink link, @Nullable Integer playerId) {
         this.finalOutput = plan.finalOutput();
         this.reservedBytes = plan.bytes();
-        this.remainingAmount = this.finalOutput.amount();
+        this.remainingAmount = Math.max(0L, this.finalOutput.amount());
         this.exactOrder = plan instanceof cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan;
         this.waitingFor = createWaitingInventory(exactOrder, postCraftingDifference);
 
@@ -187,7 +188,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
 
         this.finalOutput = GenericStack.readTag(registries, data.getCompound(NBT_FINAL_OUTPUT));
         this.reservedBytes = data.getLong("optimizationReservedBytes");
-        this.remainingAmount = data.getLong(NBT_REMAINING_AMOUNT);
+        this.remainingAmount = Math.max(0L, data.getLong(NBT_REMAINING_AMOUNT));
         this.exactOrder = data.getBoolean("exactOrder");
         var fuzzyItems = new HashSet<net.minecraft.resources.ResourceLocation>();
         for (var tag : data.getList("fuzzyPlanningItemIds", Tag.TAG_STRING)) {

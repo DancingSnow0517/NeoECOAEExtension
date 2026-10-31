@@ -64,8 +64,7 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
     }
 
     static StoragePanelState capture(StorageHostUI.Config config, int requestedOffset, int pageSize) {
-        if (config == null) return EMPTY;
-        List<CellEntry> all = StorageHostUI.safeEntries(config.cellEntries());
+        List<CellEntry> all = config.cellEntries().get();
         int offset = pageOffset(requestedOffset, all.size(), pageSize);
         boolean infinite = config.infiniteStorage().getAsBoolean();
         boolean migrating = config.migratingToInfinite().getAsBoolean();
@@ -224,8 +223,7 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
                 cell.contains("locked") ? component(cell, "locked") : null,
                 cell.hasUUID("interactionId") ? cell.getUUID("interactionId") : null,
                 cell.contains("tierName") ? component(cell, "tierName") : null,
-                cell.contains("exactBytes") ? new BigInteger(cell.getString("exactBytes"))
-                    : BigInteger.valueOf(Math.max(0L, cell.getLong("ub")))));
+                new BigInteger(cell.getString("exactBytes"))));
         }
         List<TypeLine> types = new ArrayList<>();
         for (Tag valueType : tag.getList("types", Tag.TAG_COMPOUND)) {
@@ -233,8 +231,7 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
             types.add(new TypeLine(type.getInt("id"), component(type, "name"), type.getInt("color"),
                 type.getLong("ut"), type.getLong("tt"), type.getLong("ub"), type.getLong("tb"), type.getString("text"),
                 type.contains("swatch") ? type.getInt("swatch") : StoragePanelTextures.FALLBACK_SWATCH,
-                type.contains("exactBytes") ? new BigInteger(type.getString("exactBytes"))
-                    : BigInteger.valueOf(Math.max(0, type.getLong("ub"))),
+                new BigInteger(type.getString("exactBytes")),
                 type.contains("channel") ? net.minecraft.resources.ResourceLocation.tryParse(type.getString("channel")) : null,
                 type.contains("icon") ? net.minecraft.resources.ResourceLocation.tryParse(type.getString("icon")) : null,
                 type.contains("swatchTexture") ? net.minecraft.resources.ResourceLocation.tryParse(type.getString("swatchTexture")) : null));
@@ -244,9 +241,7 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
             tag.getLong("drain"), tag.getString("usedBytes"), tag.getDouble("usage"), tag.getInt("cellCount"),
             tag.getInt("cellOffset"), List.copyOf(cells), List.copyOf(types), tag.getString("domain"),
             tag.getInt("missing"), tag.getBoolean("component"),
-            tag.contains("totalBytes") ? new BigInteger(tag.getString("totalBytes")) : totalCapacity(cells),
-            tag.contains("exactUsedBytes") ? new BigInteger(tag.getString("exactUsedBytes"))
-                : totalUsedBytes(cells, types, tag.getBoolean("infinite") || tag.getBoolean("migrating")));
+            new BigInteger(tag.getString("totalBytes")), new BigInteger(tag.getString("exactUsedBytes")));
     }
 
     private static void putComponent(CompoundTag tag, String key, Component component) {

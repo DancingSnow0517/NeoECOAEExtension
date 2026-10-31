@@ -77,11 +77,11 @@ public final class PatternMigrationCoordinator {
 
     /** Records lightweight timing counters for diagnostics. */
     public void recordSlice(long elapsedNanos, int scannedSlotsThisSlice, int insertedPatternsThisSlice) {
-        lastSliceNanos = Math.max(0L, elapsedNanos);
+        lastSliceNanos = elapsedNanos;
         totalSliceNanos += lastSliceNanos;
         completedSlices++;
-        scannedSlots += Math.max(0, scannedSlotsThisSlice);
-        insertedPatterns += Math.max(0, insertedPatternsThisSlice);
+        scannedSlots += scannedSlotsThisSlice;
+        insertedPatterns += insertedPatternsThisSlice;
     }
 
     public long completedSlices() {

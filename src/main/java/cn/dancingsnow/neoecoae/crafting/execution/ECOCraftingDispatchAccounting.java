@@ -83,7 +83,7 @@ final class ECOCraftingDispatchAccounting {
             for (var output : result.outputs()) {
                 boolean virtualOutput = virtual && output.what().equals(job.finalOutput.what());
                 long virtualAmount = virtualOutput
-                        ? Math.min(output.amount(), Math.max(0L, job.remainingAmount)) : 0L;
+                        ? Math.min(output.amount(), job.remainingAmount) : 0L;
                 job.remainingAmount -= virtualAmount;
                 if (virtualAmount > 0L) job.timeTracker.decrementItems(virtualAmount, output.what().getType());
                 // Virtual final products need no return. Intermediate products and containers still do.

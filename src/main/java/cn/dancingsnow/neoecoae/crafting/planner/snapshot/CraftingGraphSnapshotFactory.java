@@ -17,6 +17,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot.P
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot.Relationship;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceNode;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternContractReader;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapters;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
@@ -57,17 +58,10 @@ public final class CraftingGraphSnapshotFactory {
         }
         for (PlanTraceNode node : trace.nodes()) {
             if (node.kind() != PlanTraceNode.Kind.PATTERN || node.pattern() == null) continue;
-            try {
-                for (GenericStack output : node.pattern().getOutputs()) {
-                    if (output != null && output.what() != null) materials.computeIfAbsent(output.what(), MutableMaterial::new);
-                }
-                for (IPatternDetails.IInput input : node.pattern().getInputs()) {
-                    if (input == null || input.getPossibleInputs() == null) continue;
-                    for (GenericStack possible : input.getPossibleInputs()) {
-                        if (possible != null && possible.what() != null) materials.computeIfAbsent(possible.what(), MutableMaterial::new);
-                    }
-                }
-            } catch (RuntimeException ignored) {
+            var view = PatternContractReader.read(node.pattern());
+            for (GenericStack output : view.outputs()) materials.computeIfAbsent(output.what(), MutableMaterial::new);
+            for (var input : view.inputs()) {
+                for (GenericStack possible : input.possible()) materials.computeIfAbsent(possible.what(), MutableMaterial::new);
             }
         }
         for (var cycle : trace.cycles()) {
@@ -279,29 +273,21 @@ public final class CraftingGraphSnapshotFactory {
 
     private static List<Relationship> outputs(IPatternDetails pattern, Map<AEKey, Integer> nodeIds) {
         List<Relationship> result = new ArrayList<>();
-        try {
-            for (GenericStack output : pattern.getOutputs()) {
-                Integer id = nodeIds.get(output.what());
-                if (id != null) result.add(new Relationship(id, output.amount()));
-            }
-        } catch (RuntimeException ignored) {
-            // Malformed candidates remain explainable without leaking the exception into the menu sync.
+        // Malformed candidates remain explainable; the reader drops unreadable data instead of throwing.
+        for (GenericStack output : PatternContractReader.read(pattern).outputs()) {
+            Integer id = nodeIds.get(output.what());
+            if (id != null) result.add(new Relationship(id, output.amount()));
         }
         return result;
     }
 
     private static List<Relationship> inputs(IPatternDetails pattern, Map<AEKey, Integer> nodeIds) {
         List<Relationship> result = new ArrayList<>();
-        try {
-            for (IPatternDetails.IInput input : pattern.getInputs()) {
-                if (input == null || input.getPossibleInputs() == null || input.getPossibleInputs().length == 0) continue;
-                GenericStack possible = input.getPossibleInputs()[0];
-                Integer id = nodeIds.get(possible.what());
-                PlannerAmount amount = PlannerAmount.of(possible.amount()).multiply(input.getMultiplier());
-                if (id != null && amount.fitsLong()) result.add(new Relationship(id, amount.longValueExact()));
-            }
-        } catch (RuntimeException ignored) {
-            // A malformed/rejected candidate is still represented, but without unsafe relationship data.
+        for (var input : PatternContractReader.read(pattern).inputs()) {
+            GenericStack possible = input.primary();
+            Integer id = nodeIds.get(possible.what());
+            PlannerAmount amount = PlannerAmount.of(possible.amount()).multiply(input.multiplier());
+            if (id != null && amount.fitsLong()) result.add(new Relationship(id, amount.longValueExact()));
         }
         return result;
     }
@@ -313,10 +299,8 @@ public final class CraftingGraphSnapshotFactory {
 
     private static String displayIdentity(IPatternDetails pattern) {
         StringBuilder value = new StringBuilder(pattern.getClass().getSimpleName());
-        try {
-            if (!pattern.getOutputs().isEmpty()) value.append(':').append(pattern.getOutputs().getFirst().what());
-        } catch (RuntimeException ignored) {
-        }
+        var outputs = PatternContractReader.read(pattern).outputs();
+        if (!outputs.isEmpty()) value.append(':').append(outputs.getFirst().what());
         return value.toString();
     }
 

@@ -220,14 +220,6 @@ public final class CompactTreeRenderer {
         pose.popPose();
     }
 
-    private static String compactAmount(String value) {
-        try {
-            return HostText.ae2Amount(new java.math.BigInteger(value));
-        } catch (RuntimeException ignored) {
-            return value;
-        }
-    }
-
     static List<Component> tooltip(ClientCraftingGraph graph, @Nullable ClientCraftingGraph.Node node) {
         if (node == null) return List.of();
         if (node.kind() == ClientCraftingGraph.Kind.FOLDER) {
@@ -263,12 +255,12 @@ public final class CompactTreeRenderer {
         }
         if (node.material() != null) {
             var material = node.material();
-            return List.of(Component.literal(node.label()), Component.literal("requested: " + compactAmount(material.exactRequested())),
-                Component.literal("inventory: " + compactAmount(material.exactFromInventory())),
-                Component.literal("to craft: " + compactAmount(material.exactToCraft())),
-                Component.literal("missing: " + compactAmount(material.exactMissing())),
-                Component.literal("consumed: " + compactAmount(material.exactConsumed())),
-                Component.literal("produced: " + compactAmount(material.exactProduced())),
+            return List.of(Component.literal(node.label()), Component.literal("requested: " + HostText.ae2Amount(material.exactRequested())),
+                Component.literal("inventory: " + HostText.ae2Amount(material.exactFromInventory())),
+                Component.literal("to craft: " + HostText.ae2Amount(material.exactToCraft())),
+                Component.literal("missing: " + HostText.ae2Amount(material.exactMissing())),
+                Component.literal("consumed: " + HostText.ae2Amount(material.exactConsumed())),
+                Component.literal("produced: " + HostText.ae2Amount(material.exactProduced())),
                 Component.literal("status: " + material.status()));
         }
         return List.of(Component.literal(node.label()));
@@ -310,10 +302,10 @@ public final class CompactTreeRenderer {
             return Component.translatable("gui.neoecoae.crafting_graph.node.pending_craft").getString();
         }
         if (material.consumedBigInteger().signum() == 0 && material.producedBigInteger().signum() == 0) {
-            return compactAmount(material.exactRequested());
+            return HostText.ae2Amount(material.exactRequested());
         }
         java.math.BigInteger delta = material.producedBigInteger().subtract(material.consumedBigInteger());
-        String amount = compactAmount(delta.abs().toString());
+        String amount = HostText.ae2Amount(delta.abs());
         return delta.signum() > 0 ? "+" + amount : delta.signum() < 0 ? "-" + amount : "0";
     }
 

@@ -88,8 +88,7 @@ public final class HostText {
 
     /** Exact byte counts for tooltips, including values beyond the long range. */
     public static String fullBytes(BigInteger value) {
-        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
-        return DisplayNumbers.grouped(safe.toString());
+        return DisplayNumbers.grouped(nonNegative(value).toString());
     }
 
     public static String expandedStorageBytes(long value) {
@@ -97,12 +96,11 @@ public final class HostText {
     }
 
     public static String expandedStorageBytes(BigInteger value) {
-        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
-        return BigNumberFormatter.format(safe, 1, true);
+        return BigNumberFormatter.format(nonNegative(value), 1, true);
     }
 
     public static String compactStorageBytes(BigInteger value) {
-        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
+        BigInteger safe = nonNegative(value);
         BigInteger unit = BigInteger.ONE;
         int unitIndex = 0;
         BigInteger limit = BigInteger.TEN.pow(TOOLTIP_BYTE_DIGITS);
@@ -117,7 +115,7 @@ public final class HostText {
 
     /** Matches the 1.20.1 System Load tooltip: retain up to ten integer digits plus two decimals. */
     public static String preciseHugeAmount(BigInteger value) {
-        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
+        BigInteger safe = nonNegative(value);
         if (safe.signum() == 0) {
             return "0";
         }
@@ -145,7 +143,7 @@ public final class HostText {
     }
 
     public static String hugeStackAmount(BigInteger value) {
-        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
+        BigInteger safe = nonNegative(value);
         BigInteger unit = BigInteger.ONE;
         int unitIndex = 0;
         while (unitIndex < EXPANDED_BYTE_UNITS.length - 1
@@ -166,7 +164,7 @@ public final class HostText {
     }
 
     public static String fitHugeAmount(BigInteger value, int maxWidth, ToIntFunction<String> width) {
-        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
+        BigInteger safe = nonNegative(value);
         String exact = expandedStorageBytes(safe);
         if (width.applyAsInt(exact) <= maxWidth) {
             return exact;
@@ -309,6 +307,11 @@ public final class HostText {
         return palette[Math.floorMod(index, palette.length)];
     }
 
+    /** Display values arrive from synced tags and decoded strings; render absent or negative as zero. */
+    private static BigInteger nonNegative(BigInteger value) {
+        return value == null || value.signum() < 0 ? BigInteger.ZERO : value;
+    }
+
     private static String number(long value) {
         return NUMBER_FORMAT.get().format(value);
     }
@@ -338,11 +341,20 @@ public final class HostText {
     }
 
     public static String ae2Amount(BigInteger value) {
-        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
+        BigInteger safe = nonNegative(value);
         if (safe.bitLength() < Long.SIZE) {
             return ae2Amount(safe.longValue());
         }
         return BigNumberFormatter.format(safe, 1, false);
+    }
+
+    /** Formats a synced decimal amount; text that is not an integer is shown unchanged. */
+    public static String ae2Amount(String exact) {
+        try {
+            return ae2Amount(new BigInteger(exact));
+        } catch (NumberFormatException ignored) {
+            return exact;
+        }
     }
 
     private static String compactTaskAmount(long value) {

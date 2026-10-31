@@ -987,7 +987,7 @@ public final class ComponentPlanner {
     private static Set<IPatternDetails> selectedCycleExecutionPatterns(@Nullable CycleSolveResult result) {
         if (result == null || result.status() != CycleSolveStatus.SUCCESS) return Set.of();
         return result.patternTimes().entrySet().stream()
-                .filter(entry -> entry.getValue() != null && entry.getValue() > 0L)
+                .filter(entry -> entry.getValue() > 0L)
                 .map(Map.Entry::getKey)
                 .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
     }
@@ -1097,7 +1097,7 @@ public final class ComponentPlanner {
     private static boolean stockCoversRequiredOutputs(Map<AEKey, Long> required,
                                                       Map<AEKey, Long> reservations) {
         if (required.isEmpty()) return false;
-        return required.entrySet().stream().allMatch(entry -> entry.getValue() != null && entry.getValue() > 0L
+        return required.entrySet().stream().allMatch(entry -> entry.getValue() > 0L
                 && reservations.getOrDefault(entry.getKey(), 0L) >= entry.getValue());
     }
 
@@ -1116,7 +1116,7 @@ public final class ComponentPlanner {
 
     static boolean hasPositiveFirings(CycleSolveResult result) {
         return result != null && result.patternTimes().values().stream()
-                .anyMatch(count -> count != null && count > 0L);
+                .anyMatch(count -> count > 0L);
     }
 
     private static ComponentPlanningResult.Status componentStatus(Map<AEKey, PlannerAmount> requiredOutputs,

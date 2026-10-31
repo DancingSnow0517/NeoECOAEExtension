@@ -13,6 +13,7 @@ public final class ECOOptionalUnboundedCells {
 
     public static void collect(StorageCell cell, Set<AEKey> target) {
         if (cell == null) return;
+        // ModList is not initialized in unit tests that reach this guard through CPU/planner paths.
         var mods = ModList.get();
         if (mods == null) return;
         if (mods.isLoaded("ae2lt")) ECOAe2LtUnboundedCells.collect(cell, target);

@@ -68,7 +68,7 @@ public final class HugeAmount implements Comparable<HugeAmount> {
     }
 
     public HugeAmount add(HugeAmount other) {
-        if (other == null || other.isZero()) {
+        if (Objects.requireNonNull(other, "other").isZero()) {
             return this;
         }
         if (isZero()) {
@@ -102,7 +102,7 @@ public final class HugeAmount implements Comparable<HugeAmount> {
     }
 
     public HugeAmount subtract(HugeAmount other) {
-        if (other == null || other.isZero()) {
+        if (Objects.requireNonNull(other, "other").isZero()) {
             return this;
         }
         if (compareTo(other) < 0) {
