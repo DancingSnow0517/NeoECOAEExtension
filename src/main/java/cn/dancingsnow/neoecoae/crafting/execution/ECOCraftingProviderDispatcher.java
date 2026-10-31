@@ -54,14 +54,13 @@ final class ECOCraftingProviderDispatcher {
         processing.reset();
     }
 
-    boolean isEligible(ICraftingProvider provider, ECOCraftingDispatchBudget budget) {
+    boolean isEligible(ICraftingProvider provider, IPatternDetails pattern, ECOCraftingDispatchBudget budget) {
         if (ECOExternalProviderBlocking.isEnabled(provider)) return budget.canAttemptOrdinary();
         return budget.canAttemptOrdinary()
                 || fastPath.supportsBatch(provider)
                 || ECOParallelCraftingProviders.find(provider) != null
-                || cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.open(provider) != null
-                || cn.dancingsnow.neoecoae.compat.gregtech.ECOGregTechProcessingDispatch.isBatchProvider(provider)
-                || budget.canAttemptOrdinary();
+                // The ordinary one-copy budget must not hide a target whose batch lane still has submissions left.
+                || processing.mayAttemptBatch(provider, pattern);
     }
 
     Result dispatchCandidate(ECOCraftingDispatchRequest request, List<ICraftingProvider> providers,
@@ -80,7 +79,11 @@ final class ECOCraftingProviderDispatcher {
             }
             boolean scaledProvider = !blocking && processing.supportsScaledDispatchCached(request, provider);
             if (scaledProvider) {
-                if (processing.isScaledAttemptBudgetExhausted()) continue;
+                if (processing.isScaledAttemptBudgetExhausted(request.pattern())) {
+                    // Exhausted submissions pause this pattern until the next tick; the provider did not fail.
+                    diagnostics.budget();
+                    continue;
+                }
                 if (processing.isScaledFallbackDeferred(request, provider)) continue;
                 if (!processing.isScaledDispatchDeferred(request, provider)) {
                     var scaledProcessingResult = processing.tryScaledDispatch(
@@ -126,7 +129,10 @@ final class ECOCraftingProviderDispatcher {
                     request.job().finalOutput == null ? null : request.job().finalOutput.what(),
                     request.job().waitingFor.list);
             if (!overload.canDispatch()) continue;
-            if (scaledProvider && !processing.claimFallbackAttempt()) continue;
+            if (scaledProvider && !processing.claimFallbackAttempt(request.pattern())) {
+                diagnostics.budget();
+                continue;
+            }
             ECOBatchAdmission admission;
             try {
                 admission = ECOBatchExecutor.execute(plan, request.inputs(), request.outputs(), request.remainders(),

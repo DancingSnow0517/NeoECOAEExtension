@@ -211,12 +211,12 @@ class ECOProcessingDispatchIntegrationTest {
             assertEquals(1, request.allowedCrafts());
             return true;
         };
-        assertEquals(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_VISIT,
+        // One pattern owns at most its per-tick share of submissions; the probe above already spent one.
+        assertEquals(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_PATTERN_PER_TICK - 1,
                 f.scaled(0, push).acceptedCrafts());
-        assertNotNull(f.scaled(0, push));
         assertNull(f.scaled(0, push));
-        assertEquals(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_TICK - 1, calls[0]);
-        assertEquals(2_000_000 - ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_TICK,
+        assertEquals(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_PATTERN_PER_TICK - 1, calls[0]);
+        assertEquals(2_000_000 - ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_PATTERN_PER_TICK,
                 f.inventory.list.get(f.key));
 
         calls[0] = 0;
@@ -231,11 +231,11 @@ class ECOProcessingDispatchIntegrationTest {
         var outer = f.outerDispatcher();
         outer.beginTick(0);
         int[] calls = {0};
-        for (int i = 0; i < ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_TICK; i++) {
+        for (int i = 0; i < ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_PATTERN_PER_TICK; i++) {
             assertTrue(f.outerDispatch(outer, (request, provider) -> { calls[0]++; return true; }).accepted());
         }
         assertFalse(f.outerDispatch(outer, (request, provider) -> { calls[0]++; return true; }).accepted());
-        assertEquals(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_TICK, calls[0]);
+        assertEquals(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_PATTERN_PER_TICK, calls[0]);
         outer.beginTick(1);
         assertTrue(f.outerDispatch(outer, (request, provider) -> true).accepted());
     }
@@ -306,7 +306,7 @@ class ECOProcessingDispatchIntegrationTest {
             bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.isProvider(f.provider)).thenReturn(true);
             bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.open(f.provider)).thenReturn(session);
             for (int i = 0; i < 3; i++) f.scaled(0, (request, provider) -> fail("Direct transport owns these pushes"));
-            verify(session, times(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_TICK))
+            verify(session, times(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_PATTERN_PER_TICK))
                     .submit(eq(f.request.pattern()), any(), eq(1L));
         }
     }

@@ -279,13 +279,81 @@ class ECOGregTechProcessingDispatchIntegrationTest {
         assertEquals(63, f.progress.value);
     }
 
-    @Test void nativeBufferStillHonorsEcosPerTickDispatchLimit() {
+    @Test void countedBufferTakesTheWholeRemainderBeyondTheFormerMillionCraftBudget() {
         var f = new Fixture(1_000_001, false);
         var provider = f.gtlBuffer();
-        assertEquals(1_000_000, f.dispatch(provider, (request, target) -> false).acceptedCrafts());
+        assertEquals(1_000_001, f.dispatch(provider, (request, target) -> false).acceptedCrafts());
         assertEquals(1, provider.pushes);
-        assertEquals(3, f.inventory.list.get(f.iron));
-        assertEquals(1, f.progress.value);
+        assertEquals(0, f.inventory.list.get(f.iron));
+        assertEquals(0, f.progress.value);
+    }
+
+    @Test void molecularAssemblerTakesMoreThanIntegerMaxCopiesInOneRegisteredPatternSubmission() {
+        long crafts = 5_000_000_000L;
+        var f = new Fixture(crafts, false);
+        var provider = f.molecularAssembler();
+        var result = f.dispatch(provider, (request, target) -> fail("Assembler requires canonical-pattern admission"));
+        assertEquals(crafts, result.acceptedCrafts());
+        assertEquals(1, provider.pushes);
+        assertEquals(crafts, provider.queued);
+        assertEquals(3 * crafts, provider.received.get(f.iron));
+        assertEquals(500 * crafts, provider.received.get(f.water));
+        assertEquals(0, f.inventory.list.get(f.iron));
+        assertEquals(0, f.inventory.list.get(f.water));
+        assertEquals(0, f.progress.value);
+        assertEquals(2 * crafts, f.job.waitingFor.list.get(f.output));
+    }
+
+    @Test void countedSubmissionsAreBoundedByCallsAndCapacityNotByCrafts() {
+        long crafts = 3_000_000_000L;
+        var f = new Fixture(crafts, false);
+        var provider = f.gtlBuffer();
+        // The buffer's own long capacity, not a craft budget, splits the job across submissions.
+        provider.stored.add(f.iron, Long.MAX_VALUE - 3 * 1_000_000_000L);
+        assertEquals(1_000_000_000L, f.dispatch(provider, (request, target) -> false).acceptedCrafts());
+        assertTrue(f.dispatcher.isScaledFallbackDeferred(f.request, provider), "a full target waits for next tick");
+        assertFalse(f.dispatcher.isScaledAttemptBudgetExhausted(f.pattern));
+        f.dispatcher.beginTick(1);
+        provider.stored.add(f.iron, -Long.MAX_VALUE + 3 * 1_000_000_000L);
+        assertEquals(2_000_000_000L, f.dispatch(provider, (request, target) -> false).acceptedCrafts());
+        assertEquals(0, f.progress.value);
+        assertEquals(0, f.inventory.list.get(f.iron));
+        assertEquals(2 * crafts, f.job.waitingFor.list.get(f.output));
+    }
+
+    @Test void probingProvidersStillSpendAtMostTheirPatternShareOfSubmissionsPerTick() {
+        var f = new Fixture(1L << 40, false);
+        var provider = f.gtlProvider();
+        int[] pushes = {0};
+        ECOCraftingProviderDispatcher.ECOCraftingNormalPush push = (request, target) -> {
+            pushes[0]++;
+            assertTrue(request.allowedCrafts() <= Integer.MAX_VALUE, "probing views stay below the int ceiling");
+            return true;
+        };
+        while (f.dispatch(provider, push) != null) {
+            assertTrue(pushes[0] <= ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_TICK);
+        }
+        assertEquals(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_PATTERN_PER_TICK, pushes[0]);
+        assertTrue(f.dispatcher.isScaledAttemptBudgetExhausted(f.pattern));
+        assertFalse(f.dispatcher.isScaledAttemptBudgetExhausted(), "other patterns keep half of the tick");
+        assertFalse(f.dispatcher.mayAttemptBatch(provider, f.pattern));
+        assertFalse(f.dispatcher.isScaledDispatchDeferred(f.request, provider), "budget is not provider backoff");
+        f.dispatcher.beginTick(1);
+        assertTrue(f.dispatcher.mayAttemptBatch(provider, f.pattern));
+        assertNotNull(f.dispatch(provider, push));
+    }
+
+    @Test void resetClearsDeferralsAndSpentShares() {
+        var f = new Fixture(64, false);
+        var provider = f.gtlBuffer();
+        provider.stored.add(f.iron, Long.MAX_VALUE);
+        assertNull(f.dispatch(provider, (request, target) -> false));
+        assertTrue(f.dispatcher.isScaledDispatchDeferred(f.request, provider));
+        f.dispatcher.reset();
+        f.dispatcher.beginTick(0);
+        assertFalse(f.dispatcher.isScaledDispatchDeferred(f.request, provider));
+        provider.stored.add(f.iron, -Long.MAX_VALUE);
+        assertEquals(64, f.dispatch(provider, (request, target) -> false).acceptedCrafts());
     }
 
     private static final class Fixture {
@@ -302,7 +370,7 @@ class ECOGregTechProcessingDispatchIntegrationTest {
         final ECOCraftingDispatchRequest request;
         final ECOProcessingPatternDispatcher dispatcher;
 
-        Fixture(int crafts, boolean configureCircuit) {
+        Fixture(long crafts, boolean configureCircuit) {
             when(circuit.getId()).thenReturn(new ResourceLocation("gtceu", "programmed_circuit"));
             when(circuit.getType()).thenReturn(appeng.api.stacks.AEKeyType.items());
             var keys = configureCircuit ? List.<AEKey>of(iron, water, circuit) : List.<AEKey>of(iron, water);

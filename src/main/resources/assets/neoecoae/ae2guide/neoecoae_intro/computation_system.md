@@ -35,7 +35,7 @@ The ECO Computation System is a powerful multiblock crafting CPU cluster that pr
 
 Within a crafting job, the current pattern keeps dispatch priority while its inputs are available and providers keep accepting it. There is no consecutive-success cap. Missing inputs, unavailable providers, task completion, suspension, or dependency and cycle constraints allow other legal patterns to run.
 
-Per-tick execution and probe budgets still apply. A budget pause retains the current pattern for the next tick. Batches consume inputs and record expected outputs according to the amount actually accepted.
+Per-tick execution and probe budgets still apply. Processing batches spend that budget per provider submission, not per copy: each CPU makes at most 64 submissions per tick and one pattern uses at most half of them. A provider that accepts whole batches receives every copy that materials, energy, cycle seeds and its own capacity allow in one submission. A budget pause is not a provider failure and retains the current pattern for the next tick. Batches consume inputs and record expected outputs according to the amount actually accepted.
 
 ## Overview
 
