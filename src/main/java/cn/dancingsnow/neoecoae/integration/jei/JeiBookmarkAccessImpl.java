@@ -47,9 +47,14 @@ final class JeiBookmarkAccessImpl {
             Field listField = overlay.getClass().getDeclaredField("bookmarkList");
             listField.setAccessible(true);
             Object list = listField.get(overlay);
-            // JEI 15 exposes this operation on BookmarkList itself; the newer bookmarkFactory field
-            // does not exist on 1.20.1. This path also notifies the overlay and saves the bookmark file.
-            Method add = list.getClass().getMethod("addIngredientBookmark", ITypedIngredient.class);
+            // Both JEI 15 APIs notify the overlay and save the bookmark file.
+            // Later releases renamed this operation while retaining the typed-ingredient overload.
+            Method add;
+            try {
+                add = list.getClass().getMethod("addIngredientBookmark", ITypedIngredient.class);
+            } catch (NoSuchMethodException renamed) {
+                add = list.getClass().getMethod("add", ITypedIngredient.class);
+            }
             for (AEKey key : keys) {
                 if (key instanceof AEItemKey itemKey) {
                     ItemStack stack = itemKey.toStack();

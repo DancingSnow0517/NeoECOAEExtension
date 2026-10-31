@@ -1,0 +1,42 @@
+gradle.afterProject { project ->
+    if (project != gradle.rootProject) return
+    def smoke = project.layout.buildDirectory.dir('jei-mixin-smoke')
+    // Forge loads these automatically in game; a standalone test JVM needs the nested JARs too.
+    def embedded = smoke.map { it.dir('embedded') }
+    def unpackEmbedded = project.tasks.register('unpackJeiSmokeDependencies', Sync) {
+        from {
+            project.configurations.testRuntimeClasspath.files
+                    .findAll { it.name.startsWith('jei-') && it.name.endsWith('.jar') }
+                    .collect { project.zipTree(it) }
+        }
+        include 'META-INF/jarjar/*.jar'
+        into embedded
+    }
+    def embeddedClasspath = project.fileTree(embedded) { include '**/*.jar' }
+    project.tasks.named('test', Test) {
+        dependsOn unpackEmbedded
+        classpath += embeddedClasspath
+    }
+    def compileSmoke = project.tasks.register('compileJeiMixinSmoke', JavaCompile) {
+        dependsOn project.tasks.named('testClasses')
+        source project.fileTree('tools/jei-mixin-smoke/src') { include '**/*.java' }
+        classpath = project.sourceSets.test.runtimeClasspath
+        destinationDirectory = smoke.map { it.dir('classes') }
+        options.encoding = 'UTF-8'
+        options.release = 17
+        options.compilerArgs += ['-proc:none']
+    }
+    project.tasks.register('verifyJeiLayoutMixins', JavaExec) {
+        dependsOn compileSmoke
+        dependsOn unpackEmbedded
+        javaLauncher = project.javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+        classpath = project.files(smoke.map { it.dir('classes') },
+                project.file('tools/jei-mixin-smoke/resources')) + project.sourceSets.test.runtimeClasspath + embeddedClasspath
+        mainClass = 'cn.dancingsnow.neoecoae.jeismoke.JeiLayoutMixinSmoke'
+        jvmArgs '-Xverify:all'
+        args smoke.get().dir(project.providers.gradleProperty('jeiVersion')
+                .getOrElse('15.48.0.177')).asFile.absolutePath
+    }
+}

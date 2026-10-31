@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.mixins.client.jei.RecipeLayoutBuilderMixin;
 import cn.dancingsnow.neoecoae.mixins.client.jei.RecipeLayoutMixin;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import mezz.jei.api.recipe.category.IRecipeCategory;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -63,18 +64,23 @@ class WorkstationRecipeHeightTest {
     }
 
     private static void assertHeight(int expected, IRecipeCategory<?> category, Object recipe) throws Exception {
-        var layout = RecipeLayoutMixin.class.getDeclaredMethod("neoecoae$recipeHeight", int.class,
-            IRecipeCategory.class, Object.class);
+        Operation<Integer> original = arguments -> {
+            assertEquals(1, arguments.length);
+            assertSame(category, arguments[0]);
+            return 140;
+        };
+        var layout = RecipeLayoutMixin.class.getDeclaredMethod("neoecoae$recipeHeight",
+            IRecipeCategory.class, Operation.class, Object.class);
         layout.setAccessible(true);
-        assertEquals(expected, layout.invoke(new RecipeLayoutMixin() {}, 140, category, recipe));
+        assertEquals(expected, layout.invoke(null, category, original, recipe));
         var builder = new RecipeLayoutBuilderMixin() {};
         var recipeField = RecipeLayoutBuilderMixin.class.getDeclaredField("recipe");
         recipeField.setAccessible(true);
         recipeField.set(builder, recipe);
-        var button = RecipeLayoutBuilderMixin.class.getDeclaredMethod("neoecoae$recipeHeight", int.class,
-            IRecipeCategory.class);
+        var button = RecipeLayoutBuilderMixin.class.getDeclaredMethod("neoecoae$recipeHeight",
+            IRecipeCategory.class, Operation.class);
         button.setAccessible(true);
-        assertEquals(expected, button.invoke(builder, 140, category));
+        assertEquals(expected, button.invoke(builder, category, original));
     }
 
     @Test void installedJeiRetainsBothHeightHooksAndUnambiguousRecipeArguments() throws Exception {
