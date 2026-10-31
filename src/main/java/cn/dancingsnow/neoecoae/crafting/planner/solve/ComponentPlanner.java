@@ -163,14 +163,22 @@ public final class ComponentPlanner {
         try {
             Outcome retaining = planRoute(network, activeSelection, inventory, snapshot, amount, cyclePlanningEnabled,
                     ignorePatternSubstitutions, optional, failures, externalDemandPlanner, true, stopAtFirstFailure);
-            if (retaining.status() == PlanningStatus.SUCCESS) return retaining;
-            reason = "seed-retaining whole-order plan ended " + retaining.status();
+            if (retaining.status() == PlanningStatus.SUCCESS && doesNotAddWork(retaining, plain)) return retaining;
+            reason = retaining.status() == PlanningStatus.SUCCESS
+                    ? "seed retention would add crafting work to replenish consumable stock"
+                    : "seed-retaining whole-order plan ended " + retaining.status();
         } catch (ECOPlanningBudget.Exhausted exhausted) {
             reason = "seed-retaining budget slice exhausted";
         }
         plain.trace().addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_SEED_NOT_RETAINED,
                 reason + "; retaining the previously verified complete plan"));
         return plain;
+    }
+
+    /** Startup reservations are required for execution, not a promise to replenish consumed inventory. */
+    private static boolean doesNotAddWork(Outcome candidate, Outcome original) {
+        return candidate.state().patternTimes.entrySet().stream().allMatch(entry ->
+                entry.getValue().compareTo(original.state().patternTimes.getOrDefault(entry.getKey(), PlannerAmount.ZERO)) <= 0);
     }
 
     private Outcome planRoute(CompiledNetwork network, ActiveRouteSelector.Selection activeSelection,
