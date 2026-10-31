@@ -362,38 +362,25 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
             return false;
         }
 
-        Map.Entry<IPatternDetails, ExecutingCraftingJob.TaskProgress> taskEntry;
-        try {
-            taskEntry = current.tasks.entrySet().stream()
-                    .filter(entry -> entry.getKey() == pattern
-                            || ECOPhaseScheduler.samePattern(entry.getKey(), pattern))
-                    .findFirst()
-                    .orElse(null);
-        } catch (RuntimeException rejected) {
-            return false;
-        }
-        if (taskEntry == null || taskEntry.getValue() == null || taskEntry.getValue().value < completedCrafts) {
+        // samePattern is exception-safe for third-party patterns; the rest is internal state.
+        Map.Entry<IPatternDetails, ExecutingCraftingJob.TaskProgress> taskEntry = current.tasks.entrySet().stream()
+                .filter(entry -> entry.getKey() == pattern
+                        || ECOPhaseScheduler.samePattern(entry.getKey(), pattern))
+                .findFirst()
+                .orElse(null);
+        if (taskEntry == null || taskEntry.getValue().value < completedCrafts) {
             return false;
         }
 
         if (current.executionRuntime != null) {
-            ECOExecutionRuntime.DispatchCandidate candidate;
-            try {
-                candidate = current.executionRuntime.candidates().stream()
-                        .filter(value -> ECOPhaseScheduler.samePattern(value.pattern(), pattern))
-                        .findFirst()
-                        .orElse(null);
-            } catch (RuntimeException rejected) {
-                return false;
-            }
+            ECOExecutionRuntime.DispatchCandidate candidate = current.executionRuntime.candidates().stream()
+                    .filter(value -> ECOPhaseScheduler.samePattern(value.pattern(), pattern))
+                    .findFirst()
+                    .orElse(null);
             if (candidate == null || completedCrafts > candidate.maxDispatchCount()) {
                 return false;
             }
-            try {
-                current.executionRuntime.onVirtualAccepted(candidate, completedCrafts);
-            } catch (RuntimeException rejected) {
-                return false;
-            }
+            current.executionRuntime.onVirtualAccepted(candidate, completedCrafts);
         } else {
             taskEntry.getValue().accept(completedCrafts);
         }
@@ -808,7 +795,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
                 target.link.getCraftingID(),
                 output,
                 requested,
-                Math.max(0L, target.remainingAmount));
+                target.remainingAmount);
     }
 
     private ECOCraftingCpuContext createCpuContext(long gameTick) {
@@ -817,7 +804,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
                 cpu,
                 craftingJobId,
                 cpu.isActive(),
-                Math.max(0, cpu.getCoProcessors()),
+                cpu.getCoProcessors(),
                 gameTick);
     }
 

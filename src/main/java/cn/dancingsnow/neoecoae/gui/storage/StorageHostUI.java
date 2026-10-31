@@ -286,9 +286,4 @@ public final class StorageHostUI {
         inventory.hotbar.getLayout().marginTop(4);
         return inventory;
     }
-
-    static List<CellEntry> safeEntries(Supplier<List<CellEntry>> supplier) {
-        List<CellEntry> entries = supplier.get();
-        return entries == null ? List.of() : entries;
-    }
 }

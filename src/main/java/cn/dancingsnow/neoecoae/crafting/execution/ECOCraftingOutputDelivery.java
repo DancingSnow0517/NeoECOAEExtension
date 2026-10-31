@@ -72,7 +72,7 @@ final class ECOCraftingOutputDelivery {
             // Keep material reserved for the next growth phase, then deliver only the excess final output.
             PlannerAmount deliverable = PlannerAmount.of(storedFinalOutput)
                 .subtract(reserve).max(PlannerAmount.ZERO);
-            long amount = deliverable.min(PlannerAmount.of(Math.max(0L, current.remainingAmount))).longValueExact();
+            long amount = deliverable.min(PlannerAmount.of(current.remainingAmount)).longValueExact();
             if (amount > 0L) {
                 long inserted = deliverFinalOutputToDestination(current, key, amount);
                 host.getInventory().extract(key, inserted, Actionable.MODULATE);
@@ -213,14 +213,14 @@ final class ECOCraftingOutputDelivery {
         if (!request.craftingJobId().equals(current.link.getCraftingID())
                 || ECOCraftingJobLifecycle.isTerminated(host.cpu.getLevel(), request.craftingJobId())) {
             return claimResult(ECOCraftingOutputClaimResult.Status.TERMINAL, requested, 0L,
-                    Math.max(0L, current.remainingAmount));
+                    current.remainingAmount);
         }
 
         long claim = current.waitingFor.extract(
                 request.expectedKey(), request.amount(), Actionable.SIMULATE);
         if (claim <= 0L) {
             return claimResult(ECOCraftingOutputClaimResult.Status.NO_MATCH, requested, 0L,
-                    Math.max(0L, current.remainingAmount));
+                    current.remainingAmount);
         }
 
         boolean finalOutputClaim = current.finalOutput != null
@@ -230,7 +230,7 @@ final class ECOCraftingOutputDelivery {
                     current, request.actualKey(), claim, request.mode(), finalOutputClaim);
             long remaining = finalOutputClaim
                     ? Math.max(0L, current.remainingAmount - route.deliveredAmount())
-                    : Math.max(0L, current.remainingAmount);
+                    : current.remainingAmount;
             return new ECOCraftingOutputClaimResult(
                     ECOCraftingOutputClaimResult.Status.ACCEPTED,
                     requested,
@@ -245,7 +245,7 @@ final class ECOCraftingOutputDelivery {
         long claimed = current.waitingFor.extract(request.expectedKey(), claim, Actionable.MODULATE);
         if (claimed <= 0L) {
             return claimResult(ECOCraftingOutputClaimResult.Status.NO_MATCH, requested, 0L,
-                    Math.max(0L, current.remainingAmount));
+                    current.remainingAmount);
         }
         // The waiting inventory is server-thread local. A mismatch can only be caused by a re-entrant callback;
         // route no more than the amount actually removed and retain the uncommitted tail in the CPU.
@@ -272,7 +272,7 @@ final class ECOCraftingOutputDelivery {
         host.taskSchedulerForOutput().progress(appeng.hooks.ticking.TickHandler.instance().getCurrentTick());
 
         boolean finished = finishIfComplete(current);
-        long remaining = finished ? 0L : Math.max(0L, current.remainingAmount);
+        long remaining = finished ? 0L : current.remainingAmount;
         return new ECOCraftingOutputClaimResult(
                 ECOCraftingOutputClaimResult.Status.ACCEPTED,
                 requested,
@@ -334,7 +334,7 @@ final class ECOCraftingOutputDelivery {
                 pendingFinalOutputs.removeLong(key);
                 continue;
             }
-            long amount = Math.min(stored, Math.max(0L, current.remainingAmount));
+            long amount = Math.min(stored, current.remainingAmount);
             if (amount <= 0L) {
                 continue;
             }

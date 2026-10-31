@@ -187,6 +187,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     public ECOStorageInterfaceMode getStorageInterfaceMode() {
+        // The persisted field is restored by LDLib, so an unreadable saved value is normalized here once.
         return storageInterfaceMode == null ? ECOStorageInterfaceMode.STORAGE : storageInterfaceMode;
     }
     public long getTransferredLastTick() { return transferredLastTick; }
@@ -290,12 +291,11 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     public void setStorageInterfaceMode(ECOStorageInterfaceMode mode) {
-        ECOStorageInterfaceMode next = mode == null ? ECOStorageInterfaceMode.STORAGE : mode;
-        if (getStorageInterfaceMode() == next && storageInterfaceMode != null) return;
-        storageInterfaceMode = next;
+        if (storageInterfaceMode == mode) return;
+        storageInterfaceMode = mode;
         if (level != null && !level.isClientSide && getBlockState().getBlock() instanceof cn.dancingsnow.neoecoae.blocks.ECOMachineInterface<?>) {
             level.setBlockAndUpdate(worldPosition, getBlockState()
-                .setValue(cn.dancingsnow.neoecoae.blocks.ECOMachineInterface.STORAGE_MODE, next));
+                .setValue(cn.dancingsnow.neoecoae.blocks.ECOMachineInterface.STORAGE_MODE, mode));
         }
         transferredLastTick = 0L;
         setChanged();
@@ -905,8 +905,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 var node = bus.getGridNode();
                 return node == null
                     || node.getGrid() != grid
-                    || bus.isRemoved()
-                    || bus.getBlockPos() == null;
+                    || bus.isRemoved();
             });
             buses.sort(Comparator.comparingLong(bus -> bus.getBlockPos().asLong()));
         }

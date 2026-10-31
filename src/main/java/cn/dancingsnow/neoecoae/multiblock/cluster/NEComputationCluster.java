@@ -410,7 +410,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         long totalStorage = getTotalStorage();
         long usedStorage = getActiveJobBytes();
 
-        this.availableStorage = Math.max(0, totalStorage - Math.min(totalStorage, usedStorage));
+        this.availableStorage = totalStorage - Math.min(totalStorage, usedStorage);
         boolean reservationsFit = networkCluster != null
             ? networkCluster.reservationsFit()
             : usedStorage <= totalStorage;

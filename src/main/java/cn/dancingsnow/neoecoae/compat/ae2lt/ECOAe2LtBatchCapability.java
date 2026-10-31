@@ -20,6 +20,7 @@ public final class ECOAe2LtBatchCapability {
 
     @Nullable
     public static Session open(Object provider) {
+        // ModList is not initialized in unit tests that reach this guard through CPU/planner paths.
         if (provider == null || ModList.get() == null || !ModList.get().isLoaded("ae2lt")) return null;
         Class<?> api = findApi(provider.getClass());
         if (api == null) return null;

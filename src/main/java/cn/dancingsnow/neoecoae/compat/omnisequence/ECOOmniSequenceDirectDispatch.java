@@ -23,7 +23,9 @@ import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,19 +41,31 @@ public final class ECOOmniSequenceDirectDispatch {
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae.dispatch");
     private static final ThreadLocal<ReferenceSet<ICraftingProvider>> FLUSHING =
             ThreadLocal.withInitial(ReferenceOpenHashSet::new);
+    private static final Set<String> WARNED_OPERATIONS = ConcurrentHashMap.newKeySet();
 
     private ECOOmniSequenceDirectDispatch() {}
 
     public static boolean isLoaded() {
+        // ModList is not initialized in unit tests that drive the CPU dispatchers through this bridge.
         var mods = ModList.get();
         return mods != null && mods.isLoaded(MOD_ID);
+    }
+
+    /** OmniSequence failures fall back to AE2 dispatch; the first failure per operation is logged in full. */
+    private static void logFailure(String operation, Throwable failure) {
+        if (WARNED_OPERATIONS.add(operation)) {
+            LOGGER.warn("OmniSequence {} failed; falling back to AE2 dispatch", operation, failure);
+        } else {
+            LOGGER.debug("OmniSequence {} failed; falling back to AE2 dispatch", operation, failure);
+        }
     }
 
     public static boolean isEligible(ICraftingProvider provider) {
         if (!isLoaded() || provider == null) return false;
         try {
             return Delegate.isEligible(provider);
-        } catch (Throwable ignored) {
+        } catch (RuntimeException | LinkageError failure) {
+            logFailure("eligibility check", failure);
             return false;
         }
     }
@@ -60,7 +74,8 @@ public final class ECOOmniSequenceDirectDispatch {
         if (!isLoaded() || provider == null) return false;
         try {
             return Delegate.supports(provider, pattern);
-        } catch (Throwable ignored) {
+        } catch (RuntimeException | LinkageError failure) {
+            logFailure("pattern support check", failure);
             return false;
         }
     }
@@ -74,7 +89,8 @@ public final class ECOOmniSequenceDirectDispatch {
         if (requestedCrafts < 2 || !isLoaded() || provider == null || pattern == null) return null;
         try {
             return Delegate.open(provider, pattern, oneCraftInputs, requestedCrafts);
-        } catch (Throwable ignored) {
+        } catch (RuntimeException | LinkageError failure) {
+            logFailure("session open", failure);
             return null;
         }
     }
@@ -85,7 +101,8 @@ public final class ECOOmniSequenceDirectDispatch {
         if (!set.add(provider)) return false;
         try {
             return Delegate.flushAfterCpuAccounting(provider);
-        } catch (Throwable ignored) {
+        } catch (RuntimeException | LinkageError failure) {
+            logFailure("post-accounting flush", failure);
             return false;
         } finally {
             set.remove(provider);
@@ -114,7 +131,8 @@ public final class ECOOmniSequenceDirectDispatch {
                         "com.atir.molecularmanipulator.api.crafting.OmniPostAccountingOutputAdapterRegistry",
                         false, ECOOmniSequenceDirectDispatch.class.getClassLoader());
                 return registry.getMethod("flushAfterCpuAccounting", ICraftingProvider.class);
-            } catch (Throwable ignored) {
+            } catch (ReflectiveOperationException | LinkageError absent) {
+                // Older OmniSequence builds have no output adapter registry; use the provider hooks below.
                 return null;
             }
         }
@@ -130,7 +148,11 @@ public final class ECOOmniSequenceDirectDispatch {
                         && (p instanceof MolecularBatchCraftingProvider || p instanceof OmniBatchCraftingProvider)) {
                     return p;
                 }
-            } catch (Throwable ignored) {}
+            } catch (NoSuchMethodException absent) {
+                // Not a pattern provider host; the provider itself is the dispatch target.
+            } catch (ReflectiveOperationException | RuntimeException failure) {
+                logFailure("provider unwrap", failure);
+            }
             return provider;
         }
 
@@ -359,19 +381,25 @@ public final class ECOOmniSequenceDirectDispatch {
                     if (target != provider) {
                         flushed |= Boolean.TRUE.equals(REGISTRY_FLUSH.invoke(null, provider));
                     }
-                } catch (Throwable ignored) {}
+                } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
+                    logFailure("output registry flush", failure);
+                }
             }
             if (!flushed) {
                 if (target instanceof OmniPostAccountingOutputProvider o) {
                     try {
                         o.flushOutputsAfterCpuAccounting();
                         flushed = true;
-                    } catch (Throwable ignored) {}
+                    } catch (RuntimeException | LinkageError failure) {
+                        logFailure("provider output flush", failure);
+                    }
                 } else if (target instanceof MolecularBatchCraftingProvider m) {
                     try {
                         m.molecularmanipulator$flushOutputsAfterCpuAccounting();
                         flushed = true;
-                    } catch (Throwable ignored) {}
+                    } catch (RuntimeException | LinkageError failure) {
+                        logFailure("molecular output flush", failure);
+                    }
                 }
             }
             return flushed;

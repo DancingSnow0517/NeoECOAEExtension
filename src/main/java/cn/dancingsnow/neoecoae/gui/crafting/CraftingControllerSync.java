@@ -7,7 +7,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.function.Supplier;
 import net.minecraft.core.HolderLookup;
@@ -41,26 +40,26 @@ final class CraftingControllerSync {
     }
     private CompoundTag snapshot() {
         CompoundTag tag = config.panelState().get().toTag();
-        tag.putLong("energyUsage", Math.max(0L, config.energyUsage().getAsLong()));
-        tag.putLong("performanceNanos", Math.max(0L, config.performanceAverageNanos().getAsLong()));
-        tag.putLong("queuedCraftCount", Math.max(0L, config.queuedCraftCount().getAsLong()));
-        tag.putLong("batchCapacity", Math.max(0L, config.batchCapacity().getAsLong()));
-        tag.putLong("ftParallelCapacity", Math.max(0L, config.ftParallelCapacity().getAsLong()));
-        tag.putLong("overflowCapacity", Math.max(0L, config.overflowCapacity().getAsLong()));
-        tag.putInt("coolantAmount", Math.max(0, config.coolantAmount().getAsInt()));
-        tag.putInt("coolantCapacity", Math.max(0, config.coolantCapacity().getAsInt()));
+        tag.putLong("energyUsage", config.energyUsage().getAsLong());
+        tag.putLong("performanceNanos", config.performanceAverageNanos().getAsLong());
+        tag.putLong("queuedCraftCount", config.queuedCraftCount().getAsLong());
+        tag.putLong("batchCapacity", config.batchCapacity().getAsLong());
+        tag.putLong("ftParallelCapacity", config.ftParallelCapacity().getAsLong());
+        tag.putLong("overflowCapacity", config.overflowCapacity().getAsLong());
+        tag.putInt("coolantAmount", config.coolantAmount().getAsInt());
+        tag.putInt("coolantCapacity", config.coolantCapacity().getAsInt());
         tag.putInt("coolantMaxOverclock", config.coolantMaxOverclock().getAsInt());
-        tag.putInt("outputCapacity", Math.max(0, config.outputCapacity().getAsInt()));
-        tag.putInt("activeWorkerCores", Math.max(0, config.activeWorkerCores().getAsInt()));
-        tag.putInt("workerCores", Math.max(0, config.workerCores().getAsInt()));
-        tag.putInt("singleCoreCapacity", Math.max(0, config.singleCoreCapacity().getAsInt()));
-        tag.putInt("theoreticalOverclockTimes", Math.max(0, config.theoreticalOverclockTimes().getAsInt()));
-        tag.putInt("effectiveOverclockTimes", Math.max(0, config.effectiveOverclockTimes().getAsInt()));
-        tag.putInt("executionTicks", Math.max(1, config.executionTicks().getAsInt()));
-        tag.putInt("networkMultiplier", Math.max(1, config.networkMultiplier().getAsInt()));
+        tag.putInt("outputCapacity", config.outputCapacity().getAsInt());
+        tag.putInt("activeWorkerCores", config.activeWorkerCores().getAsInt());
+        tag.putInt("workerCores", config.workerCores().getAsInt());
+        tag.putInt("singleCoreCapacity", config.singleCoreCapacity().getAsInt());
+        tag.putInt("theoreticalOverclockTimes", config.theoreticalOverclockTimes().getAsInt());
+        tag.putInt("effectiveOverclockTimes", config.effectiveOverclockTimes().getAsInt());
+        tag.putInt("executionTicks", config.executionTicks().getAsInt());
+        tag.putInt("networkMultiplier", config.networkMultiplier().getAsInt());
         tag.putInt("taskCount", taskCount());
-        tag.putInt("normalSwitchCount", Math.max(0, config.normalSwitchCount().getAsInt()));
-        tag.putInt("highEnergySwitchCount", Math.max(0, config.highEnergySwitchCount().getAsInt()));
+        tag.putInt("normalSwitchCount", config.normalSwitchCount().getAsInt());
+        tag.putInt("highEnergySwitchCount", config.highEnergySwitchCount().getAsInt());
         tag.putBoolean("networkConnected", config.networkConnected().getAsBoolean());
         tag.putBoolean("overclocked", config.overclocked().getAsBoolean());
         tag.putBoolean("virtualMode", config.virtualMode().getAsBoolean());
@@ -73,7 +72,7 @@ final class CraftingControllerSync {
         for (int cell = 0; cell < CraftingControllerPanelState.SLOT_COUNT; cell++) {
             CraftingOutputDisplay output = cell < outputs.size() ? outputs.get(cell) : CraftingOutputDisplay.EMPTY;
             CompoundTag entry = new CompoundTag();
-            if (!output.item().isEmpty() && registries != null) {
+            if (!output.item().isEmpty()) {
                 entry.put("item", output.item().saveOptional(registries));
                 entry.putString("amount", output.amount().toString());
             }
@@ -84,24 +83,20 @@ final class CraftingControllerSync {
     }
 
     private int taskCount() {
-        Collection<?> tasks = config.tasks().get();
-        return tasks == null ? 0 : tasks.size();
+        return config.tasks().get().size();
     }
 
     private CompoundTag saveFluid(FluidStack fluid) {
-        if (fluid == null || fluid.isEmpty()) return new CompoundTag();
-        HolderLookup.Provider registries = config.registries().get();
-        if (registries == null) return new CompoundTag();
-        Tag saved = fluid.saveOptional(registries);
+        if (fluid.isEmpty()) return new CompoundTag();
+        Tag saved = fluid.saveOptional(config.registries().get());
         return saved instanceof CompoundTag compound ? compound : new CompoundTag();
     }
 
     private FluidStack loadFluid(CompoundTag tag, Supplier<FluidStack> fallbackSupplier) {
-        HolderLookup.Provider registries = config.registries().get();
-        FluidStack parsed = registries == null ? FluidStack.EMPTY : FluidStack.parseOptional(registries, tag);
+        FluidStack parsed = FluidStack.parseOptional(config.registries().get(), tag);
         if (!parsed.isEmpty()) return parsed;
         FluidStack fallback = fallbackSupplier.get();
-        return fallback == null || fallback.isEmpty() ? FluidStack.EMPTY : fallback.copy();
+        return fallback.isEmpty() ? FluidStack.EMPTY : fallback.copy();
     }
 
     void read(Tag value, CraftingControllerViewState view) {
@@ -138,8 +133,7 @@ final class CraftingControllerSync {
         List<CraftingOutputDisplay> outputs = new ArrayList<>();
         for (int cell = 0; cell < CraftingControllerPanelState.SLOT_COUNT; cell++) {
             CompoundTag entry = items.getCompound(cell);
-            ItemStack item = registries == null ? ItemStack.EMPTY
-                : ItemStack.parseOptional(registries, entry.getCompound("item"));
+            ItemStack item = ItemStack.parseOptional(registries, entry.getCompound("item"));
             BigInteger amount = item.isEmpty() ? BigInteger.ZERO : new BigInteger(entry.getString("amount"));
             outputs.add(new CraftingOutputDisplay(item, amount));
         }

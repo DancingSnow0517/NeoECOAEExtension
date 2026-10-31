@@ -254,8 +254,9 @@ public class NETextures {
                     LOGGER.debug("Registering builtin texture: {}", path);
                     IGuiTexture builtinTexture = new UIResourceTexture(path);
                     field.set(null, builtinTexture);
-                } catch (Exception e) {
-                    LOGGER.warn("Failed to register builtin texture field {}.{}", cls.getName(), field.getName(), e);
+                } catch (IllegalAccessException e) {
+                    throw new IllegalStateException("Cannot register builtin texture field "
+                        + cls.getName() + "." + field.getName(), e);
                 }
             }
         }

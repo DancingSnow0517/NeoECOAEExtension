@@ -73,7 +73,7 @@ final class ECOBatchDispatchPlanning {
 
         ECOBatchPlan plan(long capacity, long quota, double singlePower, IEnergyService energy, ECOBatchMode mode) {
             long upper = Math.min(request.allowedCrafts(), Math.min(arithmetic,
-                    Math.min(Math.max(0, capacity), Math.max(0, quota))));
+                    Math.max(0L, Math.min(capacity, quota))));
             if (request.job().executionRuntime != null && request.candidate() != null) {
                 upper = request.job().executionRuntime.limitCycleBatch(request.candidate(), request.inputs(),
                     request.inventory(), upper);
@@ -93,7 +93,7 @@ final class ECOBatchDispatchPlanning {
                     if (amount.bitLength() > 63) continue;
                     available = amount.longValue();
                 } else {
-                    available = Math.max(0L, Math.max(0L, request.inventory().list.get(input.getKey())) - seed);
+                    available = Math.max(0L, request.inventory().list.get(input.getKey()) - seed);
                 }
                 material = Math.min(material, available / input.getLongValue());
                 if (material == 0) return null;
