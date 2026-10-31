@@ -52,6 +52,9 @@ final class ECOCraftingTaskScheduler {
 
     private long physicalInsertGeneration;
     private IPatternDetails resumeDispatchPattern;
+    // A successful pattern keeps priority across callbacks until it can no longer dispatch.
+    // Keep this separate from the bounded scan cursor used to walk stalled candidates.
+    private IPatternDetails preferredDispatchPattern;
     private String lastDispatchReasonSignature;
     private long lastDispatchReasonTick = Long.MIN_VALUE;
     private int sharedRemainingNormalProbes = -1;
@@ -65,6 +68,7 @@ final class ECOCraftingTaskScheduler {
         inputTemplateCache.clear();
         providerCursor.clear();
         resumeDispatchPattern = null;
+        preferredDispatchPattern = null;
         resetMissingInputMemo();
     }
 
@@ -166,6 +170,7 @@ final class ECOCraftingTaskScheduler {
                     : current.executionRuntime.candidates();
             stallDiagnostics.candidates(candidates.size());
             if (candidates.isEmpty()) {
+                preferredDispatchPattern = null;
                 logReason(current, null, "no-runnable-candidates",
                         current.executionRuntime == null ? "legacy scheduler has no pending candidate"
                                 : current.executionRuntime.describeSchedulingState());
@@ -191,6 +196,7 @@ final class ECOCraftingTaskScheduler {
                     logReason(current, candidate, progress == null ? "task-progress-missing" : "task-already-complete",
                             "taskRemaining=" + (progress == null ? "<missing>" : progress.value));
                     providerCursor.forget(candidate.pattern());
+                    releasePreferredPattern(candidate.pattern());
                     continue;
                 }
                 long allowedCount = Math.min(candidate.maxDispatchCount(), progress.value);
@@ -198,12 +204,14 @@ final class ECOCraftingTaskScheduler {
                     logReason(current, candidate, "dispatch-allowance-empty",
                             "candidateMax=" + candidate.maxDispatchCount() + " taskRemaining=" + progress.value);
                     if (candidate.blocksOrderedPhase()) stallDiagnostics.phaseBarrier();
+                    releasePreferredPattern(candidate.pattern());
                     continue;
                 }
 
                 var pattern = candidate.pattern();
                 if (current.isProcessingStepStopped(pattern)) {
                     logReason(current, candidate, "user-stopped-step", "waiting for the player to resume this processing step");
+                    releasePreferredPattern(pattern);
                     if (candidate.blocksOrderedPhase()) blockedOrderedPhases.set(candidate.phaseIndex());
                     continue;
                 }
@@ -211,6 +219,7 @@ final class ECOCraftingTaskScheduler {
                 if (current.executionRuntime == null && !current.canDispatchAfterGrowth(pattern)) {
                     logReason(current, candidate, "legacy-growth-barrier", "pattern is blocked by growth ordering");
                     stallDiagnostics.phaseBarrier();
+                    releasePreferredPattern(pattern);
                     continue;
                 }
 
@@ -228,6 +237,7 @@ final class ECOCraftingTaskScheduler {
                         logReason(current, candidate, "input-resolution-failed-same-availability",
                                 "dependencies=" + dependencyKeys);
                         stallDiagnostics.repeatedFailureSameEpoch();
+                        releasePreferredPattern(pattern);
                         if (candidate.blocksOrderedPhase()) {
                             stallDiagnostics.phaseBarrier();
                             blockedOrderedPhases.set(candidate.phaseIndex());
@@ -236,11 +246,14 @@ final class ECOCraftingTaskScheduler {
                     }
                 }
 
+                // Exhausted ordinary budgets pause priority; busy/missing providers release it.
+                boolean[] providerEligibility = new boolean[2];
                 var providers = providerCursor.availableProviders(
                         pattern,
                         () -> providerSupplier.apply(pattern),
                         providerCandidate -> {
                             boolean eligible = providerDispatcher.isEligible(providerCandidate, budget);
+                            providerEligibility[eligible ? 0 : 1] = true;
                             stallDiagnostics.providerConsidered(eligible);
                             return eligible;
                         },
@@ -250,6 +263,7 @@ final class ECOCraftingTaskScheduler {
                 if (providers.isEmpty()) {
                     logReason(current, candidate, "no-ready-provider", "provider availability or dispatch policy rejected all providers");
                     stallDiagnostics.noReadyProvider();
+                    if (providerEligibility[0] || !providerEligibility[1]) releasePreferredPattern(pattern);
                     if (candidate.blocksOrderedPhase()) blockedOrderedPhases.set(candidate.phaseIndex());
                     continue;
                 }
@@ -271,6 +285,7 @@ final class ECOCraftingTaskScheduler {
                 var inputs = ECOCraftingInputResolver.extractPatternInputsFromDisposablePreview(
                         pattern, inputInventory, level, outputs, remainders, remainderCache);
                 if (inputs == null) {
+                    releasePreferredPattern(pattern);
                     logReason(current, candidate, "required-inputs-unavailable",
                             "dependencies=" + dependencyKeys + " protectedStartupSeed=" + protectedStartupSeed);
                     stallDiagnostics.resolveFailure();
@@ -309,6 +324,7 @@ final class ECOCraftingTaskScheduler {
                 var request = new ECOCraftingDispatchRequest(
                         current, dispatchCandidate, pattern, inputs, outputs, remainders, allowedCount, inventory, level);
                 ECOCraftingProviderDispatcher.Result dispatch;
+                boolean[] providerAttempted = {false};
                 try (var ignored = cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching
                         .openDispatch(current.fuzzyPlanningItemIds)) {
                     dispatch = providerDispatcher.dispatchCandidate(
@@ -317,15 +333,18 @@ final class ECOCraftingTaskScheduler {
                         budget,
                         energyService,
                         stallDiagnostics,
-                        provider -> providerCursor.advanceAfter(pattern, provider),
+                        provider -> {
+                            providerAttempted[0] = true;
+                            providerCursor.advanceAfter(pattern, provider);
+                        },
                         () -> resumeDispatchPattern = nextCandidatePattern(candidates, candidateIndex),
                         normalPush);
                 }
                 if (dispatch.accepted()) {
                     totalPushed = addPushed(totalPushed, dispatch.acceptedCrafts());
-                    // Rebuild the candidate list after every accepted task. This commits
-                    // progress and newly available inputs before another independent task
-                    // is selected, while the runtime still gates true dependencies.
+                    // Rebuild legal candidates and inputs after each acceptance. Prefer this
+                    // pattern without a streak cap; callback/tick budgets still bound the work.
+                    preferredDispatchPattern = progress.value > 0L ? pattern : null;
                     resumeDispatchPattern = nextCandidatePattern(candidates, candidateIndex);
                     acceptedDispatches++;
                     acceptedInPass = true;
@@ -334,6 +353,7 @@ final class ECOCraftingTaskScheduler {
                 }
                 logReason(current, candidate, "provider-dispatch-not-accepted",
                         "providersTried=" + providers.size() + " allowedCrafts=" + allowedCount);
+                if (providerAttempted[0]) releasePreferredPattern(pattern);
                 if (candidate.blocksOrderedPhase()) blockedOrderedPhases.set(candidate.phaseIndex());
             }
             if (!acceptedInPass && inspected > 0 && inspected < candidates.size()) {
@@ -371,7 +391,17 @@ final class ECOCraftingTaskScheduler {
             candidate == null ? "<none>" : candidate.pattern().getDefinition(), details);
     }
 
+    private void releasePreferredPattern(IPatternDetails pattern) {
+        if (pattern.equals(preferredDispatchPattern)) preferredDispatchPattern = null;
+    }
+
     private int resumeIndex(List<ECOExecutionRuntime.DispatchCandidate> candidates) {
+        if (preferredDispatchPattern != null) {
+            for (int i = 0; i < candidates.size(); i++) {
+                if (candidates.get(i).pattern().equals(preferredDispatchPattern)) return i;
+            }
+            preferredDispatchPattern = null;
+        }
         if (resumeDispatchPattern == null) return 0;
         for (int i = 0; i < candidates.size(); i++) {
             if (candidates.get(i).pattern().equals(resumeDispatchPattern)) return i;

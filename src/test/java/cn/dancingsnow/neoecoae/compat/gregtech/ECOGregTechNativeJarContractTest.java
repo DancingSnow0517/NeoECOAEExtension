@@ -22,6 +22,8 @@ class ECOGregTechNativeJarContractTest {
             "com/gregtechceu/gtceu/integration/ae2/machine/MEPatternBufferPartMachine";
     private static final String GTL_BUFFER =
             "org/gtlcore/gtlcore/common/machine/multiblock/part/ae/MEPatternBufferPartMachineBase";
+    private static final String GTL_MOLECULAR_ASSEMBLER =
+            "org/gtlcore/gtlcore/common/machine/multiblock/part/ae/MEMolecularAssemblerIOPartMachine";
     private static final String INPUTS = "[Lappeng/api/stacks/KeyCounter;";
     private static final String PATTERN = "Lappeng/api/crafting/IPatternDetails;";
 
@@ -65,6 +67,22 @@ class ECOGregTechNativeJarContractTest {
             assertTrue(calls(slot).stream().anyMatch(call -> call.name.equals("pushInputsToMEPatternBufferInventory")));
             method(read(jar, "org/gtlcore/gtlcore/integration/ae2/crafting/IPatternProviderAutoExpand"),
                     "gtlcore$getMaxPatternOperations", "(" + PATTERN + "J)J");
+        }
+    }
+
+    @Test void nativeGtlMolecularAssemblerCountsAggregateInputsUsingItsOriginalProcessingPattern() throws Exception {
+        try (var jar = release("gtProcessingGtlJar")) {
+            var assembler = read(jar, GTL_MOLECULAR_ASSEMBLER);
+            var admission = method(assembler, "pushPattern", "(" + PATTERN + INPUTS + ")Z");
+            assertTrue(calls(admission).stream().anyMatch(call -> call.name.equals("containsKey")),
+                "The native provider validates its registered pattern before accepting a batch");
+            assertTrue(calls(admission).stream().anyMatch(call -> call.name.equals("getLongValue")),
+                "The native provider must consume long input totals rather than one-copy amounts");
+            assertTrue(calls(admission).stream().anyMatch(call -> call.name.equals("addTo")),
+                "Accepted crafts are added to the counted output queue");
+            var capacity = method(assembler, "gtlcore$graphCapacity", "(" + PATTERN + "Ljava/util/Map;J)J");
+            assertTrue(calls(capacity).stream().anyMatch(call -> call.name.equals("gtlcore$canProduceGraphPattern")),
+                "Capacity preflight must enforce native pattern and tool requirements");
         }
     }
 

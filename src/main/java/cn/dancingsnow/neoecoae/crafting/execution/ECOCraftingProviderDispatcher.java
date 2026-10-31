@@ -60,7 +60,7 @@ final class ECOCraftingProviderDispatcher {
                 || fastPath.supportsBatch(provider)
                 || ECOParallelCraftingProviders.find(provider) != null
                 || cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.open(provider) != null
-                || cn.dancingsnow.neoecoae.compat.gregtech.ECOGregTechProcessingDispatch.isBuffer(provider)
+                || cn.dancingsnow.neoecoae.compat.gregtech.ECOGregTechProcessingDispatch.isBatchProvider(provider)
                 || budget.canAttemptOrdinary();
     }
 

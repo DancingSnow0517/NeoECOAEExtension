@@ -92,7 +92,7 @@ class OverloadCrystalCyclePlanningTest {
                 .compile(service, crystal, true, ECOCancellation.NONE);
             var inventory = new KeyCounter();
             inventory.add(dust, 8);
-            long batches = (requested + 23L) / 24L;
+            long batches = (requested - 8L + 23L) / 24L;
             inventory.add(fluix, batches * 16L);
             inventory.add(charged, batches * 8L);
             var result = plan(network, inventory, requested);
@@ -107,6 +107,30 @@ class OverloadCrystalCyclePlanningTest {
             assertEquals(8L, inventory.get(dust), "Planning must not mutate the network inventory");
             result.state().executionProvenance().requireComplete();
         });
+    }
+
+    @ParameterizedTest
+    @CsvSource({"1000", "1001", "2000", "999", "976", "100"})
+    void stockedCrystalsAreConsumedAndOnlyTheShortfallIsGrown(long crystals) throws Exception {
+        var network = network();
+        var inventory = stock(crystals);
+        var result = plan(network, inventory, 1000);
+        assertEquals(PlanningStatus.SUCCESS, result.status(), result.trace().diagnostics().toString());
+        long batches = (Math.max(0L, 1000L - crystals) + 23L) / 24L;
+        var times = result.state().patternTimes();
+        var crush = network.fastProducersOf(dust).get(0).details();
+        var makeSeeds = network.fastProducersOf(seed).get(0).details();
+        var grow = network.fastProducersOf(crystal).get(0).details();
+        assertEquals(batches, times.getOrDefault(makeSeeds, 0L));
+        assertEquals(1000L + batches * 8L, times.get(crush));
+        assertEquals(Math.max(0L, 1000L + batches * 8L - crystals), times.getOrDefault(grow, 0L));
+        assertEquals(batches * 4L, result.state().usedItems().get(fluix));
+        assertEquals(batches * 4L, result.state().usedItems().get(charged));
+        assertEquals(batches * 4L, result.state().usedItems().get(lightning));
+        assertEquals(Math.min(crystals, 1000L + batches * 8L), result.state().usedItems().get(crystal));
+        assertEquals(crystals, inventory.get(crystal), "Planning must not mutate network stock");
+        result.state().executionProvenance().requireComplete();
+        assertFalse(new AE2CraftingPlanBridge().success(dust, 1000, false, false, result.state()).simulation());
     }
 
     private CompiledNetwork network() throws Exception {

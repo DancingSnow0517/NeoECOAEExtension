@@ -20,17 +20,20 @@ public final class EAEPForcedCrafting {
     }
 
     public static ICraftingPlan force(ICraftingPlan plan) {
-        return installed() ? Holder.ACCESS.force(plan) : new ECOForcedCraftingPlan(plan);
+        var access = installed() ? Holder.ACCESS : null;
+        return access != null ? access.force(plan) : new ECOForcedCraftingPlan(plan);
     }
 
     public static boolean isForced(ICraftingPlan plan) {
-        return plan instanceof ECOForcedCraftingPlan
-            || installed() && Holder.ACCESS.marker().isInstance(plan);
+        if (plan instanceof ECOForcedCraftingPlan) return true;
+        var access = installed() ? Holder.ACCESS : null;
+        return access != null && access.marker().isInstance(plan);
     }
 
     /** EAEP keeps these outside emittedItems; ECO imports them into its persisted waiting inventory. */
     public static KeyCounter manualMissing(ICraftingPlan plan) {
-        return installed() ? Holder.ACCESS.missing(plan) : new KeyCounter();
+        var access = installed() ? Holder.ACCESS : null;
+        return access != null ? access.missing(plan) : new KeyCounter();
     }
 
     static Access load(ClassLoader loader, boolean installed) {
@@ -40,8 +43,10 @@ public final class EAEPForcedCrafting {
             var wrapper = Class.forName("com.extendedae_plus.crafting.ForcedCraftingPlan", true, loader);
             return new Access(wrapper.getConstructor(ICraftingPlan.class), marker,
                 marker.getMethod("eap$getManualMissingItems"));
-        } catch (ReflectiveOperationException failure) {
-            throw new IllegalStateException("Installed ExtendedAEPlus has no compatible force-crafting API", failure);
+        } catch (ClassNotFoundException | NoSuchMethodException missingApi) {
+            // Older Plus releases are installed without this optional protocol. Keep their normal
+            // submissions working and use ECO's existing waiting-inventory fallback for forced plans.
+            return null;
         }
     }
 

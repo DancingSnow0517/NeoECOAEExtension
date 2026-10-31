@@ -83,7 +83,7 @@ final class ECOProcessingPatternDispatcher {
                 || isScaledAttemptBudgetExhausted() || isScaledDispatchDeferred(request, provider)
                 || !supportsScaledDispatchCached(request, provider)) return null;
         var direct = ECOAe2LtDirectDispatch.open(provider);
-        boolean gtBuffer = direct == null && ECOGregTechProcessingDispatch.isBuffer(provider);
+        boolean gtBatch = direct == null && ECOGregTechProcessingDispatch.isBatchProvider(provider);
         Object logic = direct == null ? providerLogic(provider) : null;
         Object gtTarget = logic == null ? provider : logic;
         var inputScaling = direct == null ? ECOGregTechProcessingDispatch.inputScaling(gtTarget)
@@ -91,7 +91,7 @@ final class ECOProcessingPatternDispatcher {
         // GTL's provider limit includes its own auto-expand switch and policy. ECO jobs
         // learn from actual acceptance instead. Native buffers retain their physical
         // overflow guard; a configuration item must travel once with the whole batch.
-        boolean atomicBatch = gtBuffer || java.util.Arrays.stream(request.inputs())
+        boolean atomicBatch = gtBatch || java.util.Arrays.stream(request.inputs())
                 .anyMatch(counter -> counter.keySet().stream().anyMatch(inputScaling.perBatch()));
         boolean advancedPattern = direct == null && ECOAdvancedAEPatternScaling.isAdvancedPattern(request.pattern());
         long transportLimit = direct == null ? Long.MAX_VALUE : direct.maxBatchSize(request.pattern());
@@ -120,7 +120,7 @@ final class ECOProcessingPatternDispatcher {
                 state.nextDispatchTick = tick + 1;
                 break;
             }
-            if (gtBuffer) {
+            if (gtBatch) {
                 long capacity = ECOGregTechProcessingDispatch.maxOperations(gtTarget, request.pattern(),
                         request.inputs(), plan.craftCount());
                 if (capacity == 0) {
@@ -148,7 +148,7 @@ final class ECOProcessingPatternDispatcher {
                         () -> energy.reserve(service, onePower, dispatchPlan.craftCount()), batch -> {
                             mark.accept(provider);
                             if (direct != null) return direct.submit(request.pattern(), request.inputs(), batch.craftCount());
-                            if (gtBuffer) {
+                            if (gtBatch) {
                                 return ECOGregTechProcessingDispatch.pushBuffer(provider, request.pattern(),
                                         executionPattern, batch.inputCounters())
                                         ? ECOBatchAdmission.accepted(batch.craftCount(), true)
@@ -220,7 +220,7 @@ final class ECOProcessingPatternDispatcher {
     static boolean supportsScaledDispatch(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
         if (ECOExternalProviderBlocking.isEnabled(provider)) return false;
         if (provider instanceof ECOParallelCraftingProvider) return false;
-        if (ECOGregTechProcessingDispatch.isBuffer(provider)) {
+        if (ECOGregTechProcessingDispatch.isBatchProvider(provider)) {
             return request.pattern().supportsPushInputsToExternalInventory()
                     && request.pattern().getInputs().length > 0 && request.pattern().getOutputs().length > 0
                     && ECOGregTechProcessingDispatch.supportsInputs(request.inputs());

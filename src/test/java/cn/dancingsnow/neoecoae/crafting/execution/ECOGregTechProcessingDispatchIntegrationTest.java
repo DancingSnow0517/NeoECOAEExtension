@@ -37,6 +37,61 @@ import org.junit.jupiter.api.Test;
 class ECOGregTechProcessingDispatchIntegrationTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
+    @Test void molecularAssemblerReceivesTheWholeReadyBatchWithItsRegisteredPattern() {
+        var f = new Fixture(200_000, false);
+        var provider = f.molecularAssembler();
+        assertFalse(ECOGregTechProcessingDispatch.isBuffer(provider));
+        assertTrue(ECOGregTechProcessingDispatch.isBatchProvider(provider));
+        var result = f.dispatch(provider, (request, target) -> fail("Assembler requires canonical-pattern admission"));
+        assertEquals(200_000, result.acceptedCrafts());
+        assertEquals(1, provider.pushes);
+        assertEquals(200_000, provider.queued);
+        assertEquals(600_000, provider.received.get(f.iron));
+        assertEquals(100_000_000, provider.received.get(f.water));
+        assertEquals(0, f.inventory.list.get(f.iron));
+        assertEquals(0, f.progress.value);
+        assertEquals(400_000, f.job.waitingFor.list.get(f.output));
+        assertEquals(3, f.inputs[0].get(f.iron));
+    }
+
+    @Test void molecularAssemblerQueueCapacityPreventsOutputOverflowBeforeAnyDebit() {
+        var f = new Fixture(64, false);
+        var provider = f.molecularAssembler();
+        provider.queued = Long.MAX_VALUE / 2 - 4;
+        var result = f.dispatch(provider, (request, target) -> fail("Capacity must be checked before native admission"));
+        assertEquals(4, result.acceptedCrafts());
+        assertEquals(Long.MAX_VALUE / 2, provider.queued);
+        assertEquals(1, provider.pushes);
+        assertEquals(180, f.inventory.list.get(f.iron));
+        assertEquals(60, f.progress.value);
+        assertEquals(8, f.job.waitingFor.list.get(f.output));
+    }
+
+    @Test void molecularAssemblerMissingToolsCannotConsumeBatchMaterialsOrEnergy() {
+        var f = new Fixture(64, false);
+        var provider = f.molecularAssembler();
+        provider.toolsPresent = false;
+        assertNull(f.dispatch(provider, (request, target) -> fail("Missing tools must stop batch admission")));
+        assertEquals(0, provider.pushes);
+        assertEquals(192, f.inventory.list.get(f.iron));
+        assertEquals(64, f.progress.value);
+        verify(f.energy, never()).extractAEPower(anyDouble(), eq(Actionable.MODULATE), any());
+    }
+
+    @Test void molecularAssemblerRejectingTheBatchRefundsEveryInputAndTheReservedEnergy() {
+        var f = new Fixture(64, false);
+        var provider = f.molecularAssembler();
+        provider.reject = true;
+        assertNull(f.dispatch(provider, (request, target) -> fail("A rejected native batch must not use a wrapper")));
+        assertEquals(192, f.inventory.list.get(f.iron));
+        assertEquals(32_000, f.inventory.list.get(f.water));
+        assertEquals(0, provider.queued);
+        assertEquals(64, f.progress.value);
+        assertTrue(f.job.waitingFor.list.isEmpty());
+        assertFalse(f.job.suspended);
+        verify(f.energy, atLeastOnce()).injectPower(anyDouble(), eq(Actionable.MODULATE));
+    }
+
     @Test void gtlBufferReceivesOneCompleteBatchUsingItsCanonicalPattern() {
         var f = new Fixture(64, false);
         var provider = f.gtlBuffer();
@@ -300,6 +355,12 @@ class ECOGregTechProcessingDispatchIntegrationTest {
 
         org.gtlcore.gtlcore.common.machine.multiblock.part.ae.MEPatternBufferPartMachineBase gtlBuffer() {
             var provider = new org.gtlcore.gtlcore.common.machine.multiblock.part.ae.MEPatternBufferPartMachineBase();
+            provider.pattern = pattern;
+            return provider;
+        }
+
+        org.gtlcore.gtlcore.common.machine.multiblock.part.ae.MEMolecularAssemblerIOPartMachine molecularAssembler() {
+            var provider = new org.gtlcore.gtlcore.common.machine.multiblock.part.ae.MEMolecularAssemblerIOPartMachine();
             provider.pattern = pattern;
             return provider;
         }

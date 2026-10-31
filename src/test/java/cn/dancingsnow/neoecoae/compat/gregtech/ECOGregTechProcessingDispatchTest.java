@@ -105,8 +105,35 @@ class ECOGregTechProcessingDispatchTest {
         var bridge = isolated.loadClass(bridgeName);
         var provider = mock(ICraftingProvider.class);
         assertEquals(false, bridge.getMethod("isBuffer", Object.class).invoke(null, provider));
+        assertEquals(false, bridge.getMethod("isBatchProvider", Object.class).invoke(null, provider));
         assertSame(ECOBatchInputScaling.LINEAR,
                 bridge.getMethod("inputScaling", Object.class).invoke(null, provider));
+    }
+
+    @Test void molecularAssemblerWithoutTheCapacityContractRetainsOrdinaryDispatch() throws Exception {
+        String name = "org.gtlcore.gtlcore.common.machine.multiblock.part.ae.MEMolecularAssemblerIOPartMachine";
+        var parent = getClass().getClassLoader();
+        byte[] bytes;
+        try (var stream = parent.getResourceAsStream(name.replace('.', '/') + ".class")) {
+            assertNotNull(stream);
+            var legacy = new org.objectweb.asm.tree.ClassNode();
+            new org.objectweb.asm.ClassReader(stream).accept(legacy, 0);
+            legacy.methods.removeIf(method -> method.name.equals("gtlcore$graphCapacity"));
+            var writer = new org.objectweb.asm.ClassWriter(0);
+            legacy.accept(writer);
+            bytes = writer.toByteArray();
+        }
+        var loader = new ClassLoader(parent) {
+            @Override protected Class<?> loadClass(String requested, boolean resolve) throws ClassNotFoundException {
+                if (!requested.equals(name)) return super.loadClass(requested, resolve);
+                var legacy = defineClass(requested, bytes, 0, bytes.length);
+                if (resolve) resolveClass(legacy);
+                return legacy;
+            }
+        };
+        var provider = loader.loadClass(name).getConstructor().newInstance();
+        assertFalse(ECOGregTechProcessingDispatch.isBatchProvider(provider));
+        assertSame(ECOBatchInputScaling.LINEAR, ECOGregTechProcessingDispatch.inputScaling(provider));
     }
 
     @Test void optionalMixinIsSkippedWhenTheNativeGtBufferResourceIsMissing() throws Exception {

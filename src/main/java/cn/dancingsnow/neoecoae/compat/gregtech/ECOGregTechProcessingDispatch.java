@@ -18,6 +18,8 @@ public final class ECOGregTechProcessingDispatch {
             "com.gregtechceu.gtceu.integration.ae2.machine.MEPatternBufferPartMachine";
     private static final String GTL_BUFFER =
             "org.gtlcore.gtlcore.common.machine.multiblock.part.ae.MEPatternBufferPartMachineBase";
+    private static final String GTL_MOLECULAR_ASSEMBLER =
+            "org.gtlcore.gtlcore.common.machine.multiblock.part.ae.MEMolecularAssemblerIOPartMachine";
     private static final String GTL_CAPACITY =
             "org.gtlcore.gtlcore.integration.ae2.crafting.IPatternProviderAutoExpand";
     private static final ResourceLocation CIRCUIT = new ResourceLocation("gtceu", "programmed_circuit");
@@ -28,9 +30,13 @@ public final class ECOGregTechProcessingDispatch {
         @Override protected Access computeValue(Class<?> type) {
             boolean gtlBuffer = hasType(type, GTL_BUFFER);
             boolean stockBuffer = BatchInputProvider.class.isAssignableFrom(type) && hasType(type, GT_BUFFER);
-            Method bufferCapacity = gtlBuffer
+            boolean molecularAssembler = hasType(type, GTL_MOLECULAR_ASSEMBLER);
+            Method bufferCapacity = gtlBuffer || molecularAssembler
                     ? method(type, "gtlcore$graphCapacity", IPatternDetails.class, Map.class, long.class) : null;
-            return new Access(gtlBuffer || stockBuffer, gtlBuffer || hasType(type, GTL_CAPACITY), bufferCapacity,
+            // The assembler consumes aggregate counters with its registered original pattern. Its
+            // preflight also rejects missing tools and bounds the long-backed output queue.
+            return new Access(gtlBuffer || stockBuffer, molecularAssembler && bufferCapacity != null,
+                    gtlBuffer || hasType(type, GTL_CAPACITY), bufferCapacity,
                     method(type, "getLogic"));
         }
     };
@@ -42,6 +48,12 @@ public final class ECOGregTechProcessingDispatch {
 
     public static boolean isBuffer(Object provider) {
         return provider != null && ACCESS.get(provider.getClass()).buffer();
+    }
+
+    public static boolean isBatchProvider(Object provider) {
+        if (provider == null) return false;
+        var access = ACCESS.get(provider.getClass());
+        return access.buffer() || access.molecularAssembler();
     }
 
     public static ECOBatchInputScaling inputScaling(Object provider) {
@@ -106,7 +118,8 @@ public final class ECOGregTechProcessingDispatch {
         Object current = provider;
         for (int depth = 0; current != null && depth < 8; depth++) {
             var access = ACCESS.get(current.getClass());
-            if (access.buffer() || access.circuitConfiguration() || access.logic() == null) return current;
+            if (access.buffer() || access.molecularAssembler()
+                    || access.circuitConfiguration() || access.logic() == null) return current;
             try {
                 Object next = access.logic().invoke(current);
                 if (next == current) return current;
@@ -134,7 +147,7 @@ public final class ECOGregTechProcessingDispatch {
         return hasType(type.getSuperclass(), name);
     }
 
-    private record Access(boolean buffer, boolean circuitConfiguration, Method bufferCapacity,
+    private record Access(boolean buffer, boolean molecularAssembler, boolean circuitConfiguration, Method bufferCapacity,
                           Method logic) {}
     private record BufferPush(IPatternDetails pattern, IPatternDetails execution, KeyCounter[] inputs) {}
 }

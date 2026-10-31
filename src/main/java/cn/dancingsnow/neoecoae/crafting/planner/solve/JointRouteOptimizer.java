@@ -53,10 +53,6 @@ public final class JointRouteOptimizer {
         budgetExhausted = false;
         if (amount <= 0) return preferred;
         boolean completed = preferred != null && preferred.status() == PlanningStatus.SUCCESS;
-        // The optional firing-count objective does not include the component planner's seed floors.
-        // Do not replace a verified seed-retaining order with a cheaper order that consumes that seed.
-        if (completed && preferred.trace().diagnostics().stream()
-                .anyMatch(d -> d.code() == PlannerDiagnostic.Code.CYCLE_SEED_RETAINED)) return preferred;
         // Feasibility recovery gets a useful share; optional improvement remains short and keeps its incumbent.
         long work = completed ? 50_000 : 1_000_000;
         long nanos = completed ? 100_000_000L : 3_000_000_000L;
