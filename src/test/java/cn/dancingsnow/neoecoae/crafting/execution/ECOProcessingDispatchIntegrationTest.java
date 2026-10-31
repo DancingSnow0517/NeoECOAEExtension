@@ -308,12 +308,12 @@ class ECOProcessingDispatchIntegrationTest {
             assertEquals(1, request.allowedCrafts());
             return true;
         };
-        assertEquals(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_VISIT,
+        // One pattern owns at most its per-tick share of submissions; the probe above already spent one.
+        assertEquals(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_PATTERN_PER_TICK - 1,
                 f.scaled(0, push).acceptedCrafts());
-        assertNotNull(f.scaled(0, push));
         assertNull(f.scaled(0, push));
-        assertEquals(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_TICK - 1, calls[0]);
-        assertEquals(2_000_000 - ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_TICK,
+        assertEquals(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_PATTERN_PER_TICK - 1, calls[0]);
+        assertEquals(2_000_000 - ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_PATTERN_PER_TICK,
                 f.inventory.list.get(f.key));
 
         calls[0] = 0;
@@ -328,11 +328,11 @@ class ECOProcessingDispatchIntegrationTest {
         var outer = f.outerDispatcher();
         outer.beginTick(0);
         int[] calls = {0};
-        for (int i = 0; i < ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_TICK; i++) {
+        for (int i = 0; i < ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_PATTERN_PER_TICK; i++) {
             assertTrue(f.outerDispatch(outer, (request, provider) -> { calls[0]++; return true; }).accepted());
         }
         assertFalse(f.outerDispatch(outer, (request, provider) -> { calls[0]++; return true; }).accepted());
-        assertEquals(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_TICK, calls[0]);
+        assertEquals(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_PATTERN_PER_TICK, calls[0]);
         outer.beginTick(1);
         assertTrue(f.outerDispatch(outer, (request, provider) -> true).accepted());
     }
@@ -414,7 +414,7 @@ class ECOProcessingDispatchIntegrationTest {
             bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.canBatchWhileBlocking(f.provider))
                     .thenReturn(true);
             assertTrue(ECOExternalProviderBlocking.isEnabled(f.provider));
-            assertTrue(outer.isEligible(f.provider, new ECOCraftingDispatchBudget(0, 0)));
+            assertTrue(outer.isEligible(f.provider, f.request.pattern(), new ECOCraftingDispatchBudget(0, 0)));
             outer.beginTick(0);
             var result = f.outerDispatch(outer, (request, provider) -> fail("Native transport must own the batch"));
             assertEquals(16, result.acceptedCrafts());
@@ -447,7 +447,7 @@ class ECOProcessingDispatchIntegrationTest {
             var first = f.outerDispatch(outer, (request, provider) -> fail("First batch belongs to native transport"));
             assertEquals(1, first.acceptedCrafts());
             assertTrue(first.fastPath());
-            assertFalse(outer.isEligible(f.provider, new ECOCraftingDispatchBudget(0, 0)));
+            assertFalse(outer.isEligible(f.provider, f.request.pattern(), new ECOCraftingDispatchBudget(0, 0)));
             var next = f.outerDispatch(outer, (request, provider) -> {
                 assertSame(f.request.pattern(), request.pattern());
                 assertEquals(1, request.allowedCrafts());
@@ -489,7 +489,7 @@ class ECOProcessingDispatchIntegrationTest {
             bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.isProvider(f.provider)).thenReturn(true);
             bridge.when(() -> cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch.open(f.provider)).thenReturn(session);
             for (int i = 0; i < 3; i++) f.scaled(0, (request, provider) -> fail("Direct transport owns these pushes"));
-            verify(session, times(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_TICK))
+            verify(session, times(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_PATTERN_PER_TICK))
                     .submit(eq(f.request.pattern()), any(), eq(1L));
         }
     }
@@ -608,6 +608,81 @@ class ECOProcessingDispatchIntegrationTest {
         verifyNoInteractions(f.accounting);
     }
 
+    @Test
+    void mekCountedQueueTakesMoreThanIntegerMaxInOneSubmission() {
+        long count = 5_000_000_000L;
+        var f = new Fixture(count, count);
+        var provider = mekProvider(f);
+        when(provider.getPatternAeSupport().enqueueSmartPattern(eq(f.request.pattern()), any()))
+                .thenAnswer(call -> {
+                    KeyCounter[] total = call.getArgument(1);
+                    assertEquals(count, total[0].get(f.key));
+                    return true;
+                });
+        f.dispatcher.beginTick(0);
+        var result = f.dispatcher.tryDispatch(f.request, provider, 1, f.energy, ignored -> {});
+        assertEquals(count, result.acceptedCrafts());
+        assertEquals(0, f.inventory.list.get(f.key));
+        verify(f.accounting).apply(eq(f.request), argThat(r -> r.acceptedCrafts() == count
+                && r.outputs().getFirst().amount() == count), any(), eq(provider));
+        verify(provider.getPatternAeSupport(), times(1)).enqueueSmartPattern(any(), any());
+    }
+
+    @Test
+    void countedSubmissionsSpendCallsNotCraftsAndLeaveTheTickToOtherPatterns() {
+        var f = new Fixture(3_000_000, 100_000_000);
+        var provider = mekProvider(f);
+        when(provider.getPatternAeSupport().hasRegisteredPattern(any())).thenReturn(true);
+        when(provider.getPatternAeSupport().enqueueSmartPattern(any(), any())).thenReturn(true);
+        var other = f.otherPattern();
+        f.dispatcher.beginTick(0);
+        // A batch larger than the former 1,000,000-craft tick budget does not consume the other pattern's turn.
+        assertEquals(3_000_000, f.dispatcher.tryDispatch(f.request, provider, 1, f.energy, ignored -> {})
+                .acceptedCrafts());
+        assertEquals(3_000_000, f.dispatcher.tryDispatch(other, provider, 1, f.energy, ignored -> {})
+                .acceptedCrafts());
+
+        // A pattern that keeps accepting gets its share of submissions, then pauses without a provider mark.
+        var small = f.limited(1);
+        int accepted = 0;
+        while (f.dispatcher.tryDispatch(small, provider, 1, f.energy, ignored -> {}) != null) accepted++;
+        // The 3,000,000-copy submission above already spent one of this pattern's attempts.
+        assertEquals(ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_PATTERN_PER_TICK - 1, accepted);
+        int[] marks = {0};
+        assertNull(f.dispatcher.tryDispatch(small, provider, 1, f.energy, ignored -> marks[0]++));
+        assertEquals(0, marks[0]);
+        assertNotNull(f.dispatcher.tryDispatch(other, provider, 1, f.energy, ignored -> {}));
+
+        f.dispatcher.beginTick(1);
+        assertNotNull(f.dispatcher.tryDispatch(small, provider, 1, f.energy, ignored -> {}));
+    }
+
+    @Test
+    void exhaustedShareIsReportedAsBudgetAndKeepsTheBatchLaneEligible() {
+        var f = new Fixture(1, 1000);
+        var outer = f.outerDispatcher();
+        outer.beginTick(0);
+        assertTrue(outer.isEligible(f.provider, f.request.pattern(), new ECOCraftingDispatchBudget(0, 0)),
+                "an exhausted ordinary budget must not hide a scaled target");
+        for (int i = 0; i < ECOProcessingPatternDispatcher.MAX_ATTEMPTS_PER_PATTERN_PER_TICK; i++) {
+            assertTrue(f.outerDispatch(outer, (request, provider) -> true).accepted());
+        }
+        var diagnostics = mock(ECODispatchStallDiagnostics.class);
+        int[] marks = {0};
+        try (var helper = mockStatic(appeng.crafting.execution.CraftingCpuHelper.class)) {
+            helper.when(() -> appeng.crafting.execution.CraftingCpuHelper.calculatePatternPower(any())).thenReturn(1.0);
+            var result = outer.dispatchCandidate(f.request, List.of(f.provider), new ECOCraftingDispatchBudget(64, 64),
+                    f.energy, diagnostics, ignored -> marks[0]++, () -> {}, (request, provider) -> fail("paused"));
+            assertFalse(result.accepted());
+        }
+        verify(diagnostics, atLeastOnce()).budget();
+        verify(diagnostics, never()).pushRejected(any(), any());
+        assertEquals(0, marks[0]);
+        assertFalse(outer.isEligible(f.provider, f.request.pattern(), new ECOCraftingDispatchBudget(0, 0)));
+        outer.beginTick(1);
+        assertTrue(outer.isEligible(f.provider, f.request.pattern(), new ECOCraftingDispatchBudget(0, 0)));
+    }
+
     private static Class<?> thunderboltBatchContract() throws ClassNotFoundException {
         try {
             return Class.forName("com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider");
@@ -660,6 +735,25 @@ class ECOProcessingDispatchIntegrationTest {
             request = new ECOCraftingDispatchRequest(job, null, pattern, new KeyCounter[]{inputs},
                     inputs, new KeyCounter(), requested, inventory, mock(net.minecraft.world.level.Level.class));
             inventory.insert(key, stock, Actionable.MODULATE);
+        }
+
+        ECOCraftingDispatchRequest limited(long limit) {
+            return new ECOCraftingDispatchRequest(request.job(), request.candidate(), request.pattern(),
+                    request.inputs(), request.outputs(), request.remainders(), limit, inventory, request.level());
+        }
+
+        /** A second ready processing pattern drawing from the same input. */
+        ECOCraftingDispatchRequest otherPattern() {
+            var pattern = mock(AEProcessingPattern.class);
+            var input = mock(IPatternDetails.IInput.class);
+            when(input.getMultiplier()).thenReturn(1L);
+            when(input.getPossibleInputs()).thenReturn(new GenericStack[]{new GenericStack(key, 1)});
+            when(pattern.getDefinition()).thenReturn(AEItemKey.of(Items.DIRT));
+            when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[]{input});
+            when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(key, 1)));
+            when(pattern.supportsPushInputsToExternalInventory()).thenReturn(true);
+            return new ECOCraftingDispatchRequest(request.job(), request.candidate(), pattern, request.inputs(),
+                    request.outputs(), request.remainders(), request.allowedCrafts(), inventory, request.level());
         }
 
         ECOCraftingDispatchResult scaled(long tick, ECOCraftingProviderDispatcher.ECOCraftingNormalPush push) {

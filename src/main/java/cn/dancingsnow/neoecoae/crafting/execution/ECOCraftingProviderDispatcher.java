@@ -70,7 +70,7 @@ final class ECOCraftingProviderDispatcher {
             ? Long.MAX_VALUE : Math.min(16_384L, Math.max(1L, owner.cpu.getCoProcessors()));
     }
 
-    boolean isEligible(ICraftingProvider provider, ECOCraftingDispatchBudget budget) {
+    boolean isEligible(ICraftingProvider provider, IPatternDetails pattern, ECOCraftingDispatchBudget budget) {
         if (ECOExternalProviderBlocking.isEnabled(provider)) {
             return budget.canAttemptOrdinary() || ECOAe2LtDirectDispatch.canBatchWhileBlocking(provider);
         }
@@ -79,7 +79,9 @@ final class ECOCraftingProviderDispatcher {
                 || ECOParallelCraftingProviders.find(provider) != null
                 || ECOAe2LtDirectDispatch.open(provider) != null
                 || cn.dancingsnow.neoecoae.compat.omnisequence.ECOOmniSequenceDirectDispatch.isEligible(provider)
-                || processing.supports(provider, null);
+                || processing.supports(provider, null)
+                // The ordinary one-copy budget must not hide a target whose batch lane still has submissions left.
+                || processing.mayAttemptBatch(provider, pattern);
     }
 
     Result dispatchCandidate(ECOCraftingDispatchRequest originalRequest, List<ICraftingProvider> providers,
@@ -112,14 +114,21 @@ final class ECOCraftingProviderDispatcher {
             }
             if (request.job().suspended) return Result.none();
             // Native batch providers already own their one-copy fallback and target recovery.
-            if (!blocking && processing.supports(provider, request.pattern())) continue;
+            if (!blocking && processing.supports(provider, request.pattern())) {
+                // Exhausted submissions pause this pattern until the next tick; the provider did not fail.
+                if (processing.isScaledAttemptBudgetExhausted(request.pattern())) diagnostics.budget();
+                continue;
+            }
 
             // Keep blocking in force for every other batch path. AE2LT's direct transport checks
             // each physical target against its canonical pattern before accepting a scaled chunk.
             boolean scaledProvider = (!blocking || ECOAe2LtDirectDispatch.canBatchWhileBlocking(provider))
                     && processing.supportsScaledDispatchCached(request, provider);
             if (scaledProvider) {
-                if (processing.isScaledAttemptBudgetExhausted()) continue;
+                if (processing.isScaledAttemptBudgetExhausted(request.pattern())) {
+                    diagnostics.budget();
+                    continue;
+                }
                 if (processing.isScaledFallbackDeferred(request, provider)) continue;
                 if (!processing.isScaledDispatchDeferred(request, provider)) {
                     var scaledProcessingResult = processing.tryScaledDispatch(
@@ -174,7 +183,10 @@ final class ECOCraftingProviderDispatcher {
                     request.job().finalOutput == null ? null : request.job().finalOutput.what(),
                     request.job().waitingFor.list);
             if (!overload.canDispatch()) continue;
-            if (scaledProvider && !processing.claimFallbackAttempt()) continue;
+            if (scaledProvider && !processing.claimFallbackAttempt(request.pattern())) {
+                diagnostics.budget();
+                continue;
+            }
             ECOBatchAdmission admission;
             try {
                 admission = ECOBatchExecutor.execute(plan, request.inputs(), request.outputs(), request.remainders(),
