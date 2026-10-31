@@ -44,22 +44,65 @@ final class ECOCraftingCpuView {
     }
 
     long getPendingOutputs(AEKey template) {
-        if (host.getJob() != null && host.getJob().exactOrder)
-            return cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan.bounded(
-                host.getExactPendingPreview().getOrDefault(template, java.math.BigInteger.ZERO));
-        long count = host.bigOrder.pendingPreview(template);
+        return pendingOutputs().get(template);
+    }
+
+    /*
+     * The CPU menu and computation panel query every changed key separately, so pending outputs are aggregated once
+     * and reused while the job, its posted changes and the server tick stay the same.
+     */
+    private KeyCounter cachedPending;
+    private KeyCounter cachedTaskOutputs;
+    private Object cachedJob;
+    private long cachedRevision = -1;
+    private long cachedTick = Long.MIN_VALUE;
+
+    private void validateCache() {
         var job = host.getJob();
-        if (job != null) {
-            for (var task : job.tasks.entrySet()) {
-                for (var output : task.getKey().getOutputs()) {
-                    if (template.matches(output)) {
-                        count = NEMath.saturatingAdd(count,
-                                NEMath.saturatingMultiply(output.amount(), task.getValue().value));
+        long revision = host.viewRevision();
+        long tick = appeng.hooks.ticking.TickHandler.instance().getCurrentTick();
+        if (cachedJob != job || cachedRevision != revision || cachedTick != tick) {
+            cachedPending = null;
+            cachedTaskOutputs = null;
+            cachedJob = job;
+            cachedRevision = revision;
+            cachedTick = tick;
+        }
+    }
+
+    private KeyCounter taskOutputs() {
+        validateCache();
+        if (cachedTaskOutputs == null) {
+            var result = new KeyCounter();
+            var job = host.getJob();
+            if (job != null) {
+                for (var task : job.tasks.entrySet()) {
+                    for (var output : task.getKey().getOutputs()) {
+                        long amount = NEMath.saturatingMultiply(output.amount(), task.getValue().value);
+                        result.set(output.what(), NEMath.saturatingAdd(result.get(output.what()), amount));
                     }
                 }
             }
+            cachedTaskOutputs = result;
         }
-        return count;
+        return cachedTaskOutputs;
+    }
+
+    private KeyCounter pendingOutputs() {
+        validateCache();
+        if (cachedPending == null) {
+            var result = new KeyCounter();
+            var job = host.getJob();
+            if (job != null && job.exactOrder) {
+                host.getExactPendingPreview().forEach((key, amount) -> result.set(key,
+                    cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan.bounded(amount)));
+            } else {
+                host.bigOrder.collectPendingPreview(result);
+                addAllSaturating(result, taskOutputs());
+            }
+            cachedPending = result;
+        }
+        return cachedPending;
     }
 
     /** Collects planned, waiting and locally stored items for the CPU menu. */
@@ -71,12 +114,7 @@ final class ECOCraftingCpuView {
             addAllSaturating(out, job.waitingFor.list);
             job.deferredEmitted.forEach((key, amount) -> out.set(key, Math.max(out.get(key),
                 cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan.bounded(amount))));
-            for (var task : job.tasks.entrySet()) {
-                for (var output : task.getKey().getOutputs()) {
-                    long amount = NEMath.saturatingMultiply(output.amount(), task.getValue().value);
-                    out.set(output.what(), NEMath.saturatingAdd(out.get(output.what()), amount));
-                }
-            }
+            addAllSaturating(out, taskOutputs());
         }
     }
 
