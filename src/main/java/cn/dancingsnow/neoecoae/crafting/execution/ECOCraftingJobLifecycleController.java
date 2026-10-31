@@ -142,7 +142,7 @@ final class ECOCraftingJobLifecycleController {
         }
         if (success && host.bigOrder.finishChild()) return;
         var context = host.createJobContext(finishingJob);
-        long remainingAmount = Math.max(0L, finishingJob.remainingAmount);
+        long remainingAmount = finishingJob.remainingAmount;
         long completedAmount = Math.max(0L, context.requestedAmount() - remainingAmount);
         var result = new ECOCraftingJobResult(
                 success ? ECOCraftingJobResult.Status.SUCCESS : ECOCraftingJobResult.Status.CANCELLED,

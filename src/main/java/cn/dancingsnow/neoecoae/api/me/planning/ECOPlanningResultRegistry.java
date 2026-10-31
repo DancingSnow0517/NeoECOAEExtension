@@ -50,14 +50,14 @@ public final class ECOPlanningResultRegistry {
     public static @Nullable ECOExecutionContract resolveContract(ICraftingPlan plan,
             @Nullable ECOPlanningResult attached) {
         if (plan == null) return null;
+        // A strict identity match proves the result has a plan with a non-null signature, which are the only
+        // conditions under which executionContract() throws; plan-build failures are reported inside the contract.
         if (attached != null && attached.plan() != null && PlanIdentity.matches(plan, attached.plan())) {
-            try { return attached.executionContract(); }
-            catch (RuntimeException ignored) { return null; }
+            return attached.executionContract();
         }
         ECOPlanningResult registered = find(plan);
         if (registered == null || registered.plan() == null || !PlanIdentity.matches(plan, registered.plan())) return null;
-        try { return registered.executionContract(); }
-        catch (RuntimeException ignored) { return null; }
+        return registered.executionContract();
     }
 
     /** Store only metadata whose source result and registered plan have the same complete identity. */
@@ -180,7 +180,8 @@ public final class ECOPlanningResultRegistry {
         ECOExecutionPlan executionPlan;
         try {
             executionPlan = result.executionPlan();
-        } catch (RuntimeException scheduleFailure) {
+        } catch (IllegalStateException noExecutionPlan) {
+            // ECOPlanningResult has no nullable accessor: this exception is its "no phased plan" answer.
             executionPlan = null;
         }
         boolean expected = cycleExpected(result);
@@ -238,7 +239,8 @@ public final class ECOPlanningResultRegistry {
             if (sourcePlan == null && !entry.cycleExpected()) {
                 try {
                     sourcePlan = entry.result().executionPlan();
-                } catch (RuntimeException ignored) {
+                } catch (IllegalStateException noExecutionPlan) {
+                    // ECOPlanningResult has no nullable accessor: this exception is its "no phased plan" answer.
                     sourcePlan = null;
                 }
             }

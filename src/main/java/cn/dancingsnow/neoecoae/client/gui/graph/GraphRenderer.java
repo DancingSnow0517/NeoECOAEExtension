@@ -469,8 +469,8 @@ public final class GraphRenderer implements AutoCloseable {
                     drawFitted(graphics, font, statusSymbol(material.status()) + " " + material.status().name(),
                         x + 29, y + 18, pixelWidth - 35, border);
                     drawFitted(graphics, font,
-                        "需求 " + compactAmount(material.exactRequested()) + "  库存 "
-                            + compactAmount(material.exactFromInventory()),
+                        "需求 " + HostText.ae2Amount(material.exactRequested()) + "  库存 "
+                            + HostText.ae2Amount(material.exactFromInventory()),
                         x + 7, y + 38, pixelWidth - 14, MUTED);
                     if (pixelHeight >= 64) {
                         drawFitted(graphics, font,
@@ -496,7 +496,7 @@ public final class GraphRenderer implements AutoCloseable {
                     y + Math.max(3, pixelHeight >= 28 ? 6 : 2), border);
                 if (pixelHeight >= 28 && pixelWidth >= 32) {
                     graphics.drawCenteredString(font,
-                        fit(font, "× " + compactAmount(Long.toString(pattern.firingCount())), pixelWidth - 6),
+                        fit(font, "× " + HostText.ae2Amount(pattern.firingCount()), pixelWidth - 6),
                         (x + right) / 2, y + 18, TEXT);
                 }
             }
@@ -562,7 +562,7 @@ public final class GraphRenderer implements AutoCloseable {
 
     private static CompactCycleValue compactCycleValue(ClientCraftingGraph graph, ClientCraftingGraph.Node node) {
         if (node.kind() == ClientCraftingGraph.Kind.PATTERN && node.pattern() != null) {
-            return new CompactCycleValue(compactAmount(Long.toString(node.pattern().firingCount())), TEXT);
+            return new CompactCycleValue(HostText.ae2Amount(node.pattern().firingCount()), TEXT);
         }
         if (node.material() == null) return new CompactCycleValue("-", MUTED);
         var cycle = graph.source().cycleGroups().stream()
@@ -597,7 +597,7 @@ public final class GraphRenderer implements AutoCloseable {
 
     private static String signedTaskChange(CraftingGraphSnapshot.MaterialNode material) {
         BigInteger delta = material.producedBigInteger().subtract(material.consumedBigInteger());
-        String magnitude = compactAmount(delta.abs().toString());
+        String magnitude = HostText.ae2Amount(delta.abs());
         return delta.signum() > 0 ? "+" + magnitude : delta.signum() < 0 ? "-" + magnitude : "0";
     }
 
@@ -623,7 +623,7 @@ public final class GraphRenderer implements AutoCloseable {
             var pattern = node.pattern();
             var lines = new ArrayList<Component>();
             lines.add(Component.literal(pattern.displayIdentity()));
-            lines.add(Component.literal("执行次数：" + compactAmount(Long.toString(pattern.firingCount()))));
+            lines.add(Component.literal("执行次数：" + HostText.ae2Amount(pattern.firingCount())));
             lines.add(Component.literal("状态：" + pattern.status().name()));
             lines.add(Component.literal("输入：" + relationshipText(graph, pattern.inputs())));
             lines.add(Component.literal("输出：" + relationshipText(graph, pattern.outputs())));
@@ -653,8 +653,8 @@ public final class GraphRenderer implements AutoCloseable {
             for (InterCycleFlow flow : graph.focusedCluster().flows()) {
                 if (flow.materialNodeId() != node.material().nodeId()) continue;
                 lines.add(Component.literal("跨环流：循环 #" + flow.fromComponentId() + " → #"
-                    + flow.toComponentId() + "（输出 ×" + compactAmount(Long.toString(flow.outputAmount()))
-                    + " / 输入 ×" + compactAmount(Long.toString(flow.inputAmount())) + "）"));
+                    + flow.toComponentId() + "（输出 ×" + HostText.ae2Amount(flow.outputAmount())
+                    + " / 输入 ×" + HostText.ae2Amount(flow.inputAmount()) + "）"));
             }
         }
         if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS && node.material() != null) {
@@ -668,8 +668,8 @@ public final class GraphRenderer implements AutoCloseable {
                 lines.add(Component.literal("所需种子：" + amountText(cycle.requiredSeed(), node.key())));
                 lines.add(Component.literal("所需产物：" + amountText(cycle.requiredOutputs(), node.key())));
                 lines.add(Component.literal("外部输入：" + amountText(cycle.externalInputs(), node.key())));
-                lines.add(Component.literal("任务消耗：" + compactAmount(node.material().exactConsumed())));
-                lines.add(Component.literal("任务产出：" + compactAmount(node.material().exactProduced())));
+                lines.add(Component.literal("任务消耗：" + HostText.ae2Amount(node.material().exactConsumed())));
+                lines.add(Component.literal("任务产出：" + HostText.ae2Amount(node.material().exactProduced())));
             }
         }
         return lines;
@@ -701,14 +701,6 @@ public final class GraphRenderer implements AutoCloseable {
             case UNSUPPORTED -> "?";
             case CYCLE -> "↻";
         };
-    }
-
-    private static String compactAmount(String value) {
-        try {
-            return HostText.ae2Amount(new BigInteger(value));
-        } catch (RuntimeException ignored) {
-            return value;
-        }
     }
 
     /** Draws a tangent-aligned triangle so curved cycle arrows do not snap to four directions. */
@@ -754,7 +746,7 @@ public final class GraphRenderer implements AutoCloseable {
             var node = graph.nodes().get(relationship.materialNodeId());
             String label = node == null || node.key() == null ? "#" + relationship.materialNodeId()
                 : node.key().getDisplayName().getString();
-            return label + " ×" + compactAmount(Long.toString(relationship.amount()));
+            return label + " ×" + HostText.ae2Amount(relationship.amount());
         }).reduce((left, right) -> left + ", " + right).orElse("-");
     }
 

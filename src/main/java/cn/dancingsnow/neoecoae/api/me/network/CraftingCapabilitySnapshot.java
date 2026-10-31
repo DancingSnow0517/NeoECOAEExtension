@@ -117,8 +117,9 @@ public record CraftingCapabilitySnapshot(
         return calculateOverflow(ftParallelCapacity, NEMath.saturatingMultiply(physicalFxCount, BASE_BATCH_PER_FX));
     }
 
+    /** Both arguments are already non-negative: record fields are normalized and callers clamp raw input. */
     private static long calculateOverflow(long ftParallelCapacity, long baseFxCapacity) {
-        return Math.max(0L, Math.max(0L, ftParallelCapacity) - Math.max(0L, baseFxCapacity));
+        return Math.max(0L, ftParallelCapacity - baseFxCapacity);
     }
 
     static int calculateOverclock(long ftParallelCapacity, long baseFxCapacity) {

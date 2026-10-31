@@ -57,7 +57,6 @@ import java.util.Map;
 import java.util.Set;
 import lombok.Getter;
 import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -80,7 +79,6 @@ import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
-@Slf4j
 public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBlockEntity
     implements ISyncPersistRPCBlockEntity, IGridTickable, IUpgradeableObject, IConfigurableObject {
 
@@ -669,11 +667,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
     private void toggleOutputSide(RelativeSide side) {
         if (!allowOutputs.remove(side)) allowOutputs.add(side);
-        try {
-            exportStrategies.remove(getOrientation().getSide(side));
-        } catch (RuntimeException failure) {
-            log.warn("Failed to clear the workstation export strategy for {}", side, failure);
-        }
+        exportStrategies.remove(getOrientation().getSide(side));
         saveChanges();
         markForUpdate();
     }
@@ -687,13 +681,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
     private ItemStack getOutputNeighborItem(RelativeSide side) {
         if (level == null) return ItemStack.EMPTY;
-        Direction direction;
-        try {
-            direction = getOrientation().getSide(side);
-        } catch (Throwable ignored) {
-            return ItemStack.EMPTY;
-        }
-        BlockPos target = worldPosition.relative(direction);
+        BlockPos target = worldPosition.relative(getOrientation().getSide(side));
         if (!level.hasChunkAt(target)) return ItemStack.EMPTY;
         return new ItemStack(level.getBlockState(target).getBlock().asItem());
     }

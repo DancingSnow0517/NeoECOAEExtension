@@ -186,6 +186,7 @@ class LargeWorkstationPatternScalingTest {
         field(controller, "formed", true);
         field(controller, "level", mock(Level.class));
         field(controller, "pendingBatches", new ArrayDeque<>());
+        field(controller, "moduleInventory", new LargeWorkstationModuleInventory(() -> { }));
         doReturn(new FluidTank(4000)).when(controller).getInputTank();
         doReturn(mock(IManagedGridNode.class)).when(controller).getMainNode();
         doReturn(true).when(controller).canAcceptPattern();

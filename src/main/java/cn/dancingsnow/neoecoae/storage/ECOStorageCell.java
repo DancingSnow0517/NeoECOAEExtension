@@ -385,7 +385,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingV
         long remainingItemCount = NEMath.saturatingAdd(
             NEMath.saturatingMultiply(freeBytes, amountPerByte), unusedItemCount);
         long remainingTypes = Math.min(
-            Math.max(0L, getTotalItemTypes() - Math.min(getTotalItemTypes(), storedTypes)),
+            getTotalItemTypes() - Math.min(getTotalItemTypes(), storedTypes),
             getBytesPerType() <= 0 ? 0L : freeBytes / getBytesPerType());
 
         if (currentAmount <= 0L) {
