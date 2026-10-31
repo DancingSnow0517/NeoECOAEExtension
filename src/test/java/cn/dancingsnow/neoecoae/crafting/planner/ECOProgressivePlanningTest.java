@@ -141,6 +141,17 @@ class ECOProgressivePlanningTest {
         assertTrue(remaining.plan().emittedItems().isEmpty());
     }
 
+    @Test
+    void seedRetentionCannotReplaceAStockUsingPlanWithMoreWork() {
+        var direct = result(1000);
+        var replenishing = result(2714, direct.plan().finalOutput().what());
+        replenishing.trace().addDiagnostic(new cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic(
+                cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic.Code.CYCLE_SEED_RETAINED,
+                "Stock replenished by extra seed crafting"));
+        assertFalse(ECOPlanningImprovements.better(replenishing, direct));
+        assertTrue(ECOPlanningImprovements.better(direct, replenishing));
+    }
+
     private static ICraftingService service(Map<AEKey, List<IPatternDetails>> index) {
         var service = mock(ICraftingService.class, withSettings().extraInterfaces(ECOCraftingProviderRevision.class));
         var revision = (ECOCraftingProviderRevision) service;

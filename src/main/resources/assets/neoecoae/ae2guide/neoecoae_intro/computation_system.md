@@ -31,6 +31,12 @@ item_ids:
 
 The ECO Computation System is a powerful multiblock crafting CPU cluster that provides massive parallel crafting capabilities for your ME Network.
 
+## Continuous Pattern Dispatch
+
+Within a crafting job, the current pattern keeps dispatch priority while its inputs are available and providers keep accepting it. There is no consecutive-success cap. Missing inputs, unavailable providers, task completion, suspension, or dependency and cycle constraints allow other legal patterns to run.
+
+Per-tick execution and probe budgets still apply. A budget pause retains the current pattern for the next tick. Batches consume inputs and record expected outputs according to the amount actually accepted.
+
 ## Overview
 
 The computation subsystem replaces standard AE2 crafting CPUs with a much more powerful and scalable solution. It provides multiple crafting threads and accelerators, allowing many crafting jobs to run simultaneously.
@@ -213,3 +219,5 @@ The computation system supports different CPU selection modes:
 
 
 Fast planning requires an online host that accepts the request source. Cyclic routes also require Cycle Planning and actual startup seeds; an unfinished search is different from missing materials. In the computation interface, hold a sample and left-click to mark an item whose component differences may be ignored, or right-click to clear it. Samples are not consumed, and the physical pattern and machine must still accept the inputs.
+
+Stored intermediate ingredients are consumed as needed, even when they also participate in cyclic recipes. For example, a crystal dust order grinds existing crystals directly and grows more only to cover a shortfall. Actual startup materials are still required, and catalysts and containers are returned according to the pattern. Seed retention is accepted only when it adds no executions of any pattern; background optimization does not prefer a plan with more work solely because it retains seeds.

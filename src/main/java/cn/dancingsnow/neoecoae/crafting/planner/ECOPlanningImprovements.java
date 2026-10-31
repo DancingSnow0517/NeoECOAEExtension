@@ -4,7 +4,6 @@ import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.solve.PlannerInventorySnapshot;
-import cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic;
 import java.math.BigInteger;
 import java.util.concurrent.Future;
 import org.jetbrains.annotations.Nullable;
@@ -84,16 +83,8 @@ public final class ECOPlanningImprovements implements AutoCloseable {
     static boolean better(ECOPlanningResult candidate, ECOPlanningResult incumbent) {
         if (!executable(candidate) || !executable(incumbent)
                 || !candidate.plan().finalOutput().equals(incumbent.plan().finalOutput())) return false;
-        boolean retained = retainsSeeds(incumbent);
-        boolean retaining = retainsSeeds(candidate);
-        if (retained != retaining) return retaining;
         int cost = firings(candidate).compareTo(firings(incumbent));
         return cost < 0 || cost == 0 && candidate.plan().bytes() < incumbent.plan().bytes();
-    }
-
-    private static boolean retainsSeeds(ECOPlanningResult result) {
-        return result.trace().diagnostics().stream()
-                .anyMatch(d -> d.code() == PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
     }
 
     public static BigInteger firings(ECOPlanningResult result) {
