@@ -99,6 +99,8 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
     @Getter
     private long lastModifiedOnTick = TickHandler.instance().getCurrentTick();
+    /** Bumped on every posted change or job swap so read-only view aggregates can be reused safely. */
+    private long viewRevision;
 
     @Getter
     private boolean markedForDeletion = false;
@@ -479,6 +481,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
     void postChange(@Nullable AEKey what) {
         taskScheduler.invalidateInputTemplates(what);
         lastModifiedOnTick = TickHandler.instance().getCurrentTick();
+        viewRevision++;
         notifyListeners(what);
     }
 
@@ -576,12 +579,14 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
     void setJobFromPersistence(@Nullable ExecutingCraftingJob restoredJob) {
         this.job = restoredJob;
+        viewRevision++;
         super.job = restoredJob;
         exactInventory().setEnabled(restoredJob != null && restoredJob.exactOrder);
     }
 
     void setJobFromLifecycle(@Nullable ExecutingCraftingJob nextJob) {
         this.job = nextJob;
+        viewRevision++;
         super.job = nextJob;
         exactInventory().setEnabled(nextJob != null && nextJob.exactOrder);
     }
@@ -706,6 +711,10 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
     public long getPendingOutputs(AEKey template) {
         return view.getPendingOutputs(template);
+    }
+
+    long viewRevision() {
+        return viewRevision;
     }
 
     public java.util.Map<AEKey, java.math.BigInteger> getExactPendingPreview() {
