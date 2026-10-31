@@ -198,9 +198,13 @@ public final class ComputationInterfaceUI {
             super(itemHandler, index);
         }
 
+        /*
+         * 过滤样本只能经由 setFuzzyPlanningFilter RPC 写入。原版点击、拖拽、数字键交换与
+         * Shift 快速移动都不得把该槽视作真实容器，否则会把玩家物品放入或与样本合并。
+         */
         @Override
         public boolean mayPlace(ItemStack stack) {
-            return !stack.isEmpty();
+            return false;
         }
 
         @Override
@@ -208,14 +212,19 @@ public final class ComputationInterfaceUI {
             return false;
         }
 
+        /*
+         * 上限必须不小于槽内样本数量 1。原版 Slot.safeInsert 与拖拽分配按
+         * “上限 - 现有数量”计算转移量，上限为 0 时得到 -1，会反向增长手持物品，
+         * 造成刷物品并让不可堆叠物品叠加。
+         */
         @Override
         public int getMaxStackSize() {
-            return 0;
+            return 1;
         }
 
         @Override
         public int getMaxStackSize(ItemStack stack) {
-            return 0;
+            return 1;
         }
 
         @Override
