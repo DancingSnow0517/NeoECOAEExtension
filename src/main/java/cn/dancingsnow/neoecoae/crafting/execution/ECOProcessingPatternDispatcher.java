@@ -19,40 +19,81 @@ import cn.dancingsnow.neoecoae.compat.mekenergistics.ECOMekEnergisticsBatchCapab
 import cn.dancingsnow.neoecoae.compat.ae2.ECOExternalProviderBlocking;
 import cn.dancingsnow.neoecoae.compat.advanced_ae.ECOAdvancedAEPatternScaling;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
+import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.jetbrains.annotations.Nullable;
 
-/** ECO owns processing batch growth; optional adapters only transport the selected batch. */
+/**
+ * ECO owns processing batch growth; optional adapters only transport the selected batch.
+ *
+ * <p>The per-tick budget counts provider submissions, never crafts: one counted submission carrying a billion
+ * copies costs one attempt. Batch size comes from the task, materials, energy, cycle seeds, the target's
+ * capacity and numeric bounds.
+ */
 final class ECOProcessingPatternDispatcher {
-    private static final long TICK_BUDGET = 1_000_000L;
     private static final long ELIGIBILITY_CACHE_TICKS = 10L;
     private static final long SCALE_PROBE_INTERVAL_TICKS = 5L;
     static final int MAX_ATTEMPTS_PER_TICK = 64;
+    /** One continuously accepting pattern may use half of a tick; other ready tasks keep the rest. */
+    static final int MAX_ATTEMPTS_PER_PATTERN_PER_TICK = MAX_ATTEMPTS_PER_TICK / 2;
     static final int MAX_ATTEMPTS_PER_VISIT = 32;
+    private static final ClassValue<Boolean> HAS_LOGIC = new ClassValue<>() {
+        @Override protected Boolean computeValue(Class<?> type) {
+            try {
+                type.getMethod("getLogic");
+                return true;
+            } catch (NoSuchMethodException | LinkageError absent) {
+                return false;
+            }
+        }
+    };
     private final ECOCraftingCPULogic owner;
     private final ECOCraftingEnergyTransaction energy;
     private final ECOCraftingDispatchAccounting accounting;
     private final Map<ICraftingProvider, Reference2ObjectOpenHashMap<IPatternDetails, ProbeState>> states = new Reference2ObjectOpenHashMap<>();
     private final Map<ICraftingProvider, Reference2ObjectOpenHashMap<IPatternDetails, Eligibility>> eligibility = new Reference2ObjectOpenHashMap<>();
-    private long tick = Long.MIN_VALUE, used;
+    private final Reference2IntOpenHashMap<IPatternDetails> patternAttempts = new Reference2IntOpenHashMap<>();
+    private long tick = Long.MIN_VALUE;
     private int attempts;
 
     ECOProcessingPatternDispatcher(ECOCraftingCPULogic owner, ECOCraftingEnergyTransaction energy,
             ECOCraftingDispatchAccounting accounting) { this.owner = owner; this.energy = energy; this.accounting = accounting; }
-    void beginTick(long gameTick) { if (tick != gameTick) { tick = gameTick; used = 0; attempts = 0; } }
-    void reset() { states.clear(); eligibility.clear(); tick = Long.MIN_VALUE; used = 0; attempts = 0; }
+    void beginTick(long gameTick) { if (tick != gameTick) { tick = gameTick; attempts = 0; patternAttempts.clear(); } }
+    void reset() { states.clear(); eligibility.clear(); patternAttempts.clear(); tick = Long.MIN_VALUE; attempts = 0; }
 
     boolean isScaledAttemptBudgetExhausted() {
-        return attempts >= MAX_ATTEMPTS_PER_TICK || used >= TICK_BUDGET;
+        return attempts >= MAX_ATTEMPTS_PER_TICK;
     }
 
-    boolean claimFallbackAttempt() {
-        if (isScaledAttemptBudgetExhausted()) return false;
-        attempts++;
+    /** A pattern that used its share pauses until the next tick; this is not a provider failure. */
+    boolean isScaledAttemptBudgetExhausted(IPatternDetails pattern) {
+        return isScaledAttemptBudgetExhausted() || patternAttempts.getInt(pattern) >= MAX_ATTEMPTS_PER_PATTERN_PER_TICK;
+    }
+
+    /** Whether a batch-capable provider may still receive a submission for this pattern this tick. */
+    boolean mayAttemptBatch(ICraftingProvider provider, IPatternDetails pattern) {
+        if (isScaledAttemptBudgetExhausted(pattern) || provider instanceof ECOParallelCraftingProvider) return false;
+        if (Contract.forProvider(provider) != null) return true;
+        var byPattern = eligibility.get(provider);
+        var cached = byPattern == null ? null : byPattern.get(pattern);
+        if (cached != null && tick - cached.tick() < ELIGIBILITY_CACHE_TICKS) return cached.supported();
+        return ECOAe2LtDirectDispatch.isProvider(provider)
+                || provider instanceof PatternProviderLogic || ECOAdvancedAEPatternScaling.isProvider(provider)
+                || HAS_LOGIC.get(provider.getClass());
+    }
+
+    boolean claimFallbackAttempt(IPatternDetails pattern) {
+        if (isScaledAttemptBudgetExhausted(pattern)) return false;
+        claimAttempt(pattern);
         return true;
+    }
+
+    private void claimAttempt(IPatternDetails pattern) {
+        attempts++;
+        patternAttempts.addTo(pattern, 1);
     }
 
     boolean isScaledDispatchDeferred(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
@@ -90,11 +131,13 @@ final class ECOProcessingPatternDispatcher {
         var overload = ECOOverloadCpuAccountingBridge.prepare(owner, request.pattern(),
                 request.job().link.getCraftingID(),
                 request.job().finalOutput == null ? null : request.job().finalOutput.what(), request.job().waitingFor.list);
-        if (!overload.canDispatch()) return null;
+        if (!overload.canDispatch() || isScaledAttemptBudgetExhausted(request.pattern())) return null;
+        // The counted queue takes one-copy inputs plus a count: its own capacity, not a craft budget, bounds it.
         long cap = c.inspect(request.pattern(), request.inputs(), request.allowedCrafts());
-        long budget = Math.max(0L, TICK_BUDGET - used);
-        var plan = ECOBatchDispatchPlanning.plan(request, provider, cap, budget, onePower, service, ECOBatchMode.LINEAR);
+        var plan = ECOBatchDispatchPlanning.plan(request, provider, cap, Long.MAX_VALUE, onePower, service,
+                ECOBatchMode.LINEAR);
         if (plan == null) return null;
+        claimAttempt(request.pattern());
         ECOBatchAdmission admission;
         try {
             admission = ECOBatchExecutor.execute(plan, request.inputs(), request.outputs(), request.remainders(),
@@ -122,7 +165,6 @@ final class ECOProcessingPatternDispatcher {
         }
         if (admission.status() != ECOBatchAdmission.Status.ACCEPTED) return null;
         long totalAccepted = admission.acceptedCrafts();
-        used += totalAccepted;
         var result = ECOCraftingDispatchResult.batch(totalAccepted,
                 ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.outputs()), totalAccepted),
                 ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.remainders()), totalAccepted));
@@ -142,7 +184,7 @@ final class ECOProcessingPatternDispatcher {
             Consumer<ICraftingProvider> mark, ECOCraftingProviderDispatcher.ECOCraftingNormalPush normalPush) {
         var direct = ECOAe2LtDirectDispatch.open(provider);
         if (blocksScaledDispatch(provider, direct)
-                || isScaledAttemptBudgetExhausted() || isScaledDispatchDeferred(request, provider)
+                || isScaledAttemptBudgetExhausted(request.pattern()) || isScaledDispatchDeferred(request, provider)
                 || !supportsScaledDispatchCached(request, provider)) return null;
         Object logic = direct == null ? providerLogic(provider) : null;
         boolean advancedPattern = direct == null && ECOAdvancedAEPatternScaling.isAdvancedPattern(request.pattern());
@@ -151,20 +193,18 @@ final class ECOProcessingPatternDispatcher {
                 request.job().link.getCraftingID(),
                 request.job().finalOutput == null ? null : request.job().finalOutput.what(), request.job().waitingFor.list);
         if (!overload.canDispatch()) return null;
-        long budget = TICK_BUDGET - used;
-        if (budget <= 0) return null;
         ProbeState state = states.computeIfAbsent(provider, x -> new Reference2ObjectOpenHashMap<>())
                 .computeIfAbsent(request.pattern(), x -> new ProbeState());
-        long limit = Math.min(request.allowedCrafts(), budget);
+        long limit = request.allowedCrafts();
         var ramp = state.beginRun(tick, SCALE_PROBE_INTERVAL_TICKS);
         var planning = ECOBatchDispatchPlanning.prepare(request, provider);
         IPatternDetails cachedExecutionPattern = null;
         long cachedCopies = 0;
         int visitAttempts = 0;
-        while (ramp.owned < limit && attempts < MAX_ATTEMPTS_PER_TICK
+        while (ramp.owned < limit && !isScaledAttemptBudgetExhausted(request.pattern())
                 && visitAttempts < MAX_ATTEMPTS_PER_VISIT && !provider.isBusy()
                 && !blocksScaledDispatch(provider, direct)) {
-            attempts++;
+            claimAttempt(request.pattern());
             visitAttempts++;
             long offer = Math.min(ramp.offer(limit - ramp.owned), transportLimit);
             var plan = planning.plan(offer, limit - ramp.owned, onePower, service, ECOBatchMode.LINEAR);
@@ -208,7 +248,6 @@ final class ECOProcessingPatternDispatcher {
                 if (ramp.record(offer, 0, false, tick)) continue;
                 break;
             }
-            used += admission.acceptedCrafts();
             try {
                 overload.registerAccepted(admission.acceptedCrafts());
                 accounting.apply(request, scaledResult(request, admission.acceptedCrafts()), () -> {}, provider);
@@ -344,8 +383,9 @@ final class ECOProcessingPatternDispatcher {
             return new Run(target, probe && (probed || remembered == 1), probeInterval);
         }
 
+        /** Probing views stop growing at Integer.MAX_VALUE; larger proven batches are never shrunk by it. */
         private static long doubled(long count) {
-            return Math.min(Integer.MAX_VALUE, count * 2L);
+            return count >= Integer.MAX_VALUE ? count : Math.min(Integer.MAX_VALUE, count * 2L);
         }
 
         final class Run {
