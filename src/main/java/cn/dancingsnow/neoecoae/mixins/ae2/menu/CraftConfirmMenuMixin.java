@@ -655,11 +655,11 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                     // structural cycle metadata and can legitimately be zero for a populated plan.
                     CraftingGraphSnapshot.MaterialNode material = neoecoae$materialFor(snapshot, key);
                     var entry = new ECOCycleItemList.Entry(key,
-                        material == null ? java.math.BigInteger.ZERO : material.consumedBigInteger(),
-                        material == null ? java.math.BigInteger.ZERO : material.producedBigInteger(),
+                        neoecoae$materialAmount(material, CraftingGraphSnapshot.MaterialNode::consumedBigInteger),
+                        neoecoae$materialAmount(material, CraftingGraphSnapshot.MaterialNode::producedBigInteger),
                         neoecoae$exactAmountFor(cycle.exactSingleNetOutputs(), key),
                         neoecoae$exactAmountFor(cycle.exactTotalNetOutputs(), key),
-                        material == null ? java.math.BigInteger.ZERO : material.missingBigInteger(),
+                        neoecoae$materialAmount(material, CraftingGraphSnapshot.MaterialNode::missingBigInteger),
                         cycle.executionCountKnowledge(),
                         cycle.solveStatus(), cycle.componentId(), seedParallelism.getOrDefault(key, -1L));
                     // An unresolved structural cycle has no authoritative total. Do not project
@@ -676,10 +676,10 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 for (var seed : cycle.requiredSeed()) {
                     CraftingGraphSnapshot.MaterialNode material = neoecoae$materialFor(snapshot, seed.key());
                     var entry = new ECOCycleItemList.Entry(seed.key(),
-                        material == null ? java.math.BigInteger.ZERO : material.consumedBigInteger(),
-                        material == null ? java.math.BigInteger.ZERO : material.producedBigInteger(),
+                        neoecoae$materialAmount(material, CraftingGraphSnapshot.MaterialNode::consumedBigInteger),
+                        neoecoae$materialAmount(material, CraftingGraphSnapshot.MaterialNode::producedBigInteger),
                         java.math.BigInteger.ZERO, java.math.BigInteger.ZERO,
-                        material == null ? java.math.BigInteger.ZERO : material.missingBigInteger(),
+                        neoecoae$materialAmount(material, CraftingGraphSnapshot.MaterialNode::missingBigInteger),
                         cycle.executionCountKnowledge(), cycle.solveStatus(), cycle.componentId(),
                         seedParallelism.getOrDefault(seed.key(), -1L));
                     if (entry.totalNetOutputKnown() || entry.exactMissing().signum() > 0) {
@@ -971,6 +971,13 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     private static @Nullable CraftingGraphSnapshot.MaterialNode neoecoae$materialFor(
             CraftingGraphSnapshot snapshot, AEKey key) {
         return snapshot.nodes().stream().filter(node -> node.key().equals(key)).findFirst().orElse(null);
+    }
+
+    @Unique
+    private static java.math.BigInteger neoecoae$materialAmount(
+            @Nullable CraftingGraphSnapshot.MaterialNode material,
+            java.util.function.Function<CraftingGraphSnapshot.MaterialNode, java.math.BigInteger> amount) {
+        return material == null ? java.math.BigInteger.ZERO : amount.apply(material);
     }
 
     @Override

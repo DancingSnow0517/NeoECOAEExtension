@@ -10,6 +10,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionSchedule;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternContractReader;
 import it.unimi.dsi.fastutil.ints.Int2LongLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2LongMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -768,15 +769,18 @@ public final class ECOExecutionRuntime {
     // Unknown substitutions and crafting/tool mutations continue to follow the original ordered witness.
     private static boolean fixedProcessingInputs(IPatternDetails pattern) {
         try {
-            if (!pattern.supportsPushInputsToExternalInventory() || pattern.getInputs() == null) return false;
-            for (var input : pattern.getInputs()) {
-                if (input == null) return false;
-                var possible = input.getPossibleInputs();
-                if (possible == null || possible.length != 1 || possible[0] == null
-                        || possible[0].amount() <= 0L || input.getMultiplier() <= 0L) return false;
-            }
+            if (!pattern.supportsPushInputsToExternalInventory()) return false;
         } catch (RuntimeException unavailable) {
+            LOGGER.debug("Pattern {} failed supportsPushInputsToExternalInventory; treating inputs as unfixed",
+                pattern.getClass().getName(), unavailable);
             return false;
+        }
+        var view = PatternContractReader.read(pattern);
+        if (!view.wellFormed()) return false;
+        for (var input : view.inputs()) {
+            if (input.possible().length != 1 || input.primary().amount() <= 0L || input.multiplier() <= 0L) {
+                return false;
+            }
         }
         return true;
     }
@@ -838,11 +842,11 @@ public final class ECOExecutionRuntime {
             for (AEKey key : totals.keySet()) {
                 if (!inputKeysByTaskId.get(otherId).contains(key)) continue;
                 if (!fixedProcessingInputs(other)) return Math.min(upper, witnessed);
-                for (var input : other.getInputs()) {
-                    var selected = input.getPossibleInputs()[0];
+                for (var input : PatternContractReader.read(other).inputs()) {
+                    var selected = input.primary();
                     if (key.equals(selected.what())) {
                         var amount = java.math.BigInteger.valueOf(selected.amount())
-                            .multiply(java.math.BigInteger.valueOf(input.getMultiplier()))
+                            .multiply(java.math.BigInteger.valueOf(input.multiplier()))
                             .multiply(java.math.BigInteger.valueOf(pending));
                         reserved.merge(key, amount, java.math.BigInteger::add);
                     }
@@ -870,15 +874,8 @@ public final class ECOExecutionRuntime {
 
     private static java.util.Set<AEKey> inputKeys(IPatternDetails pattern) {
         java.util.Set<AEKey> result = new java.util.HashSet<>();
-        try {
-            for (var input : pattern.getInputs()) {
-                if (input == null || input.getPossibleInputs() == null) continue;
-                for (GenericStack stack : input.getPossibleInputs()) if (stack != null && stack.what() != null) {
-                    result.add(stack.what());
-                }
-            }
-        } catch (RuntimeException ignored) {
-            return java.util.Set.of();
+        for (var input : PatternContractReader.read(pattern).inputs()) {
+            for (GenericStack stack : input.possible()) result.add(stack.what());
         }
         return result;
     }
@@ -886,17 +883,11 @@ public final class ECOExecutionRuntime {
     private static long inputAmount(IPatternDetails pattern, AEKey key, long remaining) {
         if (pattern == null || key == null) return 0L;
         long result = 0L;
-        try {
-            for (var input : pattern.getInputs()) {
-                if (input == null || input.getPossibleInputs() == null || input.getPossibleInputs().length == 0) continue;
-                GenericStack selected = input.getPossibleInputs()[0];
-                if (selected != null && key.equals(selected.what())) {
-                    result = NEMath.saturatingAdd(result,
-                        NEMath.saturatingMultiply(selected.amount(), Math.max(0L, input.getMultiplier())));
-                }
+        for (var input : PatternContractReader.read(pattern).inputs()) {
+            GenericStack selected = input.primary();
+            if (key.equals(selected.what())) {
+                result = NEMath.saturatingAdd(result, NEMath.saturatingMultiply(selected.amount(), input.multiplier()));
             }
-        } catch (RuntimeException ignored) {
-            return 0L;
         }
         return NEMath.saturatingMultiply(result, remaining);
     }
@@ -904,14 +895,10 @@ public final class ECOExecutionRuntime {
     private static long outputAmount(IPatternDetails pattern, AEKey key) {
         if (pattern == null || key == null) return 0L;
         long result = 0L;
-        try {
-            for (GenericStack output : pattern.getOutputs()) {
-                if (output != null && key.equals(output.what()) && output.amount() > 0L) {
-                    result = NEMath.saturatingAdd(result, output.amount());
-                }
+        for (GenericStack output : PatternContractReader.read(pattern).outputs()) {
+            if (key.equals(output.what()) && output.amount() > 0L) {
+                result = NEMath.saturatingAdd(result, output.amount());
             }
-        } catch (RuntimeException ignored) {
-            return 0L;
         }
         return result;
     }

@@ -10,7 +10,6 @@ import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutCache;
 import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -690,11 +689,7 @@ public final class ECOCraftingGraphScreen extends Screen {
     private Component viewLabel() { return tr(layoutMode == GraphLayout.Mode.COMPACT_TREE
         ? "toolbar.view_tree" : "toolbar.view_graph"); }
     private static Component compact(String exact) {
-        try {
-            return Component.literal(HostText.ae2Amount(new BigInteger(exact)));
-        } catch (RuntimeException ignored) {
-            return Component.literal(exact);
-        }
+        return Component.literal(HostText.ae2Amount(exact));
     }
 
     private void updateSearchSuggestions() {

@@ -512,13 +512,11 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     public LargeWorkstationModule getInstalledModule() {
-        return moduleInventory == null ? LargeWorkstationModule.REGULAR
-            : LargeWorkstationModule.fromUpgradeCard(moduleInventory.getStackInSlot(0));
+        return LargeWorkstationModule.fromUpgradeCard(moduleInventory.getStackInSlot(0));
     }
 
     public ECOWorkstationModules.Module getInstalledModuleDescription() {
-        var custom = ECOWorkstationModules.customFromCard(
-            moduleInventory == null ? ItemStack.EMPTY : moduleInventory.getStackInSlot(0));
+        var custom = ECOWorkstationModules.customFromCard(moduleInventory.getStackInSlot(0));
         return custom != null ? custom : ECOWorkstationModules.builtin(getInstalledModule());
     }
 
@@ -1060,7 +1058,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         for (PendingBatch batch : pendingBatches) {
             for (var entry : batch.inputTotal) {
                 AEKey key = entry.getKey();
-                if (entry.getLongValue() > 0L && key != null && patternInputs.contains(key.dropSecondary())) {
+                if (entry.getLongValue() > 0L && patternInputs.contains(key.dropSecondary())) {
                     return true;
                 }
             }
@@ -1070,7 +1068,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     /** Validate the entire input/output contract before taking ownership of CPU inputs. */
     public boolean acceptPattern(IPatternDetails pattern, KeyCounter[] holders, boolean commit) {
-        PendingBatch batch = createPendingBatch(pattern, holders, 1L, null, pattern == null ? null : pattern.getPrimaryOutput());
+        PendingBatch batch = createPendingBatch(pattern, holders, 1L, null, pattern.getPrimaryOutput());
         if (batch == null || (commit && !canAcceptPattern())) return false;
         if (commit) {
             enqueueBatch(batch, holders);
@@ -1091,7 +1089,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             inputTotal,
             craftCount,
             craftingJobId,
-            pattern == null ? null : pattern.getPrimaryOutput());
+            pattern.getPrimaryOutput());
         if (batch == null) return false;
         enqueueBatch(batch, inputTotal);
         return true;
@@ -1858,7 +1856,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         @Nullable UUID craftingJobId,
         @Nullable GenericStack unlockStack
     ) {
-        if (!formed || level == null || pattern == null) return null;
+        if (!formed || level == null) return null;
         LargeWorkstationOverclock profile = getCurrentBatchProfile();
         if (!profile.acceptsCraftCount(craftCount)) return null;
         // Inputs delivered by AE2 are retained in the workstation's unbounded ledger while
@@ -1935,7 +1933,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         for (var entry : perCraftInputs) {
             AEKey key = entry.getKey();
             long amount = entry.getLongValue();
-            if (key == null || amount <= 0L) return null;
+            if (amount <= 0L) return null;
             if (key instanceof AEItemKey itemKey) {
                 ItemStack one = itemKey.toStack();
                 if (one.isEmpty()) return null;
