@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMaps;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
@@ -37,8 +36,6 @@ import org.slf4j.LoggerFactory;
 final class ECOCraftingTaskScheduler {
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae.dispatch");
     private static final int MIN_NORMAL_PROBES_PER_TICK = 64;
-    private static final int MIN_CONSECUTIVE_DISPATCHES = 8;
-    private static final int MAX_CONSECUTIVE_DISPATCHES = 32;
     // A large exact order can contain thousands of task candidates. Walking every
     // candidate in one CPU callback turns a temporary provider stall into a multi-
     // second server tick. The cursor resumes at the next candidate on the next call.
@@ -53,14 +50,12 @@ final class ECOCraftingTaskScheduler {
     private final List<ECOExecutionRuntime.DispatchCandidate> nativeCandidateBuffer = new java.util.ArrayList<>();
     private final Map<FailedCandidateKey, InputAvailabilityEpoch> missingInputFailures = new Object2ObjectOpenHashMap<>();
     private final Object2LongMap<AEKey> physicalInsertGenerations = new Object2LongOpenHashMap<>();
-    private final Object2IntOpenHashMap<IPatternDetails> consecutiveLimits = new Object2IntOpenHashMap<>();
 
     private long physicalInsertGeneration;
     private IPatternDetails resumeDispatchPattern;
-    private IPatternDetails fallbackDispatchPattern;
-    private IPatternDetails consecutivePattern;
-    private int consecutiveDispatches;
-    private int consecutiveLimit;
+    // A successful pattern keeps priority across callbacks until it can no longer dispatch.
+    // Keep this separate from the bounded scan cursor used to walk stalled candidates.
+    private IPatternDetails preferredDispatchPattern;
     private String lastDispatchReasonSignature;
     private long lastDispatchReasonTick = Long.MIN_VALUE;
     private int sharedRemainingNormalProbes = -1;
@@ -68,7 +63,6 @@ final class ECOCraftingTaskScheduler {
 
     ECOCraftingTaskScheduler(ECOCraftingProviderDispatcher providerDispatcher) {
         this.providerDispatcher = providerDispatcher;
-        consecutiveLimits.defaultReturnValue(MIN_CONSECUTIVE_DISPATCHES);
     }
 
     void resetDispatchState() {
@@ -76,9 +70,7 @@ final class ECOCraftingTaskScheduler {
         inputBuffer = new ECOCraftingInputBuffer();
         providerCursor.clear();
         resumeDispatchPattern = null;
-        fallbackDispatchPattern = null;
-        consecutiveLimits.clear();
-        clearConsecutiveDispatches();
+        preferredDispatchPattern = null;
         resetMissingInputMemo();
     }
 
@@ -180,9 +172,7 @@ final class ECOCraftingTaskScheduler {
                     : current.executionRuntime.candidates();
             stallDiagnostics.candidates(candidates.size());
             if (candidates.isEmpty()) {
-                resumeDispatchPattern = null;
-                fallbackDispatchPattern = null;
-                clearConsecutiveDispatches();
+                preferredDispatchPattern = null;
                 logReason(current, null, "no-runnable-candidates",
                         current.executionRuntime == null ? "legacy scheduler has no pending candidate"
                                 : current.executionRuntime.describeSchedulingState());
@@ -203,15 +193,12 @@ final class ECOCraftingTaskScheduler {
                 inspected++;
                 if (blockedOrderedPhases.get(candidate.phaseIndex())) continue;
 
-                var pattern = candidate.pattern();
-                var nextPattern = nextCandidatePattern(candidates, candidateIndex);
                 var progress = current.tasks.get(candidate.pattern());
                 if (progress == null || progress.value <= 0L) {
                     logReason(current, candidate, progress == null ? "task-progress-missing" : "task-already-complete",
                             "taskRemaining=" + (progress == null ? "<missing>" : progress.value));
                     providerCursor.forget(candidate.pattern());
-                    consecutiveLimits.removeInt(pattern);
-                    advanceWithoutFailure(pattern, nextPattern);
+                    releasePreferredPattern(candidate.pattern());
                     continue;
                 }
                 long allowedCount = Math.min(candidate.maxDispatchCount(), progress.value);
@@ -219,15 +206,16 @@ final class ECOCraftingTaskScheduler {
                     logReason(current, candidate, "dispatch-allowance-empty",
                             "candidateMax=" + candidate.maxDispatchCount() + " taskRemaining=" + progress.value);
                     if (candidate.blocksOrderedPhase()) stallDiagnostics.phaseBarrier();
-                    advanceWithoutFailure(pattern, nextPattern);
+                    releasePreferredPattern(candidate.pattern());
                     continue;
                 }
 
+                var pattern = candidate.pattern();
                 // The explicit execution runtime owns phase/cycle gating. Legacy jobs retain the growth barrier.
                 if (current.executionRuntime == null && !current.canDispatchAfterGrowth(pattern)) {
                     logReason(current, candidate, "legacy-growth-barrier", "pattern is blocked by growth ordering");
                     stallDiagnostics.phaseBarrier();
-                    advanceWithoutFailure(pattern, nextPattern);
+                    releasePreferredPattern(pattern);
                     continue;
                 }
 
@@ -245,7 +233,7 @@ final class ECOCraftingTaskScheduler {
                         logReason(current, candidate, "input-resolution-failed-same-availability",
                                 "dependencies=" + dependencyKeys);
                         stallDiagnostics.repeatedFailureSameEpoch();
-                        advanceWithoutFailure(pattern, nextPattern);
+                        releasePreferredPattern(pattern);
                         if (candidate.blocksOrderedPhase()) {
                             stallDiagnostics.phaseBarrier();
                             blockedOrderedPhases.set(candidate.phaseIndex());
@@ -254,7 +242,7 @@ final class ECOCraftingTaskScheduler {
                     }
                 }
 
-                // No eligible provider can mean the tick budget is spent, rather than a failed push.
+                // Exhausted ordinary budgets pause priority; busy/missing providers release it.
                 boolean[] providerEligibility = new boolean[2];
                 var providers = providerCursor.availableProviders(
                         pattern,
@@ -271,9 +259,7 @@ final class ECOCraftingTaskScheduler {
                 if (providers.isEmpty()) {
                     logReason(current, candidate, "no-ready-provider", "provider availability or dispatch policy rejected all providers");
                     stallDiagnostics.noReadyProvider();
-                    if (providerEligibility[0] || !providerEligibility[1]) {
-                        advanceAfterFailure(pattern, nextPattern);
-                    }
+                    if (providerEligibility[0] || !providerEligibility[1]) releasePreferredPattern(pattern);
                     if (candidate.blocksOrderedPhase()) blockedOrderedPhases.set(candidate.phaseIndex());
                     continue;
                 }
@@ -294,7 +280,7 @@ final class ECOCraftingTaskScheduler {
                 var inputs = ECOCraftingInputResolver.extractPatternInputsFromDisposablePreview(
                         pattern, inputInventory, level, inputBuffer, remainderCache);
                 if (inputs == null) {
-                    advanceAfterFailure(pattern, nextPattern);
+                    releasePreferredPattern(pattern);
                     logReason(current, candidate, "required-inputs-unavailable",
                             "dependencies=" + dependencyKeys + " protectedStartupSeed=" + protectedStartupSeed);
                     stallDiagnostics.resolveFailure();
@@ -347,20 +333,15 @@ final class ECOCraftingTaskScheduler {
                             providerAttempted[0] = true;
                             providerCursor.advanceAfter(pattern, provider);
                         },
-                        () -> {},
+                        () -> resumeDispatchPattern = nextCandidatePattern(candidates, candidateIndex),
                         normalPush);
                 }
                 if (dispatch.accepted()) {
                     totalPushed = addPushed(totalPushed, dispatch.acceptedCrafts());
-                    // Prefer this pattern only while it remains a legal candidate. Rebuild the
-                    // runtime snapshot before continuing, preserving dependency and cycle gates.
-                    if (progress.value > 0L) {
-                        continueAfterAccepted(pattern, nextPattern);
-                    } else {
-                        consecutiveLimits.removeInt(pattern);
-                        clearConsecutiveDispatches();
-                        advanceWithoutFailure(pattern, nextPattern);
-                    }
+                    // Rebuild legal candidates and inputs after each acceptance. Prefer this
+                    // pattern without a streak cap; callback/tick budgets still bound the work.
+                    preferredDispatchPattern = progress.value > 0L ? pattern : null;
+                    resumeDispatchPattern = nextCandidatePattern(candidates, candidateIndex);
                     acceptedDispatches++;
                     acceptedInPass = true;
                     if (failedCandidateKey != null) missingInputFailures.remove(failedCandidateKey);
@@ -368,7 +349,7 @@ final class ECOCraftingTaskScheduler {
                 }
                 logReason(current, candidate, "provider-dispatch-not-accepted",
                         "providersTried=" + providers.size() + " allowedCrafts=" + allowedCount);
-                if (providerAttempted[0]) advanceAfterFailure(pattern, nextPattern);
+                if (providerAttempted[0]) releasePreferredPattern(pattern);
                 if (candidate.blocksOrderedPhase()) blockedOrderedPhases.set(candidate.phaseIndex());
             }
             if (!acceptedInPass && inspected > 0 && inspected < candidates.size()) {
@@ -406,59 +387,22 @@ final class ECOCraftingTaskScheduler {
             candidate == null ? "<none>" : candidate.pattern().getDefinition(), details);
     }
 
+    private void releasePreferredPattern(IPatternDetails pattern) {
+        if (pattern.equals(preferredDispatchPattern)) preferredDispatchPattern = null;
+    }
+
     private int resumeIndex(List<ECOExecutionRuntime.DispatchCandidate> candidates) {
+        if (preferredDispatchPattern != null) {
+            for (int i = 0; i < candidates.size(); i++) {
+                if (candidates.get(i).pattern().equals(preferredDispatchPattern)) return i;
+            }
+            preferredDispatchPattern = null;
+        }
         if (resumeDispatchPattern == null) return 0;
         for (int i = 0; i < candidates.size(); i++) {
             if (candidates.get(i).pattern().equals(resumeDispatchPattern)) return i;
         }
-        var fallback = fallbackDispatchPattern;
-        fallbackDispatchPattern = null;
-        resumeDispatchPattern = null;
-        clearConsecutiveDispatches();
-        for (int i = 0; i < candidates.size(); i++) {
-            if (candidates.get(i).pattern().equals(fallback)) {
-                resumeDispatchPattern = fallback;
-                return i;
-            }
-        }
         return 0;
-    }
-
-    private void continueAfterAccepted(IPatternDetails pattern, IPatternDetails nextPattern) {
-        if (!pattern.equals(consecutivePattern)) {
-            consecutivePattern = pattern;
-            consecutiveDispatches = 0;
-            // Freeze this round's limit: growth applies only after the other candidates get a turn.
-            consecutiveLimit = consecutiveLimits.getInt(pattern);
-        }
-        // A successful batch counts once, independently of its accepted craft count or internal chunks.
-        if (++consecutiveDispatches >= consecutiveLimit) {
-            consecutiveLimits.put(pattern, Math.min(MAX_CONSECUTIVE_DISPATCHES, consecutiveLimit * 2));
-            clearConsecutiveDispatches();
-            resumeDispatchPattern = nextPattern;
-            fallbackDispatchPattern = null;
-        } else {
-            resumeDispatchPattern = pattern;
-            fallbackDispatchPattern = nextPattern;
-        }
-    }
-
-    private void advanceAfterFailure(IPatternDetails pattern, IPatternDetails nextPattern) {
-        consecutiveLimits.put(pattern,
-                Math.max(MIN_CONSECUTIVE_DISPATCHES, consecutiveLimits.getInt(pattern) / 2));
-        advanceWithoutFailure(pattern, nextPattern);
-    }
-
-    private void advanceWithoutFailure(IPatternDetails pattern, IPatternDetails nextPattern) {
-        if (pattern.equals(consecutivePattern)) clearConsecutiveDispatches();
-        resumeDispatchPattern = nextPattern;
-        fallbackDispatchPattern = null;
-    }
-
-    private void clearConsecutiveDispatches() {
-        consecutivePattern = null;
-        consecutiveDispatches = 0;
-        consecutiveLimit = MIN_CONSECUTIVE_DISPATCHES;
     }
 
     private static IPatternDetails nextCandidatePattern(List<ECOExecutionRuntime.DispatchCandidate> candidates,

@@ -70,16 +70,14 @@ class CycleSeedRetentionEdgeCaseTest {
     }
 
     @Test
-    void productThatIsAlsoTheSeedIsNotCountedTwice() throws Exception {
-        // The goal target is 2 requested + 1 stocked = 3. Keeping the stocked B on top of that (B >= 4) would need
-        // three P1 firings with F = 2 and fall back to the plain plan.
+    void storedFinalOutputDoesNotForceConsumableSeedReplacement() throws Exception {
         var outcome = planSeedCycle(inventory(a, 1, b, 1, f, 2), 2);
         assertEquals(PlanningStatus.SUCCESS, outcome.status(), describe(outcome));
-        assertEquals(Map.of(p1.details(), 2L, p2.details(), 2L), outcome.state().patternTimes());
-        assertHasDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
-        assertNoDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SEED_NOT_RETAINED);
-        var end = replay(cycle(outcome).cycleResult(), counts(a, 1, b, 1, f, 2));
-        assertTrue(end.get(a) >= 1L && end.get(b) >= 3L, end.toString());
+        assertEquals(Map.of(p1.details(), 1L), outcome.state().patternTimes());
+        assertNoDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
+        var end = replay(cycle(outcome).cycleResult(), counts(a, 1, b, 1, f, 1));
+        assertEquals(0L, end.get(a));
+        assertEquals(3L, end.get(b));
     }
 
     @Test

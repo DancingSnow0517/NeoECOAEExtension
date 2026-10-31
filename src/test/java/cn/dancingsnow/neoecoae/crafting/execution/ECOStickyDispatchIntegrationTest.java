@@ -5,8 +5,9 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import appeng.api.config.Actionable;
-import appeng.api.crafting.IPatternDetails;
 import appeng.api.ids.AEComponents;
+import appeng.crafting.pattern.EncodedProcessingPattern;
+import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
@@ -15,7 +16,6 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.pattern.AEProcessingPattern;
-import appeng.crafting.pattern.EncodedProcessingPattern;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
@@ -58,110 +58,85 @@ class ECOStickyDispatchIntegrationTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void successfulRoundsYieldAtEightThenSixteenThenThirtyTwoWithoutExceedingTheCap(boolean ecoPlan) {
+    void successfulPatternKeepsDispatchingBeyondThirtyTwoAcrossCallbacks(boolean ecoPlan) {
         var f = new Fixture(ecoPlan, 1, 100_000);
-        f.round(8);
-        f.round(16);
-        f.round(32);
-        f.round(32);
+        for (int i = 0; i < 16; i++) assertEquals(64, f.dispatch(64));
+        f.assertRun(0, f.first, 1024);
+        assertEquals(100_000 - 1024, f.logic.getInventory().list.get(f.inputs[f.first]));
+        assertEquals(1024, f.job.waitingFor.list.get(f.outputs[f.first]));
+        assertEquals(100_000, f.logic.getInventory().list.get(f.inputs[f.second]));
         assertFalse(f.job.suspended, f.job.permanentExecutionError);
     }
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void eachSuccessfulLargeBatchCountsOnceAndPreservesMaterialAccounting(boolean ecoPlan) {
+    void successfulLargeBatchesKeepPriorityAndPreserveMaterialAccounting(boolean ecoPlan) {
         var f = new Fixture(ecoPlan, 512, 100_000);
-        assertEquals(4 * 512, f.dispatch(4));
-        f.assertRun(0, f.first, 4);
-        assertEquals(5 * 512, f.dispatch(5));
-        f.assertRun(0, f.first, 8);
-        f.assertRun(8, f.second, 1);
-        assertEquals(100_000 - 8 * 512, f.logic.getInventory().list.get(f.inputs[f.first]));
-        assertEquals(100_000 - 512, f.logic.getInventory().list.get(f.inputs[f.second]));
-        assertEquals(8 * 512, f.job.waitingFor.list.get(f.outputs[f.first]));
-        assertEquals(512, f.job.waitingFor.list.get(f.outputs[f.second]));
+        assertEquals(64 * 512, f.dispatch(64));
+        assertEquals(64 * 512, f.dispatch(64));
+        f.assertRun(0, f.first, 128);
+        assertEquals(100_000 - 128 * 512, f.logic.getInventory().list.get(f.inputs[f.first]));
+        assertEquals(100_000, f.logic.getInventory().list.get(f.inputs[f.second]));
+        assertEquals(128 * 512, f.job.waitingFor.list.get(f.outputs[f.first]));
+        assertEquals(0, f.job.waitingFor.list.get(f.outputs[f.second]));
         assertTrue(f.batchSizes.stream().allMatch(count -> count == 512));
     }
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void ordinaryBudgetPausesTheStreakAcrossTicksWithoutCountingAsFailure(boolean ecoPlan) {
+    void ordinaryBudgetPausesPriorityAcrossTicksWithoutCountingAsFailure(boolean ecoPlan) {
         var f = new Fixture(ecoPlan, 1, 100_000);
-        for (int i = 0; i < 7; i++) assertEquals(1, f.dispatch(1));
+        for (int i = 0; i < 40; i++) assertEquals(1, f.dispatch(1));
         assertEquals(0, f.dispatch(0));
-        assertEquals(1, f.dispatch(1));
-        assertEquals(8, f.dispatch(8));
-        f.assertRun(0, f.first, 8);
-        f.assertRun(8, f.second, 8);
-        assertEquals(15, f.dispatch(15));
-        assertEquals(0, f.dispatch(0));
-        assertEquals(2, f.dispatch(2));
-        f.assertRun(16, f.first, 16);
-        f.assertRun(32, f.second, 1);
+        assertEquals(64, f.dispatch(64));
+        f.assertRun(0, f.first, 104);
     }
 
-    @Test void aRejectedPatternYieldsImmediatelyAndHalvesOnlyItsNextRoundLimit() {
+    @Test void aRejectedPatternYieldsImmediatelyAndRefundsTheRejectedInput() {
         var f = new Fixture(true, 1, 100_000);
-        f.round(8);
-        f.round(16);
-        assertEquals(5, f.dispatch(5));
+        assertEquals(64, f.dispatch(64));
         f.rejectNext(f.first);
-        int start = f.accepted.size();
         assertEquals(1, f.dispatch(1));
-        f.assertRun(start, f.second, 1);
-        assertEquals(31, f.dispatch(31));
-        assertEquals(15, f.dispatch(15));
-        f.assertRun(start + 32, f.first, 15);
-
-        f.rejectNext(f.first);
-        start = f.accepted.size();
-        assertEquals(32, f.dispatch(32));
-        f.assertRun(start, f.second, 32);
-        assertEquals(7, f.dispatch(7));
-        f.assertRun(start + 32, f.first, 7);
-
-        f.rejectNext(f.first);
-        start = f.accepted.size();
-        assertEquals(32, f.dispatch(32));
-        assertEquals(9, f.dispatch(9));
-        f.assertRun(start + 32, f.first, 8);
-        f.assertRun(start + 40, f.second, 1);
-        assertEquals(100_000 - Collections.frequency(f.accepted, f.first),
-                f.logic.getInventory().list.get(f.inputs[f.first]), "rejected attempts must refund their inputs");
+        assertEquals(63, f.dispatch(63));
+        f.assertRun(0, f.first, 64);
+        f.assertRun(64, f.second, 64);
+        assertEquals(100_000 - 64, f.logic.getInventory().list.get(f.inputs[f.first]));
+        assertEquals(64, f.job.waitingFor.list.get(f.outputs[f.first]));
+        assertEquals(64, f.dispatch(64));
+        f.assertRun(64, f.second, 128);
     }
 
-    @Test void anotherProviderCanAcceptTheSamePatternWithoutBreakingItsStreak() {
+    @Test void anotherProviderCanAcceptTheSamePatternWithoutLosingPriority() {
         var f = new Fixture(true, 1, 100_000);
-        assertEquals(5, f.dispatch(5));
+        assertEquals(64, f.dispatch(64));
         f.rejectNext(f.first);
         var alternative = mock(ICraftingProvider.class);
         when(alternative.pushPattern(any(), any())).thenAnswer(call -> f.receive(f.first, 1));
         when(f.service.getProviders(f.patterns[f.first])).thenReturn(List.of(f.providers[f.first], alternative));
         assertEquals(1, f.dispatch(1));
-        assertEquals(3, f.dispatch(3));
-        f.assertRun(0, f.first, 8);
-        f.assertRun(8, f.second, 1);
-        assertEquals(100_000 - 8, f.logic.getInventory().list.get(f.inputs[f.first]));
+        assertEquals(63, f.dispatch(63));
+        f.assertRun(0, f.first, 128);
+        assertEquals(100_000 - 128, f.logic.getInventory().list.get(f.inputs[f.first]));
         verify(alternative, atLeastOnce()).pushPattern(eq(f.patterns[f.first]), any());
     }
 
-    @Test void missingIngredientsReleaseThePatternAndClearItsPartialStreak() {
+    @Test void missingIngredientsReleasePriorityAndOtherPatternKeepsItWhenInputsReturn() {
         var f = new Fixture(true, 1, 100_000);
-        assertEquals(5, f.dispatch(5));
+        assertEquals(64, f.dispatch(64));
         long removed = f.logic.getInventory().extract(f.inputs[f.first], Long.MAX_VALUE, Actionable.MODULATE);
         assertEquals(1, f.dispatch(1));
-        f.assertRun(5, f.second, 1);
         f.logic.getInventory().insert(f.inputs[f.first], removed, Actionable.MODULATE);
         f.logic.taskSchedulerForOutput().recordPhysicalInsert(f.inputs[f.first]);
-        assertEquals(7, f.dispatch(7));
-        assertEquals(9, f.dispatch(9));
-        f.assertRun(13, f.first, 8);
-        f.assertRun(21, f.second, 1);
+        assertEquals(64, f.dispatch(64));
+        f.assertRun(64, f.second, 65);
+        when(f.providers[f.second].isBusy()).thenReturn(true);
+        assertEquals(64, f.dispatch(64));
+        f.assertRun(129, f.first, 64);
     }
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void completingATaskMovesOnBeforeItsStreakLimit(boolean ecoPlan) {
+    void completingATaskImmediatelyMovesToTheNextPattern(boolean ecoPlan) {
         var f = new Fixture(ecoPlan, 1, 3);
         assertEquals(6, f.dispatch(64));
         f.assertRun(0, f.first, 3);
@@ -171,22 +146,23 @@ class ECOStickyDispatchIntegrationTest {
         if (ecoPlan) assertTrue(f.job.executionRuntime.isComplete());
     }
 
-    @Test void resettingDispatchStateDropsBothTheStreakAndLearnedLimits() {
+    @Test void resettingDispatchStateDropsThePreviousPriority() {
         var f = new Fixture(true, 1, 100_000);
-        f.round(8);
-        f.round(16);
         assertEquals(5, f.dispatch(5));
+        f.rejectNext(f.first);
+        assertEquals(5, f.dispatch(5));
+        f.assertRun(5, f.second, 5);
         f.logic.taskSchedulerForLifecycle().resetDispatchState();
-        int start = f.accepted.size();
-        assertEquals(9, f.dispatch(9));
-        f.assertRun(start, f.first, 8);
-        f.assertRun(start + 8, f.second, 1);
+        assertEquals(64, f.dispatch(64));
+        f.assertRun(10, f.first, 64);
     }
 
-    @Test void aTemporarilyIllegalCandidateCannotUseItsPreviousStickySelection() {
+    @Test void aTemporarilyIllegalCandidateCannotUseItsPreviousPriority() throws ReflectiveOperationException {
         var f = new Fixture(true, 1, 100_000);
         var runtime = spy(f.job.executionRuntime);
-        f.job.executionRuntime = runtime;
+        var runtimeField = ExecutingCraftingJob.class.getDeclaredField("executionRuntime");
+        runtimeField.setAccessible(true);
+        runtimeField.set(f.job, runtime);
         boolean[] firstLegal = {true};
         doAnswer(call -> {
             @SuppressWarnings("unchecked")
@@ -197,31 +173,24 @@ class ECOStickyDispatchIntegrationTest {
         assertEquals(5, f.dispatch(5));
         firstLegal[0] = false;
         assertEquals(1, f.dispatch(1));
-        f.assertRun(5, f.second, 1);
         firstLegal[0] = true;
-        assertEquals(7, f.dispatch(7));
-        assertEquals(9, f.dispatch(9));
-        f.assertRun(13, f.first, 8);
-        f.assertRun(21, f.second, 1);
+        assertEquals(64, f.dispatch(64));
+        f.assertRun(5, f.second, 65);
     }
 
-    @Test void busyProvidersYieldAndHalveTheLearnedLimitWithoutAttemptingAPush() {
+    @Test void busyProvidersReleasePriorityWithoutAttemptingAPush() {
         var f = new Fixture(true, 1, 100_000);
-        f.round(8);
-        f.round(16);
-        assertEquals(15, f.dispatch(15));
+        assertEquals(64, f.dispatch(64));
         when(f.providers[f.first].isBusy()).thenReturn(true);
-        int start = f.accepted.size();
-        assertEquals(1, f.dispatch(1));
+        assertEquals(64, f.dispatch(64));
         when(f.providers[f.first].isBusy()).thenReturn(false);
-        assertEquals(31, f.dispatch(31));
-        f.assertRun(start, f.second, 32);
-        assertEquals(17, f.dispatch(17));
-        f.assertRun(start + 32, f.first, 16);
-        f.assertRun(start + 48, f.second, 1);
+        assertEquals(64, f.dispatch(64));
+        f.assertRun(0, f.first, 64);
+        f.assertRun(64, f.second, 128);
+        verify(f.providers[f.first], times(64)).pushPattern(any(), any());
     }
 
-    @Test void noBatchAttemptAndAnExhaustedOrdinaryBudgetOnlyPauseTheStreak() {
+    @Test void noBatchAttemptAndAnExhaustedOrdinaryBudgetOnlyPausePriority() {
         var f = new Fixture(true, 512, 100_000);
         assertEquals(5 * 512, f.dispatch(5));
         for (var provider : f.providers) {
@@ -231,9 +200,8 @@ class ECOStickyDispatchIntegrationTest {
         for (var provider : f.providers) {
             when(((ParallelProvider) provider).eco$getAvailableParallelSlots()).thenReturn(512);
         }
-        assertEquals(4 * 512, f.dispatch(4));
-        f.assertRun(0, f.first, 8);
-        f.assertRun(8, f.second, 1);
+        assertEquals(64 * 512, f.dispatch(64));
+        f.assertRun(0, f.first, 69);
     }
 
     interface ParallelProvider extends ICraftingProvider, ECOParallelCraftingProvider {}
@@ -326,13 +294,6 @@ class ECOStickyDispatchIntegrationTest {
         int dispatch(int budget) {
             tick++;
             return logic.executeNormalCrafting(budget, service, energy, level);
-        }
-
-        void round(int limit) {
-            int start = accepted.size();
-            assertEquals(2 * limit, dispatch(2 * limit));
-            assertRun(start, first, limit);
-            assertRun(start + limit, second, limit);
         }
 
         void assertRun(int start, int id, int length) {

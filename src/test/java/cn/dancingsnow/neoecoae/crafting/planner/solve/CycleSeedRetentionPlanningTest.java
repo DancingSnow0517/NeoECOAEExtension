@@ -38,29 +38,36 @@ class CycleSeedRetentionPlanningTest {
     private final CompiledPattern px = fastPattern(2, x, 1, new GenericStack(a, 1));
 
     @Test
-    void keepsTheOnlySeedWhenFuelAllows() throws Exception {
+    void consumableSeedIsNotReplenishedEvenWhenFuelAllows() throws Exception {
         var outcome = planSeedCycle(inventory(a, 1, f, 2), 2);
-        assertEquals(PlanningStatus.SUCCESS, outcome.status(), outcome.trace().diagnostics().toString());
-        assertEquals(Map.of(p1.details(), 2L, p2.details(), 2L), outcome.state().patternTimes());
-        assertEquals(2L, outcome.state().usedItems().get(f));
+        assertEquals(PlanningStatus.SUCCESS, outcome.status(), describe(outcome));
+        assertEquals(Map.of(p1.details(), 1L), outcome.state().patternTimes());
+        assertEquals(1L, outcome.state().usedItems().get(f));
         assertEquals(1L, outcome.state().usedItems().get(a));
-        assertHasDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
-        var end = replay(cycle(outcome).cycleResult(), counts(a, 1, f, 2));
-        assertTrue(end.get(a) >= 1L && end.get(b) >= 2L, end.toString());
+        assertNoDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
+        var end = replay(cycle(outcome).cycleResult(), counts(a, 1, f, 1));
+        assertEquals(0L, end.get(a));
+        assertEquals(2L, end.get(b));
     }
 
-    // Parent X consumes the seed A itself; stock covering the demand exactly must not take the last seed.
+    // Parent X consumes A as an ordinary input; existing stock is spent before growing the shortfall.
     @Test
-    void stockThatExactlyCoversASeedDemandStillGrowsToKeepTheSeed() throws Exception {
+    void stockedInputsAreConsumedAndGrowthOnlyFillsTheShortfall() throws Exception {
         for (long stocked : new long[] {99L, 100L}) {
             var outcome = planParentOfSeed(inventory(a, stocked, f, 10_000), 100);
             assertEquals(PlanningStatus.SUCCESS, outcome.status(), describe(outcome));
-            assertHasDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
-            long laps = 101L - stocked;
-            assertEquals(Map.of(px.details(), 100L, p1.details(), laps, p2.details(), 2L * laps),
-                outcome.state().patternTimes(), describe(outcome));
+            assertNoDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
+            long laps = 100L - stocked;
+            Map<IPatternDetails, Long> expected = new LinkedHashMap<>();
+            expected.put(px.details(), 100L);
+            if (laps > 0) {
+                expected.put(p1.details(), laps);
+                expected.put(p2.details(), 2L * laps);
+            }
+            assertEquals(expected, outcome.state().patternTimes(), describe(outcome));
+            assertEquals(laps, outcome.state().usedItems().get(f));
             var end = replay(cycle(outcome).cycleResult(), counts(a, stocked, f, laps));
-            assertEquals(101L, end.get(a), "100 delivered to X and the seed kept: " + end);
+            assertEquals(100L, end.get(a), "Only the downstream demand must be supplied: " + end);
         }
     }
 
@@ -97,33 +104,29 @@ class CycleSeedRetentionPlanningTest {
         assertNoDiagnostic(first, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
         assertEquals(2, replay(cycle(first).cycleResult(), counts(a, 1, f, 1)).get(b));
         var optimized = planSeedCycle(stock, 2);
-        assertHasDiagnostic(optimized, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
-        assertEquals(Map.of(p1.details(), 2L, p2.details(), 2L), optimized.state().patternTimes());
+        assertNoDiagnostic(optimized, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
+        assertEquals(first.state().patternTimes(), optimized.state().patternTimes());
     }
 
     @Test
-    void concurrentOrdersBorrowOneSeedEachAndReturnTheirOwnSeed() throws Exception {
+    void concurrentOrdersReserveOnlyTheStockTheyActuallyConsume() throws Exception {
         var first = planSeedCycle(inventory(a, 64, f, 4000), 1000);
         assertEquals(PlanningStatus.SUCCESS, first.status(), describe(first));
-        assertEquals(1L, first.state().usedItems().get(a), "Do not reserve the other 63 seeds for parallelism");
-        assertEquals(Map.of(p1.details(), 1000L, p2.details(), 1000L), first.state().patternTimes());
-        assertHasDiagnostic(first, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
-
-        // Submit the second order while the first order's one seed and fuel are still held by its CPU.
-        var second = planSeedCycle(inventory(a, 63, f, 3000), 1000);
+        assertEquals(1L, first.state().usedItems().get(a));
+        assertEquals(Map.of(p1.details(), 999L, p2.details(), 998L), first.state().patternTimes());
+        assertNoDiagnostic(first, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
+        var second = planSeedCycle(inventory(a, 63, f, 3001), 1000);
         assertEquals(PlanningStatus.SUCCESS, second.status(), describe(second));
         assertEquals(1L, second.state().usedItems().get(a));
-        assertEquals(Map.of(p1.details(), 1000L, p2.details(), 1000L), second.state().patternTimes());
-
-        // Each CPU must execute from only what it reserved. The other network copies are not seed credit.
-        var end = replay(cycle(first).cycleResult(), counts(a, 1, f, 1000));
-        assertEquals(1L, end.get(a));
+        assertEquals(first.state().patternTimes(), second.state().patternTimes());
+        var end = replay(cycle(first).cycleResult(), counts(a, 1, f, 999));
+        assertEquals(0L, end.get(a));
         assertEquals(1000L, end.get(b));
         assertEquals(0L, end.get(f));
     }
 
     @Test
-    void optionalJointOptimizationCannotSpendTheSeedThatWasRetained() throws Exception {
+    void optionalJointOptimizationKeepsThePlanWithoutSeedReplenishment() throws Exception {
         var network = new CompiledNetwork(b, Map.of(b, List.of(p1), a, List.of(p2), f, List.of()), Set.of(), 2, 3);
         var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
         var condensation = CondensationGraph.build(graph,
@@ -134,8 +137,8 @@ class CycleSeedRetentionPlanningTest {
                 planner.selectRoutes(condensation, true, ECOCancellation.NONE), stock,
                 PlannerInventorySnapshot.of(stock), 2, false, ECOCancellation.NONE);
         assertEquals(PlanningStatus.SUCCESS, result.status(), describe(result));
-        assertEquals(Map.of(p1.details(), 2L, p2.details(), 2L), result.state().patternTimes());
-        assertHasDiagnostic(result, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
+        assertEquals(Map.of(p1.details(), 1L), result.state().patternTimes());
+        assertNoDiagnostic(result, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
     }
 
     @Test
@@ -148,30 +151,18 @@ class CycleSeedRetentionPlanningTest {
     }
 
     @Test
-    void twoConsecutiveOrdersRestartFromTheRetainedSeed() throws Exception {
-        var first = planSeedCycle(inventory(a, 1, f, 2), 2);
-        assertEquals(PlanningStatus.SUCCESS, first.status(), first.trace().diagnostics().toString());
-        Map<AEKey, Long> afterFirst = afterJob(first, counts(a, 1, f, 2), 2);
-        assertEquals(counts(a, 1, b, 0, f, 0), afterFirst);
-
-        var noFuel = planSeedCycle(inventory(a, 1), 2);
-        assertNotEquals(PlanningStatus.SUCCESS, noFuel.status(), noFuel.trace().diagnostics().toString());
-        assertTrue(noFuel.state().missingItems().get(f) > 0L, "Fuel shortage expected: " + describe(noFuel));
-        assertEquals(0L, noFuel.state().missingItems().get(a), "The retained seed must not be missing: " + describe(noFuel));
-
-        var second = planSeedCycle(inventory(a, 1, f, 2), 2);
-        assertEquals(PlanningStatus.SUCCESS, second.status(), second.trace().diagnostics().toString());
-        assertEquals(first.state().patternTimes(), second.state().patternTimes());
-
-        // Contrast: the fallback plan spends the only seed, so a later order with fuel cannot restart.
-        var fallback = planSeedCycle(inventory(a, 1, f, 1), 2);
-        assertEquals(PlanningStatus.SUCCESS, fallback.status(), fallback.trace().diagnostics().toString());
-        Map<AEKey, Long> afterFallback = afterJob(fallback, counts(a, 1, f, 1), 2);
-        assertEquals(counts(a, 0, b, 0, f, 0), afterFallback);
-        var lost = planSeedCycle(inventory(f, 2), 2);
-        assertNotEquals(PlanningStatus.SUCCESS, lost.status(), lost.trace().diagnostics().toString());
-        long seedLoss = lost.state().missingItems().get(a) + lost.state().missingItems().get(b);
-        assertTrue(seedLoss > 0L, "Seed loss expected: " + describe(lost));
+    void consecutiveOrdersUseRemainingStockWithoutManufacturingReplacementSeeds() throws Exception {
+        var first = planSeedCycle(inventory(a, 2, f, 4), 2);
+        assertEquals(PlanningStatus.SUCCESS, first.status(), describe(first));
+        Map<AEKey, Long> afterFirst = afterJob(first, counts(a, 2, f, 4), 2);
+        assertEquals(counts(a, 1, b, 0, f, 3), afterFirst);
+        var second = planSeedCycle(inventory(a, 1, f, 3), 2);
+        assertEquals(PlanningStatus.SUCCESS, second.status(), describe(second));
+        Map<AEKey, Long> afterSecond = afterJob(second, afterFirst, 2);
+        assertEquals(counts(a, 0, b, 0, f, 2), afterSecond);
+        var exhausted = planSeedCycle(inventory(f, 2), 2);
+        assertNotEquals(PlanningStatus.SUCCESS, exhausted.status(), describe(exhausted));
+        assertTrue(exhausted.state().missingItems().get(a) + exhausted.state().missingItems().get(b) > 0L);
     }
 
     @Test
@@ -229,6 +220,36 @@ class CycleSeedRetentionPlanningTest {
     private final CompiledPattern makeG = fastPattern(15, g, 1, new GenericStack(zg, 1));
     private final CompiledPattern sharedF = fastPattern(16, f, 1, new GenericStack(z, 1));
     private final CompiledPattern sharedG = fastPattern(17, g, 1, new GenericStack(z, 1));
+
+    @Test
+    void retainedSeedDiagnosticDoesNotBlockACheaperExecutablePlan() throws Exception {
+        var slow = fastPattern(30, b, 1, new GenericStack(a, 1));
+        var fast = fastPattern(31, b, 2, new GenericStack(f, 1));
+        var slowInput = mock(IPatternDetails.IInput.class);
+        when(slowInput.getMultiplier()).thenReturn(1L);
+        when(slowInput.getPossibleInputs()).thenReturn(new GenericStack[] {new GenericStack(a, 1)});
+        when(slow.details().getInputs()).thenReturn(new IPatternDetails.IInput[] {slowInput});
+        when(slow.details().getPrimaryOutput()).thenReturn(new GenericStack(b, 1));
+        var fastInput = mock(IPatternDetails.IInput.class);
+        when(fastInput.getMultiplier()).thenReturn(1L);
+        when(fastInput.getPossibleInputs()).thenReturn(new GenericStack[] {new GenericStack(f, 1)});
+        when(fast.details().getInputs()).thenReturn(new IPatternDetails.IInput[] {fastInput});
+        when(fast.details().getPrimaryOutput()).thenReturn(new GenericStack(b, 2));
+        var network = new CompiledNetwork(b, Map.of(b, List.of(slow, fast), a, List.of(), f, List.of()),
+                Set.of(), 2, 3);
+        var stock = inventory(a, 10, f, 10);
+        var state = new SolveState(stock);
+        state.patternTimes.put(slow.details(), PlannerAmount.of(10));
+        var trace = new cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace();
+        trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_SEED_RETAINED, "Seed returned"));
+        var preferred = new ComponentPlanner.Outcome(PlanningStatus.SUCCESS, state, trace,
+                List.of(), List.of(), List.of());
+        var result = new JointRouteOptimizer().optimize(network, PlannerInventorySnapshot.of(stock),
+                10, preferred, ECOCancellation.NONE);
+        assertNotSame(preferred, result);
+        assertEquals(Map.of(fast.details(), 5L), result.state().patternTimes());
+        result.state().executionProvenance().requireComplete();
+    }
 
     private ComponentPlanner.Outcome planBranching(KeyCounter inventory) throws Exception {
         var producers = new LinkedHashMap<AEKey, List<CompiledPattern>>();
