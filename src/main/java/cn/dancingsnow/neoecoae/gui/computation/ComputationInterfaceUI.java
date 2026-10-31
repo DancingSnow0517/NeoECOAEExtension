@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import com.google.gson.JsonObject;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
+import com.lowdragmc.lowdraglib2.LDLib2;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -185,11 +186,51 @@ public final class ComputationInterfaceUI {
         }
 
         @Override
+        public ItemSlot xeiPhantom() {
+            // Ghost samples are configuration, so their acceptance must not use Slot.mayPlace.
+            if (LDLib2.isJeiLoaded()) {
+                FilterJEISupport.register(this);
+            }
+            if (LDLib2.isReiLoaded()) {
+                REISupport.draggableStackBounds(this);
+                REISupport.acceptDraggableStack(this);
+            }
+            if (LDLib2.isEmiLoaded()) {
+                FilterEMISupport.register(this);
+            }
+            return this;
+        }
+
+        @Override
         public ItemSlot setValue(ItemStack value, boolean notify) {
             ItemStack filter = value == null || value.isEmpty() ? ItemStack.EMPTY : value.copyWithCount(1);
             super.setValue(filter, notify);
             computationInterface.rpcToServer("setFuzzyPlanningFilter", inventorySlot, filter);
             return this;
+        }
+    }
+
+    // Keep optional recipe-viewer classes behind the client-side, mod-presence checks above.
+    private static final class FilterJEISupport {
+        private static void register(ItemSlot slot) {
+            com.lowdragmc.lowdraglib2.integration.xei.jei.LDLibJEIPlugin.ghostIngredient(
+                slot, mezz.jei.api.constants.VanillaTypes.ITEM_STACK,
+                ingredient -> !ingredient.getIngredient().isEmpty(), slot::setValue);
+        }
+    }
+
+    private static final class FilterEMISupport {
+        private static void register(ItemSlot slot) {
+            com.lowdragmc.lowdraglib2.integration.xei.emi.LDLibEMIPlugin.renderDragHandler(
+                slot, FilterEMISupport::accepts);
+            com.lowdragmc.lowdraglib2.integration.xei.emi.LDLibEMIPlugin.dropStackHandler(
+                slot, FilterEMISupport::accepts,
+                ingredient -> slot.setValue(((dev.emi.emi.api.stack.ItemEmiStack) ingredient).getItemStack()));
+        }
+
+        private static boolean accepts(dev.emi.emi.api.stack.EmiIngredient ingredient) {
+            return ingredient instanceof dev.emi.emi.api.stack.ItemEmiStack item
+                && !item.getItemStack().isEmpty();
         }
     }
 
