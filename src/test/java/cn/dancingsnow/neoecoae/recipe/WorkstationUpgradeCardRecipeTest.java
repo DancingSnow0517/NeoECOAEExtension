@@ -98,7 +98,7 @@ class WorkstationUpgradeCardRecipeTest {
                     expected.put("ae2cs:resonating_processor", 128);
                 }
                 case "aelt" -> {
-                    expected.put("ae2lt:entangled_topological_lattice", 256);
+                    expected.put("ae2lt:entangled_topological_lattice", 16);
                     expected.put("ae2lt:ultimate_overload_core", 16);
                     expected.put("ae2lt:overload_alloy_plate", 64);
                     expected.put("ae2lt:lightning_collapse_matrix", 16);
@@ -204,7 +204,7 @@ class WorkstationUpgradeCardRecipeTest {
             LargeIntegratedWorkingStationRecipe.Serializer.STREAM_CODEC.encode(buffer, restored);
             var synced = LargeIntegratedWorkingStationRecipe.Serializer.STREAM_CODEC.decode(buffer);
             assertEquals(10, synced.display().inputItems().size());
-            assertEquals(256, synced.display().inputItems().get(1).count());
+            assertEquals(16, synced.display().inputItems().get(1).count());
             assertEquals(16, synced.display().inputItems().get(2).count());
             assertEquals(64, synced.display().inputItems().get(3).count());
             assertEquals(16, synced.display().inputItems().get(4).count());
