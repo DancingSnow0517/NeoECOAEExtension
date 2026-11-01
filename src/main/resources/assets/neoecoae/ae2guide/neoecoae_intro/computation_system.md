@@ -149,7 +149,27 @@ Groups require the same dimension, online ME network and logical frequency. Comp
 | Activation | At least two linked C9 hosts are required. A single host remains at **x1**. |
 | Resource aggregation | Each physical host is evaluated independently, then its effective threads, accelerators, and storage are added to the ME network. |
 | Module mixing | Normal and high-energy modules can be mixed; each host contributes resources according to its installed module tier. |
-| Ultimate mode | Exactly **8 high-energy C9 hosts** in one logical group must each reach the configured maximum build length and have every upper and lower Computation Drive filled with a **CE9 Flash Array**. The aggregate CPU then uses **INT32_MAX (2,147,483,647)** threads and parallelism and **INT64_MAX (9,223,372,036,854,775,807 bytes)** storage. Any empty slot or CE4/CE6 array disables ultimate mode and restores finite capacity calculated from the installed components and exchange multipliers. Active job bytes are still deducted from available storage; normal x2 hosts do not qualify. |
+
+#### Ultimate Mode Requirements
+
+All of the following conditions must be met together:
+
+1. One logical group contains exactly **8 C9 computation hosts**.
+2. Every host has a <ItemLink id="neoecoae:computation_high_energy_network_switch" />.
+3. Every host reaches the maximum build length allowed by the current configuration.
+4. **Every computation cell slot in both drive rows on all 8 hosts** holds a <ItemLink id="neoecoae:eco_computation_cell_l9" />. All arrays must be **CE9**.
+
+The entire computation network then enters ultimate mode:
+
+| Resource | Ultimate Capacity |
+|----------|-------------------|
+| CPU storage | 9,223,372,036,854,775,807 bytes (64-bit integer maximum) |
+| Threads | 2,147,483,647 (32-bit integer maximum) |
+| Parallelism | 2,147,483,647 (32-bit integer maximum) |
+
+For example, if every other slot holds CE9 but one host has a single CE4 array in its lower row, CPU storage, threads and parallelism for the entire group return to finite values calculated from the installed components and exchange multipliers. CE6 arrays, empty slots and invalid items also prevent ultimate mode. Fill every slot with CE9 and meet the remaining conditions to regain ultimate capacity.
+
+Active jobs still reserve CPU storage, and their bytes are deducted from available capacity. Hover over the information icon in the host interface to see unmet conditions across the computation network.
 
 ## Building the Structure
 
@@ -180,6 +200,8 @@ The following computation cells provide storage for crafting jobs:
 - <ItemLink id="neoecoae:eco_computation_cell_l4" /> - CE4 Flash Array, 64MB
 - <ItemLink id="neoecoae:eco_computation_cell_l6" /> - CE6 Flash Array, 256MB
 - <ItemLink id="neoecoae:eco_computation_cell_l9" /> - CE9 Flash Array, 1GB
+
+Ordinary computation networks pool CPU storage from the arrays actually installed. Ultimate mode requires every upper and lower drive on every host in the logical group to hold CE9. A single CE4 or CE6 array, or one empty slot, prevents the entire group from qualifying.
 
 ## Usage
 
