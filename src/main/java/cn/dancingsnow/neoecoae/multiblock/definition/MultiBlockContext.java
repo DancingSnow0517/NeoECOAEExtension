@@ -40,6 +40,46 @@ public abstract class MultiBlockContext {
         return new DummyDelegated(repeats, world);
     }
 
+    /** Collect materials without retaining positions or allocating a preview world. */
+    public static class MaterialsOnly extends MultiBlockContext {
+        private final List<RequiredItem> itemStacks = new ArrayList<>(16);
+
+        public MaterialsOnly(int repeats) {
+            if (repeats < 0) throw new IllegalArgumentException("Negative repeat count");
+            this.repeats = repeats;
+        }
+
+        @Override
+        public void setBlock(BlockPos pos, BlockState blockState) {
+            collectRequiredItem(itemStacks, blockState.getBlock().asItem().getDefaultInstance());
+        }
+
+        @Override
+        public Level getLevel() {
+            throw new UnsupportedOperationException("Material collection has no preview world");
+        }
+
+        @Override
+        public List<BlockPos> allBlocks() { return List.of(); }
+
+        @Override
+        public boolean isFormed() { return false; }
+
+        public List<RequiredItem> getRequiredItems() { return List.copyOf(itemStacks); }
+    }
+
+    private static void collectRequiredItem(List<RequiredItem> items, ItemStack itemStack) {
+        if (itemStack.isEmpty()) return;
+        for (int i = 0; i < items.size(); i++) {
+            RequiredItem stack = items.get(i);
+            if (ItemStack.isSameItemSameTags(itemStack, stack.stack())) {
+                items.set(i, stack.grow(itemStack.getCount()));
+                return;
+            }
+        }
+        items.add(new RequiredItem(itemStack, itemStack.getCount()));
+    }
+
     public static class DummyDelegated extends MultiBlockContext {
         private final TrackedDummyWorld dummyWorld;
         private final List<RequiredItem> itemStacks = new ArrayList<>(16);
@@ -66,15 +106,7 @@ public abstract class MultiBlockContext {
         }
 
         public void addRequiredItem(ItemStack itemStack) {
-            if (itemStack.isEmpty()) return;
-            for (int i = 0; i < itemStacks.size(); i++) {
-                RequiredItem stack = itemStacks.get(i);
-                if (ItemStack.isSameItemSameTags(itemStack, stack.stack())) {
-                    itemStacks.set(i, stack.grow(itemStack.getCount()));
-                    return;
-                }
-            }
-            itemStacks.add(new RequiredItem(itemStack, itemStack.getCount()));
+            collectRequiredItem(itemStacks, itemStack);
         }
 
         @Override

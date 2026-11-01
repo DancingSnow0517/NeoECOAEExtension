@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.multiblock.definition;
 
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
+import cn.dancingsnow.neoecoae.multiblock.placement.RequiredItem;
 import com.google.common.collect.ImmutableList;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -77,6 +78,14 @@ public class MultiBlockDefinition {
             }
         }
         return context.getLevel();
+    }
+
+    public List<RequiredItem> getRequiredItems(int repeats) {
+        var context = new MultiBlockContext.MaterialsOnly(repeats);
+        for (BlockInstruction action : builderActions) {
+            action.accept(context);
+        }
+        return context.getRequiredItems();
     }
 
     public static class Builder {

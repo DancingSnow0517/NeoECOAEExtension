@@ -47,6 +47,8 @@ public class MultiBlockInfoWrapper {
     public static final int DEFAULT_WIDTH = 168;
     public static final int DEFAULT_HEIGHT = 148;
     public static final int MIN_HEIGHT = DEFAULT_HEIGHT;
+    // Rendering limits are independent of the server's real structure/build limits.
+    public static final int MAX_PREVIEW_REPEATS = 32;
 
     private static final int TOOLBAR_HEIGHT = 10;
     private static final int CONTROL_SIZE = 8;
@@ -99,7 +101,7 @@ public class MultiBlockInfoWrapper {
         this.width = Math.max(width, DEFAULT_WIDTH);
         this.height = Math.max(height, MIN_HEIGHT);
         this.expandChanged = expandChanged;
-        this.expand = definition.getExpandMin();
+        this.expand = getPreviewExpandMin();
     }
 
     public ModularUI createModularUI() {
@@ -179,7 +181,6 @@ public class MultiBlockInfoWrapper {
         artwork.addChild(HostElements.absolute(requiredItems, 74, 98, 90, 36));
 
         initializeRequiredItemSlots();
-        expandChanged.accept(expand);
         createScene();
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))));
     }
@@ -195,9 +196,19 @@ public class MultiBlockInfoWrapper {
     }
 
     public List<RequiredItem> getRequiredItems() {
-        var context = MultiBlockContext.dummyDelegated(expand, new TrackedDummyWorld());
-        definition.createLevel(context);
-        return context.getRequiredItems();
+        return definition.getRequiredItems(clampExpand(expand));
+    }
+
+    private int getPreviewExpandMax() {
+        return Math.max(0, Math.min(MAX_PREVIEW_REPEATS, definition.getExpandMax()));
+    }
+
+    private int getPreviewExpandMin() {
+        return Math.max(0, Math.min(definition.getExpandMin(), getPreviewExpandMax()));
+    }
+
+    private int clampExpand(int value) {
+        return Math.max(getPreviewExpandMin(), Math.min(value, getPreviewExpandMax()));
     }
 
     private void onSelect(BlockPos blockPos, Direction direction) {
@@ -220,9 +231,8 @@ public class MultiBlockInfoWrapper {
     }
 
     private void cycleExpand(int step) {
-        int min = definition.getExpandMin();
-        expand = min + Math.floorMod(expand - min + step, definition.getExpandMax() - min + 1);
-        expandChanged.accept(expand);
+        int min = getPreviewExpandMin();
+        expand = min + Math.floorMod(clampExpand(expand) - min + step, getPreviewExpandMax() - min + 1);
         setFormed(false);
         createScene();
     }
@@ -237,7 +247,7 @@ public class MultiBlockInfoWrapper {
         setControlTooltip(expandButton, List.of(
             Component.translatable("gui.neoecoae.multiblock.preview.length", expand + 4),
             Component.translatable("gui.neoecoae.multiblock.preview.length.tooltip",
-                definition.getExpandMin() + 4, definition.getExpandMax() + 4),
+                getPreviewExpandMin() + 4, getPreviewExpandMax() + 4),
             Component.translatable("gui.neoecoae.multiblock.preview.cycle_hint")));
         setControlTooltip(layerButton, List.of(layer == -1
             ? Component.translatable("gui.neoecoae.multiblock.preview.layer.all")
@@ -258,6 +268,8 @@ public class MultiBlockInfoWrapper {
     }
 
     private void createScene() {
+        expand = clampExpand(expand);
+        expandChanged.accept(expand);
         // Build without the previous layer/length filter hiding newly added preview blocks.
         world.setRenderFilter(null);
         world.clear();
@@ -291,13 +303,9 @@ public class MultiBlockInfoWrapper {
      */
     private void initializeRequiredItemSlots() {
         requiredItemSlots.clear();
-        MultiBlockContext.DummyDelegated context = MultiBlockContext.dummyDelegated(
-            definition.getExpandMax(),
-            new TrackedDummyWorld()
-        );
-        definition.createLevel(context);
-
-        int size = context.getRequiredItems().size();
+        // Builder instructions have fixed material types. One repeated section
+        // includes every type, regardless of the configured maximum length.
+        int size = definition.getRequiredItems(1).size();
         requiredItems.viewContainer(view -> view.layout(layout -> layout.height(Math.max(36, ((size + 4) / 5) * 18))));
         for (int i = 0; i < size; i++) {
             RequiredItemSlot slot = new RequiredItemSlot(0);

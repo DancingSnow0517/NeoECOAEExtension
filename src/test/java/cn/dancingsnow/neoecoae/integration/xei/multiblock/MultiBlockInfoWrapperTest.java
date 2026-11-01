@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.integration.xei.multiblock;
 
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
+import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Button;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot;
@@ -40,6 +41,51 @@ class MultiBlockInfoWrapperTest {
             Class.forName(UIElement.class.getName());
             Class.forName(NETextures.class.getName());
         }
+    }
+
+    @Test
+    void hugeServerLimitDoesNotBuildTheMaximumStructureAndRightClickRemainsBounded() {
+        withPreview(false, Integer.MAX_VALUE, fixture -> {
+            var wrapper = fixture.wrapper();
+            assertEquals(1, fixture.length().get());
+            List<ItemSlot> slots = field(wrapper, "requiredItemSlots");
+            ItemSlot stone = slots.get(0);
+            Button length = field(wrapper, "expandButton");
+            click(length, 1);
+            assertEquals(MultiBlockInfoWrapper.MAX_PREVIEW_REPEATS, fixture.length().get());
+            assertEquals(MultiBlockInfoWrapper.MAX_PREVIEW_REPEATS, stone.getValue().getCount());
+            assertEquals(MultiBlockInfoWrapper.MAX_PREVIEW_REPEATS, wrapper.getRequiredItems().get(0).count());
+            assertEquals(Integer.MAX_VALUE, fixture.definition().getExpandMax());
+            click(length, 0);
+            assertEquals(1, fixture.length().get());
+            assertSame(stone, ((List<?>) field(wrapper, "requiredItemSlots")).get(0));
+        });
+    }
+
+    @Test
+    void reloadingASmallerServerLimitClampsThePreviewBeforeRebuilding() {
+        withPreview(false, Integer.MAX_VALUE, fixture -> {
+            Button length = field(fixture.wrapper(), "expandButton");
+            click(length, 1);
+            fixture.configuredMax().set(2);
+            click((Button) field(fixture.wrapper(), "layerButton"), 0);
+            assertEquals(2, fixture.length().get());
+            assertEquals(2, fixture.wrapper().getRequiredItems().get(0).count());
+            click(length, 0);
+            assertEquals(1, fixture.length().get());
+        });
+    }
+
+    @Test
+    void aStructureWithNoRepeatingSectionCanStillCycleSafely() {
+        withPreview(false, 0, fixture -> {
+            assertEquals(0, fixture.length().get());
+            Button length = field(fixture.wrapper(), "expandButton");
+            click(length, 0);
+            click(length, 1);
+            assertEquals(0, fixture.length().get());
+            assertEquals(1, fixture.wrapper().getRequiredItems().size());
+        });
     }
 
     @Test
@@ -130,6 +176,10 @@ class MultiBlockInfoWrapperTest {
     private static void withPreview(Consumer<Fixture> test) { withPreview(false, test); }
 
     private static void withPreview(boolean manyMaterials, Consumer<Fixture> test) {
+        withPreview(manyMaterials, 3, test);
+    }
+
+    private static void withPreview(boolean manyMaterials, int max, Consumer<Fixture> test) {
         try (var ldlib = mockStatic(LDLib.class); var minecraft = mockStatic(Minecraft.class);
              var worlds = mockConstruction(TrackedDummyWorld.class);
              var scenes = mockConstruction(SceneWidget.class)) {
@@ -149,10 +199,18 @@ class MultiBlockInfoWrapperTest {
                     builder.setBlock(new BlockPos(i, 2, 0), extra.get(i).defaultBlockState());
                 }
             }
-            var definition = builder.expandMax(3).create(ignored -> {});
+            AtomicInteger configuredMax = new AtomicInteger(max);
+            var definition = spy(builder.expandMax(configuredMax::get).create(ignored -> {}));
+            // Fail before allocating anything if a regression tries to render billions of blocks.
+            doAnswer(invocation -> {
+                MultiBlockContext context = invocation.getArgument(0);
+                assertTrue(context.getRepeats() <= MultiBlockInfoWrapper.MAX_PREVIEW_REPEATS);
+                return invocation.callRealMethod();
+            }).when(definition).createLevel(any());
             var wrapper = new MultiBlockInfoWrapper(definition, 170, 190, length::set);
             var ui = wrapper.createModularUI();
-            test.accept(new Fixture(wrapper, ui.getRootElement(), length));
+            test.accept(new Fixture(wrapper, ui.getRootElement(), length, definition, configuredMax));
+            assertEquals(1, worlds.constructed().size(), "Only the displayed scene needs a dummy world");
         }
     }
 
@@ -167,5 +225,6 @@ class MultiBlockInfoWrapperTest {
         return (T) UiTestSupport.get(owner, name);
     }
 
-    private record Fixture(MultiBlockInfoWrapper wrapper, UIElement root, AtomicInteger length) {}
+    private record Fixture(MultiBlockInfoWrapper wrapper, UIElement root, AtomicInteger length,
+                           MultiBlockDefinition definition, AtomicInteger configuredMax) {}
 }

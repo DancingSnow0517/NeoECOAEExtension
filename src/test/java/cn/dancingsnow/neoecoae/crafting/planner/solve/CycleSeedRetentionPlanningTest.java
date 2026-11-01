@@ -202,7 +202,7 @@ class CycleSeedRetentionPlanningTest {
     private final CompiledPattern sharedG = fastPattern(17, g, 1, new GenericStack(z, 1));
 
     @Test
-    void retainedSeedDiagnosticDoesNotBlockACheaperExecutablePlan() throws Exception {
+    void seedDiagnosticDoesNotRepriceACompletedAcyclicRoute() throws Exception {
         var slow = fastPattern(30, b, 1, new GenericStack(a, 1));
         var fast = fastPattern(31, b, 2, new GenericStack(f, 1));
         var slowInput = mock(IPatternDetails.IInput.class);
@@ -218,16 +218,14 @@ class CycleSeedRetentionPlanningTest {
         var network = new CompiledNetwork(b, Map.of(b, List.of(slow, fast), a, List.of(), f, List.of()),
                 Set.of(), 2, 3);
         var stock = inventory(a, 10, f, 10);
-        var state = new SolveState(stock);
-        state.patternTimes.put(slow.details(), PlannerAmount.of(10));
-        var trace = new cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace();
-        trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_SEED_RETAINED, "Seed returned"));
-        var preferred = new ComponentPlanner.Outcome(PlanningStatus.SUCCESS, state, trace,
-                List.of(), List.of(), List.of());
+        var preferred = plan(network, stock, 10);
+        assertEquals(PlanningStatus.SUCCESS, preferred.status());
+        preferred.state().executionProvenance().requireComplete();
+        preferred.trace().addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_SEED_RETAINED, "Seed returned"));
         var result = new JointRouteOptimizer().optimize(network, PlannerInventorySnapshot.of(stock),
                 10, preferred, ECOCancellation.NONE);
-        assertNotSame(preferred, result);
-        assertEquals(Map.of(fast.details(), 5L), result.state().patternTimes());
+        assertSame(preferred, result);
+        assertEquals(Map.of(slow.details(), 10L), result.state().patternTimes());
         result.state().executionProvenance().requireComplete();
     }
 

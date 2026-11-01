@@ -740,16 +740,26 @@ public final class ComponentPlanner {
                         ActiveRouteSelector.Selection activeSelection, KeyCounter inventory,
                         PlannerInventorySnapshot snapshot, long amount, boolean ignorePatternSubstitutions,
                         ECOCancellation cancellation) throws InterruptedException {
+        return planWithRouteFallback(network, universe, activeSelection, inventory, snapshot, amount,
+                true, ignorePatternSubstitutions, cancellation);
+    }
+
+    /** Preserve supplied producer choices; recover unavailable combinations independently of cycle support. */
+    public Outcome planWithRouteFallback(CompiledNetwork network, CondensationGraph universe,
+                        ActiveRouteSelector.Selection activeSelection, KeyCounter inventory,
+                        PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
+                        boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
         if (!(cancellation instanceof ECOPlanningBudget)) cancellation = new ECOPlanningBudget(cancellation);
         // Large structural universes can exhaust the session before reaching recovery. This is
-        // an ordering heuristic, not a model-size rejection; small routes retain their report first.
-        if (maxRouteAttempts == 0 && network.reachablePatternCount() > 64) {
+        // a cycle recovery heuristic. A selected DAG always gets its preferred route first.
+        if (cyclePlanningEnabled && !activeSelection.acyclic()
+                && maxRouteAttempts == 0 && network.reachablePatternCount() > 64) {
             Outcome joint = new JointRouteOptimizer().optimize(network, snapshot, amount, null, true, cancellation);
             if (joint != null && joint.status() == PlanningStatus.SUCCESS) return joint;
         }
         CycleFailureCache failures = new CycleFailureCache(cycleSolver);
         ExternalDemandPlanner externalDemandPlanner = new ExternalDemandPlanner(acyclicSolver);
-        Outcome preferred = plan(network, activeSelection, inventory, snapshot, amount, true,
+        Outcome preferred = plan(network, activeSelection, inventory, snapshot, amount, cyclePlanningEnabled,
             ignorePatternSubstitutions, cancellation, failures, externalDemandPlanner, false);
         try {
             // Preserve the completed route's material report if this proof itself exhausts the session.
@@ -773,10 +783,11 @@ public final class ComponentPlanner {
                 }
             }
             if (maxRouteAttempts == 0)
-                preferred = new JointRouteOptimizer().optimize(network, snapshot, amount, preferred, true, cancellation);
+                preferred = new JointRouteOptimizer().optimize(network, snapshot, amount, preferred,
+                        cyclePlanningEnabled, cancellation);
             if (preferred.status() == PlanningStatus.SUCCESS) return preferred;
             return searchAlternativeRoutes(network, universe, activeSelection, inventory, snapshot, amount,
-                ignorePatternSubstitutions, cancellation, failures, preferred, externalDemandPlanner, supply);
+                cyclePlanningEnabled, ignorePatternSubstitutions, cancellation, failures, preferred, externalDemandPlanner, supply);
         } catch (cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget.Exhausted exhausted) {
             // The interrupted alternative is speculative. The completed route still owns a valid
             // material report and cycle diagnostics; never replace those with an empty shell.
@@ -789,7 +800,8 @@ public final class ComponentPlanner {
 
     private Outcome searchAlternativeRoutes(CompiledNetwork network, CondensationGraph universe,
                         ActiveRouteSelector.Selection activeSelection, KeyCounter inventory,
-                        PlannerInventorySnapshot snapshot, long amount, boolean ignorePatternSubstitutions,
+                        PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
+                        boolean ignorePatternSubstitutions,
                         ECOCancellation cancellation, CycleFailureCache failures, Outcome preferred,
                         ExternalDemandPlanner externalDemandPlanner, RouteQuantityProof.Prepared supply)
             throws InterruptedException {
@@ -830,7 +842,7 @@ public final class ComponentPlanner {
                     universe.source(), choices, cancellation);
                 // An upstream change may remove or reduce a cycle demand, or free reserved seed.
                 // Deduplicate actual cycle requests after numeric planning, never just changed key names.
-                Outcome alternative = plan(network, candidate, inventory, snapshot, amount, true,
+                Outcome alternative = plan(network, candidate, inventory, snapshot, amount, cyclePlanningEnabled,
                     ignorePatternSubstitutions, cancellation, failures, externalDemandPlanner, true);
                 if (alternative.status() == PlanningStatus.SUCCESS) {
                     success = true;

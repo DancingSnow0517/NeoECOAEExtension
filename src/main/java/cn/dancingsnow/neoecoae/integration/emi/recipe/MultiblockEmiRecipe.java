@@ -2,10 +2,8 @@ package cn.dancingsnow.neoecoae.integration.emi.recipe;
 
 import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
 import cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapper;
-import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.integration.xei.emi.ModularUIEMIRecipe;
-import com.lowdragmc.lowdraglib.utils.TrackedDummyWorld;
 import dev.emi.emi.api.recipe.EmiRecipeCategory;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
@@ -35,9 +33,7 @@ public class MultiblockEmiRecipe extends ModularUIEMIRecipe {
 
     @Override
     public List<EmiIngredient> getInputs() {
-        var context = MultiBlockContext.dummyDelegated(recipeState.expand, new TrackedDummyWorld());
-        definition.createLevel(context);
-        return context.getRequiredItems().stream()
+        return definition.getRequiredItems(recipeState.expand).stream()
             .filter(requiredItem -> !requiredItem.isEmpty())
             .map(requiredItem -> (EmiIngredient) EmiStack.of(requiredItem.stackWithCount()))
             .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
