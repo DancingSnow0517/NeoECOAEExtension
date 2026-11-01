@@ -98,6 +98,7 @@ class WorkstationUpgradeCardRecipeTest {
                     expected.put("ae2cs:resonating_processor", 128);
                 }
                 case "aelt" -> {
+                    expected.put("ae2lt:entangled_topological_lattice", 256);
                     expected.put("ae2lt:ultimate_overload_core", 16);
                     expected.put("ae2lt:overload_alloy_plate", 64);
                     expected.put("ae2lt:lightning_collapse_matrix", 16);
@@ -190,7 +191,7 @@ class WorkstationUpgradeCardRecipeTest {
 
     @Test void lightningRecipeSurvivesJsonAndNetworkRoundTrips() throws IOException {
         var recipe = decodeWithVanillaItems(resource("aelt"));
-        assertEquals(9, recipe.display().inputItems().size());
+        assertEquals(10, recipe.display().inputItems().size());
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         var ops = registries.createSerializationContext(JsonOps.INSTANCE);
         var json = LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec().encodeStart(ops, recipe).getOrThrow();
@@ -202,14 +203,15 @@ class WorkstationUpgradeCardRecipeTest {
         try (var sync = mockStatic(RegistryManager.class)) {
             LargeIntegratedWorkingStationRecipe.Serializer.STREAM_CODEC.encode(buffer, restored);
             var synced = LargeIntegratedWorkingStationRecipe.Serializer.STREAM_CODEC.decode(buffer);
-            assertEquals(9, synced.display().inputItems().size());
-            assertEquals(16, synced.display().inputItems().get(1).count());
-            assertEquals(64, synced.display().inputItems().get(2).count());
-            assertEquals(16, synced.display().inputItems().get(3).count());
+            assertEquals(10, synced.display().inputItems().size());
+            assertEquals(256, synced.display().inputItems().get(1).count());
+            assertEquals(16, synced.display().inputItems().get(2).count());
+            assertEquals(64, synced.display().inputItems().get(3).count());
             assertEquals(16, synced.display().inputItems().get(4).count());
-            assertEquals(4, synced.display().inputItems().get(5).count());
+            assertEquals(16, synced.display().inputItems().get(5).count());
             assertEquals(4, synced.display().inputItems().get(6).count());
-            assertEquals(128, synced.display().inputItems().get(7).count());
+            assertEquals(4, synced.display().inputItems().get(7).count());
+            assertEquals(128, synced.display().inputItems().get(8).count());
             assertEquals(128, synced.display().inputItems().getLast().count());
             assertEquals(16_384_000, synced.display().energy());
             assertFalse(buffer.isReadable());
