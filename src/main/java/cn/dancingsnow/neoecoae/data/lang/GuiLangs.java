@@ -475,7 +475,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.computation.endgame.reason.tier", "Not every host is C9");
         provider.add("gui.neoecoae.computation.endgame.reason.max_length", "A host is not at maximum length");
         provider.add("gui.neoecoae.computation.endgame.reason.high_energy_switch", "A host has no high-energy network switch module");
-        provider.add("gui.neoecoae.computation.endgame.reason.drives", "Not every drive slot holds a flash crystal matrix");
+        provider.add("gui.neoecoae.computation.endgame.reason.drives", "Not every drive slot holds a CE9 flash crystal matrix");
 
         // crafting
         provider.add("gui.neoecoae.crafting.tasks", "Crafting Tasks");

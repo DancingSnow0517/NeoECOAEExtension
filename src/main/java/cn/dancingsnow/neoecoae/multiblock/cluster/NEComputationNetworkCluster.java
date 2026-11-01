@@ -101,7 +101,8 @@ public class NEComputationNetworkCluster {
     }
 
     /**
-     * Exactly 8 members, all at max tier, max structural build length, and high-energy switches -
+     * Exactly 8 members, all at max tier, max structural build length, high-energy switches,
+     * and every upper/lower drive holding a max-tier computation cell -
      * the unconditional endgame override. No cooling-controller precondition.
      */
     public boolean isEndgameEligible() {
@@ -118,7 +119,7 @@ public class NEComputationNetworkCluster {
                 controller.getTier().supportsFeature(ECOFeature.VIRTUAL_CRAFTING),
                 controller.getSelectedBuildLength() == controller.getMaxBuildLength(),
                 controller.hasHighEnergyNetworkSwitch(),
-                hasAllDriveSlotsFilled(member)
+                hasAllDriveSlotsMaxTier(member)
             ));
         }
         return isEndgameTopologyEligible(topology);
@@ -130,26 +131,27 @@ public class NEComputationNetworkCluster {
         }
         for (EndgameHost host : topology) {
             if (host == null || !host.maxTier() || !host.maxBuildLength()
-                || !host.highEnergyNetworkSwitch() || !host.allDriveSlotsFilled()) {
+                || !host.highEnergyNetworkSwitch() || !host.allDriveSlotsMaxTier()) {
                 return false;
             }
         }
         return true;
     }
 
-    static boolean areAllDriveSlotsFilled(List<ItemStack> driveStacks) {
+    static boolean areAllDriveSlotsMaxTier(List<ItemStack> driveStacks) {
         if (driveStacks == null || driveStacks.isEmpty()) {
             return false;
         }
         for (ItemStack stack : driveStacks) {
-            if (ECOComputationCells.describe(stack) == null) {
+            var memory = ECOComputationCells.describe(stack);
+            if (memory == null || memory.tier().getTier() != ECOTier.L9.getTier()) {
                 return false;
             }
         }
         return true;
     }
 
-    private static boolean hasAllDriveSlotsFilled(NEComputationCluster member) {
+    private static boolean hasAllDriveSlotsMaxTier(NEComputationCluster member) {
         List<ItemStack> driveStacks = new ArrayList<>(
             member.getUpperDrives().size() + member.getLowerDrives().size());
         for (ECOComputationDriveBlockEntity drive : member.getUpperDrives()) {
@@ -158,7 +160,7 @@ public class NEComputationNetworkCluster {
         for (ECOComputationDriveBlockEntity drive : member.getLowerDrives()) {
             driveStacks.add(drive.getCellStack());
         }
-        return areAllDriveSlotsFilled(driveStacks);
+        return areAllDriveSlotsMaxTier(driveStacks);
     }
 
     /**
@@ -177,7 +179,7 @@ public class NEComputationNetworkCluster {
                 wrongLength |= controller.getSelectedBuildLength() != controller.getMaxBuildLength();
                 noHighEnergySwitch |= !controller.hasHighEnergyNetworkSwitch();
             }
-            drivesMissing |= !hasAllDriveSlotsFilled(member);
+            drivesMissing |= !hasAllDriveSlotsMaxTier(member);
         }
         if (wrongTier) blockers.add("tier");
         if (wrongLength) blockers.add("max_length");
@@ -194,7 +196,7 @@ public class NEComputationNetworkCluster {
         boolean maxTier,
         boolean maxBuildLength,
         boolean highEnergyNetworkSwitch,
-        boolean allDriveSlotsFilled
+        boolean allDriveSlotsMaxTier
     ) {}
 
     public int getTotalThreads() {

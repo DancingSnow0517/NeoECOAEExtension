@@ -1,4 +1,5 @@
 {
+  "gui.neoecoae.computation.endgame.reason.drives": "UNLOCALIZED: Not every drive slot holds a CE9 flash crystal matrix",
   "gui.neoecoae.smart_cooling.control": "UNLOCALIZED: Automatic temperature control, target %s%%; configure by right-clicking the module",
   "gui.neoecoae.smart_cooling.coolant_mode": "UNLOCALIZED: Coolant mode: automatic ME supply; temperature control is disabled",
   "gui.neoecoae.smart_cooling.cooling": "UNLOCALIZED: Cooling to target",
