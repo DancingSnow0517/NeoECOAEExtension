@@ -329,7 +329,7 @@
   "gui.neoecoae.computation.endgame.reason.tier": "存在非 C9 主机",
   "gui.neoecoae.computation.endgame.reason.max_length": "存在长度未达到最大值的主机",
   "gui.neoecoae.computation.endgame.reason.high_energy_switch": "存在未安装高能网络交换模块的主机",
-  "gui.neoecoae.computation.endgame.reason.drives": "存在未装满闪存晶阵的驱动器槽位",
+  "gui.neoecoae.computation.endgame.reason.drives": "存在空槽或未安装 CE9 闪存晶阵的驱动器槽位",
   "gui.neoecoae.host.crafting.coolant": "冷却液",
   "gui.neoecoae.host.crafting.overflow": "溢出",
   "gui.neoecoae.host.crafting.subtitle": "合成子系统主机",
