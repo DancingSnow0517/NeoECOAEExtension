@@ -91,12 +91,12 @@ final class ECOCraftReportHeaderRenderer {
         return DisplayNumbers.grouped(millis.setScale(displayScale, RoundingMode.HALF_UP).toPlainString());
     }
 
-    static void render(GuiGraphicsExtractor graphics, Font font, int offsetX, int offsetY, Summary summary,
+    static void render(GuiGraphicsExtractor graphics, Font font, Summary summary,
             @Nullable Long progressMillis) {
-        // GuiGraphicsExtractor scissors use window GUI coordinates, independent of the translated pose.
-        graphics.enableScissor(offsetX + LEFT, offsetY + TOP, offsetX + RIGHT, offsetY + BOTTOM);
+        // 26.1 transforms scissors with the pose, which already includes the screen origin.
+        graphics.enableScissor(LEFT, TOP, RIGHT, BOTTOM);
         try {
-            drawBytes(graphics, font, offsetX, offsetY, summary.bytes());
+            drawBytes(graphics, font, summary.bytes());
             if (progressMillis != null) {
                 int fill = 1 + (int) (progressMillis % 2_000L) * (BYTES_WIDTH - 1) / 1_999;
                 graphics.fill(BYTES_LEFT, 19, BYTES_RIGHT - 1, 20, 0xFF6A6A72);
@@ -108,15 +108,13 @@ final class ECOCraftReportHeaderRenderer {
         }
     }
 
-    private static void drawBytes(GuiGraphicsExtractor graphics, Font font, int offsetX, int offsetY,
-            Component text) {
+    private static void drawBytes(GuiGraphicsExtractor graphics, Font font, Component text) {
         float scale = Math.min(MAX_BYTES_SCALE,
             (float) (BYTES_BOTTOM - BYTES_TOP) / Math.max(1, font.lineHeight + 1));
         int textWidth = font.width(text);
         scale = Math.min(scale, (float) BYTES_WIDTH / Math.max(1, textWidth + 1));
         float textY = TOP + (BOTTOM - TOP - font.lineHeight * scale) / 2.0F + 1.0F;
-        graphics.enableScissor(offsetX + BYTES_LEFT, offsetY + BYTES_TOP,
-            offsetX + BYTES_RIGHT, offsetY + BOTTOM);
+        graphics.enableScissor(BYTES_LEFT, BYTES_TOP, BYTES_RIGHT, BOTTOM);
         var pose = graphics.pose();
         pose.pushMatrix();
         try {

@@ -121,6 +121,38 @@ class CellModelResourceTest {
     }
 
     @Test
+    void infiniteCellsUseTheirHousingModelAndFitTheDriveOpening() throws Exception {
+        String client = Files.readString(JAVA.resolve("client/NeoECOAEClient.java"));
+        for (String item : List.of("ECO_INFINITE_ITEM_CELL", "ECO_INFINITE_SAND_CELL")) {
+            assertTrue(Pattern.compile("ECOCellModels\\.register\\(NEItems\\." + item
+                + ",\\s*NeoECOAE\\.id\\(\"block/cell/storage_cell_l9_infinite_resource\"\\)\\)")
+                .matcher(client).find(), item + " must not fall back to the default drive model");
+        }
+
+        Map<String, JsonObject> models = models();
+        JsonObject infinite = models.get("block/cell/storage_cell_l9_infinite_resource");
+        assertEquals("neoecoae:block/storage/drive_cells/infinite_resource_housing",
+            texture(infinite.getAsJsonObject("textures"), "base"));
+        var elements = infinite.getAsJsonArray("elements");
+        JsonObject body = elements.get(0).getAsJsonObject();
+        JsonObject regularBody = models.get("block/cell/storage_cell_l9_item")
+            .getAsJsonArray("elements").get(0).getAsJsonObject();
+        assertEquals(regularBody.get("from"), body.get("from"), "Drive opening lower corner");
+        assertEquals(regularBody.get("to"), body.get("to"), "Drive opening upper corner");
+        for (int i = 1; i < elements.size(); i++) {
+            JsonObject light = elements.get(i).getAsJsonObject();
+            var from = light.getAsJsonArray("from");
+            var to = light.getAsJsonArray("to");
+            assertTrue(from.get(0).getAsDouble() >= 1.98 && to.get(0).getAsDouble() <= 8.02,
+                "Light must stay within the drive opening");
+            assertTrue(from.get(1).getAsDouble() >= 2 && to.get(1).getAsDouble() <= 14.02,
+                "Light must stay within the drive opening");
+            assertTrue(from.get(2).getAsDouble() < body.getAsJsonArray("from").get(2).getAsDouble(),
+                "Light must sit in front of the housing without z-fighting");
+        }
+    }
+
+    @Test
     void cellItemLayersMatchTheStatusTintContractIncludingInfiniteAndAnimations() throws Exception {
         Map<String, JsonObject> models = models();
         int cells = 0;

@@ -4,8 +4,6 @@ import appeng.client.gui.style.Blitter;
 import appeng.util.Icon;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -13,7 +11,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
 public class UploadButton extends Button {
-    public static final Identifier ICON_TEXTURE = NeoECOAE.id("textures/gui/upload.png");
+    public static final Identifier ICON_TEXTURE = NeoECOAE.id("textures/gui/widget/upload.png");
 
     public UploadButton(int x, int y, OnPress onPress) {
         super(

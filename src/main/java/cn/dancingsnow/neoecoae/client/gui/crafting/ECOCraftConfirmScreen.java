@@ -245,7 +245,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
     @Override public void drawFG(GuiGraphicsExtractor graphics, int offsetX, int offsetY, int mouseX, int mouseY) {
         drawCpuTierGlyph(graphics);
-        ECOCraftReportHeaderRenderer.render(graphics, font, offsetX, offsetY, reportSummary,
+        ECOCraftReportHeaderRenderer.render(graphics, font, reportSummary,
             menu.getPlan() == null && showLargeCycleIndicator()
                 ? (System.nanoTime() - openedNanos) / 1_000_000L : null);
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {

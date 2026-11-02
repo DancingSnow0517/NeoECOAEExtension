@@ -162,6 +162,9 @@ public class NeoECOAEClient {
         ECOCellModels.register(NEItems.ECO_ITEM_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_item"));
         ECOCellModels.register(NEItems.ECO_ITEM_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_item"));
 
+        ECOCellModels.register(NEItems.ECO_INFINITE_ITEM_CELL, NeoECOAE.id("block/cell/storage_cell_l9_infinite_resource"));
+        ECOCellModels.register(NEItems.ECO_INFINITE_SAND_CELL, NeoECOAE.id("block/cell/storage_cell_l9_infinite_resource"));
+
         ECOCellModels.register(NEItems.ECO_FLUID_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_fluid"));
         ECOCellModels.register(NEItems.ECO_FLUID_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_fluid"));
         ECOCellModels.register(NEItems.ECO_FLUID_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_fluid"));
