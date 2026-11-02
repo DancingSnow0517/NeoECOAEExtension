@@ -185,10 +185,10 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
         }
 
         private static Optional<NumericCompoundDelta> analyze(CompoundTag before, CompoundTag after) {
-            if (!before.getAllKeys().equals(after.getAllKeys())) return Optional.empty();
+            if (!before.keySet().equals(after.keySet())) return Optional.empty();
             Map<String, NumericDelta> deltas = new LinkedHashMap<>();
             Map<String, NumericCompoundDelta> children = new LinkedHashMap<>();
-            for (String key : before.getAllKeys()) {
+            for (String key : before.keySet()) {
                 Tag left = before.get(key);
                 Tag right = after.get(key);
                 if (java.util.Objects.equals(left, right)) continue;
@@ -247,11 +247,11 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
         private static NumericDelta of(NumericTag before, NumericTag after) {
             byte type = before.getId();
             if (type == Tag.TAG_FLOAT || type == Tag.TAG_DOUBLE) {
-                return new NumericDelta(type, 0L, 0L, before.getAsDouble(),
-                    after.getAsDouble() - before.getAsDouble());
+                return new NumericDelta(type, 0L, 0L, before.doubleValue(),
+                    after.doubleValue() - before.doubleValue());
             }
-            long initial = before.getAsLong();
-            return new NumericDelta(type, initial, Math.subtractExact(after.getAsLong(), initial), 0.0D, 0.0D);
+            long initial = before.longValue();
+            return new NumericDelta(type, initial, Math.subtractExact(after.longValue(), initial), 0.0D, 0.0D);
         }
 
         private NumericTag apply(long crafts) {

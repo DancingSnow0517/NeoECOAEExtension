@@ -8,29 +8,16 @@ import cn.dancingsnow.neoecoae.api.client.ECOComputationModels;
 import cn.dancingsnow.neoecoae.client.item.ECOStorageCellStateTintSource;
 import cn.dancingsnow.neoecoae.client.model.ECOComputationDriveModel;
 import cn.dancingsnow.neoecoae.client.model.ECODriveModel;
-import cn.dancingsnow.neoecoae.gui.NETextures;
-import cn.dancingsnow.neoecoae.all.NEBlockEntities;
-import cn.dancingsnow.neoecoae.api.ECOCellModels;
-import cn.dancingsnow.neoecoae.api.ECOComputationModels;
-import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
-import cn.dancingsnow.neoecoae.client.all.NEExtraModels;
 import cn.dancingsnow.neoecoae.client.gui.crafting.ECOCraftConfirmScreenIntegration;
 import cn.dancingsnow.neoecoae.client.gui.workstation.LargeIntegratedWorkingStationPatternProviderScreen;
-import cn.dancingsnow.neoecoae.client.rendering.FixedBlockEntityRenderers;
-import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
-import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationCoolingControllerRenderer;
-import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
-import appeng.init.client.InitScreens;
+import appeng.client.InitScreens;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import com.lowdragmc.lowdraglib2.editor.resource.EditorResourceEvent;
 import com.lowdragmc.lowdraglib2.editor.resource.ResourceInstance;
 import com.lowdragmc.lowdraglib2.editor.resource.TexturesResource;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.item.Item;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -51,9 +38,10 @@ import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.integration.jei.JeiBookmarkAccess;
 import cn.dancingsnow.neoecoae.network.ECOImportJeiBookmarksC2SPacket;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 @Mod(value = NeoECOAE.MOD_ID, dist = Dist.CLIENT)
 @EventBusSubscriber(modid =  NeoECOAE.MOD_ID, value = Dist.CLIENT)
@@ -62,33 +50,19 @@ public class NeoECOAEClient {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
 
         NeoForge.EVENT_BUS.addListener(NEClientRecipe::receivedRecipe);
-        NEExtraModels.register();
     }
 
     @SubscribeEvent
-    public static void onRegisterReloadListeners(net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent event) {
-        event.registerReloadListener((net.minecraft.server.packs.resources.ResourceManagerReloadListener) manager ->
-            cn.dancingsnow.neoecoae.client.gui.graph.GraphRenderer.resourcesReloaded());
+    public static void onRegisterReloadListeners(net.neoforged.neoforge.client.event.AddClientReloadListenersEvent event) {
+        event.addListener(NeoECOAE.id("graph_renderer"),
+            (net.minecraft.server.packs.resources.ResourceManagerReloadListener) manager ->
+                cn.dancingsnow.neoecoae.client.gui.graph.GraphRenderer.resourcesReloaded());
     }
 
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
         NeoECOAE.getIntegrationManager().loadAllClientIntegrations();
         NEItemColors.clearCache();
-        ECOCellModels.runDeferredRegistration();
-        ECOComputationModels.runDeferredRegistration();
-        FixedBlockEntityRenderers.register(
-            NEBlockEntities.COMPUTATION_DRIVE.get(),
-            new ECOComputationDriveRenderer()
-        );
-        FixedBlockEntityRenderers.register(
-            NEBlockEntities.ECO_DRIVE.get(),
-            new ECODriveRenderer()
-        );
-        var coolingRenderer = new ECOComputationCoolingControllerRenderer();
-        FixedBlockEntityRenderers.register(NEBlockEntities.COMPUTATION_COOLING_CONTROLLER_L4.get(), coolingRenderer);
-        FixedBlockEntityRenderers.register(NEBlockEntities.COMPUTATION_COOLING_CONTROLLER_L6.get(), coolingRenderer);
-        FixedBlockEntityRenderers.register(NEBlockEntities.COMPUTATION_COOLING_CONTROLLER_L9.get(), coolingRenderer);
     }
 
     @SubscribeEvent
@@ -107,7 +81,7 @@ public class NeoECOAEClient {
             Component.translatable("gui.neoecoae.import_jei_bookmarks"), ignored -> {
                 if (!JeiBookmarkAccess.isAvailable()) return;
                 var keys = JeiBookmarkAccess.bookmarkedKeys();
-                PacketDistributor.sendToServer(new ECOImportJeiBookmarksC2SPacket(menu.containerId, keys));
+                ClientPacketDistributor.sendToServer(new ECOImportJeiBookmarksC2SPacket(menu.containerId, keys));
             });
         importButton.active = JeiBookmarkAccess.isAvailable();
         importButton.visible = importButton.active;
@@ -129,16 +103,16 @@ public class NeoECOAEClient {
         }
 
         @Override
-        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
             int yOffset = isHovered() ? 1 : 0;
             ECOIcon background = isHovered()
                 ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_HOVER
                 : isFocused() ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_FOCUS
                 : ECOIcon.TOOLBAR_BUTTON_BACKGROUND;
-            background.blit(graphics, getX() - 1, getY() + yOffset, 100);
+            background.blit(graphics, getX() - 1, getY() + yOffset);
 
-            graphics.blit(ICON_TEXTURE, getX(), getY() + 2 + yOffset,
-                200, 0, 0, 16, 16, 16, 16);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, ICON_TEXTURE, getX(), getY() + 2 + yOffset,
+                0, 0, 16, 16, 16, 16);
         }
     }
 

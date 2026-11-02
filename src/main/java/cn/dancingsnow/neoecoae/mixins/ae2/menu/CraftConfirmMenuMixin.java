@@ -520,7 +520,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             AEKey what,
             long amount) {
         String player = getActionSrc().player()
-            .map(value -> value.getGameProfile().getName())
+            .map(value -> value.getGameProfile().name())
             .orElse("<machine>");
         if (settings == null) {
             NEOECOAE_LOGGER.warn(
@@ -790,7 +790,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             "[ECO-CRAFT-SUBMIT] Start disabled: reason={}, container={}, player={}, output={}, amount={}, bytes={}, simulation={}, noCPU={}, "
                 + "planningStatus={}, selectedCpu={}\n{}",
             reason, menu.containerId,
-            getActionSrc().player().map(player -> player.getGameProfile().getName()).orElse("<machine>"),
+            getActionSrc().player().map(player -> player.getGameProfile().name()).orElse("<machine>"),
             result.finalOutput().what(), result.finalOutput().amount(), result.bytes(), result.simulation(), noCPU,
             status, neoecoae$describeCpu(selectedCpu), cpuDetails);
     }
@@ -938,7 +938,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         NEOECOAE_LOGGER.info(
             "[ECO-CRAFT-SUBMIT] stage=start-button container={} player={} output={} amount={} bytes={} simulation={} noCPU={} selectedCpu={}",
             menu.containerId,
-            getActionSrc().player().map(player -> player.getGameProfile().getName()).orElse("<machine>"),
+            getActionSrc().player().map(player -> player.getGameProfile().name()).orElse("<machine>"),
             result.finalOutput().what(), result.finalOutput().amount(), result.bytes(), result.simulation(), noCPU,
             neoecoae$describeCpu(selectedCpu));
     }

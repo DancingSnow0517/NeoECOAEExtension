@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.storage.infinite;
 
 import appeng.api.stacks.AEKey;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -19,14 +18,16 @@ import java.util.Set;
 import java.util.UUID;
 
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.IntArrayTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.level.saveddata.SavedData;
-import net.neoforged.neoforge.common.IOUtilities;
+import net.minecraft.world.level.saveddata.SavedDataType;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -69,12 +70,15 @@ public final class ECOInfiniteStorageData extends SavedData {
     }
 
     /**
-     * Vanilla load path. The deserializer runs only when {@code dataFile} was read successfully; if vanilla failed to
+     * Vanilla load path. The codec runs only when {@code dataFile} was read successfully; if vanilla failed to
      * read an existing file, the constructor fallback leaves the domain unreadable so that file is never overwritten.
+     *
+     * <p>26.1 port: {@code SavedData.Factory} was replaced by {@link SavedDataType} (codec based).
      */
-    public static SavedData.Factory<ECOInfiniteStorageData> factory(Path dataFile,
-                                                                    java.util.function.Supplier<ECOInfiniteStorageData> fresh) {
-        return new SavedData.Factory<>(() -> {
+    public static SavedDataType<ECOInfiniteStorageData> type(net.minecraft.resources.Identifier id, Path dataFile,
+                                                             HolderLookup.Provider serverRegistries,
+                                                             java.util.function.Supplier<ECOInfiniteStorageData> fresh) {
+        return new SavedDataType<>(id, level -> {
             if (Files.exists(dataFile)) {
                 ECOInfiniteStorageData data = createNew();
                 data.markUnreadable("Cannot read authoritative domain snapshot " + dataFile.getFileName()
@@ -82,19 +86,25 @@ public final class ECOInfiniteStorageData extends SavedData {
                 return data;
             }
             return fresh.get();
-        }, (tag, registries) -> {
-            ECOInfiniteStorageData data = load(tag, registries);
-            if (data.canRead()) {
-                try {
-                    // Upgrade worlds written by the old write-ahead journal; the next save folds it in.
-                    replayJournal(data, dataFile, registries);
-                } catch (IOException | RuntimeException e) {
-                    data = createNew();
-                    data.markUnreadable("Cannot replay legacy domain journal; original files retained: " + e);
-                }
-            }
-            return data;
+        }, level -> {
+            HolderLookup.Provider registries = level != null ? level.registryAccess() : serverRegistries;
+            return CompoundTag.CODEC.xmap(tag -> loadWithJournal(tag, registries, dataFile),
+                    data -> data.save(new CompoundTag(), registries));
         });
+    }
+
+    static ECOInfiniteStorageData loadWithJournal(CompoundTag tag, HolderLookup.Provider registries, Path dataFile) {
+        ECOInfiniteStorageData data = load(tag, registries);
+        if (data.canRead()) {
+            try {
+                // Upgrade worlds written by the old write-ahead journal; the next save folds it in.
+                replayJournal(data, dataFile, registries);
+            } catch (IOException | RuntimeException e) {
+                data = createNew();
+                data.markUnreadable("Cannot replay legacy domain journal; original files retained: " + e);
+            }
+        }
+        return data;
     }
 
     public static ECOInfiniteStorageData load(CompoundTag tag, HolderLookup.Provider registries) {
@@ -123,7 +133,7 @@ public final class ECOInfiniteStorageData extends SavedData {
                         : !amountTag.contains("long"))
                     throw new IllegalArgumentException("Invalid amount");
                 HugeAmount amount = HugeAmount.read(amountTag);
-                AEKey key = codec == null ? AEKey.fromTagGeneric(registries, entry.getCompoundOrEmpty("key"))
+                AEKey key = codec == null ? cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readKey(registries, entry.getCompoundOrEmpty("key"))
                         : codec.decode(entry.getCompoundOrEmpty("key"));
                 if (key == null) throw new IllegalArgumentException("Unknown key");
                 Restore restore = null;
@@ -134,7 +144,7 @@ public final class ECOInfiniteStorageData extends SavedData {
                         if (!validList(entry, "restoreTargets", Tag.TAG_INT_ARRAY))
                             throw new IllegalArgumentException("Invalid restore targets");
                         for (Tag target : entry.getListOrEmpty("restoreTargets"))
-                            targets.add(NbtUtils.loadUUID(target));
+                            targets.add(loadUUID(target));
                     }
                     Map<UUID, ECOInfiniteStorageEngine.RestoreTargetAmounts> plan = new HashMap<>();
                     if (entry.contains("restorePlan")) {
@@ -170,7 +180,7 @@ public final class ECOInfiniteStorageData extends SavedData {
             ListTag invalid = new ListTag();
             for (Tag receipt : tag.getListOrEmpty("migrations")) {
                 try {
-                    data.migrationReceipts.add(NbtUtils.loadUUID(receipt));
+                    data.migrationReceipts.add(loadUUID(receipt));
                 } catch (RuntimeException e) {
                     invalid.add(receipt.copy());
                 }
@@ -182,23 +192,33 @@ public final class ECOInfiniteStorageData extends SavedData {
     }
 
     private static boolean validList(CompoundTag tag, String name, int type) {
-        return tag.get(name) instanceof ListTag list && (list.isEmpty() || list.getElementType() == type);
+        if (!(tag.get(name) instanceof ListTag list)) return false;
+        for (Tag element : list) {
+            if (element.getId() != type) return false;
+        }
+        return true;
     }
 
-    @Override
+    // 26.1 port: NbtUtils.loadUUID was removed; UUIDs are still int[4] tags.
+    private static UUID loadUUID(Tag tag) {
+        if (!(tag instanceof IntArrayTag array) || array.getAsIntArray().length != 4)
+            throw new IllegalArgumentException("Invalid UUID tag " + tag);
+        return UUIDUtil.uuidFromIntArray(array.getAsIntArray());
+    }
+
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         if (unreadable || incompleteLegacy) throw new IllegalStateException("Refusing to save an incomplete domain");
         tag.putInt("version", CURRENT_VERSION);
         ListTag entries = new ListTag();
         amounts.forEach((key, amount) -> {
             CompoundTag entry = new CompoundTag();
-            entry.put("key", codec == null ? key.toTagGeneric(registries) : codec.encode(key));
+            entry.put("key", codec == null ? cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeKey(registries, key) : codec.encode(key));
             entry.put("amount", amount.write());
             Restore restore = restores.get(key);
             if (restore != null) {
                 entry.store("restore", net.minecraft.core.UUIDUtil.CODEC, restore.transaction());
                 ListTag targets = new ListTag();
-                restore.targets().forEach(id -> targets.add(NbtUtils.createUUID(id)));
+                restore.targets().forEach(id -> targets.add(new IntArrayTag(UUIDUtil.uuidToIntArray(id))));
                 entry.put("restoreTargets", targets);
                 ListTag plan = new ListTag();
                 restore.plan().forEach((id, amounts) -> {
@@ -217,7 +237,7 @@ public final class ECOInfiniteStorageData extends SavedData {
         rawEntries.forEach(entry -> entries.add(entry.copy()));
         tag.put("entries", entries);
         ListTag receipts = new ListTag();
-        migrationReceipts.forEach(id -> receipts.add(NbtUtils.createUUID(id)));
+        migrationReceipts.forEach(id -> receipts.add(new IntArrayTag(UUIDUtil.uuidToIntArray(id))));
         tag.put("migrations", receipts);
         if (!unresolvedMetadata.isEmpty()) tag.put("unresolvedMetadata", unresolvedMetadata.copy());
         tag.putLong("journalSequence", journalSequence);
@@ -225,37 +245,15 @@ public final class ECOInfiniteStorageData extends SavedData {
     }
 
     /**
-     * Same contract as vanilla {@link SavedData#save(File, HolderLookup.Provider)}: serialize on the server thread,
-     * write atomically on the IO worker. Unreadable or partially imported domains are never written, and a failed
-     * write keeps the domain due for the next save.
+     * 26.1 port: vanilla {@code SavedDataStorage} now owns the (asynchronous, atomic) snapshot write and there is no
+     * per-data save hook any more. Unreadable or partially imported domains are kept permanently clean so the storage
+     * never encodes or overwrites them.
+     * TODO(26.1 port): write failures are no longer observable here ({@code writeFailure} stays null), and the retired
+     * write-ahead journal is no longer deleted after a successful write (harmless: replay skips folded sequences).
      */
     @Override
-    public void save(File file, HolderLookup.Provider registries) {
-        if (unreadable || incompleteLegacy) return;
-        if (!isDirty() && writeFailure == null) return;
-        CompoundTag root = new CompoundTag();
-        try {
-            root.put("data", save(new CompoundTag(), registries));
-        } catch (RuntimeException e) {
-            LoggerFactory.getLogger(ECOInfiniteStorageData.class).error("Cannot serialize infinite domain {}", file, e);
-            writeFailure = e.toString();
-            return;
-        }
-        NbtUtils.addCurrentDataVersion(root);
-        Path target = file.toPath();
-        IOUtilities.withIOWorker(() -> {
-            try {
-                IOUtilities.writeNbtCompressed(root, target);
-                // The snapshot records journalSequence, so a journal left behind by a crash here is harmless.
-                Files.deleteIfExists(journalPath(target.toAbsolutePath()));
-                writeFailure = null;
-            } catch (IOException | RuntimeException e) {
-                if (writeFailure == null)
-                    LoggerFactory.getLogger(ECOInfiniteStorageData.class).error("Cannot save infinite domain {}", file, e);
-                writeFailure = e.toString();
-            }
-        });
-        setDirty(false);
+    public void setDirty(boolean dirty) {
+        super.setDirty(dirty && !unreadable && !incompleteLegacy);
     }
 
     /** Structural change: also advances {@link #revision()} so revision-keyed caches refresh. */
@@ -348,7 +346,7 @@ public final class ECOInfiniteStorageData extends SavedData {
         }
         if (!unresolvedMetadata.isEmpty()) {
             return block(ECOInfiniteStorageEngine.MigrationBlock.Kind.UNRESOLVED_METADATA,
-                    String.join(", ", unresolvedMetadata.getAllKeys()));
+                    String.join(", ", unresolvedMetadata.keySet()));
         }
         return null;
     }
@@ -419,7 +417,7 @@ public final class ECOInfiniteStorageData extends SavedData {
                     throw new IOException("Non-contiguous infinite-domain journal sequence " + sequence);
                 }
                 AEKey key = data.codec == null
-                        ? AEKey.fromTagGeneric(registries, record.getCompoundOrEmpty("key"))
+                        ? cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readKey(registries, record.getCompoundOrEmpty("key"))
                         : data.codec.decode(record.getCompoundOrEmpty("key"));
                 long amount = record.getLongOr("amount", 0L);
                 if (key == null || amount <= 0L) throw new IOException("Invalid infinite-domain journal change");

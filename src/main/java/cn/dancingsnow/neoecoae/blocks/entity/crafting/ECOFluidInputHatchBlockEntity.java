@@ -34,6 +34,14 @@ import net.neoforged.neoforge.fluids.FluidUtil;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
+import cn.dancingsnow.neoecoae.blocks.entity.FluidTankResourceHandler;
+import cn.dancingsnow.neoecoae.util.LegacyNbt;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.ResourceHandlerUtil;
+import net.neoforged.neoforge.transfer.fluid.FluidResource;
+import net.neoforged.neoforge.transfer.transaction.Transaction;
 import java.util.List;
 
 public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyFields implements IUpgradeableObject, InterfaceLogicHost {
@@ -60,7 +68,7 @@ public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyField
         }
 
         @Override
-        protected void onContentsChanged(int index, FluidStack previousContents) {
+        protected void onContentsChanged() {
             setChanged();
             markForUpdate();
         }
@@ -76,6 +84,11 @@ public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyField
         super.tank = tank;
         upgrades = UpgradeInventories.forMachine(blockState.getBlock(), 1, this::saveChanges);
     }
+
+    private final FluidTankResourceHandler fluidResourceHandler = new FluidTankResourceHandler(() -> tank, true, true);
+
+    /** 26.1 fluid capability ({@code Capabilities.Fluid.BLOCK}) view of {@link #tank}. */
+    public ResourceHandler<FluidResource> getFluidResourceHandler() { return fluidResourceHandler; }
 
     /** Stable addon handler view. Its int-sized quantities saturate at {@link Integer#MAX_VALUE}. */
     public FluidTank getFluidTankHandler() { return tank; }
@@ -98,7 +111,7 @@ public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyField
             ResourceHandler<FluidResource> sourceHandler = level.getCapability(Capabilities.Fluid.BLOCK, pos.relative(face), face.getOpposite());
             if (sourceHandler != null) {
                 try (Transaction transaction = Transaction.open(null)) {
-                    int moved = ResourceHandlerUtil.move(sourceHandler, tank, fluid -> true, MAX_CAPACITY, transaction);
+                    int moved = ResourceHandlerUtil.move(sourceHandler, fluidResourceHandler, fluid -> true, tank.getCapacity(), transaction);
                     if (moved > 0) {
                         transaction.commit();
                         return;
@@ -173,20 +186,26 @@ public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyField
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
-        tank.writeToNBT(registries, data);
-        upgrades.writeToNBT(data, "upgrades", registries);
-        data.put("markedFluid", markedFluid.saveOptional(registries));
-        data.putLong("targetAmount", targetAmount);
+    public void saveAdditional(ValueOutput data) {
+        super.saveAdditional(data);
+        // 1.21.1 layout: tank keys ("Fluid", "StoredAmount") at the block entity root.
+        tank.serialize(data);
+        upgrades.writeToNBT(data, "upgrades");
+        HolderLookup.Provider registries = LegacyNbt.registries(this);
+        LegacyNbt.write(data, tag -> {
+            tag.put("markedFluid", LegacyNbt.saveFluid(registries, markedFluid));
+            tag.putLong("targetAmount", targetAmount);
+        });
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
-        tank.readFromNBT(registries, data);
-        upgrades.readFromNBT(data, "upgrades", registries);
-        markedFluid = FluidStack.parseOptional(registries, data.getCompoundOrEmpty("markedFluid"));
+    public void loadTag(ValueInput input) {
+        super.loadTag(input);
+        tank.deserialize(input);
+        upgrades.readFromNBT(input, "upgrades");
+        CompoundTag data = LegacyNbt.read(input);
+        HolderLookup.Provider registries = input.lookup();
+        markedFluid = LegacyNbt.parseFluid(registries, data.getCompoundOrEmpty("markedFluid"));
         targetAmount = data.contains("targetAmount") ? Math.max(0, data.getLongOr("targetAmount", 0L)) : 16_000;
     }
 }

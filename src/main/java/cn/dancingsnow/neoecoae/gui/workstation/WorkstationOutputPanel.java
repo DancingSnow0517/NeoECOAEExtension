@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
+import cn.dancingsnow.neoecoae.gui.NEGuiColors;
 import appeng.api.orientation.RelativeSide;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
@@ -45,7 +46,7 @@ final class WorkstationOutputPanel {
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
                 List.of(Component.translatable("gui.neoecoae.integrated_working_station.allow_outputs").withStyle(ChatFormatting.WHITE)),
                 null,
-                null,
+                null, null,
                 null
             ));
         return button;
@@ -67,7 +68,7 @@ final class WorkstationOutputPanel {
 
         titleBar.addChild(new TextElement()
             .setText("gui.neoecoae.integrated_working_station.allow_outputs", true)
-            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(0x403e53)));
+            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(NEGuiColors.textColor(0x403e53))));
 
         titleBar.addChild(new Button()
             .noText()
@@ -157,7 +158,7 @@ final class WorkstationOutputPanel {
                             : "gui.neoecoae.integrated_working_station.allow_outputs.disabled").withStyle(ChatFormatting.GRAY)
                     ),
                     null,
-                    null,
+                    null, null,
                     null
                 );
             });

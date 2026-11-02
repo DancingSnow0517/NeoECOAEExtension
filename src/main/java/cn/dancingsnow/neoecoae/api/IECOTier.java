@@ -1,7 +1,5 @@
 package cn.dancingsnow.neoecoae.api;
 
-import cn.dancingsnow.neoecoae.gui.NETextures;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import net.minecraft.resources.Identifier;
 import cn.dancingsnow.neoecoae.api.capability.ECOFeature;
 import cn.dancingsnow.neoecoae.api.multiblock.ECOMachineKind;

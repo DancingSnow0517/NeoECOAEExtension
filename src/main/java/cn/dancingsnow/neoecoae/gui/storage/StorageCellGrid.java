@@ -15,7 +15,8 @@ import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEmitter;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.data.Clip;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.util.ArrayList;
 import java.util.List;
@@ -138,7 +139,7 @@ final class StorageCellGrid extends UIElement {
     }
 
     @Override
-    public void drawBackgroundAdditional(GUIContext context) {
+    public void drawBackgroundAdditional(IGUIContext context) {
         var state = sync.state();
         if (!state.formed()) return;
         for (int i = 0; i < Math.min(columns * 3, state.cells().size()); i++) {
@@ -159,7 +160,7 @@ final class StorageCellGrid extends UIElement {
             this.index = index;
             layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(index % columns * 18)
                 .top(index / columns * 18).width(16).height(16).paddingAll(0));
-            style(style -> style.backgroundTexture(IGuiTexture.EMPTY).overflowVisible(true));
+            style(style -> style.backgroundTexture(IGuiTexture.EMPTY).clip(Clip.NONE));
             slotStyle(style -> style.hoverOverlay(NETextures.AE2_SLOT_HIGHLIGHT));
         }
 
@@ -193,24 +194,24 @@ final class StorageCellGrid extends UIElement {
         }
 
         @Override
-        public List<Component> getFullTooltipTexts(boolean withItemTooltips) {
+        public List<Component> getFullTooltipTexts() {
             if (actionsPopup.isOpen()) return List.of();
             return tooltip(index);
         }
 
         @Override
         protected void onHoverTooltips(UIEvent event) {
-            if (actionsPopup.isOpen()) event.hoverTooltips = new HoverTooltips(List.of(), null, null, null);
-            else event.hoverTooltips = new HoverTooltips(tooltip(index), null, null, null);
+            if (actionsPopup.isOpen()) event.hoverTooltips = new HoverTooltips(List.of(), null, null, null, null);
+            else event.hoverTooltips = new HoverTooltips(new java.util.ArrayList<Object>(tooltip(index)), null, null, null, null);
         }
 
         @Override
-        protected void drawItemStack(GUIContext context, ItemStack stack) {
+        protected void drawItemStack(IGUIContext context, ItemStack stack) {
             super.drawItemStack(context, stack);
         }
 
         @Override
-        protected void drawHover(GUIContext context) {
+        protected void drawHover(IGUIContext context) {
             if (actionsPopup.isOpen() || !sync.state().formed() || cell(index).position() == null) return;
             // Custom slot subclasses do not inherit the item-slot stylesheet selector.
             context.drawTexture(NETextures.AE2_SLOT_HIGHLIGHT, 0, 0, 16, 16);

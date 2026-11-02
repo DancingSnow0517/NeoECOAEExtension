@@ -4,6 +4,7 @@ import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
 import appeng.crafting.CraftingLink;
 import appeng.me.service.CraftingService;
+import cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 
@@ -23,7 +24,7 @@ final class ECOCraftingCpuPersistence {
         host.outputDeliveryForPersistence().clearPendingFinalOutputs();
         host.energyTransactionForPersistence().readFromNBT(data);
         host.exactInventory().setEnabled(data.getBooleanOr("ecoExactInventory", false));
-        host.getInventory().readFromNBT(data.getListOrEmpty("inventory"), registries);
+        ECOLegacyAENbt.readInventory(registries, host.getInventory(), data.getListOrEmpty("inventory"));
 
         if (!data.contains("job")) {
             host.setJobFromPersistence(null);
@@ -31,7 +32,7 @@ final class ECOCraftingCpuPersistence {
             return;
         }
 
-        var jobData = data.getCompound("job");
+        var jobData = data.getCompoundOrEmpty("job");
         var restoredJob = new ExecutingCraftingJob(jobData, registries, host::postChange, host);
         if (restoredJob.exactOrder && restoredJob.link.isStandalone())
             restoredJob.link.setNexus(new appeng.crafting.CraftingLinkNexus(restoredJob.link.getCraftingID()));
@@ -59,7 +60,7 @@ final class ECOCraftingCpuPersistence {
     void write(CompoundTag data, HolderLookup.Provider registries) {
         host.bigOrder.write(data, registries);
         data.putBoolean("ecoExactInventory", host.exactInventory().isEnabled());
-        data.put("inventory", host.getInventory().writeToNBT(registries));
+        data.put("inventory", ECOLegacyAENbt.writeInventory(registries, host.getInventory()));
         host.energyTransactionForPersistence().writeToNBT(data);
         var job = host.getJob();
         if (job == null) {

@@ -52,13 +52,14 @@ final class BiggerAE2StorageCellItem extends ECOStorageCellItem {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
-        super.appendHoverText(stack, context, lines, flag);
+    public void appendHoverText(ItemStack stack, TooltipContext context, net.minecraft.world.item.component.TooltipDisplay display,
+                                java.util.function.Consumer<Component> lines, TooltipFlag flag) {
+        super.appendHoverText(stack, context, display, lines, flag);
         if (singularity) {
             for (var entry : stack.getOrDefault(BiggerAE2SingularityContents.TYPE,
                     BiggerAE2SingularityContents.EMPTY).entries()) {
                 if (entry.amount().bitLength() > 63) {
-                    lines.add(entry.key().getDisplayName().copy().append(": " + entry.amount()));
+                    lines.accept(entry.key().getDisplayName().copy().append(": " + entry.amount()));
                 }
             }
         }

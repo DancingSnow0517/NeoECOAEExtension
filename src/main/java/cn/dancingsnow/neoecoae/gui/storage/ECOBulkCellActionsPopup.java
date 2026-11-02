@@ -6,7 +6,9 @@ import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.gui.common.ElementRenderHooks;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.util.List;
 import java.util.UUID;
@@ -19,7 +21,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 
 /** Context actions for an installed cell, with additional actions for bulk cells. */
-final class ECOBulkCellActionsPopup extends UIElement {
+final class ECOBulkCellActionsPopup extends UIElement implements ElementRenderHooks.Contents {
+    static {
+        ElementRenderHooks.register(ECOBulkCellActionsPopup.class);
+    }
+
     private static final int MIN_WIDTH = 126;
     private static final int VERTICAL_PADDING = 4;
     private static final int FIRST_ROW_HEIGHT = 22;
@@ -65,7 +71,7 @@ final class ECOBulkCellActionsPopup extends UIElement {
         setOverflowVisible(true);
         // Stop tooltip lookup here instead of falling through to the disk underneath the menu.
         addEventListener(UIEvents.HOVER_TOOLTIPS,
-            event -> event.hoverTooltips = new HoverTooltips(List.of(), null, null, null));
+            event -> event.hoverTooltips = new HoverTooltips(List.of(), null, null, null, null));
         addEventListener(UIEvents.MOUSE_DOWN, event -> {
             pressed = event.button == 0 ? row(event.x, event.y) : -1;
             event.stopImmediatePropagation();
@@ -162,10 +168,10 @@ final class ECOBulkCellActionsPopup extends UIElement {
     }
 
     @Override
-    public void drawBackgroundAdditional(GUIContext context) {
-        super.drawBackgroundAdditional(context);
+    public void drawBackgroundAdditional(IGUIContext ctx) {
+        super.drawBackgroundAdditional(ctx);
+        if (!(ctx instanceof GUIContext context)) return;
         // Flush the style background before drawing the divider and hover overlay.
-        context.graphics.flush();
         if (bulk) {
             int dividerX = Math.round(getPositionX() + 5);
             int dividerY = Math.round(getPositionY() + VERTICAL_PADDING + FIRST_ROW_HEIGHT + DIVIDER_GAP);
@@ -180,28 +186,28 @@ final class ECOBulkCellActionsPopup extends UIElement {
                 Math.round(getPositionX() + width - 4), Math.round(getPositionY() + top + rowHeight - 2),
                 0x807B81B8);
         }
-        context.graphics.flush();
     }
 
     @Override
-    public void drawContents(GUIContext context) {
+    public void drawContents(IGUIContext ctx, Runnable drawDefault) {
         if (!selectionValid()) {
             close();
             return;
         }
         // UIElement invokes drawBackgroundAdditional from its drawContents implementation.
-        super.drawContents(context);
+        drawDefault.run();
+        if (!(ctx instanceof GUIContext context)) return;
         Font font = Minecraft.getInstance().font;
         for (int i = 0; i < actions.size(); i++) {
             Action action = actions.get(i);
             int color = i == hovered ? 0xFFFFFF : 0x413F54;
             int rowHeight = bulk && i == 0 ? FIRST_ROW_HEIGHT : ROW_HEIGHT;
             int textY = Math.round(getPositionY() + rowTop(i) + (rowHeight - font.lineHeight) / 2F);
-            context.graphics.drawString(font, action.label.getString(), Math.round(getPositionX() + 8),
+            context.graphics.text(font, action.label.getString(), Math.round(getPositionX() + 8),
                 textY, 0xFF000000 | color, false);
             if (action == Action.PRIORITY) {
                 String value = String.valueOf(ECOStorageCellSettings.priority(selected.get().stack()));
-                context.graphics.drawString(font, value, Math.round(getPositionX() + width - 8 - font.width(value)),
+                context.graphics.text(font, value, Math.round(getPositionX() + width - 8 - font.width(value)),
                     textY, PRIORITY_COLOR, false);
             }
         }

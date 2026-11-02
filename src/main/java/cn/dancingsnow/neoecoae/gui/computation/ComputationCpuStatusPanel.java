@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.gui.computation;
 
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
 
-import appeng.api.client.AEKeyRendering;
+import appeng.client.api.AEKeyRendering;
 import appeng.api.stacks.AEKey;
 import appeng.api.util.AEColor;
 import appeng.client.gui.widgets.AE2Button;
@@ -25,6 +25,10 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
+import cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt;
+import cn.dancingsnow.neoecoae.gui.common.ElementRenderHooks;
+import net.minecraft.client.renderer.RenderPipelines;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -305,12 +309,12 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     }
 
     @Override
-    public void drawBackgroundAdditional(GUIContext context) {
+    public void drawBackgroundAdditional(IGUIContext ctx) {
+        if (!(ctx instanceof GUIContext context)) return;
         Font font = Minecraft.getInstance().font;
         float x = getPositionX(), y = getPositionY();
-        context.graphics.flush();
-        context.graphics.drawString(font, GuiText.CraftingCPUs.text(), Math.round(x + CPU_X), Math.round(y + 7), 0xFF000000 | TEXT, false);
-        context.graphics.drawString(font, title(selected, itemTotal > 0), Math.round(x + ITEM_X - 1), Math.round(y + 7), 0xFF000000 | TEXT, false);
+        context.graphics.text(font, GuiText.CraftingCPUs.text(), Math.round(x + CPU_X), Math.round(y + 7), 0xFF000000 | TEXT, false);
+        context.graphics.text(font, title(selected, itemTotal > 0), Math.round(x + ITEM_X - 1), Math.round(y + 7), 0xFF000000 | TEXT, false);
         // Switch complete acknowledged pages together with the rows used for hit testing.
         cpuPage.advance();
         itemPage.advance();
@@ -322,7 +326,6 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
                     x + CPU_X, y + CPU_Y + (float) row * CPU_STRIDE);
             }
         } finally {
-            context.graphics.flush();
             context.disableScissor();
         }
         context.enableScissor(x + ITEM_X, y + ITEM_Y, ITEM_COLS * ITEM_COLUMN_STRIDE - 1, ITEM_ROWS * ITEM_STRIDE - 1);
@@ -334,7 +337,6 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
                     y + ITEM_Y + (float) row * ITEM_STRIDE, AEConfig.instance().isUseColoredCraftingStatus());
             }
         } finally {
-            context.graphics.flush();
             context.disableScissor();
         }
     }
@@ -378,7 +380,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
                 Math.round(y + ITEM_HEIGHT), color | 0x5A000000);
         }
         if (entry.batched()) {
-            context.graphics.blit(BATCH_ICON, Math.round(x + BATCH_ICON_LEFT),
+            context.graphics.blit(RenderPipelines.GUI_TEXTURED, BATCH_ICON, Math.round(x + BATCH_ICON_LEFT),
                 Math.round(y + (ITEM_HEIGHT - BATCH_ICON_SIZE) / 2F), 0, 0,
                 BATCH_ICON_SIZE, BATCH_ICON_SIZE, BATCH_ICON_SIZE, BATCH_ICON_SIZE);
         }
@@ -407,12 +409,12 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         float top = Math.round(y + (ITEM_HEIGHT - height) / 2);
         for (int line = 0; line < lines.size(); line++) {
             Component value = lines.get(line);
-            context.graphics.pose().pushPose();
+            context.graphics.pose().pushMatrix();
             context.graphics.pose().translate(x + ITEM_WIDTH - 21 - font.width(value) * scale,
-                top + line * (font.lineHeight * scale + 1), 0);
-            context.graphics.pose().scale(scale, scale, 1);
-            context.graphics.drawString(font, value, 0, 0, 0xFF000000 | TEXT, false);
-            context.graphics.pose().popPose();
+                top + line * (font.lineHeight * scale + 1));
+            context.graphics.pose().scale(scale, scale);
+            context.graphics.text(font, value, 0, 0, 0xFF000000 | TEXT, false);
+            context.graphics.pose().popMatrix();
         }
     }
 
@@ -425,11 +427,11 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     }
 
     private static void key(GUIContext context, appeng.api.stacks.AEKey key, float x, float y, float scale) {
-        context.graphics.pose().pushPose();
-        context.graphics.pose().translate(x, y, 0);
-        context.graphics.pose().scale(scale, scale, 1);
+        context.graphics.pose().pushMatrix();
+        context.graphics.pose().translate(x, y);
+        context.graphics.pose().scale(scale, scale);
         AEKeyRendering.drawInGui(Minecraft.getInstance(), context.graphics, 0, 0, key);
-        context.graphics.pose().popPose();
+        context.graphics.pose().popMatrix();
     }
 
     private static UIElement hitbox(int x, int y, int width, int height) {
@@ -440,9 +442,13 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         button.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(x).top(y).width(50).height(20).paddingAll(0));
     }
 
-    private static final class BackButton extends Button {
+    private static final class BackButton extends Button implements ElementRenderHooks.Background {
+        static {
+            ElementRenderHooks.register(BackButton.class);
+        }
+
         @Override
-        public void drawBackgroundAdditional(GUIContext context) {
+        public void drawBackgroundAdditional(IGUIContext context, Runnable drawParent) {
             // AE2's box tab changes only with focus and draws both sprites at native size.
             ECOIcon background = isFocused() ? ECOIcon.TAB_BUTTON_BACKGROUND_FOCUS : ECOIcon.TAB_BUTTON_BACKGROUND;
             context.drawTexture(AETextures.icon(background), getPositionX(), getPositionY(), background.width, background.height);
@@ -450,7 +456,12 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         }
     }
 
-    private static final class StatusButton extends Button {
+    private static final class StatusButton extends Button
+            implements ElementRenderHooks.Background, ElementRenderHooks.Contents {
+        static {
+            ElementRenderHooks.register(StatusButton.class);
+        }
+
         private Component label = Component.empty();
 
         private StatusButton() { noText(); }
@@ -462,19 +473,19 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         }
 
         @Override
-        public void drawBackgroundAdditional(GUIContext context) {
+        public void drawBackgroundAdditional(IGUIContext context, Runnable drawParent) {
             IGuiTexture texture = !isActive() ? NETextures.AE2_BUTTON_DISABLED
                 : getState() == State.DEFAULT ? NETextures.AE2_BUTTON : NETextures.AE2_BUTTON_HIGHLIGHTED;
             context.drawTexture(texture, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
         }
 
         @Override
-        public void drawContents(GUIContext context) {
-            super.drawContents(context);
+        public void drawContents(IGUIContext ctx, Runnable drawDefault) {
+            drawDefault.run();
+            if (!(ctx instanceof GUIContext context)) return;
             int x = Math.round(getPositionX()), y = Math.round(getPositionY());
             int offset = !isActive() ? -1 : getState() == State.DEFAULT ? 1 : 0;
             int color = !isActive() ? TEXT : getState() == State.DEFAULT ? 0xF2F2F2 : 0x517497;
-            context.graphics.flush();
             AE2Button.renderButtonText(context.graphics, Minecraft.getInstance().font, label,
                 x + 2, y, x + Math.round(getSizeWidth()) - 2, y + Math.round(getSizeHeight()), offset, 0xFF000000 | color);
         }
@@ -544,7 +555,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             itemActionResponse = response;
             refresh();
             var cpu = selection.selected();
-            AEKey key = AEKey.fromTagGeneric(config.registries(), request.getCompoundOrEmpty("key"));
+            AEKey key = ECOLegacyAENbt.readKey(config.registries(), request.getCompoundOrEmpty("key"));
             if (cpu == null || serial != selection.selectedSerial() || key == null) {
                 response.putString("error", "gui.neoecoae.processing.task_changed");
                 return;
@@ -557,7 +568,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
                 response.putString("error", "gui.neoecoae.processing.task_changed");
                 return;
             }
-            response.putUUID("job", job);
+            response.store("job", net.minecraft.core.UUIDUtil.CODEC, job);
             var grid = cpu.getGrid();
             var sources = grid != null && grid.getCraftingService() instanceof appeng.me.service.CraftingService crafting
                 ? cn.dancingsnow.neoecoae.compat.ae2.ECOProviderActions.find(logic.getProcessingPatterns(key), crafting)
@@ -566,7 +577,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             for (var source : sources) list.add(source.describe(config.registries()));
             response.put("sources", list);
             if (action.equals("open")) {
-                var target = sources.stream().filter(source -> source.id().equals(request.getString("source"))).findFirst();
+                var target = sources.stream().filter(source -> source.id().equals(request.getStringOr("source", ""))).findFirst();
                 try {
                     if (!(config.player() instanceof net.minecraft.server.level.ServerPlayer player)
                         || target.isEmpty() || !target.get().open(player)) response.putString("error", "gui.neoecoae.processing.open_unavailable");

@@ -52,7 +52,7 @@ public abstract class PatternProviderDiagnosticsMixin implements ECOPatternPushD
         if (!sendList.isEmpty()) reasons.add(Reason.SEND_LIST_BUSY);
         var be = host.getBlockEntity();
         var level = be.getLevel();
-        String location = (level == null ? "unknown" : level.dimension().location().toString())
+        String location = (level == null ? "unknown" : level.dimension().identifier().toString())
             + "@" + be.getBlockPos().toShortString();
         return new Snapshot(location, reasons, sendList.size(),
             sendDirection == null ? "none" : sendDirection.getName());

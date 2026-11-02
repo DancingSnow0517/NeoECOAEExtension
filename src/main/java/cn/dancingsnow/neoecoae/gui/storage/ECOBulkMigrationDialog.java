@@ -1,10 +1,12 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.gui.common.GuiDraw;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.util.ArrayList;
 import java.util.List;
@@ -117,7 +119,8 @@ final class ECOBulkMigrationDialog extends UIElement {
         items.clear();
         for (var raw : preview.getListOrEmpty("items")) {
             if (items.size() >= PREVIEW_LIMIT) break;
-            ItemStack.parse(registries, raw).filter(stack -> !stack.isEmpty()).ifPresent(items::add);
+            ItemStack parsed = cn.dancingsnow.neoecoae.util.LegacyNbt.parseItem(registries, raw);
+            if (!parsed.isEmpty()) items.add(parsed);
         }
         hovered = pressed = -1;
     }
@@ -164,17 +167,16 @@ final class ECOBulkMigrationDialog extends UIElement {
     }
 
     @Override
-    public void drawBackgroundAdditional(GUIContext context) {
+    public void drawBackgroundAdditional(IGUIContext ctx) {
+        if (!(ctx instanceof GUIContext context)) return;
         float x = panelX(), y = panelY();
-        context.graphics.flush();
         context.graphics.fill(Math.round(getPositionX()), Math.round(getPositionY()),
             Math.round(getPositionX() + getSizeWidth()), Math.round(getPositionY() + getSizeHeight()), 0x88000000);
         context.drawTexture(NETextures.AE2_CONTEXT_BACKGROUND, x, y, WIDTH, panelHeight());
-        context.graphics.flush();
         drawText(context, text("title"), PADDING, 10, 0x413F54, WIDTH - PADDING * 2);
         for (int i = 0; i < items.size(); i++) {
             int left = previewLeft() + i * ICON_STEP;
-            context.graphics.renderItem(items.get(i), Math.round(x + left), Math.round(y + PREVIEW_TOP));
+            context.graphics.item(items.get(i), Math.round(x + left), Math.round(y + PREVIEW_TOP));
         }
         if (!loaded || items.isEmpty()) {
             drawText(context, text(!loaded ? "loading" : expectedCell == null ? "unavailable" : "empty"),
@@ -195,7 +197,6 @@ final class ECOBulkMigrationDialog extends UIElement {
         var texture = !enabled ? NETextures.AE2_BUTTON_DISABLED
             : hovered == index ? NETextures.AE2_BUTTON_HIGHLIGHTED : NETextures.AE2_BUTTON;
         context.drawTexture(texture, panelX() + left, panelY() + buttonTop(), BUTTON_WIDTH, BUTTON_HEIGHT);
-        context.graphics.flush();
         var font = Minecraft.getInstance().font;
         drawText(context, label, left + (BUTTON_WIDTH - font.width(label)) / 2F, buttonTop() + 6,
             enabled ? 0xFFFFFF : 0xA0A0A0, BUTTON_WIDTH);
@@ -204,7 +205,7 @@ final class ECOBulkMigrationDialog extends UIElement {
     private void drawText(GUIContext context, Component value, float left, float top, int color, int width) {
         var font = Minecraft.getInstance().font;
         String label = font.plainSubstrByWidth(value.getString(), width);
-        context.graphics.drawString(font, label, Math.round(panelX() + left), Math.round(panelY() + top),
+        GuiDraw.text(context.graphics, font, label, Math.round(panelX() + left), Math.round(panelY() + top),
             0xFF000000 | color, false);
     }
 

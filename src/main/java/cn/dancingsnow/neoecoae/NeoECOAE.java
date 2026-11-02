@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae;
 
 import appeng.api.AECapabilities;
 import appeng.api.upgrades.Upgrades;
-import appeng.blockentity.AEBaseInvBlockEntity;
 import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.all.NEBlockEntities;
@@ -28,7 +27,6 @@ import cn.dancingsnow.neoecoae.command.NECommands;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.data.NEDataGen;
 import cn.dancingsnow.neoecoae.event.ECOStorageLifecycleEvents;
-import cn.dancingsnow.neoecoae.util.DrainOnlyFluidHandler;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.storage.ECOCreativeCell;
 import cn.dancingsnow.neoecoae.network.ECONetwork;
@@ -127,43 +125,63 @@ public class NeoECOAE {
         NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerTick);
     }
 
+    /**
+     * Optional integrations whose bridge code still compiles against 1.21.1 jars (see build.gradle). They must
+     * never activate on 26.1, even if a mod with that id happens to be installed.
+     */
+    public static final java.util.Set<String> UNPORTED_INTEGRATIONS = java.util.Set.of(
+        "ae2lt", "appflux", "bigger_ae2", "ae2_pattern_disk", "advanced_ae", "extendedae_plus",
+        "thunderbolt", "useless_mod", "molecularmanipulator", "mekanism", "appmek", "fluxnetworks",
+        // Leaf integrations excluded from compilation in build.gradle.
+        "appbot", "arseng", "apprep", "appliedsoul", "soulplied_energistics", "appliedpneumatics",
+        "appliedcreate", "data_energistics", "megacells", "ae2omnicells"
+    );
+
+    /** {@code true} if the mod is loaded and its integration has been ported to 26.1. */
+    public static boolean isIntegrationActive(String modId) {
+        if (UNPORTED_INTEGRATIONS.contains(modId)) return false;
+        var mods = net.neoforged.fml.ModList.get();
+        return mods != null && mods.isLoaded(modId);
+    }
+
     public static Identifier id(String path) {
         return Identifier.fromNamespaceAndPath(MOD_ID, path);
     }
 
     private static void registerCapabilities(RegisterCapabilitiesEvent event) {
         event.registerBlockEntity(
-            Capabilities.ItemHandler.BLOCK,
+            Capabilities.Item.BLOCK,
             NEBlockEntities.ECO_DRIVE.get(),
-            (be, side) -> be.HANDLER
+            (be, side) -> be.getItemHandler()
         );
         event.registerBlockEntity(
-            Capabilities.FluidHandler.BLOCK,
+            Capabilities.Fluid.BLOCK,
             NEBlockEntities.INPUT_HATCH.get(),
-            (be, side) -> be.getFluidTankHandler()
+            (be, side) -> be.getFluidResourceHandler()
         );
+        // Output hatches expose drain-only handlers (main wrapped the tank in DrainOnlyFluidHandler).
         event.registerBlockEntity(
-            Capabilities.FluidHandler.BLOCK,
+            Capabilities.Fluid.BLOCK,
             NEBlockEntities.OUTPUT_HATCH.get(),
-            (be, side) -> new DrainOnlyFluidHandler(be.getFluidTankHandler())
+            (be, side) -> be.getFluidResourceHandler()
         );
         event.registerBlockEntity(
-            Capabilities.FluidHandler.BLOCK,
+            Capabilities.Fluid.BLOCK,
             NEBlockEntities.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH.get(),
-            (be, side) -> be.tank
+            (be, side) -> be.getFluidResourceHandler()
         );
         event.registerBlockEntity(
-            Capabilities.FluidHandler.BLOCK,
+            Capabilities.Fluid.BLOCK,
             NEBlockEntities.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH.get(),
-            (be, side) -> new DrainOnlyFluidHandler(be.tank)
+            (be, side) -> be.getFluidResourceHandler()
         );
         event.registerBlockEntity(
-            Capabilities.ItemHandler.BLOCK,
+            Capabilities.Item.BLOCK,
             NEBlockEntities.CRAFTING_PATTERN_BUS.get(),
-            (be, side) -> be.itemHandler
+            (be, side) -> be.getItemResourceHandler()
         );
         event.registerBlockEntity(
-            Capabilities.ItemHandler.BLOCK,
+            Capabilities.Item.BLOCK,
             NEBlockEntities.COMPUTATION_DRIVE.get(),
             (be, unused) -> be.getItemHandler()
         );
@@ -173,19 +191,19 @@ public class NeoECOAE {
             (be, unused) -> be
         );
         event.registerBlockEntity(
-            Capabilities.ItemHandler.BLOCK,
+            Capabilities.Item.BLOCK,
             NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
-            AEBaseInvBlockEntity::getExposedItemHandler
+            (be, side) -> be.getExposedItemHandler(side)
         );
         event.registerBlockEntity(
-            Capabilities.FluidHandler.BLOCK,
+            Capabilities.Fluid.BLOCK,
             NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
             (be, side) -> be.getFluidCombined()
         );
         event.registerBlockEntity(
-            Capabilities.EnergyStorage.BLOCK,
+            Capabilities.Energy.BLOCK,
             NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
-            ECOLargeIntegratedWorkingStationBlockEntity::getEnergyStorage
+            (be, side) -> be.getEnergyStorage(side)
         );
     }
 

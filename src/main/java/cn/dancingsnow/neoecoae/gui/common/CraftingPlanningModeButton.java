@@ -61,7 +61,7 @@ public final class CraftingPlanningModeButton {
                 Component.translatable(
                     "gui.neoecoae.crafting.planning.substitution_pattern_count",
                     Math.max(0, syncedPatternCount.getValue() == null ? 0 : syncedPatternCount.getValue()))
-            ), null, null, null));
+            ), null, null, null, null));
         return button;
     }
 

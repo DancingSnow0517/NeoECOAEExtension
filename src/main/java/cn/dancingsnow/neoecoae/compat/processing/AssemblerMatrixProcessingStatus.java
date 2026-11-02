@@ -43,7 +43,7 @@ public final class AssemblerMatrixProcessingStatus implements ECOProcessingStatu
         return new Observation(null, links);
     }
 
-    private static Target target(BlockEntity be) { return new Target(be.getLevel().dimension().location(), be.getBlockPos()); }
+    private static Target target(BlockEntity be) { return new Target(be.getLevel().dimension().identifier(), be.getBlockPos()); }
 
     private static Observation crafter(BlockEntity machine, AEKey output) {
         var lanes = new ArrayList<Machine>();

@@ -44,11 +44,11 @@ public final class StorageInterfaceFilter implements Predicate<AEKey> {
         if (typeTag == null) return null;
         var ops = registries.createSerializationContext(NbtOps.INSTANCE);
         return AEKeyType.CODEC.parse(ops, typeTag).result()
-            .map(type -> type.loadKeyFromTag(registries, tag)).orElse(null);
+            .map(type -> type.loadKeyFromTag(cn.dancingsnow.neoecoae.util.LegacyNbt.input(registries, tag))).orElse(null);
     }
 
     public static CompoundTag encode(AEKey key, HolderLookup.Provider registries) {
-        CompoundTag tag = key.toTag(registries);
+        CompoundTag tag = cn.dancingsnow.neoecoae.util.LegacyNbt.output(registries, key::toTag);
         tag.putString(AEKey.TYPE_FIELD, key.getType().getId().toString());
         return tag;
     }

@@ -65,15 +65,30 @@ public class LongFluidTank extends FluidTank {
     }
 
     @Override
+    public void serialize(net.minecraft.world.level.storage.ValueOutput output) {
+        super.serialize(output);
+        output.putLong("StoredAmount", amount);
+    }
+
+    @Override
+    public void deserialize(net.minecraft.world.level.storage.ValueInput input) {
+        super.deserialize(input);
+        long stored = input.getLongOr("StoredAmount", -1L);
+        amount = fluid.isEmpty() ? 0 : stored >= 0 ? stored : fluid.getAmount();
+        fluid = amount == 0 ? FluidStack.EMPTY : fluid.copyWithAmount((int) Math.min(Integer.MAX_VALUE, amount));
+    }
+
+    /** CompoundTag form kept from 1.21.1 ({@code Fluid} + {@code StoredAmount}). */
     public CompoundTag writeToNBT(HolderLookup.Provider registries, CompoundTag tag) {
-        super.writeToNBT(registries, tag);
+        if (!fluid.isEmpty()) {
+            tag.put("Fluid", LegacyNbt.saveFluid(registries, fluid));
+        }
         tag.putLong("StoredAmount", amount);
         return tag;
     }
 
-    @Override
     public FluidTank readFromNBT(HolderLookup.Provider registries, CompoundTag tag) {
-        super.readFromNBT(registries, tag);
+        fluid = LegacyNbt.parseFluid(registries, tag.get("Fluid"));
         amount = fluid.isEmpty() ? 0 : tag.contains("StoredAmount")
             ? Math.max(0, tag.getLongOr("StoredAmount", 0L)) : fluid.getAmount();
         fluid = amount == 0 ? FluidStack.EMPTY : fluid.copyWithAmount((int) Math.min(Integer.MAX_VALUE, amount));

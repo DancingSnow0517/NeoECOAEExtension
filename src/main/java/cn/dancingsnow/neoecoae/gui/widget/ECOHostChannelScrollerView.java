@@ -1,25 +1,30 @@
 package cn.dancingsnow.neoecoae.gui.widget;
 
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.gui.common.ElementRenderHooks;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import com.lowdragmc.lowdraglib2.registry.annotation.LDLRegister;
 
 @LDLRegister(name = "eco-host-channel-scroller-view", group = "neoecoae", registry = "ldlib2:ui_element")
-public class ECOHostChannelScrollerView extends ScrollerView {
+public class ECOHostChannelScrollerView extends ScrollerView
+    implements ElementRenderHooks.Contents, ElementRenderHooks.Overlay {
+    static {
+        ElementRenderHooks.register(ECOHostChannelScrollerView.class);
+    }
+
     static final float THUMB_HEIGHT = 15;
     static final float THUMB_WIDTH = 12;
 
     @Override
-    protected void drawBackgroundAdditional(IGUIContext guiContext) {
+    public void drawContents(IGUIContext guiContext, Runnable drawDefault) {
         syncNativeThumbSize();
-        super.drawContents(guiContext);
+        drawDefault.run();
     }
 
     @Override
-    public void drawBackgroundOverlay(GUIContext guiContext) {
-        super.drawBackgroundOverlay(guiContext);
+    public void drawBackgroundOverlay(IGUIContext guiContext, Runnable drawParent) {
+        drawParent.run();
         if (!verticalScroller.isDisplayed()) {
             return;
         }

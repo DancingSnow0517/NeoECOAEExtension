@@ -322,4 +322,14 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
             cluster.breakCluster();
         }
     }
+
+    /**
+     * 26.1: the block entity is already removed when {@code Block#affectNeighborsAfterRemoval} runs, so the
+     * cluster teardown that 1.21.1 did in {@code onRemove} happens here (only called when the block changes).
+     */
+    @Override
+    public void preRemoveSideEffects(BlockPos pos, BlockState state) {
+        breakCluster();
+        super.preRemoveSideEffects(pos, state);
+    }
 }

@@ -10,7 +10,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 public final class ECOProcessingSamples {
     private ECOProcessingSamples() {}
     public static String location(BlockEntity machine) {
-        return (machine.getLevel() == null ? "unknown" : machine.getLevel().dimension().location())
+        return (machine.getLevel() == null ? "unknown" : machine.getLevel().dimension().identifier())
             + " [" + machine.getBlockPos().toShortString() + "]";
     }
 

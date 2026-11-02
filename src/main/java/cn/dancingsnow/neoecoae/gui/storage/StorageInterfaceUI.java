@@ -1,5 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.gui.common.ElementRenderHooks;
+
+import cn.dancingsnow.neoecoae.gui.common.GuiDraw;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.gui.GuiTitleProvider;
 import cn.dancingsnow.neoecoae.gui.common.CreativeStorageInputButton;
@@ -25,6 +28,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import java.util.List;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -36,7 +40,7 @@ import net.minecraft.world.entity.player.Player;
 public final class StorageInterfaceUI {
     private static final Identifier JSON_LAYOUT =
         Identifier.fromNamespaceAndPath("neoecoae", "screens/storage/storage_interface");
-    private static final int TEXT = 0x3F3D52;
+    private static final int TEXT = 0xFF3F3D52;
 
     private StorageInterfaceUI() {}
 
@@ -125,13 +129,18 @@ public final class StorageInterfaceUI {
                 if (event.button == 0 && canEdit(button, host, player)) host.setStorageInterfaceMode(selected);
             });
             button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-                List.of(Component.translatable(modeKey(selected))), null, null, null));
+                List.of(Component.translatable(modeKey(selected))), null, null, null, null));
             return button;
         }
     }
 
-    private static final class ModeButton extends Button {
-        @Override public void drawBackgroundAdditional(GUIContext context) {
+    private static final class ModeButton extends Button implements ElementRenderHooks.Background {
+        static {
+            ElementRenderHooks.register(ModeButton.class);
+        }
+
+        @Override public void drawBackgroundAdditional(IGUIContext ctx, Runnable drawParent) {
+            if (!(ctx instanceof GUIContext context)) return;
             SpriteTexture texture = (SpriteTexture) (isActive() ? switch (getState()) {
                 case DEFAULT -> getButtonStyle().baseTexture();
                 case HOVERED -> getButtonStyle().hoverTexture();
@@ -172,7 +181,7 @@ public final class StorageInterfaceUI {
     private static UIElement status(Supplier<Component> value, float size) {
         Label text = label(value, size);
         text.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-            event.hoverTooltips = new HoverTooltips(List.of(text.getValue()), null, null, null));
+            event.hoverTooltips = new HoverTooltips(List.of(text.getValue()), null, null, null, null));
         return text;
     }
 
@@ -183,17 +192,22 @@ public final class StorageInterfaceUI {
         full.setDisplay(false);
         text.addChild(full);
         text.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-            event.hoverTooltips = new HoverTooltips(List.of(full.getValue()), null, null, null));
+            event.hoverTooltips = new HoverTooltips(List.of(full.getValue()), null, null, null, null));
         return text;
     }
 
     /** Fit the complete translated component without wrapping or discarding its colored spans. */
-    private static final class FittedLabel extends Label {
+    private static final class FittedLabel extends Label implements ElementRenderHooks.Background {
+        static {
+            ElementRenderHooks.register(FittedLabel.class);
+        }
+
         @Override
-        public void drawBackgroundAdditional(GUIContext context) {
+        public void drawBackgroundAdditional(IGUIContext ctx, Runnable drawParent) {
+            if (!(ctx instanceof GUIContext context)) return;
             Component value = getValue();
             if (value == null || value.getString().isEmpty()) return;
-            var font = getFont();
+            var font = net.minecraft.client.Minecraft.getInstance().font;
             float width = getContentWidth();
             float height = getContentHeight();
             if (width <= 0 || height <= 0) return;
@@ -201,13 +215,13 @@ public final class StorageInterfaceUI {
             float scale = Math.min(size / font.lineHeight, width / Math.max(1, font.width(value)));
             if (scale <= 0) return;
             var pose = context.graphics.pose();
-            pose.pushPose();
+            pose.pushMatrix();
             try {
-                pose.translate(getContentX(), getContentY() + (height - font.lineHeight * scale) / 2, 0);
-                pose.scale(scale, scale, 1);
-                context.graphics.drawString(font, value, 0, 0, getTextStyle().textColor(), getTextStyle().textShadow());
+                pose.translate(getContentX(), getContentY() + (height - font.lineHeight * scale) / 2);
+                pose.scale(scale, scale);
+                GuiDraw.text(context.graphics, font, value, 0, 0, getTextStyle().textColor(), getTextStyle().textShadow());
             } finally {
-                pose.popPose();
+                pose.popMatrix();
             }
         }
     }

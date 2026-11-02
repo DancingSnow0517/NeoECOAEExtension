@@ -24,9 +24,9 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.integration.xei.IngredientIO;
-import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
 import com.lowdragmc.lowdraglib2.gui.util.UISoundUtils;
 import com.lowdragmc.lowdraglib2.utils.virtuallevel.TrackedDummyWorld;
 import dev.vfyjxf.taffy.style.FlexDirection;
@@ -148,7 +148,9 @@ public class MultiBlockInfoWrapper {
         for (int i = 0; i < 3; i++) {
             final int index = i;
             UIElement row = new UIElement() {
-                @Override public void drawBackgroundAdditional(GUIContext context) { drawInfoRow(context, this, index); }
+                @Override protected void drawBackgroundAdditional(IGUIContext context) {
+                    if (context instanceof GUIContext guiContext) drawInfoRow(guiContext, this, index);
+                }
             };
             row.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
                 if (index < infoRows.size()) {
@@ -342,10 +344,10 @@ public class MultiBlockInfoWrapper {
         // Fit both columns as one line, including languages with wider labels.
         float scale = Math.min(0.7f, 59f / Math.max(1, font.width(row.label()) + font.width(row.value()) + 4));
         context.pose.pushPose();
-        context.pose.translate(x + 1, y + (10 - 9 * scale) / 2, 0);
-        context.pose.scale(scale, scale, 1);
-        context.graphics.drawString(font, row.label(), 0, 0, 0x555563, false);
-        context.graphics.drawString(font, row.value(), Math.round(60 / scale) - font.width(row.value()), 0, 0x242432, false);
+        context.pose.translate(x + 1, y + (10 - 9 * scale) / 2);
+        context.pose.scale(scale, scale);
+        context.graphics.text(font, row.label(), 0, 0, 0xFF555563, false);
+        context.graphics.text(font, row.value(), Math.round(60 / scale) - font.width(row.value()), 0, 0xFF242432, false);
         context.pose.popPose();
     }
 
@@ -358,7 +360,8 @@ public class MultiBlockInfoWrapper {
             layout(layout -> layout.width(CONTROL_SIZE).height(CONTROL_SIZE).paddingAll(0));
         }
 
-        @Override public void drawBackgroundAdditional(GUIContext context) {
+        @Override protected void drawBackgroundAdditional(IGUIContext iContext) {
+            if (!(iContext instanceof GUIContext context)) return;
             int x = Math.round(getPositionX()), y = Math.round(getPositionY());
             var graphics = context.graphics;
             graphics.fill(x, y, x + 8, y + 8, 0xff878fa5);
@@ -412,13 +415,14 @@ public class MultiBlockInfoWrapper {
         }
 
         @Override
-        protected void drawItemStack(GUIContext guiContext, ItemStack itemStack) {
-            if (itemStack.isEmpty()) {
+        protected void drawItemStack(IGUIContext context, ItemStack itemStack) {
+            if (itemStack.isEmpty() || !(context instanceof GUIContext guiContext)) {
                 return;
             }
             ItemStack icon = itemStack.copyWithCount(1);
-            // LDLib's item layer needs its depth setup; its helper uses vanilla decorations at full size.
-            DrawerHelper.drawItemStack(guiContext.graphics, icon, 0, 0, -1,
+            // Vanilla decorations at full size, with the full required count as the label.
+            guiContext.graphics.item(icon, 0, 0);
+            guiContext.graphics.itemDecorations(guiContext.mc.font, icon, 0, 0,
                 count == 1 ? null : String.valueOf(count));
         }
     }

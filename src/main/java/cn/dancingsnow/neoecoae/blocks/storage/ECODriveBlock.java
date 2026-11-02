@@ -44,7 +44,7 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
                     player.setItemInHand(hand, ItemStack.EMPTY);
                 }
             }
-            return InteractionResult.sidedSuccess(level.isClientSide());
+            return InteractionResult.SUCCESS;
         }
         return InteractionResult.TRY_WITH_EMPTY_HAND;
     }
@@ -56,7 +56,7 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
                 if (level.isClientSide()) return InteractionResult.SUCCESS;
                 var reason = be.getCellExtractionBlockReason();
                 if (reason != ECODriveBlockEntity.CellExtractionBlockReason.NONE) {
-                    player.displayClientMessage(Component.translatable(reason.translationKey()), true);
+                    player.sendOverlayMessage(Component.translatable(reason.translationKey()));
                     return InteractionResult.SUCCESS;
                 }
                 ItemStack cellStack = be.getCellStack();

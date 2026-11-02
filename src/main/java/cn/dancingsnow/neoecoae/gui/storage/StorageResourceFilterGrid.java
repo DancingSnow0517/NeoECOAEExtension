@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
-import appeng.api.client.AEKeyRendering;
+import appeng.client.api.AEKeyRendering;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -18,6 +18,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.util.ArrayList;
 import java.util.List;
@@ -129,19 +130,19 @@ final class StorageResourceFilterGrid extends UIElement {
         }
 
         @Override
-        protected void drawSlotOverlay(GUIContext context) {
+        protected void drawSlotOverlay(IGUIContext context) {
             super.drawSlotOverlay(context);
             if (key == null) context.drawTexture(StoragePanelTextures.EMPTY_FILTER, 0, 0, 16, 16);
         }
 
         @Override
-        protected void drawItemStack(GUIContext context, ItemStack stack) {
-            if (key instanceof AEItemKey) super.drawItemStack(context, stack);
-            else if (key != null) AEKeyRendering.drawInGui(Minecraft.getInstance(), context.graphics, 0, 0, key);
+        protected void drawItemStack(IGUIContext ctx, ItemStack stack) {
+            if (key instanceof AEItemKey) super.drawItemStack(ctx, stack);
+            else if (key != null && ctx instanceof GUIContext context) AEKeyRendering.drawInGui(Minecraft.getInstance(), context.graphics, 0, 0, key);
         }
 
         @Override
-        public List<Component> getFullTooltipTexts(boolean withItemTooltips) {
+        public List<Component> getFullTooltipTexts() {
             List<Component> lines = key == null ? new ArrayList<>() : AEKeyRendering.getTooltip(key);
             if (unavailable) lines.add(Component.translatable("gui.neoecoae.storage_interface.filter.unavailable"));
             lines.add(Component.translatable("gui.neoecoae.storage_interface.filter.edit"));
@@ -151,7 +152,7 @@ final class StorageResourceFilterGrid extends UIElement {
 
         @Override
         protected void onHoverTooltips(UIEvent event) {
-            event.hoverTooltips = new HoverTooltips(getFullTooltipTexts(), null, null, null);
+            event.hoverTooltips = new HoverTooltips(new java.util.ArrayList<Object>(getFullTooltipTexts()), null, null, null, null);
         }
     }
 }

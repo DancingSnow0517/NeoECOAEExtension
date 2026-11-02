@@ -179,7 +179,7 @@ public class ECOCraftingCPU extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCP
     }
 
     private void writeCraftingPlanToNBT(ICraftingPlan plan, CompoundTag tag, HolderLookup.Provider registries) {
-        CompoundTag outputTag = GenericStack.writeTag(registries, plan.finalOutput());
+        CompoundTag outputTag = cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeStack(registries, plan.finalOutput());
         tag.put("output", outputTag);
         tag.putLong("bytes", plan.bytes());
         tag.putBoolean("simulation", plan.simulation());
@@ -191,7 +191,7 @@ public class ECOCraftingCPU extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCP
      */
     @Nullable
     private CraftingPlan readCraftingPlanFromNBT(CompoundTag tag, HolderLookup.Provider registries) {
-        GenericStack output = GenericStack.readTag(registries, tag.getCompoundOrEmpty("output"));
+        GenericStack output = cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readStack(registries, tag.getCompoundOrEmpty("output"));
         if (output == null) {
             // The final output no longer decodes (removed item/fluid, corrupt tag). A plan without an
             // output cannot drive a job, so refuse it instead of handing out a half-valid plan.

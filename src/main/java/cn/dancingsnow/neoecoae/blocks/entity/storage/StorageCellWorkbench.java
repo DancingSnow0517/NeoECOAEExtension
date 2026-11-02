@@ -35,7 +35,7 @@ public final class StorageCellWorkbench extends CellWorkbenchBlockEntity {
         this.installation = installation;
         this.viewer = player.getUUID();
         setLevel(player.level());
-        if (!player.level().isClientSide) {
+        if (!player.level().isClientSide()) {
             var drive = drive();
             if (drive != null && drive.getCellStack() != null) {
                 var cell = drive.getCellInventory();
@@ -72,7 +72,7 @@ public final class StorageCellWorkbench extends CellWorkbenchBlockEntity {
             || player.level() != controller.getLevel()
             || !controller.canPlayerInteract(player)
             || player.level().getBlockEntity(controller.getBlockPos()) != controller) return false;
-        if (player.level().isClientSide) return true;
+        if (player.level().isClientSide()) return true;
         var drive = drive();
         return controller.isFormed() && drive != null && drive.canExtractCell()
             && drive.getCellStack() == stack() && stack().getCount() == 1
@@ -81,7 +81,7 @@ public final class StorageCellWorkbench extends CellWorkbenchBlockEntity {
 
     /** Rebuild the mounted handler only after a real filter, fuzzy-mode or upgrade change. */
     public void flushConfiguration(Player player) {
-        if (player.level().isClientSide || !isValidFor(player)) return;
+        if (player.level().isClientSide() || !isValidFor(player)) return;
         ItemStack cell = stack();
         if (Objects.equals(configuration.get(AEComponents.STORAGE_CELL_CONFIG_INV), cell.get(AEComponents.STORAGE_CELL_CONFIG_INV))
             && Objects.equals(configuration.get(AEComponents.STORAGE_CELL_FUZZY_MODE), cell.get(AEComponents.STORAGE_CELL_FUZZY_MODE))
@@ -114,7 +114,7 @@ public final class StorageCellWorkbench extends CellWorkbenchBlockEntity {
     public static final class CellSlot extends AppEngSlot {
         public CellSlot(InternalInventory inventory) { super(inventory, 0); }
         @Override public boolean mayPlace(ItemStack stack) { return false; }
-        @Override public boolean mayPickup(Player player) { return player.level().isClientSide; }
+        @Override public boolean mayPickup(Player player) { return player.level().isClientSide(); }
         @Override public ItemStack remove(int amount) { return ItemStack.EMPTY; }
     }
 }

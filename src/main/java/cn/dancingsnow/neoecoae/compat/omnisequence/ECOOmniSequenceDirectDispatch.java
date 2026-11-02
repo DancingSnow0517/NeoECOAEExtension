@@ -48,7 +48,7 @@ public final class ECOOmniSequenceDirectDispatch {
     public static boolean isLoaded() {
         // ModList is not initialized in unit tests that drive the CPU dispatchers through this bridge.
         var mods = ModList.get();
-        return mods != null && mods.isLoaded(MOD_ID);
+        return mods != null && cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive(MOD_ID);
     }
 
     /** OmniSequence failures fall back to AE2 dispatch; the first failure per operation is logged in full. */

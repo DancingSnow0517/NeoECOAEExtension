@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.client.gui.graph;
 
-import appeng.api.client.AEKeyRendering;
+import appeng.client.api.AEKeyRendering;
 import cn.dancingsnow.neoecoae.crafting.graph.ClientCraftingGraph;
 import cn.dancingsnow.neoecoae.crafting.graph.CompactTreeNode;
 import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot;
@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
@@ -20,7 +20,7 @@ public final class CompactTreeRenderer {
     private static final int TEXT = 0xffe8edf2;
     private static final int MUTED = 0xffaab3bd;
 
-    public GraphRenderer.Frame render(GuiGraphics graphics, ClientCraftingGraph graph,
+    public GraphRenderer.Frame render(GuiGraphicsExtractor graphics, ClientCraftingGraph graph,
             GraphLayoutSnapshot layout, float cameraX, float cameraY, float zoom, int screenWidth, int screenHeight,
             int mouseX, int mouseY, @Nullable Integer selectedId, GraphProfiler profiler, GraphRenderer.VisiblePlan visible) {
         long started = System.nanoTime();
@@ -51,14 +51,14 @@ public final class CompactTreeRenderer {
         return new GraphRenderer.Frame(hovered, List.of());
     }
 
-    private static void drawRowFrames(GuiGraphics graphics, List<GraphLayoutSnapshot.Bounds> rows,
+    private static void drawRowFrames(GuiGraphicsExtractor graphics, List<GraphLayoutSnapshot.Bounds> rows,
             float cameraX, float cameraY, float zoom) {
         for (var row : rows) {
             drawRowFrame(graphics, row.left(), row.top(), row.right(), row.bottom(), cameraX, cameraY, zoom);
         }
     }
 
-    private static void drawRowFrame(GuiGraphics graphics, float left, float top, float right, float bottom,
+    private static void drawRowFrame(GuiGraphicsExtractor graphics, float left, float top, float right, float bottom,
             float cameraX, float cameraY, float zoom) {
         int x = screen(cameraX, left, zoom);
         int y = screen(cameraY, top, zoom);
@@ -72,7 +72,7 @@ public final class CompactTreeRenderer {
         GraphDraw.fill(graphics, Math.max(x, r - 1), y, r, b, color);
     }
 
-    static void drawNodeFrame(GuiGraphics graphics, GraphLayoutSnapshot.Box box, int color,
+    static void drawNodeFrame(GuiGraphicsExtractor graphics, GraphLayoutSnapshot.Box box, int color,
             float cameraX, float cameraY, float zoom) {
         int x = screen(cameraX, box.x(), zoom);
         int y = screen(cameraY, box.y(), zoom);
@@ -86,7 +86,7 @@ public final class CompactTreeRenderer {
         GraphDraw.fill(graphics, right - thickness, y, right, bottom, color);
     }
 
-    static void drawLink(GuiGraphics graphics, GraphLayoutSnapshot layout, ClientCraftingGraph.Link link,
+    static void drawLink(GuiGraphicsExtractor graphics, GraphLayoutSnapshot layout, ClientCraftingGraph.Link link,
             @Nullable Integer selected, Set<Integer> neighborhood, float cameraX, float cameraY, float zoom) {
         boolean highlighted = selected != null && (link.fromId() == selected || link.toId() == selected)
             && (neighborhood.contains(link.fromId()) || neighborhood.contains(link.toId()));
@@ -105,7 +105,7 @@ public final class CompactTreeRenderer {
         GraphDraw.fill(graphics, endX - 3, endY - 2, endX + 1, endY + 3, color);
     }
 
-    private static void drawRoute(GuiGraphics graphics, List<GraphLayoutSnapshot.Point> route, int color,
+    private static void drawRoute(GuiGraphicsExtractor graphics, List<GraphLayoutSnapshot.Point> route, int color,
             float cameraX, float cameraY, float zoom) {
         for (int i = 1; i < route.size(); i++) {
             var from = route.get(i - 1);
@@ -136,7 +136,7 @@ public final class CompactTreeRenderer {
             new GraphLayoutSnapshot.Point(endX, middle), new GraphLayoutSnapshot.Point(endX, endY));
     }
 
-    static void drawNode(GuiGraphics graphics, ClientCraftingGraph graph, ClientCraftingGraph.Node node,
+    static void drawNode(GuiGraphicsExtractor graphics, ClientCraftingGraph graph, ClientCraftingGraph.Node node,
             GraphLayoutSnapshot.Box box, boolean selected, boolean adjacent, float cameraX, float cameraY,
             float zoom) {
         int x = screen(cameraX, box.x(), zoom);
@@ -154,19 +154,19 @@ public final class CompactTreeRenderer {
         }
     }
 
-    private static void drawFolder(GuiGraphics graphics, ClientCraftingGraph graph, ClientCraftingGraph.Node node,
+    private static void drawFolder(GuiGraphicsExtractor graphics, ClientCraftingGraph graph, ClientCraftingGraph.Node node,
             int x, int y, int right, int bottom, int border) {
         CompactTreeNode metadata = graph.compactTreeNode(node.id());
         if (metadata == null || bottom - y < 14) return;
         Font font = Minecraft.getInstance().font;
         String symbol = metadata.containsCycle() ? "↻" : metadata.containsMissing() ? "!"
             : metadata.containsUnsupported() ? "?" : "▱";
-        graphics.drawCenteredString(font, symbol, (x + right) / 2, y + 5, border);
+        graphics.centeredText(font, symbol, (x + right) / 2, y + 5, border);
         if (bottom - y >= 24) drawAmount(graphics, font, "+" + metadata.hiddenNodeCount(),
             x, y + 20, right, bottom);
     }
 
-    private static void drawCompactContent(GuiGraphics graphics, ClientCraftingGraph.Node node, int x, int y,
+    private static void drawCompactContent(GuiGraphicsExtractor graphics, ClientCraftingGraph.Node node, int x, int y,
             int right, int bottom, int border, float zoom) {
         Font font = Minecraft.getInstance().font;
         if (bottom - y < 14) return;
@@ -187,24 +187,24 @@ public final class CompactTreeRenderer {
         } else if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) {
             var cycle = node.cycle();
             String label = cycle == null ? node.label() : "↻ 循环 #" + cycle.componentId();
-            graphics.drawString(font, fit(font, label, Math.max(20, right - x - 24)), x + 6, y + 5, TEXT, false);
-            if (cycle != null) graphics.drawString(font, cycle.memberNodeIds().size() + " 个成员", x + 6, y + 19,
+            graphics.text(font, fit(font, label, Math.max(20, right - x - 24)), x + 6, y + 5, TEXT, false);
+            if (cycle != null) graphics.text(font, cycle.memberNodeIds().size() + " 个成员", x + 6, y + 19,
                 MUTED, false);
-            graphics.drawString(font, "↻", right - 14, y + 9, border, false);
+            graphics.text(font, "↻", right - 14, y + 9, border, false);
         } else if (node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER) {
             var cluster = node.cluster();
             String label = cluster == null ? node.label() : "◎ 循环簇 #" + cluster.clusterId();
-            graphics.drawString(font, fit(font, label, Math.max(20, right - x - 24)), x + 6, y + 5, TEXT, false);
-            if (cluster != null) graphics.drawString(font, cluster.componentIds().size() + " 个循环", x + 6,
+            graphics.text(font, fit(font, label, Math.max(20, right - x - 24)), x + 6, y + 5, TEXT, false);
+            if (cluster != null) graphics.text(font, cluster.componentIds().size() + " 个循环", x + 6,
                 y + 19, MUTED, false);
-            graphics.drawString(font, "◎", right - 14, y + 9, border, false);
+            graphics.text(font, "◎", right - 14, y + 9, border, false);
         } else if (node.kind() == ClientCraftingGraph.Kind.REFERENCE) {
-            graphics.drawString(font, fit(font, node.label(), Math.max(20, right - x - 10)), x + 6, y + 9,
+            graphics.text(font, fit(font, node.label(), Math.max(20, right - x - 10)), x + 6, y + 9,
                 MUTED, false);
         }
     }
 
-    private static void drawAmount(GuiGraphics graphics, Font font, String amount, int left, int top,
+    private static void drawAmount(GuiGraphicsExtractor graphics, Font font, String amount, int left, int top,
             int right, int bottom) {
         int availableWidth = Math.max(1, right - left - 2);
         int availableHeight = Math.max(1, bottom - top);
@@ -213,11 +213,11 @@ public final class CompactTreeRenderer {
         float centerX = (left + right) / 2.0f;
         float textY = top + (availableHeight - font.lineHeight * scale) / 2.0f;
         var pose = graphics.pose();
-        pose.pushPose();
-        pose.translate(centerX, textY, 0);
-        pose.scale(scale, scale, 1.0f);
-        graphics.drawString(font, amount, -font.width(amount) / 2, 0, TEXT, false);
-        pose.popPose();
+        pose.pushMatrix();
+        pose.translate(centerX, textY);
+        pose.scale(scale, scale);
+        graphics.text(font, amount, -font.width(amount) / 2, 0, TEXT, false);
+        pose.popMatrix();
     }
 
     static List<Component> tooltip(ClientCraftingGraph graph, @Nullable ClientCraftingGraph.Node node) {

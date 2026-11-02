@@ -1,5 +1,9 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.gui.common.ElementRenderHooks;
+
+import cn.dancingsnow.neoecoae.gui.NEGuiColors;
+import cn.dancingsnow.neoecoae.gui.common.GuiDraw;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
@@ -16,6 +20,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import com.lowdragmc.lowdraglib2.gui.util.WindowDragHelper;
 import com.google.gson.JsonObject;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
@@ -158,7 +163,7 @@ public final class StoragePriorityUI {
             text -> parsePriority(text, config.setPriority())
         ).build());
         field.textFieldStyle(style -> style
-            .textColor(0xf2f2f2)
+            .textColor(NEGuiColors.textColor(0xf2f2f2))
             .textShadow(false)
             .focusOverlay(IGuiTexture.EMPTY)
             .placeholder(Component.literal("0")));
@@ -195,18 +200,22 @@ public final class StoragePriorityUI {
     }
 
     private static HoverTooltips tooltip(String key) {
-        return new HoverTooltips(List.of(Component.translatable(key)), null, null, null);
+        return new HoverTooltips(List.of(Component.translatable(key)), null, null, null, null);
     }
 
     private static void titleTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(false).textWrap(TextWrap.NONE).textColor(0x413f54).textShadow(false);
+        style.adaptiveHeight(true).adaptiveWidth(false).textWrap(TextWrap.NONE).textColor(NEGuiColors.textColor(0x413f54)).textShadow(false);
     }
 
     private static void helpTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(false).textWrap(TextWrap.NONE).textColor(0x413f54).textShadow(false);
+        style.adaptiveHeight(true).adaptiveWidth(false).textWrap(TextWrap.NONE).textColor(NEGuiColors.textColor(0x413f54)).textShadow(false);
     }
 
-    private static final class PriorityAmountButton extends Button {
+    private static final class PriorityAmountButton extends Button implements ElementRenderHooks.Background, ElementRenderHooks.Contents {
+        static {
+            ElementRenderHooks.register(PriorityAmountButton.class);
+        }
+
         private final String label;
 
         private PriorityAmountButton(String label) {
@@ -215,7 +224,8 @@ public final class StoragePriorityUI {
         }
 
         @Override
-        public void drawBackgroundAdditional(GUIContext guiContext) {
+        public void drawBackgroundAdditional(IGUIContext ctx, Runnable drawParent) {
+            if (!(ctx instanceof GUIContext guiContext)) return;
             IGuiTexture texture;
             if (!isActive()) {
                 texture = NETextures.AE2_BUTTON_DISABLED;
@@ -228,8 +238,9 @@ public final class StoragePriorityUI {
         }
 
         @Override
-        public void drawContents(GUIContext guiContext) {
-            super.drawContents(guiContext);
+        public void drawContents(IGUIContext ctx, Runnable drawDefault) {
+            drawDefault.run();
+            if (!(ctx instanceof GUIContext guiContext)) return;
 
             Font font = Minecraft.getInstance().font;
             int x = Math.round(getPositionX());
@@ -251,17 +262,22 @@ public final class StoragePriorityUI {
                 yOffset = 0;
                 color = 0xFF517497;
             }
-            guiContext.graphics.drawString(font, label, textX, textY - yOffset, color, false);
+            GuiDraw.text(guiContext.graphics, font, label, textX, textY - yOffset, color, false);
         }
     }
 
-    private static final class PriorityBackButton extends Button {
+    private static final class PriorityBackButton extends Button implements ElementRenderHooks.Background, ElementRenderHooks.Contents {
+        static {
+            ElementRenderHooks.register(PriorityBackButton.class);
+        }
+
         private PriorityBackButton() {
             noText();
         }
 
         @Override
-        public void drawBackgroundAdditional(GUIContext guiContext) {
+        public void drawBackgroundAdditional(IGUIContext ctx, Runnable drawParent) {
+            if (!(ctx instanceof GUIContext guiContext)) return;
             IGuiTexture texture = isFocused()
                 ? AETextures.icon(ECOIcon.TAB_BUTTON_BACKGROUND_FOCUS)
                 : AETextures.icon(ECOIcon.TAB_BUTTON_BACKGROUND);
@@ -270,8 +286,9 @@ public final class StoragePriorityUI {
         }
 
         @Override
-        public void drawContents(GUIContext guiContext) {
-            super.drawContents(guiContext);
+        public void drawContents(IGUIContext ctx, Runnable drawDefault) {
+            drawDefault.run();
+            if (!(ctx instanceof GUIContext guiContext)) return;
             guiContext.drawTexture(AETextures.icon(ECOIcon.BACK),
                 getPositionX() + 2,
                 getPositionY() + 1,
@@ -282,7 +299,7 @@ public final class StoragePriorityUI {
 
     private static final class PriorityTextField extends TextField {
         @Override
-        public void drawBackgroundTexture(GUIContext guiContext) {
+        public void drawBackgroundTexture(IGUIContext guiContext) {
             IGuiTexture texture = !isActive()
                 ? NETextures.PRIORITY_TEXT_FIELD_DISABLED
                 : isFocused() ? NETextures.PRIORITY_TEXT_FIELD_FOCUS : NETextures.PRIORITY_TEXT_FIELD;

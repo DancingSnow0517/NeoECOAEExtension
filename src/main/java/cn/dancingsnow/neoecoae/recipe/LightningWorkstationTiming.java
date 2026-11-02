@@ -14,8 +14,7 @@ final class LightningWorkstationTiming {
     }
 
     private static long overloadRate() {
-        var mods = ModList.get();
-        if (mods != null && mods.isLoaded("ae2lt")) {
+        if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("ae2lt")) {
             try { return Access.rate(); }
             catch (LinkageError unavailable) { /* Older API: documented default reference rate. */ }
         }

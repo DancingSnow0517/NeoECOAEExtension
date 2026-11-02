@@ -73,7 +73,7 @@ final class CraftingControllerSync {
             CraftingOutputDisplay output = cell < outputs.size() ? outputs.get(cell) : CraftingOutputDisplay.EMPTY;
             CompoundTag entry = new CompoundTag();
             if (!output.item().isEmpty()) {
-                entry.put("item", output.item().saveOptional(registries));
+                entry.put("item", cn.dancingsnow.neoecoae.util.LegacyNbt.saveItem(registries, output.item()));
                 entry.putString("amount", output.amount().toString());
             }
             items.add(entry);
@@ -88,12 +88,12 @@ final class CraftingControllerSync {
 
     private CompoundTag saveFluid(FluidStack fluid) {
         if (fluid.isEmpty()) return new CompoundTag();
-        Tag saved = fluid.saveOptional(config.registries().get());
+        Tag saved = cn.dancingsnow.neoecoae.util.LegacyNbt.saveFluid(config.registries().get(), fluid);
         return saved instanceof CompoundTag compound ? compound : new CompoundTag();
     }
 
     private FluidStack loadFluid(CompoundTag tag, Supplier<FluidStack> fallbackSupplier) {
-        FluidStack parsed = FluidStack.parseOptional(config.registries().get(), tag);
+        FluidStack parsed = cn.dancingsnow.neoecoae.util.LegacyNbt.parseFluid(config.registries().get(), tag);
         if (!parsed.isEmpty()) return parsed;
         FluidStack fallback = fallbackSupplier.get();
         return fallback.isEmpty() ? FluidStack.EMPTY : fallback.copy();
@@ -133,7 +133,7 @@ final class CraftingControllerSync {
         List<CraftingOutputDisplay> outputs = new ArrayList<>();
         for (int cell = 0; cell < CraftingControllerPanelState.SLOT_COUNT; cell++) {
             CompoundTag entry = items.getCompoundOrEmpty(cell);
-            ItemStack item = ItemStack.parseOptional(registries, entry.getCompoundOrEmpty("item"));
+            ItemStack item = cn.dancingsnow.neoecoae.util.LegacyNbt.parseItem(registries, entry.getCompoundOrEmpty("item"));
             BigInteger amount = item.isEmpty() ? BigInteger.ZERO : new BigInteger(entry.getStringOr("amount", ""));
             outputs.add(new CraftingOutputDisplay(item, amount));
         }

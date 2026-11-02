@@ -13,7 +13,7 @@ public final class WorkstationFluxEnergy {
     public static boolean available() {
         // ModList is not initialized in unit tests that reach this guard through CPU/planner paths.
         var mods = ModList.get();
-        if (mods == null || !mods.isLoaded("appflux")) return false;
+        if (mods == null || !cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("appflux")) return false;
         try { return Access.KEY != null; }
         catch (LinkageError unavailable) { return false; }
     }

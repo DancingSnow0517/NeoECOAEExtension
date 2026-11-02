@@ -42,13 +42,13 @@ public class NEJadePlugin implements IWailaPlugin {
 
     @Override
     public void registerClient(IWailaClientRegistration registration) {
-        registration.registerBlockComponent(cn.dancingsnow.neoecoae.integration.jade.provider.ECOStorageSystemProvider.INSTANCE, cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock.class);
-        registration.registerBlockComponent(ECODriveProvider.INSTANCE, ECODriveBlock.class);
-        registration.registerBlockComponent(ECOComputationDriveProvider.INSTANCE, ECOComputationDrive.class);
-        registration.registerBlockComponent(ECOStorageInterfaceProvider.INSTANCE, ECOMachineInterface.class);
-        registration.registerBlockComponent(ECOLargeWorkstationInputsProvider.INSTANCE, ECOMachineInterface.class);
-        registration.registerBlockComponent(ECOComputationSystemProvider.INSTANCE, ECOComputationSystem.class);
-        registration.registerBlockComponent(ECOCraftingWorkerProvider.INSTANCE, ECOCraftingWorker.class);
-        registration.registerBlockComponent(ECOCraftingSystemProvider.INSTANCE, ECOCraftingSystem.class);
+        registration.registerBlockComponent(cn.dancingsnow.neoecoae.integration.jade.provider.ECOStorageSystemProvider.Client.INSTANCE, cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock.class);
+        registration.registerBlockComponent(ECODriveProvider.Client.INSTANCE, ECODriveBlock.class);
+        registration.registerBlockComponent(ECOComputationDriveProvider.Client.INSTANCE, ECOComputationDrive.class);
+        registration.registerBlockComponent(ECOStorageInterfaceProvider.Client.INSTANCE, ECOMachineInterface.class);
+        registration.registerBlockComponent(ECOLargeWorkstationInputsProvider.Client.INSTANCE, ECOMachineInterface.class);
+        registration.registerBlockComponent(ECOComputationSystemProvider.Client.INSTANCE, ECOComputationSystem.class);
+        registration.registerBlockComponent(ECOCraftingWorkerProvider.Client.INSTANCE, ECOCraftingWorker.class);
+        registration.registerBlockComponent(ECOCraftingSystemProvider.Client.INSTANCE, ECOCraftingSystem.class);
     }
 }

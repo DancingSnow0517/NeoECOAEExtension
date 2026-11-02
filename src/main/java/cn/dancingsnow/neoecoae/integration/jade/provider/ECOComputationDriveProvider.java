@@ -15,16 +15,8 @@ import snownee.jade.api.IServerDataProvider;
 import snownee.jade.api.ITooltip;
 import snownee.jade.api.config.IPluginConfig;
 
-public enum ECOComputationDriveProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
+public enum ECOComputationDriveProvider implements IServerDataProvider<BlockAccessor> {
     INSTANCE;
-
-    @Override
-    public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
-        if (accessor.getServerData().getBooleanOr("tierMismatch", false)) {
-            tooltip.add(Component.translatable("jade.neoecoae.computation_cell_tier_too_high")
-                .withStyle(ChatFormatting.RED));
-        }
-    }
 
     @Override
     public void appendServerData(CompoundTag data, BlockAccessor accessor) {
@@ -39,5 +31,22 @@ public enum ECOComputationDriveProvider implements IBlockComponentProvider, ISer
     @Override
     public Identifier getUid() {
         return NeoECOAE.id("eco_computation_drive");
+    }
+
+    public enum Client implements IBlockComponentProvider {
+        INSTANCE;
+
+        @Override
+        public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
+            if (accessor.getServerData().getBooleanOr("tierMismatch", false)) {
+                tooltip.add(Component.translatable("jade.neoecoae.computation_cell_tier_too_high")
+                    .withStyle(ChatFormatting.RED));
+            }
+        }
+
+        @Override
+        public Identifier getUid() {
+            return NeoECOAE.id("eco_computation_drive");
+        }
     }
 }

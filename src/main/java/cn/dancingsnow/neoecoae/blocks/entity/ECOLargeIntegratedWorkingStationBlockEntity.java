@@ -83,7 +83,12 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.energy.IEnergyStorage;
+import net.neoforged.neoforge.transfer.energy.EnergyHandler;
+import cn.dancingsnow.neoecoae.util.LegacyNbt;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
@@ -192,7 +197,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     @Override
-    public @Nullable IEnergyStorage getEnergyStorage(@Nullable Direction side) {
+    public @Nullable EnergyHandler getEnergyStorage(@Nullable Direction side) {
         return formed ? null : super.getEnergyStorage(side);
     }
 
@@ -317,7 +322,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     public void updateMultiBlock(BlockPos changedPos) {
         if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-            calculator.updateMultiblockAfterNeighborUpdate(serverLevel, worldPosition, changedPos);
+            calculator.updateMultiblockAfterNeighborChange(serverLevel, worldPosition, changedPos);
         }
     }
 
@@ -335,6 +340,13 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     public void breakCluster() {
         if (cluster != null) cluster.breakCluster();
+    }
+
+    /** 26.1 replacement for the 1.21.1 {@code Block#onRemove} teardown (block entity is gone afterwards). */
+    @Override
+    public void preRemoveSideEffects(BlockPos pos, BlockState state) {
+        breakCluster();
+        super.preRemoveSideEffects(pos, state);
     }
 
     private java.util.Iterator<IGridNode> getMultiblockNodes() {
@@ -379,7 +391,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (input.isEmpty()) return null;
 
         RecipeHolder<CoolingRecipe> best = null;
-        for (RecipeHolder<CoolingRecipe> holder : level.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get())) {
+        for (RecipeHolder<CoolingRecipe> holder : appeng.crafting.RecipeAccess.byType(level, NERecipeTypes.COOLING.get())) {
             CoolingRecipe recipe = holder.value();
             if (recipe.input().ingredient().test(input)
                 && (best == null || recipe.maxOverclock() > best.value().maxOverclock())) {
@@ -636,7 +648,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             : batch.progress : 0;
         return new Machine(
             getBlockState().getBlock().getName(),
-            (level == null ? "unknown" : level.dimension().location().toString()) + " [" + getBlockPos().toShortString() + "]",
+            (level == null ? "unknown" : level.dimension().identifier().toString()) + " [" + getBlockPos().toShortString() + "]",
             matches && batch.recipeId != null ? batch.recipeId.toString() : "", progress, duration, parallel, state, reason);
     }
 
@@ -677,7 +689,11 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         setPauseReason(PauseReason.INPUT_RETURN_BLOCKED, OutputBlockedReason.INPUT_RETURN);
     }
 
-    public IFluidHandler getFluidCombined() {
+    /**
+     * Legacy (deprecated NeoForge) view for the workstation UI; the 26.1 capability is the inherited
+     * {@link #getFluidCombined()}, which already follows {@link #getInputTank()}/{@link #getOutputTank()}.
+     */
+    public IFluidHandler getLegacyFluidCombined() {
         return new IFluidHandler() {
             public int getTanks() { return 2; }
             public FluidStack getFluidInTank(int tank) { return tank == 0 ? getInputTank().getFluid() : getOutputTank().getFluid(); }
@@ -847,10 +863,10 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 if (output.what() instanceof AEItemKey item && level != null) {
                     // The icon is one stack; the batch's exact long count is synchronized separately.
                     // ItemStack's codec rejects counts above 99 even when a recipe batch is much larger.
-                    Tag saved = item.toStack(1).saveOptional(level.registryAccess());
+                    Tag saved = LegacyNbt.saveItem(level.registryAccess(), item.toStack(1));
                     if (saved instanceof CompoundTag compound) entry.put("item", compound);
                 } else if (output.what() instanceof AEFluidKey fluid && level != null) {
-                    Tag saved = fluid.toStack(1).saveOptional(level.registryAccess());
+                    Tag saved = LegacyNbt.saveFluid(level.registryAccess(), fluid.toStack(1));
                     if (saved instanceof CompoundTag compound) entry.put("fluid", compound);
                 }
             }
@@ -895,7 +911,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 batch.recipe = adapted.display();
                 return batch.recipe;
             }
-            var holder = level.getRecipeManager().byKey(batch.recipeId).orElse(null);
+            var holder = appeng.crafting.RecipeAccess.byKey(level, NERecipeTypes.INTEGRATED_WORKING_STATION.get(),
+                ResourceKey.create(Registries.RECIPE, batch.recipeId));
             if (holder != null && holder.value() instanceof IntegratedWorkingStationRecipe recipe) {
                 batch.recipe = recipe;
                 return recipe;
@@ -909,15 +926,15 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (perCraftInputs != null) {
             IntegratedWorkingStationRecipe.Input input = createRecipeInput(perCraftInputs);
             if (input != null) {
-                holder = level.getRecipeManager().getRecipeFor(
-                    NERecipeTypes.INTEGRATED_WORKING_STATION.get(), input, level).orElse(null);
+                holder = appeng.crafting.RecipeAccess.getRecipeFor(
+                    level, NERecipeTypes.INTEGRATED_WORKING_STATION.get(), input);
             }
         }
         // A completed legacy batch has already exchanged inputTotal for pendingOutput. Its saved primary
         // pattern result plus energy still identifies the recipe well enough to restore the status display.
         if (holder == null && batch.unlockStack != null) {
             for (RecipeHolder<IntegratedWorkingStationRecipe> candidate
-                : level.getRecipeManager().getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get())) {
+                : appeng.crafting.RecipeAccess.byType(level, NERecipeTypes.INTEGRATED_WORKING_STATION.get())) {
                 if (candidate.value().energy() == batch.energyPerCraft
                     && recipeOutputMatches(candidate.value(), batch.unlockStack)) {
                     holder = candidate;
@@ -926,7 +943,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             }
         }
         if (holder == null) return null;
-        batch.recipeId = holder.id();
+        batch.recipeId = holder.id().identifier();
         batch.recipe = holder.value();
         if (!level.isClientSide()) setChanged();
         return batch.recipe;
@@ -940,10 +957,14 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
+    public void saveAdditional(ValueOutput output) {
+        super.saveAdditional(output);
+        output.putChild("workstationModule", moduleInventory);
+        LegacyNbt.write(output, data -> saveLegacy(data, LegacyNbt.registries(this)));
+    }
+
+    private void saveLegacy(CompoundTag data, HolderLookup.Provider registries) {
         data.putLong("processingFeBuffer", processingFeBuffer);
-        data.put("workstationModule", moduleInventory.serializeNBT(registries));
         CompoundTag thermal = new CompoundTag();
         LargeWorkstationThermal.save(thermalState(), thermal);
         data.put("largeWorkstationThermal", thermal);
@@ -957,11 +978,13 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
+    public void loadTag(ValueInput input) {
+        super.loadTag(input);
+        CompoundTag data = LegacyNbt.read(input);
+        HolderLookup.Provider registries = input.lookup();
         processingFeBuffer = Math.max(0, data.getLongOr("processingFeBuffer", 0L));
         uiThermalUsage = new LargeWorkstationThermalUsage();
-        moduleInventory.deserializeNBT(registries, data.getCompoundOrEmpty("workstationModule"));
+        input.readChild("workstationModule", moduleInventory);
         var thermal = LargeWorkstationThermal.load(data.getCompoundOrEmpty("largeWorkstationThermal"));
         temperature = thermal.temperature();
         overheated = thermal.overheated();
@@ -1004,7 +1027,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         IntegratedWorkingStationRecipe task = getTask();
         if (task == null) return Component.translatable("gui.neoecoae.large_integrated_working_station.recipe_empty");
         long itemCount = task.inputItems().stream().mapToLong(it -> it.count()).sum();
-        int fluidAmount = task.inputFluid().ingredient().isEmpty() ? 0 : task.inputFluid().amount();
+        int fluidAmount = task.inputFluid().map(fluid -> fluid.amount()).orElse(0);
         return Component.translatable("gui.neoecoae.large_integrated_working_station.recipe",
             itemCount, fluidAmount);
     }
@@ -1515,7 +1538,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     /** Runs independently of AE2's adaptive processing scheduler, including paused and idle machines. */
     public void tickThermal(Level tickLevel, BlockPos pos, BlockState state) {
-        if (tickLevel.isClientSide) return;
+        if (tickLevel.isClientSide()) return;
         double processingLoad = pendingThermalLoad;
         pendingThermalLoad = 0;
         updateSmartCooling();
@@ -1683,7 +1706,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         }
 
         LargeWorkstationCoolingOutput.Plan output = coolingOutput.plan(
-            holder.id(), recipe.output(), recipe.inputAmount(), recipe.outputAmount(), coolantPerTick);
+            holder.id().identifier(), recipe.output(), recipe.inputAmount(), recipe.outputAmount(), coolantPerTick);
         if (output == null) {
             coolingProblemId = PauseReason.COOLANT_OUTPUT_BLOCKED.ordinal();
             return null;
@@ -2081,7 +2104,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             return super.createUI(holder);
         }
         return LargeWorkstationUI.create(new LargeWorkstationUI.Config(
-            getFluidCombined(), this::getUiSnapshot, () -> level.registryAccess(), this::returnTaskInputs,
+            getLegacyFluidCombined(), this::getUiSnapshot, () -> level.registryAccess(), this::returnTaskInputs,
             this::toggleOverclocked, this::toggleActiveCooling,
             this::togglePreheating, moduleInventory), holder.player);
     }
@@ -2128,11 +2151,11 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         var plan = MultiBlockPlacementService.preview(level, worldPosition, getBlockState(),
             NEMultiBlocks.LARGE_INTEGRATED_WORKING_STATION, 1, false);
         if (!plan.getConflictPositions().isEmpty()) {
-            player.displayClientMessage(Component.translatable("gui.neoecoae.multiblock.status.conflicts_detected"), true);
+            player.sendOverlayMessage(Component.translatable("gui.neoecoae.multiblock.status.conflicts_detected"));
             return;
         }
         if (!player.isCreative() && !MultiBlockPlacementService.hasRequiredItems(player, plan.getRequiredItems())) {
-            player.displayClientMessage(Component.translatable("gui.neoecoae.multiblock.status.not_enough_items"), true);
+            player.sendOverlayMessage(Component.translatable("gui.neoecoae.multiblock.status.not_enough_items"));
             return;
         }
         if (!MultiBlockPlacementService.buildInstant(serverLevel, plan, serverPlayer)) return;
@@ -2303,7 +2326,10 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             tag.put("missingExtras", ECOFastPathStacks.writeGenericStacks(registries, ECOFastPathStacks.copyCounter(missingExtras)));
             tag.put("outputTotal", ECOFastPathStacks.writeGenericStacks(registries, ECOFastPathStacks.copyCounter(outputTotal)));
             tag.put("pendingOutput", ECOFastPathStacks.writeGenericStacks(registries, ECOFastPathStacks.copyCounter(pendingOutput)));
-            if (unlockStack != null) tag.put("unlockStack", GenericStack.writeTag(registries, unlockStack));
+            if (unlockStack != null) {
+                GenericStack unlock = unlockStack;
+                tag.put("unlockStack", LegacyNbt.output(registries, out -> GenericStack.writeTag(out, unlock)));
+            }
             return tag;
         }
 
@@ -2349,7 +2375,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             Identifier recipeId = tag.contains("recipeId")
                 ? Identifier.tryParse(tag.getStringOr("recipeId", "")) : null;
             GenericStack unlockStack = tag.contains("unlockStack")
-                ? GenericStack.readTag(registries, tag.getCompoundOrEmpty("unlockStack")) : null;
+                ? GenericStack.readTag(LegacyNbt.input(registries, tag.getCompoundOrEmpty("unlockStack"))) : null;
             long createdTick = tag.contains("createdTick")
                 ? tag.getLongOr("createdTick", 0L) : currentTick;
             PendingBatch batch = new PendingBatch(
@@ -2390,7 +2416,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             try {
                 KeyCounter result = new KeyCounter();
                 for (int i = 0; i < entries.size(); i++) {
-                    GenericStack stack = GenericStack.readTag(registries, entries.getCompoundOrEmpty(i));
+                    GenericStack stack = GenericStack.readTag(LegacyNbt.input(registries, entries.getCompoundOrEmpty(i)));
                     if (stack == null || stack.amount() <= 0
                         || stack.amount() > ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT) return null;
                     long total = result.get(stack.what());

@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import cn.dancingsnow.neoecoae.network.ECOForceCraftStartFlagC2SPacket;
 
 /** Formats ECO CPU status in AE2's native confirmation screen. */
@@ -31,7 +31,7 @@ public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmM
     @Inject(method = "updateBeforeRender", at = @At("TAIL"))
     private void neoecoae$enableForceStart(CallbackInfo ci) {
         var plan = getMenu().getPlan();
-        if (plan != null && plan.isSimulation() && Screen.hasShiftDown()) {
+        if (plan != null && plan.isSimulation() && net.minecraft.client.Minecraft.getInstance().hasShiftDown()) {
             start.active = !getMenu().hasNoCPU();
             start.setMessage(Component.translatable("gui.neoecoae.force_start"));
             selectCPU.active = true;
@@ -46,8 +46,8 @@ public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmM
     private void neoecoae$submitWithForceIntent(CallbackInfo ci) {
         if (start.active) {
             var plan = getMenu().getPlan();
-            PacketDistributor.sendToServer(new ECOForceCraftStartFlagC2SPacket(getMenu().containerId,
-                Screen.hasShiftDown() && plan != null && plan.isSimulation()));
+            ClientPacketDistributor.sendToServer(new ECOForceCraftStartFlagC2SPacket(getMenu().containerId,
+                net.minecraft.client.Minecraft.getInstance().hasShiftDown() && plan != null && plan.isSimulation()));
         }
         ci.cancel();
     }
@@ -63,8 +63,7 @@ public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmM
         method = "updateBeforeRender",
         at = @org.spongepowered.asm.mixin.injection.At(
             value = "INVOKE",
-            target = "Lappeng/core/localization/GuiText;text([Ljava/lang/Object;)Lnet/minecraft/network/chat/MutableComponent;",
-            ordinal = 1
+            target = "Lappeng/core/localization/GuiText;text([Ljava/lang/Object;)Lnet/minecraft/network/chat/MutableComponent;"
         )
     )
     private MutableComponent neoecoae$formatCpuStatus(

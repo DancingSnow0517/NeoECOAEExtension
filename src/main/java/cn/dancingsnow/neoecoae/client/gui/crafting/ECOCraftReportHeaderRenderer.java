@@ -10,14 +10,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.ToIntFunction;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
 /** Fitted byte summary inside the report texture's 102 by 15 pixel text area. */
 final class ECOCraftReportHeaderRenderer {
     private static final String KEY_PREFIX = "gui.neoecoae.crafting_report.";
-    private static final int TEXT_COLOR = 0xFFFFFF;
+    private static final int TEXT_COLOR = 0xFFFFFFFF;
     private static final int LEFT = 53;
     private static final int TOP = 5;
     private static final int RIGHT = 155;
@@ -91,9 +91,9 @@ final class ECOCraftReportHeaderRenderer {
         return DisplayNumbers.grouped(millis.setScale(displayScale, RoundingMode.HALF_UP).toPlainString());
     }
 
-    static void render(GuiGraphics graphics, Font font, int offsetX, int offsetY, Summary summary,
+    static void render(GuiGraphicsExtractor graphics, Font font, int offsetX, int offsetY, Summary summary,
             @Nullable Long progressMillis) {
-        // GuiGraphics scissors use window GUI coordinates, independent of the translated pose.
+        // GuiGraphicsExtractor scissors use window GUI coordinates, independent of the translated pose.
         graphics.enableScissor(offsetX + LEFT, offsetY + TOP, offsetX + RIGHT, offsetY + BOTTOM);
         try {
             drawBytes(graphics, font, offsetX, offsetY, summary.bytes());
@@ -103,12 +103,12 @@ final class ECOCraftReportHeaderRenderer {
                 graphics.fill(BYTES_LEFT, 19, BYTES_LEFT + fill, 20, 0xFF3D9B62);
             }
         } finally {
-            graphics.flush();
+
             graphics.disableScissor();
         }
     }
 
-    private static void drawBytes(GuiGraphics graphics, Font font, int offsetX, int offsetY,
+    private static void drawBytes(GuiGraphicsExtractor graphics, Font font, int offsetX, int offsetY,
             Component text) {
         float scale = Math.min(MAX_BYTES_SCALE,
             (float) (BYTES_BOTTOM - BYTES_TOP) / Math.max(1, font.lineHeight + 1));
@@ -118,14 +118,14 @@ final class ECOCraftReportHeaderRenderer {
         graphics.enableScissor(offsetX + BYTES_LEFT, offsetY + BYTES_TOP,
             offsetX + BYTES_RIGHT, offsetY + BOTTOM);
         var pose = graphics.pose();
-        pose.pushPose();
+        pose.pushMatrix();
         try {
-            pose.translate(BYTES_LEFT, textY, 0);
-            pose.scale(scale, scale, 1);
-            graphics.drawString(font, text, 0, 0, TEXT_COLOR, true);
+            pose.translate(BYTES_LEFT, textY);
+            pose.scale(scale, scale);
+            graphics.text(font, text, 0, 0, TEXT_COLOR, true);
         } finally {
-            graphics.flush();
-            pose.popPose();
+
+            pose.popMatrix();
             graphics.disableScissor();
         }
     }

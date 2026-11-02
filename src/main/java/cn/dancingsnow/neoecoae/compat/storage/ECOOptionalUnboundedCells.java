@@ -16,7 +16,7 @@ public final class ECOOptionalUnboundedCells {
         // ModList is not initialized in unit tests that reach this guard through CPU/planner paths.
         var mods = ModList.get();
         if (mods == null) return;
-        if (mods.isLoaded("ae2lt")) ECOAe2LtUnboundedCells.collect(cell, target);
-        if (mods.isLoaded("extendedae")) ECOExtendedAEUnboundedCells.collect(cell, target);
+        if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("ae2lt")) ECOAe2LtUnboundedCells.collect(cell, target);
+        if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("extendedae")) ECOExtendedAEUnboundedCells.collect(cell, target);
     }
 }

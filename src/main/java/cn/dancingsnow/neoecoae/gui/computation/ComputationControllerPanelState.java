@@ -181,12 +181,12 @@ public record ComputationControllerPanelState(
             return UNFORMED;
         }
         return new ComputationControllerPanelState(
-            tag.getBoolean(FORMED),
-            tag.getInt(HOST_TIER),
-            tag.getInt(CELLS),
-            tag.getInt(UPPER),
-            tag.getInt(CORE),
-            tag.getInt(LOWER),
+            tag.getBooleanOr(FORMED, false),
+            tag.getIntOr(HOST_TIER, 0),
+            tag.getIntOr(CELLS, 0),
+            tag.getIntOr(UPPER, 0),
+            tag.getIntOr(CORE, 0),
+            tag.getIntOr(LOWER, 0),
             readMembers(tag, "upperMembers", tag.getIntOr(UPPER, 0), false),
             readMembers(tag, "coreMembers", tag.getIntOr(CORE, 0), true),
             readMembers(tag, "lowerMembers", tag.getIntOr(LOWER, 0), false)

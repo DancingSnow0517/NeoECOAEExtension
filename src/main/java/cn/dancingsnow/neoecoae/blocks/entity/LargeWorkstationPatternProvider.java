@@ -205,16 +205,16 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
     }
 
     @Override
-    public void readFromNBT(CompoundTag tag, HolderLookup.Provider registries) {
-        super.readFromNBT(tag, registries);
-        capacityUpgrades.readFromNBT(tag, "workstationCapacityUpgrades", registries);
+    public void readFromNBT(net.minecraft.world.level.storage.ValueInput input) {
+        super.readFromNBT(input);
+        capacityUpgrades.readFromNBT(input, "workstationCapacityUpgrades");
         disableSmartDoubling();
     }
 
     @Override
-    public void writeToNBT(CompoundTag tag, HolderLookup.Provider registries) {
-        super.writeToNBT(tag, registries);
-        capacityUpgrades.writeToNBT(tag, "workstationCapacityUpgrades", registries);
+    public void writeToNBT(net.minecraft.world.level.storage.ValueOutput output) {
+        super.writeToNBT(output);
+        capacityUpgrades.writeToNBT(output, "workstationCapacityUpgrades");
     }
 
     @Nullable
@@ -432,7 +432,7 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
     private void onPatternAccepted(IPatternDetails pattern) {
         var controller = controller();
         if (controller != null && host.getLevel() != null) {
-            processingTarget = new Target(host.getLevel().dimension().location(), controller.getBlockPos());
+            processingTarget = new Target(host.getLevel().dimension().identifier(), controller.getBlockPos());
         }
         // The specialized provider bypasses PatternProviderLogic.pushPattern, so explicitly retain AE2's
         // lock-until-pulse/result state transition after the controller accepted the batch.

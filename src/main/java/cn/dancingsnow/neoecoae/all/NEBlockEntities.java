@@ -404,7 +404,6 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.COMPUTATION_DRIVE)
         .validBlock(NEBlocks.COMPUTATION_DRIVE)
-        .renderer(() -> ECOComputationDriveRenderer::new)
         .clazz(ECOComputationDriveBlockEntity.class)
         .register();
 

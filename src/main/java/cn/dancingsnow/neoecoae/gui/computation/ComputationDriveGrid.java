@@ -11,7 +11,9 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.data.Clip;
+import cn.dancingsnow.neoecoae.util.LegacyNbt;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -79,7 +81,7 @@ final class ComputationDriveGrid extends UIElement {
     private CompoundTag writeDrive(ComputationDriveEntry entry) {
         CompoundTag tag = new CompoundTag();
         if (entry.position() != null) tag.putLong("pos", entry.position().asLong());
-        if (!entry.stack().isEmpty()) tag.put("stack", entry.stack().saveOptional(config.registries()));
+        if (!entry.stack().isEmpty()) tag.put("stack", LegacyNbt.saveItem(config.registries(), entry.stack()));
         return tag;
     }
 
@@ -99,7 +101,7 @@ final class ComputationDriveGrid extends UIElement {
 
     private ComputationDriveEntry readDrive(CompoundTag tag) {
         BlockPos position = tag.contains("pos") ? BlockPos.of(tag.getLongOr("pos", 0L)) : null;
-        return new ComputationDriveEntry(position, ItemStack.parseOptional(config.registries(), tag.getCompoundOrEmpty("stack")));
+        return new ComputationDriveEntry(position, LegacyNbt.parseItem(config.registries(), tag.getCompoundOrEmpty("stack")));
     }
 
     final class DriveSlot extends ItemSlot {
@@ -111,7 +113,7 @@ final class ComputationDriveGrid extends UIElement {
             column = index % COLUMNS;
             layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(column * COLUMN_PITCH)
                 .top(row * ROW_PITCH).width(16).height(16).paddingAll(0));
-            style(style -> style.backgroundTexture(IGuiTexture.EMPTY).overflowVisible(true));
+            style(style -> style.backgroundTexture(IGuiTexture.EMPTY).clip(Clip.NONE));
             slotStyle(style -> style.hoverOverlay(NETextures.AE2_SLOT_HIGHLIGHT));
         }
 
@@ -145,8 +147,8 @@ final class ComputationDriveGrid extends UIElement {
         }
 
         @Override
-        public List<Component> getFullTooltipTexts(boolean withItemTooltips) {
-            List<Component> lines = super.getFullTooltipTexts(withItemTooltips);
+        public List<Component> getFullTooltipTexts() {
+            List<Component> lines = super.getFullTooltipTexts();
             if (entry().position() != null) lines.addAll(tooltip());
             return lines;
         }
@@ -154,12 +156,12 @@ final class ComputationDriveGrid extends UIElement {
         @Override
         protected void onHoverTooltips(UIEvent event) {
             if (entry().position() == null) return;
-            if (getValue().isEmpty()) event.hoverTooltips = new HoverTooltips(tooltip(), null, null, null);
+            if (getValue().isEmpty()) event.hoverTooltips = HoverTooltips.create(tooltip().toArray());
             else super.onHoverTooltips(event);
         }
 
         @Override
-        protected void drawHover(GUIContext context) {
+        protected void drawHover(IGUIContext context) {
             if (entry().position() == null) return;
             context.drawTexture(NETextures.AE2_SLOT_HIGHLIGHT, 0, 0, 16, 16);
         }

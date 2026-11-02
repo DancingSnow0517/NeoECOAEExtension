@@ -8,6 +8,8 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
+import cn.dancingsnow.neoecoae.gui.common.GuiDraw;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.client.Minecraft;
@@ -99,7 +101,9 @@ public abstract class HostTaskListElement extends UIElement implements IBindable
     }
 
     @Override
-    public void drawContents(GUIContext guiContext) {
+    public void drawBackgroundAdditional(IGUIContext context) {
+        // 1.21.1 overrode drawContents without drawing children; the only children are invisible hitboxes.
+        if (!(context instanceof GUIContext guiContext)) return;
         Font font = Minecraft.getInstance().font;
         float x = getPositionX();
         float y = getPositionY();
@@ -182,7 +186,7 @@ public abstract class HostTaskListElement extends UIElement implements IBindable
     }
 
     public static void drawString(GUIContext guiContext, Font font, String text, float x, float y, int color) {
-        guiContext.graphics.drawString(font, text, x, y, color, false);
+        GuiDraw.text(guiContext.graphics, font, text, x, y, color, false);
     }
 
     private UIElement createTaskHitbox(int row) {
@@ -306,7 +310,7 @@ public abstract class HostTaskListElement extends UIElement implements IBindable
         if (payload.contains(NBT_REMOVED)) {
             ListTag removed = payload.getListOrEmpty(NBT_REMOVED);
             for (int i = 0; i < removed.size(); i++) {
-                entriesById.remove(removed.getString(i));
+                entriesById.remove(removed.getStringOr(i, ""));
             }
         }
 
@@ -338,7 +342,7 @@ public abstract class HostTaskListElement extends UIElement implements IBindable
     private static List<ComputationTaskEntry> orderTasks(Map<String, ComputationTaskEntry> entriesById, ListTag order) {
         List<ComputationTaskEntry> ordered = new ArrayList<>(entriesById.size());
         for (int i = 0; i < order.size(); i++) {
-            ComputationTaskEntry entry = entriesById.remove(order.getString(i));
+            ComputationTaskEntry entry = entriesById.remove(order.getStringOr(i, ""));
             if (entry != null) {
                 ordered.add(entry);
             }

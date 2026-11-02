@@ -26,15 +26,15 @@ public record PatternPreviewEntry(long busPosition, int physicalSlot, ItemStack 
     public record DiskPattern(ItemStack stack, String inputKeywords, String outputKeywords) {
         public CompoundTag encode(HolderLookup.Provider registries) {
             CompoundTag tag = new CompoundTag();
-            tag.put("stack", stack.saveOptional(registries));
+            tag.put("stack", cn.dancingsnow.neoecoae.util.LegacyNbt.saveItem(registries, stack));
             if (!inputKeywords.isEmpty()) tag.putString("inputs", inputKeywords);
             if (!outputKeywords.isEmpty()) tag.putString("output", outputKeywords);
             return tag;
         }
 
         public static DiskPattern decode(CompoundTag tag, HolderLookup.Provider registries) {
-            return new DiskPattern(ItemStack.parseOptional(registries, tag.getCompoundOrEmpty("stack")),
-                    tag.getString("inputs"), tag.getString("output"));
+            return new DiskPattern(cn.dancingsnow.neoecoae.util.LegacyNbt.parseItem(registries, tag.getCompoundOrEmpty("stack")),
+                    tag.getStringOr("inputs", ""), tag.getStringOr("output", ""));
         }
     }
 
@@ -42,7 +42,7 @@ public record PatternPreviewEntry(long busPosition, int physicalSlot, ItemStack 
         CompoundTag tag = new CompoundTag();
         tag.putLong("bus", busPosition);
         tag.putInt("slot", physicalSlot);
-        tag.put("stack", stack.saveOptional(registries));
+        tag.put("stack", cn.dancingsnow.neoecoae.util.LegacyNbt.saveItem(registries, stack));
         if (!inputKeywords.isEmpty()) tag.putString("inputs", inputKeywords);
         if (!outputKeywords.isEmpty()) tag.putString("output", outputKeywords);
         ListTag held = new ListTag();
@@ -63,8 +63,8 @@ public record PatternPreviewEntry(long busPosition, int physicalSlot, ItemStack 
             CompoundTag entry = encoded.getCompoundOrEmpty(index);
             held.add(DiskPattern.decode(entry, registries));
         }
-        return new PatternPreviewEntry(tag.getLong("bus"), tag.getInt("slot"),
-                ItemStack.parseOptional(registries, tag.getCompoundOrEmpty("stack")),
-                tag.getString("inputs"), tag.getString("output"), held, tag.getBoolean("diskSlot"));
+        return new PatternPreviewEntry(tag.getLongOr("bus", 0L), tag.getIntOr("slot", 0),
+                cn.dancingsnow.neoecoae.util.LegacyNbt.parseItem(registries, tag.getCompoundOrEmpty("stack")),
+                tag.getStringOr("inputs", ""), tag.getStringOr("output", ""), held, tag.getBooleanOr("diskSlot", false));
     }
 }

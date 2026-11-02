@@ -4,7 +4,7 @@ import appeng.api.upgrades.Upgrades;
 import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.api.ECOCellModels;
+import cn.dancingsnow.neoecoae.integration.IntegrationCellModels;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
@@ -18,11 +18,11 @@ public final class AE2LightningTechIntegration {
         NELightningCellTypes.register();
         NELightningItems.register();
 
-        ECOCellModels.register(NELightningItems.ECO_LIGHTNING_CELL_16M,
+        IntegrationCellModels.register(NELightningItems.ECO_LIGHTNING_CELL_16M,
             NeoECOAE.id("block/cell/storage_cell_l4_lightning"));
-        ECOCellModels.register(NELightningItems.ECO_LIGHTNING_CELL_64M,
+        IntegrationCellModels.register(NELightningItems.ECO_LIGHTNING_CELL_64M,
             NeoECOAE.id("block/cell/storage_cell_l6_lightning"));
-        ECOCellModels.register(NELightningItems.ECO_LIGHTNING_CELL_256M,
+        IntegrationCellModels.register(NELightningItems.ECO_LIGHTNING_CELL_256M,
             NeoECOAE.id("block/cell/storage_cell_l9_lightning"));
 
         NeoECOAE.MOD_BUS.addListener(this::commonSetup);

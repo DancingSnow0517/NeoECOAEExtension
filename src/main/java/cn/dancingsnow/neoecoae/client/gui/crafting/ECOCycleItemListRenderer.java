@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.client.gui.crafting;
 
-import appeng.api.client.AEKeyRendering;
+import appeng.client.api.AEKeyRendering;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
@@ -14,7 +14,7 @@ import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.math.BigInteger;
 import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
@@ -43,12 +43,12 @@ final class ECOCycleItemListRenderer {
         this.y = y;
     }
 
-    void render(GuiGraphics graphics, int mouseX, int mouseY, List<ECOCycleItemList.Entry> items,
+    void render(GuiGraphicsExtractor graphics, int mouseX, int mouseY, List<ECOCycleItemList.Entry> items,
             int scrollOffset) {
         render(graphics, mouseX, mouseY, items, scrollOffset, null);
     }
 
-    void render(GuiGraphics graphics, int mouseX, int mouseY, List<ECOCycleItemList.Entry> items,
+    void render(GuiGraphicsExtractor graphics, int mouseX, int mouseY, List<ECOCycleItemList.Entry> items,
             int scrollOffset, @Nullable Integer selectedComponentId) {
         int localMouseX = mouseX - screen.getGuiLeft();
         int localMouseY = mouseY - screen.getGuiTop();
@@ -69,18 +69,18 @@ final class ECOCycleItemListRenderer {
             List<Component> lines = new java.util.ArrayList<>();
             lines.add(totalLine(entry, AmountFormat.SLOT));
             var pose = graphics.pose();
-            pose.pushPose();
-            pose.scale(0.5f, 0.5f, 1.0f);
+            pose.pushMatrix();
+            pose.scale(0.5f, 0.5f);
             int textColor = screen.getStyle().getColor(PaletteColor.DEFAULT_TEXT_COLOR).toARGB();
             var font = Minecraft.getInstance().font;
             float textY = Math.round(cellY + 9.0f);
             for (var line : lines) {
                 int lineWidth = font.width(line);
-                graphics.drawString(font, line,
+                graphics.text(font, line,
                     (int) ((itemX - 2 - lineWidth * 0.5f) * 2), (int) (textY * 2), textColor, false);
                 textY += font.lineHeight * 0.5f + 1;
             }
-            pose.popPose();
+            pose.popMatrix();
             AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, itemX, itemY, item);
 
             if (hovered) {
@@ -108,7 +108,7 @@ final class ECOCycleItemListRenderer {
         }
     }
 
-    void renderTooltip(GuiGraphics graphics) {
+    void renderTooltip(GuiGraphicsExtractor graphics) {
         if (hoveredTooltip != null) {
             screen.drawTooltipWithHeader(graphics, hoveredMouseX, hoveredMouseY, hoveredTooltip);
         }

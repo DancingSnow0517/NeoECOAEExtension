@@ -160,8 +160,12 @@ final class LegacyInfiniteStorageReader {
     }
 
     private static void validateList(CompoundTag tag, String name, int type) throws IOException {
-        if (!(tag.get(name) instanceof ListTag list) || (!list.isEmpty() && list.getElementType() != type)) {
+        if (!(tag.get(name) instanceof ListTag list)) {
             throw new IOException("Invalid legacy list: " + name);
+        }
+        // 26.1 port: ListTag is heterogeneous (no element type); check every element instead.
+        for (Tag element : list) {
+            if (element.getId() != type) throw new IOException("Invalid legacy list: " + name);
         }
     }
 

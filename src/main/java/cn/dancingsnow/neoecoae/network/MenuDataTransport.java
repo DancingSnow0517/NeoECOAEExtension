@@ -73,7 +73,7 @@ public final class MenuDataTransport {
         while (it.hasNext()) {
             var entry = it.next();
             var player = entry.getKey();
-            if (player.getServer() != event.getServer()) continue;
+            if (player.level().getServer() != event.getServer()) continue;
             var queue = entry.getValue();
             queue.removeIf(t -> player.hasDisconnected() || t.menu != player.containerMenu);
             int budget = TICK_BYTES;

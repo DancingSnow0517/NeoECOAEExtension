@@ -111,7 +111,7 @@ public final class LargeWorkstationUI {
                 else lines.add(Component.translatable("gui.neoecoae.workstation.module_slot_empty"));
                 lines.add(Component.translatable("gui.neoecoae.workstation.module_slot_hint").withStyle(ChatFormatting.GRAY));
                 lines.add(Component.translatable("gui.neoecoae.workstation.module_swap_hint").withStyle(ChatFormatting.GRAY));
-                event.hoverTooltips = new HoverTooltips(lines, null, null, getValue());
+                event.hoverTooltips = new HoverTooltips(new java.util.ArrayList<Object>(lines), null, null, null, getValue());
             }
         };
         slot.style(style -> style.backgroundTexture(IGuiTexture.EMPTY));

@@ -38,15 +38,15 @@ final class BiggerAE2BulkStorageCellItem extends ECOBulkStorageCellItem {
     protected int upgradedTypeLimit() { return 25; }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, TooltipContext context, net.minecraft.world.item.component.TooltipDisplay display, java.util.function.Consumer<Component> lines, TooltipFlag flag) {
         var cell = getCellInventory(stack);
         if (cell == null) return;
         long used = cell.getStoredItemTypes();
         long total = cell.getTotalItemTypes();
-        lines.add(Component.translatable("tooltip.neoecoae.bulk.used_types",
+        lines.accept(Component.translatable("tooltip.neoecoae.bulk.used_types",
             Tooltips.ofUnformattedNumberWithRatioColor(used, (double) used / total, false),
             Tooltips.ofUnformattedNumber(total)));
-        lines.add(Component.translatable("tooltip.neoecoae.bulk.compression",
+        lines.accept(Component.translatable("tooltip.neoecoae.bulk.compression",
             Component.translatable("tooltip.neoecoae.bulk.compression_enabled").withStyle(ChatFormatting.GREEN)));
     }
 

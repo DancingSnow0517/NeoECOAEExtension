@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.utils.ModularUITooltipComponent;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +28,7 @@ final class ComputationProcessingTooltips {
         if (item.active().signum() <= 0 || item.processing().machineCount() == 0 && !item.processing().refreshing()) {
             var lines = new ArrayList<>(prefix);
             lines.add(hint);
-            return new HoverTooltips(lines, null, null, null);
+            return HoverTooltips.create(lines.toArray());
         }
         var rows = new ArrayList<Row>();
         prefix.stream().skip(1).forEach(line -> rows.add(text(line)));
@@ -35,8 +36,8 @@ final class ComputationProcessingTooltips {
         rows.add(text(hint));
         var client = Minecraft.getInstance();
         int maximum = Math.max(80, Math.min(260, client.getWindow().getGuiScaledWidth() - 20));
-        return new HoverTooltips(List.of(prefix.isEmpty() ? Component.empty() : prefix.getFirst()),
-            new ModularUITooltipComponent(new TooltipElement(rows, client.font, maximum)), null, null);
+        return HoverTooltips.create(prefix.isEmpty() ? Component.empty() : prefix.getFirst(),
+            new ModularUITooltipComponent(new TooltipElement(rows, client.font, maximum)));
     }
 
     static List<Row> rows(ECOProcessingProgress progress) {
@@ -143,7 +144,8 @@ final class ComputationProcessingTooltips {
             layout(layout -> layout.width(this.width).height(tooltipHeight).paddingAll(0));
         }
 
-        @Override public void drawBackgroundAdditional(GUIContext context) {
+        @Override public void drawBackgroundAdditional(IGUIContext ctx) {
+            if (!(ctx instanceof GUIContext context)) return;
             int x = Math.round(getPositionX()), y = Math.round(getPositionY());
             for (var entry : lines) {
                 if (entry.row().kind() == Kind.SEPARATOR) {
@@ -154,11 +156,11 @@ final class ComputationProcessingTooltips {
                     if (filled > 0) context.graphics.fill(x, y + 1, x + filled, y + 3, 0xFF60CD64);
                 } else {
                     for (int i = 0; i < entry.left().size(); i++) {
-                        context.graphics.drawString(font, entry.left().get(i), x, y + i * (font.lineHeight + 2), 0xFFEEEAF2, true);
+                        context.graphics.text(font, entry.left().get(i), x, y + i * (font.lineHeight + 2), 0xFFEEEAF2, true);
                     }
                     for (int i = 0; i < entry.right().size(); i++) {
                         var line = entry.right().get(i);
-                        context.graphics.drawString(font, line, x + width - font.width(line), y + i * (font.lineHeight + 2), 0xFFEEEAF2, true);
+                        context.graphics.text(font, line, x + width - font.width(line), y + i * (font.lineHeight + 2), 0xFFEEEAF2, true);
                     }
                 }
                 y += entry.height();

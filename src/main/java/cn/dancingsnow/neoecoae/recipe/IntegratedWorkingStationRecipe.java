@@ -38,12 +38,37 @@ public record IntegratedWorkingStationRecipe(
     Optional<SizedFluidIngredient> inputFluid,
     @Nullable ItemStackTemplate itemOutputTemplate,
     @Nullable FluidStackTemplate fluidOutputTemplate,
-    int energy
+    int energy,
+    int processingTicks
 ) implements Recipe<IntegratedWorkingStationRecipe.Input> {
+    public static final int DEFAULT_PROCESSING_TICKS = 100;
 
-    public IntegratedWorkingStationRecipe(List<SizedIngredient> inputItems, SizedFluidIngredient inputFluid,
+    public IntegratedWorkingStationRecipe(List<SizedIngredient> inputItems, Optional<SizedFluidIngredient> inputFluid,
+            @Nullable ItemStackTemplate itemOutputTemplate, @Nullable FluidStackTemplate fluidOutputTemplate, int energy) {
+        this(inputItems, inputFluid, itemOutputTemplate, fluidOutputTemplate, energy, DEFAULT_PROCESSING_TICKS);
+    }
+
+    /** Builds a recipe from runtime stacks; empty stacks mean "no output". */
+    public static IntegratedWorkingStationRecipe of(List<SizedIngredient> inputItems, Optional<SizedFluidIngredient> inputFluid,
+            ItemStack itemOutput, FluidStack fluidOutput, int energy, int processingTicks) {
+        return new IntegratedWorkingStationRecipe(
+            inputItems,
+            inputFluid,
+            itemOutput == null || itemOutput.isEmpty() ? null : ItemStackTemplate.fromNonEmptyStack(itemOutput),
+            fluidOutput == null || fluidOutput.isEmpty() ? null : FluidStackTemplate.fromNonEmptyStack(fluidOutput),
+            energy,
+            processingTicks
+        );
+    }
+
+    public static IntegratedWorkingStationRecipe of(List<SizedIngredient> inputItems, @Nullable SizedFluidIngredient inputFluid,
+            ItemStack itemOutput, FluidStack fluidOutput, int energy, int processingTicks) {
+        return of(inputItems, Optional.ofNullable(inputFluid), itemOutput, fluidOutput, energy, processingTicks);
+    }
+
+    public static IntegratedWorkingStationRecipe of(List<SizedIngredient> inputItems, @Nullable SizedFluidIngredient inputFluid,
             ItemStack itemOutput, FluidStack fluidOutput, int energy) {
-        this(inputItems, inputFluid, itemOutput, fluidOutput, energy, 100);
+        return of(inputItems, inputFluid, itemOutput, fluidOutput, energy, DEFAULT_PROCESSING_TICKS);
     }
 
     public IntegratedWorkingStationRecipe {
@@ -163,32 +188,42 @@ public record IntegratedWorkingStationRecipe(
         return Optional.ofNullable(fluidOutputTemplate);
     }
 
-    public static final MapCodec<IntegratedWorkingStationRecipe> CODEC = RecordCodecBuilder.mapCodec(ins -> ins.group(
-        SizedIngredient.NESTED_CODEC.listOf(0, 9).optionalFieldOf("inputItems", List.of()).forGetter(IntegratedWorkingStationRecipe::inputItems),
-        SizedFluidIngredient.CODEC.optionalFieldOf("inputFluid").forGetter(IntegratedWorkingStationRecipe::inputFluid),
-        ItemStackTemplate.CODEC.optionalFieldOf("itemOutput").forGetter(IntegratedWorkingStationRecipe::optionalItemOutputTemplate),
-        FluidStackTemplate.CODEC.optionalFieldOf("fluidOutput").forGetter(IntegratedWorkingStationRecipe::optionalFluidOutputTemplate),
-        Codec.INT.fieldOf("energy").forGetter(IntegratedWorkingStationRecipe::energy)
-    ).apply(ins, (inputItems, inputFluid, itemOutput, fluidOutput, energy) ->
-        new IntegratedWorkingStationRecipe(inputItems, inputFluid, itemOutput.orElse(null), fluidOutput.orElse(null), energy)
-    ));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, IntegratedWorkingStationRecipe> STREAM_CODEC = StreamCodec.composite(
-        SizedIngredient.STREAM_CODEC.apply(ByteBufCodecs.list(9)),
-        IntegratedWorkingStationRecipe::inputItems,
-        ByteBufCodecs.optional(SizedFluidIngredient.STREAM_CODEC),
-        IntegratedWorkingStationRecipe::inputFluid,
-        ByteBufCodecs.optional(ItemStackTemplate.STREAM_CODEC),
-        IntegratedWorkingStationRecipe::optionalItemOutputTemplate,
-        ByteBufCodecs.optional(FluidStackTemplate.STREAM_CODEC),
-        IntegratedWorkingStationRecipe::optionalFluidOutputTemplate,
-        ByteBufCodecs.VAR_INT,
-        IntegratedWorkingStationRecipe::energy,
-        (inputItems, inputFluid, itemOutput, fluidOutput, energy) ->
-            new IntegratedWorkingStationRecipe(inputItems, inputFluid, itemOutput.orElse(null), fluidOutput.orElse(null), energy)
-    );
+    public static final MapCodec<IntegratedWorkingStationRecipe> CODEC = createCodec(9);
+    public static final StreamCodec<RegistryFriendlyByteBuf, IntegratedWorkingStationRecipe> STREAM_CODEC = createStreamCodec(9);
 
     public static final RecipeSerializer<IntegratedWorkingStationRecipe> SERIALIZER = new RecipeSerializer<>(CODEC, STREAM_CODEC);
+
+    static MapCodec<IntegratedWorkingStationRecipe> createCodec(int maxInputs) {
+        return RecordCodecBuilder.mapCodec(ins -> ins.group(
+            SizedIngredient.NESTED_CODEC.listOf(0, maxInputs).optionalFieldOf("inputItems", List.of()).forGetter(IntegratedWorkingStationRecipe::inputItems),
+            SizedFluidIngredient.CODEC.optionalFieldOf("inputFluid").forGetter(IntegratedWorkingStationRecipe::inputFluid),
+            ItemStackTemplate.CODEC.optionalFieldOf("itemOutput").forGetter(IntegratedWorkingStationRecipe::optionalItemOutputTemplate),
+            FluidStackTemplate.CODEC.optionalFieldOf("fluidOutput").forGetter(IntegratedWorkingStationRecipe::optionalFluidOutputTemplate),
+            Codec.INT.fieldOf("energy").forGetter(IntegratedWorkingStationRecipe::energy),
+            Codec.intRange(1, Integer.MAX_VALUE).optionalFieldOf("processingTicks", DEFAULT_PROCESSING_TICKS).forGetter(IntegratedWorkingStationRecipe::processingTicks)
+        ).apply(ins, (inputItems, inputFluid, itemOutput, fluidOutput, energy, processingTicks) ->
+            new IntegratedWorkingStationRecipe(inputItems, inputFluid, itemOutput.orElse(null), fluidOutput.orElse(null), energy, processingTicks)
+        ));
+    }
+
+    static StreamCodec<RegistryFriendlyByteBuf, IntegratedWorkingStationRecipe> createStreamCodec(int maxInputs) {
+        return StreamCodec.composite(
+            SizedIngredient.STREAM_CODEC.apply(ByteBufCodecs.list(maxInputs)),
+            IntegratedWorkingStationRecipe::inputItems,
+            ByteBufCodecs.optional(SizedFluidIngredient.STREAM_CODEC),
+            IntegratedWorkingStationRecipe::inputFluid,
+            ByteBufCodecs.optional(ItemStackTemplate.STREAM_CODEC),
+            IntegratedWorkingStationRecipe::optionalItemOutputTemplate,
+            ByteBufCodecs.optional(FluidStackTemplate.STREAM_CODEC),
+            IntegratedWorkingStationRecipe::optionalFluidOutputTemplate,
+            ByteBufCodecs.VAR_INT,
+            IntegratedWorkingStationRecipe::energy,
+            ByteBufCodecs.VAR_INT,
+            IntegratedWorkingStationRecipe::processingTicks,
+            (inputItems, inputFluid, itemOutput, fluidOutput, energy, processingTicks) ->
+                new IntegratedWorkingStationRecipe(inputItems, inputFluid, itemOutput.orElse(null), fluidOutput.orElse(null), energy, processingTicks)
+        );
+    }
 
     public record Input(List<ItemStack> inputs, @Nullable FluidStack fluid) implements RecipeInput {
 

@@ -13,6 +13,10 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
+import cn.dancingsnow.neoecoae.util.LegacyNbt;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
@@ -72,15 +76,15 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
     @Override
     public void saveAdditional(ValueOutput data) {
         super.saveAdditional(data);
-        var registries = level != null ? level.registryAccess() : ServerLifecycleHooks.getCurrentServer().registryAccess();
+        HolderLookup.Provider registries = LegacyNbt.registries(this);
         for (int i = 0; i < cpus.length; i++) {
             ECOCraftingCPU cpu = cpus[i];
             if (cpu != null) {
                 CompoundTag tag = new CompoundTag();
                 cpu.writeToNBT(tag, registries);
-                data.put("CPU" + i, tag);
+                data.store("CPU" + i, CompoundTag.CODEC, tag);
             } else if (deferredInit[i] != null) {
-                data.put("CPU" + i, deferredInit[i].copy());
+                data.store("CPU" + i, CompoundTag.CODEC, deferredInit[i].copy());
             }
         }
     }
@@ -133,56 +137,12 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
                     }
                 }
             }
-        } else {
-            // 不成形（结构被破坏等）：取消所有任务，物品先尝试塞回网络，回不去的掉落到世界
-            for (int i = 0; i < cpus.length; i++) {
-                ECOCraftingCPU cpu = cpus[i];
-                if (cpu != null) {
-                    evacuate(cpu);
-                    cpus[i] = null;
-                }
-            }
-        }
-    }
-
-    /**
-     * 取消该 CPU 的合成任务并清空其库存：{@link ECOCraftingCPULogic#cancel()} 会尽量把在制/库存物品
-     * 塞回存储网络，网络收不下而残留的物品则掉落到世界中。
-     */
-    private void evacuate(ECOCraftingCPU cpu) {
-        ECOCraftingCPULogic logic = cpu.getLogic();
-        // 有任务则取消（cancel 内部会尝试把物品塞回网络）；随后再兜底尝试一次，覆盖无任务但有残留库存的情况
-        logic.cancel();
-        logic.storeItems();
-        if (level == null) {
-            return;
-        }
-        ListCraftingInventory inventory = logic.getInventory();
-        List<ItemStack> drops = new ArrayList<>();
-        for (Object2LongMap.Entry<AEKey> entry : inventory.list) {
-            AEKey key = entry.getKey();
-            long amount = entry.getLongValue();
-            if (amount <= 0) {
-                continue;
-            }
-            if (key instanceof AEItemKey itemKey) {
-                while (amount > 0) {
-                    long taken = Math.min(amount, itemKey.getMaxStackSize());
-                    amount -= taken;
-                    drops.add(itemKey.toStack((int) taken));
-                }
-            } else {
-                key.addDrops(amount, drops, level, worldPosition);
-            }
-        }
-        for (ItemStack stack : drops) {
-            Block.popResource(level, worldPosition, stack);
         }
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
+    public void loadTag(ValueInput data) {
+        super.loadTag(data);
         Arrays.fill(cpus, null);
         Arrays.fill(deferredInit, null);
         for (int i = 0; i < cpus.length; i++) {
@@ -248,7 +208,7 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
         for (int i = 0; i < cpus.length; i++) {
             var cpu = cpus[i];
             boolean exact = cpu != null ? cpu.getLogic().exactInventory().isEnabled()
-                : deferredInit[i] != null && (deferredInit[i].getBoolean("ecoExactInventory")
+                : deferredInit[i] != null && (deferredInit[i].getBooleanOr("ecoExactInventory", false)
                     || deferredInit[i].getCompoundOrEmpty("job").getBooleanOr("exactOrder", false));
             if (!exact) continue;
             CompoundTag saved;
@@ -272,7 +232,7 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
 
     public void restoreExactInventories(ItemStack stack) {
         var data = stack.getOrDefault(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
-            net.minecraft.world.item.component.CustomData.EMPTY).copyTag().getCompound("ecoExactCpuRecovery");
+            net.minecraft.world.item.component.CustomData.EMPTY).copyTag().getCompoundOrEmpty("ecoExactCpuRecovery");
         for (int i = 0; i < deferredInit.length; i++) {
             if (data.contains("CPU" + i) && cpus[i] == null && deferredInit[i] == null) {
                 deferredInit[i] = data.getCompoundOrEmpty("CPU" + i).copy();
@@ -288,7 +248,7 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
         KeyCounter out
     ) {
         ListCraftingInventory inventory = new ListCraftingInventory(ignored -> {});
-        inventory.readFromNBT(cpuTag.getListOrEmpty("inventory"), registries);
+        inventory.deserialize(LegacyNbt.input(registries, cpuTag).childrenListOrEmpty("inventory"));
         out.addAll(inventory.list);
 
         CompoundTag jobTag = cpuTag.getCompoundOrEmpty("job");
@@ -297,7 +257,7 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
             return;
         }
         try {
-            GenericStack finalOutput = GenericStack.readTag(registries, jobTag.getCompound("finalOutput"));
+            GenericStack finalOutput = GenericStack.readTag(LegacyNbt.input(registries, jobTag.getCompoundOrEmpty("finalOutput")));
             if (finalOutput != null) {
                 out.add(finalOutput.what(), buffered);
             }

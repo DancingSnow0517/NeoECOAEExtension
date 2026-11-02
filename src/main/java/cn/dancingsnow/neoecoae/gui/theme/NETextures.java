@@ -5,13 +5,14 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import com.lowdragmc.lowdraglib2.editor.resource.BuiltinPath;
 import com.lowdragmc.lowdraglib2.editor.resource.BuiltinResourceProvider;
 import com.lowdragmc.lowdraglib2.editor.resource.ResourceInstance;
+import com.lowdragmc.lowdraglib2.gui.texture.GuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.UIResourceTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.math.Size;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import org.slf4j.Logger;
@@ -143,21 +144,7 @@ public class NETextures {
         .setSpriteSize(Size.of(18, 18))
         .setBorder(1, 2, 1, 1);
 
-    public static IGuiTexture AE2_SLOT_HIGHLIGHT = new IGuiTexture() {
-        @Override
-        public void draw(
-            GuiGraphics graphics,
-            float mouseX,
-            float mouseY,
-            float x,
-            float y,
-            float width,
-            float height,
-            float partialTicks
-        ) {
-            drawAE2SlotHighlight(graphics, x, y, width, height);
-        }
-
+    public static IGuiTexture AE2_SLOT_HIGHLIGHT = new GuiTexture() {
         @Override
         public void draw(GUIContext context, float x, float y, float width, float height) {
             // LDLib renders each slot independently. Drawing an outline outside the
@@ -173,7 +160,7 @@ public class NETextures {
     };
 
     private static void drawAE2SlotHighlight(
-        GuiGraphics graphics,
+        GuiGraphicsExtractor graphics,
         float x,
         float y,
         float width,
@@ -184,19 +171,17 @@ public class NETextures {
         int right = Mth.floor(x + width);
         int bottom = Mth.floor(y + height);
 
-        graphics.hLine(left, right, top - 1, 0xFFDAFFFF);
-        graphics.hLine(left - 1, right, bottom, 0xFFDAFFFF);
-        graphics.vLine(left - 1, top - 2, bottom, 0xFFDAFFFF);
-        graphics.vLine(right, top - 2, bottom, 0xFFDAFFFF);
-        graphics.fillGradient(
-            RenderType.guiOverlay(),
+        graphics.horizontalLine(left, right, top - 1, 0xFFDAFFFF);
+        graphics.horizontalLine(left - 1, right, bottom, 0xFFDAFFFF);
+        graphics.verticalLine(left - 1, top - 2, bottom, 0xFFDAFFFF);
+        graphics.verticalLine(right, top - 2, bottom, 0xFFDAFFFF);
+        graphics.fill(
+            RenderPipelines.GUI,
             left,
             top,
             right,
             bottom,
-            0x669CD3FF,
-            0x669CD3FF,
-            0
+            0x669CD3FF
         );
     }
 

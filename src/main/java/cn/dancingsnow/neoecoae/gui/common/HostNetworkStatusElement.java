@@ -4,7 +4,8 @@ import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import net.minecraft.Util;
+import net.minecraft.util.Util;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
@@ -80,7 +81,7 @@ public final class HostNetworkStatusElement {
         String text = component.getString();
         TextColor textColor = component.getStyle().getColor();
         int color = textColor == null ? fallbackColor : textColor.getValue();
-        context.graphics.drawString(font, text, x / TEXT_SCALE, baseY / TEXT_SCALE,
+        GuiDraw.text(context.graphics, font, text, x / TEXT_SCALE, baseY / TEXT_SCALE,
             0xFF000000 | color, false);
         return x + font.width(text) * TEXT_SCALE;
     }
@@ -137,15 +138,16 @@ public final class HostNetworkStatusElement {
         }
 
         @Override
-        public void drawContents(GUIContext context) {
-            super.drawContents(context);
+        protected void drawBackgroundAdditional(IGUIContext guiContext) {
+            // Children are hidden sync holders, so drawing before them matches the old drawContents order.
+            if (!(guiContext instanceof GUIContext context)) return;
             Font font = Minecraft.getInstance().font;
             long now = Util.getMillis();
             float x = getPositionX();
             float baseY = getPositionY() + 2.0F;
 
-            context.graphics.pose().pushPose();
-            context.graphics.pose().scale(TEXT_SCALE, TEXT_SCALE, 1.0F);
+            context.graphics.pose().pushMatrix();
+            context.graphics.pose().scale(TEXT_SCALE, TEXT_SCALE);
             if (!statusNotice.getString().isEmpty()) {
                 drawComponent(context, font, statusNotice, x, baseY, NOTICE_COLOR);
             } else {
@@ -158,7 +160,7 @@ public final class HostNetworkStatusElement {
                     drawComponent(context, font, trailingText, x, baseY, SEPARATOR_COLOR);
                 }
             }
-            context.graphics.pose().popPose();
+            context.graphics.pose().popMatrix();
         }
 
         private float drawMode(GUIContext context, Font font, String text, float x, float baseY, long now) {
@@ -168,7 +170,7 @@ public final class HostNetworkStatusElement {
                     ? (float) Math.sin(now / 180.0D + index * 0.65D) * 0.75F
                     : 0.0F;
                 int color = animatedColor(now, index);
-                context.graphics.drawString(font, character, x / TEXT_SCALE,
+                GuiDraw.text(context.graphics, font, character, x / TEXT_SCALE,
                     (baseY + wave) / TEXT_SCALE, 0xFF000000 | color, false);
                 x += font.width(character) * TEXT_SCALE;
             }

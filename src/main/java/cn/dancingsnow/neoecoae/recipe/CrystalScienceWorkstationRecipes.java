@@ -78,7 +78,7 @@ final class CrystalScienceWorkstationRecipes {
         long cycles = ((long) growthTicks + 9) / 10;
         long energy = Math.multiplyExact(cycles, 100);
         int ticks = (int) Math.min(Integer.MAX_VALUE, cycles * 10);
-        var display = new IntegratedWorkingStationRecipe(List.of(new SizedIngredient(Ingredient.of(seed), 1)),
+        var display = IntegratedWorkingStationRecipe.of(List.of(new SizedIngredient(Ingredient.of(seed), 1)),
             noFluid(), new ItemStack(output), FluidStack.EMPTY, (int) Math.min(Integer.MAX_VALUE, energy), ticks);
         return new LargeWorkstationRecipe(id, display, energy, List.of(), GROWTH).processing(ticks, 0, false);
     }
@@ -105,8 +105,8 @@ final class CrystalScienceWorkstationRecipes {
         recipe.getOutput().fluid().ifPresent(output -> {
             if (output.fluid() != Fluids.EMPTY) outputs.add(new GenericStack(AEFluidKey.of(sourceFluid(output.fluid())), 1000));
         });
-        for (var drop : recipe.getDrops()) if (!drop.isEmpty()) outputs.add(GenericStack.fromItemStack(drop));
-        if ((items.isEmpty() && fluidInput.ingredient().isEmpty()) || outputs.isEmpty()) return null;
+        for (var drop : recipe.getDrops()) outputs.add(GenericStack.fromItemStack(drop.create()));
+        if ((items.isEmpty() && fluidInput == null) || outputs.isEmpty()) return null;
         return wrap(id, items, fluidInput, outputs, 1600, ENTROPY);
     }
 
@@ -114,11 +114,12 @@ final class CrystalScienceWorkstationRecipes {
         return fluid instanceof FlowingFluid flowing ? flowing.getSource() : fluid;
     }
 
+    @Nullable
     static SizedFluidIngredient noFluid() {
-        return new SizedFluidIngredient(FluidIngredient.empty(), 1);
+        return null;
     }
 
-    static LargeWorkstationRecipe wrap(Identifier id, List<SizedIngredient> items, SizedFluidIngredient fluid,
+    static LargeWorkstationRecipe wrap(Identifier id, List<SizedIngredient> items, @Nullable SizedFluidIngredient fluid,
             List<GenericStack> outputs, long energy, Identifier sourceType) {
         ItemStack itemOutput = ItemStack.EMPTY;
         FluidStack fluidOutput = FluidStack.EMPTY;
@@ -128,7 +129,7 @@ final class CrystalScienceWorkstationRecipes {
             else if (output.what() instanceof AEFluidKey key && fluidOutput.isEmpty()) fluidOutput = key.toStack(Math.toIntExact(output.amount()));
             else additional.add(output);
         }
-        var display = new IntegratedWorkingStationRecipe(items, fluid, itemOutput, fluidOutput, (int) Math.min(Integer.MAX_VALUE, energy));
+        var display = IntegratedWorkingStationRecipe.of(items, fluid, itemOutput, fluidOutput, (int) Math.min(Integer.MAX_VALUE, energy));
         return new LargeWorkstationRecipe(id, display, energy, List.of(), sourceType, List.of(), additional);
     }
 }

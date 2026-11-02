@@ -561,7 +561,7 @@ public final class ECOExecutionRuntime {
         ListTag seeds = new ListTag();
         for (int phaseIndex = 0; phaseIndex < startupSeedRemainingByPhase.size(); phaseIndex++) {
             for (var entry : startupSeedRemainingByPhase.get(phaseIndex).object2LongEntrySet()) {
-                CompoundTag seed = GenericStack.writeTag(registries,
+                CompoundTag seed = cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeStack(registries,
                     new GenericStack(entry.getKey(), entry.getLongValue()));
                 seed.putInt("phase", phaseIndex);
                 seeds.add(seed);
@@ -638,7 +638,7 @@ public final class ECOExecutionRuntime {
         Map<AEKey, Long> legacySeeds = new LinkedHashMap<>();
         for (int i = 0; i < seeds.size(); i++) {
             CompoundTag seed = seeds.getCompoundOrEmpty(i);
-            GenericStack stack = GenericStack.readTag(registries, seed);
+            GenericStack stack = cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readStack(registries, seed);
             if (stack != null && stack.amount() > 0L) {
                 if (seed.contains("phase")) {
                     int phaseIndex = seed.getIntOr("phase", 0);

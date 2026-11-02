@@ -124,14 +124,14 @@ public record CraftingControllerPanelState(
         }
         return new CraftingControllerPanelState(
             tag.getBooleanOr(FORMED, false),
-            tag.getInt(HOST_TIER),
-            tag.getInt(FX_CELLS),
-            tag.getInt(UPPER),
-            tag.getInt(LOWER),
-            tag.getBoolean(COOLANT),
-            tag.getBoolean(SWITCH),
-            tag.getInt(QUEUE),
-            tag.getInt(ENERGY)
+            tag.getIntOr(HOST_TIER, 0),
+            tag.getIntOr(FX_CELLS, 0),
+            tag.getIntOr(UPPER, 0),
+            tag.getIntOr(LOWER, 0),
+            tag.getBooleanOr(COOLANT, false),
+            tag.getBooleanOr(SWITCH, false),
+            tag.getIntOr(QUEUE, 0),
+            tag.getIntOr(ENERGY, 0)
         );
     }
 

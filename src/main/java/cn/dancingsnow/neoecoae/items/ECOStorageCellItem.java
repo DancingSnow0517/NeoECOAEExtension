@@ -137,11 +137,12 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem, INati
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
+    public void appendHoverText(ItemStack stack, TooltipContext context, net.minecraft.world.item.component.TooltipDisplay display,
+                                java.util.function.Consumer<Component> lines, TooltipFlag tooltipFlag) {
         if (ECOInfiniteStorageMember.isMember(stack)) {
-            lines.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
+            lines.accept(Component.translatable("tooltip.neoecoae.storage.infinite_member")
                 .withStyle(ChatFormatting.LIGHT_PURPLE));
-            ECOInfiniteStorageMember.getDomainId(stack).ifPresent(id -> lines.add(
+            ECOInfiniteStorageMember.getDomainId(stack).ifPresent(id -> lines.accept(
                 Component.literal("UUID: " + id).withStyle(ChatFormatting.AQUA)));
             return;
         }
@@ -149,8 +150,8 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem, INati
         if (handler == null) {
             return;
         }
-        lines.add(bytesUsedLine(handler.getUsedBytes(), handler.getTotalBytes()));
-        lines.add(Tooltips.typesUsed(handler.getStoredItemTypes(), handler.getTotalItemTypes()));
+        lines.accept(bytesUsedLine(handler.getUsedBytes(), handler.getTotalBytes()));
+        lines.accept(Tooltips.typesUsed(handler.getStoredItemTypes(), handler.getTotalItemTypes()));
     }
 
     /**
@@ -304,7 +305,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem, INati
         }
 
         if (ECOInfiniteStorageMember.isMember(stack)) {
-            player.displayClientMessage(Component.translatable("tooltip.neoecoae.storage.infinite_member"), true);
+            player.sendOverlayMessage(Component.translatable("tooltip.neoecoae.storage.infinite_member"));
             return false;
         }
 
@@ -313,7 +314,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem, INati
             return true;
         }
 
-        List<ItemStack> disassembledStacks = StorageCellDisassemblyRecipe.getDisassemblyResult(level, stack.getItem());
+        List<ItemStack> disassembledStacks = StorageCellDisassemblyRecipe.getDisassemblyResult(serverLevel, stack.getItem());
         if (disassembledStacks.isEmpty()) {
             return false;
         }
@@ -327,7 +328,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem, INati
         if (cellInventory == null || !cellInventory.getAvailableStacks().isEmpty()
                 || cellInventory instanceof cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell bulk
                     && !bulk.canFitInsideCell()) {
-            player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
+            player.sendOverlayMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text());
             return false;
         }
 

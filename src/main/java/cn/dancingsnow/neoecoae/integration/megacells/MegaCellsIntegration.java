@@ -94,28 +94,28 @@ public final class MegaCellsIntegration {
     }
 
     private void registerExternalCells() {
-        if (ModList.get().isLoaded("appliedpneumatics")) {
+        if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("appliedpneumatics")) {
             addExternalCells("air", NEMegaExternalItems.registerAir());
         }
-        if (ModList.get().isLoaded("appex")) {
+        if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("appex")) {
             addExternalCells("experience", NEMegaExternalItems.registerExperience());
         }
-        if (ModList.get().isLoaded("appliedsoul") && ModList.get().isLoaded("soulplied_energistics")) {
+        if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("appliedsoul") && cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("soulplied_energistics")) {
             addExternalCells("soul", NEMegaExternalItems.registerSoul());
         }
-        if (ModList.get().isLoaded("appbot")) {
+        if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("appbot")) {
             addExternalCells("mana", NEMegaExternalItems.registerMana());
         }
-        if (ModList.get().isLoaded("arseng")) {
+        if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("arseng")) {
             addExternalCells("source", NEMegaExternalItems.registerSource());
         }
-        if (ModList.get().isLoaded("apprep")) {
+        if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("apprep")) {
             addExternalCells("matter", NEMegaExternalItems.registerMatter());
         }
-        if (ModList.get().isLoaded("appliedcreate")) {
+        if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("appliedcreate")) {
             addExternalCells("stress", NEMegaExternalItems.registerStress());
         }
-        if (ModList.get().isLoaded("data_energistics")) {
+        if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("data_energistics")) {
             addExternalCells("data", NEMegaExternalItems.registerData());
         }
     }

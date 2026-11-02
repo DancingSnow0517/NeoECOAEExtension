@@ -22,8 +22,9 @@ public class ECOFeStorageCellItem extends ECOStorageCellItem {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
-        super.appendHoverText(stack, context, lines, tooltipFlag);
+    public void appendHoverText(ItemStack stack, TooltipContext context, net.minecraft.world.item.component.TooltipDisplay display,
+                                java.util.function.Consumer<Component> lines, TooltipFlag tooltipFlag) {
+        super.appendHoverText(stack, context, display, lines, tooltipFlag);
         var handler = getCellInventory(stack);
         if (handler == null) {
             return;
@@ -31,7 +32,7 @@ public class ECOFeStorageCellItem extends ECOStorageCellItem {
         KeyCounter availableStacks = handler.getAvailableStacks();
         for (Object2LongMap.Entry<AEKey> entry : availableStacks) {
             if (entry.getKey() instanceof FluxKey fluxKey) {
-                lines.add(Component.translatable("appflux.cell.storage", Tooltips.ofNumber(entry.getLongValue()), fluxKey.getEnergyType().translate()));
+                lines.accept(Component.translatable("appflux.cell.storage", Tooltips.ofNumber(entry.getLongValue()), fluxKey.getEnergyType().translate()));
             }
         }
     }

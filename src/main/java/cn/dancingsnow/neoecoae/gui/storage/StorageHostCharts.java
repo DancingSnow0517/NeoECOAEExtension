@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.gui.common.GuiDraw;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
@@ -13,7 +14,8 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
+import com.lowdragmc.lowdraglib2.gui.util.DrawerHelperClient;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -53,7 +55,8 @@ final class StorageHostCharts {
                 definition.has("font_scale") ? definition.get("font_scale").getAsFloat() : 0.75F,
                 definition.has("text_align") && definition.get("text_align").getAsString().equals("right"));
             case "storage_tier" -> new PanelElement() {
-                @Override public void drawBackgroundAdditional(GUIContext context) {
+                @Override public void drawBackgroundAdditional(IGUIContext ctx) {
+                    if (!(ctx instanceof GUIContext context)) return;
                     var custom = sync.textures().tier();
                     if (custom != null) {
                         texture(context, StoragePanelTextures.tier(state().tier(), custom));
@@ -92,7 +95,7 @@ final class StorageHostCharts {
         information.addEventListener(UIEvents.MOUSE_ENTER, event -> information.style(style -> style.backgroundTexture(highlighted)));
         information.addEventListener(UIEvents.MOUSE_LEAVE, event -> information.style(style -> style.backgroundTexture(normal)));
         information.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-            event.hoverTooltips = new HoverTooltips(domainTooltip(), null, null, null));
+            event.hoverTooltips = new HoverTooltips(new java.util.ArrayList<Object>(domainTooltip()), null, null, null, null));
         // Match the crafting host's frame; the JSON owns its placement and only the icon has a tooltip.
         return new UIElement().style(style -> style.backgroundTexture(SpriteTexture.of(
             NeoECOAE.id("textures/gui/common/side_bar/mirrored_button_slot_up.png")))).addChild(information);
@@ -106,7 +109,7 @@ final class StorageHostCharts {
 
         void tooltips(Supplier<List<Component>> lines) {
             addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-                event.hoverTooltips = new HoverTooltips(lines.get(), null, null, null));
+                event.hoverTooltips = new HoverTooltips(new java.util.ArrayList<Object>(lines.get()), null, null, null, null));
         }
 
         void text(GUIContext context, Component component, float x, float y, float width, float maxScale, int color) {
@@ -123,13 +126,13 @@ final class StorageHostCharts {
                 font.substrByWidth(component, Math.max(1, (int) (width / scale))));
             if (rightAligned) x += Math.max(0, width - font.width(value) * scale);
             var pose = context.graphics.pose();
-            pose.pushPose();
+            pose.pushMatrix();
             try {
-                pose.translate(getPositionX() + x, getPositionY() + y, 0);
-                pose.scale(scale, scale, 1);
-                context.graphics.drawString(font, value, 0, 0, color, false);
+                pose.translate(getPositionX() + x, getPositionY() + y);
+                pose.scale(scale, scale);
+                GuiDraw.text(context.graphics, font, value, 0, 0, color, false);
             } finally {
-                pose.popPose();
+                pose.popMatrix();
             }
         }
     }
@@ -155,7 +158,8 @@ final class StorageHostCharts {
             });
         }
 
-        @Override public void drawBackgroundAdditional(GUIContext context) {
+        @Override public void drawBackgroundAdditional(IGUIContext ctx) {
+            if (!(ctx instanceof GUIContext context)) return;
             if (metric.equals("energy")) {
                 drawEnergyUsage(context);
                 return;
@@ -217,21 +221,21 @@ final class StorageHostCharts {
                 valueX = font.width(Component.literal(storedTemplate.substring(0, storedMarker)));
             }
             var pose = context.graphics.pose();
-            pose.pushPose();
+            pose.pushMatrix();
             try {
-                pose.translate(getPositionX() + offsetX, getPositionY(), 0);
-                pose.scale(scale, scale, 1);
+                pose.translate(getPositionX() + offsetX, getPositionY());
+                pose.scale(scale, scale);
                 drawSegment(context, font, prefix, 0);
                 drawSegment(context, font, amount, valueX);
                 drawSegment(context, font, suffix, valueX + font.width(Component.literal(amount)));
             } finally {
-                pose.popPose();
+                pose.popMatrix();
             }
         }
 
         private void drawSegment(GUIContext context, Font font, String value, int x) {
             if (!value.isEmpty()) {
-                context.graphics.drawString(font, Language.getInstance().getVisualOrder(Component.literal(value)),
+                GuiDraw.text(context.graphics, font, Language.getInstance().getVisualOrder(Component.literal(value)),
                     x, 0, TEXT, false);
             }
         }
@@ -239,17 +243,18 @@ final class StorageHostCharts {
 
     private final class HostIcon extends PanelElement {
         HostIcon() {
-            tooltips(() -> hostItem.isEmpty() ? List.of(state().title()) : DrawerHelper.getItemToolTip(hostItem));
+            tooltips(() -> hostItem.isEmpty() ? List.of(state().title()) : DrawerHelperClient.getItemToolTip(hostItem));
         }
 
-        @Override public void drawBackgroundAdditional(GUIContext context) {
+        @Override public void drawBackgroundAdditional(IGUIContext ctx) {
+            if (!(ctx instanceof GUIContext context)) return;
             texture(context, StoragePanelTextures.HOST_ICON_BACKGROUND);
             if (state().formed()) {
                 float x = getPositionX() + Math.round((getSizeWidth() - 13) / 2);
                 drawMarker(context, false, x, getPositionY() + 1);
                 drawMarker(context, true, x, getPositionY() + getSizeHeight() - 9);
             }
-            if (!hostItem.isEmpty()) context.graphics.renderItem(hostItem,
+            if (!hostItem.isEmpty()) context.graphics.item(hostItem,
                 Math.round(getPositionX() + (getSizeWidth() - 16) / 2),
                 Math.round(getPositionY() + (getSizeHeight() - 16) / 2));
         }
@@ -282,7 +287,8 @@ final class StorageHostCharts {
             });
         }
 
-        @Override public void drawBackgroundAdditional(GUIContext context) {
+        @Override public void drawBackgroundAdditional(IGUIContext ctx) {
+            if (!(ctx instanceof GUIContext context)) return;
             hoveredTooltip.clear();
             var snapshot = state();
             if (snapshot.unbounded()) {
@@ -350,7 +356,8 @@ final class StorageHostCharts {
     private final class ResourceBar extends StackedBar {
         ResourceBar() { tooltips(() -> List.copyOf(hoveredTooltip)); }
 
-        @Override public void drawBackgroundAdditional(GUIContext context) {
+        @Override public void drawBackgroundAdditional(IGUIContext ctx) {
+            if (!(ctx instanceof GUIContext context)) return;
             drawSegments(context, state(), Math.round(getSizeWidth()));
         }
     }
@@ -358,7 +365,8 @@ final class StorageHostCharts {
     private final class EnergyBar extends AnimatedBar {
         EnergyBar() { tooltips(StorageHostCharts.this::energyTooltip); }
 
-        @Override public void drawBackgroundAdditional(GUIContext context) {
+        @Override public void drawBackgroundAdditional(IGUIContext ctx) {
+            if (!(ctx instanceof GUIContext context)) return;
             SpriteTexture scale = panelTexture(StoragePanelTextures.SCALE);
             int pixels = Math.round(scale.spriteSize.width
                 * opening.value(HostText.usageRatio(state().energy(), state().maxEnergy())));
@@ -387,7 +395,7 @@ final class StorageHostCharts {
                 addChild(new UIElement().layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
                     .left(0).top(index * 29).width(68).height(29))
                     .addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-                        event.hoverTooltips = new HoverTooltips(tooltip(index), null, null, null)));
+                        event.hoverTooltips = new HoverTooltips(new java.util.ArrayList<Object>(tooltip(index)), null, null, null, null)));
             }
             addEventListener(UIEvents.MOUSE_WHEEL, event -> {
                 if (event.deltaY == 0) return;
@@ -400,7 +408,8 @@ final class StorageHostCharts {
         int currentOffset() { return offset = Math.clamp(offset, 0, maximumOffset()); }
         void scroll(int delta) { offset = Math.clamp(currentOffset() + delta, 0, maximumOffset()); }
 
-        @Override public void drawBackgroundAdditional(GUIContext context) {
+        @Override public void drawBackgroundAdditional(IGUIContext ctx) {
+            if (!(ctx instanceof GUIContext context)) return;
             int start = currentOffset();
             for (int row = 0; row < 3; row++) {
                 float y = getPositionY() + row * 29;
@@ -478,7 +487,8 @@ final class StorageHostCharts {
             });
         }
 
-        @Override public void drawBackgroundAdditional(GUIContext context) {
+        @Override public void drawBackgroundAdditional(IGUIContext ctx) {
+            if (!(ctx instanceof GUIContext context)) return;
             int maximum = typePanel.maximumOffset();
             if (maximum == 0) return;
             float height = Math.min(StoragePanelTextures.SLIDER.spriteSize.height, getSizeHeight());
@@ -490,14 +500,16 @@ final class StorageHostCharts {
 
     private final class InfiniteStatus extends PanelElement {
         InfiniteStatus() { tooltips(StorageHostCharts.this::domainTooltip); }
-        @Override public void drawBackgroundAdditional(GUIContext context) {
+        @Override public void drawBackgroundAdditional(IGUIContext ctx) {
+            if (!(ctx instanceof GUIContext context)) return;
             if (state().unbounded()) texture(context, StoragePanelTextures.INFINITY);
         }
     }
 
     private final class InfiniteAnimation extends PanelElement {
         InfiniteAnimation() { tooltips(() -> state().infinite() ? domainTooltip() : List.of()); }
-        @Override public void drawBackgroundAdditional(GUIContext context) {
+        @Override public void drawBackgroundAdditional(IGUIContext ctx) {
+            if (!(ctx instanceof GUIContext context)) return;
             if (!state().infinite()) return;
             texture(context, StoragePanelTextures.INFINITE_ANIMATION);
         }

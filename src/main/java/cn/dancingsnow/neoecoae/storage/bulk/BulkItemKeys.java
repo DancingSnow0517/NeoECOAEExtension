@@ -21,7 +21,7 @@ public final class BulkItemKeys {
     }
     public static @Nullable AEItemKey read(CompoundTag tag) {
         Identifier id = Identifier.tryParse(tag.getStringOr("item", ""));
-        var item = id == null ? null : BuiltInRegistries.ITEM.getHolder(id).orElse(null);
+        var item = id == null ? null : BuiltInRegistries.ITEM.get(id).orElse(null);
         if (item == null) return null;
         var patch = DataComponentPatch.CODEC.parse(NbtOps.INSTANCE, tag.getCompoundOrEmpty("components")).result().orElse(null);
         return patch == null ? null : AEItemKey.of(new ItemStack(item, 1, patch));

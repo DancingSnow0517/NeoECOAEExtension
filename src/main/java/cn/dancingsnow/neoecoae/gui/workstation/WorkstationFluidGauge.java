@@ -1,18 +1,25 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
+import cn.dancingsnow.neoecoae.gui.common.ElementRenderHooks;
+
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.data.FillDirection;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.FluidSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import java.util.ArrayList;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 
 /** Tank contents stay inside the frame; ticks are rendered over the fluid and hover highlight. */
-final class WorkstationFluidGauge extends FluidSlot {
+final class WorkstationFluidGauge extends FluidSlot implements ElementRenderHooks.Background {
+    static {
+        ElementRenderHooks.register(WorkstationFluidGauge.class);
+    }
+
     private final int firstTick;
     private String tooltipRole;
 
@@ -48,12 +55,13 @@ final class WorkstationFluidGauge extends FluidSlot {
         lines.addAll(getFullTooltipTexts());
         lines.add(Component.translatable("gui.neoecoae.workstation." + tooltipRole + "_fluid_hint")
             .withStyle(ChatFormatting.GRAY));
-        event.hoverTooltips = new HoverTooltips(lines, null, null, null);
+        event.hoverTooltips = new HoverTooltips(new java.util.ArrayList<Object>(lines), null, null, null, null);
     }
 
     @Override
-    public void drawBackgroundAdditional(GUIContext context) {
-        super.drawBackgroundAdditional(context);
+    public void drawBackgroundAdditional(IGUIContext ctx, Runnable drawParent) {
+        drawParent.run();
+        if (!(ctx instanceof GUIContext context)) return;
         if (getValue().isEmpty() && !isHover() && !isSelfOrChildHover()) return;
         int right = Math.round(getPositionX() + getSizeWidth());
         int top = Math.round(getPositionY());

@@ -123,17 +123,17 @@ public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
+    public void appendHoverText(ItemStack stack, TooltipContext context, net.minecraft.world.item.component.TooltipDisplay display, java.util.function.Consumer<Component> lines, TooltipFlag tooltipFlag) {
         if (ECOInfiniteStorageMember.isMember(stack)) {
-            lines.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
+            lines.accept(Component.translatable("tooltip.neoecoae.storage.infinite_member")
                 .withStyle(ChatFormatting.LIGHT_PURPLE));
             return;
         }
-        lines.add(Component.translatable(tooltipGroup + ".contents")
+        lines.accept(Component.translatable(tooltipGroup + ".contents")
             .withStyle(ChatFormatting.AQUA));
-        lines.add(Component.translatable("tooltip.neoecoae.infinite_resource.unbounded")
+        lines.accept(Component.translatable("tooltip.neoecoae.infinite_resource.unbounded")
             .withStyle(ChatFormatting.GRAY));
-        lines.add(Component.translatable(tooltipGroup + ".sink")
+        lines.accept(Component.translatable(tooltipGroup + ".sink")
             .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
     }
 }

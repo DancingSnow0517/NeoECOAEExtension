@@ -81,7 +81,7 @@ public final class CraftingPlanExport {
             @Nullable ECOPlanningResult result, @Nullable ECOPlannerOptions options) {
         if (plan == null || grid == null || !ARMED.remove(player.getUUID())) return;
         try {
-            Path dir = player.server.getWorldPath(LevelResource.ROOT).resolve("eco-plan-exports");
+            Path dir = player.level().getServer().getWorldPath(LevelResource.ROOT).resolve("eco-plan-exports");
             Files.createDirectories(dir);
             Path file = dir.resolve("plan-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
                 + "-" + UUID.randomUUID().toString().substring(0, 4) + ".txt");

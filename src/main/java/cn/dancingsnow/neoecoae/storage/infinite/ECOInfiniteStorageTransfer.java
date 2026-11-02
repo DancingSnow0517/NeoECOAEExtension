@@ -138,7 +138,7 @@ public final class ECOInfiniteStorageTransfer {
             long amount = cursor.amounts[cursor.index];
             if (amount > 0) {
                 // Serialized once: both receipts hash the same text the former per-receipt serialization produced.
-                if (cursor.tag == null) cursor.tag = String.valueOf(key.toTagGeneric(registries));
+                if (cursor.tag == null) cursor.tag = String.valueOf(cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeKey(registries, key));
                 UUID legacy = legacyReceipt.apply(key, cursor.tag, amount);
                 UUID sealed = sealedReceipt(migration, cursor.tag);
                 if (engine.insertOnce(Set.of(legacy, sealed), key, amount) != amount) {

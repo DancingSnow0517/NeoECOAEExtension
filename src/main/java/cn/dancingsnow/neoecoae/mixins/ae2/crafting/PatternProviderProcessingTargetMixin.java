@@ -34,7 +34,7 @@ public abstract class PatternProviderProcessingTargetMixin implements ECOProcess
     @Unique private void neoecoae$recordSide(Direction direction) {
         var be = host.getBlockEntity();
         if (direction != null && be.getLevel() != null) neoecoae$processingTarget = new Target(
-            be.getLevel().dimension().location(), be.getBlockPos().relative(direction));
+            be.getLevel().dimension().identifier(), be.getBlockPos().relative(direction));
     }
 
     @WrapOperation(method = "pushPattern", at = @At(value = "INVOKE", target =

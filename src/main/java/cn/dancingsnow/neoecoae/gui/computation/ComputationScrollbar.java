@@ -7,6 +7,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import java.util.function.IntConsumer;
 import net.minecraft.client.renderer.Rect2i;
 
@@ -64,7 +65,8 @@ final class ComputationScrollbar extends UIElement {
     }
 
     @Override
-    public void drawBackgroundAdditional(GUIContext context) {
+    public void drawBackgroundAdditional(IGUIContext ctx) {
+        if (!(ctx instanceof GUIContext context)) return;
         position();
         if (pressed) {
             if (getModularUI() != null && getModularUI().getLastMouseDownButton() != 0) {
@@ -73,8 +75,6 @@ final class ComputationScrollbar extends UIElement {
                 publish();
             }
         }
-        // LDLib backgrounds are buffered while vanilla sprites draw immediately.
-        context.graphics.flush();
         scrollbar.drawForegroundLayer(context.graphics, new Rect2i(0, 0, 0, 0),
             new Point(Math.round(context.mouseX), Math.round(context.mouseY)));
     }

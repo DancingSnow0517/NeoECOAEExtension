@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.storage.bulk;
 
 import appeng.api.stacks.AEItemKey;
 import cn.dancingsnow.neoecoae.network.ECOCompressionSyncS2CPacket;
-import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.mojang.serialization.JsonOps;
 import java.math.BigInteger;
@@ -28,7 +27,7 @@ import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.ShapelessRecipe;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.AddReloadListenerEvent;
+import net.neoforged.neoforge.event.AddServerReloadListenersEvent;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
@@ -60,7 +59,8 @@ public final class ECOCompressionService {
     public static void init() {
         NeoForge.EVENT_BUS.addListener(ServerStartedEvent.class, event -> reload(event.getServer()));
         NeoForge.EVENT_BUS.addListener(ServerStoppedEvent.class, event -> install(List.of()));
-        NeoForge.EVENT_BUS.addListener(AddReloadListenerEvent.class, event -> event.addListener(new Rules()));
+        NeoForge.EVENT_BUS.addListener(AddServerReloadListenersEvent.class,
+            event -> event.addListener(cn.dancingsnow.neoecoae.NeoECOAE.id("eco_compression"), new Rules()));
         NeoForge.EVENT_BUS.addListener(OnDatapackSyncEvent.class, event -> {
             if (event.getPlayer() == null) reload(event.getPlayerList().getServer());
             List<BulkUnits> chains = snapshot.chains();
@@ -80,7 +80,7 @@ public final class ECOCompressionService {
         snapshot = new Snapshot(snapshot.revision() + 1, List.copyOf(chains), Map.copyOf(index));
     }
     private static void reload(MinecraftServer server) {
-        var recipes = server.getRecipeManager().getAllRecipesFor(RecipeType.CRAFTING).stream()
+        var recipes = server.getRecipeManager().recipeMap().byType(RecipeType.CRAFTING).stream()
             .sorted(Comparator.comparing(value -> value.id().toString())).map(value -> value.value()).toList();
         List<Edge> edges = new ArrayList<>(recognizeRecipes(recipes, server.registryAccess(), server.overworld()));
         edges.removeIf(edge -> disabled.contains(edge.lower()) || disabled.contains(edge.higher())
@@ -106,23 +106,30 @@ public final class ECOCompressionService {
         return List.copyOf(edges);
     }
     private static List<RecipeCandidate> recognize(CraftingRecipe recipe, RegistryAccess registries, Level level) {
-        var ingredients = recipe.getIngredients();
-        var nonempty = ingredients.stream().filter(ingredient -> !ingredient.isEmpty()).toList();
+        // 26.1 port: shaped ingredients are Optional per slot; shapeless ones come from the placement info.
+        List<java.util.Optional<net.minecraft.world.item.crafting.Ingredient>> ingredients = recipe instanceof ShapedRecipe shapedRecipe
+            ? shapedRecipe.getIngredients()
+            : recipe.placementInfo().ingredients().stream().map(java.util.Optional::of).toList();
+        var nonempty = ingredients.stream().flatMap(java.util.Optional::stream).filter(ingredient -> !ingredient.isEmpty()).toList();
         if (nonempty.isEmpty() || nonempty.stream().anyMatch(ingredient -> !ingredient.isSimple())) return List.of();
-        var output = recipe.getResultItem(registries);
-        if (output.isEmpty()) return List.of();
         Set<AEItemKey> possible = new HashSet<>();
-        for (ItemStack stack : nonempty.getFirst().getItems()) if (!stack.isEmpty()) possible.add(AEItemKey.of(stack));
+        nonempty.getFirst().items().forEach(item -> {
+            ItemStack stack = new ItemStack(item);
+            if (!stack.isEmpty()) possible.add(AEItemKey.of(stack));
+        });
         List<RecipeCandidate> result = new ArrayList<>();
         for (AEItemKey key : possible) {
             if (nonempty.stream().anyMatch(ingredient -> !ingredient.test(key.toStack()))) continue;
             var stacks = new ArrayList<ItemStack>();
-            for (var ingredient : ingredients) stacks.add(ingredient.isEmpty() ? ItemStack.EMPTY : key.toStack());
+            for (var ingredient : ingredients) stacks.add(ingredient.isEmpty() || ingredient.get().isEmpty() ? ItemStack.EMPTY : key.toStack());
             int width = recipe instanceof ShapedRecipe shaped ? shaped.getWidth() : ingredients.size();
             int height = recipe instanceof ShapedRecipe shaped ? shaped.getHeight() : 1;
             var input = CraftingInput.of(width, height, stacks);
             if (!recipe.matches(input, level)) continue;
-            var actual = recipe.assemble(input, registries);
+            // 26.1 port: getResultItem(registries) is gone; normal crafting recipes assemble their fixed result.
+            var output = recipe.assemble(input);
+            if (output.isEmpty()) continue;
+            var actual = recipe.assemble(input);
             if (!ItemStack.isSameItemSameComponents(actual, output) || actual.getCount() != output.getCount()
                     || recipe.getRemainingItems(input).stream().anyMatch(stack -> !stack.isEmpty())) continue;
             result.add(new RecipeCandidate(key, nonempty.size(), AEItemKey.of(output), output.getCount()));
@@ -169,8 +176,8 @@ public final class ECOCompressionService {
         return List.copyOf(chains);
     }
     /** data/<namespace>/eco_compression/*.json: explicit conversions and exclusions. */
-    private static final class Rules extends SimpleJsonResourceReloadListener {
-        Rules() { super(new Gson(), "eco_compression"); }
+    private static final class Rules extends SimpleJsonResourceReloadListener<JsonElement> {
+        Rules() { super(net.minecraft.util.ExtraCodecs.JSON, net.minecraft.resources.FileToIdConverter.json("eco_compression")); }
         @Override protected void apply(Map<Identifier, JsonElement> files, ResourceManager manager, ProfilerFiller profiler) {
             List<Edge> next = new ArrayList<>(); Set<AEItemKey> excluded = new HashSet<>();
             for (var file : files.entrySet().stream().sorted(Map.Entry.comparingByKey()).toList()) {

@@ -25,6 +25,9 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
+import cn.dancingsnow.neoecoae.gui.common.ElementRenderHooks;
+import net.minecraft.client.renderer.RenderPipelines;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -179,7 +182,11 @@ public final class CraftingInterfaceUI {
     }
 
     /** Identifies the insertion surface when the client draws tooltips while carrying an item. */
-    public static final class PatternPreview extends UIElement {
+    public static final class PatternPreview extends UIElement implements ElementRenderHooks.Contents {
+        static {
+            ElementRenderHooks.register(PatternPreview.class);
+        }
+
         private final CraftingPatternPreviewState state;
         private long lastFrame;
 
@@ -192,21 +199,19 @@ public final class CraftingInterfaceUI {
         }
 
         @Override
-        public void drawContents(GUIContext context) {
+        public void drawContents(IGUIContext context, Runnable drawDefault) {
             // Preserve the texture's fixed outer border, then let UIElement draw and clip the children normally.
-            context.graphics.flush();
             context.enableScissor(getPositionX() + 1, getPositionY() + 1,
                 getSizeWidth() - 2, getSizeHeight() - 2);
             try {
-                super.drawContents(context);
+                drawDefault.run();
             } finally {
-                context.graphics.flush();
                 context.disableScissor();
             }
         }
 
         @Override
-        public void drawBackgroundAdditional(GUIContext context) {
+        public void drawBackgroundAdditional(IGUIContext context) {
             float x = getPositionX();
             float y = getPositionY() - (float) state.getRowOffset();
             for (int row = 0; row <= PREVIEW_ROWS; row++) {
@@ -253,17 +258,16 @@ public final class CraftingInterfaceUI {
 
     static UIElement patternPreviewScrollbar(CraftingPatternPreviewState state) {
         UIElement scrollbar = new UIElement() {
-            @Override public void drawBackgroundAdditional(GUIContext context) {
+            @Override public void drawBackgroundAdditional(IGUIContext ctx) {
+                if (!(ctx instanceof GUIContext context)) return;
                 double max = state.getMaxScrollOffset();
                 float progress = max <= 0 ? 0F : (float) Math.clamp(state.getScrollOffset() / max, 0, 1);
                 int x = Math.round(getPositionX()) + SCROLLBAR_BORDER;
                 int y = Math.round(getPositionY()) + SCROLLBAR_BORDER;
-                // Flush LDLib's track texture before drawing AE2's native sprite on top of it.
-                context.graphics.flush();
                 context.pose.pushPose();
                 try {
-                    context.pose.translate(0, SCROLLBAR_TRAVEL * progress, 0);
-                    context.graphics.blitSprite(max > 0 ? SCROLLBAR_ENABLED : SCROLLBAR_DISABLED,
+                    context.pose.translate(0, SCROLLBAR_TRAVEL * progress);
+                    context.graphics.blitSprite(RenderPipelines.GUI_TEXTURED, max > 0 ? SCROLLBAR_ENABLED : SCROLLBAR_DISABLED,
                             x, y, SCROLLBAR_WIDTH, SCROLLBAR_THUMB_HEIGHT);
                 } finally {
                     context.pose.popPose();
@@ -410,7 +414,7 @@ public final class CraftingInterfaceUI {
             return this;
         }
 
-        @Override public void drawBackgroundAdditional(GUIContext context) {
+        @Override public void drawBackgroundAdditional(IGUIContext context) {
             boolean hovered = isHover();
             // The lower hover sprite is one pixel shorter; keep the hitbox fixed and shift the image down.
             context.drawTexture((hovered ? HOVERED : NORMAL)[state],
@@ -425,8 +429,9 @@ public final class CraftingInterfaceUI {
             progress = value == null ? 0F : Math.clamp(value, 0F, 1F);
             return this;
         }
-        @Override public void drawContents(GUIContext context) {
-            if (progress <= 0F) return;
+        @Override public void drawBackgroundAdditional(IGUIContext ctx) {
+            // No children: the 1.21.1 drawContents override is equivalent to drawing the background.
+            if (progress <= 0F || !(ctx instanceof GUIContext context)) return;
             int x = Math.round(getPositionX()), y = Math.round(getPositionY());
             context.graphics.fill(x, y, x + Math.round(getSizeWidth() * progress), y + 2, 0xFF32D6FF);
         }

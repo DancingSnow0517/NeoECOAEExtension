@@ -15,20 +15,25 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.transfer.ResourceHandler;
 import net.neoforged.neoforge.transfer.ResourceHandlerUtil;
 import net.neoforged.neoforge.transfer.fluid.FluidResource;
-import net.neoforged.neoforge.transfer.fluid.FluidStacksResourceHandler;
+import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
+import cn.dancingsnow.neoecoae.blocks.entity.FluidTankResourceHandler;
 import net.neoforged.neoforge.transfer.transaction.Transaction;
 
 public class ECOFluidOutputHatchBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOFluidOutputHatchBlockEntity> {
 
     public static int MAX_CAPACITY = 16000;
 
-    public FluidStacksResourceHandler tank = new FluidStacksResourceHandler(1, MAX_CAPACITY) {
+    /** @deprecated Use {@link #getFluidTankHandler()}; operate on the buffer without replacing it. */
+    @Deprecated
+    public FluidTank tank = new FluidTank(MAX_CAPACITY) {
         @Override
-        protected void onContentsChanged(int index, FluidStack previousContents) {
+        protected void onContentsChanged() {
             setChanged();
             markForUpdate();
         }
     };
+
+    private final FluidTankResourceHandler drainOnlyHandler = FluidTankResourceHandler.extractOnly(() -> tank);
 
     public ECOFluidOutputHatchBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator::new);
@@ -37,27 +42,31 @@ public class ECOFluidOutputHatchBlockEntity extends cn.dancingsnow.neoecoae.bloc
     /** Stable addon handler view. */
     public FluidTank getFluidTankHandler() { return tank; }
 
+    /** 26.1 fluid capability ({@code Capabilities.Fluid.BLOCK}): drain-only view of the tank. */
+    public ResourceHandler<FluidResource> getFluidResourceHandler() { return drainOnlyHandler; }
+
     @Override
     public void saveAdditional(ValueOutput data) {
         super.saveAdditional(data);
-        data.putChild("tank", tank);
+        // Same layout as 1.21.1 FluidTank#writeToNBT(registries, data): "Fluid" at the block entity root.
+        tank.serialize(data);
     }
 
     @Override
     public void loadTag(ValueInput data) {
         super.loadTag(data);
-        data.readChild("tank", tank);
+        tank.deserialize(data);
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
-        if (ResourceHandlerUtil.isEmpty(tank)) {
+        if (tank.isEmpty()) {
             return;
         }
         for (Direction face : Direction.values()) {
             ResourceHandler<FluidResource> targetHandler = level.getCapability(Capabilities.Fluid.BLOCK, pos.relative(face), face.getOpposite());
             if (targetHandler != null) {
                 try (Transaction transaction = Transaction.open(null)) {
-                    int moved = ResourceHandlerUtil.move(tank, targetHandler, fluid -> true, tank.getCapacityAsInt(0, tank.getResource(0)), transaction);
+                    int moved = ResourceHandlerUtil.move(drainOnlyHandler, targetHandler, fluid -> true, tank.getFluidAmount(), transaction);
                     if (moved > 0) {
                         transaction.commit();
                         return;

@@ -71,7 +71,7 @@ final class CraftingPatternPreviewState {
         this.player = player;
         Arrays.fill(displayed, -1);
         Arrays.fill(displayedSubs, -1);
-        if (player.level().isClientSide) {
+        if (player.level().isClientSide()) {
             var sync = craftingInterface.getPatternPreviewSync();
             sync.listen(receiver);
             var view = sync.clientView();
@@ -94,7 +94,7 @@ final class CraftingPatternPreviewState {
 
     void tick() {
         // UI construction precedes assigning player.containerMenu. Probe only once the actual menu is ready.
-        if (!player.level().isClientSide || !(player.containerMenu instanceof ModularUIContainerMenu menu)
+        if (!player.level().isClientSide() || !(player.containerMenu instanceof ModularUIContainerMenu menu)
                 || !(menu.uiHolder instanceof BlockUIMenuType.BlockUIHolder holder)
                 || !holder.pos.equals(craftingInterface.getBlockPos()) || requestedMenuId == menu.containerId) return;
         menuId = menu.containerId;
@@ -151,7 +151,7 @@ final class CraftingPatternPreviewState {
     }
 
     private void act(int visualSlot, int action, int button) {
-        if (!player.level().isClientSide || operationRevision() < 0
+        if (!player.level().isClientSide() || operationRevision() < 0
                 || menuId != player.containerMenu.containerId) return;
         int index = displayed[visualSlot];
         if (index < 0 || index >= entries.length) return;
@@ -175,7 +175,7 @@ final class CraftingPatternPreviewState {
         payload.putInt("revision", operationRevision());
         payload.putLong("bus", entry.busPosition());
         payload.putInt("slot", entry.physicalSlot());
-        payload.put("stack", entry.stack().saveOptional(player.level().registryAccess()));
+        payload.put("stack", cn.dancingsnow.neoecoae.util.LegacyNbt.saveItem(player.level().registryAccess(), entry.stack()));
         payload.putInt("action", action);
         payload.putInt("button", button);
         craftingInterface.rpcToServer("actOnPatternPreview", payload);
@@ -188,7 +188,7 @@ final class CraftingPatternPreviewState {
 
     /** Inserts into an actual empty bus slot, including slots outside the current viewport and search. */
     boolean insertCarriedPattern(int button) {
-        if ((button != 0 && button != 1) || !player.level().isClientSide || operationRevision() < 0
+        if ((button != 0 && button != 1) || !player.level().isClientSide() || operationRevision() < 0
                 || menuId != player.containerMenu.containerId) return false;
         if (!hasCarriedPattern()) return false;
         for (int index = 0; index < entries.length; index++) {
@@ -228,7 +228,7 @@ final class CraftingPatternPreviewState {
     }
 
     private void queueQuickMove(int visualSlot) {
-        if (!player.level().isClientSide || quickMoveRevision < 0
+        if (!player.level().isClientSide() || quickMoveRevision < 0
                 || menuId != player.containerMenu.containerId) return;
         int index = displayed[visualSlot];
         if (index < 0 || index >= entries.length) return;
@@ -246,7 +246,7 @@ final class CraftingPatternPreviewState {
 
     private void flushQuickMoveBatch() {
         if (quickMoveTargets.isEmpty()) return;
-        if (!player.level().isClientSide || quickMoveRevision < 0
+        if (!player.level().isClientSide() || quickMoveRevision < 0
                 || menuId != player.containerMenu.containerId) {
             quickMoveTargets.clear();
             return;
@@ -259,7 +259,7 @@ final class CraftingPatternPreviewState {
             CompoundTag target = new CompoundTag();
             target.putLong("bus", entry.busPosition());
             target.putInt("slot", entry.physicalSlot());
-            target.put("stack", entry.stack().saveOptional(player.level().registryAccess()));
+            target.put("stack", cn.dancingsnow.neoecoae.util.LegacyNbt.saveItem(player.level().registryAccess(), entry.stack()));
             targets.add(target);
         }
         payload.put("targets", targets);
@@ -273,7 +273,7 @@ final class CraftingPatternPreviewState {
         // no bus takes simply finds no slot over there.
         if (!(source.getItem().getItem() instanceof appeng.crafting.pattern.EncodedPatternItem<?>)
                 && !PatternDiskSupport.isAuxiliaryContainer(source.getItem())) return false;
-        if (!player.level().isClientSide || operationRevision() < 0
+        if (!player.level().isClientSide() || operationRevision() < 0
                 || menuId != player.containerMenu.containerId || !player.containerMenu.getCarried().isEmpty()) return false;
         for (int index = 0; index < entries.length; index++) {
             PatternPreviewEntry entry = entries[index];
@@ -287,11 +287,11 @@ final class CraftingPatternPreviewState {
             payload.putInt("revision", operationRevision());
             payload.putLong("bus", entry.busPosition());
             payload.putInt("slot", entry.physicalSlot());
-            payload.put("stack", entry.stack().saveOptional(player.level().registryAccess()));
+            payload.put("stack", cn.dancingsnow.neoecoae.util.LegacyNbt.saveItem(player.level().registryAccess(), entry.stack()));
             payload.putInt("action", 2);
             payload.putInt("button", 0);
             payload.putInt("sourceSlot", source.getContainerSlot());
-            payload.put("sourceStack", source.getItem().saveOptional(player.level().registryAccess()));
+            payload.put("sourceStack", cn.dancingsnow.neoecoae.util.LegacyNbt.saveItem(player.level().registryAccess(), source.getItem()));
             craftingInterface.rpcToServer("actOnPatternPreview", payload);
             return true;
         }
@@ -299,7 +299,7 @@ final class CraftingPatternPreviewState {
     }
 
     void receive(CompoundTag payload) {
-        if (!player.level().isClientSide || craftingInterface.getLevel() == null
+        if (!player.level().isClientSide() || craftingInterface.getLevel() == null
                 || payload.getIntOr("menu", 0) != player.containerMenu.containerId) return;
         long incomingEpoch = payload.getLongOr("epoch", 0L);
         if (payload.getBooleanOr("reuse", false)) {
@@ -334,7 +334,7 @@ final class CraftingPatternPreviewState {
         BitSet pageChanges = new BitSet();
         boolean diskRowsChanged = false;
         for (int index = 0; index < batch.size(); index++) {
-            CompoundTag entry = batch.getCompound(index);
+            CompoundTag entry = batch.getCompoundOrEmpty(index);
             int logicalSlot = entry.getIntOr("index", 0);
             if (logicalSlot < 0 || logicalSlot >= pending.length) {
                 pending = null;

@@ -32,7 +32,7 @@ public class NERecipeTypes {
     public static final DeferredHolder<RecipeType<?>, RecipeType<LargeIntegratedWorkingStationRecipe>> LARGE_INTEGRATED_WORKING_STATION = registerRecipe("large_integrated_working_station");
     public static final DeferredHolder<RecipeSerializer<?>, RecipeSerializer<LargeIntegratedWorkingStationRecipe>> LARGE_INTEGRATED_WORKING_STATION_SERIALIZER = RECIPE_SERIALIZER.register(
         "large_integrated_working_station",
-        LargeIntegratedWorkingStationRecipe.Serializer::new
+        () -> LargeIntegratedWorkingStationRecipe.SERIALIZER
     );
 
     private static <T extends Recipe<?>> DeferredHolder<RecipeType<?>, RecipeType<T>> registerRecipe(String name) {

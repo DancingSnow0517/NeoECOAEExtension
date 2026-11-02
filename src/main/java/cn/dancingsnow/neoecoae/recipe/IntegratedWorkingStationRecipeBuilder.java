@@ -78,10 +78,8 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
     }
 
     public IntegratedWorkingStationRecipeBuilder require(TagKey<Item> tag, int count) {
-        if (itemLookup == null) {
-            throw new IllegalStateException("Item tag ingredients require an item HolderGetter");
-        }
-        return require(new SizedIngredient(Ingredient.of(itemLookup.getOrThrow(tag)), count));
+        HolderGetter<Item> lookup = itemLookup != null ? itemLookup : BuiltInRegistries.ITEM;
+        return require(new SizedIngredient(Ingredient.of(lookup.getOrThrow(tag)), count));
     }
 
     public IntegratedWorkingStationRecipeBuilder require(TagKey<Item> tag) {
@@ -98,10 +96,8 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
     }
 
     public IntegratedWorkingStationRecipeBuilder requireFluid(TagKey<Fluid> tag, int count) {
-        if (fluidLookup == null) {
-            throw new IllegalStateException("Fluid tag ingredients require a fluid HolderGetter");
-        }
-        return requireFluid(new SizedFluidIngredient(FluidIngredient.of(fluidLookup.getOrThrow(tag)), count));
+        HolderGetter<Fluid> lookup = fluidLookup != null ? fluidLookup : BuiltInRegistries.FLUID;
+        return requireFluid(new SizedFluidIngredient(FluidIngredient.of(lookup.getOrThrow(tag)), count));
     }
 
     public IntegratedWorkingStationRecipeBuilder requireFluid(TagKey<Fluid> tag) {
@@ -127,7 +123,8 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
 
     public IntegratedWorkingStationRecipeBuilder itemOutput(ItemLike item, int count) {
         if (itemLookup == null) {
-            throw new IllegalStateException("Item outputs require an item HolderGetter");
+            this.itemOutput = new ItemStackTemplate(item.asItem(), count);
+            return this;
         }
         Identifier itemId = Objects.requireNonNull(BuiltInRegistries.ITEM.getKey(item.asItem()), "item must be registered");
         Holder<Item> holder = itemLookup.getOrThrow(ResourceKey.create(Registries.ITEM, itemId));
@@ -146,7 +143,8 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
 
     public IntegratedWorkingStationRecipeBuilder fluidOutput(Fluid fluid, int amount) {
         if (fluidLookup == null) {
-            throw new IllegalStateException("Fluid outputs require a fluid HolderGetter");
+            this.fluidOutput = new FluidStackTemplate(fluid, amount);
+            return this;
         }
         Identifier fluidId = Objects.requireNonNull(BuiltInRegistries.FLUID.getKey(fluid), "fluid must be registered");
         Holder<Fluid> holder = fluidLookup.getOrThrow(ResourceKey.create(Registries.FLUID, fluidId));
@@ -180,20 +178,29 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
 
     @Override
     public void save(RecipeOutput recipeOutput, ResourceKey<Recipe<?>> id) {
-        // check
-        if (itemOutput == null && fluidOutput == null) {
-            throw new IllegalStateException("Recipe must have at least one output");
-        }
-        if (inputItems.isEmpty()) {
-            throw new IllegalStateException("Recipe must have at least one input");
-        }
-
-        IntegratedWorkingStationRecipe recipe = new IntegratedWorkingStationRecipe(inputItems, Optional.ofNullable(inputFluid), itemOutput, fluidOutput, energy);
-        recipeOutput.accept(id, recipe, null);
+        save(recipeOutput, id, false);
     }
 
     public void save(RecipeOutput recipeOutput, Identifier id) {
         save(recipeOutput, ResourceKey.create(Registries.RECIPE, id));
+    }
+
+    public void saveLarge(RecipeOutput recipeOutput) {
+        save(recipeOutput, ResourceKey.create(Registries.RECIPE, NeoECOAE.id(itemOutputPath())), true);
+    }
+
+    private void save(RecipeOutput recipeOutput, ResourceKey<Recipe<?>> id, boolean large) {
+        // check
+        if (itemOutput == null && fluidOutput == null) {
+            throw new IllegalStateException("Recipe must have at least one output");
+        }
+        if (inputItems.isEmpty() && inputFluid == null) {
+            throw new IllegalStateException("Recipe must have at least one input");
+        }
+
+        IntegratedWorkingStationRecipe recipe = new IntegratedWorkingStationRecipe(
+            inputItems, Optional.ofNullable(inputFluid), itemOutput, fluidOutput, energy, processingTicks);
+        recipeOutput.accept(id, large ? new LargeIntegratedWorkingStationRecipe(recipe) : recipe, null);
     }
 
     private String itemOutputPath() {

@@ -9,7 +9,9 @@ import cn.dancingsnow.neoecoae.client.gui.widget.ECOBulkMarkerPopup;
 import cn.dancingsnow.neoecoae.items.ECOBulkStorageCellItem;
 import appeng.api.stacks.AEItemKey;
 import appeng.menu.slot.CellPartitionSlot;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -39,7 +41,9 @@ public abstract class CellWorkbenchScreenMixin extends UpgradeableScreen<CellWor
     }
 
     @Override
-    public boolean mouseClicked(double x, double y, int button) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        double x = event.x(), y = event.y();
+        int button = event.button();
         if (neoecoae$markerPopup.isOpen()) {
             neoecoae$markerPopup.click(x, y, button);
             neoecoae$consumeMarkerRelease = true;
@@ -56,36 +60,36 @@ public abstract class CellWorkbenchScreenMixin extends UpgradeableScreen<CellWor
                 }
             }
         }
-        return super.mouseClicked(x, y, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
-    public boolean mouseReleased(double x, double y, int button) {
+    public boolean mouseReleased(MouseButtonEvent event) {
         if (neoecoae$consumeMarkerRelease || neoecoae$markerPopup.isOpen()) {
             neoecoae$consumeMarkerRelease = false;
             return true;
         }
-        return super.mouseReleased(x, y, button);
+        return super.mouseReleased(event);
     }
 
     @Override
-    public boolean mouseDragged(double x, double y, int button, double deltaX, double deltaY) {
+    public boolean mouseDragged(MouseButtonEvent event, double deltaX, double deltaY) {
         return neoecoae$consumeMarkerRelease || neoecoae$markerPopup.isOpen()
-            || super.mouseDragged(x, y, button, deltaX, deltaY);
+            || super.mouseDragged(event, deltaX, deltaY);
     }
 
     @Override
-    public boolean keyPressed(int key, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyEvent event) {
         if (neoecoae$markerPopup.isOpen()) {
-            if (key == 256 || minecraft.options.keyInventory.matches(key, scanCode)) neoecoae$markerPopup.close();
+            if (event.isEscape() || minecraft.options.keyInventory.matches(event)) neoecoae$markerPopup.close();
             return true;
         }
-        return super.keyPressed(key, scanCode, modifiers);
+        return super.keyPressed(event);
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.render(graphics, mouseX, mouseY, partialTick);
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         neoecoae$markerPopup.render(graphics, font, mouseX, mouseY);
     }
 }

@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.client.item;
 
 import appeng.api.storage.cells.CellState;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.client.NEItemColors;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import com.mojang.serialization.MapCodec;
@@ -22,13 +23,8 @@ public enum ECOStorageCellStateTintSource implements ItemTintSource {
 
     @Override
     public int calculate(@NonNull ItemStack itemStack, @Nullable ClientLevel level, @Nullable LivingEntity owner) {
-        CellState cellState = getCellState(itemStack);
-        return ARGB.opaque(cellState.getStateColor());
-    }
-
-    private static CellState getCellState(@NonNull ItemStack itemStack) {
-        IECOStorageCell inventory = ECOStorageCells.getCellInventory(itemStack, null);
-        return inventory == null ? CellState.EMPTY : inventory.getStatus();
+        // Memoised per stack identity: resolving an ECO inventory rebuilds a cell instance (see NEItemColors).
+        return ARGB.opaque(NEItemColors.stateColor(itemStack));
     }
 
     @Override

@@ -15,7 +15,9 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
+import com.lowdragmc.lowdraglib2.gui.util.DrawerHelperClient;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
+import cn.dancingsnow.neoecoae.gui.NEGuiColors;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -82,7 +84,7 @@ final class CraftingControllerArtwork extends UIElement {
         layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(0).top(0).width(UI_WIDTH).height(UI_HEIGHT));
 
         addChild(tooltipRegion(9, 29, 16, 34,
-            () -> hostItem.isEmpty() ? List.of() : DrawerHelper.getItemToolTip(hostItem)));
+            () -> hostItem.isEmpty() ? List.of() : DrawerHelperClient.getItemToolTip(hostItem)));
         addChild(tooltipRegion(64, 79, 51, 45, tooltips::queueTooltip));
         addChild(tooltipRegion(117, 79, 51, 45, tooltips::parallelTooltip));
         addChild(tooltipRegion(176, 78, 8, 46, tooltips::energyTooltip));
@@ -104,7 +106,7 @@ final class CraftingControllerArtwork extends UIElement {
         return new UIElement().layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
             .left(x).top(y).width(width).height(height))
             .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-                lines.get(), null, null, null));
+                new java.util.ArrayList<Object>(lines.get()), null, null, null, null));
     }
 
     private void updateWorkerSlots() {
@@ -115,11 +117,12 @@ final class CraftingControllerArtwork extends UIElement {
     }
 
     @Override
-    public void drawBackgroundAdditional(GUIContext context) {
+    public void drawBackgroundAdditional(IGUIContext ctx) {
+        if (!(ctx instanceof GUIContext context)) return;
         context.drawTexture(NETextures.Crafting.controller(panelTier), getPositionX(), getPositionY(), UI_WIDTH, UI_HEIGHT);
         drawHeader(context);
         if (!hostItem.isEmpty()) {
-            context.graphics.renderItem(hostItem, Math.round(getPositionX()) + 9,
+            context.graphics.item(hostItem, Math.round(getPositionX()) + 9,
                 Math.round(getPositionY()) + 38);
         }
         if (!view.state.formed()) return;
@@ -195,13 +198,13 @@ final class CraftingControllerArtwork extends UIElement {
         float scale = Math.min(INFO_TEXT_SCALE, (INFO_TEXT_WIDTH - 1.0F) / Math.max(1, font.width(value)));
         float textY = y + (font.lineHeight - 1) * (INFO_TEXT_SCALE - scale) / 2.0F;
         var pose = context.graphics.pose();
-        pose.pushPose();
+        pose.pushMatrix();
         try {
-            pose.translate(getPositionX() + INFO_TEXT_X, (double) getPositionY() + textY, 0.0D);
-            pose.scale(scale, scale, 1.0F);
-            context.graphics.drawString(font, value, 0, 0, color, true);
+            pose.translate(getPositionX() + INFO_TEXT_X, getPositionY() + textY);
+            pose.scale(scale, scale);
+            context.graphics.text(font, value, 0, 0, NEGuiColors.textColor(color), true);
         } finally {
-            pose.popPose();
+            pose.popMatrix();
         }
     }
 
@@ -210,16 +213,16 @@ final class CraftingControllerArtwork extends UIElement {
         if (value.isEmpty()) return;
         Font font = Minecraft.getInstance().font;
         value = font.plainSubstrByWidth(value, width);
-        context.graphics.drawString(font, value, Math.round(getPositionX()) + x,
-            Math.round(getPositionY()) + y, color, true);
+        context.graphics.text(font, value, Math.round(getPositionX()) + x,
+            Math.round(getPositionY()) + y, NEGuiColors.textColor(color), true);
     }
 
     private void drawCenteredText(GUIContext context, Component text, int x, int y, int width, int color) {
         Font font = Minecraft.getInstance().font;
         String value = font.plainSubstrByWidth(text.getString(), width);
         int left = x + Math.max(0, (width - font.width(value)) / 2);
-        context.graphics.drawString(font, value, Math.round(getPositionX()) + left,
-            Math.round(getPositionY()) + y, color, true);
+        context.graphics.text(font, value, Math.round(getPositionX()) + left,
+            Math.round(getPositionY()) + y, NEGuiColors.textColor(color), true);
     }
 
     private void drawTier(GUIContext context, int tier) {
@@ -343,13 +346,13 @@ final class CraftingControllerArtwork extends UIElement {
         Font font = Minecraft.getInstance().font;
         var pose = context.graphics.pose();
         for (int row = 0; row < lines.size(); row++) {
-            pose.pushPose();
+            pose.pushMatrix();
             try {
-                pose.translate(getPositionX() + x, getPositionY() + STAT_TEXT_Y + row * STAT_LINE_SPACING, 0.0D);
-                pose.scale(STAT_TEXT_SCALE, STAT_TEXT_SCALE, 1.0F);
-                context.graphics.drawString(font, lines.get(row), 0, 0, PRIMARY, true);
+                pose.translate(getPositionX() + x, getPositionY() + STAT_TEXT_Y + row * STAT_LINE_SPACING);
+                pose.scale(STAT_TEXT_SCALE, STAT_TEXT_SCALE);
+                context.graphics.text(font, lines.get(row), 0, 0, PRIMARY, true);
             } finally {
-                pose.popPose();
+                pose.popMatrix();
             }
         }
     }
@@ -374,13 +377,13 @@ final class CraftingControllerArtwork extends UIElement {
         float scale = Math.min(preferredScale, (width - 1.0F) / Math.max(1, font.width(text)));
         float left = x + (centered ? (width - font.width(text) * scale) / 2.0F : 0);
         var pose = context.graphics.pose();
-        pose.pushPose();
+        pose.pushMatrix();
         try {
-            pose.translate(getPositionX() + left, getPositionY() + y, 0.0D);
-            pose.scale(scale, scale, 1.0F);
-            context.graphics.drawString(font, text, 0, 0, PRIMARY, true);
+            pose.translate(getPositionX() + left, getPositionY() + y);
+            pose.scale(scale, scale);
+            context.graphics.text(font, text, 0, 0, PRIMARY, true);
         } finally {
-            pose.popPose();
+            pose.popMatrix();
         }
     }
 
@@ -403,11 +406,9 @@ final class CraftingControllerArtwork extends UIElement {
             * opening.value(safeAmount / (double) safeCapacity));
         if (height > 0 && fluid != null && !fluid.isEmpty()) {
             FluidStack renderStack = fluid.copyWithAmount(Math.max(1, safeAmount));
-            context.graphics.flush();
-            DrawerHelper.drawFluidForGui(context.graphics, renderStack,
+            DrawerHelperClient.drawFluidForGui(context, renderStack,
                 Math.round(getPositionX()) + x + 1, Math.round(getPositionY()) + 124 - height,
                 18, height, -1);
-            context.graphics.flush();
         }
         drawGaugeTicks(context, tickX);
     }

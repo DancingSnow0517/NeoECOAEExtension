@@ -40,7 +40,7 @@ public abstract class MEStorageScreenExactAmountMixin {
         ExactAmountClientCache.clear(self.getMenu().containerId);
     }
 
-    @ModifyExpressionValue(method = "renderSlot", at = @At(value = "INVOKE", target =
+    @ModifyExpressionValue(method = "extractSlot", at = @At(value = "INVOKE", target =
         "Lappeng/api/stacks/AEKey;formatAmount(JLappeng/api/stacks/AmountFormat;)Ljava/lang/String;"))
     private String neoecoae$renderExactSlotAmount(String original, @Local GridInventoryEntry entry) {
         MEStorageScreen<?> self = (MEStorageScreen<?>) (Object) this;

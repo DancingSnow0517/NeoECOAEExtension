@@ -38,9 +38,9 @@ public final class ECOInfiniteStorageMember {
     /**
      * Read-only access: mutations must still copy the tag and replace the component.
      */
-    @SuppressWarnings("deprecation")
     private static CompoundTag readTag(CustomData data) {
-        return data.getUnsafe();
+        // 26.1 port: CustomData#getUnsafe was removed.
+        return data.copyTag();
     }
 
     public static UUID identity(ItemStack stack) {

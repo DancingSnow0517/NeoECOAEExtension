@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.gui.common;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.AmountFormat;
-import appeng.api.client.AEKeyRendering;
+import appeng.client.api.AEKeyRendering;
 import appeng.client.gui.me.common.StackSizeRenderer;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity;
@@ -14,11 +14,12 @@ import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.menu.FluidHatchStockAmount;
 import com.google.gson.JsonObject;
-import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
+import com.lowdragmc.lowdraglib2.gui.slot.ItemResourceHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEmitter;
 import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEventBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.FluidSlot;
@@ -36,7 +37,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import net.minecraft.client.Minecraft;
 import net.minecraft.ChatFormatting;
 
@@ -101,8 +101,8 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
         mode.registerValueListener(installed -> {
             applyMode.accept(installed);
             var ui = root.getModularUI();
-            if (player.level().isClientSide && ui != null && ui.getScreen() != null) {
-                ui.init(ui.getScreen().width, ui.getScreen().height);
+            if (player.level().isClientSide() && ui != null && ui.getScreenWidth() > 0) {
+                ui.init(ui.getScreenWidth(), ui.getScreenHeight());
             }
         });
         mode.bind(DataBindingBuilder.boolS2C(host::hasNetworkPullCard).initialValue(mode.getValue()).build());
@@ -132,7 +132,12 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
         return button;
     }
 
-    private final class StockAmountButton extends Button {
+    private final class StockAmountButton extends Button
+        implements ElementRenderHooks.Background, ElementRenderHooks.Contents {
+        static {
+            ElementRenderHooks.register(StockAmountButton.class);
+        }
+
         private final RPCEmitter openAmount;
 
         StockAmountButton() {
@@ -144,8 +149,8 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
             noText().setOnClick(event -> openAmount.send());
         }
 
-        @Override public void drawBackgroundAdditional(GUIContext context) {}
-        @Override public void drawContents(GUIContext context) {
+        @Override public void drawBackgroundAdditional(IGUIContext context, Runnable drawParent) {}
+        @Override public void drawContents(IGUIContext context, Runnable drawDefault) {
             context.drawTexture(AETextures.icon(getState() == State.DEFAULT ? ECOIcon.COG_DISABLED : ECOIcon.COG),
                 getPositionX(), getPositionY(), 16, 16);
         }
@@ -169,19 +174,19 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
                 : FluidHatchInterfaceConfig.slotAmount(AEFluidKey.of(getValue()), exactAmount.getValue()));
         }
 
-        @Override protected void drawFluid(GUIContext context, FluidStack fluid, float x, float y, float width, float height) {
+        @Override protected void drawFluid(IGUIContext context, FluidStack fluid, float x, float y, float width, float height) {
             drawInterfaceFluid(context, fluid, x, y, exactAmount.getValue());
         }
 
         @Override
-        public List<Component> getFullTooltipTexts(boolean withFluidName) {
+        public List<Component> getFullTooltipTexts() {
             return interfaceTooltip(getValue(), exactAmount.getValue());
         }
     }
 
     private UIElement upgrades() {
         UIElement rail = HostSideButtonBar.rightSlots(List.of(
-            new ItemSlot(new ItemHandlerSlot((IItemHandlerModifiable) host.getUpgrades().toItemHandler(), 0))
+            new ItemSlot(new ItemResourceHandlerSlot(host.getUpgrades().toResourceHandler(), 0))
                 .slotStyle(style -> style.slotOverlay(AETextures.icon(ECOIcon.BACKGROUND_UPGRADE))
                     .showSlotOverlayOnlyEmpty(true))
                 .style(style -> style.tooltips(text("upgrade")))));
@@ -199,7 +204,8 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
         return Component.translatable("gui.neoecoae.fluid_input_hatch." + key, args);
     }
 
-    private static void drawInterfaceFluid(GUIContext context, FluidStack fluid, float x, float y, long amount) {
+    private static void drawInterfaceFluid(IGUIContext ctx, FluidStack fluid, float x, float y, long amount) {
+        if (!(ctx instanceof GUIContext context)) return;
         var key = AEFluidKey.of(fluid);
         var mc = Minecraft.getInstance();
         AEKeyRendering.drawInGui(mc, context.graphics, Math.round(x), Math.round(y), key);
@@ -243,7 +249,7 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
             exactTarget.setDisplay(false);
             exactTarget.bind(DataBindingBuilder.longValS2C(host::getTargetAmount).build());
             addChild(exactTarget);
-            if (player.level().isClientSide) xeiPhantom();
+            if (player.level().isClientSide()) xeiPhantom();
         }
 
         @Override
@@ -252,12 +258,12 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
                 : FluidHatchInterfaceConfig.slotAmount(AEFluidKey.of(getValue()), exactTarget.getValue()));
         }
 
-        @Override protected void drawFluid(GUIContext context, FluidStack fluid, float x, float y, float width, float height) {
+        @Override protected void drawFluid(IGUIContext context, FluidStack fluid, float x, float y, float width, float height) {
             drawInterfaceFluid(context, fluid, x, y, exactTarget.getValue());
         }
 
         @Override
-        public List<Component> getFullTooltipTexts(boolean withFluidName) {
+        public List<Component> getFullTooltipTexts() {
             List<Component> lines = interfaceTooltip(getValue(), exactTarget.getValue());
             lines.add(text("filter_hint"));
             lines.add(text("amount_hint"));

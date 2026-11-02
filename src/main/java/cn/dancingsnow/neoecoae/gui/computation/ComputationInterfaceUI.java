@@ -26,6 +26,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import cn.dancingsnow.neoecoae.gui.GuiTitleProvider;
+import cn.dancingsnow.neoecoae.gui.NEGuiColors;
 
 /** Configuration surface for the computation host's fast-planning item match rules. */
 public final class ComputationInterfaceUI {
@@ -84,7 +85,7 @@ public final class ComputationInterfaceUI {
             .setText(GuiTitleProvider.title(blockEntity.getBlockState(),
                 Component.translatable("block.neoecoae.computation_interface")))
             .textStyle(style -> style.adaptiveHeight(true).adaptiveWidth(true)
-                .textWrap(TextWrap.NONE).textColor(0x3F3D52).textShadow(false))
+                .textWrap(TextWrap.NONE).textColor(NEGuiColors.textColor(0x3F3D52)).textShadow(false))
             .layout(layout -> layout
                 .positionType(TaffyPosition.ABSOLUTE)
                 .left(8).top(6).width(160).height(12));
@@ -94,7 +95,7 @@ public final class ComputationInterfaceUI {
         return new TextElement()
             .setText(Component.translatable("gui.neoecoae.computation_interface.hint"))
             .textStyle(style -> style.adaptiveHeight(true).adaptiveWidth(true)
-                .textWrap(TextWrap.NONE).textColor(0x6D6A82).textShadow(false))
+                .textWrap(TextWrap.NONE).textColor(NEGuiColors.textColor(0x6D6A82)).textShadow(false))
             .layout(layout -> layout
                 .positionType(TaffyPosition.ABSOLUTE)
                 .left(8).top(18).width(160).height(10));
@@ -191,13 +192,7 @@ public final class ComputationInterfaceUI {
             if (LDLib2.isJeiLoaded()) {
                 FilterJEISupport.register(this);
             }
-            if (LDLib2.isReiLoaded()) {
-                REISupport.draggableStackBounds(this);
-                REISupport.acceptDraggableStack(this);
-            }
-            if (LDLib2.isEmiLoaded()) {
-                FilterEMISupport.register(this);
-            }
+            // TODO(26.1 port): LDLib2 26.1 ships only the JEI bridge; REI/EMI ghost-ingredient support was dropped.
             return this;
         }
 
@@ -216,21 +211,6 @@ public final class ComputationInterfaceUI {
             com.lowdragmc.lowdraglib2.integration.xei.jei.LDLibJEIPlugin.ghostIngredient(
                 slot, mezz.jei.api.constants.VanillaTypes.ITEM_STACK,
                 ingredient -> !ingredient.getIngredient().isEmpty(), slot::setValue);
-        }
-    }
-
-    private static final class FilterEMISupport {
-        private static void register(ItemSlot slot) {
-            com.lowdragmc.lowdraglib2.integration.xei.emi.LDLibEMIPlugin.renderDragHandler(
-                slot, FilterEMISupport::accepts);
-            com.lowdragmc.lowdraglib2.integration.xei.emi.LDLibEMIPlugin.dropStackHandler(
-                slot, FilterEMISupport::accepts,
-                ingredient -> slot.setValue(((dev.emi.emi.api.stack.ItemEmiStack) ingredient).getItemStack()));
-        }
-
-        private static boolean accepts(dev.emi.emi.api.stack.EmiIngredient ingredient) {
-            return ingredient instanceof dev.emi.emi.api.stack.ItemEmiStack item
-                && !item.getItemStack().isEmpty();
         }
     }
 

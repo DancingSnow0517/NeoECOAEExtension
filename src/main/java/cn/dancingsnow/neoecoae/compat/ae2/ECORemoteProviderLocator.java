@@ -47,7 +47,7 @@ public final class ECORemoteProviderLocator implements MenuHostLocator {
 
     @Override public <T> T locate(Player player, Class<T> expected) {
         BlockEntity host;
-        if (player.level().isClientSide) {
+        if (player.level().isClientSide()) {
             if (clientHost == null) {
                 clientHost = BlockEntity.loadStatic(position, Block.stateById(state), data, player.registryAccess());
                 if (clientHost != null) clientHost.setLevel(player.level());

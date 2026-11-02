@@ -141,7 +141,7 @@ public final class ComputationControllerUI {
             recenter();
         });
         listToggle.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-            List.of(Component.translatable("gui.neoecoae.computation.ui.cpu_list")), null, null, null));
+            List.of(Component.translatable("gui.neoecoae.computation.ui.cpu_list")), null, null, null, null));
         UIElement root = NeoUiJsonLoader.load(LAYOUT, new NeoUiJsonContext() {
             @Override
             public IECOTier panelTier() { return panelTier.get(); }
@@ -192,7 +192,7 @@ public final class ComputationControllerUI {
         Minecraft minecraft = Minecraft.getInstance();
         minecraft.execute(() -> {
             Screen screen = minecraft.screen;
-            if (screen != null) screen.resize(minecraft, screen.width, screen.height);
+            if (screen != null) screen.resize(screen.width, screen.height);
         });
     }
 
@@ -241,7 +241,7 @@ public final class ComputationControllerUI {
                 lines.add(Component.translatable("gui.neoecoae.crafting.planning.substitution_pattern_count",
                     Math.max(0, count.getValue() == null ? 0 : count.getValue())));
             }
-            event.hoverTooltips = new HoverTooltips(lines, null, null, null);
+            event.hoverTooltips = HoverTooltips.create(lines.toArray());
         });
         return button;
     }

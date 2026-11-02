@@ -151,7 +151,7 @@ public final class ECOProcessingMonitor implements ECOCraftingJobAttachment {
         var entries = new ListTag();
         targets.forEach((key, destinations) -> {
             var entry = new CompoundTag();
-            entry.put("key", key.toTagGeneric(registries));
+            entry.put("key", cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeKey(registries, key));
             var list = new ListTag();
             for (var target : destinations) {
                 var destination = new CompoundTag();
@@ -172,14 +172,14 @@ public final class ECOProcessingMonitor implements ECOCraftingJobAttachment {
         pending.clear();
         var entries = tag.getListOrEmpty("entries");
         for (int i = 0; i < entries.size(); i++) {
-            var entry = entries.getCompound(i);
-            AEKey key = AEKey.fromTagGeneric(registries, entry.getCompound("key"));
+            var entry = entries.getCompoundOrEmpty(i);
+            AEKey key = cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readKey(registries, entry.getCompoundOrEmpty("key"));
             if (key == null) continue;
-            var list = entry.getList("targets", Tag.TAG_COMPOUND);
+            var list = entry.getListOrEmpty("targets");
             for (int j = 0; j < list.size(); j++) {
-                var destination = list.getCompound(j);
-                var dimension = Identifier.tryParse(destination.getString("dimension"));
-                if (dimension != null) observe(key, new Target(dimension, BlockPos.of(destination.getLong("position"))));
+                var destination = list.getCompoundOrEmpty(j);
+                var dimension = Identifier.tryParse(destination.getStringOr("dimension", ""));
+                if (dimension != null) observe(key, new Target(dimension, BlockPos.of(destination.getLongOr("position", 0L))));
             }
         }
     }

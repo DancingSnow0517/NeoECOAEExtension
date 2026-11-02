@@ -26,7 +26,9 @@ public abstract class SetStockAmountMenuMixin extends AEBaseMenu implements Flui
     @Shadow private AEKey whatToStock;
     @Shadow private int slot;
 
-    @Unique private static final String NEOECOAE_SET_STOCK = "neoecoae:setFluidStockAmount";
+    // 26.1 port: AE2 client actions are keyed and carry a StreamCodec instead of a Gson class.
+    @Unique private static final appeng.menu.guisync.ClientActionKey<Long> NEOECOAE_SET_STOCK =
+        new appeng.menu.guisync.ClientActionKey<>("neoecoae:setFluidStockAmount");
     @Unique @GuiSync(10) private long neoecoae$initialStockAmount = -1;
     @Unique @GuiSync(11) private long neoecoae$maxStockAmount = -1;
 
@@ -37,7 +39,8 @@ public abstract class SetStockAmountMenuMixin extends AEBaseMenu implements Flui
     @Inject(method = "<init>", at = @At("TAIL"))
     private void neoecoae$registerLongAmount(int id, Inventory inventory, InterfaceLogicHost host, CallbackInfo ci) {
         if (host instanceof ECOFluidInputHatchBlockEntity) {
-            registerClientAction(NEOECOAE_SET_STOCK, Long.class, this::neoecoae$confirmStockAmount);
+            registerClientAction(NEOECOAE_SET_STOCK, net.minecraft.network.codec.ByteBufCodecs.VAR_LONG,
+                (Long value) -> neoecoae$confirmStockAmount(value));
         }
     }
 

@@ -48,7 +48,7 @@ public final class ECOCraftingJobAttachments {
                 unboundData.put(entry.getKey(), persisted.getCompoundOrEmpty(id).copy());
             }
         }
-        for (String idString : persisted.getAllKeys()) {
+        for (String idString : persisted.keySet()) {
             Identifier id = Identifier.tryParse(idString);
             if (id == null) {
                 LOGGER.warn("Ignoring ECO job attachment with invalid id {}", idString);

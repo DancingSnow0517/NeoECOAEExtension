@@ -8,9 +8,8 @@ import java.math.BigInteger;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 
 /** Exact-order inventory. The inherited counter is a saturated compatibility window, never overflow storage. */
 public final class ECOExactInventory extends ListCraftingInventory {
@@ -115,37 +114,35 @@ public final class ECOExactInventory extends ListCraftingInventory {
         super.clear();
     }
 
-    @Override public ListTag writeToNBT(HolderLookup.Provider registries) {
-        if (!enabled) return super.writeToNBT(registries);
-        var result = new ListTag();
+    @Override public void serialize(ValueOutput.ValueOutputList output) {
+        if (!enabled) { super.serialize(output); return; }
         for (var entry : list) {
             if (entry.getLongValue() <= 0) continue;
-            var tag = entry.getKey().toTagGeneric(registries);
-            tag.putLong("#", entry.getLongValue());
-            if (excess.containsKey(entry.getKey())) tag.putString("ecoExactAmount", amount(entry.getKey()).toString());
-            result.add(tag);
+            var child = output.addChild();
+            entry.getKey().toTagGeneric(child);
+            child.putLong("#", entry.getLongValue());
+            if (excess.containsKey(entry.getKey())) child.putString("ecoExactAmount", amount(entry.getKey()).toString());
         }
-        return result;
     }
 
-    @Override public void readFromNBT(ListTag data, HolderLookup.Provider registries) {
+    @Override public void deserialize(ValueInput.ValueInputList data) {
         if (!enabled) {
             boolean exactData = false;
-            for (int i = 0; i < data.size(); i++) exactData |= data.getCompoundOrEmpty(i).contains("ecoExactAmount");
-            if (!exactData) { excess.clear(); super.readFromNBT(data, registries); return; }
+            for (var item : data) exactData |= item.getString("ecoExactAmount").isPresent();
+            if (!exactData) { excess.clear(); super.deserialize(data); return; }
         }
         // Decode into a temporary ledger first. Invalid exact data must not silently become a long window.
         var restored = new LinkedHashMap<AEKey, BigInteger>();
         boolean hasExact = false;
-        for (int i = 0; i < data.size(); i++) {
-            var tag = data.getCompound(i);
-            var key = AEKey.fromTagGeneric(registries, tag);
-            boolean exact = tag.contains("ecoExactAmount");
+        for (var tag : data) {
+            var key = AEKey.fromTagGeneric(tag);
+            var exactAmount = tag.getString("ecoExactAmount");
+            boolean exact = exactAmount.isPresent();
             if (key == null) {
                 if (exact) throw new IllegalArgumentException("Unknown key in exact inventory");
                 continue;
             }
-            var count = exact ? new BigInteger(tag.getStringOr("ecoExactAmount", "")) : BigInteger.valueOf(tag.getLongOr("#", 0L));
+            var count = exact ? new BigInteger(exactAmount.get()) : BigInteger.valueOf(tag.getLongOr("#", 0L));
             if (count.signum() < 0) throw new IllegalArgumentException("Negative saved inventory");
             restored.merge(key, count, BigInteger::add);
             hasExact |= exact;

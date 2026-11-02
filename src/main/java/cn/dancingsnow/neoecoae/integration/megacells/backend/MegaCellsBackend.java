@@ -23,11 +23,11 @@ public final class MegaCellsBackend {
     }
 
     public static boolean isEnergyAvailable() {
-        return ModList.get().isLoaded(APPFLUX_MOD_ID);
+        return cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive(APPFLUX_MOD_ID);
     }
 
     public static boolean isChemicalAvailable() {
-        return ModList.get().isLoaded(APPMEK_MOD_ID) && ModList.get().isLoaded(MEKANISM_MOD_ID);
+        return cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive(APPMEK_MOD_ID) && cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive(MEKANISM_MOD_ID);
     }
 
     /** Matches MEGA Cells' radioactive-cell policy, including its spent-waste setting. */

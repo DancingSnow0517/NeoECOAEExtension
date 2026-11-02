@@ -12,27 +12,8 @@ import snownee.jade.api.IServerDataProvider;
 import snownee.jade.api.ITooltip;
 import snownee.jade.api.config.IPluginConfig;
 
-public enum ECOComputationSystemProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
+public enum ECOComputationSystemProvider implements IServerDataProvider<BlockAccessor> {
     INSTANCE;
-
-    @Override
-    public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig pluginConfig) {
-        CompoundTag data = accessor.getServerData();
-        if (data.contains("fastPlannerEnabled")) {
-            boolean enabled = data.getBooleanOr("fastPlannerEnabled", false);
-            tooltip.add(1, Component.translatable(enabled
-                    ? "jade.neoecoae.fast_planner.enabled"
-                    : "jade.neoecoae.fast_planner.disabled")
-                .withStyle(enabled ? ChatFormatting.GREEN : ChatFormatting.RED));
-        }
-        if (data.contains("cyclePlanningEnabled")) {
-            boolean enabled = data.getBooleanOr("cyclePlanningEnabled", false);
-            tooltip.add(2, Component.translatable(enabled
-                    ? "jade.neoecoae.cycle_planning.enabled"
-                    : "jade.neoecoae.cycle_planning.disabled")
-                .withStyle(enabled ? ChatFormatting.AQUA : ChatFormatting.GRAY));
-        }
-    }
 
     @Override
     public void appendServerData(CompoundTag data, BlockAccessor accessor) {
@@ -45,5 +26,33 @@ public enum ECOComputationSystemProvider implements IBlockComponentProvider, ISe
     @Override
     public Identifier getUid() {
         return NeoECOAE.id("eco_computation_system");
+    }
+
+    public enum Client implements IBlockComponentProvider {
+        INSTANCE;
+
+        @Override
+        public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig pluginConfig) {
+            CompoundTag data = accessor.getServerData();
+            if (data.contains("fastPlannerEnabled")) {
+                boolean enabled = data.getBooleanOr("fastPlannerEnabled", false);
+                tooltip.add(1, Component.translatable(enabled
+                        ? "jade.neoecoae.fast_planner.enabled"
+                        : "jade.neoecoae.fast_planner.disabled")
+                    .withStyle(enabled ? ChatFormatting.GREEN : ChatFormatting.RED));
+            }
+            if (data.contains("cyclePlanningEnabled")) {
+                boolean enabled = data.getBooleanOr("cyclePlanningEnabled", false);
+                tooltip.add(2, Component.translatable(enabled
+                        ? "jade.neoecoae.cycle_planning.enabled"
+                        : "jade.neoecoae.cycle_planning.disabled")
+                    .withStyle(enabled ? ChatFormatting.AQUA : ChatFormatting.GRAY));
+            }
+        }
+
+        @Override
+        public Identifier getUid() {
+            return NeoECOAE.id("eco_computation_system");
+        }
     }
 }

@@ -10,7 +10,7 @@ final class StorageCellUiInsertion {
     private StorageCellUiInsertion() {}
 
     static boolean insert(ECOStorageSystemBlockEntity host, Player player, BlockPos position, ItemStack expected) {
-        if (player.level().isClientSide || !host.isFormed() || host.getCluster() == null || expected.isEmpty()) return false;
+        if (player.level().isClientSide() || !host.isFormed() || host.getCluster() == null || expected.isEmpty()) return false;
         var menu = player.containerMenu;
         ItemStack carried = menu.getCarried();
         if (!ItemStack.matches(expected, carried)) return false;

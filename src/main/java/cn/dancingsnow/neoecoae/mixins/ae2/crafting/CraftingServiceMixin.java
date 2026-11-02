@@ -266,8 +266,8 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         if (!neoecoae$planningModeInitialized
                 && savedData != null
                 && savedData.contains(NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY)) {
-            neoecoae$ignorePatternSubstitutions = savedData.getBoolean(
-                    NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY);
+            neoecoae$ignorePatternSubstitutions = savedData.getBooleanOr(
+                    NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY, false);
             neoecoae$planningModeInitialized = true;
         }
         if (gridNode.getOwner() instanceof NEBlockEntity<?, ?> blockEntity
@@ -499,7 +499,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             long amount,
             Actionable type,
             CallbackInfoReturnable<Long> cir,
-            @Local(name = "inserted") LocalLongRef inserted
+            @Local(ordinal = 1) LocalLongRef inserted
     ) {
         for (NEComputationCluster cluster : this.neoecoae$computationClusters) {
             if (cluster != null) {

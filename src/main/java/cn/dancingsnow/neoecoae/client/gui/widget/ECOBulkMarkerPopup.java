@@ -7,7 +7,7 @@ import cn.dancingsnow.neoecoae.storage.bulk.BulkItemKeys;
 import cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkerActions;
 import cn.dancingsnow.neoecoae.items.ECOBulkStorageCellItem;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 
 /** Small AE2-style context menu; the server rechecks the selected key and live disk contents. */
@@ -70,10 +70,10 @@ public final class ECOBulkMarkerPopup {
         }
     }
 
-    public void render(GuiGraphics graphics, Font font, int mouseX, int mouseY) {
+    public void render(GuiGraphicsExtractor graphics, Font font, int mouseX, int mouseY) {
         if (!isOpen()) return;
-        graphics.pose().pushPose();
-        graphics.pose().translate(0, 0, 600);
+        graphics.pose().pushMatrix();
+        graphics.nextStratum();
         // Same raised gray frame and dark text as the storage-cell action menu.
         graphics.fill(x, y, x + width, y + HEIGHT, 0xFF413F54);
         graphics.fill(x + 1, y + 1, x + width - 1, y + HEIGHT - 1, 0xFFE8E7EF);
@@ -87,11 +87,11 @@ public final class ECOBulkMarkerPopup {
                 graphics.fill(x + PADDING, top + 1, x + width - PADDING, top + ROW_HEIGHT - 1, 0x807B81B8);
             }
             int color = !enabled ? 0xFF92919E : row == hovered ? 0xFFFFFFFF : 0xFF413F54;
-            graphics.drawString(font, LABELS[row], x + 8, top + (ROW_HEIGHT - font.lineHeight) / 2, color, false);
+            graphics.text(font, LABELS[row], x + 8, top + (ROW_HEIGHT - font.lineHeight) / 2, color, false);
         }
         if (hovered == 2 && !enabled(2)) {
-            graphics.renderTooltip(font, Component.translatable("gui.neoecoae.storage.bulk_marker.occupied"), mouseX, mouseY);
+            graphics.setTooltipForNextFrame(font, Component.translatable("gui.neoecoae.storage.bulk_marker.occupied"), mouseX, mouseY);
         }
-        graphics.pose().popPose();
+        graphics.pose().popMatrix();
     }
 }

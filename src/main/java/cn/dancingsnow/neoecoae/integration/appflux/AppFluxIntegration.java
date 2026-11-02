@@ -4,7 +4,7 @@ import appeng.api.upgrades.Upgrades;
 import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.api.client.ECOCellModels;
+import cn.dancingsnow.neoecoae.integration.IntegrationCellModels;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
 import cn.dancingsnow.neoecoae.integration.appflux.item.ECOFeStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
@@ -18,9 +18,9 @@ public class AppFluxIntegration {
         NEAppFluxCellTypes.register();
         NEAppFluxItems.register();
 
-        ECOCellModels.register(NEAppFluxItems.ECO_FE_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_fe"));
-        ECOCellModels.register(NEAppFluxItems.ECO_FE_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_fe"));
-        ECOCellModels.register(NEAppFluxItems.ECO_FE_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_fe"));
+        IntegrationCellModels.register(NEAppFluxItems.ECO_FE_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_fe"));
+        IntegrationCellModels.register(NEAppFluxItems.ECO_FE_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_fe"));
+        IntegrationCellModels.register(NEAppFluxItems.ECO_FE_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_fe"));
 
         NeoECOAE.MOD_BUS.addListener(this::initUpgrades);
     }

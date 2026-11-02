@@ -76,15 +76,15 @@ public final class ECOExactVirtualLedger {
     public CompoundTag write(HolderLookup.Provider registries) {
         var tag = new CompoundTag();
         tag.putString("crafts", crafts.toString());
-        tag.put("inputs", inputs.writeToNBT(registries));
-        tag.put("outputs", outputs.writeToNBT(registries));
+        tag.put("inputs", cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeInventory(registries, inputs));
+        tag.put("outputs", cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeInventory(registries, outputs));
         return tag;
     }
 
     public static ECOExactVirtualLedger read(CompoundTag tag, HolderLookup.Provider registries) {
         var ledger = new ECOExactVirtualLedger(new BigInteger(tag.getStringOr("crafts", "")));
-        ledger.inputs.readFromNBT(tag.getListOrEmpty("inputs"), registries);
-        ledger.outputs.readFromNBT(tag.getListOrEmpty("outputs"), registries);
+        cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readInventory(registries, ledger.inputs, tag.getListOrEmpty("inputs"));
+        cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readInventory(registries, ledger.outputs, tag.getListOrEmpty("outputs"));
         return ledger;
     }
 }

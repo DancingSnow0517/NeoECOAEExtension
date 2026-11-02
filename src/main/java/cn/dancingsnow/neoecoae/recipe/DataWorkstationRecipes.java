@@ -29,7 +29,7 @@ final class DataWorkstationRecipes {
 
     static LargeWorkstationRecipe decode(Identifier id, String type, JsonObject data, DynamicOps<JsonElement> ops) {
         List<SizedIngredient> items = new ArrayList<>();
-        SizedFluidIngredient fluid = new SizedFluidIngredient(FluidIngredient.empty(), 1);
+        SizedFluidIngredient fluid = null;
         ItemStack result = ItemStack.EMPTY;
         FluidStack fluidResult = FluidStack.EMPTY;
         List<GenericStack> extras = List.of();
@@ -69,7 +69,7 @@ final class DataWorkstationRecipes {
                 energy = 0;
             }
             case "data_energistics:data_charger" -> {
-                items.add(new SizedIngredient(parse(Ingredient.CODEC_NONEMPTY, ops, data.get("ingredient")), 1));
+                items.add(new SizedIngredient(parse(Ingredient.CODEC, ops, data.get("ingredient")), 1));
                 result = parse(ItemStack.CODEC, ops, data.get("result"));
                 long amount = positive(data.get("data_flow").getAsLong());
                 var key = new JsonObject();
@@ -94,11 +94,11 @@ final class DataWorkstationRecipes {
             }
             default -> throw new IllegalArgumentException("Unsupported Data Energistics recipe: " + type);
         }
-        if (items.isEmpty() && fluid.ingredient().isEmpty() && extras.isEmpty()) {
+        if (items.isEmpty() && fluid == null && extras.isEmpty()) {
             throw new IllegalArgumentException("Empty input");
         }
         if (result.isEmpty() && fluidResult.isEmpty() && additionalOutputs.isEmpty()) throw new IllegalArgumentException("Empty output");
-        var display = new IntegratedWorkingStationRecipe(items, fluid, result, fluidResult,
+        var display = IntegratedWorkingStationRecipe.of(items, fluid, result, fluidResult,
             (int) Math.min(Integer.MAX_VALUE, energy));
         var recipe = new LargeWorkstationRecipe(id, display, energy, extras, Identifier.parse(type), additionalFluids, additionalOutputs);
         return type.equals("data_energistics:data_reassembler")
@@ -109,7 +109,7 @@ final class DataWorkstationRecipes {
         if (!data.has(field)) return;
         for (var input : data.getAsJsonArray(field)) {
             var entry = input.getAsJsonObject();
-            var ingredient = parse(Ingredient.CODEC_NONEMPTY, ops, entry.has("ingredient") ? entry.get("ingredient") : entry);
+            var ingredient = parse(Ingredient.CODEC, ops, entry.has("ingredient") ? entry.get("ingredient") : entry);
             int count = Math.toIntExact(positive(entry.has("count") ? entry.get("count").getAsLong() : 1));
             items.add(new SizedIngredient(ingredient, count));
         }
@@ -130,7 +130,7 @@ final class DataWorkstationRecipes {
     }
 
     private static SizedFluidIngredient fluidInput(FluidStack stack) {
-        return stack.isEmpty() ? new SizedFluidIngredient(FluidIngredient.empty(), 1)
+        return stack.isEmpty() ? null
             : new SizedFluidIngredient(DataComponentFluidIngredient.of(true, stack), stack.getAmount());
     }
 

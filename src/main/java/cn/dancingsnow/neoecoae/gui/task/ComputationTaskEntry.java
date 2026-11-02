@@ -152,7 +152,7 @@ public final class ComputationTaskEntry {
     public CompoundTag writeToNBT(HolderLookup.Provider provider) {
         CompoundTag tag = new CompoundTag();
         tag.putString(NBT_ID, id);
-        tag.put(NBT_OUTPUT, output.saveOptional(provider));
+        tag.put(NBT_OUTPUT, cn.dancingsnow.neoecoae.util.LegacyNbt.saveItem(provider, output));
         tag.putLong(NBT_OUTPUT_AMOUNT, outputAmount);
         tag.putLong(NBT_CRAFT_COUNT, craftCount);
         tag.putLong(NBT_TOTAL_PROGRESS, totalProgress);
@@ -178,7 +178,7 @@ public final class ComputationTaskEntry {
     public static ComputationTaskEntry readFromNBT(HolderLookup.Provider provider, CompoundTag tag) {
         ItemStack output = ItemStack.EMPTY;
         if (tag.contains(NBT_OUTPUT)) {
-            output = ItemStack.parseOptional(provider, tag.getCompoundOrEmpty(NBT_OUTPUT));
+            output = cn.dancingsnow.neoecoae.util.LegacyNbt.parseItem(provider, tag.getCompoundOrEmpty(NBT_OUTPUT));
         }
         Component cpuName = null;
         if (tag.contains(NBT_CPU_NAME)) {
@@ -187,20 +187,20 @@ public final class ComputationTaskEntry {
                 .orElse(null);
         }
         return new ComputationTaskEntry(
-            tag.getString(NBT_ID),
+            tag.getStringOr(NBT_ID, ""),
             output,
-            tag.getLong(NBT_OUTPUT_AMOUNT),
-            tag.getLong(NBT_CRAFT_COUNT),
+            tag.getLongOr(NBT_OUTPUT_AMOUNT, 0L),
+            tag.getLongOr(NBT_CRAFT_COUNT, 0L),
             Math.max(1L, tag.getLongOr(NBT_TOTAL_PROGRESS, 0L)),
             Math.max(0L, tag.getLongOr(NBT_REMAINING_PROGRESS, 0L)),
             readStatus(tag.getStringOr(NBT_STATUS, "")),
-            tag.getInt(NBT_CPU_SERIAL),
+            tag.getIntOr(NBT_CPU_SERIAL, 0),
             cpuName,
-            tag.getLong(NBT_CPU_STORAGE),
-            tag.getInt(NBT_CPU_CO_PROCESSORS),
+            tag.getLongOr(NBT_CPU_STORAGE, 0L),
+            tag.getIntOr(NBT_CPU_CO_PROCESSORS, 0),
             readCpuSelectionMode(tag.getStringOr(NBT_CPU_SELECTION_MODE, "")),
-            tag.getFloat(NBT_PROGRESS),
-            tag.getLong(NBT_ELAPSED_TIME_NANOS),
+            tag.getFloatOr(NBT_PROGRESS, 0.0F),
+            tag.getLongOr(NBT_ELAPSED_TIME_NANOS, 0L),
             tag.contains(NBT_FAST_PATH_REASON) ? tag.getStringOr(NBT_FAST_PATH_REASON, "") : null
         );
     }

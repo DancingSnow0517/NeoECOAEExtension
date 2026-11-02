@@ -55,6 +55,9 @@ import java.util.UUID;
 import java.util.stream.IntStream;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.item.ItemResource;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.inventory.Slot;
@@ -82,7 +85,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     boolean recordProcessingTarget(ECOCraftingWorkerBlockEntity worker, boolean accepted) {
         if (accepted && worker.getLevel() != null) processingTarget = new Target(
-                worker.getLevel().dimension().location(), worker.getBlockPos());
+                worker.getLevel().dimension().identifier(), worker.getBlockPos());
         return accepted;
     }
 
@@ -106,6 +109,15 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         new Object2ObjectLinkedOpenHashMap<>(64);
     private final ECOCraftingPatternBusPublisher publisher;
     public final IItemHandlerModifiable itemHandler;
+    private ResourceHandler<ItemResource> itemResourceHandler;
+
+    /** 26.1 item capability ({@code Capabilities.Item.BLOCK}): the effective pattern inventory. */
+    public ResourceHandler<ItemResource> getItemResourceHandler() {
+        if (itemResourceHandler == null) {
+            itemResourceHandler = effectiveInventory.toResourceHandler();
+        }
+        return itemResourceHandler;
+    }
     @Persisted
     @DescSynced
     private int activePages = NEConfig.getCraftingPatternBusPages();
@@ -774,7 +786,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         this.dispatcher = new ECOCraftingPatternBusDispatcher(this);
         this.publisher = new ECOCraftingPatternBusPublisher(this);
         this.inventory.setFilter(new AEEncodedPatternFilter());
-        this.itemHandler = (IItemHandlerModifiable) effectiveInventory.toItemHandler();
+        this.itemHandler = cn.dancingsnow.neoecoae.blocks.entity.InternalInventoryItemHandler.of(effectiveInventory);
         this.getMainNode().addService(ICraftingProvider.class, this)
             .addService(IECOPatternStorage.class, this);
     }

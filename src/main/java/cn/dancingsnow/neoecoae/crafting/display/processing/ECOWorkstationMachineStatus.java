@@ -39,7 +39,7 @@ public final class ECOWorkstationMachineStatus {
         // Matrix providers own their executor cluster, rather than pushing to an adjacent inventory.
         if (provider instanceof net.minecraft.world.level.block.entity.BlockEntity machine
                 && machine.getLevel() != null && BUILTINS.get(1).supports(machine)) {
-            return List.of(new Target(machine.getLevel().dimension().location(), machine.getBlockPos()));
+            return List.of(new Target(machine.getLevel().dimension().identifier(), machine.getBlockPos()));
         }
         return List.of();
     }
@@ -67,7 +67,7 @@ public final class ECOWorkstationMachineStatus {
         public void addRoot(Target target) { if (visited.add(target)) pending.add(target); }
 
         public void step(Level context) {
-            if (pending.isEmpty() || context == null || context.isClientSide || context.getServer() == null) return;
+            if (pending.isEmpty() || context == null || context.isClientSide() || context.getServer() == null) return;
             var target = pending.removeFirst();
             var level = context.getServer().getLevel(ResourceKey.create(Registries.DIMENSION, target.dimension()));
             if (level == null || !level.hasChunkAt(target.position())) return;

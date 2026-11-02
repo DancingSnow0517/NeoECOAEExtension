@@ -15,7 +15,6 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.core.component.DataComponentPredicate;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
@@ -69,8 +68,23 @@ public final class LargeWorkstationRecipes {
     /** Tags may change ingredient equivalence without replacing the recipe collection. */
     public static synchronized void invalidate() { CACHE.clear(); }
 
+    /**
+     * 26.1 no longer exposes a full RecipeManager on the client. Use the server's manager (integrated server in
+     * single player); returns null on a remote client.
+     */
+    @Nullable
+    static RecipeManager recipeManager(@Nullable Level level) {
+        if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) return serverLevel.recipeAccess();
+        // TODO(26.1 port): remote clients have no RecipeManager; large workstation recipes are only visible
+        // client-side in single player until a client recipe sync exists.
+        var server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        return server == null ? null : server.getRecipeManager();
+    }
+
     public static List<LargeWorkstationRecipeGroup> getGroups(Level level) {
-        return getGroups(level.getRecipeManager(), level.registryAccess());
+        var manager = recipeManager(level);
+        if (manager == null) return List.of();
+        return getGroups(manager, level.registryAccess());
     }
 
     public static synchronized List<LargeWorkstationRecipeGroup> getGroups(RecipeManager manager, HolderLookup.Provider registries) {
@@ -81,7 +95,9 @@ public final class LargeWorkstationRecipes {
     /** Accepts any original or borrowed variant ID, including a representative returned by getAll(). */
     @Nullable
     public static LargeWorkstationRecipeGroup getGroup(Level level, Identifier recipeId) {
-        return getGroup(level.getRecipeManager(), level.registryAccess(), recipeId);
+        var manager = recipeManager(level);
+        if (manager == null) return null;
+        return getGroup(manager, level.registryAccess(), recipeId);
     }
 
     @Nullable
@@ -92,7 +108,9 @@ public final class LargeWorkstationRecipes {
     }
 
     public static List<LargeWorkstationRecipe> getAll(Level level) {
-        return getAll(level.getRecipeManager(), level.registryAccess());
+        var manager = recipeManager(level);
+        if (manager == null) return List.of();
+        return getAll(manager, level.registryAccess());
     }
 
     public static synchronized List<LargeWorkstationRecipe> getAll(RecipeManager manager, HolderLookup.Provider registries) {
@@ -108,13 +126,13 @@ public final class LargeWorkstationRecipes {
         for (var holder : sources) {
             try {
                 if (holder.value() instanceof LargeIntegratedWorkingStationRecipe largeRecipe) {
-                    var nativeRecipe = largeRecipe.display();
-                    recipes.add(new LargeWorkstationRecipe(holder.id(), nativeRecipe, nativeRecipe.energy(), List.of()));
+                    var nativeRecipe = largeRecipe.recipe();
+                    recipes.add(new LargeWorkstationRecipe(holder.id().identifier(), nativeRecipe, nativeRecipe.energy(), List.of()));
                 } else if (holder.value() instanceof IntegratedWorkingStationRecipe nativeRecipe) {
-                    recipes.add(new LargeWorkstationRecipe(holder.id(), nativeRecipe, nativeRecipe.energy(), List.of()));
+                    recipes.add(new LargeWorkstationRecipe(holder.id().identifier(), nativeRecipe, nativeRecipe.energy(), List.of()));
                 } else if (holder.value() instanceof appeng.recipes.entropy.EntropyRecipe entropy
                         && CrystalScienceWorkstationRecipes.isPresent()) {
-                    var adapted = CrystalScienceWorkstationRecipes.entropy(holder.id(), entropy);
+                    var adapted = CrystalScienceWorkstationRecipes.entropy(holder.id().identifier(), entropy);
                     if (adapted != null) recipes.add(adapted);
                 } else {
                     String type = typeId(holder.value().getType());
@@ -123,7 +141,7 @@ public final class LargeWorkstationRecipes {
                     var adapted = ECOWorkstationRecipeAdapters.adapt(
                         sourceType, holder, registries);
                     if (adapted != null) recipes.add(adapted);
-                    else if (COMPAT_TYPES.contains(type)) recipes.add(decode(holder.id(), type, encode(holder.value(), ops), ops));
+                    else if (COMPAT_TYPES.contains(type)) recipes.add(decode(holder.id().identifier(), type, encode(holder.value(), ops), ops));
                 }
             } catch (RuntimeException failure) {
                 // A changed upstream format must fail closed, never silently omit a cost or result.
@@ -132,7 +150,7 @@ public final class LargeWorkstationRecipes {
         }
         Map<Identifier, LargeWorkstationRecipe> recipesById = new HashMap<>();
         for (var recipe : recipes) recipesById.put(recipe.id(), recipe);
-        var sourceIds = sources.stream().map(RecipeHolder::id).collect(Collectors.toSet());
+        var sourceIds = sources.stream().map(holder -> holder.id().identifier()).collect(Collectors.toSet());
         for (var recipe : CrystalScienceWorkstationRecipes.growthRecipes()) {
             if (sourceIds.contains(recipe.id())) {
                 LOGGER.warn("Crystal growth recipe ID collides with a datapack recipe: {}", recipe.id());
@@ -145,7 +163,7 @@ public final class LargeWorkstationRecipes {
         for (var recipe : recipes) variants.add(LargeWorkstationRecipeSources.direct(recipe));
         // Add only explicitly supported execution capabilities, never a recursively combined upstream catalog.
         for (var holder : sources) {
-            var recipe = recipesById.get(holder.id());
+            var recipe = recipesById.get(holder.id().identifier());
             if (recipe == null) continue;
             try {
                 var borrowed = LargeWorkstationRecipeSources.borrowed(holder, recipe);
@@ -175,7 +193,8 @@ public final class LargeWorkstationRecipes {
     public static synchronized List<LargeWorkstationRecipe> getAvailable(Level level, Identifier moduleId) {
         var description = ECOWorkstationModules.resolve(moduleId);
         if (!description.custom()) return getAvailable(level, description.legacy());
-        var manager = level.getRecipeManager();
+        var manager = recipeManager(level);
+        if (manager == null) return List.of();
         getAll(manager, level.registryAccess());
         Cache cache = CACHE.get(manager);
         if (NEConfig.largeWorkstationIgnoreUpgradeCards) return cache.executionRecipes;
@@ -183,7 +202,9 @@ public final class LargeWorkstationRecipes {
     }
 
     public static List<LargeWorkstationRecipe> getAvailable(Level level, LargeWorkstationModule module) {
-        return getAvailable(level.getRecipeManager(), level.registryAccess(), module);
+        var manager = recipeManager(level);
+        if (manager == null) return List.of();
+        return getAvailable(manager, level.registryAccess(), module);
     }
 
     static synchronized List<LargeWorkstationRecipe> getAvailable(RecipeManager manager,
@@ -227,7 +248,9 @@ public final class LargeWorkstationRecipes {
     /** Keeps original recipes addressable for batches saved before equivalent recipes were merged. */
     @Nullable
     public static LargeWorkstationRecipe getById(Level level, Identifier id) {
-        return getById(level.getRecipeManager(), level.registryAccess(), id);
+        var manager = recipeManager(level);
+        if (manager == null) return null;
+        return getById(manager, level.registryAccess(), id);
     }
 
     @Nullable
@@ -327,25 +350,28 @@ public final class LargeWorkstationRecipes {
 
     private static synchronized List<LargeWorkstationRecipe> executionRecipes(Level level) {
         getAll(level);
-        return CACHE.get(level.getRecipeManager()).executionRecipes;
+        var manager = recipeManager(level);
+        if (manager == null) return List.of();
+        getAll(manager, level.registryAccess());
+        return CACHE.get(manager).executionRecipes;
     }
 
     private static Object itemPredicate(Ingredient ingredient, DynamicOps<JsonElement> ops) {
-        if (ingredient.isSimple() && ingredient.getItems().length > 0) {
-            return Arrays.stream(ingredient.getItems()).map(stack -> BuiltInRegistries.ITEM.getKey(stack.getItem()))
+        if (ingredient.isSimple() && ingredient.items().findAny().isPresent()) {
+            return ingredient.items().map(holder -> BuiltInRegistries.ITEM.getKey(holder.value()))
                 .collect(Collectors.toUnmodifiableSet());
         }
         if (ingredient.getCustomIngredient() instanceof DataComponentIngredient components) {
-            return new ComponentPredicate(components.items().stream().map(holder -> BuiltInRegistries.ITEM.getKey(holder.value()))
-                .collect(Collectors.toUnmodifiableSet()), components.components(), components.isStrict());
+            return new ComponentPredicate(components.items().map(holder -> BuiltInRegistries.ITEM.getKey(holder.value()))
+                .collect(Collectors.toUnmodifiableSet()), components.components(), components.componentsExhaustive());
         }
         // Custom ingredients can constrain components or have incomplete display alternatives.
         return Ingredient.CODEC.encodeStart(ops, ingredient).getOrThrow();
     }
 
     private static Object fluidPredicate(FluidIngredient ingredient, DynamicOps<JsonElement> ops) {
-        if (ingredient.isSimple() && ingredient.getStacks().length > 0) {
-            return Arrays.stream(ingredient.getStacks()).map(stack -> BuiltInRegistries.FLUID.getKey(stack.getFluid()))
+        if (ingredient.isSimple() && !ingredient.fluids().isEmpty()) {
+            return ingredient.fluids().stream().map(holder -> BuiltInRegistries.FLUID.getKey(holder.value()))
                 .collect(Collectors.toUnmodifiableSet());
         }
         if (ingredient instanceof DataComponentFluidIngredient components) {
@@ -355,7 +381,7 @@ public final class LargeWorkstationRecipes {
         return FluidIngredient.CODEC.encodeStart(ops, ingredient).getOrThrow();
     }
 
-    private record ComponentPredicate(Set<Identifier> alternatives, DataComponentPredicate components, boolean strict) {}
+    private record ComponentPredicate(Set<Identifier> alternatives, Object components, boolean strict) {}
     private record MaterialContract(Map<Object, Long> items, Map<Object, Long> fluids,
                                     Map<AEKey, Long> resources, Map<AEKey, Long> outputs) {
         long scale() {
@@ -465,7 +491,7 @@ public final class LargeWorkstationRecipes {
         if (type.startsWith("data_energistics:")) return DataWorkstationRecipes.decode(id, type, data, ops);
         if (type.equals("appgen:synthesizing")) return AppliedGeneratorsWorkstationRecipes.decode(id, data, ops);
         List<SizedIngredient> items = new ArrayList<>();
-        SizedFluidIngredient fluid = new SizedFluidIngredient(FluidIngredient.empty(), 1);
+        SizedFluidIngredient fluid = null;
         ItemStack result = ItemStack.EMPTY;
         FluidStack fluidResult = FluidStack.EMPTY;
         List<GenericStack> extras = List.of();
@@ -476,7 +502,7 @@ public final class LargeWorkstationRecipes {
             case "ae2lt:overload_processing", "ae2lt:lightning_assembly", "ae2lt:lightning_simulation" -> {
                 if (data.has("inputs")) for (var input : data.getAsJsonArray("inputs")) {
                     var entry = input.getAsJsonObject();
-                    items.add(new SizedIngredient(parse(Ingredient.CODEC_NONEMPTY, ops, entry.get("ingredient")), entry.get("count").getAsInt()));
+                    items.add(new SizedIngredient(parse(Ingredient.CODEC, ops, entry.get("ingredient")), entry.get("count").getAsInt()));
                 }
                 if (type.equals("ae2lt:overload_processing")) {
                     if (data.has("inputFluid")) {
@@ -499,12 +525,12 @@ public final class LargeWorkstationRecipes {
             case "ae2cs:circuit_etcher_recipe", "ae2cs:crystal_aggregator_recipe", "ae2cs:crystal_pulverizer_recipe" -> {
                 for (String name : List.of("input", "input_a", "input_b", "input_c")) {
                     if (data.has(name)) {
-                        var item = parse(SizedIngredient.FLAT_CODEC, ops, data.get(name));
+                        var item = parse(SizedIngredient.NESTED_CODEC, ops, data.get(name));
                         if (!item.ingredient().isEmpty()) items.add(item);
                     }
                 }
                 result = parse(ItemStack.CODEC, ops, data.get("result"));
-                if (data.has("fluid_input")) fluid = parse(SizedFluidIngredient.FLAT_CODEC, ops, data.get("fluid_input"));
+                if (data.has("fluid_input")) fluid = parse(SizedFluidIngredient.CODEC, ops, data.get("fluid_input"));
                 if (data.has("fluid_output")) fluidResult = parse(FluidStack.OPTIONAL_CODEC, ops, data.get("fluid_output"));
                 energy = data.has("energy_cost") ? data.get("energy_cost").getAsLong()
                     : type.equals("ae2cs:circuit_etcher_recipe") ? 3200 : 200;
@@ -520,7 +546,7 @@ public final class LargeWorkstationRecipes {
                     var entry = data.getAsJsonObject("input_fluid");
                     var ingredient = parse(FluidIngredient.CODEC, ops, entry.get("ingredient"));
                     int amount = entry.has("amount") ? entry.get("amount").getAsInt() : 1;
-                    if (!ingredient.isEmpty() && amount > 0) fluid = new SizedFluidIngredient(ingredient, amount);
+                    if (amount > 0) fluid = new SizedFluidIngredient(ingredient, amount);
                 }
                 if (type.equals("advanced_ae:reaction")) {
                     var output = parse(GenericStack.CODEC, ops, data.get("output"));
@@ -540,7 +566,7 @@ public final class LargeWorkstationRecipes {
             default -> throw new IllegalArgumentException("Unsupported recipe type: " + type);
         }
         if (result.isEmpty() && fluidResult.isEmpty()) throw new IllegalArgumentException("Empty output");
-        var display = new IntegratedWorkingStationRecipe(items, fluid, result, fluidResult,
+        var display = IntegratedWorkingStationRecipe.of(items, fluid, result, fluidResult,
             (int) Math.min(Integer.MAX_VALUE, energy));
         var recipe = new LargeWorkstationRecipe(id, display, energy, extras, Identifier.parse(type));
         int ticks = recipe.processingTicks();

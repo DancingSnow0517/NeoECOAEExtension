@@ -228,7 +228,7 @@ public final class ECOFastPathStacks {
         ListTag tag = new ListTag();
         for (GenericStack stack : stacks) {
             if (stack != null && stack.amount() > 0) {
-                tag.add(GenericStack.writeTag(registries, stack));
+                tag.add(cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeStack(registries, stack));
             }
         }
         return tag;
@@ -286,7 +286,7 @@ public final class ECOFastPathStacks {
         try {
             List<GenericStack> stacks = new ArrayList<>(tag.size());
             for (int i = 0; i < tag.size(); i++) {
-                GenericStack stack = GenericStack.readTag(registries, tag.getCompoundOrEmpty(i));
+                GenericStack stack = cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readStack(registries, tag.getCompoundOrEmpty(i));
                 if (stack == null) {
                     return Optional.empty();
                 }

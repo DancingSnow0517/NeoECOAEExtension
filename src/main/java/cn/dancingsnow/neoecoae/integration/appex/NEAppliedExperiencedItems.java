@@ -13,7 +13,7 @@ final class NEAppliedExperiencedItems {
     static final ItemEntry<Item> EXPERIENCE_CELL_HOUSING = REGISTRATE
         .item("eco_experience_cell_housing", Item::new)
         .lang("ECO Storage Matrix Housing (Experience)")
-        .model((ctx, prov) -> {})
+        .model(() -> (ctx, prov) -> {})
         .register();
 
     static final ItemEntry<ECOStorageCellItem> EXPERIENCE_CELL_16M = cell("eco_experience_cell_16m", ECOTier.L4, Rarity.UNCOMMON);
@@ -28,7 +28,7 @@ final class NEAppliedExperiencedItems {
                 NEAppliedExperiencedCellTypes.EXPERIENCE
             ))
             .lang("ECO - LE" + tier.getTier() + " Storage Matrix (Experience)")
-            .model((ctx, prov) -> {})
+            .model(() -> (ctx, prov) -> {})
             .register();
     }
 

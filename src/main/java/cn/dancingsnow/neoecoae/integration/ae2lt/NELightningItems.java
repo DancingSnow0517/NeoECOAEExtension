@@ -13,7 +13,7 @@ public final class NELightningItems {
     public static final ItemEntry<MaterialItem> ECO_LIGHTNING_CELL_HOUSING = REGISTRATE
         .item("eco_lightning_cell_housing", MaterialItem::new)
         .lang("ECO Lightning Storage Matrix Housing")
-        .model((ctx, prov) -> {})
+        .model(() -> (ctx, prov) -> {})
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_LIGHTNING_CELL_16M = registerCell(
@@ -43,7 +43,7 @@ public final class NELightningItems {
                 NELightningCellTypes.LIGHTNING, usableCapacity + 16, 8, idleDrain
             ))
             .lang("ECO - LE" + level + " Storage Matrix (Lightning)")
-            .model((ctx, prov) -> {})
+            .model(() -> (ctx, prov) -> {})
             .register();
     }
 

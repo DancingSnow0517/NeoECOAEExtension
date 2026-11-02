@@ -21,6 +21,7 @@ import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.items.ECOBulkStorageCellItem;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.util.ECOModelUtil;
+import cn.dancingsnow.neoecoae.integration.IntegrationItemModels;
 import com.tterrag.registrate.providers.generators.RegistrateRecipeProvider;
 import com.tterrag.registrate.util.DataIngredient;
 import com.tterrag.registrate.util.entry.ItemEntry;
@@ -49,8 +50,6 @@ import net.minecraft.world.item.crafting.CookingBookCategory;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.PickaxeItem;
-import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.item.TooltipFlag;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.common.Tags;
@@ -72,8 +71,8 @@ public class NEItems {
     public static final ItemEntry<Item> NETWORK_PULL_CARD = REGISTRATE
         .item("network_pull_card", Upgrades::createUpgradeCardItem)
         .lang("Network Pull Card")
-        .model((ctx, prov) -> prov.generated(ctx::get, prov.modLoc("item/network_pull_card")))
-        .recipe((ctx, prov) -> ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+        .model(() -> ECOModelUtil.generatedItem(NeoECOAE.id("item/network_pull_card")))
+        .recipe((ctx, prov) -> ShapedRecipeBuilder.shaped(prov.itemLookup(), RecipeCategory.MISC, ctx.get())
             .pattern("AWA").pattern("CSC").pattern("APA")
             .define('A', NEItems.ALUMINUM_ALLOY_INGOT)
             .define('W', AEItems.ADVANCED_CARD)
@@ -105,13 +104,12 @@ public class NEItems {
             case "aelt" -> "ae2lt";
             default -> variant;
         };
-        if (requiredMod != null && !ModList.get().isLoaded(requiredMod)) {
+        if (requiredMod != null && !cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive(requiredMod)) {
             return null;
         }
         return REGISTRATE.item("integrated_working_station_module_" + variant, Upgrades::createUpgradeCardItem)
             .lang(name)
-            .model((ctx, prov) -> prov.generated(ctx::get,
-                prov.modLoc("item/integrated_working_station_modules/" + variant)))
+            .model(() -> ECOModelUtil.generatedItem(NeoECOAE.id("item/integrated_working_station_modules/" + variant)))
             .register();
     }
 
@@ -868,13 +866,15 @@ public class NEItems {
     public static final ItemEntry<Item> ECO_INFINITE_CELL_COMPONENT = REGISTRATE
         .<Item>item("eco_infinite_cell_component", p -> new Item(p.rarity(Rarity.EPIC)) {
             @Override
-            public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
-                lines.add(Component.translatable("tooltip.neoecoae.infinite_component.header")
-                    .withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
-                lines.add(Component.translatable("tooltip.neoecoae.infinite_component.components")
-                    .withStyle(ChatFormatting.GRAY));
-                lines.add(Component.translatable("tooltip.neoecoae.infinite_component.matrices")
-                    .withStyle(ChatFormatting.AQUA));
+            public void appendHoverText(ItemStack stack, TooltipContext context,
+                                        net.minecraft.world.item.component.TooltipDisplay display,
+                                        java.util.function.Consumer<Component> lines, TooltipFlag tooltipFlag) {
+                lines.accept(Component.translatable("tooltip.neoecoae.infinite_component.header")
+                    .withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE, net.minecraft.ChatFormatting.BOLD));
+                lines.accept(Component.translatable("tooltip.neoecoae.infinite_component.components")
+                    .withStyle(net.minecraft.ChatFormatting.GRAY));
+                lines.accept(Component.translatable("tooltip.neoecoae.infinite_component.matrices")
+                    .withStyle(net.minecraft.ChatFormatting.AQUA));
             }
         })
         .tag(NETags.Items.INFINITE_CELL_COMPONENTS)
@@ -912,7 +912,7 @@ public class NEItems {
                 .save(prov);
         })
         .lang("ECO Storage Matrix Housing (Item)")
-        .model(ItemModelUtil.importedCellModel("eco_item_cell_housing"))
+        .model(() -> IntegrationItemModels.importedCellModel("eco_item_cell_housing"))
         .register();
 
     public static final ItemEntry<MaterialItem> ECO_FLUID_CELL_HOUSING = REGISTRATE
@@ -931,7 +931,7 @@ public class NEItems {
                 .save(prov);
         })
         .lang("ECO Storage Matrix Housing (Fluid)")
-        .model(ItemModelUtil.importedCellModel("eco_fluid_cell_housing"))
+        .model(() -> IntegrationItemModels.importedCellModel("eco_fluid_cell_housing"))
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_ITEM_CELL_16M = REGISTRATE
@@ -1008,17 +1008,17 @@ public class NEItems {
         return REGISTRATE.<ECOStorageCellItem>item(name, p -> new ECOBulkStorageCellItem(
                 p.stacksTo(1).rarity(rarity), tier, NECellTypes.BULK_ITEM, 1))
             .recipe((ctx, prov) -> {
-                ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+                ShapelessRecipeBuilder.shapeless(prov.itemLookup(), RecipeCategory.MISC, ctx.get())
                     .requires(ECO_ITEM_CELL_HOUSING)
                     .requires(component)
                     .unlockedBy("has_component", prov.has(component))
                     .save(prov);
                 StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(
-                    ctx.get(), List.of(ECO_ITEM_CELL_HOUSING.asStack(), component.asStack()));
-                prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
+                    ctx.get(), List.of(template(ECO_ITEM_CELL_HOUSING), template(component)));
+                prov.accept(recipeId(ctx.getId().withPrefix("disassembly/")), recipe, null);
             })
             .lang("ECO - LE" + level + " Storage Matrix (Bulk Item)")
-            .model(ItemModelUtil.cellModel("bulk_item", size))
+            .model(() -> ECOModelUtil.importedTintedCellModel("eco_bulk_item_cell_" + size))
             .removeTab(NECreativeTabs.ECO.getKey())
             .register();
     }
@@ -1027,7 +1027,7 @@ public class NEItems {
     public static final ItemEntry<MaterialItem> ECO_BULK_PATTERN =
         REGISTRATE.item("eco_bulk_conversion_pattern", MaterialItem::new)
             .lang("ECO Bulk Conversion")
-            .model((ctx, prov) -> prov.generated(ctx::get, prov.mcLoc("item/paper")))
+            .model(() -> ECOModelUtil.generatedItem(Identifier.withDefaultNamespace("item/paper")))
             .removeTab(NECreativeTabs.ECO.getKey())
             .register();
 
@@ -1052,7 +1052,7 @@ public class NEItems {
             .energy(144_000)
             .save(prov))
         .lang("ECO Infinite Base Resource Storage Matrix")
-        .model(ItemModelUtil.infiniteCellModel("infinite_resource_cell"))
+        .model(() -> ECOModelUtil.infiniteCellModel("infinite_resource_cell"))
         .register();
 
     /** The optional addon owns the acquisition recipe; ECO owns the persistent item identity. */
@@ -1061,7 +1061,7 @@ public class NEItems {
             p.stacksTo(1).rarity(Rarity.EPIC), ECOTier.L9, NECellTypes.ITEM,
             List.of(appeng.api.stacks.AEItemKey.of(Items.SAND)), "tooltip.neoecoae.infinite_sand"))
         .lang("ECO Infinite Sand Resource Storage Matrix")
-        .model(ItemModelUtil.infiniteCellModel("infinite_resource_cell"))
+        .model(() -> ECOModelUtil.infiniteCellModel("infinite_resource_cell"))
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_FLUID_CELL_16M = REGISTRATE

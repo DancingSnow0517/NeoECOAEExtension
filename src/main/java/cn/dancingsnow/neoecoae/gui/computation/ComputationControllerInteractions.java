@@ -48,7 +48,7 @@ final class ComputationControllerInteractions {
             CpuSelectionMode mode = cpuSelectionModeFromOrdinal(syncedMode.getValue());
             event.hoverTooltips = new HoverTooltips(List.of(
                     ButtonToolTips.CpuSelectionMode.text(),
-                    cpuSelectionModeTooltip(mode)), null, null, null);
+                    cpuSelectionModeTooltip(mode)), null, null, null, null);
         });
         return button;
     }
@@ -102,7 +102,7 @@ final class ComputationControllerInteractions {
                 Component.translatable("gui.neoecoae.computation.ui.switch." + (on ? "on" : "off"))
                     .withColor(on ? 0x55FF55 : 0xAAAAAA),
                 Component.translatable("gui.neoecoae.computation.ui.switch.smart_doubling.desc")
-            ), null, null, null);
+            ), null, null, null, null);
         });
         return button;
     }

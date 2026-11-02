@@ -3,7 +3,8 @@ package cn.dancingsnow.neoecoae.gui.theme;
 import com.lowdragmc.lowdraglib2.editor.resource.BuiltinPath;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
-import net.minecraft.client.gui.GuiGraphics;
+import com.lowdragmc.lowdraglib2.gui.texture.rendering.GuiTextureRendererRegistry;
+import com.lowdragmc.lowdraglib2.gui.texture.rendering.TransformTextureRenderer;
 import net.minecraft.resources.Identifier;
 import java.util.function.Supplier;
 
@@ -44,9 +45,10 @@ final class PanelAtlasSprite extends SpriteTexture {
         return copy;
     }
 
-    @Override
-    protected void drawInternal(GuiGraphics graphics, float mouseX, float mouseY,
-        float x, float y, float width, float height, float partialTicks) {
-        resolve().draw(graphics, mouseX, mouseY, x, y, width, height, partialTicks);
+    static {
+        // LDLib2 26.1 draws textures through a renderer registry instead of SpriteTexture#drawInternal.
+        GuiTextureRendererRegistry.register(PanelAtlasSprite.class, (texture, context, x, y, width, height) ->
+            TransformTextureRenderer.draw(texture, context, x, y, width, height,
+                (self, ctx, dx, dy, dw, dh) -> ctx.drawTexture(self.resolve(), dx, dy, dw, dh)));
     }
 }

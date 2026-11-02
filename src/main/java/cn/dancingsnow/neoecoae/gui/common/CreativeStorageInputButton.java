@@ -33,7 +33,7 @@ public final class CreativeStorageInputButton {
                     ? "gui.neoecoae.storage_interface.ignore_creative.on"
                     : "gui.neoecoae.storage_interface.ignore_creative.off"),
                 Component.translatable("gui.neoecoae.storage_interface.ignore_creative.description")
-            ), null, null, null));
+            ), null, null, null, null));
         return button;
     }
 

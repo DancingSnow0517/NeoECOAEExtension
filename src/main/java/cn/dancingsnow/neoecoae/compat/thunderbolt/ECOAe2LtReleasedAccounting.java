@@ -79,17 +79,17 @@ final class ECOAe2LtReleasedAccounting {
             if (!job.equals(pending.key().craftingId())) throw new IllegalStateException("AE2LT state belongs to another job");
         }
         var result = new CompoundTag();
-        result.putUUID("craftingId", job);
+        result.store("craftingId", net.minecraft.core.UUIDUtil.CODEC, job);
         var state = STATES.writeToTag(owner, registries);
         if (state != null) result.put("state", state);
         return result;
     }
 
     void load(Object owner, UUID job, CompoundTag data, HolderLookup.Provider registries) {
-        if (data.hasUUID("craftingId") && !job.equals(data.getUUID("craftingId"))) {
+        if (data.read("craftingId", net.minecraft.core.UUIDUtil.CODEC).filter(id -> !job.equals(id)).isPresent()) {
             throw new IllegalArgumentException("AE2LT checkpoint belongs to another job");
         }
-        STATES.readFromTag(owner, job, data.getCompound("state"), registries);
+        STATES.readFromTag(owner, job, data.getCompoundOrEmpty("state"), registries);
     }
 
     void clear(Object owner) { STATES.clear(owner); }

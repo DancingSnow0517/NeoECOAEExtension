@@ -61,14 +61,14 @@ public record ECOProcessingProgress(float progress, boolean hasProgress, State s
         var list = new ListTag();
         for (var machine : machines) {
             var entry = new CompoundTag();
-            entry.putString("name", Component.Serializer.toJson(machine.name(), registries));
+            entry.putString("name", json(machine.name(), registries));
             entry.putString("location", machine.location());
             entry.putString("recipe", machine.recipe());
             entry.putInt("progress", machine.progressTicks());
             entry.putInt("duration", machine.durationTicks());
             entry.putLong("parallel", machine.parallel());
             entry.putString("state", machine.state().name());
-            entry.putString("reason", Component.Serializer.toJson(machine.reason(), registries));
+            entry.putString("reason", json(machine.reason(), registries));
             list.add(entry);
         }
         tag.put("machines", list);
@@ -80,14 +80,14 @@ public record ECOProcessingProgress(float progress, boolean hasProgress, State s
         var list = tag.getListOrEmpty("machines");
         var machines = new java.util.ArrayList<Machine>();
         for (int i = 0; i < Math.min(DETAIL_PAGE_SIZE, list.size()); i++) {
-            var entry = list.getCompound(i);
-            machines.add(new Machine(component(entry.getString("name"), registries), entry.getString("location"),
-                entry.getString("recipe"), entry.getInt("progress"), entry.getInt("duration"),
-                entry.getLong("parallel"), state(entry.getString("state")), component(entry.getString("reason"), registries)));
+            var entry = list.getCompoundOrEmpty(i);
+            machines.add(new Machine(component(entry.getStringOr("name", ""), registries), entry.getStringOr("location", ""),
+                entry.getStringOr("recipe", ""), entry.getIntOr("progress", 0), entry.getIntOr("duration", 0),
+                entry.getLongOr("parallel", 0L), state(entry.getStringOr("state", "")), component(entry.getStringOr("reason", ""), registries)));
         }
-        return new ECOProcessingProgress(tag.getFloat("progress"), tag.getBoolean("hasProgress"),
+        return new ECOProcessingProgress(tag.getFloatOr("progress", 0f), tag.getBooleanOr("hasProgress", false),
             state(tag.getStringOr("state", "")), Math.max(0, tag.getIntOr("count", 0)), tag.getIntOr("page", 0),
-            tag.getBoolean("refreshing"), machines);
+            tag.getBooleanOr("refreshing", false), machines);
     }
 
     private static State state(String value) {
@@ -97,8 +97,21 @@ public record ECOProcessingProgress(float progress, boolean hasProgress, State s
 
     private static Component component(String json, net.minecraft.core.HolderLookup.Provider registries) {
         if (json.isEmpty()) return Component.empty();
-        Component value = Component.Serializer.fromJson(json, registries);
-        return value == null ? Component.empty() : value;
+        // 26.1: Component.Serializer is gone; same JSON format through ComponentSerialization.CODEC.
+        try {
+            return net.minecraft.network.chat.ComponentSerialization.CODEC
+                .parse(registries.createSerializationContext(com.mojang.serialization.JsonOps.INSTANCE),
+                    com.google.gson.JsonParser.parseString(json))
+                .result().orElse(Component.empty());
+        } catch (RuntimeException invalid) {
+            return Component.empty();
+        }
+    }
+
+    private static String json(Component component, net.minecraft.core.HolderLookup.Provider registries) {
+        return net.minecraft.network.chat.ComponentSerialization.CODEC
+            .encodeStart(registries.createSerializationContext(com.mojang.serialization.JsonOps.INSTANCE), component)
+            .result().map(com.google.gson.JsonElement::toString).orElse("");
     }
 
     public enum State { RUNNING, WAITING, PAUSED, QUEUED, UNAVAILABLE }

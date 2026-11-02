@@ -24,7 +24,7 @@ public record StorageCellWorkbenchLocator(BlockPos controller, BlockPos drive, U
     @Nullable
     public <T> T locate(Player player, Class<T> hostInterface) {
         if (!(player.level().getBlockEntity(controller) instanceof ECOStorageSystemBlockEntity host)) return null;
-        if (!player.level().isClientSide && (!host.isFormed() || !host.canPlayerInteract(player)
+        if (!player.level().isClientSide() && (!host.isFormed() || !host.canPlayerInteract(player)
             || host.getStorageDrivesForIntegration().stream().noneMatch(candidate ->
                 !candidate.isRemoved() && candidate.getBlockPos().equals(drive)
                     && installation.equals(candidate.getCellInteractionId()) && candidate.canExtractCell()

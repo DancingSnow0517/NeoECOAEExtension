@@ -274,7 +274,7 @@ public final class StorageHostUI {
     private static boolean canTakeInfiniteComponent(@Nullable Player player, BooleanSupplier canExtract) {
         if (canExtract.getAsBoolean()) return true;
         if (player != null) {
-            player.displayClientMessage(Component.translatable("tooltip.neoecoae.storage.infinite_component_locked"), true);
+            player.sendOverlayMessage(Component.translatable("tooltip.neoecoae.storage.infinite_component_locked"));
         }
         return false;
     }

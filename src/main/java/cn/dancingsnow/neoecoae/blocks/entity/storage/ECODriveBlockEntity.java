@@ -257,10 +257,10 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
+    public void saveAdditional(net.minecraft.world.level.storage.ValueOutput data) {
         // Chunk saves serialize the cell stack; deferred contents must be in its components first.
         flushPendingCellWrites();
-        super.saveAdditional(data, registries);
+        super.saveAdditional(data);
     }
 
     @Override

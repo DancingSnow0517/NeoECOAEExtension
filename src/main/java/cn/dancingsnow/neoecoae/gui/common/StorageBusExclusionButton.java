@@ -33,7 +33,7 @@ public final class StorageBusExclusionButton {
                     ? "gui.neoecoae.storage_interface.exclude_storage_bus.on"
                     : "gui.neoecoae.storage_interface.exclude_storage_bus.off"),
                 Component.translatable("gui.neoecoae.storage_interface.exclude_storage_bus.description")
-            ), null, null, null));
+            ), null, null, null, null));
         return button;
     }
 

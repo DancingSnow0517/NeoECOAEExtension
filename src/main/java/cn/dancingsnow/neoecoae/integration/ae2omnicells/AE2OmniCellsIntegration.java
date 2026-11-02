@@ -26,7 +26,7 @@ public final class AE2OmniCellsIntegration {
             NEOmniItems.ECO_COMPLEX_OMNI_CELL_64M, NEOmniItems.ECO_COMPLEX_OMNI_CELL_256M);
         registerModels("quantum_omni", NEOmniItems.ECO_QUANTUM_OMNI_CELL_16M,
             NEOmniItems.ECO_QUANTUM_OMNI_CELL_64M, NEOmniItems.ECO_QUANTUM_OMNI_CELL_256M);
-        if (ModList.get().isLoaded("appmek")) {
+        if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("appmek")) {
             NEOmniWasteCells.registerModels(false);
         }
 
@@ -40,7 +40,7 @@ public final class AE2OmniCellsIntegration {
             NEOmniItems.ECO_COMPLEX_OMNI_CELL_64M, NEOmniItems.ECO_COMPLEX_OMNI_CELL_256M);
         registerResolvedModels("quantum_omni", NEOmniItems.ECO_QUANTUM_OMNI_CELL_16M,
             NEOmniItems.ECO_QUANTUM_OMNI_CELL_64M, NEOmniItems.ECO_QUANTUM_OMNI_CELL_256M);
-        if (ModList.get().isLoaded("appmek")) {
+        if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("appmek")) {
             NEOmniWasteCells.registerModels(true);
         }
     }
@@ -48,7 +48,7 @@ public final class AE2OmniCellsIntegration {
     private void commonSetup(FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
             ECOStorageCells.register(ECOUniversalCellHandler.INSTANCE);
-            if (ModList.get().isLoaded("appmek")) {
+            if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("appmek")) {
                 NEOmniWasteCells.registerUpgrades();
             }
             String group = GuiText.StorageCells.getTranslationKey();

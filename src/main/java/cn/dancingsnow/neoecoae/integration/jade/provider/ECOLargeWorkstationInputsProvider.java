@@ -5,6 +5,7 @@ import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
+import cn.dancingsnow.neoecoae.util.LegacyNbt;
 import java.util.List;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.HolderLookup;
@@ -22,7 +23,7 @@ import snownee.jade.api.TooltipPosition;
 import snownee.jade.api.config.IPluginConfig;
 
 /** Shows the concrete materials accepted for the large workstation's current batch. */
-public enum ECOLargeWorkstationInputsProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
+public enum ECOLargeWorkstationInputsProvider implements IServerDataProvider<BlockAccessor> {
     INSTANCE;
 
     private static final String TAG_INPUTS = "workstationCurrentInputs";
@@ -44,43 +45,53 @@ public enum ECOLargeWorkstationInputsProvider implements IBlockComponentProvider
         ListTag encodedInputs = new ListTag();
         for (GenericStack input : inputs) {
             if (input != null && input.amount() > 0) {
-                encodedInputs.add(GenericStack.writeTag(registries, input));
+                encodedInputs.add(LegacyNbt.output(registries, out -> GenericStack.writeTag(out, input)));
             }
         }
         data.put(TAG_INPUTS, encodedInputs);
     }
 
     @Override
-    public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
-        CompoundTag data = accessor.getServerData();
-        if (!data.contains(TAG_INPUTS)) return;
-
-        tooltip.add(Component.translatable("jade.neoecoae.large_workstation.current_inputs")
-                .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
-        ListTag inputs = data.getListOrEmpty(TAG_INPUTS);
-        if (inputs.isEmpty()) {
-            tooltip.add(Component.translatable("jade.neoecoae.large_workstation.current_inputs.empty")
-                    .withStyle(ChatFormatting.GRAY));
-            return;
-        }
-
-        for (int index = 0; index < inputs.size(); index++) {
-            GenericStack stack = GenericStack.readTag(accessor.getLevel().registryAccess(), inputs.getCompoundOrEmpty(index));
-            if (stack == null || stack.amount() <= 0) continue;
-            MutableComponent line = stack.what().getDisplayName().copy().withStyle(ChatFormatting.WHITE);
-            line.append(Component.literal(" × " + stack.what().formatAmount(stack.amount(), AmountFormat.SLOT))
-                    .withStyle(ChatFormatting.YELLOW));
-            tooltip.add(line);
-        }
-    }
-
-    @Override
-    public int getDefaultPriority() {
-        return TooltipPosition.TAIL;
-    }
-
-    @Override
     public Identifier getUid() {
         return NeoECOAE.id("large_workstation_current_inputs");
+    }
+
+    public enum Client implements IBlockComponentProvider {
+        INSTANCE;
+
+        @Override
+        public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
+            CompoundTag data = accessor.getServerData();
+            if (!data.contains(TAG_INPUTS)) return;
+
+            tooltip.add(Component.translatable("jade.neoecoae.large_workstation.current_inputs")
+                    .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+            ListTag inputs = data.getListOrEmpty(TAG_INPUTS);
+            if (inputs.isEmpty()) {
+                tooltip.add(Component.translatable("jade.neoecoae.large_workstation.current_inputs.empty")
+                        .withStyle(ChatFormatting.GRAY));
+                return;
+            }
+
+            for (int index = 0; index < inputs.size(); index++) {
+                GenericStack stack = GenericStack.readTag(
+                    LegacyNbt.input(accessor.getLevel().registryAccess(), inputs.getCompoundOrEmpty(index)));
+                if (stack == null || stack.amount() <= 0) continue;
+                MutableComponent line = stack.what().getDisplayName().copy().withStyle(ChatFormatting.WHITE);
+                line.append(Component.literal(" × " + stack.what().formatAmount(stack.amount(), AmountFormat.SLOT))
+                        .withStyle(ChatFormatting.YELLOW));
+                tooltip.add(line);
+            }
+        }
+
+        @Override
+        public int getDefaultPriority() {
+            return TooltipPosition.TAIL;
+        }
+
+        @Override
+        public Identifier getUid() {
+            return NeoECOAE.id("large_workstation_current_inputs");
+        }
     }
 }

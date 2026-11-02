@@ -12,7 +12,7 @@ final class StorageCellUiExtraction {
 
     static boolean extract(ECOStorageSystemBlockEntity host, Player player, BlockPos position,
         UUID expected, boolean toInventory) {
-        if (player.level().isClientSide || !host.isFormed() || host.getCluster() == null
+        if (player.level().isClientSide() || !host.isFormed() || host.getCluster() == null
             || expected == null) return false;
         ECODriveBlockEntity drive = host.getCluster().getDrives().stream()
             .filter(candidate -> !candidate.isRemoved() && Objects.equals(candidate.getBlockPos(), position))
@@ -22,7 +22,7 @@ final class StorageCellUiExtraction {
             || drive.getCellStack().getCount() != 1) return false;
         var reason = drive.getCellExtractionBlockReasonText();
         if (reason != null) {
-            player.displayClientMessage(reason, true);
+            player.sendOverlayMessage(reason);
             return false;
         }
         if (!drive.canExtractCell()) return false;
@@ -31,7 +31,7 @@ final class StorageCellUiExtraction {
         var menu = player.containerMenu;
         int destination = -1;
         if (toInventory) {
-            for (int i = 0; i < inventory.items.size(); i++) {
+            for (int i = 0; i < inventory.getNonEquipmentItems().size(); i++) {
                 ItemStack existing = inventory.getItem(i);
                 if (existing.isEmpty()) {
                     destination = i;

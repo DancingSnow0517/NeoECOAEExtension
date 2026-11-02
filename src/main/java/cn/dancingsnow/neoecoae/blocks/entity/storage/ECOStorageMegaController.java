@@ -279,7 +279,7 @@ final class ECOStorageMegaController {
             ? net.minecraft.network.chat.Component.translatable(
                 key, result.added(), result.alreadyMarked(), result.noSpace(), result.transferred())
             : net.minecraft.network.chat.Component.translatable(key);
-        player.displayClientMessage(message, true);
+        player.sendOverlayMessage(message);
     }
 
     private final class EcoMegaUpgradeItemHandler implements IItemHandlerModifiable {

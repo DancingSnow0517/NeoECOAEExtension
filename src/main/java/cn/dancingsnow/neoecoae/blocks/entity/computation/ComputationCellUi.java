@@ -12,7 +12,7 @@ final class ComputationCellUi {
     private ComputationCellUi() {}
 
     static boolean insert(ECOComputationSystemBlockEntity host, Player player, BlockPos position, ItemStack expected) {
-        if (player.level().isClientSide || !host.isFormed() || host.getCluster() == null || expected.isEmpty()) return false;
+        if (player.level().isClientSide() || !host.isFormed() || host.getCluster() == null || expected.isEmpty()) return false;
         var menu = player.containerMenu;
         ItemStack carried = menu.getCarried();
         if (!ItemStack.matches(expected, carried)) return false;
@@ -32,13 +32,13 @@ final class ComputationCellUi {
 
     static boolean extract(ECOComputationSystemBlockEntity host, Player player, BlockPos position,
         ItemStack expected, boolean toInventory) {
-        if (player.level().isClientSide || !host.isFormed() || host.getCluster() == null
+        if (player.level().isClientSide() || !host.isFormed() || host.getCluster() == null
             || expected.isEmpty() || expected.getCount() != 1) return false;
         ECOComputationDriveBlockEntity drive = findDrive(host, position);
         if (drive == null || drive.getCellStack() == null || !ItemStack.matches(expected, drive.getCellStack())) return false;
         var reason = drive.getCellExtractionBlockReasonText();
         if (reason != null) {
-            player.displayClientMessage(reason, true);
+            player.sendOverlayMessage(reason);
             return false;
         }
         if (!drive.canExtractCell()) return false;
@@ -47,7 +47,7 @@ final class ComputationCellUi {
         var menu = player.containerMenu;
         int destination = -1;
         if (toInventory) {
-            for (int i = 0; i < inventory.items.size(); i++) {
+            for (int i = 0; i < inventory.getNonEquipmentItems().size(); i++) {
                 ItemStack existing = inventory.getItem(i);
                 if (existing.isEmpty()) {
                     destination = i;

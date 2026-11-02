@@ -2,57 +2,73 @@ package cn.dancingsnow.neoecoae.recipe;
 
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import com.mojang.serialization.MapCodec;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.PlacementInfo;
 import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.RecipeBookCategories;
+import net.minecraft.world.item.crafting.RecipeBookCategory;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
 
 /** Native multiblock recipes are kept out of the single-block workstation's recipe type. */
-public record LargeIntegratedWorkingStationRecipe(IntegratedWorkingStationRecipe display)
+public record LargeIntegratedWorkingStationRecipe(IntegratedWorkingStationRecipe recipe)
     implements Recipe<IntegratedWorkingStationRecipe.Input> {
     public static final int MAX_ITEM_INPUTS = 12;
 
+    public static final MapCodec<LargeIntegratedWorkingStationRecipe> CODEC =
+        IntegratedWorkingStationRecipe.createCodec(MAX_ITEM_INPUTS)
+            .xmap(LargeIntegratedWorkingStationRecipe::new, LargeIntegratedWorkingStationRecipe::recipe);
+    public static final StreamCodec<RegistryFriendlyByteBuf, LargeIntegratedWorkingStationRecipe> STREAM_CODEC =
+        IntegratedWorkingStationRecipe.createStreamCodec(MAX_ITEM_INPUTS)
+            .map(LargeIntegratedWorkingStationRecipe::new, LargeIntegratedWorkingStationRecipe::recipe);
+    public static final RecipeSerializer<LargeIntegratedWorkingStationRecipe> SERIALIZER =
+        new RecipeSerializer<>(CODEC, STREAM_CODEC);
+
     @Override
     public boolean matches(IntegratedWorkingStationRecipe.Input input, Level level) {
-        return display.matches(input, level);
+        return recipe.matches(input, level);
     }
 
     @Override
-    public ItemStack assemble(IntegratedWorkingStationRecipe.Input input, HolderLookup.Provider registries) {
-        return display.assemble(input, registries);
+    public ItemStack assemble(IntegratedWorkingStationRecipe.Input input) {
+        return recipe.assemble(input);
     }
 
     @Override
-    public boolean canCraftInDimensions(int width, int height) { return true; }
+    public String group() {
+        return "";
+    }
 
     @Override
-    public ItemStack getResultItem(HolderLookup.Provider registries) { return display.getResultItem(registries); }
+    public PlacementInfo placementInfo() {
+        return PlacementInfo.NOT_PLACEABLE;
+    }
 
     @Override
-    public RecipeSerializer<?> getSerializer() { return NERecipeTypes.LARGE_INTEGRATED_WORKING_STATION_SERIALIZER.get(); }
+    public RecipeBookCategory recipeBookCategory() {
+        return RecipeBookCategories.CRAFTING_MISC;
+    }
 
     @Override
-    public RecipeType<?> getType() { return NERecipeTypes.LARGE_INTEGRATED_WORKING_STATION.get(); }
+    public RecipeSerializer<? extends Recipe<IntegratedWorkingStationRecipe.Input>> getSerializer() {
+        return NERecipeTypes.LARGE_INTEGRATED_WORKING_STATION_SERIALIZER.get();
+    }
 
     @Override
-    public boolean isSpecial() { return true; }
+    public RecipeType<? extends Recipe<IntegratedWorkingStationRecipe.Input>> getType() {
+        return NERecipeTypes.LARGE_INTEGRATED_WORKING_STATION.get();
+    }
 
-    public static final class Serializer implements RecipeSerializer<LargeIntegratedWorkingStationRecipe> {
-        public static final MapCodec<LargeIntegratedWorkingStationRecipe> CODEC =
-            IntegratedWorkingStationRecipe.Serializer.createCodec(MAX_ITEM_INPUTS)
-                .xmap(LargeIntegratedWorkingStationRecipe::new, LargeIntegratedWorkingStationRecipe::display);
-        public static final StreamCodec<RegistryFriendlyByteBuf, LargeIntegratedWorkingStationRecipe> STREAM_CODEC =
-            IntegratedWorkingStationRecipe.Serializer.createStreamCodec(MAX_ITEM_INPUTS)
-                .map(LargeIntegratedWorkingStationRecipe::new, LargeIntegratedWorkingStationRecipe::display);
+    @Override
+    public boolean isSpecial() {
+        return true;
+    }
 
-        @Override
-        public MapCodec<LargeIntegratedWorkingStationRecipe> codec() { return CODEC; }
-
-        @Override
-        public StreamCodec<RegistryFriendlyByteBuf, LargeIntegratedWorkingStationRecipe> streamCodec() { return STREAM_CODEC; }
+    @Override
+    public boolean showNotification() {
+        return false;
     }
 }

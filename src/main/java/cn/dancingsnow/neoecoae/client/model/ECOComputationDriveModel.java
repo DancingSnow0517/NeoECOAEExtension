@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlockEntities;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.client.ECOComputationModels;
+import cn.dancingsnow.neoecoae.api.computation.ECOComputationCells;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import com.mojang.math.Transformation;
 import com.mojang.serialization.MapCodec;
@@ -68,10 +69,12 @@ public class ECOComputationDriveModel implements DynamicBlockStateModel {
 
             IECOTier cableTier = be.getTier();
             // cell model part
-            if (hasCell && cellStack.getItem() instanceof ECOComputationCellItem item) {
+            var memory = hasCell ? ECOComputationCells.describe(cellStack) : null;
+            if (memory != null) {
+                IECOTier itemTier = memory.tier();
                 var model = cellModels.get(cellStack.getItem());
                 // cell not empty
-                shouldCellWork = formed && be.getTier() != null && item.getTier().compareTo(be.getTier()) <= 0;
+                shouldCellWork = formed && be.getTier() != null && be.getTier().supportsComponentTier(itemTier);
                 if (model != null) {
                     if (shouldCellWork) {
                         parts.add(model.formedModel());
@@ -80,7 +83,7 @@ public class ECOComputationDriveModel implements DynamicBlockStateModel {
                     }
                 }
                 if (shouldCellWork) {
-                    cableTier = item.getTier();
+                    cableTier = itemTier;
                 }
             }
 

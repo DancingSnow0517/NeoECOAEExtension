@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
+import cn.dancingsnow.neoecoae.gui.NEGuiColors;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
@@ -41,7 +42,7 @@ public final class SmartCoolingModuleUI {
         target.setTextResponder(text -> setTarget(host, text));
         target.bind(DataBindingBuilder.string(() -> String.valueOf(host.getTargetTemperature()),
             text -> setTarget(host, text)).build());
-        target.textFieldStyle(style -> style.textColor(0xF2F2F2).textShadow(false));
+        target.textFieldStyle(style -> style.textColor(NEGuiColors.textColor(0xF2F2F2)).textShadow(false));
         settings.addChild(place(target, 172, 10, 50, 18));
         root.addChild(settings);
 
@@ -97,7 +98,7 @@ public final class SmartCoolingModuleUI {
         // TextElement does not reserve its rendered height by default. Bound both axes and wrap
         // translations inside their own region so a status update cannot overlap another control.
         text.textStyle(style -> style.adaptiveWidth(false).adaptiveHeight(false)
-            .textWrap(TextWrap.WRAP).textColor(0x403E53).textShadow(false));
+            .textWrap(TextWrap.WRAP).textColor(NEGuiColors.textColor(0x403E53)).textShadow(false));
         place(text, x, y, width, height);
         text.setText(key, true);
         return text;

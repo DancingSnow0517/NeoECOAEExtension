@@ -16,6 +16,12 @@ import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.fluids.FluidUtil;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.ResourceHandlerUtil;
+import net.neoforged.neoforge.transfer.fluid.FluidResource;
+import net.neoforged.neoforge.transfer.transaction.Transaction;
 
 public class ECOLargeIntegratedWorkingStationOutputHatchBlockEntity
     extends NEBlockEntity<NEIntegratedWorkingStationCluster, ECOLargeIntegratedWorkingStationOutputHatchBlockEntity> {
@@ -29,6 +35,11 @@ public class ECOLargeIntegratedWorkingStationOutputHatchBlockEntity
             notifyController();
         }
     };
+
+    private final FluidTankResourceHandler drainOnlyHandler = FluidTankResourceHandler.extractOnly(() -> tank);
+
+    /** 26.1 fluid capability ({@code Capabilities.Fluid.BLOCK}): drain-only view of {@link #tank}. */
+    public ResourceHandler<FluidResource> getFluidResourceHandler() { return drainOnlyHandler; }
 
     public ECOLargeIntegratedWorkingStationOutputHatchBlockEntity(
         BlockEntityType<?> type,
@@ -51,11 +62,15 @@ public class ECOLargeIntegratedWorkingStationOutputHatchBlockEntity
             if (cluster != null && cluster.containsBlockEntity(level.getBlockEntity(neighborPos))) {
                 continue;
             }
-            IFluidHandler target = level.getCapability(
-                Capabilities.FluidHandler.BLOCK, neighborPos, face.getOpposite());
-            if (target != null
-                && !FluidUtil.tryFluidTransfer(target, tank, tank.getFluidAmount(), true).isEmpty()) {
-                return;
+            ResourceHandler<FluidResource> target = level.getCapability(
+                Capabilities.Fluid.BLOCK, neighborPos, face.getOpposite());
+            if (target != null && !tank.isEmpty()) {
+                try (Transaction transaction = Transaction.open(null)) {
+                    if (ResourceHandlerUtil.move(drainOnlyHandler, target, fluid -> true, tank.getFluidAmount(), transaction) > 0) {
+                        transaction.commit();
+                        return;
+                    }
+                }
             }
         }
     }
@@ -66,14 +81,14 @@ public class ECOLargeIntegratedWorkingStationOutputHatchBlockEntity
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
-        tank.writeToNBT(registries, data);
+    public void saveAdditional(ValueOutput data) {
+        super.saveAdditional(data);
+        tank.serialize(data);
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
-        tank.readFromNBT(registries, data);
+    public void loadTag(ValueInput data) {
+        super.loadTag(data);
+        tank.deserialize(data);
     }
 }

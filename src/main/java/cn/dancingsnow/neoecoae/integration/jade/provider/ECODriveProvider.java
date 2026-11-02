@@ -20,54 +20,6 @@ import snownee.jade.api.config.IPluginConfig;
 public enum ECODriveProvider implements IServerDataProvider<BlockAccessor> {
     INSTANCE;
 
-    @Override
-    public void appendTooltip(ITooltip iTooltip, BlockAccessor blockAccessor, IPluginConfig iPluginConfig) {
-        CompoundTag serverData = blockAccessor.getServerData();
-        if (serverData.getBooleanOr("tierMismatch", false)) {
-            iTooltip.add(Component.translatable("jade.neoecoae.storage_matrix_tier_too_high")
-                .withStyle(ChatFormatting.RED));
-        }
-        if (serverData.getBooleanOr("infiniteMember", false)) {
-            iTooltip.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
-                .withStyle(ChatFormatting.LIGHT_PURPLE));
-            return;
-        }
-        if (serverData.getBooleanOr("infiniteResource", false)) {
-            if (serverData.getBooleanOr("mounted", false)) {
-                iTooltip.add(Component.translatable("jade.neoecoae.drive_mounted").withStyle(ChatFormatting.GREEN));
-            }
-            return;
-        }
-        if (serverData.contains("mounted")) {
-            boolean mounted = serverData.getBooleanOr("mounted", false);
-            if (mounted) {
-                iTooltip.add(Component.translatable("jade.neoecoae.drive_mounted").withStyle(ChatFormatting.GREEN));
-            } else {
-                iTooltip.add(Component.translatable("jade.neoecoae.drive_unmounted").withStyle(ChatFormatting.RED));
-                return;
-            }
-        }
-        if (serverData.contains("usedBytes") && serverData.contains("totalBytes")) {
-            iTooltip.add(bytesUsedLine(serverData.getLongOr("usedBytes", 0L), serverData.getLongOr("totalBytes", 0L)));
-        }
-        if (serverData.contains("storedItemTypes") && serverData.contains("totalItemTypes")) {
-            long storedItemTypes = serverData.getLongOr("storedItemTypes", 0L);
-            if (serverData.getBooleanOr("infiniteTypeCapacity", false)) {
-                iTooltip.add(Tooltips.of(
-                    Tooltips.ofUnformattedNumberWithRatioColor(storedItemTypes, 0, false),
-                    Tooltips.of(" "),
-                    Tooltips.of(GuiText.Of),
-                    Tooltips.of(" "),
-                    Component.literal("∞").withStyle(Tooltips.NUMBER_TEXT),
-                    Tooltips.of(" "),
-                    Tooltips.of(GuiText.Types)
-                ));
-            } else {
-                iTooltip.add(Tooltips.typesUsed(storedItemTypes, serverData.getLongOr("totalItemTypes", 0L)));
-            }
-        }
-    }
-
     private static Component bytesUsedLine(long used, long total) {
         if (total != Long.MAX_VALUE) {
             return Tooltips.bytesUsed(used, total);
@@ -104,7 +56,6 @@ public enum ECODriveProvider implements IServerDataProvider<BlockAccessor> {
         }
     }
 
-
     @Override
     public Identifier getUid() {
         return NeoECOAE.id("eco_drive");
@@ -113,29 +64,51 @@ public enum ECODriveProvider implements IServerDataProvider<BlockAccessor> {
     public enum Client implements IBlockComponentProvider {
         INSTANCE;
 
-
         @Override
         public void appendTooltip(ITooltip iTooltip, BlockAccessor blockAccessor, IPluginConfig iPluginConfig) {
             CompoundTag serverData = blockAccessor.getServerData();
-            var mounted = serverData.getBoolean("mounted");
-            if (mounted.isPresent()) {
-                if (mounted.get()) {
+            if (serverData.getBooleanOr("tierMismatch", false)) {
+                iTooltip.add(Component.translatable("jade.neoecoae.storage_matrix_tier_too_high")
+                    .withStyle(ChatFormatting.RED));
+            }
+            if (serverData.getBooleanOr("infiniteMember", false)) {
+                iTooltip.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
+                    .withStyle(ChatFormatting.LIGHT_PURPLE));
+                return;
+            }
+            if (serverData.getBooleanOr("infiniteResource", false)) {
+                if (serverData.getBooleanOr("mounted", false)) {
+                    iTooltip.add(Component.translatable("jade.neoecoae.drive_mounted").withStyle(ChatFormatting.GREEN));
+                }
+                return;
+            }
+            if (serverData.contains("mounted")) {
+                boolean mounted = serverData.getBooleanOr("mounted", false);
+                if (mounted) {
                     iTooltip.add(Component.translatable("jade.neoecoae.drive_mounted").withStyle(ChatFormatting.GREEN));
                 } else {
                     iTooltip.add(Component.translatable("jade.neoecoae.drive_unmounted").withStyle(ChatFormatting.RED));
                     return;
                 }
             }
-            var usedBytes = serverData.getLong("usedBytes");
-            var totalBytes = serverData.getLong("totalBytes");
-            if (usedBytes.isPresent() && totalBytes.isPresent()) {
-                iTooltip.add(Tooltips.bytesUsed(usedBytes.get(), totalBytes.get()));
+            if (serverData.contains("usedBytes") && serverData.contains("totalBytes")) {
+                iTooltip.add(bytesUsedLine(serverData.getLongOr("usedBytes", 0L), serverData.getLongOr("totalBytes", 0L)));
             }
-
-            var storedItemTypes = serverData.getLong("storedItemTypes");
-            var totalItemTypes = serverData.getLong("totalItemTypes");
-            if (storedItemTypes.isPresent() && totalItemTypes.isPresent()) {
-                iTooltip.add(Tooltips.typesUsed(storedItemTypes.get(), totalItemTypes.get()));
+            if (serverData.contains("storedItemTypes") && serverData.contains("totalItemTypes")) {
+                long storedItemTypes = serverData.getLongOr("storedItemTypes", 0L);
+                if (serverData.getBooleanOr("infiniteTypeCapacity", false)) {
+                    iTooltip.add(Tooltips.of(
+                        Tooltips.ofUnformattedNumberWithRatioColor(storedItemTypes, 0, false),
+                        Tooltips.of(" "),
+                        Tooltips.of(GuiText.Of),
+                        Tooltips.of(" "),
+                        Component.literal("∞").withStyle(Tooltips.NUMBER_TEXT),
+                        Tooltips.of(" "),
+                        Tooltips.of(GuiText.Types)
+                    ));
+                } else {
+                    iTooltip.add(Tooltips.typesUsed(storedItemTypes, serverData.getLongOr("totalItemTypes", 0L)));
+                }
             }
         }
 

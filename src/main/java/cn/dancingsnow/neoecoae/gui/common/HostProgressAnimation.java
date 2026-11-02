@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
 import java.util.function.LongSupplier;
-import net.minecraft.Util;
+import net.minecraft.util.Util;
 
 /** Reveals a host gauge up to its live value during its first half-second of rendering. */
 public final class HostProgressAnimation {

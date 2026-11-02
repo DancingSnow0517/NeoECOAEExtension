@@ -47,9 +47,9 @@ public final class PatternPreviewCodec {
             content.remove("index");
             content.remove("bus");
             content.remove("slot");
-            if (content.getCompound("stack").isEmpty()) content.remove("stack");
-            if (content.getString("inputs").isEmpty()) content.remove("inputs");
-            if (content.getString("output").isEmpty()) content.remove("output");
+            if (content.getCompoundOrEmpty("stack").isEmpty()) content.remove("stack");
+            if (content.getStringOr("inputs", "").isEmpty()) content.remove("inputs");
+            if (content.getStringOr("output", "").isEmpty()) content.remove("output");
             if (content.getListOrEmpty("disk").isEmpty()) content.remove("disk");
             if (!content.getBooleanOr("diskSlot", false)) content.remove("diskSlot");
             int id = -1;

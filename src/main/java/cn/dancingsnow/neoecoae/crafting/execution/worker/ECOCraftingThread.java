@@ -48,14 +48,13 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.inventory.TransientCraftingContainer;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.common.util.INBTSerializable;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnknownNullability;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
+public class ECOCraftingThread {
     private static final int CURRENT_NBT_VERSION = 4;
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     public static final int MAX_PROGRESS = 100;
@@ -1207,7 +1206,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         worker.setChanged();
     }
 
-    @Override
     public @UnknownNullability CompoundTag serializeNBT(HolderLookup.Provider provider) {
         CompoundTag tag = new CompoundTag();
         boolean batchGenericWork =
@@ -1261,9 +1259,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     private static Tag saveSerializableStack(ItemStack stack, HolderLookup.Provider provider) {
         if (stack.isEmpty() || stack.getCount() <= MAX_SERIALIZED_ITEM_STACK_COUNT) {
-            return stack.saveOptional(provider);
+            return cn.dancingsnow.neoecoae.util.LegacyNbt.saveItem(provider, stack);
         }
-        return stack.copyWithCount(MAX_SERIALIZED_ITEM_STACK_COUNT).saveOptional(provider);
+        return cn.dancingsnow.neoecoae.util.LegacyNbt.saveItem(provider, stack.copyWithCount(MAX_SERIALIZED_ITEM_STACK_COUNT));
     }
 
     private static void saveSerializableStacks(
@@ -1290,12 +1288,11 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         int remaining = stack.getCount();
         while (remaining > 0) {
             int count = Math.min(remaining, MAX_SERIALIZED_ITEM_STACK_COUNT);
-            tag.add(stack.copyWithCount(count).saveOptional(provider));
+            tag.add(cn.dancingsnow.neoecoae.util.LegacyNbt.saveItem(provider, stack.copyWithCount(count)));
             remaining -= count;
         }
     }
 
-    @Override
     public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
         clearVirtualCraftingDiagnostic();
         worker.markDisplayDirty();
@@ -1344,7 +1341,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         } else if (!outputs.isEmpty()) {
             for (int i = 0; i < Math.min(outputs.size(), MAX_PERSISTED_ITEM_STACK_ENTRIES); i++) {
                 try {
-                    ItemStack output = ItemStack.parseOptional(provider, outputs.getCompoundOrEmpty(i));
+                    ItemStack output = cn.dancingsnow.neoecoae.util.LegacyNbt.parseItem(provider, outputs.getCompoundOrEmpty(i));
                     if (output.isEmpty()) {
                         invalidPersistedState = true;
                     } else {
@@ -1357,7 +1354,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         } else if (persistedVersion < CURRENT_NBT_VERSION) {
             // Compatibility with the singular output format used through 1.21.1-1.3.4.
             try {
-                ItemStack output = ItemStack.parseOptional(provider, nbt.getCompoundOrEmpty("outputItem"));
+                ItemStack output = cn.dancingsnow.neoecoae.util.LegacyNbt.parseItem(provider, nbt.getCompoundOrEmpty("outputItem"));
                 if (!output.isEmpty()) {
                     outputItems.add(output);
                 }
@@ -1371,7 +1368,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         invalidPersistedState |= inputs.size() > MAX_PERSISTED_ITEM_STACK_ENTRIES;
         for (int i = 0; i < Math.min(inputs.size(), MAX_PERSISTED_ITEM_STACK_ENTRIES); i++) {
             try {
-                ItemStack input = ItemStack.parseOptional(provider, inputs.getCompoundOrEmpty(i));
+                ItemStack input = cn.dancingsnow.neoecoae.util.LegacyNbt.parseItem(provider, inputs.getCompoundOrEmpty(i));
                 if (input.isEmpty()) {
                     invalidPersistedState = true;
                 } else {
@@ -1387,7 +1384,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         invalidPersistedState |= remaining.size() > MAX_PERSISTED_ITEM_STACK_ENTRIES;
         for (int i = 0; i < Math.min(remaining.size(), MAX_PERSISTED_ITEM_STACK_ENTRIES); i++) {
             try {
-                ItemStack remainingItem = ItemStack.parseOptional(provider, remaining.getCompoundOrEmpty(i));
+                ItemStack remainingItem = cn.dancingsnow.neoecoae.util.LegacyNbt.parseItem(provider, remaining.getCompoundOrEmpty(i));
                 if (remainingItem.isEmpty()) {
                     invalidPersistedState = true;
                 } else {
@@ -1443,7 +1440,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             this.finiteBatchCraftCount = Math.max(1, occupiedSlotsUpperBound);
         }
         try {
-            craftingEventOutput = ItemStack.parseOptional(provider, nbt.getCompoundOrEmpty("craftingEventOutput"));
+            craftingEventOutput = cn.dancingsnow.neoecoae.util.LegacyNbt.parseItem(provider, nbt.getCompoundOrEmpty("craftingEventOutput"));
         } catch (RuntimeException e) {
             craftingEventOutput = ItemStack.EMPTY;
             invalidPersistedState = true;

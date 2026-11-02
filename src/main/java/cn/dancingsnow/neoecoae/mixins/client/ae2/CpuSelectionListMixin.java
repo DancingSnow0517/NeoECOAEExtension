@@ -14,6 +14,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.Identifier;
@@ -35,7 +36,8 @@ public class CpuSelectionListMixin {
         method = "drawBackgroundLayer",
         at = @At(
             value = "INVOKE",
-            target = "Lcom/mojang/blaze3d/vertex/PoseStack;popPose()V",
+            target = "Lorg/joml/Matrix3x2fStack;popMatrix()Lorg/joml/Matrix3x2fStack;",
+            ordinal = 0,
             shift = At.Shift.AFTER
         )
     )
@@ -50,7 +52,7 @@ public class CpuSelectionListMixin {
     ) {
         Identifier texture = IOverlayTextureHolder.of(cpu).neoecoae$getOverlay();
         if (texture != null) {
-            guiGraphics.blit(texture, x + buttonBg.getSrcWidth() - 10, y + 2, 0, 0, 7, 7, 7, 7);
+            guiGraphics.blit(RenderPipelines.GUI_TEXTURED, texture, x + buttonBg.getSrcWidth() - 10, y + 2, 0, 0, 7, 7, 7, 7);
         }
     }
 

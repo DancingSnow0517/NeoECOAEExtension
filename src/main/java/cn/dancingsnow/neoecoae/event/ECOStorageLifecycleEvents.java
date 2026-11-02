@@ -47,7 +47,7 @@ public final class ECOStorageLifecycleEvents {
         ECOCellMutationBatch.flushDeferred();
         ECOCellMutationBatch.retry();
         PatternBusUpdateScheduler.tick(event.getServer());
-        if (!FMLEnvironment.production) {
+        if (!FMLEnvironment.isProduction()) {
             ECOCellMutationBatch.assertClean();
         }
     }

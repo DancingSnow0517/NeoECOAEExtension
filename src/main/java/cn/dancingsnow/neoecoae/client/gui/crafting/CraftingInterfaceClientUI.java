@@ -10,8 +10,15 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import java.util.List;
 import java.util.function.Consumer;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonInfo;
+import com.lowdragmc.lowdraglib2.gui.ui.ModularUIClientAccess;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
@@ -65,10 +72,11 @@ public final class CraftingInterfaceClientUI {
         if (hovered == null) return;
         var preview = hovered.getFirstAncestorOfType(CraftingInterfaceUI.PatternPreview.class);
         if (preview == null) return;
-        var tooltip = preview.collectHoverTooltips();
-        if (tooltip == null || tooltip.tooltipTexts().isEmpty()) return;
+        var tooltip = collectHoverTooltips(preview);
+        if (tooltip == null || tooltip.tooltips().isEmpty()
+                || !(tooltip.tooltips().getFirst() instanceof Component first)) return;
         // LDLib suppresses its tooltip pass when the cursor carries an item; draw this insertion hint afterwards.
-        event.getGuiGraphics().renderTooltip(Minecraft.getInstance().font, tooltip.tooltipTexts().getFirst(),
+        event.getGuiGraphics().setTooltipForNextFrame(Minecraft.getInstance().font, first,
                 event.getMouseX(), event.getMouseY());
     }
 
@@ -81,7 +89,7 @@ public final class CraftingInterfaceClientUI {
 
     @SubscribeEvent
     public static void onCharTyped(ScreenEvent.CharacterTyped.Pre event) {
-        if (handleSearchCharTyped(event.getScreen(), event.getCodePoint(), event.getModifiers())) event.setCanceled(true);
+        if (handleSearchCharTyped(event.getScreen(), event.getCharacterEvent())) event.setCanceled(true);
     }
 
     @SubscribeEvent
@@ -92,6 +100,20 @@ public final class CraftingInterfaceClientUI {
     @SubscribeEvent
     public static void onMousePressed(ScreenEvent.MouseButtonPressed.Post event) {
         reclaimSearchFieldFocus(event.getScreen());
+    }
+
+    /** Same resolution as newer LDLib2's UIElement#collectHoverTooltips (absent from the 26.1.2.22 jar). */
+    private static com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips collectHoverTooltips(
+            com.lowdragmc.lowdraglib2.gui.ui.UIElement element) {
+        var tooltipEvent = com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+        tooltipEvent.hasBubblePhase = false;
+        tooltipEvent.hasCapturePhase = false;
+        tooltipEvent.target = element;
+        com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher.dispatchDirectEvent(tooltipEvent, false);
+        if (tooltipEvent.hoverTooltips != null) return tooltipEvent.hoverTooltips;
+        var styleTooltips = element.getStyle().tooltips();
+        return styleTooltips.isEmpty() ? null
+            : com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips.create((Object[]) styleTooltips.tooltips());
     }
 
     public static CraftingInterfaceUI.SearchField createSearchField(Consumer<String> responder) {
@@ -107,7 +129,7 @@ public final class CraftingInterfaceClientUI {
             return;
         }
 
-        var widget = modularUI.getWidget();
+        var widget = ModularUIClientAccess.getWidget(modularUI);
         NativeSearchField first = null;
         for (CraftingInterfaceUI.SearchField field :
                 modularUI.getElementsByType(CraftingInterfaceUI.SearchField.class)) {
@@ -160,16 +182,16 @@ public final class CraftingInterfaceClientUI {
             fields.get(Math.floorMod(fields.indexOf(field) + direction, fields.size())).claimNativeFocus(screen);
             return true;
         }
-        return field != null && field.keyPressedNative(keyCode, scanCode, modifiers);
+        return field != null && field.keyPressedNative(new KeyEvent(keyCode, scanCode, modifiers));
     }
 
-    public static boolean handleSearchCharTyped(Screen screen, char codePoint, int modifiers) {
+    public static boolean handleSearchCharTyped(Screen screen, CharacterEvent characterEvent) {
         NativeSearchField field = focusedSearchField(screen);
         if (field != null && field.suppressShortcutCharacter) {
             field.suppressShortcutCharacter = false;
             return true;
         }
-        return field != null && field.charTypedNative(codePoint, modifiers);
+        return field != null && field.charTypedNative(characterEvent);
     }
 
     private static void clearShortcutCharacter(Screen screen) {
@@ -227,7 +249,7 @@ public final class CraftingInterfaceClientUI {
             super(responder);
             editBox = new PositionedEditBox();
             editBox.setBordered(false);
-            editBox.setTextColor(0xFFFFFF);
+            editBox.setTextColor(0xFFFFFFFF);
             editBox.setTextShadow(false);
             editBox.setMaxLength(SEARCH_QUERY_MAX_LENGTH);
             editBox.setFilter(value -> true);
@@ -240,8 +262,10 @@ public final class CraftingInterfaceClientUI {
                 if (event.button != 0 && event.button != 1) return;
                 claimNativeFocus(Minecraft.getInstance().screen);
                 if (event.button == 1) editBox.setValue("");
-                else editBox.mouseClicked(Math.clamp(event.x, editBox.getX(), editBox.getX() + editBox.getWidth() - 1),
-                        Math.clamp(event.y, editBox.getY(), editBox.getY() + editBox.getHeight() - 1), 0);
+                else editBox.mouseClicked(new MouseButtonEvent(
+                        Math.clamp(event.x, editBox.getX(), editBox.getX() + editBox.getWidth() - 1),
+                        Math.clamp(event.y, editBox.getY(), editBox.getY() + editBox.getHeight() - 1),
+                        new MouseButtonInfo(0, 0)), false);
                 event.hasHandler = true;
                 event.stopImmediatePropagation();
             });
@@ -269,17 +293,18 @@ public final class CraftingInterfaceClientUI {
             }
         }
 
-        private boolean keyPressedNative(int keyCode, int scanCode, int modifiers) {
-            return editBox.keyPressed(keyCode, scanCode, modifiers);
+        private boolean keyPressedNative(KeyEvent keyEvent) {
+            return editBox.keyPressed(keyEvent);
         }
 
-        private boolean charTypedNative(char codePoint, int modifiers) {
-            return editBox.charTyped(codePoint, modifiers);
+        private boolean charTypedNative(CharacterEvent characterEvent) {
+            return editBox.charTyped(characterEvent);
         }
 
         @Override
-        public void drawContents(com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext guiContext) {
-            super.drawContents(guiContext);
+        protected void drawBackgroundTexture(IGUIContext context) {
+            super.drawBackgroundTexture(context);
+            if (!(context instanceof GUIContext guiContext)) return;
             syncNativeBounds();
             if (isFocused()) claimNativeFocus(Minecraft.getInstance().screen);
             editBox.renderNative(guiContext.graphics, guiContext.mouseX, guiContext.mouseY, guiContext.partialTick);
@@ -304,12 +329,12 @@ public final class CraftingInterfaceClientUI {
             }
 
             @Override
-            public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
                 // Screen owns this widget for native keyboard/IME focus; the field draws it in ModularUI's pass.
             }
 
-            private void renderNative(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-                super.renderWidget(graphics, mouseX, mouseY, partialTick);
+            private void renderNative(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+                super.extractWidgetRenderState(graphics, mouseX, mouseY, partialTick);
             }
 
             @Override
@@ -319,9 +344,10 @@ public final class CraftingInterfaceClientUI {
             }
 
             @Override
-            public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
                 syncNativeBounds();
-                if (!isMouseOver(mouseX, mouseY)) {
+                int button = event.button();
+                if (!isMouseOver(event.x(), event.y())) {
                     return false;
                 }
                 if (button == 1) {
@@ -329,26 +355,27 @@ public final class CraftingInterfaceClientUI {
                     claimNativeFocus(Minecraft.getInstance().screen);
                     return true;
                 }
-                boolean handled = super.mouseClicked(mouseX, mouseY, button);
+                boolean handled = super.mouseClicked(event, doubleClick);
                 if (handled) claimNativeFocus(Minecraft.getInstance().screen);
                 return handled;
             }
 
             @Override
-            public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+            public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
                 syncNativeBounds();
-                return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+                return super.mouseDragged(event, dragX, dragY);
             }
 
             @Override
-            public boolean mouseReleased(double mouseX, double mouseY, int button) {
+            public boolean mouseReleased(MouseButtonEvent event) {
                 syncNativeBounds();
-                return super.mouseReleased(mouseX, mouseY, button);
+                return super.mouseReleased(event);
             }
 
             @Override
-            public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-                if (super.keyPressed(keyCode, scanCode, modifiers)) {
+            public boolean keyPressed(KeyEvent keyEvent) {
+                int keyCode = keyEvent.key();
+                if (super.keyPressed(keyEvent)) {
                     return true;
                 }
                 // Keep E from closing the GUI while the native field consumes keyboard input.

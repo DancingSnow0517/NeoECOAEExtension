@@ -6,6 +6,8 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import cn.dancingsnow.neoecoae.NeoECOAE;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
@@ -101,14 +103,42 @@ public final class ECOInfiniteStorageDomains {
         // never fall back to the stale legacy inventory when the newer file is damaged.
         String dataName = legacyName + "_v3";
         Path dataDir = server.getWorldPath(LevelResource.ROOT).resolve("data");
-        Path dataFile = dataDir.resolve(dataName + ".dat");
+        // 26.1 port: saved data ids are namespaced, and overworld data moved to dimensions/minecraft/overworld/data.
+        // Domains are world-global, so they now live in the server-wide storage: <world>/data/<namespace>/<path>.dat.
+        Identifier dataId = NeoECOAE.id(dataName);
+        Path dataFile = dataId.withSuffix(".dat").resolveAgainst(dataDir);
+        // Where 1.21.1 wrote the v3 snapshot (overworld data = flat <world>/data; vanilla's file fix leaves it there).
+        Path previousDataFile = dataDir.resolve(dataName + ".dat");
         Path legacyFile = dataDir.resolve(legacyName + ".dat");
-        ECOInfiniteStorageData data = overworld.getDataStorage().computeIfAbsent(
-                ECOInfiniteStorageData.factory(dataFile, () -> importLegacy(overworld, domainId, legacyFile)), dataName);
+        ECOInfiniteStorageData data = server.getDataStorage().computeIfAbsent(
+                ECOInfiniteStorageData.type(dataId, dataFile, server.registryAccess(),
+                        () -> importPrevious(overworld, domainId, previousDataFile, legacyFile)));
         if (data.status() != ECOInfiniteStorageData.DomainStatus.HEALTHY) {
             LOGGER.warn("ECO domain {} opened with status {}: {}", domainId, data.status(), data.failures());
         }
         return new SavedDataInfiniteStorageEngine(data);
+    }
+
+    /**
+     * 26.1 port: a v3 snapshot written by 1.21.1 sits at the old flat path. Load it (and its journal) so upgraded
+     * worlds keep their inventory; the next save writes it to the namespaced path. The old file is never touched.
+     */
+    private static ECOInfiniteStorageData importPrevious(ServerLevel overworld, UUID domainId, Path previousDataFile,
+                                                         Path legacyFile) {
+        if (!java.nio.file.Files.exists(previousDataFile)) return importLegacy(overworld, domainId, legacyFile);
+        ECOInfiniteStorageData data;
+        try {
+            net.minecraft.nbt.CompoundTag root = net.minecraft.nbt.NbtIo.readCompressed(previousDataFile,
+                    net.minecraft.nbt.NbtAccounter.unlimitedHeap());
+            data = ECOInfiniteStorageData.loadWithJournal(root.getCompoundOrEmpty("data"), overworld.registryAccess(),
+                    previousDataFile);
+            if (data.canWrite()) data.setDirty();
+        } catch (java.io.IOException | RuntimeException e) {
+            data = ECOInfiniteStorageData.createNew();
+            data.markUnreadable("Cannot read 1.21.1 domain snapshot; original file retained: " + e);
+            LOGGER.error("Cannot import ECO domain {} from {}; original file retained", domainId, previousDataFile, e);
+        }
+        return data;
     }
 
     private static ECOInfiniteStorageData importLegacy(ServerLevel overworld, UUID domainId, Path legacyFile) {

@@ -19,7 +19,11 @@ import appeng.api.stacks.GenericStack;
 import appeng.menu.guisync.GuiSync;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
+import appeng.menu.guisync.ClientActionKey;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -34,7 +38,13 @@ import java.util.Iterator;
 
 @Mixin(CellWorkbenchMenu.class)
 public abstract class CellWorkbenchMenuMixin extends UpgradeableMenu<CellWorkbenchBlockEntity> implements ECOBulkMarkerMenu {
-    @Unique private static final String NEOECOAE_MARKER_EDIT = "neoecoae:bulk_marker_edit";
+    // 26.1 port: AE2 client actions are keyed and carry a StreamCodec instead of a Gson class.
+    @Unique private static final ClientActionKey<MarkerEdit> NEOECOAE_MARKER_EDIT = new ClientActionKey<>("neoecoae:bulk_marker_edit");
+    @Unique private static final StreamCodec<RegistryFriendlyByteBuf, MarkerEdit> NEOECOAE_MARKER_EDIT_CODEC = StreamCodec.composite(
+        ByteBufCodecs.VAR_INT, MarkerEdit::slot,
+        ByteBufCodecs.STRING_UTF8, MarkerEdit::expectedMarker,
+        ByteBufCodecs.VAR_INT, MarkerEdit::action,
+        MarkerEdit::new);
     @Unique @GuiSync(114) public long neoecoae$occupiedMarkers = -1L;
     protected CellWorkbenchMenuMixin(MenuType<?> type, int id, Inventory inventory, CellWorkbenchBlockEntity host) {
         super(type, id, inventory, host);
@@ -42,7 +52,7 @@ public abstract class CellWorkbenchMenuMixin extends UpgradeableMenu<CellWorkben
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void neoecoae$bindRealHost(int id, Inventory inventory, CellWorkbenchBlockEntity host, CallbackInfo ci) {
-        registerClientAction(NEOECOAE_MARKER_EDIT, MarkerEdit.class, this::neoecoae$editBulkMarker);
+        registerClientAction(NEOECOAE_MARKER_EDIT, NEOECOAE_MARKER_EDIT_CODEC, this::neoecoae$editBulkMarker);
         if (host instanceof StorageCellWorkbench workbench) {
             // AE2 validates the placed block entity while UpgradeableMenu retains the workbench adapter.
             ((AEBaseMenuAccessor) (Object) this).neoecoae$setBlockEntity(workbench.controller());
@@ -63,12 +73,12 @@ public abstract class CellWorkbenchMenuMixin extends UpgradeableMenu<CellWorkben
     }
 
     @Override
-    public void clicked(int slot, int button, ClickType type, Player player) {
+    public void clicked(int slot, int button, ContainerInput type, Player player) {
         if (getHost() instanceof StorageCellWorkbench workbench) {
             if (!workbench.isValidFor(player)) return;
             if (neoecoae$isInstalledCellSlot(slot)) {
-                if (type == ClickType.PICKUP || type == ClickType.QUICK_MOVE || type == ClickType.SWAP
-                    || type == ClickType.THROW) workbench.extractToCursor(player);
+                if (type == ContainerInput.PICKUP || type == ContainerInput.QUICK_MOVE || type == ContainerInput.SWAP
+                    || type == ContainerInput.THROW) workbench.extractToCursor(player);
                 return;
             }
         }

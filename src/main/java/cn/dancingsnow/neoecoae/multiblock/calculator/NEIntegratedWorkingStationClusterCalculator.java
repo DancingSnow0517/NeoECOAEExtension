@@ -42,7 +42,7 @@ public class NEIntegratedWorkingStationClusterCalculator
     }
 
     @Override
-    public void updateMultiblockAfterNeighborUpdate(ServerLevel level, BlockPos pos, BlockPos changedPos) {
+    public void updateMultiblockAfterNeighborChange(ServerLevel level, BlockPos pos, BlockPos changedPos) {
         calculateMultiblock(level, pos);
     }
 

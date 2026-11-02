@@ -282,7 +282,7 @@ public class EcoMachineRecipes {
             .save(provider);
 
         // FX monitor core
-        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, NEBlocks.FX_MONITOR_CORE)
+        ShapedRecipeBuilder.shaped(items, RecipeCategory.MISC, NEBlocks.FX_MONITOR_CORE)
             .pattern("AB")
             .define('A', NEBlocks.CRAFTING_WORKER)
             .define('B', AEParts.STORAGE_MONITOR)

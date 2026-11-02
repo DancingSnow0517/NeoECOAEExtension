@@ -11,11 +11,12 @@ import appeng.menu.slot.AppEngSlot;
 import appeng.client.Point;
 import cn.dancingsnow.neoecoae.gui.workstation.WorkstationPatternScroll;
 import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
 
 import java.util.HashSet;
@@ -83,7 +84,10 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        int button = event.button();
         shiftDraggedSlots.clear();
         shiftDragging = false;
         var scrollbarBounds = patternScrollbar.getBounds();
@@ -100,10 +104,10 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
         // Keep the physical slot still while a click or item-drag gesture is being resolved.
         if (overPatterns(mouseX, mouseY)) patternScroll.stop();
         // The press itself stays a vanilla Shift-click; only the slots crossed afterwards are ours.
-        Slot slot = button == 0 && hasShiftDown() && menu.getCarried().isEmpty() ? slotAt(mouseX, mouseY) : null;
+        Slot slot = button == 0 && event.hasShiftDown() && menu.getCarried().isEmpty() ? slotAt(mouseX, mouseY) : null;
         shiftDragging = slot != null;
         if (slot != null) shiftDraggedSlots.add(slot.index);
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
@@ -125,18 +129,18 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
             Slot slot = slots.get(index);
             boolean visible = index < visibleSlotCount && patternScroll.isVisible(index);
             if (slot instanceof AppEngSlot aeSlot) aeSlot.setActive(visible);
-            slot.x = visible ? PATTERN_LEFT + 1 + index % WorkstationPatternScroll.COLUMNS * 18 : -9999;
-            slot.y = visible ? PATTERN_TOP + 1 + index / WorkstationPatternScroll.COLUMNS * 18 - pixels : -9999;
+            setSlotPos(slot, visible ? PATTERN_LEFT + 1 + index % WorkstationPatternScroll.COLUMNS * 18 : -9999,
+                visible ? PATTERN_TOP + 1 + index / WorkstationPatternScroll.COLUMNS * 18 - pixels : -9999);
         }
     }
 
     @Override
-    public void drawBG(GuiGraphics graphics, int offsetX, int offsetY, int mouseX, int mouseY, float partialTicks) {
+    public void drawBG(GuiGraphicsExtractor graphics, int offsetX, int offsetY, int mouseX, int mouseY, float partialTicks) {
         super.drawBG(graphics, offsetX, offsetY, mouseX, mouseY, partialTicks);
         clipPatterns(graphics);
-        graphics.pose().pushPose();
+        graphics.pose().pushMatrix();
         try {
-            graphics.pose().translate(offsetX, offsetY - fractionalOffset(), 0);
+            graphics.pose().translate(offsetX, (float) (offsetY - fractionalOffset()));
             // Keep the complete seven-row AE2-style grid visible even when capacity cards have not
             // unlocked every row yet. Locked rows remain visual placeholders because their slots stay
             // inactive in updatePatternSlots(), but the fixed viewport must not collapse into a blank area.
@@ -149,53 +153,64 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
                     - pixels).blit(graphics);
             }
         } finally {
-            graphics.pose().popPose();
+            graphics.pose().popMatrix();
             graphics.disableScissor();
         }
     }
 
     @Override
-    public void renderSlot(GuiGraphics graphics, Slot slot) {
+    public void extractSlot(GuiGraphicsExtractor graphics, Slot slot, int mouseX, int mouseY) {
         if (menu.getSlotSemantic(slot) != SlotSemantics.ENCODED_PATTERN) {
-            super.renderSlot(graphics, slot);
+            super.extractSlot(graphics, slot, mouseX, mouseY);
             return;
         }
         boolean clipped = needsPatternClipping(slot);
         if (clipped) clipPatterns(graphics);
-        graphics.pose().pushPose();
+        graphics.pose().pushMatrix();
         try {
-            graphics.pose().translate(0, -fractionalOffset(), 0);
-            super.renderSlot(graphics, slot);
+            graphics.pose().translate(0, (float) -fractionalOffset());
+            super.extractSlot(graphics, slot, mouseX, mouseY);
         } finally {
-            graphics.pose().popPose();
+            graphics.pose().popMatrix();
             if (clipped) graphics.disableScissor();
         }
     }
 
-    @Override
-    protected void renderSlotHighlight(GuiGraphics graphics, Slot slot, int mouseX, int mouseY, float partialTicks) {
-        if (menu.getSlotSemantic(slot) != SlotSemantics.ENCODED_PATTERN) {
-            super.renderSlotHighlight(graphics, slot, mouseX, mouseY, partialTicks);
-            return;
-        }
-        clipPatterns(graphics);
-        graphics.pose().pushPose();
-        try {
-            graphics.pose().translate(0, -fractionalOffset(), 0);
-            super.renderSlotHighlight(graphics, slot, mouseX, mouseY, partialTicks);
-        } finally {
-            graphics.pose().popPose();
-            graphics.disableScissor();
-        }
-    }
+    // TODO(26.1 port): vanilla 26.1 draws the hovered-slot highlight in private methods without a per-slot hook,
+    // so the sub-pixel scroll offset/clipping is no longer applied to the highlight sprite of pattern slots.
 
-    @Override
+    // Vanilla's isHovering(Slot, double, double) is private at compile time, but AE2's access transformer
+    // widens it to protected at runtime, so this declaration overrides it in game.
     protected boolean isHovering(Slot slot, double mouseX, double mouseY) {
         if (menu.getSlotSemantic(slot) == SlotSemantics.ENCODED_PATTERN) {
             return slot.isActive() && overPatterns(mouseX, mouseY)
-                && super.isHovering(slot, mouseX, mouseY + fractionalOffset());
+                && isHovering(slot.x, slot.y, 16, 16, mouseX, mouseY + fractionalOffset());
         }
-        return super.isHovering(slot, mouseX, mouseY);
+        return isHovering(slot.x, slot.y, 16, 16, mouseX, mouseY);
+    }
+
+    private static final java.lang.reflect.Field SLOT_X = slotField("x");
+    private static final java.lang.reflect.Field SLOT_Y = slotField("y");
+
+    private static java.lang.reflect.Field slotField(String name) {
+        try {
+            var field = Slot.class.getDeclaredField(name);
+            field.setAccessible(true);
+            return field;
+        } catch (NoSuchFieldException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** Slot.x/y are final at compile time; AE2's access transformer makes them mutable at runtime. */
+    private static void setSlotPos(Slot slot, int x, int y) {
+        if (slot.x == x && slot.y == y) return;
+        try {
+            SLOT_X.setInt(slot, x);
+            SLOT_Y.setInt(slot, y);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("Cannot move workstation pattern slot", e);
+        }
     }
 
     private boolean overPatterns(double mouseX, double mouseY) {
@@ -218,7 +233,7 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
             * (patternScrollbar.getBounds().getHeight() - Scrollbar.SMALL.handleHeight());
     }
 
-    private void clipPatterns(GuiGraphics graphics) {
+    private void clipPatterns(GuiGraphicsExtractor graphics) {
         // Keep the fixed outer frame visible while rows and their separators move through the viewport.
         graphics.enableScissor(leftPos + PATTERN_LEFT + 1, topPos + PATTERN_TOP + 1,
             leftPos + PATTERN_LEFT + PATTERN_WIDTH - 1,
@@ -238,17 +253,17 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
         }
 
         @Override
-        public void drawForegroundLayer(GuiGraphics graphics, Rect2i bounds, Point mouse) {
-            graphics.pose().pushPose();
+        public void drawForegroundLayer(GuiGraphicsExtractor graphics, Rect2i bounds, Point mouse) {
+            graphics.pose().pushMatrix();
             try {
-                graphics.pose().translate(0, scrollbarThumbOffset(), 0);
+                graphics.pose().translate(0, (float) scrollbarThumbOffset());
                 var sprite = patternScroll.maximum() == 0
                     ? Scrollbar.SMALL.disabledSprite() : Scrollbar.SMALL.enabledSprite();
                 var track = getBounds();
                 Blitter.guiSprite(sprite).dest(track.getX(), track.getY(), track.getWidth(),
                     Scrollbar.SMALL.handleHeight()).blit(graphics);
             } finally {
-                graphics.pose().popPose();
+                graphics.pose().popMatrix();
             }
         }
 
@@ -275,7 +290,10 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        int button = event.button();
         if (button == 0 && scrollbarDragging) {
             var bounds = patternScrollbar.getBounds();
             double travel = bounds.getHeight() - Scrollbar.SMALL.handleHeight();
@@ -285,7 +303,7 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
             updatePatternSlots();
             return true;
         }
-        if (button == 0 && shiftDragging && hasShiftDown()) {
+        if (button == 0 && shiftDragging && event.hasShiftDown()) {
             // One drag event per frame: a fast swipe jumps over whole slots, so walk the segment.
             int steps = Math.max(1, (int) Math.ceil(Math.max(Math.abs(dragX), Math.abs(dragY)) / 4));
             for (int i = steps - 1; i >= 0; i--) {
@@ -293,16 +311,16 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
             }
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+        return super.mouseDragged(event, dragX, dragY);
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (button == 0) {
+    public boolean mouseReleased(MouseButtonEvent event) {
+        if (event.button() == 0) {
             shiftDragging = false;
             scrollbarDragging = false;
         }
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(event);
     }
 
     /** Vanilla's private findSlot: screen coordinates, active slots only. */
@@ -315,7 +333,7 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
 
     private void quickMove(Slot slot) {
         if (slot == null || !shiftDraggedSlots.add(slot.index)) return;
-        slotClicked(slot, slot.index, 0, ClickType.QUICK_MOVE);
+        slotClicked(slot, slot.index, 0, ContainerInput.QUICK_MOVE);
     }
 
     private void hideSmartDoublingWidget(String name) {

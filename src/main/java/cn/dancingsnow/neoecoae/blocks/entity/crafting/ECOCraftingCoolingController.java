@@ -124,11 +124,12 @@ final class ECOCraftingCoolingController {
             return null;
         }
         FluidTank outputHatch = host.getCluster().getOutputHatch().tank;
-        return host.getLevel().getRecipeManager().getRecipeFor(
+        var holder = appeng.crafting.RecipeAccess.getRecipeFor(
+            host.getLevel(),
             NERecipeTypes.COOLING.get(),
-            new CoolingRecipe.Input(inputHatch.getFluid(), outputHatch.getFluid()),
-            host.getLevel()
-        ).map(net.minecraft.world.item.crafting.RecipeHolder::value).orElse(null);
+            new CoolingRecipe.Input(inputHatch.getFluid(), outputHatch.getFluid())
+        );
+        return holder == null ? null : holder.value();
     }
 
     private boolean canRefillWith(int maxOverclock) {

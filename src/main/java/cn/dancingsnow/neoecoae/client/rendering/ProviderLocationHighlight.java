@@ -1,12 +1,14 @@
 package cn.dancingsnow.neoecoae.client.rendering;
 
-import appeng.client.render.overlay.OverlayRenderType;
+import appeng.client.render.AERenderTypes;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.ShapeRenderer;
+import net.minecraft.util.ARGB;
+import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
@@ -20,7 +22,6 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
-import org.joml.Quaternionf;
 
 /** Short-lived provider outlines, using AE2's visible and occluded overlay render types. */
 @EventBusSubscriber(modid = NeoECOAE.MOD_ID, value = Dist.CLIENT)
@@ -45,32 +46,32 @@ public final class ProviderLocationHighlight {
     }
 
     @SubscribeEvent
-    public static void render(RenderLevelStageEvent event) {
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_LEVEL) return;
+    public static void render(RenderLevelStageEvent.AfterWeather event) {
         var minecraft = Minecraft.getInstance();
         if (minecraft.level == null) return;
         var locations = active(minecraft.level.dimension(), System.currentTimeMillis());
         if (locations.isEmpty()) return;
-        var buffers = minecraft.renderBuffers().bufferSource();
-        var visible = OverlayRenderType.getBlockHilightLine();
-        var occluded = OverlayRenderType.getBlockHilightLineOccluded();
         var pose = event.getPoseStack();
-        var camera = event.getCamera();
-        var position = camera.getPosition();
+        if (pose == null) return;
+        var buffers = minecraft.renderBuffers().bufferSource();
+        var visible = AERenderTypes.AREA_OVERLAY_LINE;
+        var occluded = AERenderTypes.AREA_OVERLAY_LINE_OCCLUDED;
+        var position = minecraft.gameRenderer.getMainCamera().position();
         pose.pushPose();
         try {
-            pose.mulPose(new Quaternionf(camera.rotation()).invert());
             pose.translate(-position.x, -position.y, -position.z);
             for (var location : locations) {
-                var box = new AABB(location.position()).inflate(0.002);
-                LevelRenderer.renderLineBox(pose, buffers.getBuffer(visible), box, 0.78F, 0.65F, 1F, 1F);
-                LevelRenderer.renderLineBox(pose, buffers.getBuffer(occluded), box, 0.78F, 0.65F, 1F, 0.6F);
+                var shape = Shapes.create(new AABB(location.position()).inflate(0.002));
+                ShapeRenderer.renderShape(pose, buffers.getBuffer(visible), shape, 0, 0, 0,
+                    ARGB.colorFromFloat(1F, 0.78F, 0.65F, 1F), 3F);
+                ShapeRenderer.renderShape(pose, buffers.getBuffer(occluded), shape, 0, 0, 0,
+                    ARGB.colorFromFloat(0.6F, 0.78F, 0.65F, 1F), 3F);
             }
         } finally {
             pose.popPose();
         }
-        buffers.endBatch(visible);
         buffers.endBatch(occluded);
+        buffers.endBatch(visible);
     }
 
     @SubscribeEvent

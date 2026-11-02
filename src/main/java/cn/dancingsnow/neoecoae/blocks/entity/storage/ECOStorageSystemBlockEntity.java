@@ -134,7 +134,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private final ECOInfiniteStorageModeController infiniteModeController =
             new ECOInfiniteStorageModeController(this);
     private final IItemHandlerModifiable infiniteComponentItemHandler =
-            infiniteRestore.componentItemHandler((IItemHandlerModifiable) infiniteComponentInventory.toItemHandler());
+            infiniteRestore.componentItemHandler(cn.dancingsnow.neoecoae.blocks.entity.InternalInventoryItemHandler.of(infiniteComponentInventory));
 
     @DescSynced
     private int selectedEcoMegaBulkCell;
@@ -302,7 +302,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         ));
 
         UIElement root = StorageHostUI.create(new StorageHostUI.Config(
-                () -> getItemFromBlockEntity().getDescription(),
+                () -> getItemFromBlockEntity().getDefaultInstance().getItemName(),
                 () -> getTier().getTier(),
                 this::isFormed,
                 statistics::getStoredEnergy,
@@ -335,9 +335,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                             rpcToServer("selectCellPriority", position, expected);
                         }
                     },
-                    position -> holder.player.displayClientMessage(
+                    position -> holder.player.sendOverlayMessage(
                         net.minecraft.network.chat.Component.translatable(
-                            "gui.neoecoae.storage.bulk_cell.compression_display.reserved"), true),
+                            "gui.neoecoae.storage.bulk_cell.compression_display.reserved")),
                     position -> previewBulkCellMigration(holder.player, position),
                     (position, expected) -> openCellConfiguration(holder.player, position, expected)
                 )
@@ -439,7 +439,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             preview.store("cell_id", net.minecraft.core.UUIDUtil.CODEC, drive.getCellInteractionId());
             preview.putInt("total", items.size());
             var entries = new net.minecraft.nbt.ListTag();
-            items.stream().limit(6).forEach(stack -> entries.add(stack.save(player.registryAccess())));
+            items.stream().limit(6).forEach(stack -> entries.add(
+                cn.dancingsnow.neoecoae.util.LegacyNbt.saveItem(player.registryAccess(), stack)));
             preview.put("items", entries);
             return preview;
         }
@@ -463,10 +464,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             case INVALID_THRESHOLD -> "gui.neoecoae.storage.bulk_mark.result.invalid_threshold";
             case UNAVAILABLE -> "gui.neoecoae.storage.bulk_mark.result.unavailable";
         };
-        player.displayClientMessage(result.status() == StorageBulkMarkingIntegration.Status.SUCCESS
+        player.sendOverlayMessage(result.status() == StorageBulkMarkingIntegration.Status.SUCCESS
             ? net.minecraft.network.chat.Component.translatable(key, result.added(), result.alreadyMarked(),
                 result.noSpace(), result.transferred())
-            : net.minecraft.network.chat.Component.translatable(key), true);
+            : net.minecraft.network.chat.Component.translatable(key));
     }
 
     public List<ECODriveBlockEntity> getStorageUiDrives() {
@@ -540,11 +541,11 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         }
         ECOStorageMegaController.EcoMegaFilterResult result = megaController.setEcoMegaFilterDirect(driveIndex, page, visualSlot, stack);
         if (result == ECOStorageMegaController.EcoMegaFilterResult.NOT_COMPRESSIBLE) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-                    "gui.neoecoae.storage.mega_filter.not_compressible"), true);
+            player.sendOverlayMessage(net.minecraft.network.chat.Component.translatable(
+                    "gui.neoecoae.storage.mega_filter.not_compressible"));
         } else if (result == ECOStorageMegaController.EcoMegaFilterResult.DUPLICATE_CHAIN) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-                    "gui.neoecoae.storage.mega_filter.duplicate_chain"), true);
+            player.sendOverlayMessage(net.minecraft.network.chat.Component.translatable(
+                    "gui.neoecoae.storage.mega_filter.duplicate_chain"));
         }
     }
 
@@ -561,8 +562,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (player == null || player.level() != serverLevel || !canPlayerInteract(player)) return;
         var selected = megaController.cycleCutoff(driveIndex, page, visualSlot, delta);
         if (selected != null) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-                "gui.neoecoae.storage.mega_filter.cutoff", selected.toStack().getHoverName()), true);
+            player.sendOverlayMessage(net.minecraft.network.chat.Component.translatable(
+                "gui.neoecoae.storage.mega_filter.cutoff", selected.toStack().getHoverName()));
         }
     }
 
@@ -799,12 +800,12 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private void loadInfiniteMembers(CompoundTag tag) {
         infiniteMembersDirty = true;
         infiniteMemberIds.clear();
-        for (var value : tag.getList("infiniteMemberIds", net.minecraft.nbt.Tag.TAG_STRING)) {
-            infiniteMemberIds.add(UUID.fromString(value.getAsString()));
+        for (var value : tag.getListOrEmpty("infiniteMemberIds")) {
+            value.asString().ifPresent(id -> infiniteMemberIds.add(UUID.fromString(id)));
         }
         infiniteMigrationSourceIds.clear();
-        for (var value : tag.getList("infiniteMigrationSourceIds", net.minecraft.nbt.Tag.TAG_STRING)) {
-            infiniteMigrationSourceIds.add(UUID.fromString(value.getAsString()));
+        for (var value : tag.getListOrEmpty("infiniteMigrationSourceIds")) {
+            value.asString().ifPresent(id -> infiniteMigrationSourceIds.add(UUID.fromString(id)));
         }
     }
 
@@ -935,18 +936,22 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
-        data.putString("infiniteHostMode", hostMode.id());
-        if (infiniteDomainId != null) {
-            data.store("infiniteDomainId", net.minecraft.core.UUIDUtil.CODEC, infiniteDomainId);
-        }
-        saveInfiniteMembers(data);
+    public void saveAdditional(net.minecraft.world.level.storage.ValueOutput output) {
+        super.saveAdditional(output);
+        cn.dancingsnow.neoecoae.util.LegacyNbt.write(output, data -> {
+            data.putString("infiniteHostMode", hostMode.id());
+            if (infiniteDomainId != null) {
+                data.store("infiniteDomainId", net.minecraft.core.UUIDUtil.CODEC, infiniteDomainId);
+            }
+            saveInfiniteMembers(data);
+        });
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
+    public void loadTag(net.minecraft.world.level.storage.ValueInput input) {
+        super.loadTag(input);
+        CompoundTag data = cn.dancingsnow.neoecoae.util.LegacyNbt.read(input);
+        HolderLookup.Provider registries = input.lookup();
         loadLegacyInfiniteComponentInventory(data, registries);
         setStorageHostMode(ECOStorageHostMode.fromId(data.getStringOr("infiniteHostMode", "")));
         setInfiniteDomainId(data.read("infiniteDomainId", net.minecraft.core.UUIDUtil.CODEC).isPresent() ? data.read("infiniteDomainId", net.minecraft.core.UUIDUtil.CODEC).orElseThrow() : null);
@@ -962,9 +967,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             return;
         }
         infiniteComponentInventory.readFromNBT(
-                managed.getCompound(LEGACY_COMPONENT_INVENTORY_PERSIST_KEY),
-                "inventory",
-                registries
+                cn.dancingsnow.neoecoae.util.LegacyNbt.input(registries,
+                        managed.getCompoundOrEmpty(LEGACY_COMPONENT_INVENTORY_PERSIST_KEY)),
+                "inventory"
         );
     }
 

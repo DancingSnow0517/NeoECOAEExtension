@@ -62,7 +62,7 @@ final class ECOCraftingPatternBusPublisher {
         var server = serverLevel.getServer();
         int targetTick = server.getTickCount() + 1;
 
-        server.tell(new TickTask(targetTick, () -> {
+        server.schedule(new TickTask(targetTick, () -> {
             providerRefreshQueued = false;
 
             if (!host.isServerStoppingForPublisher()

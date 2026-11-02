@@ -19,7 +19,7 @@ public record ECOBigOrderStartC2SPacket(int containerId, boolean forced) impleme
             var current = context.player().containerMenu;
             var logger = org.slf4j.LoggerFactory.getLogger("neoecoae");
             logger.info("[big-order-submit] Server received: player={}, container={}, currentContainer={}, forced={}",
-                context.player().getGameProfile().getName(), packet.containerId, current.containerId, packet.forced);
+                context.player().getGameProfile().name(), packet.containerId, current.containerId, packet.forced);
             if (!(current instanceof CraftConfirmMenu menu) || menu.containerId != packet.containerId) {
                 logger.warn("[big-order-submit] Rejected packet: reason=MENU_MISMATCH, menuType={}",
                     current.getClass().getName());

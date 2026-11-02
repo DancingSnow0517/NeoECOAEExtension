@@ -160,7 +160,7 @@ final class ECOCraftingThreadOutputDiagnostics {
 
     private static String position(ECOCraftingWorkerBlockEntity worker) {
         return worker.getLevel() == null ? worker.getBlockPos().toShortString()
-                : worker.getLevel().dimension().location() + "@" + worker.getBlockPos().toShortString();
+                : worker.getLevel().dimension().identifier() + "@" + worker.getBlockPos().toShortString();
     }
 
     private static boolean stale(long now, long then, long limit) {

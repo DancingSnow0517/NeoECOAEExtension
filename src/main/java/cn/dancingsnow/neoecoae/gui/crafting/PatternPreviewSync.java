@@ -137,7 +137,7 @@ public final class PatternPreviewSync {
     }
 
     private ClientCacheKey clientCacheKey() {
-        return new ClientCacheKey(host.getLevel().dimension().location().toString(),
+        return new ClientCacheKey(host.getLevel().dimension().identifier().toString(),
                 host.getBlockPos().asLong());
     }
 
@@ -231,8 +231,8 @@ public final class PatternPreviewSync {
             CompoundTag entry = encode(index);
             // Capacity is described by the provider layout. Empty slots have no content record.
             if (entry.getCompoundOrEmpty("stack").isEmpty() && !entry.getBooleanOr("diskSlot", false)
-                    && entry.getList("disk", net.minecraft.nbt.Tag.TAG_COMPOUND).isEmpty()
-                    && entry.getString("inputs").isEmpty() && entry.getString("output").isEmpty()) entry = null;
+                    && entry.getListOrEmpty("disk").isEmpty()
+                    && entry.getStringOr("inputs", "").isEmpty() && entry.getStringOr("output", "").isEmpty()) entry = null;
             if (!java.util.Objects.equals(entry, cachedEntries.get(index))) {
                 cachedEntries.set(index, entry);
                 for (Viewer viewer : viewers.values()) viewer.changed.set(index);
@@ -304,7 +304,7 @@ public final class PatternPreviewSync {
     }
 
     private static void rememberDisk(Viewer viewer, int index, CompoundTag entry) {
-        if (entry.getBooleanOr("diskSlot", false)) viewer.disks.put(index, entry.getList("disk", net.minecraft.nbt.Tag.TAG_COMPOUND));
+        if (entry.getBooleanOr("diskSlot", false)) viewer.disks.put(index, entry.getListOrEmpty("disk"));
         else viewer.disks.remove(index);
     }
 
@@ -312,7 +312,7 @@ public final class PatternPreviewSync {
         ListTag before = viewer.disks.get(index);
         rememberDisk(viewer, index, entry);
         if (before == null || !entry.getBooleanOr("diskSlot", false)) return entry;
-        ListTag after = entry.getList("disk", net.minecraft.nbt.Tag.TAG_COMPOUND);
+        ListTag after = entry.getListOrEmpty("disk");
         CompoundTag delta = entry.copy();
         delta.remove("disk");
         delta.putInt("diskSize", after.size());

@@ -37,7 +37,7 @@ final class ECOCraftingEnergyTransaction {
 
     void readFromNBT(CompoundTag data) {
         prepaidEnergyCredit = BigDecimal.ZERO;
-        if (data.contains("prepaidEnergyCreditExact", net.minecraft.nbt.Tag.TAG_STRING)) {
+        if (data.getString("prepaidEnergyCreditExact").isPresent()) {
             try {
                 prepaidEnergyCredit = new BigDecimal(data.getStringOr("prepaidEnergyCreditExact", ""))
                     .max(BigDecimal.ZERO);

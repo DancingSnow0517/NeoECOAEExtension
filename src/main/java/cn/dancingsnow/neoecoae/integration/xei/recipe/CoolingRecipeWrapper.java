@@ -1,10 +1,13 @@
 package cn.dancingsnow.neoecoae.integration.xei.recipe;
 
 import cn.dancingsnow.neoecoae.gui.NEGuiColors;
-import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
-import cn.dancingsnow.neoecoae.gui.NETextures;
+import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.ScrollDataSource;
+import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
+import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
+import com.lowdragmc.lowdraglib2.math.Size;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -28,6 +31,13 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 public record CoolingRecipeWrapper(CoolingRecipe recipe) {
+    private static final IGuiTexture COOLING_PROGRESS_EMPTY = SpriteTexture.of(NeoECOAE.id("textures/gui/recipe/cooling_progress_empty.png"))
+        .setSpriteSize(Size.of(30, 30))
+        .setWrapMode(SpriteTexture.WrapMode.REPEAT);
+    private static final IGuiTexture COOLING_PROGRESS = SpriteTexture.of(NeoECOAE.id("textures/gui/recipe/cooling_progress.png"))
+        .setSpriteSize(Size.of(30, 30))
+        .setWrapMode(SpriteTexture.WrapMode.REPEAT);
+
     public static final int WIDTH = 100;
     public static final int HEIGHT = 50;
     public static final int TANK_CAPACITY = 1000;
@@ -118,10 +128,10 @@ public record CoolingRecipeWrapper(CoolingRecipe recipe) {
             .fillDirection(FillDirection.LEFT_TO_RIGHT)
             .interpolate(false));
         bar.barContainer(element ->
-            element.layout(layout -> layout.paddingAll(0)).style(style -> style.background(NETextures.COOLING_PROGRESS_EMPTY))
+            element.layout(layout -> layout.paddingAll(0)).style(style -> style.background(COOLING_PROGRESS_EMPTY))
         );
         bar.bar(element ->
-            element.style(style -> style.background(NETextures.COOLING_PROGRESS))
+            element.style(style -> style.background(COOLING_PROGRESS))
         );
         bar.label.removeSelf();
         bar.layout(layout -> layout.height(30).width(30));

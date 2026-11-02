@@ -84,8 +84,7 @@ final class ECOCraftingJobLifecycleController {
                         ? IPlayerRegistry.getPlayerId(serverPlayer) : null)
                 .orElse(null);
         var craftId = UUID.randomUUID();
-        var linkCpu = new CraftingLink(
-                CraftingCpuHelper.generateLinkData(craftId, requester == null, false), host.cpu);
+        var linkCpu = new CraftingLink(craftId, requester == null, host.cpu);
         var job = new ExecutingCraftingJob(
                 plan, executionPlan, host::postChange, linkCpu, playerId);
         if (contract != null) job.fuzzyPlanningItemIds = contract.fuzzyPlanningItemIds();
@@ -122,8 +121,7 @@ final class ECOCraftingJobLifecycleController {
         host.notifyJobOwner(job, CraftingJobStatusPacket.Status.STARTED);
 
         if (requester != null) {
-            var linkReq = new CraftingLink(
-                    CraftingCpuHelper.generateLinkData(craftId, false, true), requester);
+            var linkReq = new CraftingLink(craftId, false, requester);
             var craftingService = (CraftingService) grid.getCraftingService();
             craftingService.addLink(linkCpu);
             craftingService.addLink(linkReq);

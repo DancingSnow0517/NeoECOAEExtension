@@ -18,7 +18,8 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
+import com.lowdragmc.lowdraglib2.gui.util.DrawerHelperClient;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -153,8 +154,8 @@ final class ComputationControllerArtwork extends UIElement {
     private UIElement tooltipRegion(int x, int y, int width, int height, Supplier<List<Component>> lines) {
         return new UIElement().layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
             .left(x).top(y).width(width).height(height))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-                lines.get(), null, null, null));
+            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = HoverTooltips.create(
+                lines.get().toArray()));
     }
 
     private List<Component> storageTooltip() {
@@ -226,11 +227,12 @@ final class ComputationControllerArtwork extends UIElement {
     }
 
     private List<Component> hostTooltip() {
-        return hostItem.isEmpty() ? List.of() : DrawerHelper.getItemToolTip(hostItem);
+        return hostItem.isEmpty() ? List.of() : DrawerHelperClient.getItemToolTip(hostItem);
     }
 
     @Override
-    public void drawBackgroundAdditional(GUIContext context) {
+    public void drawBackgroundAdditional(IGUIContext ctx) {
+        if (!(ctx instanceof GUIContext context)) return;
         sprite(context, ComputationControllerTextures.background(panelTier), 0, 0, WIDTH, HEIGHT);
         drawLabels(context);
         if (state.formed()) {
@@ -247,7 +249,7 @@ final class ComputationControllerArtwork extends UIElement {
             drawHostMarker(context, true, 64);
         }
         if (!hostItem.isEmpty()) {
-            context.graphics.renderItem(hostItem, Math.round(getPositionX()) + 9, Math.round(getPositionY()) + 48);
+            context.graphics.item(hostItem, Math.round(getPositionX()) + 9, Math.round(getPositionY()) + 48);
         }
         if (!state.formed()) return;
         drawColumns(context);
@@ -435,13 +437,13 @@ final class ComputationControllerArtwork extends UIElement {
     private void drawText(GUIContext context, Component text, float x, float y, float scale, int color,
                           boolean shadow) {
         var pose = context.graphics.pose();
-        pose.pushPose();
+        pose.pushMatrix();
         try {
-            pose.translate(getPositionX() + x, getPositionY() + y, 0.0D);
-            pose.scale(scale, scale, 1.0F);
-            context.graphics.drawString(Minecraft.getInstance().font, text, 0, 0, color, shadow);
+            pose.translate(getPositionX() + x, getPositionY() + y);
+            pose.scale(scale, scale);
+            context.graphics.text(Minecraft.getInstance().font, text, 0, 0, color, shadow);
         } finally {
-            pose.popPose();
+            pose.popMatrix();
         }
     }
 

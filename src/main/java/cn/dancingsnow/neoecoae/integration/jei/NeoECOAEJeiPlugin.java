@@ -6,8 +6,6 @@ import cn.dancingsnow.neoecoae.integration.jei.categories.IntegrationWorkingStat
 import cn.dancingsnow.neoecoae.integration.jei.categories.multiblock.MultiBlockInfoCategory;
 import cn.dancingsnow.neoecoae.integration.jei.multiblock.MultiBlockRecipeTransferHandler;
 import cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapper;
-import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
-import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
 import cn.dancingsnow.neoecoae.integration.jei.categories.LargeWorkingStationCategory;
@@ -22,21 +20,15 @@ import mezz.jei.api.registration.IRecipeRegistration;
 import mezz.jei.api.registration.IRecipeTransferRegistration;
 import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.resources.Identifier;
-import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.RecipeHolder;
+import mezz.jei.api.recipe.types.IRecipeType;
 
 @JeiPlugin
 public class NeoECOAEJeiPlugin implements IModPlugin {
     private static volatile IJeiRuntime runtime;
-    public static final RecipeType<RecipeHolder<CoolingRecipe>> COOLING_TYPE = createRecipeHolderType("cooling");
-    public static final RecipeType<RecipeHolder<IntegratedWorkingStationRecipe>> INTEGRATED_WORKING_STATION_TYPE = createRecipeHolderType("integrated_working_station");
-    public static final RecipeType<LargeWorkstationRecipe> LARGE_WORKING_STATION_TYPE = new RecipeType<>(
+    public static final IRecipeType<LargeWorkstationRecipe> LARGE_WORKING_STATION_TYPE = IRecipeType.create(
         NeoECOAE.id("large_integrated_working_station"), LargeWorkstationRecipe.class);
 
-    public static final RecipeType<MultiBlockInfoWrapper> MULTIBLOCK_TYPE = new RecipeType<>(
-        NeoECOAE.id("multiblock"),
-        MultiBlockInfoWrapper.class
-    );
+    public static final IRecipeType<MultiBlockInfoWrapper> MULTIBLOCK_TYPE = NEJeiRecipeType.MULTIBLOCK;
 
     @Override
     public Identifier getPluginUid() {

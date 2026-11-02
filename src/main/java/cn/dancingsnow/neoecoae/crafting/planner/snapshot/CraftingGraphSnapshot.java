@@ -72,7 +72,7 @@ public record CraftingGraphSnapshot(
         writeList(data, patterns, PatternNode::write);
         writeList(data, edges, Edge::write);
         writeList(data, cycleGroups, CycleGroup::write);
-        writeList(data, fuzzyPlanningItemIds, (itemId, output) -> output.writeResourceLocation(itemId));
+        writeList(data, fuzzyPlanningItemIds, (itemId, output) -> output.writeIdentifier(itemId));
         summary.write(data);
     }
 
@@ -87,7 +87,7 @@ public record CraftingGraphSnapshot(
         try {
             Decoded result = new Decoded(raw.readVarInt(), readList(raw, MaterialNode::read),
                 readList(raw, PatternNode::read), readList(raw, Edge::read), readList(raw, CycleGroup::read),
-                readList(raw, RegistryFriendlyByteBuf::readResourceLocation), Summary.read(raw));
+                readList(raw, RegistryFriendlyByteBuf::readIdentifier), Summary.read(raw));
             if (raw.isReadable()) throw new IllegalArgumentException("Trailing bytes in crafting graph snapshot");
             return result;
         } finally {

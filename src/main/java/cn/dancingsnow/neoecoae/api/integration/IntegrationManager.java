@@ -69,7 +69,12 @@ public class IntegrationManager {
 
     private void loadAll(Consumer<String> loader) {
         for (String key : instances.keySet()) {
-            if (LoadingModList.get().getMods().stream().anyMatch(it -> it.getModId().equals(key))) {
+            if (cn.dancingsnow.neoecoae.NeoECOAE.UNPORTED_INTEGRATIONS.contains(key)) {
+                // 26.1 port: compiled against the 1.21.1 API of this mod only; never activate it.
+                log.warn("Skipping integration for {}: not yet ported to 26.1", key);
+                continue;
+            }
+            if (FMLLoader.getCurrent().getLoadingModList().getMods().stream().anyMatch(it -> it.getModId().equals(key))) {
                 loader.accept(key);
             }
         }

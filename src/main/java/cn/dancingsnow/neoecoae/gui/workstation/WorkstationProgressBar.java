@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.gui.workstation;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import net.minecraft.util.Mth;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,7 +31,7 @@ final class WorkstationProgressBar extends UIElement implements IBindable<Float>
     }
 
     @Override
-    public void drawContents(GUIContext guiContext) {
+    public void drawBackgroundAdditional(IGUIContext guiContext) {
         int width = Mth.floor(WIDTH * value / maxProcessingSteps);
         if (width > 0) {
             guiContext.drawTexture(WorkstationTextures.widget(0, 0, width, HEIGHT),

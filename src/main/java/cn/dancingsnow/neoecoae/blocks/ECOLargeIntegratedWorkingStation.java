@@ -7,6 +7,8 @@ import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlo
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import net.minecraft.core.BlockPos;
+import org.jetbrains.annotations.Nullable;
+import net.minecraft.world.level.redstone.Orientation;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
@@ -70,26 +72,14 @@ public class ECOLargeIntegratedWorkingStation
         return SHAPE;
     }
 
-    @Override
-    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
-        if (newState.getBlock() != state.getBlock()) {
-            ECOLargeIntegratedWorkingStationBlockEntity blockEntity = getBlockEntity(level, pos);
-            if (blockEntity != null) blockEntity.breakCluster();
-        }
-        super.onRemove(state, level, pos, newState, isMoving);
-    }
+    // 26.1: cluster teardown on removal moved to ECOLargeIntegratedWorkingStationBlockEntity#preRemoveSideEffects
+    // (the block entity is already gone when affectNeighborsAfterRemoval runs).
 
     @Override
-    protected void neighborChanged(
-        BlockState state,
-        Level level,
-        BlockPos pos,
-        Block neighborBlock,
-        BlockPos neighborPos,
-        boolean movedByPiston
-    ) {
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock,
+                                   @Nullable Orientation orientation, boolean movedByPiston) {
         ECOLargeIntegratedWorkingStationBlockEntity blockEntity = getBlockEntity(level, pos);
-        if (blockEntity != null) blockEntity.updateMultiBlock(neighborPos);
+        if (blockEntity != null) blockEntity.updateMultiBlock(pos);
     }
 
     @Override

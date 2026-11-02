@@ -11,7 +11,7 @@ public final class JeiBookmarkAccess {
 
     public static boolean isAvailable() {
         // Keep JEI API references in a separate class, loaded only after this check.
-        return ModList.get().isLoaded("jei") && JeiBookmarkAccessImpl.isAvailable();
+        return cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("jei") && JeiBookmarkAccessImpl.isAvailable();
     }
 
     public static List<AEKey> bookmarkedKeys() {

@@ -40,13 +40,13 @@ final class AppliedGeneratorsWorkstationRecipes {
         if (items.size() > LargeIntegratedWorkingStationRecipe.MAX_ITEM_INPUTS) {
             throw new IllegalArgumentException("Too many workstation inputs");
         }
-        SizedFluidIngredient fluid = new SizedFluidIngredient(FluidIngredient.empty(), 1);
+        SizedFluidIngredient fluid = null;
         if (data.has(fluidField)) {
             var entry = data.getAsJsonObject(fluidField);
             var ingredient = FluidIngredient.CODEC.parse(ops, entry.get("ingredient")).getOrThrow();
             fluid = new SizedFluidIngredient(ingredient, amount(entry));
         }
-        if (items.isEmpty() && fluid.ingredient().isEmpty()) {
+        if (items.isEmpty() && fluid == null) {
             throw new IllegalArgumentException("Empty synthesizer input");
         }
         var output = GenericStack.CODEC.parse(ops, data.get("output")).getOrThrow();
@@ -59,7 +59,7 @@ final class AppliedGeneratorsWorkstationRecipes {
         else throw new IllegalArgumentException("Unsupported synthesizer output key");
         long energy = data.get(energyField).getAsBigDecimal().longValueExact();
         if (energy < 0) throw new IllegalArgumentException("Negative synthesizer energy");
-        var display = new IntegratedWorkingStationRecipe(items, fluid, result, fluidResult,
+        var display = IntegratedWorkingStationRecipe.of(items, fluid, result, fluidResult,
             (int) Math.min(Integer.MAX_VALUE, energy));
         return new LargeWorkstationRecipe(id, display, energy, List.of(), TYPE);
     }

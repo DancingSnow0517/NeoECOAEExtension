@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.client.gui.crafting;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.client.gui.AEBaseScreen;
-import appeng.client.gui.Icon;
+import appeng.util.Icon;
 import appeng.client.gui.StackWithBounds;
 import appeng.client.gui.style.ScreenStyle;
 import appeng.client.gui.widgets.IconButton;
@@ -23,20 +23,22 @@ import cn.dancingsnow.neoecoae.integration.jei.JeiBookmarkAccess;
 import cn.dancingsnow.neoecoae.network.ECOForceCraftStartFlagC2SPacket;
 import java.math.BigInteger;
 import java.util.List;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 /** ECO-owned crafting report. Server menu and job execution remain AE2-native. */
 public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> {
-    private static final int AE2_TEXT_DARK = 0x20212B;
+    private static final int AE2_TEXT_DARK = 0xFF20212B;
     private static final Identifier CRAFTING_WIDGETS_TEXTURE =
         NeoECOAE.id("textures/guis/crafting_widgets.png");
     private static final int CPU_TIER_TARGET_X = 38;
@@ -100,7 +102,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         selectCPU.setMessage(getNextCpuButtonLabel());
         CraftingPlanSummary plan = menu.getPlan();
         boolean unrepresentable = isUnrepresentablePlan();
-        boolean forceStart = Screen.hasShiftDown() && plan != null && plan.isSimulation();
+        boolean forceStart = minecraft.hasShiftDown() && plan != null && plan.isSimulation();
         boolean bigOrder = usesBigOrderSubmission(forceStart);
         boolean allowed = !((Object) menu instanceof ECOCraftConfirmMenuMode mode)
             || mode.neoecoae$getPlanningStatus() == null
@@ -241,7 +243,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         return GuiText.SelectedCraftingCPU.text(cpuName);
     }
 
-    @Override public void drawFG(GuiGraphics graphics, int offsetX, int offsetY, int mouseX, int mouseY) {
+    @Override public void drawFG(GuiGraphicsExtractor graphics, int offsetX, int offsetY, int mouseX, int mouseY) {
         drawCpuTierGlyph(graphics);
         ECOCraftReportHeaderRenderer.render(graphics, font, offsetX, offsetY, reportSummary,
             menu.getPlan() == null && showLargeCycleIndicator()
@@ -271,7 +273,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         }
     }
 
-    private void drawCpuTierGlyph(GuiGraphics graphics) {
+    private void drawCpuTierGlyph(GuiGraphicsExtractor graphics) {
         if (!((Object) menu instanceof ECOCraftConfirmMenuMode mode)) return;
         int sourceX = switch (mode.neoecoae$getSelectedCpuTier()) {
             case 4 -> 0;
@@ -280,8 +282,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             default -> -1;
         };
         if (sourceX < 0) return;
-        graphics.blit(CRAFTING_WIDGETS_TEXTURE,
-            CPU_TIER_TARGET_X, CPU_TIER_TARGET_Y, 0,
+        graphics.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, CRAFTING_WIDGETS_TEXTURE,
+            CPU_TIER_TARGET_X, CPU_TIER_TARGET_Y,
             sourceX, CPU_TIER_GLYPH_V,
             CPU_TIER_GLYPH_WIDTH, CPU_TIER_GLYPH_HEIGHT,
             288, 256);
@@ -293,12 +295,12 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             && System.nanoTime() - openedNanos >= LARGE_CYCLE_INDICATOR_DELAY_NANOS;
     }
 
-    private void drawCyclePlanningStatus(GuiGraphics graphics, boolean enabled, boolean cycleDetected,
+    private void drawCyclePlanningStatus(GuiGraphicsExtractor graphics, boolean enabled, boolean cycleDetected,
                                            @Nullable PlanningStatus status) {
         var icon = cycleDetected && enabled
             ? ECOIcon.CYCLE_ENABLED
             : ECOIcon.CYCLE_DISABLED;
-        icon.blit(graphics, CYCLE_STATUS_X, CYCLE_STATUS_Y, 0);
+        icon.blit(graphics, CYCLE_STATUS_X, CYCLE_STATUS_Y);
         String labelKey = !cycleDetected
             ? status == PlanningStatus.CYCLE_UNRESOLVED
                 ? "gui.neoecoae.crafting_report.cycle_not_detected_preview"
@@ -308,7 +310,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 : "gui.neoecoae.crafting_report.cycle_planning_disabled";
         Component label = Component.translatable(labelKey)
             .withColor(AE2_TEXT_DARK);
-        graphics.drawString(font, label, CYCLE_STATUS_X + 18, CYCLE_STATUS_Y + 4,
+        graphics.text(font, label, CYCLE_STATUS_X + 18, CYCLE_STATUS_Y + 4,
             AE2_TEXT_DARK, false);
     }
 
@@ -319,7 +321,10 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         return hovered != null ? hovered : super.getStackUnderMouse(mouseX, mouseY);
     }
 
-    @Override public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    @Override public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        int button = event.button();
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && (Object) menu instanceof ECOCraftConfirmMenuMode mode) {
             ECOCycleItemList.Entry entry = cycleItems.entryAt(mouseX, mouseY, mode.neoecoae$getCycleItems(),
                 cycleScrollbar.getCurrentScroll());
@@ -333,22 +338,23 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 return true;
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
-    @Override public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    @Override public boolean keyPressed(KeyEvent event) {
+        int keyCode = event.key();
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
             start();
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(event);
     }
 
     private void selectNextCpu() { menu.cycleSelectedCPU(!isHandlingRightClick()); }
     private void start() {
         if (!start.active) return;
         CraftingPlanSummary plan = menu.getPlan();
-        boolean forceStart = Screen.hasShiftDown() && plan != null && plan.isSimulation();
+        boolean forceStart = minecraft.hasShiftDown() && plan != null && plan.isSimulation();
         submit(forceStart);
     }
 
@@ -372,11 +378,11 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             menu.containerId, forceStart, usesBigOrderSubmission(forceStart),
             (Object) menu instanceof ECOCraftConfirmMenuMode mode ? mode.neoecoae$getPlanningStatus() : null);
         if (usesBigOrderSubmission(forceStart)) {
-            PacketDistributor.sendToServer(new cn.dancingsnow.neoecoae.network.ECOBigOrderStartC2SPacket(
+            ClientPacketDistributor.sendToServer(new cn.dancingsnow.neoecoae.network.ECOBigOrderStartC2SPacket(
                 menu.containerId, forceStart));
             return;
         }
-        PacketDistributor.sendToServer(new ECOForceCraftStartFlagC2SPacket(menu.containerId, forceStart));
+        ClientPacketDistributor.sendToServer(new ECOForceCraftStartFlagC2SPacket(menu.containerId, forceStart));
     }
 
     private void openGraph() {
@@ -533,15 +539,15 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         }
 
         @Override
-        public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        public void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
             int yOffset = isHovered() ? 1 : 0;
             var background = isHovered()
                 ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_HOVER
                 : isFocused() ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_FOCUS
                 : ECOIcon.TOOLBAR_BUTTON_BACKGROUND;
-            background.blit(graphics, getX() - 1, getY() + yOffset, 2);
+            background.blit(graphics, getX() - 1, getY() + yOffset);
             ECOIcon.CRAFT_HAMMER.blit(
-                graphics, getX(), getY() + 1 + yOffset, 3);
+                graphics, getX(), getY() + 1 + yOffset);
         }
     }
 

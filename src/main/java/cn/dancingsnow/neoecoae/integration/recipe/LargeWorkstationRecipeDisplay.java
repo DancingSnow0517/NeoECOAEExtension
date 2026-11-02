@@ -14,7 +14,7 @@ import cn.dancingsnow.neoecoae.recipe.WorkstationEnergy;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
@@ -278,10 +278,10 @@ public final class LargeWorkstationRecipeDisplay {
         return layout(recipe).containsText(x, y) ? infoTooltip(recipe) : List.of();
     }
 
-    public static void drawInfo(GuiGraphics graphics, LargeWorkstationRecipe recipe) {
+    public static void drawInfo(GuiGraphicsExtractor graphics, LargeWorkstationRecipe recipe) {
         drawInfo(graphics, Minecraft.getInstance().font, recipe);
     }
-    public static void drawInfo(GuiGraphics graphics, Font font, LargeWorkstationRecipe recipe) {
+    public static void drawInfo(GuiGraphicsExtractor graphics, Font font, LargeWorkstationRecipe recipe) {
         var layout = layout(recipe);
         if (layout.extraHeight() > 0) {
             int bottom = WorkstationRecipeInfoLayout.INFO_Y + layout.infoHeight();
@@ -299,17 +299,17 @@ public final class LargeWorkstationRecipeDisplay {
         }
     }
 
-    private static void drawRow(GuiGraphics graphics, Font font, Component label, Component value, int y, int width) {
+    private static void drawRow(GuiGraphicsExtractor graphics, Font font, Component label, Component value, int y, int width) {
         int availableWidth = (int) (width / TEXT_SCALE);
         var labelText = clipped(font, label, availableWidth / 2);
         var valueText = clipped(font, value, availableWidth - font.width(labelText) - 8);
         var pose = graphics.pose();
-        pose.pushPose();
-        pose.translate(TEXT_X, y, 0);
-        pose.scale(TEXT_SCALE, TEXT_SCALE, 1);
-        graphics.drawString(font, Language.getInstance().getVisualOrder(labelText), 0, 0, 0x555563, false);
-        graphics.drawString(font, Language.getInstance().getVisualOrder(valueText), availableWidth - font.width(valueText), 0, 0x242432, false);
-        pose.popPose();
+        pose.pushMatrix();
+        pose.translate(TEXT_X, y);
+        pose.scale(TEXT_SCALE, TEXT_SCALE);
+        graphics.text(font, Language.getInstance().getVisualOrder(labelText), 0, 0, 0xFF555563, false);
+        graphics.text(font, Language.getInstance().getVisualOrder(valueText), availableWidth - font.width(valueText), 0, 0xFF242432, false);
+        pose.popMatrix();
     }
     private static FormattedText clipped(Font font, Component text, int width) {
         return font.width(text) <= width ? text

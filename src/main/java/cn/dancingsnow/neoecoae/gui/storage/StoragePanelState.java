@@ -202,7 +202,7 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
             entry.putBoolean("infinite", cell.infinite());
             if (cell.position() != null) entry.putLong("position", cell.position().asLong());
             if (cell.interactionId() != null) entry.store("interactionId", net.minecraft.core.UUIDUtil.CODEC, cell.interactionId());
-            if (!cell.stack().isEmpty()) entry.put("stack", cell.stack().save(registries));
+            if (!cell.stack().isEmpty()) entry.put("stack", cn.dancingsnow.neoecoae.util.LegacyNbt.saveItem(registries, cell.stack()));
             if (cell.extractionBlockReason() != null) putComponent(entry, "locked", cell.extractionBlockReason());
             entry.putInt("state", cell.state().ordinal()); entry.putBoolean("online", cell.online()); entries.add(entry);
         }
@@ -232,11 +232,11 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
         List<CellEntry> cells = new ArrayList<>();
         for (Tag valueCell : tag.getListOrEmpty("cells")) {
             CompoundTag cell = (CompoundTag) valueCell;
-            cells.add(new CellEntry(cell.getInt("id"), cell.getInt("tier"), cell.getInt("kind"),
-                cell.getLong("ut"), cell.getLong("tt"), cell.getLong("ub"), cell.getLong("tb"), cell.getBoolean("infinite"),
+            cells.add(new CellEntry(cell.getIntOr("id", 0), cell.getIntOr("tier", 0), cell.getIntOr("kind", 0),
+                cell.getLongOr("ut", 0L), cell.getLongOr("tt", 0L), cell.getLongOr("ub", 0L), cell.getLongOr("tb", 0L), cell.getBooleanOr("infinite", false),
                 CellState.values()[Math.clamp(cell.getIntOr("state", 0), 0, CellState.values().length - 1)], cell.getBooleanOr("online", false),
                 cell.contains("position") ? BlockPos.of(cell.getLongOr("position", 0L)) : null,
-                ItemStack.parseOptional(registries, cell.getCompoundOrEmpty("stack")),
+                cn.dancingsnow.neoecoae.util.LegacyNbt.parseItem(registries, cell.getCompoundOrEmpty("stack")),
                 cell.contains("locked") ? component(cell, "locked") : null,
                 cell.read("interactionId", net.minecraft.core.UUIDUtil.CODEC).isPresent() ? cell.read("interactionId", net.minecraft.core.UUIDUtil.CODEC).orElseThrow() : null,
                 cell.contains("tierName") ? component(cell, "tierName") : null,
@@ -245,21 +245,21 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
         List<TypeLine> types = new ArrayList<>();
         for (Tag valueType : tag.getListOrEmpty("types")) {
             CompoundTag type = (CompoundTag) valueType;
-            types.add(new TypeLine(type.getInt("id"), component(type, "name"), type.getInt("color"),
-                type.getLong("ut"), type.getLong("tt"), type.getLong("ub"), type.getLong("tb"), type.getString("text"),
-                type.contains("swatch") ? type.getInt("swatch") : StoragePanelTextures.FALLBACK_SWATCH,
+            types.add(new TypeLine(type.getIntOr("id", 0), component(type, "name"), type.getIntOr("color", 0),
+                type.getLongOr("ut", 0L), type.getLongOr("tt", 0L), type.getLongOr("ub", 0L), type.getLongOr("tb", 0L), type.getStringOr("text", ""),
+                type.contains("swatch") ? type.getIntOr("swatch", 0) : StoragePanelTextures.FALLBACK_SWATCH,
                 new BigInteger(type.getStringOr("exactBytes", "")),
                 type.contains("channel") ? net.minecraft.resources.Identifier.tryParse(type.getStringOr("channel", "")) : null,
                 type.contains("icon") ? net.minecraft.resources.Identifier.tryParse(type.getStringOr("icon", "")) : null,
                 type.contains("swatchTexture") ? net.minecraft.resources.Identifier.tryParse(type.getStringOr("swatchTexture", "")) : null));
         }
-        return new StoragePanelState(component(tag, "title"), tag.getInt("tier"), tag.getBoolean("formed"),
-            tag.getBoolean("infinite"), tag.getBoolean("migrating"), tag.getLong("energy"), tag.getLong("maxEnergy"),
-            tag.getLong("drain"), tag.getString("usedBytes"), tag.getDouble("usage"), tag.getInt("cellCount"),
-            tag.getInt("cellOffset"), List.copyOf(cells), List.copyOf(types), tag.getString("domain"),
-            tag.getInt("missing"), tag.getBoolean("component"),
+        return new StoragePanelState(component(tag, "title"), tag.getIntOr("tier", 0), tag.getBooleanOr("formed", false),
+            tag.getBooleanOr("infinite", false), tag.getBooleanOr("migrating", false), tag.getLongOr("energy", 0L), tag.getLongOr("maxEnergy", 0L),
+            tag.getLongOr("drain", 0L), tag.getStringOr("usedBytes", ""), tag.getDoubleOr("usage", 0.0), tag.getIntOr("cellCount", 0),
+            tag.getIntOr("cellOffset", 0), List.copyOf(cells), List.copyOf(types), tag.getStringOr("domain", ""),
+            tag.getIntOr("missing", 0), tag.getBooleanOr("component", false),
             new BigInteger(tag.getStringOr("totalBytes", "")), new BigInteger(tag.getStringOr("exactUsedBytes", "")),
-            tag.getInt("migrationProgress"),
+            tag.getIntOr("migrationProgress", 0),
             tag.contains("migrationBlocked") ? component(tag, "migrationBlocked") : Component.empty());
     }
 

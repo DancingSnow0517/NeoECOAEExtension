@@ -37,6 +37,7 @@ import net.minecraft.client.data.models.model.TextureSlot;
 import net.minecraft.client.renderer.block.dispatch.Variant;
 import net.minecraft.client.renderer.block.dispatch.VariantMutator;
 import net.minecraft.client.resources.model.sprite.Material;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -52,6 +53,8 @@ import static net.minecraft.client.data.models.BlockModelGenerators.plainVariant
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class ECOModelUtil {
     public static final ModelTemplate CASING = createTemplate("casing_base", TextureSlot.TEXTURE);
+    public static final ModelTemplate SMART_COOLING_MODULE = createTemplate("smart_cooling_module_base",
+        TextureSlot.SIDE, TextureSlot.FRONT, TextureSlot.BOTTOM, TextureSlot.TOP);
 
     public static <T extends Item> NonNullBiConsumer<DataGenContext<Item, T>, RegistrateItemModelGenerator> cellModel(String type, String size) {
         return (ctx, prov) -> {
@@ -165,12 +168,74 @@ public class ECOModelUtil {
             var model = ctx.getId().withPrefix("block/");
             var workingModel = ctx.getId().withPrefix("block/").withSuffix("_on");
 
-            var propertyDispatch = PropertyDispatch.initial(ECOIntegratedWorkingStation.WORKING)
-                .select(false, BlockModelGenerators.plainVariant(model))
-                .select(true, BlockModelGenerators.plainVariant(workingModel));
+            // Unformed: plain/working model. Formed (large multiblock controller): module-specific model.
+            var propertyDispatch = PropertyDispatch.initial(
+                ECOIntegratedWorkingStation.WORKING,
+                ECOIntegratedWorkingStation.FORMED,
+                ECOIntegratedWorkingStation.MODULE,
+                ECOIntegratedWorkingStation.SMART_COOLING
+            ).generate((working, formed, module, smartCooling) -> {
+                if (formed) {
+                    return BlockModelGenerators.plainVariant(prov.modLoc(module.modelPath(working, smartCooling)));
+                }
+                return BlockModelGenerators.plainVariant(working ? workingModel : model);
+            });
 
             prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
             prov.registerSimpleItemModel(ctx.get(), model);
+        };
+    }
+
+    /** Single existing block model ({@code block/<name>}) for every state, plus an item model using it. */
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> simpleExistingWithItem() {
+        return (ctx, prov) -> {
+            var model = prov.modLoc("block/" + ctx.getName());
+            prov.create(ctx.get(), model);
+            prov.registerSimpleItemModel(ctx.get(), model);
+        };
+    }
+
+    /** Blockstate is hand-written in resources. */
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> handWritten() {
+        return (ctx, prov) -> {};
+    }
+
+    /** Item definition pointing to a hand-written {@code item/<name>} model. */
+    public static <T extends Item> NonNullBiConsumer<DataGenContext<Item, T>, RegistrateItemModelGenerator> existingItemModel() {
+        return (ctx, prov) -> prov.itemModelOutput.accept(ctx.get(), ItemModelUtils.plainModel(NeoECOAE.id("item/" + ctx.getName())));
+    }
+
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> smartCoolingModule() {
+        return (ctx, prov) -> {
+            var model = SMART_COOLING_MODULE.create(
+                ctx.get(),
+                new TextureMapping()
+                    .put(TextureSlot.SIDE, new Material(prov.modLoc("block/working_station/smart_cooling_module_side")))
+                    .put(TextureSlot.FRONT, new Material(prov.modLoc("block/working_station/smart_cooling_module_front")))
+                    .put(TextureSlot.BOTTOM, new Material(prov.modLoc("block/working_station/smart_cooling_module_side")))
+                    .put(TextureSlot.TOP, new Material(prov.modLoc("block/working_station/smart_cooling_module_top"))),
+                prov.modelOutput
+            );
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get(), BlockModelGenerators.plainVariant(model)));
+            prov.registerSimpleItemModel(ctx.get(), model);
+        };
+    }
+
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> fxMonitorCore() {
+        return (ctx, prov) -> {
+            var unformedModel = prov.modLoc("block/crafting_monitor");
+            var formedModel = prov.modLoc("block/crafting_monitor_formed");
+            var workingModel = prov.modLoc("block/crafting_monitor_working");
+
+            var propertyDispatch = PropertyDispatch.initial(ECOCraftingWorker.FORMED, ECOCraftingWorker.WORKING).generate((formed, working) -> {
+                if (working) {
+                    return BlockModelGenerators.plainVariant(workingModel);
+                }
+                return BlockModelGenerators.plainVariant(formed ? formedModel : unformedModel);
+            });
+
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
+            prov.registerSimpleItemModel(ctx.get(), unformedModel);
         };
     }
 
@@ -255,19 +320,22 @@ public class ECOModelUtil {
     public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> storageSystem(String level) {
         return (ctx, prov) -> {
             var offModel = prov.modLoc("block/storage_controller/controller_%s_off".formatted(level));
-            var formedModel = prov.modLoc("block/storage_controller/controller_%s_formed".formatted(level));
-            var formedMirroredModel = prov.modLoc("block/storage_controller/controller_%s_formed_mirrored".formatted(level));
 
-            var propertyDispatch = PropertyDispatch.initial(ECOStorageSystemBlock.FORMED, ECOStorageSystemBlock.MIRRORED).generate((formed, mirrored) -> {
-                if (formed) {
-                    if (mirrored) {
-                        return BlockModelGenerators.plainVariant(formedMirroredModel);
-                    } else {
-                        return BlockModelGenerators.plainVariant(formedModel);
-                    }
-                } else {
+            var propertyDispatch = PropertyDispatch.initial(
+                ECOStorageSystemBlock.FORMED,
+                ECOStorageSystemBlock.MIRRORED,
+                ECOStorageSystemBlock.STORAGE_MODE
+            ).generate((formed, mirrored, mode) -> {
+                if (!formed) {
                     return BlockModelGenerators.plainVariant(offModel);
                 }
+                String suffix = switch (mode) {
+                    case INPUT -> "_input";
+                    case OUTPUT -> "_output";
+                    default -> "";
+                };
+                return BlockModelGenerators.plainVariant(prov.modLoc(
+                    "block/storage_controller/controller_%s_formed%s%s".formatted(level, suffix, mirrored ? "_mirrored" : "")));
             });
             prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
             prov.registerSimpleItemModel(ctx.get(), offModel);
@@ -394,6 +462,40 @@ public class ECOModelUtil {
             prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
             prov.registerSimpleItemModel(ctx.get(), offModel);
         };
+    }
+
+    /** Imported cell model {@code item/cell/<model>} with the AE2 status tint on layer 2. */
+    public static <T extends Item> NonNullBiConsumer<DataGenContext<Item, T>, RegistrateItemModelGenerator> importedTintedCellModel(String model) {
+        return (ctx, prov) -> prov.itemModelOutput.accept(
+            ctx.get(),
+            ItemModelUtils.tintedModel(
+                prov.modLoc("item/cell/" + model),
+                new Constant(-1),
+                new Constant(-1),
+                ECOStorageCellStateTintSource.INSTANCE
+            )
+        );
+    }
+
+    /** Untiered cell icon: housing + status light (status tint on layer 1). */
+    public static <T extends Item> NonNullBiConsumer<DataGenContext<Item, T>, RegistrateItemModelGenerator> infiniteCellModel(String housing) {
+        return (ctx, prov) -> {
+            var model = ModelTemplates.TWO_LAYERED_ITEM.create(
+                ctx.get(),
+                TextureMapping.layered(
+                    new Material(prov.modLoc("item/eco_cells/" + housing)),
+                    new Material(prov.modLoc("item/eco_cells/cell_status_light"))
+                ),
+                prov.modelOutput
+            );
+            prov.itemModelOutput.accept(ctx.get(), ItemModelUtils.tintedModel(
+                model, new Constant(-1), ECOStorageCellStateTintSource.INSTANCE));
+        };
+    }
+
+    /** Flat generated item model with an explicit texture. */
+    public static <T extends Item> NonNullBiConsumer<DataGenContext<Item, T>, RegistrateItemModelGenerator> generatedItem(Identifier texture) {
+        return (ctx, prov) -> prov.generateFlatItem(ctx.get(), new Material(texture));
     }
 
     private static ModelTemplate createTemplate(String id, TextureSlot... slots) {

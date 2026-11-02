@@ -328,7 +328,7 @@ final class ECOStorageHostStatistics {
             default -> null;
         };
         if (baseType == null) return cellTypeId;
-        ECOCellType base = cellTypes.get(Identifier.fromNamespaceAndPath("neoecoae", baseType));
+        ECOCellType base = cellTypes.getValue(Identifier.fromNamespaceAndPath("neoecoae", baseType));
         // Keep the original group if an optional channel's ordinary cell type is unavailable.
         return base == null ? cellTypeId : cellTypes.getId(base);
     }

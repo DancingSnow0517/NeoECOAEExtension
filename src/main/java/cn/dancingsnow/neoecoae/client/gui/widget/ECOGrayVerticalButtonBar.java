@@ -5,9 +5,10 @@ import appeng.client.gui.widgets.VerticalButtonBar;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 
 /** Keeps AE2's button layout and lifecycle while using ECO's gray side rail. */
@@ -37,15 +38,15 @@ public final class ECOGrayVerticalButtonBar extends VerticalButtonBar {
     }
 
     @Override
-    public void drawBackgroundLayer(GuiGraphics graphics, Rect2i screenBounds, Point mouse) {
+    public void drawBackgroundLayer(GuiGraphicsExtractor graphics, Rect2i screenBounds, Point mouse) {
         int visibleCount = (int) buttons.stream().filter(button -> button.visible).count();
         int index = 0;
         for (Button button : buttons) {
             if (!button.visible) continue;
             Identifier texture = index == 0 ? TOP : index == visibleCount - 1 ? BOTTOM : MIDDLE;
             int height = index == 0 ? TOP_HEIGHT : index == visibleCount - 1 ? BOTTOM_HEIGHT : MIDDLE_HEIGHT;
-            graphics.blit(texture, button.getX() - 4, button.getY() - (index == 0 ? 3 : 2),
-                1, 0, 0, WIDTH, height, WIDTH, height);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, texture, button.getX() - 4, button.getY() - (index == 0 ? 3 : 2),
+                0, 0, WIDTH, height, WIDTH, height);
             index++;
         }
     }

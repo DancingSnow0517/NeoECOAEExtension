@@ -4,6 +4,7 @@ import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import org.jetbrains.annotations.Nullable;
 
 /** Percentage thermometer with the actual 20/50/80 percent operating thresholds. */
@@ -20,7 +21,8 @@ final class LargeWorkstationTemperatureGauge extends UIElement implements IBinda
     public Float getValue() { return value; }
 
     @Override
-    public void drawContents(GUIContext context) {
+    public void drawBackgroundAdditional(IGUIContext ctx) {
+        if (!(ctx instanceof GUIContext context)) return;
         int x = (int) getPositionX();
         int y = (int) getPositionY();
         context.graphics.fill(x, y, x + 92, y + 4, 0xFF403E53);

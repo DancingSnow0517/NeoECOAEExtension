@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.client.renderer.blockentity;
 
 import appeng.client.render.AERenderTypes;
-import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import appeng.api.storage.cells.CellState;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -20,6 +20,7 @@ import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
 public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity, ECODriveRenderer.RenderState> {
+    private static final int INFINITE_MEMBER_LED_COLOR = 0xCA6CFF;
 
     public ECODriveRenderer(BlockEntityRendererProvider.Context context) {
     }
@@ -38,45 +39,21 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
         ModelFeatureRenderer.@Nullable CrumblingOverlay breakProgress
     ) {
         BlockEntityRenderer.super.extractRenderState(blockEntity, state, partialTicks, cameraPosition, breakProgress);
-        IECOStorageCell cellInventory = blockEntity.getCellInventory();
-        if (cellInventory != null && blockEntity.isOnline()) {
-            state.color = ARGB.color(255, cellInventory.getStatus().getStateColor());
+        state.color = 0;
+        int color = 0;
+        if (ECOInfiniteStorageMember.isMember(blockEntity.getCellStack())) {
+            color = ARGB.color(255, INFINITE_MEMBER_LED_COLOR);
+        } else if (blockEntity.isMounted() && blockEntity.isOnline()) {
+            CellState cellState = blockEntity.getCellState();
+            if (cellState != CellState.ABSENT) {
+                color = ARGB.color(255, cellState.getStateColor());
+            }
+        }
+        if (color != 0) {
+            state.color = color;
             BlockState blockState = blockEntity.getBlockState();
             state.face = blockState.getValue(BlockStateProperties.HORIZONTAL_FACING).getOpposite();
         }
-    }
-
-    private static void renderLed(ECODriveBlockEntity blockEntity, PoseStack poseStack, MultiBufferSource bufferSource, int stateColor) {
-        BlockState blockState = blockEntity.getBlockState();
-        Direction face = blockState.getValue(BlockStateProperties.HORIZONTAL_FACING).getOpposite();
-
-        poseStack.pushPose();
-
-        poseStack.translate(0.5, 0.5, 0.5);
-        poseStack.mulPose(face.getRotation());
-        poseStack.translate(0, -0.501, 0);
-
-        float pixel = 1f / 16;
-        float sizeX = pixel;
-        float sizeY = pixel * 2;
-
-        Vec2 offset = new Vec2(-5 * pixel, -5 * pixel);
-
-        float xStart = offset.x;
-        float zStart = offset.y;
-        float xEnd = offset.x + sizeX;
-        float zEnd = offset.y + sizeY;
-
-        Matrix4f matrix = poseStack.last().pose();
-
-        VertexConsumer consumer = bufferSource.getBuffer(CellLedRenderer.RENDER_LAYER);
-
-        consumer.addVertex(matrix, xStart, 0, zStart).setColor(stateColor);
-        consumer.addVertex(matrix, xEnd, 0, zStart).setColor(stateColor);
-        consumer.addVertex(matrix, xEnd, 0, zEnd).setColor(stateColor);
-        consumer.addVertex(matrix, xStart, 0, zEnd).setColor(stateColor);
-
-        poseStack.popPose();
     }
 
     @Override

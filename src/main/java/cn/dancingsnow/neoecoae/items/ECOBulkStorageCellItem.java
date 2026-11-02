@@ -71,16 +71,16 @@ public class ECOBulkStorageCellItem extends ECOStorageCellItem implements IECOBu
         return !stack.isEmpty() && BuiltInRegistries.ITEM.getOptional(EXPANSION_CARD).map(stack::is).orElse(false);
     }
 
-    @Override public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
+    @Override public void appendHoverText(ItemStack stack, TooltipContext context, net.minecraft.world.item.component.TooltipDisplay display, java.util.function.Consumer<Component> lines, TooltipFlag flag) {
         var cell = (ECOBulkStorageCell) getCellInventory(stack);
         if (cell == null) return;
-        lines.add(Component.translatable("tooltip.neoecoae.bulk.capacity", cell.getStoredItemTypes(), cell.getTotalItemTypes()));
-        lines.add(Component.translatable("tooltip.neoecoae.bulk.bytes", HostText.fullBytes(cell.getExactUsedBytes()), "∞"));
-        lines.add(Component.translatable(baseTypeLimit == 1 ? "tooltip.neoecoae.bulk.legacy_configure" : "tooltip.neoecoae.bulk.configure").withStyle(ChatFormatting.GRAY));
-        lines.add(Component.translatable("tooltip.neoecoae.bulk.crafting").withStyle(ChatFormatting.GRAY));
-        if (!cell.getPendingOutputs().isEmpty()) lines.add(Component.translatable("tooltip.neoecoae.bulk.pending").withStyle(ChatFormatting.YELLOW));
-        if (cell.getUnresolvedEntryCount() > 0) lines.add(Component.translatable("tooltip.neoecoae.storage.bulk_unresolved", cell.getUnresolvedEntryCount()).withStyle(ChatFormatting.RED));
-        if (cell.getRecoveringEntryCount() > 0) lines.add(Component.translatable("tooltip.neoecoae.bulk.recipe_changed", cell.getRecoveringEntryCount()).withStyle(ChatFormatting.YELLOW));
+        lines.accept(Component.translatable("tooltip.neoecoae.bulk.capacity", cell.getStoredItemTypes(), cell.getTotalItemTypes()));
+        lines.accept(Component.translatable("tooltip.neoecoae.bulk.bytes", HostText.fullBytes(cell.getExactUsedBytes()), "∞"));
+        lines.accept(Component.translatable(baseTypeLimit == 1 ? "tooltip.neoecoae.bulk.legacy_configure" : "tooltip.neoecoae.bulk.configure").withStyle(ChatFormatting.GRAY));
+        lines.accept(Component.translatable("tooltip.neoecoae.bulk.crafting").withStyle(ChatFormatting.GRAY));
+        if (!cell.getPendingOutputs().isEmpty()) lines.accept(Component.translatable("tooltip.neoecoae.bulk.pending").withStyle(ChatFormatting.YELLOW));
+        if (cell.getUnresolvedEntryCount() > 0) lines.accept(Component.translatable("tooltip.neoecoae.storage.bulk_unresolved", cell.getUnresolvedEntryCount()).withStyle(ChatFormatting.RED));
+        if (cell.getRecoveringEntryCount() > 0) lines.accept(Component.translatable("tooltip.neoecoae.bulk.recipe_changed", cell.getRecoveringEntryCount()).withStyle(ChatFormatting.YELLOW));
     }
 
     @Override
@@ -222,13 +222,20 @@ public class ECOBulkStorageCellItem extends ECOStorageCellItem implements IECOBu
         }
 
         @Override
-        public void readFromNBT(CompoundTag data, String subtag, HolderLookup.Provider registries) {
-            delegate.readFromNBT(data, subtag, registries);
+        public void readFromNBT(net.minecraft.world.level.storage.ValueInput input, String subtag) {
+            delegate.readFromNBT(input, subtag);
         }
 
         @Override
-        public void writeToNBT(CompoundTag data, String subtag, HolderLookup.Provider registries) {
-            delegate.writeToNBT(data, subtag, registries);
+        public void writeToNBT(net.minecraft.world.level.storage.ValueOutput output, String subtag) {
+            delegate.writeToNBT(output, subtag);
+        }
+
+        @Override
+        public net.neoforged.neoforge.transfer.ResourceHandler<net.neoforged.neoforge.transfer.item.ItemResource> toResourceHandler() {
+            // TODO(26.1 port): AE2's InternalInventoryResourceHandler is package-private; transfer-API access
+            // goes straight to the delegate, so the expansion-card lock is only enforced for GUI/AE2 paths.
+            return delegate.toResourceHandler();
         }
     }
 

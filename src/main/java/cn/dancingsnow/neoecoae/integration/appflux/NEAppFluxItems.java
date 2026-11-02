@@ -8,10 +8,13 @@ import cn.dancingsnow.neoecoae.integration.appflux.item.ECOFeStorageCellItem;
 import cn.dancingsnow.neoecoae.util.ECOModelUtil;
 import com.glodblock.github.appflux.common.AFSingletons;
 import com.tterrag.registrate.util.entry.ItemEntry;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.data.recipes.ShapelessRecipeBuilder;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.Rarity;
 import net.neoforged.neoforge.common.Tags;
 import net.neoforged.neoforge.common.conditions.ModLoadedCondition;
@@ -39,7 +42,7 @@ public class NEAppFluxItems {
                 .save(appFluxInstalled);
         })
         .lang("ECO Storage Matrix Housing (FE)")
-        .model(ItemModelUtil.importedCellModel("eco_energy_cell_housing"))
+        .model(() -> cn.dancingsnow.neoecoae.integration.IntegrationItemModels.importedCellModel("eco_energy_cell_housing"))
         .register();
 
     public static final ItemEntry<ECOFeStorageCellItem> ECO_FE_CELL_16M = REGISTRATE
@@ -56,8 +59,8 @@ public class NEAppFluxItems {
                 .requires(NEItems.ECO_CELL_COMPONENT_16M)
                 .unlockedBy("has_16m_component", prov.has(NEItems.ECO_CELL_COMPONENT_16M))
                 .save(appFluxInstalled);
-            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(ECO_FE_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_16M.asStack()));
-            appFluxInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
+            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(new ItemStackTemplate(ECO_FE_CELL_HOUSING.get()), new ItemStackTemplate(NEItems.ECO_CELL_COMPONENT_16M.get())));
+            appFluxInstalled.accept(ResourceKey.create(Registries.RECIPE, ctx.getId().withPrefix("disassembly/")), recipe, null);
         })
         .lang("ECO - LE4 Storage Matrix (FE)")
         .model(() -> ECOModelUtil.cellModel("fe", "16m"))
@@ -77,8 +80,8 @@ public class NEAppFluxItems {
                 .requires(NEItems.ECO_CELL_COMPONENT_64M)
                 .unlockedBy("has_64m_component", prov.has(NEItems.ECO_CELL_COMPONENT_64M))
                 .save(appFluxInstalled);
-            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(ECO_FE_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_64M.asStack()));
-            appFluxInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
+            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(new ItemStackTemplate(ECO_FE_CELL_HOUSING.get()), new ItemStackTemplate(NEItems.ECO_CELL_COMPONENT_64M.get())));
+            appFluxInstalled.accept(ResourceKey.create(Registries.RECIPE, ctx.getId().withPrefix("disassembly/")), recipe, null);
         })
         .lang("ECO - LE6 Storage Matrix (FE)")
         .model(() -> ECOModelUtil.cellModel("fe", "64m"))
@@ -98,8 +101,8 @@ public class NEAppFluxItems {
                 .requires(NEItems.ECO_CELL_COMPONENT_256M)
                 .unlockedBy("has_256m_component", prov.has(NEItems.ECO_CELL_COMPONENT_256M))
                 .save(appFluxInstalled);
-            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(ECO_FE_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_256M.asStack()));
-            appFluxInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
+            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(new ItemStackTemplate(ECO_FE_CELL_HOUSING.get()), new ItemStackTemplate(NEItems.ECO_CELL_COMPONENT_256M.get())));
+            appFluxInstalled.accept(ResourceKey.create(Registries.RECIPE, ctx.getId().withPrefix("disassembly/")), recipe, null);
         })
         .lang("ECO - LE9 Storage Matrix (FE)")
         .model(() -> ECOModelUtil.cellModel("fe", "256m"))

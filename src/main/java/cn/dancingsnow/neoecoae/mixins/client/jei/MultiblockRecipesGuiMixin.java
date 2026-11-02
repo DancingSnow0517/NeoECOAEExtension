@@ -49,7 +49,7 @@ public abstract class MultiblockRecipesGuiMixin {
         var client = Minecraft.getInstance();
         if (client.screen == (Object) this) {
             Screen screen = (Screen) (Object) this;
-            screen.init(client, screen.width, screen.height);
+            screen.init(screen.width, screen.height);
         }
     }
 }

@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.xei.recipe;
 
 import cn.dancingsnow.neoecoae.gui.NEGuiColors;
-import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
+import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.ScrollDataSource;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;

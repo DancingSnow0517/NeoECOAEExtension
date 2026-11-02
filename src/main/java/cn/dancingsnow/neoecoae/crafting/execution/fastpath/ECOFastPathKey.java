@@ -45,7 +45,7 @@ public final class ECOFastPathKey {
             return Optional.empty();
         }
         try {
-            Identifier dimension = level == null ? null : level.dimension().location();
+            Identifier dimension = level == null ? null : level.dimension().identifier();
             List<SlotSignature> slots = new ArrayList<>(craftingContainer.length);
             for (KeyCounter counter : craftingContainer) {
                 List<EntrySignature> entries = new ArrayList<>();

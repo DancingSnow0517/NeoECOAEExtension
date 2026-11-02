@@ -1,8 +1,9 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
+import cn.dancingsnow.neoecoae.gui.common.GuiDraw;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
 
-import appeng.api.client.AEKeyRendering;
+import appeng.client.api.AEKeyRendering;
 import appeng.api.stacks.AEFluidKey;
 import cn.dancingsnow.neoecoae.blocks.entity.LargeWorkstationOverclock;
 import cn.dancingsnow.neoecoae.blocks.entity.LargeWorkstationThermal;
@@ -20,6 +21,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.util.ArrayList;
 import java.util.List;
@@ -76,13 +78,13 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         }));
         UIElement viewport = new UIElement() {
             @Override
-            public void drawBackgroundAdditional(GUIContext context) {
+            public void drawBackgroundAdditional(IGUIContext ctx) {
+                if (!(ctx instanceof GUIContext context)) return;
                 context.pose.pushPose();
                 try {
-                    context.pose.translate(0, taskScroll.rowShift(), 0);
+                    context.pose.translate(0, (float) taskScroll.rowShift());
                     for (int row = 0; row < tasks.size(); row++) drawTask(context, tasks.get(row), row);
                 } finally {
-                    context.graphics.flush();
                     context.pose.popPose();
                 }
             }
@@ -110,7 +112,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
                 .pressedTexture(WorkstationTextures.widget(24, 6, 12, 11)));
             absolute(button, 56, 13, 12, 11);
             button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips =
-                new HoverTooltips(returnTooltip(index), null, null, null));
+                new HoverTooltips(new java.util.ArrayList<Object>(returnTooltip(index)), null, null, null, null));
             hitbox.addChild(button);
             returns[row] = button;
         }
@@ -152,7 +154,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         button.setId("large-workstation-" + name);
         absolute(button, x, 89, 15, 26);
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips =
-            new HoverTooltips(tooltip.get(), null, null, null));
+            new HoverTooltips(new java.util.ArrayList<Object>(tooltip.get()), null, null, null, null));
         return button;
     }
 
@@ -175,7 +177,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         lines.add(title("machine_status"));
         lines.add(shortStatus().copy().withStyle(hasProblem() ? ChatFormatting.GOLD : ChatFormatting.GREEN));
         if (hasProblem()) lines.add(pauseText());
-        lines.add(tr("task_count", state.getInt("totalTasks")));
+        lines.add(tr("task_count", state.getIntOr("totalTasks", 0)));
         if (state.getIntOr("totalTasks", 0) > 0) lines.add(tr("task_source",
             moduleDescription("recipeModuleId", "recipeModule").title()));
         if (state.getBooleanOr("ignoreUpgradeCards", false)) lines.add(tr("compat_all_unlocked").withStyle(ChatFormatting.GRAY));
@@ -188,14 +190,14 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         List<Task> decoded = new ArrayList<>();
         var entries = state.getListOrEmpty("tasks");
         for (int i = 0; i < Math.min(LargeWorkstationUI.SNAPSHOT_SIZE, entries.size()); i++) {
-            CompoundTag entry = entries.getCompound(i);
+            CompoundTag entry = entries.getCompoundOrEmpty(i);
             if (!entry.read("id", net.minecraft.core.UUIDUtil.CODEC).isPresent()) continue;
             decoded.add(new Task(entry.read("id", net.minecraft.core.UUIDUtil.CODEC).orElseThrow(), registries == null ? ItemStack.EMPTY
-                : ItemStack.parseOptional(registries, entry.getCompoundOrEmpty("item")), registries == null ? FluidStack.EMPTY
-                : FluidStack.parseOptional(registries, entry.getCompoundOrEmpty("fluid")), entry.getLongOr("amount", 0L),
-                entry.getInt("progress"), entry.getString("status"), entry.getString("detail"), entry.getBoolean("returnable"),
-                entry.getBoolean("current"), moduleDescription(entry, "moduleId", "module"),
-                entry.getInt("elapsedTicks"), entry.getInt("processingTicks")));
+                : cn.dancingsnow.neoecoae.util.LegacyNbt.parseItem(registries, entry.getCompoundOrEmpty("item")), registries == null ? FluidStack.EMPTY
+                : cn.dancingsnow.neoecoae.util.LegacyNbt.parseFluid(registries, entry.getCompoundOrEmpty("fluid")), entry.getLongOr("amount", 0L),
+                entry.getIntOr("progress", 0), entry.getStringOr("status", ""), entry.getStringOr("detail", ""), entry.getBooleanOr("returnable", false),
+                entry.getBooleanOr("current", false), moduleDescription(entry, "moduleId", "module"),
+                entry.getIntOr("elapsedTicks", 0), entry.getIntOr("processingTicks", 0)));
         }
         int first = state.contains("taskOffset") ? state.getIntOr("taskOffset", 0) : state.getIntOr("offset", 0);
         if (taskScroll.receive(state.getIntOr("totalTasks", 0), first, decoded.size())) tasks = List.copyOf(decoded);
@@ -239,7 +241,8 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     private UIElement scrollbar() {
         UIElement track = new UIElement() {
             @Override
-            public void drawBackgroundAdditional(GUIContext context) {
+            public void drawBackgroundAdditional(IGUIContext ctx) {
+                if (!(ctx instanceof GUIContext context)) return;
                 int max = maxOffset();
                 float y = max == 0 ? 0 : (float) (62 * taskScroll.thumbOffset() / taskScroll.maximum());
                 // Keep the artist's six-pixel handle centered on the baked track.
@@ -400,7 +403,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         List<Component> lines = new ArrayList<>();
         lines.add(title("active_cooling"));
         if (state.getBooleanOr("smartCooling", false)) {
-            lines.add(Component.translatable("gui.neoecoae.smart_cooling.control", state.getInt("coolingTarget"))
+            lines.add(Component.translatable("gui.neoecoae.smart_cooling.control", state.getIntOr("coolingTarget", 0))
                 .withStyle(ChatFormatting.AQUA));
             lines.add(Component.translatable("gui.neoecoae.smart_cooling.help").withStyle(ChatFormatting.GRAY));
         }
@@ -460,7 +463,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     }
 
     private Component coolingName() {
-        return tr(switch (state.getInt("coolantTier")) {
+        return tr(switch (state.getIntOr("coolantTier", 0)) {
             case 2 -> "cooling_water";
             case 6 -> "cooling_sodium";
             case 9 -> "cooling_cryotheum";
@@ -481,7 +484,8 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     }
 
     @Override
-    public void drawBackgroundAdditional(GUIContext context) {
+    public void drawBackgroundAdditional(IGUIContext ctx) {
+        if (!(ctx instanceof GUIContext context)) return;
         var module = module();
         var description = moduleDescription("moduleId", "module");
         if (module != LargeWorkstationModule.REGULAR) sprite(context, description.icon() == null ? WorkstationTextures.module(module)
@@ -559,12 +563,11 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     private void drawTask(GUIContext context, Task task, int row) {
         int y = 38 + row * 26;
         sprite(context, WorkstationTextures.widget(0, 62, 69, 24), 9, y, 69, 24);
-        if (!task.item().isEmpty()) context.graphics.renderItem(task.item(), Math.round(getPositionX()) + 13, Math.round(getPositionY()) + y + 4);
+        if (!task.item().isEmpty()) context.graphics.item(task.item(), Math.round(getPositionX()) + 13, Math.round(getPositionY()) + y + 4);
         else if (!task.fluid().isEmpty()) {
             // AE2 blits fluids immediately; submit the buffered card background before drawing its icon.
-            context.graphics.flush();
             context.pose.pushPose();
-            context.pose.translate(getPositionX() + 13, getPositionY() + y + 4, 0);
+            context.pose.translate(getPositionX() + 13, getPositionY() + y + 4);
             AEKeyRendering.drawInGui(Minecraft.getInstance(), context.graphics, 0, 0, AEFluidKey.of(task.fluid()));
             context.pose.popPose();
         }
@@ -588,7 +591,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         absolute(element, x, y, width, height);
         element.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
             List<Component> lines = tooltip.get();
-            if (!lines.isEmpty()) event.hoverTooltips = new HoverTooltips(lines, null, null, null);
+            if (!lines.isEmpty()) event.hoverTooltips = new HoverTooltips(new java.util.ArrayList<Object>(lines), null, null, null, null);
         });
         return element;
     }
@@ -616,9 +619,9 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         int available = Math.max(1, (int) (width / scale));
         if (font.width(text) > available) text = font.plainSubstrByWidth(text, Math.max(0, available - font.width("…"))) + "…";
         context.pose.pushPose();
-        context.pose.translate(getPositionX() + x + (centered ? (width - font.width(text) * scale) / 2 : 0), getPositionY() + y, 0);
-        context.pose.scale(scale, scale, 1);
-        context.graphics.drawString(font, text, 0, 0, color, false);
+        context.pose.translate(getPositionX() + x + (centered ? (width - font.width(text) * scale) / 2 : 0), getPositionY() + y);
+        context.pose.scale(scale, scale);
+        GuiDraw.text(context.graphics, font, text, 0, 0, color, false);
         context.pose.popPose();
     }
     private static double ratio(double value, double maximum) {

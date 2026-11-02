@@ -49,14 +49,17 @@ public final class ECOProviderActions {
 
     public record Source(PatternProviderLogicHost host, BlockEntity blockEntity, Direction side, Component name) {
         public String id() {
-            return blockEntity.getLevel().dimension().location() + "@" + blockEntity.getBlockPos().asLong() + ":" + side;
+            return blockEntity.getLevel().dimension().identifier() + "@" + blockEntity.getBlockPos().asLong() + ":" + side;
         }
 
         public CompoundTag describe(net.minecraft.core.HolderLookup.Provider registries) {
             var tag = new CompoundTag();
             tag.putString("id", id());
-            tag.putString("name", Component.Serializer.toJson(name, registries));
-            tag.putString("dimension", blockEntity.getLevel().dimension().location().toString());
+            // 26.1 port: Component.Serializer was removed; same JSON text via ComponentSerialization.CODEC.
+            tag.putString("name", net.minecraft.network.chat.ComponentSerialization.CODEC
+                .encodeStart(registries.createSerializationContext(com.mojang.serialization.JsonOps.INSTANCE), name)
+                .getOrThrow().toString());
+            tag.putString("dimension", blockEntity.getLevel().dimension().identifier().toString());
             tag.putLong("position", blockEntity.getBlockPos().asLong());
             if (side != null) tag.putString("side", side.getName());
             return tag;

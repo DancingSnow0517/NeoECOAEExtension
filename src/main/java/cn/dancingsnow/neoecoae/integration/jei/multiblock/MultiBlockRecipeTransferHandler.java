@@ -26,7 +26,7 @@ public final class MultiBlockRecipeTransferHandler
     }
 
     @Override
-    public mezz.jei.api.recipe.RecipeType<MultiBlockInfoWrapper> getRecipeType() {
+    public mezz.jei.api.recipe.types.IRecipeType<MultiBlockInfoWrapper> getRecipeType() {
         return cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin.MULTIBLOCK_TYPE;
     }
 

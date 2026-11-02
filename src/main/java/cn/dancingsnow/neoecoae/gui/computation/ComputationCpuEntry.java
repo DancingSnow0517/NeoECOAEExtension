@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.computation;
 
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
@@ -55,7 +56,7 @@ record ComputationCpuEntry(int serial, String name, @Nullable AEKey output,
         CompoundTag tag = new CompoundTag();
         tag.putInt("serial", serial);
         tag.putString("name", name);
-        if (output != null) tag.put("output", output.toTagGeneric(registries));
+        if (output != null) tag.put("output", ECOLegacyAENbt.writeKey(registries, output));
         tag.putByteArray("requested", requested.toByteArray());
         tag.putByteArray("remaining", remaining.toByteArray());
         tag.putFloat("progress", progress);
@@ -69,10 +70,10 @@ record ComputationCpuEntry(int serial, String name, @Nullable AEKey output,
     }
 
     static ComputationCpuEntry read(CompoundTag tag, HolderLookup.Provider registries) {
-        return new ComputationCpuEntry(tag.getInt("serial"), tag.getString("name"),
-            tag.contains("output") ? AEKey.fromTagGeneric(registries, tag.getCompoundOrEmpty("output")) : null,
+        return new ComputationCpuEntry(tag.getIntOr("serial", 0), tag.getStringOr("name", ""),
+            tag.contains("output") ? ECOLegacyAENbt.readKey(registries, tag.getCompoundOrEmpty("output")) : null,
             new BigInteger(tag.getByteArray("requested").orElseGet(() -> new byte[0])), new BigInteger(tag.getByteArray("remaining").orElseGet(() -> new byte[0])),
-            tag.getFloat("progress"), tag.getLong("elapsed"), tag.getLong("storage"), tag.getInt("parallel"),
+            tag.getFloatOr("progress", 0F), tag.getLongOr("elapsed", 0L), tag.getLongOr("storage", 0L), tag.getIntOr("parallel", 0),
             CpuSelectionMode.values()[Math.clamp(tag.getIntOr("mode", 0), 0, CpuSelectionMode.values().length - 1)],
             Identifier.parse(tag.getStringOr("overlay", "")), tag.getStringOr("status", ""));
     }

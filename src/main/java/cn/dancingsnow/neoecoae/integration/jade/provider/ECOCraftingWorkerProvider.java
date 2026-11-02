@@ -18,37 +18,6 @@ public enum ECOCraftingWorkerProvider implements IServerDataProvider<BlockAccess
     INSTANCE;
 
     @Override
-    public void appendTooltip(ITooltip iTooltip, BlockAccessor blockAccessor, IPluginConfig iPluginConfig) {
-        CompoundTag data = blockAccessor.getServerData();
-        if (data.contains("max")) {
-            long max = data.getLongOr("max", 0L);
-            boolean infinite = data.getBooleanOr("infinite", false);
-            int normalHosts = data.getIntOr("normalSwitchHosts", 0);
-            int highEnergyHosts = data.getIntOr("highEnergySwitchHosts", 0);
-            Component normalSwitches = Component.translatable("jade.neoecoae.normal_switch")
-                .withStyle(ChatFormatting.GREEN);
-            Component highEnergySwitches = Component.translatable("jade.neoecoae.high_energy_switch")
-                .withStyle(ChatFormatting.GOLD);
-            iTooltip.add(Component.translatable("jade.neoecoae.network_composition",
-                normalHosts, normalSwitches, highEnergyHosts, highEnergySwitches));
-            Component batchCapacity = infinite
-                ? Component.translatable("gui.neoecoae.storage.infinite_value").withStyle(ChatFormatting.LIGHT_PURPLE)
-                : Component.literal(String.format(Locale.ROOT, "%,d", max))
-                    .withStyle(ChatFormatting.LIGHT_PURPLE);
-            iTooltip.add(Component.translatable("jade.neoecoae.crafting_capacity", batchCapacity));
-            if ((normalHosts > 0 || highEnergyHosts > 0) && blockAccessor.getPlayer().isShiftKeyDown()) {
-                long base = data.getLongOr("baseCapacity", 0L);
-                String terms = normalHosts > 0 && highEnergyHosts > 0
-                    ? normalHosts + " x 2 + " + highEnergyHosts + " x 8"
-                    : normalHosts > 0 ? normalHosts + " x 2" : highEnergyHosts + " x 8";
-                String formula = base + " x (" + terms + ") = " + (infinite ? "∞" : max);
-                iTooltip.add(Component.translatable("jade.neoecoae.worker_capacity_formula", formula)
-                    .withStyle(ChatFormatting.GRAY));
-            }
-        }
-    }
-
-    @Override
     public void appendServerData(CompoundTag compoundTag, BlockAccessor blockAccessor) {
         if (blockAccessor.getBlockEntity() instanceof ECOCraftingWorkerBlockEntity worker) {
             if (worker.getCluster() != null && worker.getCluster().getController() != null) {
@@ -75,11 +44,31 @@ public enum ECOCraftingWorkerProvider implements IServerDataProvider<BlockAccess
         @Override
         public void appendTooltip(ITooltip iTooltip, BlockAccessor blockAccessor, IPluginConfig iPluginConfig) {
             CompoundTag data = blockAccessor.getServerData();
-            var max = data.getInt("max");
-            var running = data.getInt("running");
-            if (max.isPresent() && running.isPresent()) {
-
-                iTooltip.add(Component.translatable("jade.neoecoae.worker_threads", running.get(), max.get()));
+            if (data.contains("max")) {
+                long max = data.getLongOr("max", 0L);
+                boolean infinite = data.getBooleanOr("infinite", false);
+                int normalHosts = data.getIntOr("normalSwitchHosts", 0);
+                int highEnergyHosts = data.getIntOr("highEnergySwitchHosts", 0);
+                Component normalSwitches = Component.translatable("jade.neoecoae.normal_switch")
+                    .withStyle(ChatFormatting.GREEN);
+                Component highEnergySwitches = Component.translatable("jade.neoecoae.high_energy_switch")
+                    .withStyle(ChatFormatting.GOLD);
+                iTooltip.add(Component.translatable("jade.neoecoae.network_composition",
+                    normalHosts, normalSwitches, highEnergyHosts, highEnergySwitches));
+                Component batchCapacity = infinite
+                    ? Component.translatable("gui.neoecoae.storage.infinite_value").withStyle(ChatFormatting.LIGHT_PURPLE)
+                    : Component.literal(String.format(Locale.ROOT, "%,d", max))
+                        .withStyle(ChatFormatting.LIGHT_PURPLE);
+                iTooltip.add(Component.translatable("jade.neoecoae.crafting_capacity", batchCapacity));
+                if ((normalHosts > 0 || highEnergyHosts > 0) && blockAccessor.getPlayer().isShiftKeyDown()) {
+                    long base = data.getLongOr("baseCapacity", 0L);
+                    String terms = normalHosts > 0 && highEnergyHosts > 0
+                        ? normalHosts + " x 2 + " + highEnergyHosts + " x 8"
+                        : normalHosts > 0 ? normalHosts + " x 2" : highEnergyHosts + " x 8";
+                    String formula = base + " x (" + terms + ") = " + (infinite ? "∞" : max);
+                    iTooltip.add(Component.translatable("jade.neoecoae.worker_capacity_formula", formula)
+                        .withStyle(ChatFormatting.GRAY));
+                }
             }
         }
 

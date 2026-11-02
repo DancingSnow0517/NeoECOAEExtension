@@ -68,7 +68,7 @@ public record LargeWorkstationRecipe(Identifier id, IntegratedWorkingStationReci
         additionalFluidInputs = List.copyOf(additionalFluidInputs);
         additionalOutputs = List.copyOf(additionalOutputs);
         for (var input : additionalFluidInputs) {
-            if (input.ingredient().isEmpty() || input.amount() <= 0) throw new IllegalArgumentException("Empty fluid input");
+            if (input.ingredient() == null || input.amount() <= 0) throw new IllegalArgumentException("Empty fluid input");
         }
         for (var output : additionalOutputs) {
             if (output.what() == null || output.amount() <= 0) throw new IllegalArgumentException("Empty output");
@@ -78,7 +78,7 @@ public record LargeWorkstationRecipe(Identifier id, IntegratedWorkingStationReci
     /** Complete virtual contract; the single-block display only holds the first fluid and outputs. */
     public List<SizedFluidIngredient> inputFluids() {
         var fluids = new ArrayList<SizedFluidIngredient>();
-        if (!display.inputFluid().ingredient().isEmpty()) fluids.add(display.inputFluid());
+        display.inputFluid().ifPresent(fluids::add);
         fluids.addAll(additionalFluidInputs);
         return List.copyOf(fluids);
     }

@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(CraftingCPUScreen.class)
 public abstract class CraftingCpuScreenMixin {
     @WrapOperation(
-        method = "render",
+        method = "extractRenderState",
         at = @At(value = "INVOKE", target = "Ljava/util/List;isEmpty()Z")
     )
     private boolean neoecoae$jobCanBeControlled(List<?> entries, Operation<Boolean> original) {

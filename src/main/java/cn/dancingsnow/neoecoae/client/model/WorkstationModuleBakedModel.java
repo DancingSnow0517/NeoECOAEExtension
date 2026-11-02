@@ -2,101 +2,114 @@ package cn.dancingsnow.neoecoae.client.model;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
+import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
-import java.util.ArrayList;
-import java.util.List;
+import com.mojang.math.Quadrant;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.block.model.BakedQuad;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.client.resources.model.ModelResourceLocation;
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
+import net.minecraft.client.renderer.block.dispatch.BlockModelRotation;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.ChunkRenderTypeSet;
 import net.neoforged.neoforge.client.event.ModelEvent;
-import net.neoforged.neoforge.client.model.BakedModelWrapper;
-import net.neoforged.neoforge.client.model.data.ModelData;
-import net.neoforged.neoforge.client.model.data.ModelProperty;
+import net.neoforged.neoforge.client.model.DelegateBlockStateModel;
+import net.neoforged.neoforge.client.model.standalone.SimpleUnbakedStandaloneModel;
+import net.neoforged.neoforge.client.model.standalone.StandaloneModelKey;
 import org.jetbrains.annotations.Nullable;
 
-/** Custom module models use north-facing coordinates, like the built-in workstation models. */
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Custom module models use north-facing coordinates, like the built-in workstation models.
+ * <p>
+ * 26.1: module models are registered as standalone models (one per horizontal facing, rotated at bake time),
+ * and the formed workstation block state models are wrapped so that the installed module's model is emitted
+ * instead of the default geometry.
+ */
 @EventBusSubscriber(modid = NeoECOAE.MOD_ID, value = Dist.CLIENT)
-public final class WorkstationModuleBakedModel extends BakedModelWrapper<BakedModel> {
-    private static final ModelProperty<Identifier> MODULE = new ModelProperty<>();
-    public WorkstationModuleBakedModel(BakedModel original) { super(original); }
+public final class WorkstationModuleBakedModel extends DelegateBlockStateModel {
+    private static final Identifier WORKSTATION_ID = NeoECOAE.id("integrated_working_station");
+    private static final Quadrant[] TURNS = {Quadrant.R0, Quadrant.R90, Quadrant.R180, Quadrant.R270};
+    /** model id -> keys indexed by clockwise quarter turns from north. */
+    private static final Map<Identifier, List<StandaloneModelKey<BlockStateModelPart>>> KEYS = new HashMap<>();
 
-    @SubscribeEvent public static void additionalModels(ModelEvent.RegisterAdditional event) {
+    public WorkstationModuleBakedModel(BlockStateModel original) {
+        super(original);
+    }
+
+    @SubscribeEvent
+    public static void registerStandalone(ModelEvent.RegisterStandalone event) {
+        KEYS.clear();
         for (var module : ECOWorkstationModules.registered()) {
-            if (module.idleModel() != null) event.register(ModelResourceLocation.standalone(module.idleModel()));
-            if (module.workingModel() != null) event.register(ModelResourceLocation.standalone(module.workingModel()));
+            register(event, module.idleModel());
+            register(event, module.workingModel());
         }
     }
-    @SubscribeEvent public static void wrapModels(ModelEvent.ModifyBakingResult event) {
-        event.getModels().replaceAll((id, model) -> id.id().equals(Identifier.fromNamespaceAndPath(NeoECOAE.MOD_ID, "integrated_working_station"))
-            && id.variant().contains("formed=true") && !(model instanceof WorkstationModuleBakedModel)
-            ? new WorkstationModuleBakedModel(model) : model);
+
+    private static void register(ModelEvent.RegisterStandalone event, @Nullable Identifier id) {
+        if (id == null || KEYS.containsKey(id)) return;
+        var keys = new java.util.ArrayList<StandaloneModelKey<BlockStateModelPart>>(4);
+        for (int turns = 0; turns < 4; turns++) {
+            int t = turns;
+            StandaloneModelKey<BlockStateModelPart> key = new StandaloneModelKey<>(() -> id + "#turns=" + t);
+            var rotation = BlockModelRotation.get(Quadrant.fromXYZAngles(Quadrant.R0, TURNS[t], Quadrant.R0));
+            event.register(key, SimpleUnbakedStandaloneModel.simpleModelWrapper(id, rotation));
+            keys.add(key);
+        }
+        KEYS.put(id, List.copyOf(keys));
     }
 
-    @Override public ModelData getModelData(BlockAndTintGetter level, BlockPos pos, BlockState state, ModelData data) {
-        var original = originalModel.getModelData(level, pos, state, data);
-        return level.getBlockEntity(pos) instanceof ECOLargeIntegratedWorkingStationBlockEntity host
-            ? original.derive().with(MODULE, host.getModuleAppearanceId()).build() : original;
+    @SubscribeEvent
+    public static void wrapModels(ModelEvent.ModifyBakingResult event) {
+        event.getBakingResult().blockStateModels().replaceAll((state, model) ->
+            isFormedWorkstation(state) && !(model instanceof WorkstationModuleBakedModel)
+                ? new WorkstationModuleBakedModel(model) : model);
     }
 
-    private BakedModel selected(@Nullable BlockState state, ModelData data) {
-        var module = ECOWorkstationModules.find(data.get(MODULE));
-        if (module == null) return originalModel;
-        boolean working = state != null && state.getOptionalValue(cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation.WORKING).orElse(false);
+    private static boolean isFormedWorkstation(BlockState state) {
+        return WORKSTATION_ID.equals(BuiltInRegistries.BLOCK.getKey(state.getBlock()))
+            && state.getOptionalValue(ECOIntegratedWorkingStation.FORMED).orElse(false);
+    }
+
+    @Override
+    public void collectParts(BlockAndTintGetter level, BlockPos pos, BlockState state, RandomSource random,
+                             List<BlockStateModelPart> parts) {
+        BlockStateModelPart selected = selected(level, pos, state);
+        if (selected == null) {
+            super.collectParts(level, pos, state, random, parts);
+        } else {
+            parts.add(selected);
+        }
+    }
+
+    @Nullable
+    private static BlockStateModelPart selected(BlockAndTintGetter level, BlockPos pos, BlockState state) {
+        if (!(level.getBlockEntity(pos) instanceof ECOLargeIntegratedWorkingStationBlockEntity host)) return null;
+        var module = ECOWorkstationModules.find(host.getModuleAppearanceId());
+        if (module == null) return null;
+        boolean working = state.getOptionalValue(ECOIntegratedWorkingStation.WORKING).orElse(false);
         Identifier id = working && module.workingModel() != null ? module.workingModel() : module.idleModel();
-        if (id == null) return originalModel;
-        BakedModel model = Minecraft.getInstance().getModelManager().getModel(ModelResourceLocation.standalone(id));
-        return model instanceof WorkstationModuleBakedModel || model == Minecraft.getInstance().getModelManager().getMissingModel() ? originalModel : model;
-    }
-
-    @Override public ChunkRenderTypeSet getRenderTypes(BlockState state, RandomSource random, ModelData data) {
-        return selected(state, data).getRenderTypes(state, random, data);
-    }
-
-    @Override public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource random,
-                                             ModelData data, @Nullable RenderType renderType) {
-        BakedModel model = selected(state, data);
-        if (model == originalModel) return model.getQuads(state, side, random, data, renderType);
-        Direction facing = state == null ? Direction.NORTH : state.getOptionalValue(BlockStateProperties.HORIZONTAL_FACING).orElse(Direction.NORTH);
-        int turns = switch (facing) { case EAST -> 1; case SOUTH -> 2; case WEST -> 3; default -> 0; };
-        Direction localSide = side;
-        if (localSide != null && localSide.getAxis().isHorizontal()) for (int i = 0; i < turns; i++) localSide = localSide.getCounterClockWise();
-        List<BakedQuad> quads = model.getQuads(state, localSide, random, data, renderType);
-        if (turns == 0) return quads;
-        List<BakedQuad> rotated = new ArrayList<>(quads.size());
-        for (var quad : quads) rotated.add(rotate(quad, turns));
-        return rotated;
-    }
-
-    static BakedQuad rotate(BakedQuad quad, int turns) {
-        int[] vertices = quad.getVertices().clone();
-        int stride = vertices.length / 4;
-        for (int v = 0; v < 4; v++) {
-            int offset = v * stride;
-            float x = Float.intBitsToFloat(vertices[offset]), z = Float.intBitsToFloat(vertices[offset + 2]);
-            for (int i = 0; i < turns; i++) { float nextX = 1 - z; z = x; x = nextX; }
-            vertices[offset] = Float.floatToRawIntBits(x); vertices[offset + 2] = Float.floatToRawIntBits(z);
-            if (stride >= 8) {
-                int normal = vertices[offset + 7];
-                int nx = (byte) normal, nz = (byte) (normal >>> 16);
-                for (int i = 0; i < turns; i++) { int nextX = -nz; nz = nx; nx = nextX; }
-                vertices[offset + 7] = (normal & 0xFF00FF00) | (nx & 0xFF) | ((nz & 0xFF) << 16);
-            }
-        }
-        Direction direction = quad.getDirection();
-        if (direction.getAxis().isHorizontal()) for (int i = 0; i < turns; i++) direction = direction.getClockWise();
-        return new BakedQuad(vertices, quad.getTintIndex(), direction, quad.getSprite(), quad.isShade(), quad.hasAmbientOcclusion());
+        if (id == null) return null;
+        var keys = KEYS.get(id);
+        if (keys == null) return null;
+        Direction facing = state.getOptionalValue(BlockStateProperties.HORIZONTAL_FACING).orElse(Direction.NORTH);
+        int turns = switch (facing) {
+            case EAST -> 1;
+            case SOUTH -> 2;
+            case WEST -> 3;
+            default -> 0;
+        };
+        return Minecraft.getInstance().getModelManager().getStandaloneModel(keys.get(turns));
     }
 }

@@ -22,6 +22,9 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
+import cn.dancingsnow.neoecoae.util.LegacyNbt;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
@@ -558,16 +561,21 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     public void saveAdditional(ValueOutput data) {
         super.saveAdditional(data);
         var registries = getRegistryProvider();
-        var threads = data.list("craftingThreads", CompoundTag.CODEC);
-        for (ECOCraftingThread thread : craftingThreads) {
-            threads.add(thread.serializeNBT(registries));
-        }
-        data.putInt("runningThreads", runningThreads);
+        LegacyNbt.write(data, tag -> {
+            ListTag threads = new ListTag();
+            for (ECOCraftingThread thread : craftingThreads) {
+                threads.add(thread.serializeNBT(registries));
+            }
+            tag.put("craftingThreads", threads);
+            tag.putInt("runningThreads", runningThreads);
+        });
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
+    public void loadTag(ValueInput input) {
+        super.loadTag(input);
+        CompoundTag data = LegacyNbt.read(input);
+        HolderLookup.Provider registries = input.lookup();
         markDisplayDirty();
         ListTag threads = data.getListOrEmpty("craftingThreads");
         craftingThreads.clear();
@@ -584,6 +592,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         long busyThreads = 0L;
         for (int i = 0; i < Math.min(threads.size(), MAX_PERSISTED_THREAD_RECORDS); i++) {
             ECOCraftingThread thread = new ECOCraftingThread(this);
+            CompoundTag threadTag = threads.getCompoundOrEmpty(i);
             thread.deserializeNBT(registries, threadTag);
             craftingThreads.add(thread);
             if (!thread.isFree()) {
@@ -601,7 +610,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         if (level != null) {
             return level.registryAccess();
         }
-        return ServerLifecycleHooks.getCurrentServer().registryAccess();
+        return LegacyNbt.registries();
     }
 
     public boolean isWorking() {
@@ -640,7 +649,10 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
             recoveryCarrier = new ItemStack(getBlockState().getBlock());
             drops.add(recoveryCarrier);
         }
-        saveToItem(recoveryCarrier, level.registryAccess());
+        // 1.21.1 BlockEntity#saveToItem(stack, registries)
+        recoveryCarrier.set(DataComponents.BLOCK_ENTITY_DATA,
+            net.minecraft.world.item.component.TypedEntityData.<net.minecraft.world.level.block.entity.BlockEntityType<?>>of(getType(), saveCustomOnly(level.registryAccess())));
+        recoveryCarrier.applyComponents(collectComponents());
     }
 
     @Override
@@ -650,8 +662,8 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
             return;
         }
         CompoundTag blockEntityData = saveCustomOnly(level.registryAccess());
-        net.minecraft.world.level.block.entity.BlockEntity.addEntityType(blockEntityData, getType());
-        builder.set(DataComponents.BLOCK_ENTITY_DATA, CustomData.of(blockEntityData));
+        builder.set(DataComponents.BLOCK_ENTITY_DATA,
+            net.minecraft.world.item.component.TypedEntityData.<net.minecraft.world.level.block.entity.BlockEntityType<?>>of(getType(), blockEntityData));
         portableRecoveryExported = true;
     }
 

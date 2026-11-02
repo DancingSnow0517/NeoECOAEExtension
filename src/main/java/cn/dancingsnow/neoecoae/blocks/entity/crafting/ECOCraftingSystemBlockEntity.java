@@ -60,7 +60,7 @@ import java.util.Map;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
-import net.minecraft.Util;
+import net.minecraft.util.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -1199,11 +1199,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         if (level != null) {
             return level.registryAccess();
         }
-        return net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer()
-            .getServerResources()
-            .managers()
-            .fullRegistries()
-            .get();
+        return cn.dancingsnow.neoecoae.util.LegacyNbt.registries();
     }
 
     private List<ComputationTaskEntry> getActiveTaskEntries() {

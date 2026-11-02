@@ -3,12 +3,11 @@ package cn.dancingsnow.neoecoae.mixins.ae2.storage;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import com.lowdragmc.lowdraglib2.syncdata.IContentChangeAware;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.common.util.INBTSerializable;
-import org.jetbrains.annotations.UnknownNullability;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.neoforged.neoforge.common.util.ValueIOSerializable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Shadow;
@@ -21,7 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Mixin(AppEngInternalInventory.class)
-public abstract class AppEngInternalInventoryMixin implements INBTSerializable<CompoundTag>, IContentChangeAware {
+public abstract class AppEngInternalInventoryMixin implements ValueIOSerializable, IContentChangeAware {
     @Unique
     private Runnable neoECOAEExtension$onContentsChanged;
 
@@ -32,27 +31,28 @@ public abstract class AppEngInternalInventoryMixin implements INBTSerializable<C
     public abstract int size();
 
     @Shadow
-    public abstract void writeToNBT(CompoundTag data, String name, HolderLookup.Provider registries);
+    public abstract void writeToNBT(ValueOutput output, String name);
 
     @Shadow
-    public abstract void readFromNBT(CompoundTag data, String name, HolderLookup.Provider registries);
+    public abstract void readFromNBT(ValueInput input, String name);
 
+    // 26.1 port: NeoForge replaced INBTSerializable with ValueIOSerializable (what LDLib2 26.1 serializes).
     @Override
-    public @UnknownNullability CompoundTag serializeNBT(HolderLookup.Provider provider) {
-        CompoundTag tag = new CompoundTag();
-        this.writeToNBT(tag, "inventory", provider);
-        return tag;
+    public void serialize(ValueOutput output) {
+        this.writeToNBT(output, "inventory");
     }
 
     @Override
-    public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
+    public void deserialize(ValueInput input) {
         // LDLib sends a complete snapshot, while AE2's reader only overlays the slots present in the NBT
         // and writes the backing list directly. A slot the snapshot omits therefore has to be cleared
         // explicitly; remember the old contents so the hosts can be told what actually changed.
         List<ItemStack> before = new ArrayList<>(stacks);
         // Clear silently: receiving or loading a snapshot must not publish intermediate empty inventories.
         stacks.clear();
-        this.readFromNBT(nbt, "inventory", provider);
+        // Builds 1.3.x of the 26.1 line stored the snapshot under "ae_inventory"; read either key.
+        this.readFromNBT(input, input.child("inventory").isPresent() || input.child("ae_inventory").isEmpty()
+            ? "inventory" : "ae_inventory");
         // The guard also keeps this method honest when the mixin body is exercised directly, as the
         // unit test does: there is no host to tell, so there is nothing to do.
         Object self = this;

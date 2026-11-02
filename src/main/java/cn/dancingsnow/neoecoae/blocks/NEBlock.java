@@ -63,22 +63,22 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
     }
 
     @Override
-    protected boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) {
+    protected boolean propagatesSkylightDown(BlockState state) {
         return hideWhenFormed()
             ? state.getValue(FORMED)
-            : super.propagatesSkylightDown(state, level, pos);
+            : super.propagatesSkylightDown(state);
     }
 
     @Override
-    protected int getLightBlock(BlockState state, BlockGetter level, BlockPos pos) {
-        return getRenderShape(state) == RenderShape.INVISIBLE ? 0 : super.getLightBlock(state, level, pos);
+    protected int getLightDampening(BlockState state) {
+        return getRenderShape(state) == RenderShape.INVISIBLE ? 0 : super.getLightDampening(state);
     }
 
     @Override
-    protected VoxelShape getOcclusionShape(BlockState state, BlockGetter level, BlockPos pos) {
+    protected VoxelShape getOcclusionShape(BlockState state) {
         return getRenderShape(state) == RenderShape.INVISIBLE
             ? Shapes.empty()
-            : super.getOcclusionShape(state, level, pos);
+            : super.getOcclusionShape(state);
     }
 
     @Override
@@ -98,7 +98,8 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
     }
 
     @Override
-    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock, BlockPos neighborPos, boolean movedByPiston) {
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock,
+            @Nullable Orientation orientation, boolean movedByPiston) {
         if (level instanceof ServerLevel serverLevel && serverLevel.getServer().isStopped()) {
             return;
         }

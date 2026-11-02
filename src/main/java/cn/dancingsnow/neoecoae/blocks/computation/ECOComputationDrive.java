@@ -46,7 +46,7 @@ public class ECOComputationDrive extends NEBlock<ECOComputationDriveBlockEntity>
                             player.setItemInHand(hand, ItemStack.EMPTY);
                         }
                     }
-                    return InteractionResult.sidedSuccess(level.isClientSide());
+                    return InteractionResult.SUCCESS;
                 }
             }
         }

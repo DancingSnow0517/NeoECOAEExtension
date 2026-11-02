@@ -15,12 +15,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import net.minecraft.Util;
+import net.minecraft.util.Util;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
@@ -103,7 +105,7 @@ public final class ECOCraftingGraphScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         graphics.fill(0, 0, width, height, 0xff0e1115);
         graphics.fill(0, 0, width, TOOLBAR_HEIGHT, 0xff242a31);
         int contentTop = graphContentTop();
@@ -115,9 +117,8 @@ public final class ECOCraftingGraphScreen extends Screen {
             selectedId, profiler);
         hovered = frame.hovered();
         // Item icons are batched. Flush them while the graph scissor is still active so later UI overlays stay on top.
-        graphics.flush();
         graphics.disableScissor();
-        super.render(graphics, mouseX, mouseY, partialTick);
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         drawSearchSuggestions(graphics, mouseX, mouseY);
         drawBreadcrumb(graphics);
         drawStats(graphics);
@@ -125,7 +126,7 @@ public final class ECOCraftingGraphScreen extends Screen {
         else if (graph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER) drawClusterDetails(graphics);
         else if (graph.isCompactTree()) drawDetailsPanel(graphics);
         if (!frame.tooltip().isEmpty() && mouseY >= contentTop) {
-            graphics.renderComponentTooltip(font, frame.tooltip(), mouseX, mouseY);
+            graphics.setComponentTooltipForNextFrame(font, frame.tooltip(), mouseX, mouseY);
             var tooltipCycle = cycleForTooltipNode(hovered);
             if (tooltipCycle != null) drawCycleTooltipRing(graphics, tooltipCycle, mouseX, mouseY);
         }
@@ -143,7 +144,7 @@ public final class ECOCraftingGraphScreen extends Screen {
     }
 
     /** Draws a compact cycle summary over the tooltip without changing vanilla tooltip layout. */
-    private void drawCycleTooltipRing(GuiGraphics graphics, CraftingGraphSnapshot.CycleGroup cycle,
+    private void drawCycleTooltipRing(GuiGraphicsExtractor graphics, CraftingGraphSnapshot.CycleGroup cycle,
             int mouseX, int mouseY) {
         int radius = 18;
         int centerX = Math.min(width - radius - 4, mouseX + 112);
@@ -164,7 +165,7 @@ public final class ECOCraftingGraphScreen extends Screen {
             int color = i < activeSegments ? activeColor : 0xff56616c;
             graphics.fill(x - 2, y - 2, x + 3, y + 3, color);
         }
-        graphics.drawCenteredString(font, cn.dancingsnow.neoecoae.gui.common.HostText.expandedNumber(cycle.memberNodeIds().size()), centerX,
+        graphics.centeredText(font, cn.dancingsnow.neoecoae.gui.common.HostText.expandedNumber(cycle.memberNodeIds().size()), centerX,
             centerY - font.lineHeight / 2, 0xffe8edf2);
     }
 
@@ -178,30 +179,30 @@ public final class ECOCraftingGraphScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         // This screen paints its background before the graph. Screen.render() must not blur the graph afterward.
     }
 
-    private void drawBreadcrumb(GuiGraphics graphics) {
+    private void drawBreadcrumb(GuiGraphicsExtractor graphics) {
         String breadcrumb = switch (graph.view()) {
             case MAIN -> tr("breadcrumb.plan").getString();
             case CYCLE_FOCUS -> tr("breadcrumb.cycle", graph.focusedCycleId()).getString();
             case CYCLE_CLUSTER -> tr("breadcrumb.cluster", graph.focusedCluster().clusterId()).getString();
         };
-        graphics.drawString(font, breadcrumb, 7, height - 14, 0xffc6d0da, false);
+        graphics.text(font, breadcrumb, 7, height - 14, 0xffc6d0da, false);
     }
 
-    private void drawStats(GuiGraphics graphics) {
+    private void drawStats(GuiGraphicsExtractor graphics) {
         String stats = String.format(Locale.ROOT,
             "nodes %,d/%,d  edges %,d/%,d  zoom %.0f%%  layout %,.2f ms  index %,.2f ms  render %,.2f ms  v%d",
             profiler.visibleNodes(), snapshot.summary().materialNodes() + snapshot.summary().patternNodes(),
             profiler.visibleEdges(), snapshot.summary().edges(), zoom * 100,
             layout.layoutNanos() / 1_000_000.0, layout.spatialIndexNanos() / 1_000_000.0,
             profiler.renderNanos() / 1_000_000.0, layout.version());
-        graphics.drawString(font, stats, Math.max(7, width - font.width(stats) - 7), height - 14, 0xff8e9aa6, false);
+        graphics.text(font, stats, Math.max(7, width - font.width(stats) - 7), height - 14, 0xff8e9aa6, false);
     }
 
-    private void drawCycleDetails(GuiGraphics graphics) {
+    private void drawCycleDetails(GuiGraphicsExtractor graphics) {
         if (graph.view() != ClientCraftingGraph.View.CYCLE_FOCUS) return;
         var cycle = snapshot.cycleGroups().stream()
             .filter(value -> value.componentId() == graph.focusedCycleId()).findFirst().orElse(null);
@@ -211,7 +212,7 @@ public final class ECOCraftingGraphScreen extends Screen {
         int top = 38;
         int lines = 7;
         graphics.fill(left, top, width - 8, top + 10 + lines * 12, 0xdd171b20);
-        graphics.drawString(font, tr("details.cycle_title", cycle.componentId()), left + 7, top + 6,
+        graphics.text(font, tr("details.cycle_title", cycle.componentId()), left + 7, top + 6,
             0xffe2b766, false);
         int y = top + 19;
         y = textLine(graphics, left, panelWidth, y, "status", statusText(cycle.status()));
@@ -223,31 +224,31 @@ public final class ECOCraftingGraphScreen extends Screen {
         line(graphics, left, y, "required_outputs", cycle.requiredOutputs().size());
     }
 
-    private int line(GuiGraphics graphics, int left, int y, String keySuffix, int value) {
-        graphics.drawString(font, tr("details." + keySuffix, value), left + 7, y, 0xffaeb8c2, false);
+    private int line(GuiGraphicsExtractor graphics, int left, int y, String keySuffix, int value) {
+        graphics.text(font, tr("details." + keySuffix, value), left + 7, y, 0xffaeb8c2, false);
         return y + 12;
     }
 
-    private void drawClusterDetails(GuiGraphics graphics) {
+    private void drawClusterDetails(GuiGraphicsExtractor graphics) {
         CycleCluster cluster = graph.focusedCluster();
         if (cluster == null) return;
         int panelWidth = 250;
         int left = width - panelWidth - 8;
         int top = 38;
         graphics.fill(left, top, width - 8, top + 70, 0xdd171b20);
-        graphics.drawString(font, tr("details.cluster_title", cluster.clusterId()), left + 7, top + 6,
+        graphics.text(font, tr("details.cluster_title", cluster.clusterId()), left + 7, top + 6,
             0xffe2b766, false);
         int y = top + 20;
         y = line(graphics, left, y, "cluster_cycles", cluster.componentIds().size());
         y = line(graphics, left, y, "cluster_flows", cluster.flows().size());
-        graphics.drawString(font, tr("details.cluster_hint"), left + 7, y, 0xffaeb8c2, false);
+        graphics.text(font, tr("details.cluster_hint"), left + 7, y, 0xffaeb8c2, false);
     }
 
-    private int textLine(GuiGraphics graphics, int left, int panelWidth, int y, String keySuffix, Component value) {
+    private int textLine(GuiGraphicsExtractor graphics, int left, int panelWidth, int y, String keySuffix, Component value) {
         Component label = tr("details." + keySuffix + "_label");
         int valueX = left + 7 + font.width(label);
-        graphics.drawString(font, label, left + 7, y, 0xffaeb8c2, false);
-        graphics.drawString(font, fit(value.getString(), panelWidth - 14 - font.width(label)), valueX, y,
+        graphics.text(font, label, left + 7, y, 0xffaeb8c2, false);
+        graphics.text(font, fit(value.getString(), panelWidth - 14 - font.width(label)), valueX, y,
             0xffe2b766, false);
         return y + 12;
     }
@@ -286,7 +287,7 @@ public final class ECOCraftingGraphScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (mouseY < graphContentTop()) return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-        if (graph.isCompactTree() && !Screen.hasControlDown()) {
+        if (graph.isCompactTree() && !Minecraft.getInstance().hasControlDown()) {
             cameraX -= (float) scrollX * 28;
             cameraY -= (float) scrollY * 28;
             return true;
@@ -301,9 +302,12 @@ public final class ECOCraftingGraphScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean isDoubleClick) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        int button = event.button();
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && selectSearchSuggestion(mouseX, mouseY)) return true;
-        if (super.mouseClicked(mouseX, mouseY, button)) return true;
+        if (super.mouseClicked(event, isDoubleClick)) return true;
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && mouseY >= height - 20
                 && graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) {
             goRoot();
@@ -340,23 +344,24 @@ public final class ECOCraftingGraphScreen extends Screen {
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
         if (panning) {
             cameraX += (float) dragX;
             cameraY += (float) dragY;
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+        return super.mouseDragged(event, dragX, dragY);
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean mouseReleased(MouseButtonEvent event) {
         panning = false;
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(event);
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyEvent event) {
+        int keyCode = event.key();
         if (keyCode == GLFW.GLFW_KEY_ENTER && search.isFocused()) {
             findNext();
             return true;
@@ -369,7 +374,7 @@ public final class ECOCraftingGraphScreen extends Screen {
             goRoot();
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(event);
     }
 
     @Override
@@ -614,7 +619,7 @@ public final class ECOCraftingGraphScreen extends Screen {
         return node != null && node.kind() == ClientCraftingGraph.Kind.MATERIAL ? node.key() : null;
     }
 
-    private void drawDetailsPanel(GuiGraphics graphics) {
+    private void drawDetailsPanel(GuiGraphicsExtractor graphics) {
         if (selectedId == null) return;
         var node = graph.nodes().get(selectedId);
         if (node == null) return;
@@ -623,7 +628,7 @@ public final class ECOCraftingGraphScreen extends Screen {
         int top = 38;
         int lines = 9;
         graphics.fill(left, top, width - 8, top + 12 + lines * 12, 0xdd171b20);
-        graphics.drawString(font, node.kind() == ClientCraftingGraph.Kind.FOLDER
+        graphics.text(font, node.kind() == ClientCraftingGraph.Kind.FOLDER
                 ? Component.translatable("gui.neoecoae.crafting_graph.details.folder")
                 : Component.literal(node.label()), left + 7,
             top + 6, node.kind() == ClientCraftingGraph.Kind.FOLDER ? 0xff9fb3c2 : 0xffe2b766, false);
@@ -662,15 +667,15 @@ public final class ECOCraftingGraphScreen extends Screen {
         }
     }
 
-    private int detailLine(GuiGraphics graphics, int left, int y, String keySuffix, long value) {
-        graphics.drawString(font,
+    private int detailLine(GuiGraphicsExtractor graphics, int left, int y, String keySuffix, long value) {
+        graphics.text(font,
             Component.translatable("gui.neoecoae.crafting_graph.details." + keySuffix, value),
             left + 7, y, 0xffaeb8c2, false);
         return y + 12;
     }
 
-    private int detailTextLine(GuiGraphics graphics, int left, int y, String keySuffix, Component value) {
-        graphics.drawString(font,
+    private int detailTextLine(GuiGraphicsExtractor graphics, int left, int y, String keySuffix, Component value) {
+        graphics.text(font,
             Component.translatable("gui.neoecoae.crafting_graph.details." + keySuffix, value),
             left + 7, y, 0xffaeb8c2, false);
         return y + 12;
@@ -712,7 +717,7 @@ public final class ECOCraftingGraphScreen extends Screen {
             || node.key().toString().toLowerCase(Locale.ROOT).contains(query);
     }
 
-    private void drawSearchSuggestions(GuiGraphics graphics, int mouseX, int mouseY) {
+    private void drawSearchSuggestions(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         if (search == null || searchSuggestions.isEmpty() || !search.isFocused()) return;
         int left = search.getX();
         int top = search.getY() + search.getHeight();
@@ -723,7 +728,7 @@ public final class ECOCraftingGraphScreen extends Screen {
             int rowTop = top + 1 + i * 18;
             if (mouseX >= left && mouseX < right && mouseY >= rowTop && mouseY < rowTop + 18)
                 graphics.fill(left, rowTop, right, rowTop + 18, 0xff3a4650);
-            graphics.drawString(font, fit(node.label(), search.getWidth() - 8), left + 4, rowTop + 5, 0xffe8edf2, false);
+            graphics.text(font, fit(node.label(), search.getWidth() - 8), left + 4, rowTop + 5, 0xffe8edf2, false);
         }
     }
 

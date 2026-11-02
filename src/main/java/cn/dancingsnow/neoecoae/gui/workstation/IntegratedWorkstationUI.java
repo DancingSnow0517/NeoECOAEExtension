@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
+import cn.dancingsnow.neoecoae.gui.NEGuiColors;
 import appeng.api.orientation.RelativeSide;
 import appeng.api.upgrades.Upgrades;
 import appeng.core.localization.ButtonToolTips;
@@ -80,7 +81,7 @@ public final class IntegratedWorkstationUI {
 
         root.addChild(place(new TextElement()
             .setText("block.neoecoae.integrated_working_station", true)
-            .textStyle(style -> style.textWrap(TextWrap.HOVER_ROLL).textShadow(false).textColor(0x403e53)),
+            .textStyle(style -> style.textWrap(TextWrap.HOVER_ROLL).textShadow(false).textColor(NEGuiColors.textColor(0x403e53))),
             8, 6, 160, 10));
         root.addChild(place(new WorkstationFluidGauge(config.inputFluid(), 0, true, true, 5), 8, 23, 16, 54));
         root.addChild(clearButton(10, config.clearInputFluid()));
@@ -120,7 +121,7 @@ public final class IntegratedWorkstationUI {
                     List<Component> tooltips = new ArrayList<>();
                     tooltips.add(GuiText.CompatibleUpgrades.text());
                     tooltips.addAll(Upgrades.getTooltipLinesForMachine(NEBlocks.INTEGRATED_WORKING_STATION));
-                    event.hoverTooltips = new HoverTooltips(tooltips, null, null, null);
+                    event.hoverTooltips = new HoverTooltips(new java.util.ArrayList<Object>(tooltips), null, null, null, null);
                 }));
         }
         root.addChild(HostSideButtonBar.rightSlots(upgradeSlots));
@@ -135,7 +136,7 @@ public final class IntegratedWorkstationUI {
 
         root.addChild(place(new TextElement()
             .setText("container.inventory", true)
-            .textStyle(style -> style.textWrap(TextWrap.HOVER_ROLL).textShadow(false).textColor(0x403e53)),
+            .textStyle(style -> style.textWrap(TextWrap.HOVER_ROLL).textShadow(false).textColor(NEGuiColors.textColor(0x403e53))),
             8, 94, 160, 10));
 
         var inventory = WorkstationInventoryUI.createPlayerInventory(player.getInventory(), networkToolSlot);
@@ -210,7 +211,7 @@ public final class IntegratedWorkstationUI {
                 (config.autoExport().getAsBoolean() ? ButtonToolTips.AutoExportOn : ButtonToolTips.AutoExportOff).text().withStyle(ChatFormatting.GRAY)
             ),
             null,
-            null,
+            null, null,
             null
         ));
         return button;

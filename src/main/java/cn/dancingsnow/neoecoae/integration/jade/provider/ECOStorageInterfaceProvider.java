@@ -14,23 +14,8 @@ import snownee.jade.api.IServerDataProvider;
 import snownee.jade.api.ITooltip;
 import snownee.jade.api.config.IPluginConfig;
 
-public enum ECOStorageInterfaceProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
+public enum ECOStorageInterfaceProvider implements IServerDataProvider<BlockAccessor> {
     INSTANCE;
-
-    @Override
-    public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
-        CompoundTag data = accessor.getServerData();
-        if (!data.contains("storageMode")) return;
-        ECOStorageInterfaceMode mode = ECOStorageInterfaceMode.values()[Math.max(0,
-            Math.min(ECOStorageInterfaceMode.values().length - 1, data.getIntOr("storageMode", 0)))];
-        if (mode == ECOStorageInterfaceMode.INPUT) {
-            tooltip.add(Component.translatable("jade.neoecoae.storage_interface.input")
-                .withStyle(ChatFormatting.BLUE));
-        } else if (mode == ECOStorageInterfaceMode.OUTPUT) {
-            tooltip.add(Component.translatable("jade.neoecoae.storage_interface.output")
-                .withStyle(ChatFormatting.GOLD));
-        }
-    }
 
     @Override
     public void appendServerData(CompoundTag data, BlockAccessor accessor) {
@@ -44,5 +29,29 @@ public enum ECOStorageInterfaceProvider implements IBlockComponentProvider, ISer
     @Override
     public Identifier getUid() {
         return NeoECOAE.id("eco_storage_interface");
+    }
+
+    public enum Client implements IBlockComponentProvider {
+        INSTANCE;
+
+        @Override
+        public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
+            CompoundTag data = accessor.getServerData();
+            if (!data.contains("storageMode")) return;
+            ECOStorageInterfaceMode mode = ECOStorageInterfaceMode.values()[Math.max(0,
+                Math.min(ECOStorageInterfaceMode.values().length - 1, data.getIntOr("storageMode", 0)))];
+            if (mode == ECOStorageInterfaceMode.INPUT) {
+                tooltip.add(Component.translatable("jade.neoecoae.storage_interface.input")
+                    .withStyle(ChatFormatting.BLUE));
+            } else if (mode == ECOStorageInterfaceMode.OUTPUT) {
+                tooltip.add(Component.translatable("jade.neoecoae.storage_interface.output")
+                    .withStyle(ChatFormatting.GOLD));
+            }
+        }
+
+        @Override
+        public Identifier getUid() {
+            return NeoECOAE.id("eco_storage_interface");
+        }
     }
 }

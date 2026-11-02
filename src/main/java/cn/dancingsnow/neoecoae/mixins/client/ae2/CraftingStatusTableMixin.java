@@ -30,7 +30,7 @@ public class CraftingStatusTableMixin {
     private void exactTooltip(CraftingStatusEntry entry, CallbackInfoReturnable<List<Component>> cir) {
         var amount = exact(entry);
         if (amount == null && exactStored(entry) == null && exactActive(entry) == null) return;
-        var lines = new java.util.ArrayList<>(appeng.api.client.AEKeyRendering.getTooltip(entry.getWhat()));
+        var lines = new java.util.ArrayList<>(appeng.client.api.AEKeyRendering.getTooltip(entry.getWhat()));
         if (entry.getStoredAmount() > 0) lines.add(appeng.core.localization.GuiText.FromStorage.text(
             formatExact(exactStored(entry), entry, entry.getStoredAmount(), true)));
         if (entry.getActiveAmount() > 0) lines.add(appeng.core.localization.GuiText.Crafting.text(

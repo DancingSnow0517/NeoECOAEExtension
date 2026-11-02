@@ -6,6 +6,8 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
+import cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +38,7 @@ final class ComputationItemActionsPopup extends UIElement {
     private Component message = Component.empty();
 
     ComputationItemActionsPopup(net.minecraft.core.HolderLookup.Provider registries, Consumer<CompoundTag> request) {
-        this(registries, request, message -> Minecraft.getInstance().gui.getChat().addMessage(message));
+        this(registries, request, message -> Minecraft.getInstance().gui.getChat().addClientSystemMessage(message));
     }
 
     ComputationItemActionsPopup(net.minecraft.core.HolderLookup.Provider registries, Consumer<CompoundTag> request, Consumer<Component> chat) {
@@ -99,13 +101,13 @@ final class ComputationItemActionsPopup extends UIElement {
         var request = new CompoundTag();
         request.putString("action", "inspect");
         request.putLong("sequence", sequence);
-        request.put("key", item.key().toTagGeneric(registries));
+        request.put("key", ECOLegacyAENbt.writeKey(registries, item.key()));
         this.request.accept(request);
     }
 
     void accept(CompoundTag response) {
         if (!isDisplayed() || item == null || response.getLongOr("sequence", 0L) != sequence) return;
-        AEKey key = AEKey.fromTagGeneric(registries, response.getCompoundOrEmpty("key"));
+        AEKey key = ECOLegacyAENbt.readKey(registries, response.getCompoundOrEmpty("key"));
         if (!item.key().equals(key)) return;
         context = response.copy();
         loaded = true;
@@ -166,36 +168,48 @@ final class ComputationItemActionsPopup extends UIElement {
     private void showLocations() {
         for (var source : sources) {
             highlight.accept(source);
-            Component name = Component.Serializer.fromJson(source.getStringOr("name", ""), registries);
+            Component name = parseName(source.getStringOr("name", ""));
             BlockPos position = BlockPos.of(source.getLongOr("position", 0L));
             var coordinates = Component.literal(position.toShortString()).withStyle(style -> style
                 .withColor(ChatFormatting.AQUA).withUnderlined(true)
-                .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+                .withClickEvent(new ClickEvent.SuggestCommand(
                     "/tp " + position.getX() + " " + position.getY() + " " + position.getZ())));
             var location = Component.translatable("gui.neoecoae.processing.pattern_location",
                 item.key().getDisplayName(), name == null ? Component.empty() : name,
-                source.getString("dimension"), coordinates);
-            if (source.contains("side")) location.append(" · " + source.getString("side"));
+                source.getStringOr("dimension", ""), coordinates);
+            if (source.contains("side")) location.append(" · " + source.getStringOr("side", ""));
             chat.accept(location);
         }
         close();
+    }
+
+    private @org.jetbrains.annotations.Nullable Component parseName(String json) {
+        // 26.1 port: Component.Serializer was removed; decode the JSON written by ECOProviderActions.Source#describe.
+        if (json.isEmpty()) return null;
+        try {
+            return net.minecraft.network.chat.ComponentSerialization.CODEC
+                .parse(registries.createSerializationContext(com.mojang.serialization.JsonOps.INSTANCE),
+                    com.google.gson.JsonParser.parseString(json))
+                .result().orElse(null);
+        } catch (RuntimeException invalid) {
+            return null;
+        }
     }
 
     private void send(String action, int source) {
         var tag = new CompoundTag();
         tag.putString("action", action);
         tag.putLong("sequence", sequence);
-        tag.put("key", item.key().toTagGeneric(registries));
+        tag.put("key", ECOLegacyAENbt.writeKey(registries, item.key()));
         if (context.read("job", net.minecraft.core.UUIDUtil.CODEC).isPresent()) tag.store("job", net.minecraft.core.UUIDUtil.CODEC, context.read("job", net.minecraft.core.UUIDUtil.CODEC).orElseThrow());
         if (source >= 0 && source < sources.size()) tag.putString("source", sources.get(source).getStringOr("id", ""));
         request.accept(tag);
     }
 
-    @Override public void drawBackgroundAdditional(GUIContext context) {
+    @Override public void drawBackgroundAdditional(IGUIContext ctx) {
+        if (!(ctx instanceof GUIContext context)) return;
         float x = getPositionX(), y = getPositionY(), width = getSizeWidth();
-        context.graphics.flush();
         context.drawTexture(NETextures.AE2_CONTEXT_BACKGROUND, x, y, width, getSizeHeight());
-        context.graphics.flush();
         Component title = item == null ? Component.empty() : item.key().getDisplayName();
         if (mode == Mode.CHOOSE) title = title.copy().append(" · " + (page + 1) + "/" + Math.max(1, (sources.size() + PAGE_SIZE - 1) / PAGE_SIZE));
         text(context, title, 7, 6, 0x413F54);
@@ -209,11 +223,11 @@ final class ComputationItemActionsPopup extends UIElement {
                 var source = sources.get(page * PAGE_SIZE + index);
                 float top = 24 + index * 30;
                 if (mode == Mode.CHOOSE && hovered == index) context.graphics.fill(Math.round(x + 4), Math.round(y + top - 2), Math.round(x + width - 4), Math.round(y + top + 28), 0x807B81B8);
-                Component name = Component.Serializer.fromJson(source.getStringOr("name", ""), registries);
+                Component name = parseName(source.getStringOr("name", ""));
                 text(context, name == null ? Component.empty() : name, 7, top, 0x413F54);
                 text(context, Component.literal(source.getStringOr("dimension", "")), 7, top + 9, 0x666477);
                 text(context, Component.literal(BlockPos.of(source.getLongOr("position", 0L)).toShortString()
-                    + (source.contains("side") ? " · " + source.getString("side") : "")), 7, top + 18, 0x413F54);
+                    + (source.contains("side") ? " · " + source.getStringOr("side", "") : "")), 7, top + 18, 0x413F54);
             }
             divider(context, getSizeHeight() - 23);
             float footer = getSizeHeight() - 16;
@@ -238,6 +252,6 @@ final class ComputationItemActionsPopup extends UIElement {
     private void text(GUIContext context, Component text, float x, float y, int color) {
         var font = Minecraft.getInstance().font;
         var value = font.plainSubstrByWidth(text.getString(), Math.round(getSizeWidth() - x - 7));
-        context.graphics.drawString(font, value, Math.round(getPositionX() + x), Math.round(getPositionY() + y), 0xFF000000 | color, false);
+        context.graphics.text(font, value, Math.round(getPositionX() + x), Math.round(getPositionY() + y), 0xFF000000 | color, false);
     }
 }

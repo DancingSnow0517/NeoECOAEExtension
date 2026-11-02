@@ -56,8 +56,7 @@
     "client.ae2.CraftingStatusTableMixin",
     "client.ae2.PatternEncodingTermScreenMixin",
     "client.ae2.SetStockAmountScreenMixin",
-    "client.ae2.FluidHatchNumberEntryWidgetMixin",
-    "client.minecraft.ModelBakeryMixin"
+    "client.ae2.FluidHatchNumberEntryWidgetMixin"
   ],
   "server": [],
   "injectors": {

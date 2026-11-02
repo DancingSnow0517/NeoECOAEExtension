@@ -99,8 +99,8 @@ public final class FluidHatchUI {
             return Component.literal(TextFormattingUtil.formatLongToCompactStringBuckets(exactAmount.getValue(), 3) + "B");
         }
 
-        @Override public List<Component> getFullTooltipTexts(boolean withFluidName) {
-            var lines = super.getFullTooltipTexts(withFluidName);
+        @Override public List<Component> getFullTooltipTexts() {
+            var lines = new java.util.ArrayList<>(super.getFullTooltipTexts());
             if (exactAmount != null && exactAmount.getValue() > Integer.MAX_VALUE) {
                 for (int i = 0; i < lines.size(); i++) {
                     if (lines.get(i).getContents() instanceof TranslatableContents text && text.getKey().equals("ldlib.fluid.amount")) {

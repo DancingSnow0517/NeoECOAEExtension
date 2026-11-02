@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.biggerae2;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.api.ECOCellModels;
+import cn.dancingsnow.neoecoae.integration.IntegrationCellModels;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
@@ -11,7 +11,7 @@ import appeng.api.upgrades.Upgrades;
 import appeng.core.localization.GuiText;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
-import cn.dancingsnow.neoecoae.util.ItemModelUtil;
+import cn.dancingsnow.neoecoae.integration.IntegrationItemModels;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import net.minecraft.network.chat.Component;
 import net.neoforged.fml.ModList;
@@ -29,7 +29,7 @@ public final class BiggerAE2Integration {
         List<ItemEntry<? extends ECOStorageCellItem>> cells = new ArrayList<>();
         List<ItemEntry<? extends ECOStorageCellItem>> bulkCells = new ArrayList<>();
         for (BiggerAE2Channel channel : BiggerAE2Channel.values()) {
-            if (channel.requiredMod != null && !ModList.get().isLoaded(channel.requiredMod)) continue;
+            if (channel.requiredMod != null && !cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive(channel.requiredMod)) continue;
             String typeId = "bigger_ae2_" + channel.id;
             REGISTRATE.addLang("cell_type", NeoECOAE.id(typeId), "Bigger AE2 " + channel.displayName);
             var type = REGISTRATE.cellType(typeId)
@@ -47,10 +47,10 @@ public final class BiggerAE2Integration {
                         : new BiggerAE2StorageCellItem(properties.stacksTo(1), channel, singularity, type))
                     .lang("ECO - " + tier.name() + " " + (singularity ? "Digital Singularity" : "Quantum")
                         + " Storage Matrix (" + channel.displayName + ")")
-                    .model(ItemModelUtil.compatCellModel("bigger_ae2", housing,
+                    .model(() -> IntegrationItemModels.compatCellModel("bigger_ae2", housing,
                         singularity ? "l9" : "l6", overlays))
                     .register();
-                ECOCellModels.register(cell, NeoECOAE.id(
+                IntegrationCellModels.register(cell, NeoECOAE.id(
                     "block/cell/storage_cell_" + family + "_" + tier.name().toLowerCase(java.util.Locale.ROOT)
                         + "_" + channel.id));
                 if (bulk) bulkCells.add(cell);

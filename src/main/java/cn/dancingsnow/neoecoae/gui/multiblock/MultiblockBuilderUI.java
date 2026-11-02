@@ -20,6 +20,9 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
+import com.lowdragmc.lowdraglib2.gui.util.DrawerHelperClient;
+import cn.dancingsnow.neoecoae.gui.NEGuiColors;
 import com.lowdragmc.lowdraglib2.gui.util.WindowDragHelper;
 import com.google.gson.JsonObject;
 import dev.vfyjxf.taffy.style.AlignContent;
@@ -94,7 +97,7 @@ public final class MultiblockBuilderUI {
                         close.setOnClick(event -> windowRef[0].layout(layout -> layout.display(TaffyDisplay.NONE)));
                         close.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
                             List.of(Component.translatable("gui.neoecoae.multiblock.close_builder")),
-                            null, null, null));
+                            null, null, null, null));
                     }
                 }
             });
@@ -117,7 +120,7 @@ public final class MultiblockBuilderUI {
                 null,
                 null,
                 null
-            ));
+            , null));
         button.layout(layout -> layout.width(18).height(20));
         return button;
     }
@@ -250,7 +253,7 @@ public final class MultiblockBuilderUI {
                 null,
                 null,
                 null
-            ));
+            , null));
         panel.addChild(conflictLabel);
 
         return panel;
@@ -496,21 +499,19 @@ public final class MultiblockBuilderUI {
                     List.of(stack.getHoverName(),
                         Component.translatable("gui.neoecoae.multiblock.item_required", syncedCount), state),
                     null, null, null
-                );
+                , null);
             });
         }
 
         @Override
-        protected void drawItemStack(GUIContext guiContext, ItemStack itemStack) {
-            if (itemStack.isEmpty()) {
+        protected void drawItemStack(IGUIContext ctx, ItemStack itemStack) {
+            if (itemStack.isEmpty() || !(ctx instanceof GUIContext guiContext)) {
                 return;
             }
-            DrawerHelper.drawItemStack(guiContext.graphics, itemStack.copyWithCount(1), 0, 0, -1, null);
+            DrawerHelperClient.drawItemStack(guiContext, itemStack.copyWithCount(1), 0, 0, -1);
             int color = syncedHasRequiredItem ? MATERIAL_COUNT_ENOUGH_COLOR : MATERIAL_COUNT_MISSING_COLOR;
-            guiContext.graphics.pose().pushPose();
-            guiContext.graphics.pose().translate(0, 0, 240);
-            DrawerHelper.drawStringFixedCorner(guiContext.graphics, String.valueOf(syncedCount), 17, 17, color, true, 0.8f);
-            guiContext.graphics.pose().popPose();
+            // 26.1 GUI render state is layered by submission order; no z translate needed.
+            DrawerHelperClient.drawStringFixedCorner(guiContext, String.valueOf(syncedCount), 17, 17, color, true, 0.8f);
         }
     }
 

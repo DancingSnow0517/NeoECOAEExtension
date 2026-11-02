@@ -9,6 +9,7 @@ import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 
 import java.util.Arrays;
@@ -192,9 +193,15 @@ public final class HostSideButtonBar {
         placeButton(button, BUTTON_LEFT, top);
     }
 
-    private static final class AE2IconButton extends Button {
+    private static final class AE2IconButton extends Button
+        implements ElementRenderHooks.Background, ElementRenderHooks.Contents {
+        static {
+            ElementRenderHooks.register(AE2IconButton.class);
+        }
+
         @Override
-        public void drawBackgroundAdditional(GUIContext guiContext) {
+        public void drawBackgroundAdditional(IGUIContext ctx, Runnable drawParent) {
+            if (!(ctx instanceof GUIContext guiContext)) return;
             ECOIcon background = switch (getState()) {
                 case DEFAULT -> isFocused()
                     ? ECOIcon.TOOLBAR_BUTTON_BACKGROUND_FOCUS
@@ -203,21 +210,20 @@ public final class HostSideButtonBar {
             };
             // Match ECOCraftConfirmScreen.CraftingGraphButton's native atlas rendering.
             // drawContents applies the shared hover offset to the background and icon.
-            guiContext.graphics.flush();
             background.blit(guiContext.graphics, Math.round(getPositionX()) - 1,
-                Math.round(getPositionY()), 2);
+                Math.round(getPositionY()));
         }
 
         @Override
-        public void drawContents(GUIContext guiContext) {
+        public void drawContents(IGUIContext ctx, Runnable drawDefault) {
             int yOffset = getState() == State.DEFAULT ? 0 : 1;
-            if (yOffset == 0) {
-                super.drawContents(guiContext);
+            if (yOffset == 0 || !(ctx instanceof GUIContext guiContext)) {
+                drawDefault.run();
                 return;
             }
             guiContext.pose.pushPose();
-            guiContext.pose.translate(0, yOffset, 0);
-            super.drawContents(guiContext);
+            guiContext.pose.translate(0, yOffset);
+            drawDefault.run();
             guiContext.pose.popPose();
         }
     }

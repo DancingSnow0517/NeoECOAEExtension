@@ -21,7 +21,7 @@ public final class NECommands {
 
     public static void register(RegisterCommandsEvent event) {
         event.getDispatcher().register(literal("neoecoae")
-            .requires(source -> source.hasPermission(2))
+            .requires(net.minecraft.commands.Commands.hasPermission(net.minecraft.commands.Commands.LEVEL_GAMEMASTERS))
             .then(literal("network_report").executes(context -> {
                 context.getSource().sendSuccess(() -> Component.literal(
                     cn.dancingsnow.neoecoae.network.MenuDataTransport.report()), false);

@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui.computation;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
 
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt;
 import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import java.math.BigDecimal;
@@ -35,7 +36,7 @@ record ComputationCpuItemEntry(AEKey key, BigInteger stored, BigInteger active, 
 
     CompoundTag write(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
-        tag.put("key", key.toTagGeneric(registries));
+        tag.put("key", ECOLegacyAENbt.writeKey(registries, key));
         tag.putByteArray("stored", stored.toByteArray());
         tag.putByteArray("active", active.toByteArray());
         tag.putByteArray("pending", pending.toByteArray());
@@ -46,11 +47,11 @@ record ComputationCpuItemEntry(AEKey key, BigInteger stored, BigInteger active, 
 
     static ComputationCpuItemEntry read(CompoundTag tag, HolderLookup.Provider registries) {
         return new ComputationCpuItemEntry(
-            AEKey.fromTagGeneric(registries, tag.getCompoundOrEmpty("key")),
+            ECOLegacyAENbt.readKey(registries, tag.getCompoundOrEmpty("key")),
             new BigInteger(tag.getByteArray("stored").orElseGet(() -> new byte[0])),
             new BigInteger(tag.getByteArray("active").orElseGet(() -> new byte[0])),
             new BigInteger(tag.getByteArray("pending").orElseGet(() -> new byte[0])),
-            tag.getBoolean("batched"),
+            tag.getBooleanOr("batched", false),
             ECOProcessingProgress.read(tag.getCompoundOrEmpty("processing"), registries));
     }
 }

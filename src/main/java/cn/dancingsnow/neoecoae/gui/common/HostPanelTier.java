@@ -43,14 +43,14 @@ public final class HostPanelTier {
         var font = Minecraft.getInstance().font;
         float scale = Math.min(1, Math.min(width / Math.max(1, font.width(name)), height / font.lineHeight));
         var pose = context.graphics.pose();
-        pose.pushPose();
+        pose.pushMatrix();
         try {
             pose.translate(x + (width - font.width(name) * scale) / 2,
-                y + (height - font.lineHeight * scale) / 2, 0);
-            pose.scale(scale, scale, 1);
-            context.graphics.drawString(font, name, 0, 0, color, false);
+                y + (height - font.lineHeight * scale) / 2);
+            pose.scale(scale, scale);
+            context.graphics.text(font, name, 0, 0, GuiDraw.opaque(color), false);
         } finally {
-            pose.popPose();
+            pose.popMatrix();
         }
         return true;
     }

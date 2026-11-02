@@ -13,11 +13,11 @@ public final class ECOAdvancementService {
     }
 
     public static void award(ServerPlayer player, String advancementPath, String criterion) {
-        if (player == null || player.getServer() == null) {
+        if (player == null || player.level().getServer() == null) {
             return;
         }
 
-        AdvancementHolder advancement = player.getServer().getAdvancements().get(NeoECOAE.id(advancementPath));
+        AdvancementHolder advancement = player.level().getServer().getAdvancements().get(NeoECOAE.id(advancementPath));
         if (advancement != null) {
             player.getAdvancements().award(advancement, criterion);
         }

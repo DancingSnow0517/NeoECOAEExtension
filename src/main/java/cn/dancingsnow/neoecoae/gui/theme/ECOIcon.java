@@ -1,7 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.theme;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 
 /** Coordinates in our own textures/gui/vendor/ae2/states.png atlas. */
@@ -50,7 +51,7 @@ public enum ECOIcon {
         this.height = height;
     }
 
-    public void blit(GuiGraphics graphics, int x, int y, int z) {
-        graphics.blit(ATLAS, x, y, z, this.x, this.y, width, height, 256, 256);
+    public void blit(GuiGraphicsExtractor graphics, int x, int y) {
+        graphics.blit(RenderPipelines.GUI_TEXTURED, ATLAS, x, y, this.x, this.y, width, height, 256, 256);
     }
 }

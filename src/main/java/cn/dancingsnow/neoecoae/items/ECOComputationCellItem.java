@@ -29,7 +29,7 @@ public class ECOComputationCellItem extends Item implements IECOComputationCellI
                 "tooltip.neoecoae.computation_cell",
                 Tooltips.ofUnformattedNumber(cellItem.getComputationBytes(stack))
             ));
-            tooltipComponents.add(Component.translatable("tooltip.neoecoae.computation_cell.install"));
+            tooltipComponents.accept(Component.translatable("tooltip.neoecoae.computation_cell.install"));
         }
     }
 }

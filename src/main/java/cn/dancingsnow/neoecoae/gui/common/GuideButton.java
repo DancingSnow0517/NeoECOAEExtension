@@ -31,7 +31,7 @@ public final class GuideButton {
                     ButtonToolTips.OpenGuideDetail.text().withStyle(ChatFormatting.GRAY)),
                 null,
                 null,
-                null));
+                null, null));
         return button;
     }
 }

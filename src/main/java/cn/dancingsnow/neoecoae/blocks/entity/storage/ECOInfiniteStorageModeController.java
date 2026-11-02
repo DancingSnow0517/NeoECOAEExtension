@@ -434,7 +434,7 @@ final class ECOInfiniteStorageModeController {
             return UUID.nameUUIDFromBytes((restore + ":" + identity).getBytes(StandardCharsets.UTF_8));
         }
         return ECOInfiniteStorageTransfer.legacyReceipt(domainId, direction, drive.getBlockPos().asLong(),
-                String.valueOf(key.toTagGeneric(host.getLevel().registryAccess())), amount);
+                String.valueOf(cn.dancingsnow.neoecoae.util.LegacyNbt.output(host.getLevel().registryAccess(), key::toTagGeneric)), amount);
     }
 
     void exitIfSafe() {

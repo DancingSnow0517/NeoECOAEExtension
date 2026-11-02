@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
 import com.lowdragmc.lowdraglib2.gui.slot.LocalSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
@@ -20,8 +21,9 @@ public class PatternItemSlotClient extends PatternItemSlot {
     }
 
     @Override
-    protected void drawItemStack(GUIContext guiContext, ItemStack itemStack) {
-        super.drawItemStack(guiContext, itemStack);
+    protected void drawItemStack(IGUIContext context, ItemStack itemStack) {
+        super.drawItemStack(context, itemStack);
+        if (!(context instanceof GUIContext guiContext)) return;
         if (isDimmed()) guiContext.graphics.fill(0, 0, 16, 16, 0x88000000);
         if (isHighlighted()) {
             guiContext.graphics.fill(-1, -1, 17, 0, SEARCH_HIGHLIGHT_COLOR);

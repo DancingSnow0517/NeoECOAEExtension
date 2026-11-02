@@ -270,16 +270,16 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
-        workstationProvider.writeToNBT(data, registries);
+    public void saveAdditional(net.minecraft.world.level.storage.ValueOutput output) {
+        super.saveAdditional(output);
+        workstationProvider.writeToNBT(output);
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
-        workstationProvider.readFromNBT(data, registries);
-        readLegacyWorkstationPatterns(data, registries);
+    public void loadTag(net.minecraft.world.level.storage.ValueInput input) {
+        super.loadTag(input);
+        workstationProvider.readFromNBT(input);
+        readLegacyWorkstationPatterns(cn.dancingsnow.neoecoae.util.LegacyNbt.read(input), input.lookup());
     }
 
     private void readLegacyWorkstationPatterns(CompoundTag data, HolderLookup.Provider registries) {
@@ -290,7 +290,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
         }
 
         var legacy = new AppEngInternalInventory(this, LargeWorkstationPatternProvider.MAX_PATTERN_SLOTS, 1);
-        legacy.readFromNBT(data, "workstationPatterns", registries);
+        legacy.readFromNBT(cn.dancingsnow.neoecoae.util.LegacyNbt.input(registries, data), "workstationPatterns");
         for (int slot = 0; slot < legacy.size(); slot++) {
             workstationProvider.getPatternInv().setItemDirect(slot, legacy.getStackInSlot(slot));
         }
@@ -495,7 +495,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
     public AEItemKey getTerminalIcon() {
         var module = terminalModuleDescription();
         if (module.custom()) {
-            var card = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(module.upgradeCard());
+            var card = net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(module.upgradeCard());
             if (card != net.minecraft.world.item.Items.AIR) return AEItemKey.of(new ItemStack(card));
         }
         return terminalIcon(terminalModule());
@@ -527,7 +527,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
         ItemStack icon = new ItemStack(getBlockState().getBlock());
         if (module != LargeWorkstationModule.REGULAR) {
             // Presentation-only stacks use the existing formed-controller models; the real block item stays unchanged.
-            icon.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(module.ordinal()));
+            icon.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(List.of((float) module.ordinal()), List.of(), List.of(), List.of()));
         }
         return AEItemKey.of(icon);
     }

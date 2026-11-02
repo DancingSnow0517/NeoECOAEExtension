@@ -41,7 +41,7 @@ public final class ECOExecutionPlanNbtCodec {
             taskTag.putLong("total", task.totalCount());
             taskTag.putInt("phase", task.phaseIndex());
             taskTag.putString("kind", task.kind().name());
-            taskTag.put("pattern", task.pattern().getDefinition().toTag(registries));
+            taskTag.put("pattern", cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeItemKey(registries, task.pattern().getDefinition()));
 
             ListTag allocations = new ListTag();
             for (var allocation : task.inputAllocations()) {
@@ -49,7 +49,7 @@ public final class ECOExecutionPlanNbtCodec {
                 allocationTag.putInt("slot", allocation.slot());
                 ListTag runs = new ListTag();
                 for (var run : allocation.runs()) {
-                    CompoundTag runTag = GenericStack.writeTag(registries,
+                    CompoundTag runTag = cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeStack(registries,
                         new GenericStack(run.key(), run.amount()));
                     runTag.putLong("crafts", run.crafts());
                     runs.add(runTag);
@@ -95,7 +95,7 @@ public final class ECOExecutionPlanNbtCodec {
 
             ListTag seeds = new ListTag();
             for (var entry : phase.initialSeed().entrySet()) {
-                seeds.add(GenericStack.writeTag(registries, new GenericStack(entry.getKey(), entry.getValue())));
+                seeds.add(cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeStack(registries, new GenericStack(entry.getKey(), entry.getValue())));
             }
             phaseTag.put("initialSeed", seeds);
             phaseTags.add(phaseTag);
@@ -114,7 +114,7 @@ public final class ECOExecutionPlanNbtCodec {
             CompoundTag taskTag = taskTags.getCompoundOrEmpty(i);
             int id = taskTag.getIntOr("id", 0);
             if (id != i) throw new IllegalArgumentException("Persisted execution task ids are not dense");
-            AEItemKey definition = AEItemKey.fromTag(registries, taskTag.getCompoundOrEmpty("pattern"));
+            AEItemKey definition = cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readItemKey(registries, taskTag.getCompoundOrEmpty("pattern"));
             IPatternDetails pattern = PatternDetailsHelper.decodePattern(definition, cpu.cpu.getLevel());
             if (pattern == null) throw new IllegalArgumentException("Persisted execution pattern cannot be decoded");
             PlanIdentity.PatternIdentity identity = PlanIdentity.patternIdentityFor(pattern);
@@ -129,7 +129,7 @@ public final class ECOExecutionPlanNbtCodec {
                 ListTag runTags = allocationTag.getListOrEmpty("runs");
                 for (int runIndex = 0; runIndex < runTags.size(); runIndex++) {
                     CompoundTag runTag = runTags.getCompoundOrEmpty(runIndex);
-                    GenericStack stack = GenericStack.readTag(registries, runTag);
+                    GenericStack stack = cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readStack(registries, runTag);
                     long crafts = runTag.getLongOr("crafts", 0L);
                     if (stack == null) throw new IllegalArgumentException("Invalid persisted input allocation");
                     runs.add(new PlannedInputAllocation.Run(stack.what(), stack.amount(), crafts));
@@ -137,7 +137,7 @@ public final class ECOExecutionPlanNbtCodec {
                 allocations.add(new PlannedInputAllocation(allocationTag.getIntOr("slot", 0), runs));
             }
             tasks.add(new ECOExecutionPlan.TaskSpec(id, identity, pattern,
-                ECOExecutionPlan.PatternRuntimeInfo.from(pattern), taskTag.getLong("total"),
+                ECOExecutionPlan.PatternRuntimeInfo.from(pattern), taskTag.getLongOr("total", 0L),
                 taskTag.getIntOr("phase", 0), ECOExecutionPlan.TaskKind.valueOf(taskTag.getStringOr("kind", "")), allocations));
         }
 
@@ -158,8 +158,8 @@ public final class ECOExecutionPlanNbtCodec {
             for (int stepIndex = 0; stepIndex < stepTags.size(); stepIndex++) {
                 CompoundTag step = stepTags.getCompoundOrEmpty(stepIndex);
                 steps.add(new ECOExecutionPlan.ExecutionStep(step.getIntOr("task", 0), step.getLongOr("count", 0L),
-                    step.contains("repeatWidth") ? step.getInt("repeatWidth") : 1,
-                    step.contains("repetitions") ? step.getLong("repetitions") : 1L));
+                    step.getIntOr("repeatWidth", 1),
+                    step.getLongOr("repetitions", 1L)));
             }
 
             Map<Integer, Long> dynamic = new LinkedHashMap<>();
@@ -172,7 +172,7 @@ public final class ECOExecutionPlanNbtCodec {
             Map<AEKey, Long> seed = new LinkedHashMap<>();
             ListTag seedTags = phaseTag.getListOrEmpty("initialSeed");
             for (int seedIndex = 0; seedIndex < seedTags.size(); seedIndex++) {
-                GenericStack stack = GenericStack.readTag(registries, seedTags.getCompoundOrEmpty(seedIndex));
+                GenericStack stack = cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readStack(registries, seedTags.getCompoundOrEmpty(seedIndex));
                 if (stack == null || stack.amount() <= 0L) {
                     throw new IllegalArgumentException("Invalid persisted seed");
                 }

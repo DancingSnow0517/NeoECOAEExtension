@@ -17,7 +17,7 @@ public final class EAEPForcedCrafting {
 
     private static boolean installed() {
         // ModList is not initialized in unit tests that reach this guard through CPU/planner paths.
-        return ModList.get() != null && ModList.get().isLoaded("extendedae_plus");
+        return ModList.get() != null && cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("extendedae_plus");
     }
 
     public static ICraftingPlan force(ICraftingPlan plan) {

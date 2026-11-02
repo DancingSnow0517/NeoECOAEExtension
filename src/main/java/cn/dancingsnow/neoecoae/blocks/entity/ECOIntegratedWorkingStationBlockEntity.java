@@ -78,10 +78,11 @@ import net.neoforged.neoforge.common.crafting.SizedIngredient;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.item.ItemResource;
 import net.neoforged.neoforge.transfer.fluid.FluidResource;
-import net.neoforged.neoforge.transfer.fluid.FluidStacksResourceHandler;
-import net.neoforged.neoforge.transfer.transaction.Transaction;
-import net.neoforged.neoforge.transfer.transaction.TransactionContext;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
+import net.neoforged.neoforge.transfer.CombinedResourceHandler;
 import org.jetbrains.annotations.Nullable;
 
 public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBlockEntity
@@ -109,7 +110,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
     protected final FluidTank inputTank = new FluidTank(MAX_TANK_CAPACITY) {
         @Override
-        protected void onContentsChanged(int index, FluidStack previousContents) {
+        protected void onContentsChanged() {
             markForUpdate();
             setChanged();
             onChangeTank();
@@ -117,7 +118,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     };
     protected final FluidTank outputTank = new FluidTank(MAX_TANK_CAPACITY) {
         @Override
-        protected void onContentsChanged(int index, FluidStack previousContents) {
+        protected void onContentsChanged() {
             markForUpdate();
             setChanged();
             onChangeTank();
@@ -139,43 +140,11 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     @DescSynced
     boolean shouldAutoExport;
 
+    /** Fluid capability (26.1 Transfer API): slot 0 = input tank (insert only), slot 1 = output tank (extract only). */
     @Getter
-    private final ResourceHandler<FluidResource> fluidCombined = new ResourceHandler<>() {
-        @Override
-        public int size() {
-            return 2;
-        }
-
-        @Override
-        public FluidStack getFluidInTank(int tank) {
-            return tank == 0 ? getInputTank().getFluid() : getOutputTank().getFluid();
-        }
-
-        @Override
-        public long getAmountAsLong(int index) {
-            return index == 0 ? inputTank.getAmountAsLong(0) : outputTank.getAmountAsLong(0);
-        }
-
-        @Override
-        public boolean isFluidValid(int tank, FluidStack stack) {
-            return tank == 0 ? getInputTank().isFluidValid(stack) : getOutputTank().isFluidValid(stack);
-        }
-
-        @Override
-        public int fill(FluidStack resource, FluidAction action) {
-            return getInputTank().fill(resource, action);
-        }
-
-        @Override
-        public FluidStack drain(FluidStack resource, FluidAction action) {
-            return getOutputTank().drain(resource, action);
-        }
-
-        @Override
-        public FluidStack drain(int maxDrain, FluidAction action) {
-            return getOutputTank().drain(maxDrain, action);
-        }
-    };
+    private final ResourceHandler<FluidResource> fluidCombined = new CombinedResourceHandler<>(
+        FluidTankResourceHandler.insertOnly(this::getInputTank),
+        FluidTankResourceHandler.extractOnly(this::getOutputTank));
 
     @Getter
     @DescSynced
@@ -347,12 +316,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                 if (getOutputTank().fill(fluidOutput, IFluidHandler.FluidAction.SIMULATE) == fluidOutput.getAmount()) {
                     return true;
                 }
-                if (task.hasFluidOutput()) {
-                    FluidStack fluidOutput = task.fluidOutput();
-                    if (!fluidOutput.isEmpty() && outputTank.insert(FluidResource.of(fluidOutput), fluidOutput.getAmount(), transaction) == fluidOutput.getAmount()) {
-                        return true;
-                    }
-                }
+
             }
         }
 
@@ -377,9 +341,9 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         var recipe = appeng.crafting.RecipeAccess.getRecipeFor(
             level,
             NERecipeTypes.INTEGRATED_WORKING_STATION.get(),
-            new IntegratedWorkingStationRecipe.Input(inputs, this.getInputTank().getFluid()),
-            level
-        ).map(RecipeHolder::value).orElse(null);
+            new IntegratedWorkingStationRecipe.Input(inputs, this.getInputTank().getFluid())
+        );
+        return recipe == null ? null : recipe.value();
     }
 
     @Override
@@ -513,8 +477,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                             }
 
                             FluidStack fluidStack = this.getInputTank().getFluid();
-                            if (out.inputFluid().test(fluidStack)) {
-                                getInputTank().drain(fluidStack.copyWithAmount(out.inputFluid().amount()), IFluidHandler.FluidAction.EXECUTE);
+                            if (out.inputFluid().isPresent() && out.inputFluid().get().test(fluidStack)) {
+                                getInputTank().drain(fluidStack.copyWithAmount(out.inputFluid().get().amount()), IFluidHandler.FluidAction.EXECUTE);
                             }
 
                             this.setProcessingTime(0);
@@ -574,52 +538,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         }
 
         return false;
-    }
-
-    private static FluidStack getFluid(FluidStacksResourceHandler tank) {
-        FluidResource resource = tank.getResource(0);
-        if (resource.isEmpty()) {
-            return FluidStack.EMPTY;
-        }
-        return resource.toStack(tank.getAmountAsInt(0));
-    }
-
-    private static boolean canInsertAll(FluidStacksResourceHandler tank, FluidStack stack) {
-        if (stack.isEmpty()) {
-            return true;
-        }
-
-        try (Transaction transaction = Transaction.open(null)) {
-            return tank.insert(FluidResource.of(stack), stack.getAmount(), transaction) >= stack.getAmount();
-        }
-    }
-
-    private static int insertFluid(FluidStacksResourceHandler tank, FluidStack stack) {
-        if (stack.isEmpty()) {
-            return 0;
-        }
-
-        try (Transaction transaction = Transaction.open(null)) {
-            int inserted = tank.insert(FluidResource.of(stack), stack.getAmount(), transaction);
-            if (inserted > 0) {
-                transaction.commit();
-            }
-            return inserted;
-        }
-    }
-
-    private static int extractFluid(FluidStacksResourceHandler tank, FluidStack stack, int amount) {
-        if (stack.isEmpty() || amount <= 0) {
-            return 0;
-        }
-
-        try (Transaction transaction = Transaction.open(null)) {
-            int extracted = tank.extract(FluidResource.of(stack), amount, transaction);
-            if (extracted > 0) {
-                transaction.commit();
-            }
-            return extracted;
-        }
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -709,8 +627,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         return IntegratedWorkstationUI.create(new IntegratedWorkstationUI.Config(
-            getInputTank(), getOutputTank(), (IItemHandlerModifiable) getExposedItemHandler(null),
-            (IItemHandlerModifiable) upgrades.toItemHandler(), () -> (int) ((long) processingTime * MAX_PROCESSING_STEPS / Math.max(1, getMaxProcessingTime())), MAX_PROCESSING_STEPS,
+            getInputTank(), getOutputTank(), InternalInventoryItemHandler.of(getInternalInventory()),
+            InternalInventoryItemHandler.of(upgrades), () -> (int) ((long) processingTime * MAX_PROCESSING_STEPS / Math.max(1, getMaxProcessingTime())), MAX_PROCESSING_STEPS,
             this::clearFluid, this::clearFluidOut, () -> shouldAutoExport,
             enabled -> {
                 shouldAutoExport = enabled;

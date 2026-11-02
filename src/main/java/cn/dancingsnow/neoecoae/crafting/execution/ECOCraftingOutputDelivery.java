@@ -329,7 +329,7 @@ final class ECOCraftingOutputDelivery {
         }
         // Delivery can re-enter this CPU through the destination, so walk a key snapshot and re-read each amount.
         for (AEKey key : pendingFinalOutputs.keySet().toArray(new AEKey[0])) {
-            long stored = Math.min(pendingFinalOutputs.getLongOr(key, 0L), host.getInventory().list.get(key));
+            long stored = Math.min(pendingFinalOutputs.getLong(key), host.getInventory().list.get(key));
             if (stored <= 0L) {
                 pendingFinalOutputs.removeLong(key);
                 continue;
@@ -398,7 +398,7 @@ final class ECOCraftingOutputDelivery {
         ListTag entries = jobData.getListOrEmpty("pendingFinalOutputs");
         for (int index = 0; index < entries.size(); index++) {
             try {
-                GenericStack stack = GenericStack.readTag(registries, entries.getCompoundOrEmpty(index));
+                GenericStack stack = cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readStack(registries, entries.getCompoundOrEmpty(index));
                 if (stack != null && stack.amount() > 0L) {
                     pendingFinalOutputs.mergeLong(stack.what(), stack.amount(), NEMath::saturatingAdd);
                 }
@@ -416,7 +416,7 @@ final class ECOCraftingOutputDelivery {
         ListTag entries = new ListTag();
         for (var entry : pendingFinalOutputs.object2LongEntrySet()) {
             if (entry.getLongValue() > 0L) {
-                entries.add(GenericStack.writeTag(registries, new GenericStack(entry.getKey(), entry.getLongValue())));
+                entries.add(cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeStack(registries, new GenericStack(entry.getKey(), entry.getLongValue())));
             }
         }
         if (entries.isEmpty()) {

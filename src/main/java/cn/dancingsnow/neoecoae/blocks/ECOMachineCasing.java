@@ -63,8 +63,13 @@ public class ECOMachineCasing<C extends NECluster<C>> extends NEBlock<ECOMachine
     }
 
     @Override
-    protected boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) {
+    protected boolean propagatesSkylightDown(BlockState state) {
         return isEffectivelyInvisible(state);
+    }
+
+    @Override
+    protected int getLightDampening(BlockState state) {
+        return isEffectivelyInvisible(state) ? 0 : super.getLightDampening(state);
     }
 
     private boolean isEffectivelyInvisible(BlockState state) {
@@ -72,7 +77,7 @@ public class ECOMachineCasing<C extends NECluster<C>> extends NEBlock<ECOMachine
     }
 
     private boolean shouldRenderClassicStorageCasing(BlockState state) {
-        return FMLEnvironment.dist == Dist.CLIENT
+        return FMLEnvironment.getDist() == Dist.CLIENT
             && BuiltInRegistries.BLOCK.getKey(this).equals(NeoECOAE.id("storage_casing"))
             && state.getValue(CLASSIC_VISIBLE)
             && ClassicPackDetector.isActive();

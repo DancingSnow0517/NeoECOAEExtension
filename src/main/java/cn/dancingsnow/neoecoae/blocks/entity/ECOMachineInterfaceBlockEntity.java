@@ -110,7 +110,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         this, FUZZY_PLANNING_SLOT_COUNT, 1
     );
     private final IItemHandlerModifiable fuzzyPlanningItemHandler =
-        (IItemHandlerModifiable) fuzzyPlanningInventory.toItemHandler();
+        cn.dancingsnow.neoecoae.blocks.entity.InternalInventoryItemHandler.of(fuzzyPlanningInventory);
     // Menu-only counters: LDLib UI bindings provide their S2C values.
     private long transferredLastTick;
     private int patternTransferInserted;
@@ -604,7 +604,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         ItemStack existing = inventory.getStackInSlot(physicalSlot);
         if (target.bus().ownsAuxiliary(existing) || !payload.contains("stack")) return;
         // Unrelated automation must not invalidate a click or force a full catalogue resend.
-        ItemStack expectedTarget = ItemStack.parseOptional(level.registryAccess(), payload.getCompoundOrEmpty("stack"));
+        ItemStack expectedTarget = cn.dancingsnow.neoecoae.util.LegacyNbt.parseItem(level.registryAccess(), payload.getCompoundOrEmpty("stack"));
         if (!ItemStack.matches(existing, expectedTarget)) return;
         ItemStack carried = player.containerMenu.getCarried();
         int action = payload.getIntOr("action", 0);
@@ -614,7 +614,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             int sourceSlot = payload.getIntOr("sourceSlot", 0);
             if (sourceSlot < 0 || sourceSlot >= 36 || !carried.isEmpty()) return;
             ItemStack source = player.getInventory().getItem(sourceSlot);
-            ItemStack expected = ItemStack.parseOptional(level.registryAccess(), payload.getCompoundOrEmpty("sourceStack"));
+            ItemStack expected = cn.dancingsnow.neoecoae.util.LegacyNbt.parseItem(level.registryAccess(), payload.getCompoundOrEmpty("sourceStack"));
             if (source.isEmpty() || !ItemStack.matches(source, expected) || !existing.isEmpty()
                     || !inventory.isItemValid(physicalSlot, source) || hasDuplicatePattern(target, source)) return;
             ItemStack remainder = inventory.insertItem(physicalSlot, source.copy(), false);
@@ -670,7 +670,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             if (physicalSlot < 0 || physicalSlot >= inventory.size()) continue;
             ItemStack existing = inventory.getStackInSlot(physicalSlot);
             if (target.bus().ownsAuxiliary(existing)) continue;
-            ItemStack expected = ItemStack.parseOptional(level.registryAccess(), targetTag.getCompoundOrEmpty("stack"));
+            ItemStack expected = cn.dancingsnow.neoecoae.util.LegacyNbt.parseItem(level.registryAccess(), targetTag.getCompoundOrEmpty("stack"));
             if (existing.isEmpty() || !ItemStack.matches(existing, expected)) continue;
             ItemStack available = inventory.extractItem(physicalSlot, Integer.MAX_VALUE, true);
             if (available.isEmpty() || !canStoreInPlayerInventory(player, available)) continue;

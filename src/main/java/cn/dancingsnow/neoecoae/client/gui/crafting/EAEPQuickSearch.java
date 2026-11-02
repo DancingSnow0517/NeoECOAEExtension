@@ -4,6 +4,7 @@ import java.lang.reflect.Method;
 import java.util.Optional;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
@@ -19,13 +20,13 @@ final class EAEPQuickSearch {
 
     static Optional<String> query(int keyCode, int scanCode, int modifiers) {
         var mods = ModList.get();
-        if (mods == null || !mods.isLoaded("extendedae_plus")
-                || Binding.KEY == null || !Binding.KEY.matches(keyCode, scanCode)) return Optional.empty();
+        if (mods == null || !cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("extendedae_plus")
+                || Binding.KEY == null || !Binding.KEY.matches(new KeyEvent(keyCode, scanCode, modifiers))) return Optional.empty();
         try {
-            if (mods.isLoaded("emi")) {
+            if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("emi")) {
                 return itemQuery((ItemStack) Emi.HOVERED.invoke(null), modifiers);
             }
-            if (!mods.isLoaded("jei")) return Optional.empty();
+            if (!cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("jei")) return Optional.empty();
             var minecraft = Minecraft.getInstance();
             double mouseX = minecraft.mouseHandler.xpos() * minecraft.getWindow().getGuiScaledWidth()
                     / minecraft.getWindow().getScreenWidth();

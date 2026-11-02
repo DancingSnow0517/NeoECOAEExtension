@@ -29,7 +29,7 @@ import java.util.function.Supplier;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 
 /** Pattern-bus layout and page buttons over a machine-owned inventory view. */
@@ -148,7 +148,7 @@ public final class CraftingPatternBusUI {
                 float dy = event.y - lastY;
                 int steps = Math.max(1, (int) Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 4));
                 for (int i = 1; i <= steps; i++) {
-                    visit(root.getModularUI().hitTestAtScreen(lastX + dx * i / steps, lastY + dy * i / steps));
+                    visit(hitTestAtScreen(root.getModularUI(), lastX + dx * i / steps, lastY + dy * i / steps));
                 }
                 lastX = event.x;
                 lastY = event.y;
@@ -167,9 +167,18 @@ public final class CraftingPatternBusUI {
             });
             slot.onMessage(MESSAGE, ignored -> {
                 if (player.containerMenu.getCarried().isEmpty()) {
-                    player.containerMenu.clicked(slot.getSlot().index, 0, ClickType.QUICK_MOVE, player);
+                    player.containerMenu.clicked(slot.getSlot().index, 0, ContainerInput.QUICK_MOVE, player);
                 }
             });
+        }
+
+        // LDLib2 26.1 dropped ModularUI#hitTestAtScreen; same logic as the 1.21.1 implementation.
+        private static UIElement hitTestAtScreen(ModularUI modularUI, float screenX, float screenY) {
+            if (modularUI == null) return null;
+            var local = new org.joml.Matrix3x2f(modularUI.getLastDrawPose()).invert()
+                .transformPosition(new org.joml.Vector2f(screenX, screenY));
+            var hit = modularUI.ui.rootElement.hitTest(local.x, local.y);
+            return hit == null ? null : hit.getA();
         }
 
         private void visit(UIElement hit) {

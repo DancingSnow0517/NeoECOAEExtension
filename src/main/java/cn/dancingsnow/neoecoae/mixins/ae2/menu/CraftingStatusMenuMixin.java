@@ -26,7 +26,14 @@ import java.util.ArrayList;
 
 @Mixin(CraftingStatusMenu.class)
 public class CraftingStatusMenuMixin extends CraftingCPUMenu implements ECOCpuListPageHost {
-    @Unique private static final String NEOECOAE_SCROLL_CPU = "neoecoae:scroll_cpu";
+    // 26.1 port: AE2 client actions are keyed and carry a StreamCodec instead of a Gson class.
+    @Unique private static final appeng.menu.guisync.ClientActionKey<ScrollRequest> NEOECOAE_SCROLL_CPU =
+        new appeng.menu.guisync.ClientActionKey<>("neoecoae:scroll_cpu");
+    @Unique private static final net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, ScrollRequest>
+        NEOECOAE_SCROLL_CPU_CODEC = net.minecraft.network.codec.StreamCodec.composite(
+            net.minecraft.network.codec.ByteBufCodecs.VAR_INT, ScrollRequest::offset,
+            net.minecraft.network.codec.ByteBufCodecs.VAR_LONG, ScrollRequest::sequence,
+            ScrollRequest::new);
     @Unique private static final CraftingStatusMenu.CraftingCpuList NEOECOAE_EMPTY_CPUS =
         new CraftingStatusMenu.CraftingCpuList(java.util.List.of());
     @Shadow public CraftingStatusMenu.CraftingCpuList cpuList;
@@ -41,7 +48,7 @@ public class CraftingStatusMenuMixin extends CraftingCPUMenu implements ECOCpuLi
     @Inject(method = "<init>", at = @At("TAIL"))
     private void neoecoae$registerCpuPaging(int id, Inventory inventory, appeng.api.storage.ITerminalHost host,
             CallbackInfo ci) {
-        registerClientAction(NEOECOAE_SCROLL_CPU, ScrollRequest.class, this::neoecoae$requestCpuPage);
+        registerClientAction(NEOECOAE_SCROLL_CPU, NEOECOAE_SCROLL_CPU_CODEC, this::neoecoae$requestCpuPage);
     }
 
     @Override public ECOCpuListPage neoecoae$getCpuPage() { return neoecoae$cpuPage; }

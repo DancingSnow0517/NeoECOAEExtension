@@ -46,7 +46,8 @@ public final class NEItemColors {
         return ARGB.opaque(stateColor(stack));
     }
 
-    private static int stateColor(ItemStack stack) {
+    /** Memoised AE2 state colour (RGB) of an ECO cell stack; used by {@code ECOStorageCellStateTintSource}. */
+    public static int stateColor(ItemStack stack) {
         Integer cached = stateColorCache.get(stack);
         if (cached != null) {
             return cached;

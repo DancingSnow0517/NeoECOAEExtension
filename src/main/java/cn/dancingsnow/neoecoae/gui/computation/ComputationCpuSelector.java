@@ -1,8 +1,9 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
-import appeng.api.client.AEKeyRendering;
+import appeng.client.api.AEKeyRendering;
 import appeng.api.config.CpuSelectionMode;
-import appeng.client.gui.Icon;
+import appeng.util.Icon;
+import appeng.client.gui.style.Blitter;
 import appeng.client.gui.widgets.Scrollbar;
 import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
@@ -19,6 +20,8 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
+import net.minecraft.client.renderer.RenderPipelines;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.util.ArrayList;
 import java.util.List;
@@ -151,11 +154,11 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
     }
 
     @Override
-    public void drawBackgroundAdditional(GUIContext context) {
+    public void drawBackgroundAdditional(IGUIContext ctx) {
+        if (!(ctx instanceof GUIContext context)) return;
         // Leave drawContents to LDLib2 so inventory, toolbar and floating windows are drawn too.
         Font font = Minecraft.getInstance().font;
         float x = getPositionX(), y = getPositionY();
-        context.graphics.flush();
         text(context, font, GuiText.CPUs.text().getString() + " (" + total + ")", x + 8, y + 6, 70, 0.75F, 0x3F3D52);
         for (int row = 0; row < ROWS; row++) {
             // Retain the last complete page until the requested page arrives.
@@ -172,10 +175,9 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
     static void drawCpuRow(GUIContext context, Font font, ComputationCpuEntry entry, float x, float y,
             boolean chosen, IGuiTexture normal, IGuiTexture selected, float progress) {
         context.drawTexture(chosen ? selected : normal, x, y, ROW_WIDTH, ROW_HEIGHT);
-        context.graphics.flush();
         int color = 0x413F54;
         text(context, font, name(entry).getString(), x + 3, y + 2, 50, 0.666F, color);
-        context.graphics.blit(entry.overlay(), Math.round(x + 55), Math.round(y), 0, 0, 10, 10, 10, 10);
+        context.graphics.blit(RenderPipelines.GUI_TEXTURED, entry.overlay(), Math.round(x + 55), Math.round(y), 0, 0, 10, 10, 10, 10);
         if (entry.output() != null && !entry.status().equals("idle")) {
             icon(context, Icon.S_CRAFT, x + 2, y + 10);
             fittedText(context, font, entry.amount(entry.requested(), false), x + 14, y + 13, 39, 0.666F, color);
@@ -195,35 +197,35 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
     }
 
     private static void text(GUIContext context, Font font, String value, float x, float y, int width, float scale, int color) {
-        context.graphics.pose().pushPose();
-        context.graphics.pose().translate(x, y, 0);
-        context.graphics.pose().scale(scale, scale, 1);
-        context.graphics.drawString(font, font.plainSubstrByWidth(value, Math.max(0, (int) (width / scale))), 0, 0, 0xFF000000 | color, false);
-        context.graphics.pose().popPose();
+        context.graphics.pose().pushMatrix();
+        context.graphics.pose().translate(x, y);
+        context.graphics.pose().scale(scale, scale);
+        context.graphics.text(font, font.plainSubstrByWidth(value, Math.max(0, (int) (width / scale))), 0, 0, 0xFF000000 | color, false);
+        context.graphics.pose().popMatrix();
     }
 
     static void fittedText(GUIContext context, Font font, String value, float x, float y, int width, float scale, int color) {
         float fittedScale = Math.min(scale, width / (float) Math.max(1, font.width(value)));
-        context.graphics.pose().pushPose();
-        context.graphics.pose().translate(x, y + (scale - fittedScale) * font.lineHeight / 2, 0);
-        context.graphics.pose().scale(fittedScale, fittedScale, 1);
-        context.graphics.drawString(font, value, 0, 0, 0xFF000000 | color, false);
-        context.graphics.pose().popPose();
+        context.graphics.pose().pushMatrix();
+        context.graphics.pose().translate(x, y + (scale - fittedScale) * font.lineHeight / 2);
+        context.graphics.pose().scale(fittedScale, fittedScale);
+        context.graphics.text(font, value, 0, 0, 0xFF000000 | color, false);
+        context.graphics.pose().popMatrix();
     }
 
     private static void key(GUIContext context, ComputationCpuEntry entry, float x, float y, float scale) {
-        context.graphics.pose().pushPose();
-        context.graphics.pose().translate(x, y, 0);
-        context.graphics.pose().scale(scale, scale, 1);
+        context.graphics.pose().pushMatrix();
+        context.graphics.pose().translate(x, y);
+        context.graphics.pose().scale(scale, scale);
         AEKeyRendering.drawInGui(Minecraft.getInstance(), context.graphics, 0, 0, entry.output());
-        context.graphics.pose().popPose();
+        context.graphics.pose().popMatrix();
     }
 
     private static void icon(GUIContext context, Icon icon, float x, float y) {
-        context.graphics.pose().pushPose();
-        context.graphics.pose().translate(x, y, 0);
-        icon.getBlitter().dest(0, 0).blit(context.graphics);
-        context.graphics.pose().popPose();
+        context.graphics.pose().pushMatrix();
+        context.graphics.pose().translate(x, y);
+        Blitter.icon(icon).dest(0, 0).blit(context.graphics);
+        context.graphics.pose().popMatrix();
     }
 
     static Component name(ComputationCpuEntry entry) {

@@ -56,7 +56,7 @@ final class LargeWorkstationRecipeSources {
         long energy = source.energy();
         var display = source.display();
         var borrowedDisplay = new IntegratedWorkingStationRecipe(display.inputItems(), display.inputFluid(),
-            display.itemOutput(), display.fluidOutput(), (int) Math.min(Integer.MAX_VALUE, energy));
+            display.itemOutputTemplate(), display.fluidOutputTemplate(), (int) Math.min(Integer.MAX_VALUE, energy));
         int ticks = LightningWorkstationTiming.ticks(LIGHTNING.toString(), energy);
         var recipe = new LargeWorkstationRecipe(id, borrowedDisplay, 0,
             List.of(LightningBorrowing.input()), LIGHTNING)
@@ -66,8 +66,7 @@ final class LargeWorkstationRecipeSources {
     }
 
     private static boolean loaded(String mod) {
-        var mods = ModList.get();
-        return mods != null && mods.isLoaded(mod);
+        return cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive(mod);
     }
 
     /** Keep optional AE2LT types out of the class verified for every ordinary recipe. */

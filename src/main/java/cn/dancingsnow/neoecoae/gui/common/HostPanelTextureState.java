@@ -94,7 +94,7 @@ public record HostPanelTextureState(@Nullable Identifier tier, @Nullable Identif
     public static HostPanelTextureState read(CompoundTag tag) {
         Map<String, Identifier> images = new HashMap<>();
         CompoundTag variants = tag.getCompoundOrEmpty("hostPanelVariants");
-        for (String key : variants.getAllKeys()) {
+        for (String key : variants.keySet()) {
             var image = readTexture(variants, key);
             if (image != null) images.put(key, image);
         }

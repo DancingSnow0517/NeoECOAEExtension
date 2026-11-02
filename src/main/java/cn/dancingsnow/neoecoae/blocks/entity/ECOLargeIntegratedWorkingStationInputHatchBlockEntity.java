@@ -25,6 +25,12 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidUtil;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.ResourceHandlerUtil;
+import net.neoforged.neoforge.transfer.fluid.FluidResource;
+import net.neoforged.neoforge.transfer.transaction.Transaction;
 
 public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
     extends NEBlockEntity<NEIntegratedWorkingStationCluster, ECOLargeIntegratedWorkingStationInputHatchBlockEntity> {
@@ -56,6 +62,11 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
         }
     };
 
+    private final FluidTankResourceHandler fluidResourceHandler = new FluidTankResourceHandler(tank);
+
+    /** 26.1 fluid capability ({@code Capabilities.Fluid.BLOCK}) view of {@link #tank}. */
+    public ResourceHandler<FluidResource> getFluidResourceHandler() { return fluidResourceHandler; }
+
     public ECOLargeIntegratedWorkingStationInputHatchBlockEntity(
         BlockEntityType<?> type,
         BlockPos pos,
@@ -66,7 +77,7 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
 
     private boolean isCoolant(FluidStack fluid) {
         if (level == null || fluid.isEmpty()) return false;
-        for (var holder : level.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get())) {
+        for (var holder : appeng.crafting.RecipeAccess.byType(level, NERecipeTypes.COOLING.get())) {
             if (holder.value().input().ingredient().test(fluid)) return true;
         }
         return false;
@@ -90,11 +101,15 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
             if (cluster != null && cluster.containsBlockEntity(level.getBlockEntity(neighborPos))) {
                 continue;
             }
-            IFluidHandler source = level.getCapability(
-                Capabilities.FluidHandler.BLOCK, neighborPos, face.getOpposite());
-            if (source != null
-                && !FluidUtil.tryFluidTransfer(tank, source, tank.getCapacity(), true).isEmpty()) {
-                return;
+            ResourceHandler<FluidResource> source = level.getCapability(
+                Capabilities.Fluid.BLOCK, neighborPos, face.getOpposite());
+            if (source != null) {
+                try (Transaction transaction = Transaction.open(null)) {
+                    if (ResourceHandlerUtil.move(source, fluidResourceHandler, fluid -> true, tank.getCapacity(), transaction) > 0) {
+                        transaction.commit();
+                        return;
+                    }
+                }
             }
         }
     }
@@ -126,7 +141,7 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
                 if (!(entry.getKey() instanceof AEFluidKey fluid) || entry.getLongValue() <= 0) continue;
                 FluidStack candidate = fluid.toStack(1);
                 if (controller.isOverheated() && candidate.getFluid() != NEFluids.CRYOTHEUM_SOLUTION.getSource()) continue;
-                for (var recipe : level.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get())) {
+                for (var recipe : appeng.crafting.RecipeAccess.byType(level, NERecipeTypes.COOLING.get())) {
                     int tier = recipe.value().maxOverclock();
                     if (LargeWorkstationOverclock.forCoolingTier(tier) != null
                         && tier > bestTier && recipe.value().input().ingredient().test(candidate)) {
@@ -152,16 +167,16 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
-        tank.writeToNBT(registries, data);
+    public void saveAdditional(ValueOutput data) {
+        super.saveAdditional(data);
+        tank.serialize(data);
         data.putInt("targetTemperature", targetTemperature);
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
-        tank.readFromNBT(registries, data);
-        targetTemperature = data.contains("targetTemperature") ? Math.clamp(data.getIntOr("targetTemperature", 0), 0, 99) : 75;
+    public void loadTag(ValueInput data) {
+        super.loadTag(data);
+        tank.deserialize(data);
+        targetTemperature = data.getInt("targetTemperature").map(value -> Math.clamp(value, 0, 99)).orElse(75);
     }
 }
