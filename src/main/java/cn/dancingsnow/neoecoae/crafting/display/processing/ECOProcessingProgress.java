@@ -10,6 +10,8 @@ import net.minecraft.network.chat.Component;
 public record ECOProcessingProgress(float progress, boolean hasProgress, State state, int machineCount,
         int detailPage, boolean refreshing, List<Machine> machines) {
     public static final int DETAIL_PAGE_SIZE = 3;
+    /** Cycles this short (in ticks) are not shown as progress on the status screen. */
+    public static final int SHORT_CYCLE_TICKS = 5;
     public static final ECOProcessingProgress EMPTY = new ECOProcessingProgress(0, false, State.QUEUED, 0, -1, false, List.of());
 
     public ECOProcessingProgress {
@@ -46,6 +48,33 @@ public record ECOProcessingProgress(float progress, boolean hasProgress, State s
         int start = page < 0 ? 0 : page * DETAIL_PAGE_SIZE;
         return new ECOProcessingProgress(progress, hasProgress, state, machineCount, page, refreshing,
             page < 0 ? List.of() : machines.subList(start, Math.min(machines.size(), start + DETAIL_PAGE_SIZE)));
+    }
+
+    /**
+     * Copy for the CPU status sync. Cycles of {@link #SHORT_CYCLE_TICKS} or less finish between samples, so their
+     * tick counters only churn the packet: those machines lose their counters, and the cell loses its fill when the
+     * weighted average cycle is that short.
+     */
+    public ECOProcessingProgress forStatusSync() {
+        double duration = 0, weight = 0;
+        boolean trimmed = false;
+        var kept = new java.util.ArrayList<Machine>(machines.size());
+        for (var machine : machines) {
+            if (machine.durationTicks() > 0) {
+                double w = Math.max(1L, machine.parallel());
+                duration += machine.durationTicks() * w;
+                weight += w;
+            }
+            if (machine.durationTicks() > 0 && machine.durationTicks() <= SHORT_CYCLE_TICKS) {
+                trimmed = true;
+                kept.add(new Machine(machine.name(), machine.location(), machine.recipe(), 0, 0, machine.parallel(),
+                    machine.state(), machine.reason()));
+            } else kept.add(machine);
+        }
+        boolean shortCycle = hasProgress && weight > 0 && duration / weight <= SHORT_CYCLE_TICKS;
+        if (!trimmed && !shortCycle) return this;
+        return new ECOProcessingProgress(shortCycle ? 0 : progress, hasProgress && !shortCycle, state, machineCount,
+            detailPage, refreshing, kept);
     }
 
     public int pages() { return Math.max(1, (machineCount + DETAIL_PAGE_SIZE - 1) / DETAIL_PAGE_SIZE); }

@@ -29,24 +29,33 @@ class ComputationProcessingDisplayTest {
         }
     }
 
-    @Test void nativeCycleUsesTheSameBarGeometryAndBlockedColor() throws Exception {
+    @Test void nativeCycleFillsTheWholeCellWithTheStateColor() throws Exception {
         for (var state : List.of(State.RUNNING, State.WAITING)) {
             var context = context();
             var entry = entry(BigInteger.ONE, 50, 100, state);
-            ComputationCpuStatusPanel.drawProcessingProgress(context, entry, 10, 20);
-            verify(context.graphics).fill(12, 39, 75, 41, 0xFF5B566B);
-            verify(context.graphics).fill(12, 39, 44, 41, state == State.RUNNING ? 0xFFC7A6FF : 0xFFE2AA4F);
+            int rgb = state == State.RUNNING ? 0xC7A6FF : 0xE2AA4F;
+            assertTrue(ComputationCpuStatusPanel.drawProcessingProgress(context, entry, 10, 20, 0));
+            verify(context.graphics).fill(44, 20, 77, 42, rgb | 0x30000000);
+            verify(context.graphics).fill(10, 20, 44, 42, rgb | 0x90000000);
             verifyNoMoreInteractions(context.graphics);
         }
     }
 
-    @Test void unsupportedAndQueuedEntriesNeverDrawATrack() throws Exception {
+    @Test void coloredStatusOverlayTintsTheFill() throws Exception {
+        var context = context();
+        assertTrue(ComputationCpuStatusPanel.drawProcessingProgress(context,
+            entry(BigInteger.ONE, 100, 100, State.RUNNING), 10, 20, 0x5A123456));
+        verify(context.graphics).fill(10, 20, 77, 42, 0x90123456);
+        verifyNoMoreInteractions(context.graphics);
+    }
+
+    @Test void unsupportedAndQueuedEntriesNeverDrawAFill() throws Exception {
         var context = context();
         var unsupported = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE), BigInteger.ZERO,
             BigInteger.ONE, BigInteger.ZERO, false);
-        ComputationCpuStatusPanel.drawProcessingProgress(context, unsupported, 10, 20);
-        ComputationCpuStatusPanel.drawProcessingProgress(context, entry(BigInteger.ONE, 0, 0, State.QUEUED), 10, 20);
-        ComputationCpuStatusPanel.drawProcessingProgress(context, entry(BigInteger.ZERO, 50, 100, State.RUNNING), 10, 20);
+        assertFalse(ComputationCpuStatusPanel.drawProcessingProgress(context, unsupported, 10, 20, 0));
+        assertFalse(ComputationCpuStatusPanel.drawProcessingProgress(context, entry(BigInteger.ONE, 0, 0, State.QUEUED), 10, 20, 0));
+        assertFalse(ComputationCpuStatusPanel.drawProcessingProgress(context, entry(BigInteger.ZERO, 50, 100, State.RUNNING), 10, 20, 0));
         verifyNoInteractions(context.graphics);
     }
 
@@ -55,10 +64,26 @@ class ComputationProcessingDisplayTest {
         var nativeCycle = entry(BigInteger.ONE, 0, 100, State.RUNNING);
         assertTrue(nativeCycle.processing().page(-1).hasProgress());
         assertTrue(nativeCycle.processing().page(-1).machines().isEmpty());
-        ComputationCpuStatusPanel.drawProcessingProgress(context,
-            nativeCycle.withProcessing(nativeCycle.processing().page(-1)), 10, 20);
-        verify(context.graphics).fill(12, 39, 75, 41, 0xFF5B566B);
+        assertTrue(ComputationCpuStatusPanel.drawProcessingProgress(context,
+            nativeCycle.withProcessing(nativeCycle.processing().page(-1)), 10, 20, 0));
+        verify(context.graphics).fill(10, 20, 77, 42, 0x30C7A6FF);
         verifyNoMoreInteractions(context.graphics);
+    }
+
+    @Test void cyclesOfFiveTicksOrLessAreNotSyncedAsProgress() throws Exception {
+        for (int duration : List.of(1, 5)) {
+            var synced = entry(BigInteger.ONE, 1, duration, State.RUNNING).processing().forStatusSync();
+            assertFalse(synced.hasProgress());
+            assertEquals(0, synced.machines().getFirst().progressTicks());
+            assertEquals(0, synced.machines().getFirst().durationTicks());
+            assertEquals(1, synced.machineCount());
+            var context = context();
+            assertFalse(ComputationCpuStatusPanel.drawProcessingProgress(context,
+                entry(BigInteger.ONE, 1, duration, State.RUNNING).withProcessing(synced), 10, 20, 0));
+            verifyNoInteractions(context.graphics);
+        }
+        var longCycle = entry(BigInteger.ONE, 3, 6, State.RUNNING).processing();
+        assertSame(longCycle, longCycle.forStatusSync());
     }
 
     private static ComputationCpuItemEntry entry(BigInteger active, int progress, int duration, State state) {
