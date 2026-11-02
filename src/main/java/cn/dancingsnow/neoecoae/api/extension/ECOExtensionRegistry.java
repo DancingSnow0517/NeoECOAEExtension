@@ -5,15 +5,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /** Ordered registrations. Higher priority wins; equal priority is ordered by ID, never load order. */
 public final class ECOExtensionRegistry<T> {
-    private final Map<ResourceLocation, Entry<T>> entries = new HashMap<>();
+    private final Map<Identifier, Entry<T>> entries = new HashMap<>();
     private volatile List<Entry<T>> snapshot = List.of();
     private volatile long revision;
 
-    public synchronized void register(ResourceLocation id, int priority, T extension) {
+    public synchronized void register(Identifier id, int priority, T extension) {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(extension, "extension");
         if (entries.containsKey(id)) throw new IllegalArgumentException("Duplicate extension: " + id);
@@ -21,7 +21,7 @@ public final class ECOExtensionRegistry<T> {
         rebuild();
     }
 
-    public synchronized boolean unregister(ResourceLocation id) {
+    public synchronized boolean unregister(Identifier id) {
         if (entries.remove(id) == null) return false;
         rebuild();
         return true;
@@ -36,5 +36,5 @@ public final class ECOExtensionRegistry<T> {
 
     public List<Entry<T>> entries() { return snapshot; }
     public long revision() { return revision; }
-    public record Entry<T>(ResourceLocation id, int priority, T extension) {}
+    public record Entry<T>(Identifier id, int priority, T extension) {}
 }

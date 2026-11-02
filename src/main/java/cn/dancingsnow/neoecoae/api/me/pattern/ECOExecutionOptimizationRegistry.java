@@ -8,17 +8,17 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /** Higher priority wins; equal priorities are ordered by registration ID, independent of load order. */
 public final class ECOExecutionOptimizationRegistry {
-    private static final Map<ResourceLocation, Entry> ENTRIES = new LinkedHashMap<>();
+    private static final Map<Identifier, Entry> ENTRIES = new LinkedHashMap<>();
     private static volatile List<Entry> ordered = List.of();
     private static volatile long revision;
 
     private ECOExecutionOptimizationRegistry() {}
 
-    public static synchronized void register(ResourceLocation id, int priority,
+    public static synchronized void register(Identifier id, int priority,
             ECOExecutionOptimizationAdapter adapter) {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(adapter, "adapter");
@@ -27,7 +27,7 @@ public final class ECOExecutionOptimizationRegistry {
         changed();
     }
 
-    public static synchronized boolean unregister(ResourceLocation id) {
+    public static synchronized boolean unregister(Identifier id) {
         if (ENTRIES.remove(Objects.requireNonNull(id, "id")) == null) return false;
         changed();
         return true;
@@ -64,5 +64,5 @@ public final class ECOExecutionOptimizationRegistry {
         AE2PatternIntrospection.onRecipeReloadOrServerReload();
     }
 
-    private record Entry(ResourceLocation id, int priority, ECOExecutionOptimizationAdapter adapter) {}
+    private record Entry(Identifier id, int priority, ECOExecutionOptimizationAdapter adapter) {}
 }

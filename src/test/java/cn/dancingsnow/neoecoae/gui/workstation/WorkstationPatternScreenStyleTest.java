@@ -11,7 +11,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import javax.imageio.ImageIO;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.PackResources;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -76,21 +76,21 @@ class WorkstationPatternScreenStyleTest {
         PackResources pack = mock(PackResources.class);
         when(pack.packId()).thenReturn("workstation-screen-regression");
         when(resources.getResource(any())).thenAnswer(call -> {
-            ResourceLocation id = call.getArgument(0);
+            Identifier id = call.getArgument(0);
             String path = "/assets/" + id.getNamespace() + "/" + id.getPath();
             var source = getClass().getResource(path);
             if (source == null) return Optional.empty();
             return Optional.of(new Resource(pack, source::openStream));
         });
         when(resources.openAsReader(any())).thenAnswer(call -> {
-            ResourceLocation id = call.getArgument(0);
+            Identifier id = call.getArgument(0);
             var stream = getClass().getResourceAsStream("/assets/" + id.getNamespace() + "/" + id.getPath());
             if (stream == null) throw new FileNotFoundException(id.toString());
             return new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8));
         });
         StyleManager.initialize(resources);
         var style = StyleManager.loadStyleDoc("/screens/large_integrated_working_station_interface.json");
-        verify(resources).getResource(ResourceLocation.parse("ae2:screens/large_integrated_working_station_interface.json"));
+        verify(resources).getResource(Identifier.parse("ae2:screens/large_integrated_working_station_interface.json"));
         return style;
     }
 

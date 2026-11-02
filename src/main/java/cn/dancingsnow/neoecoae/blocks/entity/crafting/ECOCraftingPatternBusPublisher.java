@@ -17,7 +17,7 @@ final class ECOCraftingPatternBusPublisher {
     }
 
     void notifyPatternInterfaceHosts(int slot) {
-        if (host.getLevel() == null || host.getLevel().isClientSide || host.getMainNode().getGrid() == null) {
+        if (host.getLevel() == null || host.getLevel().isClientSide() || host.getMainNode().getGrid() == null) {
             return;
         }
         for (var machineInterface : host.getMainNode().getGrid()
@@ -27,7 +27,7 @@ final class ECOCraftingPatternBusPublisher {
     }
 
     void notifyPatternInterfaceHosts(int[] slots) {
-        if (host.getLevel() == null || host.getLevel().isClientSide || host.getMainNode().getGrid() == null) {
+        if (host.getLevel() == null || host.getLevel().isClientSide() || host.getMainNode().getGrid() == null) {
             return;
         }
         for (var machineInterface : host.getMainNode().getGrid()
@@ -41,7 +41,7 @@ final class ECOCraftingPatternBusPublisher {
     }
 
     void notifyPatternInterfaceTopologyChanged(@Nullable IGrid grid) {
-        if (host.getLevel() == null || host.getLevel().isClientSide || grid == null) {
+        if (host.getLevel() == null || host.getLevel().isClientSide() || grid == null) {
             return;
         }
         for (var machineInterface : grid

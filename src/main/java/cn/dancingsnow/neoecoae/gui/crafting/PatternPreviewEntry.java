@@ -33,7 +33,7 @@ public record PatternPreviewEntry(long busPosition, int physicalSlot, ItemStack 
         }
 
         public static DiskPattern decode(CompoundTag tag, HolderLookup.Provider registries) {
-            return new DiskPattern(ItemStack.parseOptional(registries, tag.getCompound("stack")),
+            return new DiskPattern(ItemStack.parseOptional(registries, tag.getCompoundOrEmpty("stack")),
                     tag.getString("inputs"), tag.getString("output"));
         }
     }
@@ -58,13 +58,13 @@ public record PatternPreviewEntry(long busPosition, int physicalSlot, ItemStack 
 
     public static PatternPreviewEntry decode(CompoundTag tag, HolderLookup.Provider registries) {
         List<DiskPattern> held = new ArrayList<>();
-        ListTag encoded = tag.getList("disk", Tag.TAG_COMPOUND);
+        ListTag encoded = tag.getListOrEmpty("disk");
         for (int index = 0; index < encoded.size(); index++) {
-            CompoundTag entry = encoded.getCompound(index);
+            CompoundTag entry = encoded.getCompoundOrEmpty(index);
             held.add(DiskPattern.decode(entry, registries));
         }
         return new PatternPreviewEntry(tag.getLong("bus"), tag.getInt("slot"),
-                ItemStack.parseOptional(registries, tag.getCompound("stack")),
+                ItemStack.parseOptional(registries, tag.getCompoundOrEmpty("stack")),
                 tag.getString("inputs"), tag.getString("output"), held, tag.getBoolean("diskSlot"));
     }
 }

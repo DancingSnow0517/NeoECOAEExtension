@@ -13,7 +13,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import snownee.jade.api.BlockAccessor;
 import snownee.jade.api.IBlockComponentProvider;
 import snownee.jade.api.IServerDataProvider;
@@ -53,11 +53,11 @@ public enum ECOLargeWorkstationInputsProvider implements IBlockComponentProvider
     @Override
     public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
         CompoundTag data = accessor.getServerData();
-        if (!data.contains(TAG_INPUTS, Tag.TAG_LIST)) return;
+        if (!data.contains(TAG_INPUTS)) return;
 
         tooltip.add(Component.translatable("jade.neoecoae.large_workstation.current_inputs")
                 .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
-        ListTag inputs = data.getList(TAG_INPUTS, Tag.TAG_COMPOUND);
+        ListTag inputs = data.getListOrEmpty(TAG_INPUTS);
         if (inputs.isEmpty()) {
             tooltip.add(Component.translatable("jade.neoecoae.large_workstation.current_inputs.empty")
                     .withStyle(ChatFormatting.GRAY));
@@ -65,7 +65,7 @@ public enum ECOLargeWorkstationInputsProvider implements IBlockComponentProvider
         }
 
         for (int index = 0; index < inputs.size(); index++) {
-            GenericStack stack = GenericStack.readTag(accessor.getLevel().registryAccess(), inputs.getCompound(index));
+            GenericStack stack = GenericStack.readTag(accessor.getLevel().registryAccess(), inputs.getCompoundOrEmpty(index));
             if (stack == null || stack.amount() <= 0) continue;
             MutableComponent line = stack.what().getDisplayName().copy().withStyle(ChatFormatting.WHITE);
             line.append(Component.literal(" × " + stack.what().formatAmount(stack.amount(), AmountFormat.SLOT))
@@ -80,7 +80,7 @@ public enum ECOLargeWorkstationInputsProvider implements IBlockComponentProvider
     }
 
     @Override
-    public ResourceLocation getUid() {
+    public Identifier getUid() {
         return NeoECOAE.id("large_workstation_current_inputs");
     }
 }

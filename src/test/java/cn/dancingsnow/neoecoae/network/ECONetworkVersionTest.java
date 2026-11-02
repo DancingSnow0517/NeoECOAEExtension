@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.network;
 import java.util.Optional;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.chat.contents.TranslatableContents;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.network.negotiation.NegotiableNetworkComponent;
 import net.neoforged.neoforge.network.negotiation.NetworkComponentNegotiator;
 import org.junit.jupiter.api.Test;
@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class ECONetworkVersionTest {
     private static NegotiableNetworkComponent component(String version) {
         return new NegotiableNetworkComponent(
-            ResourceLocation.fromNamespaceAndPath("neoecoae", "menu_chunk"), version,
+            Identifier.fromNamespaceAndPath("neoecoae", "menu_chunk"), version,
             Optional.of(PacketFlow.CLIENTBOUND), false);
     }
 

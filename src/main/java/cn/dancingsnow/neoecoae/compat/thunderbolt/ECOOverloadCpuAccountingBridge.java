@@ -16,13 +16,13 @@ import java.util.UUID;
 import java.util.function.BiFunction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 /** Optional public AE2LT accounting API; no foreign CPU fields or mixin targets are inspected. */
 public final class ECOOverloadCpuAccountingBridge {
     private static final String API = "com.moakiee.ae2lt.api.crafting.Ae2LtCraftingIntegration";
-    private static final ResourceLocation ATTACHMENT = ResourceLocation.fromNamespaceAndPath("ae2lt", "overload_outputs");
+    private static final Identifier ATTACHMENT = Identifier.fromNamespaceAndPath("ae2lt", "overload_outputs");
     private static final Registration ORDINARY = new Registration() {
         public boolean canDispatch() { return true; }
         public void registerAccepted(long amount) { }
@@ -108,7 +108,7 @@ public final class ECOOverloadCpuAccountingBridge {
     }
 
     private record Attachment(ECOCraftingOutputClaimSink owner, UUID jobId) implements ECOCraftingJobAttachment {
-        public ResourceLocation id() { return ATTACHMENT; }
+        public Identifier id() { return ATTACHMENT; }
         public CompoundTag save(HolderLookup.Provider registries) {
             return RELEASED != null ? RELEASED.save(owner, jobId, registries)
                 : (CompoundTag) invoke(SAVE, null, owner, jobId, registries);

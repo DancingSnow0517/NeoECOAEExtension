@@ -4,13 +4,13 @@ import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.Set;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 /** Hand-off between planning/confirmation and CPU execution. */
 public record ECOExecutionContract(UUID planningId, PlanIdentity.Signature planSignature,
         ExecutionMode mode, @Nullable ECOExecutionPlan executionPlan, @Nullable String error,
-        Set<ResourceLocation> fuzzyPlanningItemIds) {
+        Set<Identifier> fuzzyPlanningItemIds) {
     public ECOExecutionContract(UUID planningId, PlanIdentity.Signature planSignature,
             ExecutionMode mode, @Nullable ECOExecutionPlan executionPlan, @Nullable String error) {
         this(planningId, planSignature, mode, executionPlan, error, Set.of());

@@ -3,13 +3,13 @@ package cn.dancingsnow.neoecoae.gui.workstation;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /** Shared resource loader for workstation UI roots. Dynamic machine elements stay in contexts. */
 final class WorkstationUiJson {
     private WorkstationUiJson() {}
 
-    static UIElement load(ResourceLocation location, NeoUiJsonContext context) {
+    static UIElement load(Identifier location, NeoUiJsonContext context) {
         return NeoUiJsonLoader.load(location, context);
     }
 }

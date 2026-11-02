@@ -22,7 +22,7 @@ import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -91,7 +91,7 @@ class ECOVirtualCraftingDiagnosticsTest {
 
     @Test
     void tooltipListsRegisteredCustomCoolantsAndAcceptsThemImmediately() {
-        var id = ResourceLocation.parse("test:supercoolant");
+        var id = Identifier.parse("test:supercoolant");
         doAnswer(call -> ECOVirtualCraftingCoolantRegistry.registeredFluidIds().contains(id))
             .when(host).hasLocalVirtualCraftingCoolant();
         assertNotice(host, "coolant_type");

@@ -112,10 +112,10 @@ final class ECOBulkMigrationDialog extends UIElement {
     void accept(long request, CompoundTag preview) {
         if (position == null || request != sequence) return;
         loaded = true;
-        expectedCell = preview.hasUUID("cell_id") ? preview.getUUID("cell_id") : null;
-        total = Math.max(0, preview.getInt("total"));
+        expectedCell = preview.read("cell_id", net.minecraft.core.UUIDUtil.CODEC).isPresent() ? preview.read("cell_id", net.minecraft.core.UUIDUtil.CODEC).orElseThrow() : null;
+        total = Math.max(0, preview.getIntOr("total", 0));
         items.clear();
-        for (var raw : preview.getList("items", Tag.TAG_COMPOUND)) {
+        for (var raw : preview.getListOrEmpty("items")) {
             if (items.size() >= PREVIEW_LIMIT) break;
             ItemStack.parse(registries, raw).filter(stack -> !stack.isEmpty()).ifPresent(items::add);
         }

@@ -6,7 +6,7 @@ import java.math.BigInteger;
 import java.util.List;
 import java.util.Set;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -39,7 +39,7 @@ class AddonStorageChannelTest {
             .reduce(BigInteger.ZERO, BigInteger::add));
         assertEquals(2, StorageHostCharts.capacitySegments(state(List.of(one, line(3, id("different"), exact))), 100).size());
     }
-    private static StoragePanelState.TypeLine line(int id, ResourceLocation channel, BigInteger amount) {
+    private static StoragePanelState.TypeLine line(int id, Identifier channel, BigInteger amount) {
         return new StoragePanelState.TypeLine(id, Component.literal("Custom"), 0x123456, 1, 2, Long.MAX_VALUE, Long.MAX_VALUE,
             amount.toString(), StoragePanelTextures.FALLBACK_SWATCH, amount, channel, id("textures/icon.png"), id("textures/swatch.png"));
     }
@@ -47,5 +47,5 @@ class AddonStorageChannelTest {
         return new StoragePanelState(Component.literal("Host"), 0, true, false, false, 0, 0, 0, "0", 0, 0, 0,
             List.of(), types, "", 0, false);
     }
-    private static ResourceLocation id(String path) { return ResourceLocation.fromNamespaceAndPath("addon_channel_test", path); }
+    private static Identifier id(String path) { return Identifier.fromNamespaceAndPath("addon_channel_test", path); }
 }

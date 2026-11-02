@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me.cooling;
 
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.junit.jupiter.api.BeforeAll;
@@ -24,7 +24,7 @@ class ECOVirtualCraftingCoolantRegistryTest {
 
     @Test
     void customRegistrationIsIdempotentAndCanBeRevoked() {
-        var id = ResourceLocation.parse("minecraft:water");
+        var id = Identifier.parse("minecraft:water");
         var water = new FluidStack(Fluids.WATER, 1);
         assertFalse(ECOVirtualCraftingCoolantRegistry.isAllowed(water));
         ECOVirtualCraftingCoolantRegistry.register(id);

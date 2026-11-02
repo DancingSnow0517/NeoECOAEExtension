@@ -10,7 +10,7 @@ public record ECOMenuChunkS2CPacket(int containerId, MenuDataTransport.Channel c
         long transfer, int total, int offset, byte[] bytes) implements CustomPacketPayload {
     public static final int CHUNK_BYTES = 16 * 1024;
     public static final Type<ECOMenuChunkS2CPacket> TYPE = new Type<>(
-        net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(NeoECOAE.MOD_ID, "menu_chunk"));
+        net.minecraft.resources.Identifier.fromNamespaceAndPath(NeoECOAE.MOD_ID, "menu_chunk"));
     public static final StreamCodec<FriendlyByteBuf, ECOMenuChunkS2CPacket> STREAM_CODEC = StreamCodec.of(
         (buf, packet) -> {
             buf.writeVarInt(packet.containerId);

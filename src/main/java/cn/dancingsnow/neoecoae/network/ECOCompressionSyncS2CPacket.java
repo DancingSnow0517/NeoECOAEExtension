@@ -24,7 +24,7 @@ public record ECOCompressionSyncS2CPacket(int total, int offset, List<BulkUnits>
             throw new IllegalArgumentException("Invalid compression sync chunk");
     }
     public static final Type<ECOCompressionSyncS2CPacket> TYPE = new Type<>(
-        net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(NeoECOAE.MOD_ID, "compression_chains"));
+        net.minecraft.resources.Identifier.fromNamespaceAndPath(NeoECOAE.MOD_ID, "compression_chains"));
     public static final StreamCodec<RegistryFriendlyByteBuf, ECOCompressionSyncS2CPacket> STREAM_CODEC = StreamCodec.of(
         (buf, packet) -> {
             buf.writeVarInt(packet.total); buf.writeVarInt(packet.offset);

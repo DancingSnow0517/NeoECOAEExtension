@@ -22,7 +22,7 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -32,8 +32,8 @@ public final class CraftingHostPanelUI {
     public static final int UI_WIDTH = 253;
     public static final int UI_HEIGHT = 214;
     /** Static geometry and element order for the controller panel. */
-    private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/crafting/crafting_controller");
+    private static final Identifier JSON_LAYOUT =
+        Identifier.fromNamespaceAndPath("neoecoae", "screens/crafting/crafting_controller");
     private CraftingHostPanelUI() {}
 
     public record Config(

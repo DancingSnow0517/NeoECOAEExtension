@@ -93,7 +93,7 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
 
     ECOCraftingInputPreview(ICraftingInventory source, IPatternDetails pattern,
             Map<AEKey, Long> protectedAmounts, ECOCraftingRemainderCache remainderCache,
-            Set<net.minecraft.resources.ResourceLocation> fuzzyPlanningItemIds) {
+            Set<net.minecraft.resources.Identifier> fuzzyPlanningItemIds) {
         this.source = source;
         PatternMetadata metadata = metadata(pattern, remainderCache);
         this.primaryInputs = metadata.primaryInputs();

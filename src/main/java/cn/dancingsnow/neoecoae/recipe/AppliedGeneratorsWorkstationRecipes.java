@@ -6,7 +6,7 @@ import appeng.api.stacks.GenericStack;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.serialization.DynamicOps;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.neoforged.neoforge.common.crafting.SizedIngredient;
@@ -19,11 +19,11 @@ import java.util.List;
 
 /** Codec-based bridge for both the 0.2.x and 0.3.x Genesis Synthesizer formats. */
 final class AppliedGeneratorsWorkstationRecipes {
-    private static final ResourceLocation TYPE = ResourceLocation.parse("appgen:synthesizing");
+    private static final Identifier TYPE = Identifier.parse("appgen:synthesizing");
 
     private AppliedGeneratorsWorkstationRecipes() {}
 
-    static LargeWorkstationRecipe decode(ResourceLocation id, JsonObject data, DynamicOps<JsonElement> ops) {
+    static LargeWorkstationRecipe decode(Identifier id, JsonObject data, DynamicOps<JsonElement> ops) {
         // 0.3.0 renamed all three input fields and widened energy to long.
         boolean modern = data.has("item_inputs");
         String itemField = modern ? "item_inputs" : "input_items";

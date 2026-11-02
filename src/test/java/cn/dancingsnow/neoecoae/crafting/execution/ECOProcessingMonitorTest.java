@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.Items;
@@ -109,7 +109,7 @@ class ECOProcessingMonitorTest {
     }
 
     @Test void attachmentBindingStartsFreshForEachJobOnTheSameCpu() {
-        var id = ResourceLocation.fromNamespaceAndPath("neoecoae", "workstation_processing_monitor");
+        var id = Identifier.fromNamespaceAndPath("neoecoae", "workstation_processing_monitor");
         var cpu = mock(ECOCraftingCPU.class);
         var logic = mock(ECOCraftingCPULogic.class);
         var monitor = new ECOProcessingMonitor();

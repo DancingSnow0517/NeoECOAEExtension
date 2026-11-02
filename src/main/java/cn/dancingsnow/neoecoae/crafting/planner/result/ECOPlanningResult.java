@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.Set;
 import java.math.BigInteger;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 /** Planning answer. Its execution plan is interpreted at most once, on first access when needed. */
@@ -28,7 +28,7 @@ public final class ECOPlanningResult {
     private java.util.Map<appeng.api.stacks.AEKey, PlannerAmount> exactUsedItems = java.util.Map.of();
     private java.util.Map<appeng.api.stacks.AEKey, PlannerAmount> exactEmittedItems = java.util.Map.of();
     private java.util.Map<appeng.api.stacks.AEKey, PlannerAmount> exactMissingItems = java.util.Map.of();
-    private Set<ResourceLocation> fuzzyPlanningItemIds = Set.of();
+    private Set<Identifier> fuzzyPlanningItemIds = Set.of();
     private final UUID planningId;
     private volatile ECOExecutionRequirement executionRequirement;
     private volatile @Nullable ECOExecutionPlan executionPlan;
@@ -164,8 +164,8 @@ public final class ECOPlanningResult {
     public void setTheoreticalBytes(PlannerAmount bytes) {
         theoreticalBytes = bytes == null ? BigInteger.ZERO : bytes.toBigInteger();
     }
-    public Set<ResourceLocation> fuzzyPlanningItemIds() { return fuzzyPlanningItemIds; }
-    public void setFuzzyPlanningItemIds(Set<ResourceLocation> itemIds) {
+    public Set<Identifier> fuzzyPlanningItemIds() { return fuzzyPlanningItemIds; }
+    public void setFuzzyPlanningItemIds(Set<Identifier> itemIds) {
         fuzzyPlanningItemIds = itemIds == null ? Set.of() : itemIds;
     }
     public UUID planningId() { return planningId; }

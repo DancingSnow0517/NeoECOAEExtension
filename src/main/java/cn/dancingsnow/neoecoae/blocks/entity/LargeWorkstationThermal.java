@@ -116,7 +116,7 @@ public final class LargeWorkstationThermal {
 
     public static State load(CompoundTag tag) {
         // Reloading interrupts continuous coolant delivery; retain the latch but restart the 15-second run.
-        boolean locked = tag.getBoolean("overheated") || tag.getDouble("temperature") >= 100;
-        return new State(tag.getDouble("temperature"), locked, 0);
+        boolean locked = tag.getBooleanOr("overheated", false) || tag.getDoubleOr("temperature", 0.0) >= 100;
+        return new State(tag.getDoubleOr("temperature", 0.0), locked, 0);
     }
 }

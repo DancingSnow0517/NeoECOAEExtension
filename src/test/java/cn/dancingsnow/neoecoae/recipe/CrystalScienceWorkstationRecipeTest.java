@@ -9,7 +9,7 @@ import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
@@ -27,7 +27,7 @@ class CrystalScienceWorkstationRecipeTest {
 
     @Test void pulverizingPreservesItemCountsFluidsAndAeCost() {
         var ops = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY).createSerializationContext(JsonOps.INSTANCE);
-        var recipe = LargeWorkstationRecipes.decode(ResourceLocation.parse("test:pulverizer"), "ae2cs:crystal_pulverizer_recipe",
+        var recipe = LargeWorkstationRecipes.decode(Identifier.parse("test:pulverizer"), "ae2cs:crystal_pulverizer_recipe",
             JsonParser.parseString("""
                 {"input":{"item":"minecraft:iron_ingot","count":4},"result":{"id":"minecraft:diamond","count":2},
                  "fluid_input":{"fluid":"minecraft:water","amount":250},
@@ -51,7 +51,7 @@ class CrystalScienceWorkstationRecipeTest {
              "output":{"block":{"id":"minecraft:cobblestone"},
                "drops":[{"id":"minecraft:diamond","count":2},{"id":"minecraft:emerald"}]}}
             """);
-        var recipe = CrystalScienceWorkstationRecipes.entropy(ResourceLocation.parse("test:entropy"), source);
+        var recipe = CrystalScienceWorkstationRecipes.entropy(Identifier.parse("test:entropy"), source);
         assertNotNull(recipe);
         assertEquals(1600, recipe.energy());
         assertEquals(3, recipe.outputs().size());
@@ -67,7 +67,7 @@ class CrystalScienceWorkstationRecipeTest {
     }
 
     @Test void flowingWaterSnowballsUseTheMachineFluidCostAndStoredSourceFluid() {
-        var recipe = CrystalScienceWorkstationRecipes.entropy(ResourceLocation.parse("test:snowballs"), entropy("""
+        var recipe = CrystalScienceWorkstationRecipes.entropy(Identifier.parse("test:snowballs"), entropy("""
             {"mode":"cool","input":{"fluid":{"id":"minecraft:flowing_water"}},
              "output":{"drops":[{"id":"minecraft:snowball","count":4}]}}
             """));
@@ -81,7 +81,7 @@ class CrystalScienceWorkstationRecipeTest {
 
     @Test void ae2AloneDoesNotUnlockEntropyRecipes() {
         var manager = mock(RecipeManager.class);
-        when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(ResourceLocation.parse("test:entropy_absent"), entropy("""
+        when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(Identifier.parse("test:entropy_absent"), entropy("""
             {"mode":"heat","input":{"block":{"id":"minecraft:stone"}},"output":{"block":{"id":"minecraft:cobblestone"}}}
             """))));
         assertTrue(LargeWorkstationRecipes.getAll(manager,

@@ -18,7 +18,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import java.util.List;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 /** CPU selection and network-frequency controls for the computation controller. */
@@ -108,7 +108,7 @@ final class ComputationControllerInteractions {
     }
 
     private static IGuiTexture smartDoublingIcon(boolean enabled) {
-        return SpriteTexture.of(ResourceLocation.fromNamespaceAndPath("neoecoae",
+        return SpriteTexture.of(Identifier.fromNamespaceAndPath("neoecoae",
             "textures/gui/computation/eco_batching" + (enabled ? "" : "_off") + ".png"));
     }
 

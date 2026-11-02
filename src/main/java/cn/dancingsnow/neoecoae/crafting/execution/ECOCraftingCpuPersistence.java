@@ -22,8 +22,8 @@ final class ECOCraftingCpuPersistence {
         host.jobAttachmentsForPersistence().reset();
         host.outputDeliveryForPersistence().clearPendingFinalOutputs();
         host.energyTransactionForPersistence().readFromNBT(data);
-        host.exactInventory().setEnabled(data.getBoolean("ecoExactInventory"));
-        host.getInventory().readFromNBT(data.getList("inventory", 10), registries);
+        host.exactInventory().setEnabled(data.getBooleanOr("ecoExactInventory", false));
+        host.getInventory().readFromNBT(data.getListOrEmpty("inventory"), registries);
 
         if (!data.contains("job")) {
             host.setJobFromPersistence(null);
@@ -47,7 +47,7 @@ final class ECOCraftingCpuPersistence {
         }
 
         // Migrate the legacy standalone final-output buffer into the shared CPU inventory once.
-        long buffered = jobData.getLong("bufferedFinalOutput");
+        long buffered = jobData.getLongOr("bufferedFinalOutput", 0L);
         if (buffered > 0L && restoredJob.finalOutput != null) {
             host.getInventory().insert(restoredJob.finalOutput.what(), buffered, Actionable.MODULATE);
         }

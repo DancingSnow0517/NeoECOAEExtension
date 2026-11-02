@@ -18,11 +18,11 @@ import cn.dancingsnow.neoecoae.util.LongFluidTank;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import java.util.List;
 
 public final class FluidHatchUI {
-    private static final ResourceLocation JSON_LAYOUT =
+    private static final Identifier JSON_LAYOUT =
         NeoECOAE.id("screens/fluid_hatch");
 
     private FluidHatchUI() {

@@ -37,7 +37,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
@@ -47,8 +47,8 @@ import net.neoforged.neoforge.items.IItemHandlerModifiable;
 public final class IntegratedWorkstationUI {
     private static final IGuiTexture AUTO_EXPORT_OFF = AETextures.icon(ECOIcon.AUTO_EXPORT_OFF);
     private static final IGuiTexture AUTO_EXPORT_ON = AETextures.icon(ECOIcon.AUTO_EXPORT_ON);
-    private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/workstation/integrated");
+    private static final Identifier JSON_LAYOUT =
+        Identifier.fromNamespaceAndPath("neoecoae", "screens/workstation/integrated");
     private final Config config;
 
     private IntegratedWorkstationUI(Config config) {

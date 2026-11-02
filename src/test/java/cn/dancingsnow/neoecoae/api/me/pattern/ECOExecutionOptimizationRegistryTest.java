@@ -4,7 +4,7 @@ import appeng.api.crafting.IPatternDetails;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 
 class ECOExecutionOptimizationRegistryTest {
-    private final List<ResourceLocation> registered = new ArrayList<>();
+    private final List<Identifier> registered = new ArrayList<>();
     private final IPatternDetails pattern = mock(IPatternDetails.class);
 
     @AfterEach void cleanup() {
@@ -37,7 +37,7 @@ class ECOExecutionOptimizationRegistryTest {
 
     @Test void failedAdapterDoesNotFallThroughToBroaderAuthorization() {
         register("fallback", -100, ECOExecutionOptimization.VERIFIED_ASSEMBLER);
-        ResourceLocation id = id("failing");
+        Identifier id = id("failing");
         ECOExecutionOptimizationRegistry.register(id, 100, new ECOExecutionOptimizationAdapter() {
             @Override public boolean supports(IPatternDetails details) { return true; }
             @Override public ECOExecutionOptimization describe(IPatternDetails details) {
@@ -51,7 +51,7 @@ class ECOExecutionOptimizationRegistryTest {
     @Test void registrationRemovalInvalidatesOldContractAndDuplicateIdsAreRejected() {
         long generation = AE2PatternIntrospection.reloadGeneration();
         long revision = ECOExecutionOptimizationRegistry.revision();
-        ResourceLocation id = register("lifecycle", 0, ECOExecutionOptimization.VERIFIED_ASSEMBLER);
+        Identifier id = register("lifecycle", 0, ECOExecutionOptimization.VERIFIED_ASSEMBLER);
         assertTrue(ECOExecutionOptimizationRegistry.resolve(pattern).verifiedAssemblerFastPath());
         assertTrue(AE2PatternIntrospection.reloadGeneration() > generation);
         assertTrue(ECOExecutionOptimizationRegistry.revision() > revision);
@@ -64,8 +64,8 @@ class ECOExecutionOptimizationRegistryTest {
         assertFalse(ECOExecutionOptimizationRegistry.resolve(pattern).verifiedAssemblerFastPath());
     }
 
-    private ResourceLocation register(String path, int priority, ECOExecutionOptimization capability) {
-        ResourceLocation id = id(path);
+    private Identifier register(String path, int priority, ECOExecutionOptimization capability) {
+        Identifier id = id(path);
         ECOExecutionOptimizationRegistry.register(id, priority, new ECOExecutionOptimizationAdapter() {
             @Override public boolean supports(IPatternDetails details) { return details == pattern; }
             @Override public ECOExecutionOptimization describe(IPatternDetails details) { return capability; }
@@ -74,7 +74,7 @@ class ECOExecutionOptimizationRegistryTest {
         return id;
     }
 
-    private static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath("eco_execution_test", path);
+    private static Identifier id(String path) {
+        return Identifier.fromNamespaceAndPath("eco_execution_test", path);
     }
 }

@@ -45,7 +45,6 @@ import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import appeng.menu.implementations.CellWorkbenchMenu;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
@@ -122,7 +121,7 @@ public class NeoECOAEClient {
 
     /** Vanilla-screen counterpart of the AE2 toolbar buttons used by the side rails. */
     private static final class JeiBookmarkButton extends Button {
-        private static final net.minecraft.resources.ResourceLocation ICON_TEXTURE =
+        private static final net.minecraft.resources.Identifier ICON_TEXTURE =
             NeoECOAE.id("textures/gui/widget/upload.png");
 
         private JeiBookmarkButton(Component message, OnPress onPress) {

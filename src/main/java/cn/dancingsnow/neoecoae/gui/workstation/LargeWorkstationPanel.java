@@ -176,9 +176,9 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         lines.add(shortStatus().copy().withStyle(hasProblem() ? ChatFormatting.GOLD : ChatFormatting.GREEN));
         if (hasProblem()) lines.add(pauseText());
         lines.add(tr("task_count", state.getInt("totalTasks")));
-        if (state.getInt("totalTasks") > 0) lines.add(tr("task_source",
+        if (state.getIntOr("totalTasks", 0) > 0) lines.add(tr("task_source",
             moduleDescription("recipeModuleId", "recipeModule").title()));
-        if (state.getBoolean("ignoreUpgradeCards")) lines.add(tr("compat_all_unlocked").withStyle(ChatFormatting.GRAY));
+        if (state.getBooleanOr("ignoreUpgradeCards", false)) lines.add(tr("compat_all_unlocked").withStyle(ChatFormatting.GRAY));
         return lines;
     }
 
@@ -186,22 +186,22 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         state = value instanceof CompoundTag tag ? tag : new CompoundTag();
         HolderLookup.Provider registries = config.registries().get();
         List<Task> decoded = new ArrayList<>();
-        var entries = state.getList("tasks", Tag.TAG_COMPOUND);
+        var entries = state.getListOrEmpty("tasks");
         for (int i = 0; i < Math.min(LargeWorkstationUI.SNAPSHOT_SIZE, entries.size()); i++) {
             CompoundTag entry = entries.getCompound(i);
-            if (!entry.hasUUID("id")) continue;
-            decoded.add(new Task(entry.getUUID("id"), registries == null ? ItemStack.EMPTY
-                : ItemStack.parseOptional(registries, entry.getCompound("item")), registries == null ? FluidStack.EMPTY
-                : FluidStack.parseOptional(registries, entry.getCompound("fluid")), entry.getLong("amount"),
+            if (!entry.read("id", net.minecraft.core.UUIDUtil.CODEC).isPresent()) continue;
+            decoded.add(new Task(entry.read("id", net.minecraft.core.UUIDUtil.CODEC).orElseThrow(), registries == null ? ItemStack.EMPTY
+                : ItemStack.parseOptional(registries, entry.getCompoundOrEmpty("item")), registries == null ? FluidStack.EMPTY
+                : FluidStack.parseOptional(registries, entry.getCompoundOrEmpty("fluid")), entry.getLongOr("amount", 0L),
                 entry.getInt("progress"), entry.getString("status"), entry.getString("detail"), entry.getBoolean("returnable"),
                 entry.getBoolean("current"), moduleDescription(entry, "moduleId", "module"),
                 entry.getInt("elapsedTicks"), entry.getInt("processingTicks")));
         }
-        int first = state.contains("taskOffset") ? state.getInt("taskOffset") : state.getInt("offset");
-        if (taskScroll.receive(state.getInt("totalTasks"), first, decoded.size())) tasks = List.copyOf(decoded);
+        int first = state.contains("taskOffset") ? state.getIntOr("taskOffset", 0) : state.getIntOr("offset", 0);
+        if (taskScroll.receive(state.getIntOr("totalTasks", 0), first, decoded.size())) tasks = List.copyOf(decoded);
         updateTaskRows();
-        updateToggle(overclock, state.getBoolean("overclocked"));
-        updateToggle(cooling, state.getBoolean("activeCooling"));
+        updateToggle(overclock, state.getBooleanOr("overclocked", false));
+        updateToggle(cooling, state.getBooleanOr("activeCooling", false));
     }
 
     private static void updateToggle(Button button, boolean enabled) {
@@ -280,7 +280,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         return track;
     }
 
-    private int maxOffset() { return Math.max(0, state.getInt("totalTasks") - LargeWorkstationUI.PAGE_SIZE); }
+    private int maxOffset() { return Math.max(0, state.getIntOr("totalTasks", 0) - LargeWorkstationUI.PAGE_SIZE); }
 
     private Task task(int index) { return index < tasks.size() ? tasks.get(index) : null; }
 
@@ -305,7 +305,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     }
 
     private Component queueRange() {
-        int total = state.getInt("totalTasks");
+        int total = state.getIntOr("totalTasks", 0);
         return total == 0 ? tr("task_count", 0) : tr("queue_range", taskScroll.firstVisibleRow() + 1,
             taskScroll.lastVisibleRow(), total);
     }
@@ -325,33 +325,33 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         }
         for (var custom : ECOWorkstationModules.registered())
             lines.add(custom.title().copy().withColor(custom.color()));
-        if (state.getBoolean("ignoreUpgradeCards")) lines.add(tr("compat_all_unlocked").withStyle(ChatFormatting.GREEN));
+        if (state.getBooleanOr("ignoreUpgradeCards", false)) lines.add(tr("compat_all_unlocked").withStyle(ChatFormatting.GREEN));
         return lines;
     }
 
     private List<Component> parallelTooltip() {
-        return List.of(title("parallel"), tr("parallel_used", HostText.expandedNumber(state.getLong("parallelUsed"))),
-            tr("parallel_capacity", HostText.expandedNumber(state.getLong("parallelCapacity"))), hint("parallel_hint"));
+        return List.of(title("parallel"), tr("parallel_used", HostText.expandedNumber(state.getLongOr("parallelUsed", 0L))),
+            tr("parallel_capacity", HostText.expandedNumber(state.getLongOr("parallelCapacity", 0L))), hint("parallel_hint"));
     }
 
     private List<Component> energyTooltip() {
-        return List.of(title("energy"), tr("energy_value", decimal(state.getDouble("energyUsage"))),
-            tr("fe_value", decimal(state.getDouble("feUsage")), HostText.expandedNumber(state.getLong("feBuffer"))),
+        return List.of(title("energy"), tr("energy_value", decimal(state.getDoubleOr("energyUsage", 0.0))),
+            tr("fe_value", decimal(state.getDoubleOr("feUsage", 0.0)), HostText.expandedNumber(state.getLongOr("feBuffer", 0L))),
             hint("fe_requirement"),
-            tr("energy_stored", HostText.expandedNumber((long) state.getDouble("energyStored")),
-                HostText.expandedNumber((long) state.getDouble("energyCapacity"))), hint("energy_hint"));
+            tr("energy_stored", HostText.expandedNumber((long) state.getDoubleOr("energyStored", 0.0)),
+                HostText.expandedNumber((long) state.getDoubleOr("energyCapacity", 0.0))), hint("energy_hint"));
     }
 
     private List<Component> overclockTooltip() {
         List<Component> lines = new ArrayList<>();
         lines.add(title("overclock"));
-        lines.add(settingState(state.getBoolean("overclocked")));
-        lines.add(tr("parallel_capacity", HostText.expandedNumber(state.getLong("parallelCapacity"))));
+        lines.add(settingState(state.getBooleanOr("overclocked", false)));
+        lines.add(tr("parallel_capacity", HostText.expandedNumber(state.getLongOr("parallelCapacity", 0L))));
         lines.add(hint(temperatureEnabled() ? "overclock_thermal_hint" : "overclock_coolant_hint"));
         lines.add(hint("overclock_energy_hint"));
-        if (temperatureEnabled() && !state.getBoolean("smartCooling")) {
+        if (temperatureEnabled() && !state.getBooleanOr("smartCooling", false)) {
             lines.add(hint("preheat_right_click_hint"));
-            lines.add(tr(state.getBoolean("preheating") ? "preheat_on" : "preheat_off"));
+            lines.add(tr(state.getBooleanOr("preheating", false) ? "preheat_on" : "preheat_off"));
             lines.add(tr("preheat_energy", HostText.expandedNumber((long) LargeWorkstationThermal.PREHEAT_AE_PER_TICK)));
             lines.add(hint("preheat_stop_hint"));
         }
@@ -368,18 +368,18 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         if (!temperatureEnabled()) return List.of(title("thermal"), coolantModeText(), hint("thermal_disabled_hint"));
         List<Component> lines = new ArrayList<>();
         lines.add(title("temperature_setting"));
-        lines.add(tr("temperature_value", precise(state.getDouble("temperature"))));
-        var profile = LargeWorkstationOverclock.forTemperature(true, state.getDouble("temperature"));
-        long limit = state.getBoolean("overheated") ? 0 : profile.maxParallelism();
+        lines.add(tr("temperature_value", precise(state.getDoubleOr("temperature", 0.0))));
+        var profile = LargeWorkstationOverclock.forTemperature(true, state.getDoubleOr("temperature", 0.0));
+        long limit = state.getBooleanOr("overheated", false) ? 0 : profile.maxParallelism();
         lines.add(tr("current_band", tr("temperature_band_value", temperatureBandName(), HostText.expandedNumber(limit))));
-        lines.add(tr("temperature_net_rate", signedRate(state.getDouble("temperatureChangePerSecond"))));
-        lines.add(tr("temperature_processing_rate", precise(state.getDouble("processingHeatPerSecond"))));
-        if (state.getDouble("preheatPerSecond") > 0) {
-            lines.add(tr("temperature_preheat_rate", precise(state.getDouble("preheatPerSecond"))));
+        lines.add(tr("temperature_net_rate", signedRate(state.getDoubleOr("temperatureChangePerSecond", 0.0))));
+        lines.add(tr("temperature_processing_rate", precise(state.getDoubleOr("processingHeatPerSecond", 0.0))));
+        if (state.getDoubleOr("preheatPerSecond", 0.0) > 0) {
+            lines.add(tr("temperature_preheat_rate", precise(state.getDoubleOr("preheatPerSecond", 0.0))));
         }
-        lines.add(tr("temperature_cooling_rate", precise(state.getDouble("coolingPerSecond"))));
-        if (state.getDouble("naturalCoolingPerSecond") > 0) {
-            lines.add(tr("temperature_natural_rate", precise(state.getDouble("naturalCoolingPerSecond"))));
+        lines.add(tr("temperature_cooling_rate", precise(state.getDoubleOr("coolingPerSecond", 0.0))));
+        if (state.getDoubleOr("naturalCoolingPerSecond", 0.0) > 0) {
+            lines.add(tr("temperature_natural_rate", precise(state.getDoubleOr("naturalCoolingPerSecond", 0.0))));
         }
         lines.add(hint("temperature_automatic_hint"));
         lines.add(hint("temperature_slowing_hint"));
@@ -388,9 +388,9 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             lines.add(tr("temperature_band_limits", displayTier(tier), (int) threshold.minimumTemperature(),
                 HostText.expandedNumber(threshold.maxParallelism())).withStyle(ChatFormatting.GRAY));
         }
-        if (state.getBoolean("overheated")) {
+        if (state.getBooleanOr("overheated", false)) {
             lines.add(pauseText());
-            lines.add(tr("recovery_progress", decimal(state.getInt("recoveryTicks") / 20.0),
+            lines.add(tr("recovery_progress", decimal(state.getIntOr("recoveryTicks", 0) / 20.0),
                 LargeWorkstationThermal.RECOVERY_TICKS / 20));
         } else lines.add(hint("temperature_overheat_hint"));
         return lines;
@@ -399,32 +399,32 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     private List<Component> coolingTooltip() {
         List<Component> lines = new ArrayList<>();
         lines.add(title("active_cooling"));
-        if (state.getBoolean("smartCooling")) {
+        if (state.getBooleanOr("smartCooling", false)) {
             lines.add(Component.translatable("gui.neoecoae.smart_cooling.control", state.getInt("coolingTarget"))
                 .withStyle(ChatFormatting.AQUA));
             lines.add(Component.translatable("gui.neoecoae.smart_cooling.help").withStyle(ChatFormatting.GRAY));
         }
-        lines.add(settingState(state.getBoolean("activeCooling")));
+        lines.add(settingState(state.getBooleanOr("activeCooling", false)));
         lines.add(tr("coolant_value", coolantTitle()));
         if (temperatureEnabled()) {
-            lines.add(tr("cooling_rate", precise(state.getDouble("coolingPerSecond"))));
-            double circulation = state.getBoolean("smartCooling")
-                ? (double) state.getInt("coolantPerTick") / LargeWorkstationThermal.COOLANT_PER_TICK : 1;
-            lines.add(tr("cooling_capacity", decimal(LargeWorkstationThermal.coolingPerSecond(state.getInt("coolantTier")) * circulation))
+            lines.add(tr("cooling_rate", precise(state.getDoubleOr("coolingPerSecond", 0.0))));
+            double circulation = state.getBooleanOr("smartCooling", false)
+                ? (double) state.getIntOr("coolantPerTick", 0) / LargeWorkstationThermal.COOLANT_PER_TICK : 1;
+            lines.add(tr("cooling_capacity", decimal(LargeWorkstationThermal.coolingPerSecond(state.getIntOr("coolantTier", 0)) * circulation))
                 .withStyle(ChatFormatting.GRAY));
         }
-        if (!state.getBoolean("smartCooling")) {
+        if (!state.getBooleanOr("smartCooling", false)) {
             lines.add(hint(temperatureEnabled() ? "cooling_thermal_hint" : "cooling_coolant_hint"));
         }
-        String problem = state.getString("coolingProblem");
-        if (state.getBoolean("activeCooling") && !problem.isEmpty() && !problem.endsWith(".none")) {
+        String problem = state.getStringOr("coolingProblem", "");
+        if (state.getBooleanOr("activeCooling", false) && !problem.isEmpty() && !problem.endsWith(".none")) {
             lines.add(Component.translatable(problem).withStyle(ChatFormatting.GOLD));
         }
-        if (!state.getBoolean("smartCooling")) lines.add(hint("cooling_preheat_hint"));
+        if (!state.getBooleanOr("smartCooling", false)) lines.add(hint("cooling_preheat_hint"));
         return lines;
     }
 
-    private LargeWorkstationModule module() { return LargeWorkstationModule.byName(state.getString("module")); }
+    private LargeWorkstationModule module() { return LargeWorkstationModule.byName(state.getStringOr("module", "")); }
 
     private ECOWorkstationModules.Module moduleDescription(String id, String legacy) {
         return moduleDescription(state, id, legacy);
@@ -432,31 +432,31 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
 
     private static ECOWorkstationModules.Module moduleDescription(
         CompoundTag tag, String id, String legacy) {
-        var parsed = tag.contains(id) ? net.minecraft.resources.ResourceLocation.tryParse(tag.getString(id)) : null;
+        var parsed = tag.contains(id) ? net.minecraft.resources.Identifier.tryParse(tag.getStringOr(id, "")) : null;
         return parsed == null ? ECOWorkstationModules.builtin(
-            LargeWorkstationModule.byName(tag.getString(legacy)))
+            LargeWorkstationModule.byName(tag.getStringOr(legacy, "")))
             : ECOWorkstationModules.resolve(parsed);
     }
     private boolean temperatureEnabled() {
-        return !state.contains("temperatureEnabled") || state.getBoolean("temperatureEnabled");
+        return !state.contains("temperatureEnabled") || state.getBooleanOr("temperatureEnabled", false);
     }
     private Component temperatureBandName() {
-        if (state.getBoolean("overheated")) return tr("status_overheated");
-        int tier = LargeWorkstationOverclock.forTemperature(true, state.getDouble("temperature")).coolingTier();
+        if (state.getBooleanOr("overheated", false)) return tr("status_overheated");
+        int tier = LargeWorkstationOverclock.forTemperature(true, state.getDoubleOr("temperature", 0.0)).coolingTier();
         return tier == 0 ? tr("band_regular") : tr("band", displayTier(tier));
     }
     private static Component coolantModeText() {
         return Component.translatable("gui.neoecoae.large_integrated_working_station.temperature_disabled");
     }
     private Component pauseText() {
-        String key = state.getString("pause");
+        String key = state.getStringOr("pause", "");
         return key.isEmpty() ? tr("status_idle") : Component.translatable(key)
             .withStyle(key.endsWith(".none") ? ChatFormatting.GRAY : ChatFormatting.GOLD);
     }
     private Component coolantTitle() {
-        if (state.getInt("coolantTier") == 0) return tr("no_coolant");
+        if (state.getIntOr("coolantTier", 0) == 0) return tr("no_coolant");
         return Component.translatable("gui.neoecoae.large_integrated_working_station.tier."
-            + switch (state.getInt("coolantTier")) { case 2 -> "water"; case 6 -> "sodium"; case 9 -> "cryotheum"; default -> "none"; });
+            + switch (state.getIntOr("coolantTier", 0)) { case 2 -> "water"; case 6 -> "sodium"; case 9 -> "cryotheum"; default -> "none"; });
     }
 
     private Component coolingName() {
@@ -469,15 +469,15 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     }
 
     private Component shortStatus() {
-        if (state.getBoolean("overheated")) return tr("status_overheated");
-        if (state.getBoolean("preheating")) return tr("preheat_on");
-        if (state.getInt("totalTasks") == 0) return tr("status_idle");
+        if (state.getBooleanOr("overheated", false)) return tr("status_overheated");
+        if (state.getBooleanOr("preheating", false)) return tr("preheat_on");
+        if (state.getIntOr("totalTasks", 0) == 0) return tr("status_idle");
         return tr(hasProblem() ? "status_paused" : "status_running");
     }
 
     private boolean hasProblem() {
-        String pause = state.getString("pause");
-        return !pause.isEmpty() && !pause.endsWith(".none") && !state.getBoolean("preheating");
+        String pause = state.getStringOr("pause", "");
+        return !pause.isEmpty() && !pause.endsWith(".none") && !state.getBooleanOr("preheating", false);
     }
 
     @Override
@@ -496,7 +496,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
                 WorkstationTextures.CIRCUIT_X, WorkstationTextures.CIRCUIT_Y, 28, 28);
         }
         text(context, description.shortTitle(), 181, 41, 35, 0.75f, 0xFFF2F2F2);
-        text(context, tr(!state.getBoolean("moduleInstalled") ? "module_empty" : "module_installed"),
+        text(context, tr(!state.getBooleanOr("moduleInstalled", false) ? "module_empty" : "module_installed"),
             181, 53, 35, 0.65f, 0xFFBEC6DD);
         if (tasks.isEmpty()) {
             centeredText(context, tr("empty_task"), 9, 65, 69, 0.8f, TEXT);
@@ -504,9 +504,9 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         }
         centeredText(context, queueRange(), 9, 119, 77, 0.65f, MUTED);
         text(context, tr("parallel"), 103, 39, 57, 0.7f, TEXT);
-        text(context, Component.literal(number(state.getLong("parallelUsed")) + " / " + number(state.getLong("parallelCapacity"))),
+        text(context, Component.literal(number(state.getLongOr("parallelUsed", 0L)) + " / " + number(state.getLongOr("parallelCapacity", 0L))),
             103, 49, 57, 0.8f, TEXT);
-        int parallelWidth = (int) Math.round(57 * ratio(state.getLong("parallelUsed"), state.getLong("parallelCapacity")));
+        int parallelWidth = (int) Math.round(57 * ratio(state.getLongOr("parallelUsed", 0L), state.getLongOr("parallelCapacity", 0L)));
         if (parallelWidth > 0) sprite(context, WorkstationTextures.widget(18, 161, parallelWidth, 7), 103, 59, parallelWidth, 7);
         text(context, tr("controls_heading"), 102, 72, 59, 0.7f, TEXT);
         centeredText(context, tr("overclock_short"), 102, 82, 15, 0.65f, TEXT);
@@ -518,30 +518,30 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         centeredText(context, tr("energy_short"), 189, 70, 12, 0.65f, TEXT);
         centeredText(context, tr("input_short"), 203, 70, 20, 0.7f, TEXT);
         centeredText(context, tr("output_short"), 226, 70, 20, 0.7f, TEXT);
-        int heatHeight = 7 + (int) Math.round(39 * ratio(temperatureEnabled() ? state.getDouble("temperature") : 0, 100));
+        int heatHeight = 7 + (int) Math.round(39 * ratio(temperatureEnabled() ? state.getDoubleOr("temperature", 0.0) : 0, 100));
         sprite(context, WorkstationTextures.widget(8, 207 - heatHeight, 10, heatHeight), 175, 124 - heatHeight, 10, heatHeight);
-        int energyHeight = (int) Math.round(46 * ratio(state.getDouble("energyUsage"), state.getDouble("energyScale")));
+        int energyHeight = (int) Math.round(46 * ratio(state.getDoubleOr("energyUsage", 0.0), state.getDoubleOr("energyScale", 0.0)));
         if (energyHeight > 0) sprite(context, WorkstationTextures.widget(0, 207 - energyHeight, 8, energyHeight),
             192, 124 - energyHeight, 8, energyHeight);
-        sprite(context, WorkstationTextures.temperatureIcon(temperatureEnabled() ? state.getDouble("temperature") : 0), 180, 136, 12, 12);
-        if (state.getInt("coolantTier") > 0) sprite(context, WorkstationTextures.coolingIcon(state.getInt("coolantTier")), 180, 161, 12, 12);
-        if (state.getBoolean("overclocked")) sprite(context, WorkstationTextures.widget(24, 87, 12, 12), 180, 186, 12, 12);
-        int band = WorkstationTextures.temperatureBand(state.getDouble("temperature"));
-        text(context, temperatureEnabled() ? state.getBoolean("overheated") ? tr("status_overheated")
+        sprite(context, WorkstationTextures.temperatureIcon(temperatureEnabled() ? state.getDoubleOr("temperature", 0.0) : 0), 180, 136, 12, 12);
+        if (state.getIntOr("coolantTier", 0) > 0) sprite(context, WorkstationTextures.coolingIcon(state.getIntOr("coolantTier", 0)), 180, 161, 12, 12);
+        if (state.getBooleanOr("overclocked", false)) sprite(context, WorkstationTextures.widget(24, 87, 12, 12), 180, 186, 12, 12);
+        int band = WorkstationTextures.temperatureBand(state.getDoubleOr("temperature", 0.0));
+        text(context, temperatureEnabled() ? state.getBooleanOr("overheated", false) ? tr("status_overheated")
             : band == 0 ? tr("band_regular") : tr("band", band) : tr("coolant_mode"),
-            198, 134, 44, 0.75f, state.getBoolean("overheated") ? WARNING : TEXT);
-        text(context, temperatureEnabled() ? tr("temperature_short", decimal(state.getDouble("temperature"))) : tr("thermal_disabled_short"),
+            198, 134, 44, 0.75f, state.getBooleanOr("overheated", false) ? WARNING : TEXT);
+        text(context, temperatureEnabled() ? tr("temperature_short", decimal(state.getDoubleOr("temperature", 0.0))) : tr("thermal_disabled_short"),
             198, 144, 44, 0.65f, MUTED);
         text(context, coolingName(), 198, 159, 44, 0.75f, TEXT);
-        text(context, temperatureEnabled() ? tr("cooling_rate_short", precise(state.getDouble("coolingPerSecond")))
-            : tr("thermal_disabled_short"), 198, 169, 44, 0.65f, state.getDouble("coolingPerSecond") > 0 ? SUCCESS : MUTED);
-        text(context, tr(state.getBoolean("overclocked") ? "overclock_on" : "overclock_off"),
-            198, 184, 44, 0.75f, state.getBoolean("overclocked") ? SUCCESS : TEXT);
-        text(context, tr("parallel_short", number(state.getLong("parallelCapacity"))), 198, 194, 44, 0.65f, MUTED);
+        text(context, temperatureEnabled() ? tr("cooling_rate_short", precise(state.getDoubleOr("coolingPerSecond", 0.0)))
+            : tr("thermal_disabled_short"), 198, 169, 44, 0.65f, state.getDoubleOr("coolingPerSecond", 0.0) > 0 ? SUCCESS : MUTED);
+        text(context, tr(state.getBooleanOr("overclocked", false) ? "overclock_on" : "overclock_off"),
+            198, 184, 44, 0.75f, state.getBooleanOr("overclocked", false) ? SUCCESS : TEXT);
+        text(context, tr("parallel_short", number(state.getLongOr("parallelCapacity", 0L))), 198, 194, 44, 0.65f, MUTED);
     }
 
     private void drawControlReadout(GUIContext context) {
-        boolean enabled = state.getBoolean("overclocked");
+        boolean enabled = state.getBooleanOr("overclocked", false);
         // Center the readout in the 29-pixel gap between the unchanged toggle slots.
         fill(context, 119, 90, 25, 24, 0xFF9B9EB0);
         fill(context, 120, 91, 23, 10, enabled ? 0xFFD4E6DE : 0xFFD5D6DF);

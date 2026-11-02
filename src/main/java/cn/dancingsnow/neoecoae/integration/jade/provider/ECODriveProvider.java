@@ -23,23 +23,23 @@ public enum ECODriveProvider implements IServerDataProvider<BlockAccessor> {
     @Override
     public void appendTooltip(ITooltip iTooltip, BlockAccessor blockAccessor, IPluginConfig iPluginConfig) {
         CompoundTag serverData = blockAccessor.getServerData();
-        if (serverData.getBoolean("tierMismatch")) {
+        if (serverData.getBooleanOr("tierMismatch", false)) {
             iTooltip.add(Component.translatable("jade.neoecoae.storage_matrix_tier_too_high")
                 .withStyle(ChatFormatting.RED));
         }
-        if (serverData.getBoolean("infiniteMember")) {
+        if (serverData.getBooleanOr("infiniteMember", false)) {
             iTooltip.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
                 .withStyle(ChatFormatting.LIGHT_PURPLE));
             return;
         }
-        if (serverData.getBoolean("infiniteResource")) {
-            if (serverData.getBoolean("mounted")) {
+        if (serverData.getBooleanOr("infiniteResource", false)) {
+            if (serverData.getBooleanOr("mounted", false)) {
                 iTooltip.add(Component.translatable("jade.neoecoae.drive_mounted").withStyle(ChatFormatting.GREEN));
             }
             return;
         }
         if (serverData.contains("mounted")) {
-            boolean mounted = serverData.getBoolean("mounted");
+            boolean mounted = serverData.getBooleanOr("mounted", false);
             if (mounted) {
                 iTooltip.add(Component.translatable("jade.neoecoae.drive_mounted").withStyle(ChatFormatting.GREEN));
             } else {
@@ -48,11 +48,11 @@ public enum ECODriveProvider implements IServerDataProvider<BlockAccessor> {
             }
         }
         if (serverData.contains("usedBytes") && serverData.contains("totalBytes")) {
-            iTooltip.add(bytesUsedLine(serverData.getLong("usedBytes"), serverData.getLong("totalBytes")));
+            iTooltip.add(bytesUsedLine(serverData.getLongOr("usedBytes", 0L), serverData.getLongOr("totalBytes", 0L)));
         }
         if (serverData.contains("storedItemTypes") && serverData.contains("totalItemTypes")) {
-            long storedItemTypes = serverData.getLong("storedItemTypes");
-            if (serverData.getBoolean("infiniteTypeCapacity")) {
+            long storedItemTypes = serverData.getLongOr("storedItemTypes", 0L);
+            if (serverData.getBooleanOr("infiniteTypeCapacity", false)) {
                 iTooltip.add(Tooltips.of(
                     Tooltips.ofUnformattedNumberWithRatioColor(storedItemTypes, 0, false),
                     Tooltips.of(" "),
@@ -63,7 +63,7 @@ public enum ECODriveProvider implements IServerDataProvider<BlockAccessor> {
                     Tooltips.of(GuiText.Types)
                 ));
             } else {
-                iTooltip.add(Tooltips.typesUsed(storedItemTypes, serverData.getLong("totalItemTypes")));
+                iTooltip.add(Tooltips.typesUsed(storedItemTypes, serverData.getLongOr("totalItemTypes", 0L)));
             }
         }
     }

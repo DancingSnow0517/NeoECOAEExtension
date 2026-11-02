@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -38,7 +38,7 @@ class ECOAddonContractsTest {
         var node = mock(IManagedGridNode.class);
         when(host.getMainNode()).thenReturn(node);
         when(host.getBlockState()).thenReturn(Blocks.STONE.defaultBlockState());
-        ResourceLocation id = id("power");
+        Identifier id = id("power");
         ECOPowerProfiles.register(id, 20, context -> context.host() == host
             ? context.defaultPower() * (context.state().is(Blocks.DIAMOND_BLOCK) ? 0.25 : 0.5) : null);
         try {
@@ -54,7 +54,7 @@ class ECOAddonContractsTest {
         var context = new ECOPowerProfiles.Context(mock(BlockEntity.class), Blocks.STONE.defaultBlockState(), null,
             ECOPowerRole.COMPONENT, 16, 4);
         assertEquals(20, ECOPowerProfiles.resolve(context));
-        ResourceLocation id = id("bad_power");
+        Identifier id = id("bad_power");
         ECOPowerProfiles.register(id, 0, ignored -> Double.NaN);
         try { assertThrows(IllegalArgumentException.class, () -> ECOPowerProfiles.resolve(context)); }
         finally { ECOPowerProfiles.unregister(id); }
@@ -66,7 +66,7 @@ class ECOAddonContractsTest {
         var fallback = mock(MultiBlockDefinition.class);
         var custom = mock(MultiBlockDefinition.class);
         assertSame(fallback, ECOMultiblockDefinitions.resolve(host, ECOMachineKind.STORAGE, tier, () -> fallback));
-        ResourceLocation id = id("definition");
+        Identifier id = id("definition");
         ECOMultiblockDefinitions.register(id, 0, context -> context.host() == host && context.kind() == ECOMachineKind.COMPUTATION ? custom : null);
         try {
             assertSame(custom, ECOMultiblockDefinitions.resolve(host, ECOMachineKind.COMPUTATION, tier, () -> fallback));
@@ -91,7 +91,7 @@ class ECOAddonContractsTest {
     }
 
     @Test void registeredAlternativesReachTheExistingFormationHelper() {
-        ResourceLocation id = id("alternate");
+        Identifier id = id("alternate");
         Level level = mock(Level.class);
         when(level.getBlockState(BlockPos.ZERO)).thenReturn(Blocks.BRICKS.defaultBlockState());
         ECOMultiblockRequirements.registerAlternatives(id, 0, Blocks.STONE, Set.of(Blocks.BRICKS));
@@ -102,7 +102,7 @@ class ECOAddonContractsTest {
 
     @Test void driveRolesRowsAndOrderAreExplicitAndCanBeWithdrawn() {
         var context = new ECOMultiblockParts.Context(null, BlockPos.ZERO, Blocks.STONE.defaultBlockState(), null);
-        ResourceLocation id = id("part");
+        Identifier id = id("part");
         ECOMultiblockParts.register(id, 0, ignored -> new ECOMultiblockParts.Part(Set.of(ECOMultiblockParts.Role.COMPUTATION_DRIVE),
             ECOTier.L4, ECOMultiblockParts.DriveRow.UPPER, -20));
         try {
@@ -122,7 +122,7 @@ class ECOAddonContractsTest {
         when(((IECOComputationCellItem) item).getTier(independent)).thenReturn(ECOTier.L4);
         when(((IECOComputationCellItem) item).getComputationBytes(independent)).thenReturn(123L);
         assertEquals(123, ECOComputationCells.describe(independent).bytes());
-        ResourceLocation id = id("memory_adapter");
+        Identifier id = id("memory_adapter");
         ECOComputationCells.register(id, 0, stack -> stack.is(Items.DIAMOND)
             ? new ECOComputationCells.Memory(ECOTier.L6, stack.getCount() * 100L) : null);
         try {
@@ -161,5 +161,5 @@ class ECOAddonContractsTest {
         @Override public IECOTier getTier() { return ECOTier.L4; }
         @Override public long getComputationBytes(ItemStack stack) { return 123; }
     }
-    private static ResourceLocation id(String path) { return ResourceLocation.fromNamespaceAndPath("addon_contract_test", path); }
+    private static Identifier id(String path) { return Identifier.fromNamespaceAndPath("addon_contract_test", path); }
 }

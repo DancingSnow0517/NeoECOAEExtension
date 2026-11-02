@@ -4,7 +4,7 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.junit.jupiter.api.Test;
@@ -12,8 +12,8 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LargeWorkstationCoolingOutputTest {
-    private static final ResourceLocation FIRST = ResourceLocation.parse("test:first_coolant");
-    private static final ResourceLocation SECOND = ResourceLocation.parse("test:second_coolant");
+    private static final Identifier FIRST = Identifier.parse("test:first_coolant");
+    private static final Identifier SECOND = Identifier.parse("test:second_coolant");
     private static final FluidStack OUTPUT = new FluidStack(Fluids.WATER, 1);
 
     @Test
@@ -76,7 +76,7 @@ class LargeWorkstationCoolingOutputTest {
         assertEquals(66, process(state, FIRST, 300, 200));
     }
 
-    private static int process(LargeWorkstationCoolingOutput state, ResourceLocation id, int input, int output) {
+    private static int process(LargeWorkstationCoolingOutput state, Identifier id, int input, int output) {
         var plan = state.plan(id, OUTPUT, input, output, 100);
         assertNotNull(plan);
         int produced = plan.output().getAmount();

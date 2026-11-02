@@ -46,11 +46,11 @@ record ComputationCpuItemEntry(AEKey key, BigInteger stored, BigInteger active, 
 
     static ComputationCpuItemEntry read(CompoundTag tag, HolderLookup.Provider registries) {
         return new ComputationCpuItemEntry(
-            AEKey.fromTagGeneric(registries, tag.getCompound("key")),
-            new BigInteger(tag.getByteArray("stored")),
-            new BigInteger(tag.getByteArray("active")),
-            new BigInteger(tag.getByteArray("pending")),
+            AEKey.fromTagGeneric(registries, tag.getCompoundOrEmpty("key")),
+            new BigInteger(tag.getByteArray("stored").orElseGet(() -> new byte[0])),
+            new BigInteger(tag.getByteArray("active").orElseGet(() -> new byte[0])),
+            new BigInteger(tag.getByteArray("pending").orElseGet(() -> new byte[0])),
             tag.getBoolean("batched"),
-            ECOProcessingProgress.read(tag.getCompound("processing"), registries));
+            ECOProcessingProgress.read(tag.getCompoundOrEmpty("processing"), registries));
     }
 }

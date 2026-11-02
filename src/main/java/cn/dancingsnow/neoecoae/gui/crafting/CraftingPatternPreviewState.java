@@ -300,42 +300,42 @@ final class CraftingPatternPreviewState {
 
     void receive(CompoundTag payload) {
         if (!player.level().isClientSide || craftingInterface.getLevel() == null
-                || payload.getInt("menu") != player.containerMenu.containerId) return;
-        long incomingEpoch = payload.getLong("epoch");
-        if (payload.getBoolean("reuse")) {
-            if (revision < 0 || incomingEpoch != epoch || payload.getInt("base") != revision
-                    || payload.getInt("size") != entries.length) {
+                || payload.getIntOr("menu", 0) != player.containerMenu.containerId) return;
+        long incomingEpoch = payload.getLongOr("epoch", 0L);
+        if (payload.getBooleanOr("reuse", false)) {
+            if (revision < 0 || incomingEpoch != epoch || payload.getIntOr("base", 0) != revision
+                    || payload.getIntOr("size", 0) != entries.length) {
                 return;
             }
-            menuId = payload.getInt("menu");
-            revision = payload.getInt("revision");
+            menuId = payload.getIntOr("menu", 0);
+            revision = payload.getIntOr("revision", 0);
             pending = null;
             return;
         }
-        boolean full = payload.getBoolean("full");
-        if (payload.getBoolean("first")) {
+        boolean full = payload.getBooleanOr("full", false);
+        if (payload.getBooleanOr("first", false)) {
             pendingEpoch = incomingEpoch;
             pending = null;
             pendingChanges.clear();
             receivedEntries = 0;
-            if (!full && (payload.getInt("base") != revision || menuId != payload.getInt("menu"))) return;
-            int size = payload.getInt("size");
+            if (!full && (payload.getIntOr("base", 0) != revision || menuId != payload.getIntOr("menu", 0))) return;
+            int size = payload.getIntOr("size", 0);
             if (size < 0 || size > PatternPreviewCodec.MAX_SLOTS || (!full && size != entries.length)) return;
             pendingFull = full;
-            sparseFull = full && payload.contains("layout", Tag.TAG_LIST);
+            sparseFull = full && payload.contains("layout");
             if (full) localizedEntries.clear();
             awaitingEntries.clear();
             pending = full ? emptyBaseline(payload, size) : entries;
-            pendingRevision = payload.getInt("revision");
-            menuId = payload.getInt("menu");
+            pendingRevision = payload.getIntOr("revision", 0);
+            menuId = payload.getIntOr("menu", 0);
         }
-        if (pending == null || incomingEpoch != pendingEpoch || payload.getInt("revision") != pendingRevision) return;
-        var batch = payload.getList("entries", Tag.TAG_COMPOUND);
+        if (pending == null || incomingEpoch != pendingEpoch || payload.getIntOr("revision", 0) != pendingRevision) return;
+        var batch = payload.getListOrEmpty("entries");
         BitSet pageChanges = new BitSet();
         boolean diskRowsChanged = false;
         for (int index = 0; index < batch.size(); index++) {
             CompoundTag entry = batch.getCompound(index);
-            int logicalSlot = entry.getInt("index");
+            int logicalSlot = entry.getIntOr("index", 0);
             if (logicalSlot < 0 || logicalSlot >= pending.length) {
                 pending = null;
                 return;
@@ -345,15 +345,15 @@ final class CraftingPatternPreviewState {
             if (hasSearch()) decoded = localize(decoded);
             localizedEntries.set(logicalSlot, hasSearch());
             if (!pendingFull && entry.contains("diskSize")) {
-                int diskSize = entry.getInt("diskSize");
+                int diskSize = entry.getIntOr("diskSize", 0);
                 if (diskSize < 0 || diskSize > PatternPreviewCodec.MAX_SLOTS) { pending = null; return; }
                 List<PatternPreviewEntry.DiskPattern> disk = new ArrayList<>(entries[logicalSlot].diskPatterns());
                 if (diskSize < disk.size()) disk.subList(diskSize, disk.size()).clear();
                 while (disk.size() < diskSize) disk.add(null);
-                ListTag changes = entry.getList("diskChanges", Tag.TAG_COMPOUND);
+                ListTag changes = entry.getListOrEmpty("diskChanges");
                 for (int recipe = 0; recipe < changes.size(); recipe++) {
-                    CompoundTag change = changes.getCompound(recipe);
-                    int target = change.getInt("recipe");
+                    CompoundTag change = changes.getCompoundOrEmpty(recipe);
+                    int target = change.getIntOr("recipe", 0);
                     if (target < 0 || target >= diskSize) { pending = null; return; }
                     var diskRecipe = PatternPreviewEntry.DiskPattern.decode(change, player.level().registryAccess());
                     disk.set(target, hasSearch() ? localize(diskRecipe) : diskRecipe);
@@ -372,12 +372,12 @@ final class CraftingPatternPreviewState {
         if (sparseFull) {
             // The layout establishes empty capacity once. Later pages update their actual cells only.
             entries = pending;
-            if (payload.getBoolean("first")) rows.reset(entries);
+            if (payload.getBooleanOr("first", false)) rows.reset(entries);
             else rows.changed(pageChanges, diskRowsChanged);
             clampScroll();
             updateSlots();
         }
-        if (!payload.getBoolean("last")) {
+        if (!payload.getBooleanOr("last", false)) {
             // Show received patterns immediately. A completed cached view stays visible during refreshes.
             if (pendingFull && !sparseFull && revision < 0) {
                 entries = pending;
@@ -427,19 +427,19 @@ final class CraftingPatternPreviewState {
     private PatternPreviewEntry[] emptyBaseline(CompoundTag payload, int size) {
         PatternPreviewEntry[] baseline = new PatternPreviewEntry[size];
         if (!sparseFull) return baseline;
-        ListTag layout = payload.getList("layout", Tag.TAG_COMPOUND);
+        ListTag layout = payload.getListOrEmpty("layout");
         int offset = 0;
         for (int bus = 0; bus < layout.size(); bus++) {
-            CompoundTag provider = layout.getCompound(bus);
-            int count = provider.getInt("count");
+            CompoundTag provider = layout.getCompoundOrEmpty(bus);
+            int count = provider.getIntOr("count", 0);
             if (count < 0 || count > size - offset) throw new IllegalArgumentException("Invalid preview layout");
             for (int slot = 0; slot < count; slot++) {
-                baseline[offset++] = new PatternPreviewEntry(provider.getLong("bus"), slot, ItemStack.EMPTY,
+                baseline[offset++] = new PatternPreviewEntry(provider.getLongOr("bus", 0L), slot, ItemStack.EMPTY,
                         "", "", List.of(), false);
             }
         }
         if (offset != size) throw new IllegalArgumentException("Incomplete preview layout");
-        for (int occupied : payload.getIntArray("occupied")) {
+        for (int occupied : payload.getIntArray("occupied").orElseGet(() -> new int[0])) {
             if (occupied < 0 || occupied >= size) throw new IllegalArgumentException("Invalid occupied preview slot");
             awaitingEntries.set(occupied);
         }

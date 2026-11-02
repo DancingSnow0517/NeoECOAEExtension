@@ -17,32 +17,32 @@ public final class PatternPreviewCodec {
     private PatternPreviewCodec() {}
 
     public static void write(RegistryFriendlyByteBuf buf, CompoundTag payload) {
-        buf.writeVarInt(payload.getInt("menu"));
-        buf.writeVarInt(payload.getInt("revision"));
-        buf.writeVarInt(payload.getInt("base"));
-        buf.writeLong(payload.getLong("epoch"));
-        buf.writeVarInt(payload.getInt("size"));
-        buf.writeByte((payload.getBoolean("full") ? 1 : 0)
-                | (payload.getBoolean("first") ? 2 : 0) | (payload.getBoolean("last") ? 4 : 0)
-                | (payload.getBoolean("reuse") ? 8 : 0) | (payload.contains("layout") ? 16 : 0));
+        buf.writeVarInt(payload.getIntOr("menu", 0));
+        buf.writeVarInt(payload.getIntOr("revision", 0));
+        buf.writeVarInt(payload.getIntOr("base", 0));
+        buf.writeLong(payload.getLongOr("epoch", 0L));
+        buf.writeVarInt(payload.getIntOr("size", 0));
+        buf.writeByte((payload.getBooleanOr("full", false) ? 1 : 0)
+                | (payload.getBooleanOr("first", false) ? 2 : 0) | (payload.getBooleanOr("last", false) ? 4 : 0)
+                | (payload.getBooleanOr("reuse", false) ? 8 : 0) | (payload.contains("layout") ? 16 : 0));
         if (payload.contains("layout")) {
-            ListTag layout = payload.getList("layout", Tag.TAG_COMPOUND);
+            ListTag layout = payload.getListOrEmpty("layout");
             buf.writeVarInt(layout.size());
             for (int i = 0; i < layout.size(); i++) {
-                buf.writeLong(layout.getCompound(i).getLong("bus"));
-                buf.writeVarInt(layout.getCompound(i).getInt("count"));
+                buf.writeLong(layout.getCompoundOrEmpty(i).getLongOr("bus", 0L));
+                buf.writeVarInt(layout.getCompoundOrEmpty(i).getIntOr("count", 0));
             }
-            int[] occupied = payload.getIntArray("occupied");
+            int[] occupied = payload.getIntArray("occupied").orElseGet(() -> new int[0]);
             buf.writeVarInt(occupied.length);
             for (int index : occupied) buf.writeVarInt(index);
         }
-        ListTag entries = payload.getList("entries", Tag.TAG_COMPOUND);
+        ListTag entries = payload.getListOrEmpty("entries");
         Object2IntOpenHashMap<CompoundTag> dictionary = new Object2IntOpenHashMap<>();
         dictionary.defaultReturnValue(-1);
         List<CompoundTag> contents = new ArrayList<>();
         List<Run> runs = new ArrayList<>();
         for (int i = 0; i < entries.size(); i++) {
-            CompoundTag entry = entries.getCompound(i);
+            CompoundTag entry = entries.getCompoundOrEmpty(i);
             CompoundTag content = entry.copy();
             content.remove("index");
             content.remove("bus");
@@ -50,8 +50,8 @@ public final class PatternPreviewCodec {
             if (content.getCompound("stack").isEmpty()) content.remove("stack");
             if (content.getString("inputs").isEmpty()) content.remove("inputs");
             if (content.getString("output").isEmpty()) content.remove("output");
-            if (content.getList("disk", Tag.TAG_COMPOUND).isEmpty()) content.remove("disk");
-            if (!content.getBoolean("diskSlot")) content.remove("diskSlot");
+            if (content.getListOrEmpty("disk").isEmpty()) content.remove("disk");
+            if (!content.getBooleanOr("diskSlot", false)) content.remove("diskSlot");
             int id = -1;
             if (!content.isEmpty()) {
                 id = dictionary.computeIntIfAbsent(content, key -> {
@@ -59,9 +59,9 @@ public final class PatternPreviewCodec {
                     return contents.size() - 1;
                 });
             }
-            int index = entry.getInt("index");
-            long bus = entry.getLong("bus");
-            int slot = entry.getInt("slot");
+            int index = entry.getIntOr("index", 0);
+            long bus = entry.getLongOr("bus", 0L);
+            int slot = entry.getIntOr("slot", 0);
             Run last = runs.isEmpty() ? null : runs.getLast();
             if (last != null && last.content == id && last.bus == bus
                     && last.index + last.count == index && last.slot + last.count == slot) last.count++;

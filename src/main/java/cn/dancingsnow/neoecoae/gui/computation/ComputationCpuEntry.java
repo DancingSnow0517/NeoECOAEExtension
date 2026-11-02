@@ -12,13 +12,13 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 /** Compact status shared by the CPU row, selected summary and tooltips, including fluid targets. */
 record ComputationCpuEntry(int serial, String name, @Nullable AEKey output,
         BigInteger requested, BigInteger remaining, float progress, long elapsed,
-        long storage, int parallel, CpuSelectionMode mode, ResourceLocation overlay, String status) {
+        long storage, int parallel, CpuSelectionMode mode, Identifier overlay, String status) {
     String amount(BigInteger value, boolean full) {
         int unit = output == null ? 1 : Math.max(1, output.getAmountPerUnit());
         String number = full ? DisplayNumbers.grouped(new BigDecimal(value)
@@ -70,10 +70,10 @@ record ComputationCpuEntry(int serial, String name, @Nullable AEKey output,
 
     static ComputationCpuEntry read(CompoundTag tag, HolderLookup.Provider registries) {
         return new ComputationCpuEntry(tag.getInt("serial"), tag.getString("name"),
-            tag.contains("output") ? AEKey.fromTagGeneric(registries, tag.getCompound("output")) : null,
-            new BigInteger(tag.getByteArray("requested")), new BigInteger(tag.getByteArray("remaining")),
+            tag.contains("output") ? AEKey.fromTagGeneric(registries, tag.getCompoundOrEmpty("output")) : null,
+            new BigInteger(tag.getByteArray("requested").orElseGet(() -> new byte[0])), new BigInteger(tag.getByteArray("remaining").orElseGet(() -> new byte[0])),
             tag.getFloat("progress"), tag.getLong("elapsed"), tag.getLong("storage"), tag.getInt("parallel"),
-            CpuSelectionMode.values()[Math.clamp(tag.getInt("mode"), 0, CpuSelectionMode.values().length - 1)],
-            ResourceLocation.parse(tag.getString("overlay")), tag.getString("status"));
+            CpuSelectionMode.values()[Math.clamp(tag.getIntOr("mode", 0), 0, CpuSelectionMode.values().length - 1)],
+            Identifier.parse(tag.getStringOr("overlay", "")), tag.getStringOr("status", ""));
     }
 }

@@ -106,15 +106,15 @@ public final class ECOExecutionPlanNbtCodec {
 
     public static ECOExecutionPlan decode(CompoundTag data, HolderLookup.Provider registries,
             ECOCraftingCPULogic cpu, GenericStack finalOutput) {
-        ExecutionMode mode = ExecutionMode.valueOf(data.getString("mode"));
-        ListTag taskTags = data.getList("tasks", Tag.TAG_COMPOUND);
+        ExecutionMode mode = ExecutionMode.valueOf(data.getStringOr("mode", ""));
+        ListTag taskTags = data.getListOrEmpty("tasks");
         List<ECOExecutionPlan.TaskSpec> tasks = new ArrayList<>(taskTags.size());
         Map<Integer, IPatternDetails> patternsById = new HashMap<>();
         for (int i = 0; i < taskTags.size(); i++) {
-            CompoundTag taskTag = taskTags.getCompound(i);
-            int id = taskTag.getInt("id");
+            CompoundTag taskTag = taskTags.getCompoundOrEmpty(i);
+            int id = taskTag.getIntOr("id", 0);
             if (id != i) throw new IllegalArgumentException("Persisted execution task ids are not dense");
-            AEItemKey definition = AEItemKey.fromTag(registries, taskTag.getCompound("pattern"));
+            AEItemKey definition = AEItemKey.fromTag(registries, taskTag.getCompoundOrEmpty("pattern"));
             IPatternDetails pattern = PatternDetailsHelper.decodePattern(definition, cpu.cpu.getLevel());
             if (pattern == null) throw new IllegalArgumentException("Persisted execution pattern cannot be decoded");
             PlanIdentity.PatternIdentity identity = PlanIdentity.patternIdentityFor(pattern);
@@ -122,64 +122,64 @@ public final class ECOExecutionPlanNbtCodec {
             patternsById.put(id, pattern);
 
             List<PlannedInputAllocation> allocations = new ArrayList<>();
-            ListTag allocationTags = taskTag.getList("inputAllocations", Tag.TAG_COMPOUND);
+            ListTag allocationTags = taskTag.getListOrEmpty("inputAllocations");
             for (int allocationIndex = 0; allocationIndex < allocationTags.size(); allocationIndex++) {
-                CompoundTag allocationTag = allocationTags.getCompound(allocationIndex);
+                CompoundTag allocationTag = allocationTags.getCompoundOrEmpty(allocationIndex);
                 List<PlannedInputAllocation.Run> runs = new ArrayList<>();
-                ListTag runTags = allocationTag.getList("runs", Tag.TAG_COMPOUND);
+                ListTag runTags = allocationTag.getListOrEmpty("runs");
                 for (int runIndex = 0; runIndex < runTags.size(); runIndex++) {
-                    CompoundTag runTag = runTags.getCompound(runIndex);
+                    CompoundTag runTag = runTags.getCompoundOrEmpty(runIndex);
                     GenericStack stack = GenericStack.readTag(registries, runTag);
-                    long crafts = runTag.getLong("crafts");
+                    long crafts = runTag.getLongOr("crafts", 0L);
                     if (stack == null) throw new IllegalArgumentException("Invalid persisted input allocation");
                     runs.add(new PlannedInputAllocation.Run(stack.what(), stack.amount(), crafts));
                 }
-                allocations.add(new PlannedInputAllocation(allocationTag.getInt("slot"), runs));
+                allocations.add(new PlannedInputAllocation(allocationTag.getIntOr("slot", 0), runs));
             }
             tasks.add(new ECOExecutionPlan.TaskSpec(id, identity, pattern,
                 ECOExecutionPlan.PatternRuntimeInfo.from(pattern), taskTag.getLong("total"),
-                taskTag.getInt("phase"), ECOExecutionPlan.TaskKind.valueOf(taskTag.getString("kind")), allocations));
+                taskTag.getIntOr("phase", 0), ECOExecutionPlan.TaskKind.valueOf(taskTag.getStringOr("kind", "")), allocations));
         }
 
-        ListTag phaseTags = data.getList("phases", Tag.TAG_COMPOUND);
+        ListTag phaseTags = data.getListOrEmpty("phases");
         List<ECOExecutionPlan.PhaseSpec> phases = new ArrayList<>(phaseTags.size());
         List<ECOExecutionSchedule.ComponentExecutionPhase> schedulePhases = new ArrayList<>(phaseTags.size());
         List<ECOExecutionSchedule.PhaseDependency> dependencies = new ArrayList<>();
         for (int i = 0; i < phaseTags.size(); i++) {
-            CompoundTag phaseTag = phaseTags.getCompound(i);
-            int index = phaseTag.getInt("index");
+            CompoundTag phaseTag = phaseTags.getCompoundOrEmpty(i);
+            int index = phaseTag.getIntOr("index", 0);
             if (index != i) throw new IllegalArgumentException("Persisted execution phase ids are not dense");
-            ECOExecutionSchedule.Type type = ECOExecutionSchedule.Type.valueOf(phaseTag.getString("type"));
-            List<Integer> taskIds = Arrays.stream(phaseTag.getIntArray("tasks")).boxed().toList();
-            List<Integer> phaseDependencies = Arrays.stream(phaseTag.getIntArray("dependencies")).boxed().toList();
+            ECOExecutionSchedule.Type type = ECOExecutionSchedule.Type.valueOf(phaseTag.getStringOr("type", ""));
+            List<Integer> taskIds = Arrays.stream(phaseTag.getIntArray("tasks").orElseGet(() -> new int[0])).boxed().toList();
+            List<Integer> phaseDependencies = Arrays.stream(phaseTag.getIntArray("dependencies").orElseGet(() -> new int[0])).boxed().toList();
 
             List<ECOExecutionPlan.ExecutionStep> steps = new ArrayList<>();
-            ListTag stepTags = phaseTag.getList("steps", Tag.TAG_COMPOUND);
+            ListTag stepTags = phaseTag.getListOrEmpty("steps");
             for (int stepIndex = 0; stepIndex < stepTags.size(); stepIndex++) {
-                CompoundTag step = stepTags.getCompound(stepIndex);
-                steps.add(new ECOExecutionPlan.ExecutionStep(step.getInt("task"), step.getLong("count"),
+                CompoundTag step = stepTags.getCompoundOrEmpty(stepIndex);
+                steps.add(new ECOExecutionPlan.ExecutionStep(step.getIntOr("task", 0), step.getLongOr("count", 0L),
                     step.contains("repeatWidth") ? step.getInt("repeatWidth") : 1,
                     step.contains("repetitions") ? step.getLong("repetitions") : 1L));
             }
 
             Map<Integer, Long> dynamic = new LinkedHashMap<>();
-            ListTag dynamicTags = phaseTag.getList("dynamic", Tag.TAG_COMPOUND);
+            ListTag dynamicTags = phaseTag.getListOrEmpty("dynamic");
             for (int dynamicIndex = 0; dynamicIndex < dynamicTags.size(); dynamicIndex++) {
-                CompoundTag firing = dynamicTags.getCompound(dynamicIndex);
-                dynamic.put(firing.getInt("task"), firing.getLong("count"));
+                CompoundTag firing = dynamicTags.getCompoundOrEmpty(dynamicIndex);
+                dynamic.put(firing.getIntOr("task", 0), firing.getLongOr("count", 0L));
             }
 
             Map<AEKey, Long> seed = new LinkedHashMap<>();
-            ListTag seedTags = phaseTag.getList("initialSeed", Tag.TAG_COMPOUND);
+            ListTag seedTags = phaseTag.getListOrEmpty("initialSeed");
             for (int seedIndex = 0; seedIndex < seedTags.size(); seedIndex++) {
-                GenericStack stack = GenericStack.readTag(registries, seedTags.getCompound(seedIndex));
+                GenericStack stack = GenericStack.readTag(registries, seedTags.getCompoundOrEmpty(seedIndex));
                 if (stack == null || stack.amount() <= 0L) {
                     throw new IllegalArgumentException("Invalid persisted seed");
                 }
                 seed.put(stack.what(), stack.amount());
             }
 
-            phases.add(new ECOExecutionPlan.PhaseSpec(index, phaseTag.getInt("component"), type,
+            phases.add(new ECOExecutionPlan.PhaseSpec(index, phaseTag.getIntOr("component", 0), type,
                 taskIds, steps, phaseDependencies, dynamic, seed));
 
             LinkedHashSet<IPatternDetails> patternSet = new LinkedHashSet<>();
@@ -189,7 +189,7 @@ public final class ECOExecutionPlanNbtCodec {
                 patternSet.add(pattern);
             }
             schedulePhases.add(new ECOExecutionSchedule.ComponentExecutionPhase(
-                phaseTag.getInt("component"), type, patternSet, List.of()));
+                phaseTag.getIntOr("component", 0), type, patternSet, List.of()));
             for (int dependency : phaseDependencies) {
                 dependencies.add(new ECOExecutionSchedule.PhaseDependency(dependency, index));
             }
@@ -198,7 +198,7 @@ public final class ECOExecutionPlanNbtCodec {
         Map<PlanIdentity.PatternIdentity, Long> signatureTasks = new LinkedHashMap<>();
         for (var task : tasks) signatureTasks.put(task.identity(), task.totalCount());
         if (finalOutput == null) throw new IllegalArgumentException("Persisted execution job has no final output");
-        long plannedAmount = data.contains("plannedOutputAmount") ? data.getLong("plannedOutputAmount") : finalOutput.amount();
+        long plannedAmount = data.contains("plannedOutputAmount") ? data.getLongOr("plannedOutputAmount", 0L) : finalOutput.amount();
         if (plannedAmount <= 0 || plannedAmount > finalOutput.amount())
             throw new IllegalArgumentException("Invalid persisted remaining-plan output amount");
         PlanIdentity.Signature signature = new PlanIdentity.Signature(

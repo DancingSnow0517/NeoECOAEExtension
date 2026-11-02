@@ -5,17 +5,17 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import java.util.function.Supplier;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.VanillaSpriteTexture;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /** Pixel rectangles in the storage host artwork. */
 final class StoragePanelTextures {
     // Deep purple stays legible on both the grey type cards and the light host panel.
     static final int VALUE_TEXT = 0x32204F;
-    private static final ResourceLocation ATLAS = id("storage_widget.png");
+    private static final Identifier ATLAS = id("storage_widget.png");
     // Let the GUI atlas consume .mcmeta. GeckoLib replaces raw animated textures with a
     // single uploaded frame, so sampling that texture as a 12x120 sheet breaks the UVs.
     static final VanillaSpriteTexture INFINITE_ANIMATION = VanillaSpriteTexture.of(
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "storage/infinity"));
+        Identifier.fromNamespaceAndPath("neoecoae", "storage/infinity"));
     // Keep the central glyph at its native size; only the side filler repeats.
     static final SpriteTexture INFINITE_CAPACITY_SYMBOL = sprite(32, 78, 16, 8);
     // Repeat only the six solid line columns; keep the blank end columns at the outer edges and glyph.
@@ -48,8 +48,8 @@ final class StoragePanelTextures {
 
     private StoragePanelTextures() {}
 
-    private static ResourceLocation id(String file) {
-        return ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/guis/storage/" + file);
+    private static Identifier id(String file) {
+        return Identifier.fromNamespaceAndPath("neoecoae", "textures/guis/storage/" + file);
     }
 
     static SpriteTexture sprite(int x, int y, int width, int height) {
@@ -73,11 +73,11 @@ final class StoragePanelTextures {
         return sprite((Math.clamp(tier, 1, 3) - 1) * 13, 0, 13, 18);
     }
 
-    static SpriteTexture tier(int tier, ResourceLocation custom) {
+    static SpriteTexture tier(int tier, Identifier custom) {
         return custom == null ? tier(tier) : SpriteTexture.of(custom).setSprite(0, 0, 13, 18);
     }
 
-    static SpriteTexture hostMarker(int tier, boolean bottom, ResourceLocation custom) {
+    static SpriteTexture hostMarker(int tier, boolean bottom, Identifier custom) {
         return custom == null ? hostMarker(tier, bottom)
             : SpriteTexture.of(custom).setSprite(0, bottom ? 8 : 0, 13, 8);
     }
@@ -132,7 +132,7 @@ final class StoragePanelTextures {
     }
 
     /** Fixed resource channels from the supplied legend; other channels use the tintable extra sprite. */
-    static int swatchIndex(ResourceLocation id) {
+    static int swatchIndex(Identifier id) {
         if (id == null) return FALLBACK_SWATCH;
         return switch (id.toString()) {
             case "neoecoae:mekanism", "neoecoae:mega_chemical", "neoecoae:bigger_ae2_chemical", "appmek:chemical" -> 0;

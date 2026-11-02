@@ -21,14 +21,14 @@ public enum ECOCraftingSystemProvider implements IServerDataProvider<BlockAccess
     public void appendTooltip(ITooltip iTooltip, BlockAccessor blockAccessor, IPluginConfig iPluginConfig) {
         CompoundTag data = blockAccessor.getServerData();
         if (data.contains("overclocked")) {
-            boolean overclocked = data.getBoolean("overclocked");
+            boolean overclocked = data.getBooleanOr("overclocked", false);
             iTooltip.add(Component.translatable(overclocked
                     ? "jade.neoecoae.overclocked"
                     : "jade.neoecoae.overclock_disabled")
                 .withStyle(overclocked ? ChatFormatting.GOLD : ChatFormatting.GRAY));
         }
         if (data.contains("activeCooling")) {
-            boolean activeCooling = data.getBoolean("activeCooling");
+            boolean activeCooling = data.getBooleanOr("activeCooling", false);
             iTooltip.add(Component.translatable(activeCooling
                     ? "jade.neoecoae.activeCooling"
                     : "jade.neoecoae.active_cooling_disabled")
@@ -39,7 +39,7 @@ public enum ECOCraftingSystemProvider implements IServerDataProvider<BlockAccess
                 Component.literal(data.getInt("coolant") + " mB").withStyle(ChatFormatting.BLUE)));
         }
         if (data.contains("coolingMaxOverclock")) {
-            int coolingMaxOverclock = data.getInt("coolingMaxOverclock");
+            int coolingMaxOverclock = data.getIntOr("coolingMaxOverclock", 0);
             if (coolingMaxOverclock >= 0) {
                 iTooltip.add(Component.translatable("jade.neoecoae.coolant_max_overclock", coolingMaxOverclock));
             } else {
@@ -47,7 +47,7 @@ public enum ECOCraftingSystemProvider implements IServerDataProvider<BlockAccess
             }
         }
         if (data.contains("normalSwitchHosts")) {
-            boolean virtual = data.getBoolean("virtualMode");
+            boolean virtual = data.getBooleanOr("virtualMode", false);
             Component normalSwitches = Component.translatable("jade.neoecoae.normal_switch")
                 .withStyle(ChatFormatting.GREEN);
             Component highEnergySwitches = Component.translatable("jade.neoecoae.high_energy_switch")

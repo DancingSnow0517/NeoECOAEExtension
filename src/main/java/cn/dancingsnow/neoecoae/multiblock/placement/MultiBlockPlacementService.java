@@ -267,10 +267,6 @@ public final class MultiBlockPlacementService {
         return ItemAccess.forHandlerIndex(handler, slot).getCapability(Capabilities.Item.ITEM);
     }
 
-    private static void mergeItem(List<ItemStack> requiredItems, ItemStack toAdd) {
-        for (ItemStack requiredItem : requiredItems) {
-            if (ItemStack.isSameItemSameComponents(requiredItem, toAdd)) {
-                requiredItem.grow(toAdd.getCount());
     private static void mergeItem(List<RequiredItem> requiredItems, ItemStack toAdd) {
         for (int i = 0; i < requiredItems.size(); i++) {
             RequiredItem requiredItem = requiredItems.get(i);

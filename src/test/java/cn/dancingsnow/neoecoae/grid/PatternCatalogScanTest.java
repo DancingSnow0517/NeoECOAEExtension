@@ -16,7 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.BeforeAll;
@@ -198,7 +198,7 @@ class PatternCatalogScanTest {
     private static ItemStack encodedPattern() {
         ItemStack pattern = new ItemStack(Items.STONE);
         pattern.set(AEComponents.ENCODED_CRAFTING_PATTERN, new EncodedCraftingPattern(List.of(),
-                new ItemStack(Items.DIAMOND), ResourceLocation.withDefaultNamespace("test"), false, false));
+                new ItemStack(Items.DIAMOND), Identifier.withDefaultNamespace("test"), false, false));
         return pattern;
     }
 

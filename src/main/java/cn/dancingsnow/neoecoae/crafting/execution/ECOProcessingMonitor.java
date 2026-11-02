@@ -19,14 +19,14 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.Level;
 import org.slf4j.LoggerFactory;
 
 /** Destination records survive reload; all live progress is read-only and refreshed only by an open view. */
 public final class ECOProcessingMonitor implements ECOCraftingJobAttachment {
-    private static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath("neoecoae", "workstation_processing_monitor");
+    private static final Identifier ID = Identifier.fromNamespaceAndPath("neoecoae", "workstation_processing_monitor");
     static final int READS_PER_CPU_TICK = 32, READS_PER_SERVER_TICK = 256, REFRESH_INTERVAL = 10;
     private static final Map<MinecraftServer, Budget> SERVER_BUDGETS = new WeakHashMap<>();
     private final Map<AEKey, LinkedHashSet<Target>> targets = new LinkedHashMap<>();
@@ -101,7 +101,7 @@ public final class ECOProcessingMonitor implements ECOCraftingJobAttachment {
 
     /** Called by visible menus. Repeated viewers of the same CPU share both samples and the per-tick budget. */
     public void advance(Level level, long tick) {
-        if (level == null || level.isClientSide || level.getServer() == null) return;
+        if (level == null || level.isClientSide() || level.getServer() == null) return;
         if (budgetTick != tick) {
             budgetTick = tick;
             readsRemaining = READS_PER_CPU_TICK;
@@ -144,7 +144,7 @@ public final class ECOProcessingMonitor implements ECOCraftingJobAttachment {
         return true;
     }
 
-    @Override public ResourceLocation id() { return ID; }
+    @Override public Identifier id() { return ID; }
 
     @Override public CompoundTag save(net.minecraft.core.HolderLookup.Provider registries) {
         var tag = new CompoundTag();
@@ -170,7 +170,7 @@ public final class ECOProcessingMonitor implements ECOCraftingJobAttachment {
         targets.clear();
         surveys.clear();
         pending.clear();
-        var entries = tag.getList("entries", Tag.TAG_COMPOUND);
+        var entries = tag.getListOrEmpty("entries");
         for (int i = 0; i < entries.size(); i++) {
             var entry = entries.getCompound(i);
             AEKey key = AEKey.fromTagGeneric(registries, entry.getCompound("key"));
@@ -178,7 +178,7 @@ public final class ECOProcessingMonitor implements ECOCraftingJobAttachment {
             var list = entry.getList("targets", Tag.TAG_COMPOUND);
             for (int j = 0; j < list.size(); j++) {
                 var destination = list.getCompound(j);
-                var dimension = ResourceLocation.tryParse(destination.getString("dimension"));
+                var dimension = Identifier.tryParse(destination.getString("dimension"));
                 if (dimension != null) observe(key, new Target(dimension, BlockPos.of(destination.getLong("position"))));
             }
         }

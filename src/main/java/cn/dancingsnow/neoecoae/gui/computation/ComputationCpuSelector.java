@@ -30,7 +30,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /** CPU list sidebar; only the visible page and the selected CPU cross the menu boundary. */
 final class ComputationCpuSelector extends BindableValue<CompoundTag> {
@@ -91,13 +91,13 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
     public ComputationCpuSelector setValue(CompoundTag value, boolean notify) {
         super.setValue(value, notify);
         if (value == null || !value.contains("total")) return this;
-        total = value.getInt("total");
+        total = value.getIntOr("total", 0);
         offset = Math.clamp(offset, 0, Math.max(0, total - ROWS));
-        selectedSerial = value.getInt("selectedSerial");
-        int receivedOffset = value.getInt("offset");
-        if (!scrollPending || value.getLong("scrollSequence") == scrollSequence) {
+        selectedSerial = value.getIntOr("selectedSerial", 0);
+        int receivedOffset = value.getIntOr("offset", 0);
+        if (!scrollPending || value.getLongOr("scrollSequence", 0L) == scrollSequence) {
             offset = pageOffset = receivedOffset;
-            page = value.getList("page", Tag.TAG_COMPOUND).stream()
+            page = value.getListOrEmpty("page").stream()
                 .map(tag -> ComputationCpuEntry.read((CompoundTag) tag, config.registries())).toList();
             scrollPending = false;
             scrollRequest.setValue(scrollTag(scrollSequence, offset), false);
@@ -252,7 +252,7 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
     }
 
     private static IGuiTexture sprite(int x, int y, int width, int height) {
-        return SpriteTexture.of(ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/guis/cpu_selector.png")).setSprite(x, y, width, height);
+        return SpriteTexture.of(Identifier.fromNamespaceAndPath("neoecoae", "textures/guis/cpu_selector.png")).setSprite(x, y, width, height);
     }
 
     private static UIElement hitbox(int x, int y, int width, int height) {
@@ -283,8 +283,8 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
         private void scroll(CompoundTag request) {
             if (!config.canInteract().getAsBoolean()) return;
             refresh();
-            selection.scroll(request.getInt("offset"));
-            scrollSequence = request.getLong("sequence");
+            selection.scroll(request.getIntOr("offset", 0));
+            scrollSequence = request.getLongOr("sequence", 0L);
             cached = null;
             revision++;
         }

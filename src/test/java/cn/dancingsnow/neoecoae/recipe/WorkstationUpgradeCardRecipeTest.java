@@ -12,7 +12,7 @@ import io.netty.buffer.Unpooled;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
@@ -135,7 +135,7 @@ class WorkstationUpgradeCardRecipeTest {
     @ValueSource(strings = {"empty", "advanced_ae", "extendedae", "ae2cs", "aelt", "data_energistics", "appgen"})
     void nativeLargeRecipesAreAvailableWithoutAnyCardAndKeepFullBatchCosts(String variant) throws IOException {
         var recipe = decodeWithVanillaItems(resource(variant));
-        var id = ResourceLocation.parse("test:card_" + variant);
+        var id = Identifier.parse("test:card_" + variant);
         var holder = new RecipeHolder<>(id, recipe);
         var manager = mock(RecipeManager.class);
         when(manager.getRecipes()).thenReturn(List.of(holder));

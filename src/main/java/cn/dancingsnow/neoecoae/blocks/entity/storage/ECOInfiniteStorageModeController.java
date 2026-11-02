@@ -65,7 +65,7 @@ final class ECOInfiniteStorageModeController {
     }
 
     void update() {
-        if (host.getLevel() == null || host.getLevel().isClientSide || host.isStorageServerStopping()
+        if (host.getLevel() == null || host.getLevel().isClientSide() || host.isStorageServerStopping()
                 || updating || modeCheckTick == host.getLevel().getGameTime()) {
             return;
         }
@@ -533,7 +533,7 @@ final class ECOInfiniteStorageModeController {
         boolean previouslyAccessible = hostAccess;
         refreshHostAccess();
         if (previouslyAccessible != hostAccess && host.getLevel() != null
-                && !host.getLevel().isClientSide && !host.isStorageServerStopping()) {
+                && !host.getLevel().isClientSide() && !host.isStorageServerStopping()) {
             host.refreshDriveStorageProviders();
         }
     }

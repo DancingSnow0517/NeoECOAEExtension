@@ -17,7 +17,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import java.util.HashSet;
 import java.util.concurrent.Future;
 
@@ -293,7 +293,7 @@ final class ECOBigOrderController {
     void write(CompoundTag data, HolderLookup.Provider registries) {
         if (order == null || host.getJob() == null) { data.remove("bigOrder"); return; }
         var tag = new CompoundTag();
-        tag.putUUID("id", order.id());
+        tag.store("id", net.minecraft.core.UUIDUtil.CODEC, order.id());
         tag.putString("requested", order.requested().toString());
         tag.putString("completed", order.completed().toString());
         tag.putString("remaining", order.remaining().toString());
@@ -324,29 +324,29 @@ final class ECOBigOrderController {
         clear();
         if (!data.contains("bigOrder")) return;
         var tag = data.getCompound("bigOrder");
-        var restored = ECOBigCraftingOrder.restore(tag.getUUID("id"),
-                ECOBigCraftingOrder.decode(tag.getString("requested")),
-                ECOBigCraftingOrder.decode(tag.getString("completed")), tag.getBoolean("forced"),
-                ECOBigOrderState.valueOf(tag.getString("state")), tag.getLong("child"),
-                tag.getLong("retryTicks"), tag.getInt("retryDelay"), tag.getString("reason"));
+        var restored = ECOBigCraftingOrder.restore(tag.read("id", net.minecraft.core.UUIDUtil.CODEC).orElseThrow(),
+                ECOBigCraftingOrder.decode(tag.getStringOr("requested", "")),
+                ECOBigCraftingOrder.decode(tag.getStringOr("completed", "")), tag.getBooleanOr("forced", false),
+                ECOBigOrderState.valueOf(tag.getStringOr("state", "")), tag.getLongOr("child", 0L),
+                tag.getLongOr("retryTicks", 0L), tag.getIntOr("retryDelay", 0), tag.getStringOr("reason", ""));
         var current = host.getJob();
-        if (!ECOBigCraftingOrder.decode(tag.getString("remaining")).equals(restored.remaining()))
+        if (!ECOBigCraftingOrder.decode(tag.getStringOr("remaining", "")).equals(restored.remaining()))
             throw new IllegalArgumentException("Parent amount mismatch");
         if (current == null || !current.link.getCraftingID().equals(restored.id()))
             throw new IllegalArgumentException("Parent link mismatch");
-        var target = GenericStack.readTag(registries, tag.getCompound("goal"));
+        var target = GenericStack.readTag(registries, tag.getCompoundOrEmpty("goal"));
         if (target == null || current.finalOutput == null || !target.what().equals(current.finalOutput.what())
                 || restored.state() == ECOBigOrderState.RUNNING_CHILD
                 && restored.childTarget() != current.finalOutput.amount())
             throw new IllegalArgumentException("Parent child mismatch");
         goal = target.what();
-        var fuzzy = new HashSet<ResourceLocation>();
-        var entries = tag.getList("fuzzy", 8);
+        var fuzzy = new HashSet<Identifier>();
+        var entries = tag.getListOrEmpty("fuzzy");
         if (entries.size() > 10000) throw new IllegalArgumentException("Too many fuzzy items");
-        for (int i = 0; i < entries.size(); i++) fuzzy.add(ResourceLocation.parse(entries.getString(i)));
-        options = new ECOPlannerOptions(tag.getBoolean("cycles"), tag.getBoolean("ignoreSubstitutions"), fuzzy);
+        for (int i = 0; i < entries.size(); i++) fuzzy.add(Identifier.parse(entries.getString(i)));
+        options = new ECOPlannerOptions(tag.getBooleanOr("cycles", false), tag.getBooleanOr("ignoreSubstitutions", false), fuzzy);
         order = restored;
-        var forecast = tag.getList("pendingPreview", 10);
+        var forecast = tag.getListOrEmpty("pendingPreview");
         if (forecast.size() > 100000) throw new IllegalArgumentException("Too many forecast items");
         var amounts = new java.util.HashMap<AEKey, java.math.BigInteger>();
         for (int i = 0; i < forecast.size(); i++) {

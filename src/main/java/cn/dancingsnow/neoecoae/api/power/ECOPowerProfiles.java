@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.api.power;
 
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.extension.ECOExtensionRegistry;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
@@ -23,10 +23,10 @@ public final class ECOPowerProfiles {
         public double defaultPower() { return basePower + cellDrain; }
     }
 
-    public static void register(ResourceLocation id, int priority, Provider provider) {
+    public static void register(Identifier id, int priority, Provider provider) {
         REGISTRY.register(id, priority, provider);
     }
-    public static boolean unregister(ResourceLocation id) { return REGISTRY.unregister(id); }
+    public static boolean unregister(Identifier id) { return REGISTRY.unregister(id); }
     public static long revision() { return REGISTRY.revision(); }
 
     public static double resolve(Context context) {

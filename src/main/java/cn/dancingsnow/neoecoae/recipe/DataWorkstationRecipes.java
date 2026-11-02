@@ -9,7 +9,7 @@ import com.google.gson.JsonObject;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DynamicOps;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.material.Fluids;
@@ -27,7 +27,7 @@ import java.util.List;
 final class DataWorkstationRecipes {
     private DataWorkstationRecipes() {}
 
-    static LargeWorkstationRecipe decode(ResourceLocation id, String type, JsonObject data, DynamicOps<JsonElement> ops) {
+    static LargeWorkstationRecipe decode(Identifier id, String type, JsonObject data, DynamicOps<JsonElement> ops) {
         List<SizedIngredient> items = new ArrayList<>();
         SizedFluidIngredient fluid = new SizedFluidIngredient(FluidIngredient.empty(), 1);
         ItemStack result = ItemStack.EMPTY;
@@ -100,7 +100,7 @@ final class DataWorkstationRecipes {
         if (result.isEmpty() && fluidResult.isEmpty() && additionalOutputs.isEmpty()) throw new IllegalArgumentException("Empty output");
         var display = new IntegratedWorkingStationRecipe(items, fluid, result, fluidResult,
             (int) Math.min(Integer.MAX_VALUE, energy));
-        var recipe = new LargeWorkstationRecipe(id, display, energy, extras, ResourceLocation.parse(type), additionalFluids, additionalOutputs);
+        var recipe = new LargeWorkstationRecipe(id, display, energy, extras, Identifier.parse(type), additionalFluids, additionalOutputs);
         return type.equals("data_energistics:data_reassembler")
             ? recipe.processing(data.has("duration") ? data.get("duration").getAsInt() : 200, 0, false) : recipe;
     }

@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import cn.dancingsnow.neoecoae.api.IHostPanelTextureProvider;
 import cn.dancingsnow.neoecoae.api.IHostPanelTextureProvider.Part;
 import net.minecraft.world.level.block.Block;
@@ -21,7 +21,7 @@ class HostPanelTextureStateTest {
 
     @Test
     void capturesTheConfiguredHostBlockProviderWithoutSubclassingItsBlockEntity() {
-        var image = ResourceLocation.parse("addon:textures/gui/host.png");
+        var image = Identifier.parse("addon:textures/gui/host.png");
         var block = org.mockito.Mockito.mock(net.minecraft.world.level.block.Block.class,
             org.mockito.Mockito.withSettings().extraInterfaces(cn.dancingsnow.neoecoae.api.IHostPanelTextureProvider.class));
         var state = org.mockito.Mockito.mock(net.minecraft.world.level.block.state.BlockState.class);
@@ -40,8 +40,8 @@ class HostPanelTextureStateTest {
 
     @Test
     void optionalHostImagesRoundTripWithoutTierRegistration() {
-        var state = new HostPanelTextureState(ResourceLocation.parse("addon:textures/gui/tier.png"),
-            ResourceLocation.parse("addon:textures/gui/marker.png"));
+        var state = new HostPanelTextureState(Identifier.parse("addon:textures/gui/tier.png"),
+            Identifier.parse("addon:textures/gui/marker.png"));
         CompoundTag tag = new CompoundTag();
         state.write(tag);
         assertEquals(state, HostPanelTextureState.read(tag));
@@ -61,18 +61,18 @@ class HostPanelTextureStateTest {
         when(placed.getValue(charged)).thenReturn(true);
         var provider = (IHostPanelTextureProvider) block;
         when(provider.getPanelTexture(same(placed), any())).thenAnswer(call ->
-            ResourceLocation.parse("addon:textures/" + ((Part) call.getArgument(1)).name().toLowerCase(java.util.Locale.ROOT) + ".png"));
+            Identifier.parse("addon:textures/" + ((Part) call.getArgument(1)).name().toLowerCase(java.util.Locale.ROOT) + ".png"));
         when(provider.getPanelTexture(same(placed), any(), anyInt(), anyBoolean(), anyBoolean())).thenAnswer(call -> {
             assertTrue(((BlockState) call.getArgument(0)).getValue(charged));
-            return ResourceLocation.parse("addon:textures/state_" + call.getArgument(2) + "_"
+            return Identifier.parse("addon:textures/state_" + call.getArgument(2) + "_"
                 + call.getArgument(3) + "_" + call.getArgument(4) + ".png");
         });
 
         for (var panel : HostPanelTextureState.Panel.values()) {
             var textures = HostPanelTextureState.capture(placed, panel);
-            assertEquals(ResourceLocation.parse("addon:textures/" + panel.name().toLowerCase(java.util.Locale.ROOT) + "_tier.png"),
+            assertEquals(Identifier.parse("addon:textures/" + panel.name().toLowerCase(java.util.Locale.ROOT) + "_tier.png"),
                 textures.tier());
-            assertEquals(ResourceLocation.parse("addon:textures/" + panel.name().toLowerCase(java.util.Locale.ROOT) + "_marker.png"),
+            assertEquals(Identifier.parse("addon:textures/" + panel.name().toLowerCase(java.util.Locale.ROOT) + "_marker.png"),
                 textures.marker());
             assertEquals(switch (panel) { case STORAGE -> 0; case COMPUTATION -> 24; case CRAFTING -> 8; }, textures.variants().size());
             CompoundTag tag = new CompoundTag();
@@ -80,9 +80,9 @@ class HostPanelTextureStateTest {
             assertEquals(textures, HostPanelTextureState.read(tag));
             assertThrows(UnsupportedOperationException.class, () -> textures.variants().clear());
             if (panel == HostPanelTextureState.Panel.COMPUTATION) {
-                assertEquals(ResourceLocation.parse("addon:textures/state_5_false_false.png"),
+                assertEquals(Identifier.parse("addon:textures/state_5_false_false.png"),
                     textures.texture(Part.COMPUTATION_STATUS, 5, false, false));
-                assertEquals(ResourceLocation.parse("addon:textures/state_2_true_true.png"),
+                assertEquals(Identifier.parse("addon:textures/state_2_true_true.png"),
                     textures.texture(Part.COMPUTATION_SWITCH, 2, true, true));
             }
         }
@@ -106,7 +106,7 @@ class HostPanelTextureStateTest {
     void statefulOverloadDefaultsToTheExistingProviderMethod() {
         IHostPanelTextureProvider provider = mock(IHostPanelTextureProvider.class, CALLS_REAL_METHODS);
         BlockState placed = mock(BlockState.class);
-        var image = ResourceLocation.parse("addon:textures/status.png");
+        var image = Identifier.parse("addon:textures/status.png");
         when(provider.getPanelTexture(placed, Part.COMPUTATION_STATUS)).thenReturn(image);
         assertEquals(image, provider.getPanelTexture(placed, Part.COMPUTATION_STATUS, 0, false, false));
         assertNull(provider.getPanelTexture(placed, Part.CRAFTING_MODE, 1, true, true));

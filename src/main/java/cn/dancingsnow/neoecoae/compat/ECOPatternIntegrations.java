@@ -7,7 +7,7 @@ import cn.dancingsnow.neoecoae.compat.thunderbolt.ThunderPatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.compat.thunderbolt.ThunderboltApi;
 import cn.dancingsnow.neoecoae.compat.useless.UselessPatternSemanticAdapter;
 import java.lang.reflect.Method;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /** Optional pattern capabilities are registered here rather than enumerated by the planner. */
 public final class ECOPatternIntegrations {
@@ -39,7 +39,7 @@ public final class ECOPatternIntegrations {
             wrapper -> (IPatternDetails) ThunderboltApi.invoke(method, wrapper));
     }
 
-    private static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath("neoecoae", path);
+    private static Identifier id(String path) {
+        return Identifier.fromNamespaceAndPath("neoecoae", path);
     }
 }

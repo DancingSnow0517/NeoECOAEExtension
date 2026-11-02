@@ -7,7 +7,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
@@ -15,7 +15,7 @@ import java.util.List;
 
 public record ECOImportJeiBookmarksC2SPacket(int containerId, List<AEKey> keys) implements CustomPacketPayload {
     public static final Type<ECOImportJeiBookmarksC2SPacket> TYPE = new Type<>(
-        ResourceLocation.fromNamespaceAndPath(NeoECOAE.MOD_ID, "import_jei_bookmarks"));
+        Identifier.fromNamespaceAndPath(NeoECOAE.MOD_ID, "import_jei_bookmarks"));
     public static final StreamCodec<RegistryFriendlyByteBuf, ECOImportJeiBookmarksC2SPacket> STREAM_CODEC = StreamCodec.of(
         (buf, packet) -> {
             buf.writeVarInt(packet.containerId);

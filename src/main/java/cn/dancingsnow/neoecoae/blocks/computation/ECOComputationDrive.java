@@ -34,11 +34,11 @@ public class ECOComputationDrive extends NEBlock<ECOComputationDriveBlockEntity>
     }
 
     @Override
-    protected ItemInteractionResult useItemOn(ItemStack heldItem, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+    protected InteractionResult useItemOn(ItemStack heldItem, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (ECOComputationCells.describe(heldItem) != null) {
             if (level.getBlockEntity(pos) instanceof ECOComputationDriveBlockEntity be) {
                 if (be.getCellStack() == null) {
-                    if (level.isClientSide) return ItemInteractionResult.SUCCESS;
+                    if (level.isClientSide()) return InteractionResult.SUCCESS;
                     be.setCellStack(heldItem.copyWithCount(1));
                     if (!player.isCreative()) {
                         heldItem.shrink(1);
@@ -46,7 +46,7 @@ public class ECOComputationDrive extends NEBlock<ECOComputationDriveBlockEntity>
                             player.setItemInHand(hand, ItemStack.EMPTY);
                         }
                     }
-                    return ItemInteractionResult.sidedSuccess(level.isClientSide());
+                    return InteractionResult.sidedSuccess(level.isClientSide());
                 }
             }
         }

@@ -8,7 +8,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -20,9 +20,9 @@ public final class ECODataStorageCellItem extends ECOStorageCellItem {
     private static final long LE6_CAPACITY = 1L << 30;
     private static final long LE9_CAPACITY = 1L << 32;
 
-    private static final ResourceLocation DIGITALIZATION = ResourceLocation.fromNamespaceAndPath(
+    private static final Identifier DIGITALIZATION = Identifier.fromNamespaceAndPath(
         "data_energistics", "digitalization");
-    private static final ResourceLocation MANIFEST_BINARY = ResourceLocation.fromNamespaceAndPath(
+    private static final Identifier MANIFEST_BINARY = Identifier.fromNamespaceAndPath(
         "data_energistics", "manifest_binary");
 
     public ECODataStorageCellItem(Properties properties, IECOTier tier) {

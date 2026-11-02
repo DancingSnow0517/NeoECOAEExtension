@@ -10,7 +10,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEFluidKey;
 import dev.emi.emi.api.recipe.EmiRecipeCategory;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import dev.emi.emi.api.recipe.BasicEmiRecipe;
 import dev.emi.emi.api.stack.EmiStack;
 import dev.emi.emi.api.widget.WidgetHolder;
@@ -48,7 +48,7 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
         height = LargeWorkstationRecipeDisplay.height(recipe);
     }
 
-    private IntegrationWorkingStationEmiRecipe(EmiRecipeCategory category, ResourceLocation id,
+    private IntegrationWorkingStationEmiRecipe(EmiRecipeCategory category, Identifier id,
         IntegratedWorkingStationRecipe recipe, long energy) {
         super(category, id, 168, 75);
         this.recipe = recipe;

@@ -783,15 +783,15 @@ class StorageHostUiTest {
             var placed = mock(net.minecraft.world.level.block.state.BlockState.class);
             when(placed.getBlock()).thenReturn(block);
             var provider = (cn.dancingsnow.neoecoae.api.IHostPanelTextureProvider) block;
-            when(provider.getPanelTexture(same(placed), any())).thenReturn(net.minecraft.resources.ResourceLocation.parse("addon:storage_host.png"));
+            when(provider.getPanelTexture(same(placed), any())).thenReturn(net.minecraft.resources.Identifier.parse("addon:storage_host.png"));
             var tier = mock(cn.dancingsnow.neoecoae.api.IECOTier.class);
-            when(tier.getPanelAtlas(anyString())).thenAnswer(call -> net.minecraft.resources.ResourceLocation.parse(
+            when(tier.getPanelAtlas(anyString())).thenAnswer(call -> net.minecraft.resources.Identifier.parse(
                 "addon:" + ((String) call.getArgument(0)).toLowerCase(java.util.Locale.ROOT) + ".png"));
             var cells = List.of(StorageHostUI.CellEntry.EMPTY.atDrive(new BlockPos(2, 1, 0), ItemStack.EMPTY, null));
             UIElement root = StorageHostUI.create(StoragePanelStateTest.config(cells, false), () -> tier, () -> placed);
             UIElement background = node(root, "background");
             background.getStyleBag().compute(0);
-            assertEquals(net.minecraft.resources.ResourceLocation.parse("addon:storage-controller_atlas.png"),
+            assertEquals(net.minecraft.resources.Identifier.parse("addon:storage-controller_atlas.png"),
                 cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(background.getStyle().backgroundTexture()));
             var item = new StoragePanelState.TypeLine(2, Component.literal("items"), 0xEC8600,
                 1, 10, 50, 100, "50", 2, BigInteger.valueOf(50));
@@ -802,7 +802,7 @@ class StorageHostUiTest {
             var badge = positionedBar(root, "host_tier", 23, 5, 13, 18);
             GUIContext badgeContext = mock(GUIContext.class);
             badge.drawBackgroundAdditional(badgeContext);
-            verify(badgeContext).drawTexture(argThat(texture -> net.minecraft.resources.ResourceLocation.parse("addon:storage_host.png")
+            verify(badgeContext).drawTexture(argThat(texture -> net.minecraft.resources.Identifier.parse("addon:storage_host.png")
                 .equals(cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(texture))), eq(23F), eq(5F), eq(13F), eq(18F));
             for (String id : List.of("host_icon", "capacity_bar", "resource_bar", "energy_bar", "storage_types", "type_scrollbar", "storage_cells")) {
                 UIElement element = positionedBar(root, id, 0, 0, 160, 87);
@@ -810,16 +810,16 @@ class StorageHostUiTest {
                 context.graphics = mock(GuiGraphics.class);
                 when(context.graphics.pose()).thenReturn(new PoseStack());
                 HostProgressTestSupport.drawAfterOpening(element, context);
-                verify(context, atLeastOnce()).drawTexture(argThat(texture -> net.minecraft.resources.ResourceLocation.parse("addon:storage-atlas.png")
+                verify(context, atLeastOnce()).drawTexture(argThat(texture -> net.minecraft.resources.Identifier.parse("addon:storage-atlas.png")
                     .equals(cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(texture))), anyFloat(), anyFloat(), anyFloat(), anyFloat());
             }
             var original = StoragePanelTextures.SCALE;
             var copy = StoragePanelTextures.forTier(original, () -> tier).copy();
             assertEquals(original.spritePosition, copy.spritePosition);
             assertEquals(original.spriteSize, copy.spriteSize);
-            assertEquals(net.minecraft.resources.ResourceLocation.parse("addon:storage-atlas.png"),
+            assertEquals(net.minecraft.resources.Identifier.parse("addon:storage-atlas.png"),
                 cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(copy));
-            assertEquals(net.minecraft.resources.ResourceLocation.parse("neoecoae:textures/guis/storage/storage_widget.png"),
+            assertEquals(net.minecraft.resources.Identifier.parse("neoecoae:textures/guis/storage/storage_widget.png"),
                 original.getImageLocation());
             verify(block, never()).defaultBlockState();
         }

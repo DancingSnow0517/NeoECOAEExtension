@@ -7,7 +7,6 @@ import cn.dancingsnow.neoecoae.api.capability.ECOFeature;
 import cn.dancingsnow.neoecoae.api.multiblock.ECOMachineKind;
 
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
 public interface IECOTier {
@@ -40,13 +39,13 @@ public interface IECOTier {
      * Panels scale each row to their marker area. Null retains the built-in atlas markers.
      */
     @Nullable
-    default ResourceLocation getHostMarkerTexture() {
+    default Identifier getHostMarkerTexture() {
         return null;
     }
 
     /** Optional complete panel atlas, addressed by its existing ui-eco name without the prefix. */
     @Nullable
-    default ResourceLocation getPanelAtlas(String atlas) {
+    default Identifier getPanelAtlas(String atlas) {
         return null;
     }
     /**

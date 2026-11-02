@@ -17,7 +17,7 @@ import com.mojang.serialization.JsonOps;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponentPredicate;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
@@ -80,13 +80,13 @@ public final class LargeWorkstationRecipes {
 
     /** Accepts any original or borrowed variant ID, including a representative returned by getAll(). */
     @Nullable
-    public static LargeWorkstationRecipeGroup getGroup(Level level, ResourceLocation recipeId) {
+    public static LargeWorkstationRecipeGroup getGroup(Level level, Identifier recipeId) {
         return getGroup(level.getRecipeManager(), level.registryAccess(), recipeId);
     }
 
     @Nullable
     public static synchronized LargeWorkstationRecipeGroup getGroup(RecipeManager manager,
-            HolderLookup.Provider registries, ResourceLocation recipeId) {
+            HolderLookup.Provider registries, Identifier recipeId) {
         getAll(manager, registries);
         return CACHE.get(manager).groupsById.get(recipeId);
     }
@@ -118,7 +118,7 @@ public final class LargeWorkstationRecipes {
                     if (adapted != null) recipes.add(adapted);
                 } else {
                     String type = typeId(holder.value().getType());
-                    var sourceType = ResourceLocation.tryParse(type);
+                    var sourceType = Identifier.tryParse(type);
                     if (sourceType == null) continue;
                     var adapted = ECOWorkstationRecipeAdapters.adapt(
                         sourceType, holder, registries);
@@ -130,7 +130,7 @@ public final class LargeWorkstationRecipes {
                 LOGGER.warn("Cannot adapt large workstation recipe {}", holder.id(), failure);
             }
         }
-        Map<ResourceLocation, LargeWorkstationRecipe> recipesById = new HashMap<>();
+        Map<Identifier, LargeWorkstationRecipe> recipesById = new HashMap<>();
         for (var recipe : recipes) recipesById.put(recipe.id(), recipe);
         var sourceIds = sources.stream().map(RecipeHolder::id).collect(Collectors.toSet());
         for (var recipe : CrystalScienceWorkstationRecipes.growthRecipes()) {
@@ -159,7 +159,7 @@ public final class LargeWorkstationRecipes {
         }
         var groups = group(variants, ops);
         var result = groups.stream().map(LargeWorkstationRecipeGroup::representative).toList();
-        Map<ResourceLocation, LargeWorkstationRecipeGroup> groupsById = new HashMap<>();
+        Map<Identifier, LargeWorkstationRecipeGroup> groupsById = new HashMap<>();
         for (var group : groups) for (var variant : group.variants()) groupsById.put(variant.recipe().id(), group);
         var executionRecipes = groups.stream().flatMap(group -> selectExecutionVariants(group.variants()).stream())
             .map(LargeWorkstationRecipeGroup.Variant::recipe)
@@ -172,7 +172,7 @@ public final class LargeWorkstationRecipes {
         return result;
     }
 
-    public static synchronized List<LargeWorkstationRecipe> getAvailable(Level level, ResourceLocation moduleId) {
+    public static synchronized List<LargeWorkstationRecipe> getAvailable(Level level, Identifier moduleId) {
         var description = ECOWorkstationModules.resolve(moduleId);
         if (!description.custom()) return getAvailable(level, description.legacy());
         var manager = level.getRecipeManager();
@@ -197,7 +197,7 @@ public final class LargeWorkstationRecipes {
 
     /** Filter by card before fixing a route; retain different legal material batches. */
     private static List<LargeWorkstationRecipe> available(List<LargeWorkstationRecipeGroup> groups,
-            ResourceLocation installed) {
+            Identifier installed) {
         return groups.stream().flatMap(group -> group.availableVariants(installed).stream())
             .map(LargeWorkstationRecipeGroup.Variant::recipe)
             .sorted(Comparator.comparing(recipe -> recipe.id().toString())).toList();
@@ -226,12 +226,12 @@ public final class LargeWorkstationRecipes {
 
     /** Keeps original recipes addressable for batches saved before equivalent recipes were merged. */
     @Nullable
-    public static LargeWorkstationRecipe getById(Level level, ResourceLocation id) {
+    public static LargeWorkstationRecipe getById(Level level, Identifier id) {
         return getById(level.getRecipeManager(), level.registryAccess(), id);
     }
 
     @Nullable
-    static synchronized LargeWorkstationRecipe getById(RecipeManager manager, HolderLookup.Provider registries, ResourceLocation id) {
+    static synchronized LargeWorkstationRecipe getById(RecipeManager manager, HolderLookup.Provider registries, Identifier id) {
         getAll(manager, registries);
         return CACHE.get(manager).recipesById.get(id);
     }
@@ -246,7 +246,7 @@ public final class LargeWorkstationRecipes {
     static List<LargeWorkstationRecipeGroup> group(List<LargeWorkstationRecipeGroup.Variant> variants,
             DynamicOps<JsonElement> ops) {
         Map<MaterialContract, List<LargeWorkstationRecipeGroup.Variant>> grouped = new HashMap<>();
-        Map<ResourceLocation, Long> scales = new HashMap<>();
+        Map<Identifier, Long> scales = new HashMap<>();
         List<LargeWorkstationRecipeGroup> result = new ArrayList<>();
         for (var variant : variants) {
             var recipe = variant.recipe();
@@ -355,7 +355,7 @@ public final class LargeWorkstationRecipes {
         return FluidIngredient.CODEC.encodeStart(ops, ingredient).getOrThrow();
     }
 
-    private record ComponentPredicate(Set<ResourceLocation> alternatives, DataComponentPredicate components, boolean strict) {}
+    private record ComponentPredicate(Set<Identifier> alternatives, DataComponentPredicate components, boolean strict) {}
     private record MaterialContract(Map<Object, Long> items, Map<Object, Long> fluids,
                                     Map<AEKey, Long> resources, Map<AEKey, Long> outputs) {
         long scale() {
@@ -412,7 +412,7 @@ public final class LargeWorkstationRecipes {
     }
 
     @Nullable
-    public static PatternMatch findScaled(Level level, KeyCounter inputs, KeyCounter outputs, ResourceLocation moduleId) {
+    public static PatternMatch findScaled(Level level, KeyCounter inputs, KeyCounter outputs, Identifier moduleId) {
         var description = ECOWorkstationModules.resolve(moduleId);
         if (!description.custom()) return findScaled(level, inputs, outputs, description.legacy());
         return findScaled(getAvailable(level, moduleId), inputs, outputs);
@@ -461,7 +461,7 @@ public final class LargeWorkstationRecipes {
         return ((JsonElement) codec.encodeStart(ops, recipe).getOrThrow()).getAsJsonObject();
     }
 
-    static LargeWorkstationRecipe decode(ResourceLocation id, String type, JsonObject data, DynamicOps<JsonElement> ops) {
+    static LargeWorkstationRecipe decode(Identifier id, String type, JsonObject data, DynamicOps<JsonElement> ops) {
         if (type.startsWith("data_energistics:")) return DataWorkstationRecipes.decode(id, type, data, ops);
         if (type.equals("appgen:synthesizing")) return AppliedGeneratorsWorkstationRecipes.decode(id, data, ops);
         List<SizedIngredient> items = new ArrayList<>();
@@ -542,7 +542,7 @@ public final class LargeWorkstationRecipes {
         if (result.isEmpty() && fluidResult.isEmpty()) throw new IllegalArgumentException("Empty output");
         var display = new IntegratedWorkingStationRecipe(items, fluid, result, fluidResult,
             (int) Math.min(Integer.MAX_VALUE, energy));
-        var recipe = new LargeWorkstationRecipe(id, display, energy, extras, ResourceLocation.parse(type));
+        var recipe = new LargeWorkstationRecipe(id, display, energy, extras, Identifier.parse(type));
         int ticks = recipe.processingTicks();
         if (type.startsWith("ae2lt:")) ticks = LightningWorkstationTiming.ticks(type, feEnergy);
         return recipe.processing(ticks, feEnergy, feAlternative);
@@ -571,9 +571,9 @@ public final class LargeWorkstationRecipes {
     private record Cache(Collection<RecipeHolder<?>> sources, List<LargeWorkstationRecipe> recipes,
                          List<LargeWorkstationRecipe> executionRecipes,
                          List<LargeWorkstationRecipeGroup> groups,
-                         Map<ResourceLocation, LargeWorkstationRecipe> recipesById,
-                         Map<ResourceLocation, LargeWorkstationRecipeGroup> groupsById,
+                         Map<Identifier, LargeWorkstationRecipe> recipesById,
+                         Map<Identifier, LargeWorkstationRecipeGroup> groupsById,
                          Map<LargeWorkstationModule, List<LargeWorkstationRecipe>> moduleRecipes,
-                         Map<ResourceLocation, List<LargeWorkstationRecipe>> customModuleRecipes,
+                         Map<Identifier, List<LargeWorkstationRecipe>> customModuleRecipes,
                          long adapterRevision, long moduleRevision) {}
 }

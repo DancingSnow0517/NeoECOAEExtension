@@ -14,7 +14,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -55,7 +54,7 @@ public class ECOComputationSystem extends NEBlock<ECOComputationSystemBlockEntit
     }
 
     @Override
-    protected ItemInteractionResult useItemOn(
+    protected InteractionResult useItemOn(
         ItemStack heldItem,
         BlockState state,
         Level level,
@@ -66,10 +65,10 @@ public class ECOComputationSystem extends NEBlock<ECOComputationSystemBlockEntit
     ) {
         if (!(ECOComputationCells.describe(heldItem) != null)
             || !(level.getBlockEntity(pos) instanceof ECOComputationSystemBlockEntity be)) {
-            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+            return InteractionResult.TRY_WITH_EMPTY_HAND;
         }
-        if (level.isClientSide) {
-            return ItemInteractionResult.SUCCESS;
+        if (level.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
         int inserted = be.insertComputationCells(heldItem);
         if (inserted > 0) {
@@ -79,9 +78,9 @@ public class ECOComputationSystem extends NEBlock<ECOComputationSystemBlockEntit
                     player.setItemInHand(hand, ItemStack.EMPTY);
                 }
             }
-            return ItemInteractionResult.sidedSuccess(false);
+            return InteractionResult.SUCCESS;
         }
-        return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        return InteractionResult.TRY_WITH_EMPTY_HAND;
     }
 
     @Override

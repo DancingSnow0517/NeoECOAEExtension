@@ -63,8 +63,8 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
 
     record TypeLine(int id, Component name, int color, long usedTypes, long totalTypes,
         long usedBytes, long totalBytes, String bytesText, int swatch, BigInteger exactUsedBytes,
-        net.minecraft.resources.ResourceLocation channel, net.minecraft.resources.ResourceLocation icon,
-        net.minecraft.resources.ResourceLocation swatchTexture) {
+        net.minecraft.resources.Identifier channel, net.minecraft.resources.Identifier icon,
+        net.minecraft.resources.Identifier swatchTexture) {
         TypeLine(int id, Component name, int color, long usedTypes, long totalTypes,
             long usedBytes, long totalBytes, String bytesText, int swatch, BigInteger exactUsedBytes) {
             this(id, name, color, usedTypes, totalTypes, usedBytes, totalBytes, bytesText, swatch, exactUsedBytes, null, null, null);
@@ -201,7 +201,7 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
             entry.putString("exactBytes", cell.exactUsedBytes().toString());
             entry.putBoolean("infinite", cell.infinite());
             if (cell.position() != null) entry.putLong("position", cell.position().asLong());
-            if (cell.interactionId() != null) entry.putUUID("interactionId", cell.interactionId());
+            if (cell.interactionId() != null) entry.store("interactionId", net.minecraft.core.UUIDUtil.CODEC, cell.interactionId());
             if (!cell.stack().isEmpty()) entry.put("stack", cell.stack().save(registries));
             if (cell.extractionBlockReason() != null) putComponent(entry, "locked", cell.extractionBlockReason());
             entry.putInt("state", cell.state().ordinal()); entry.putBoolean("online", cell.online()); entries.add(entry);
@@ -230,35 +230,35 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
     static StoragePanelState fromTag(Tag value, HolderLookup.Provider registries) {
         if (!(value instanceof CompoundTag tag) || tag.isEmpty()) return EMPTY;
         List<CellEntry> cells = new ArrayList<>();
-        for (Tag valueCell : tag.getList("cells", Tag.TAG_COMPOUND)) {
+        for (Tag valueCell : tag.getListOrEmpty("cells")) {
             CompoundTag cell = (CompoundTag) valueCell;
             cells.add(new CellEntry(cell.getInt("id"), cell.getInt("tier"), cell.getInt("kind"),
                 cell.getLong("ut"), cell.getLong("tt"), cell.getLong("ub"), cell.getLong("tb"), cell.getBoolean("infinite"),
-                CellState.values()[Math.clamp(cell.getInt("state"), 0, CellState.values().length - 1)], cell.getBoolean("online"),
-                cell.contains("position") ? BlockPos.of(cell.getLong("position")) : null,
-                ItemStack.parseOptional(registries, cell.getCompound("stack")),
+                CellState.values()[Math.clamp(cell.getIntOr("state", 0), 0, CellState.values().length - 1)], cell.getBooleanOr("online", false),
+                cell.contains("position") ? BlockPos.of(cell.getLongOr("position", 0L)) : null,
+                ItemStack.parseOptional(registries, cell.getCompoundOrEmpty("stack")),
                 cell.contains("locked") ? component(cell, "locked") : null,
-                cell.hasUUID("interactionId") ? cell.getUUID("interactionId") : null,
+                cell.read("interactionId", net.minecraft.core.UUIDUtil.CODEC).isPresent() ? cell.read("interactionId", net.minecraft.core.UUIDUtil.CODEC).orElseThrow() : null,
                 cell.contains("tierName") ? component(cell, "tierName") : null,
-                new BigInteger(cell.getString("exactBytes"))));
+                new BigInteger(cell.getStringOr("exactBytes", ""))));
         }
         List<TypeLine> types = new ArrayList<>();
-        for (Tag valueType : tag.getList("types", Tag.TAG_COMPOUND)) {
+        for (Tag valueType : tag.getListOrEmpty("types")) {
             CompoundTag type = (CompoundTag) valueType;
             types.add(new TypeLine(type.getInt("id"), component(type, "name"), type.getInt("color"),
                 type.getLong("ut"), type.getLong("tt"), type.getLong("ub"), type.getLong("tb"), type.getString("text"),
                 type.contains("swatch") ? type.getInt("swatch") : StoragePanelTextures.FALLBACK_SWATCH,
-                new BigInteger(type.getString("exactBytes")),
-                type.contains("channel") ? net.minecraft.resources.ResourceLocation.tryParse(type.getString("channel")) : null,
-                type.contains("icon") ? net.minecraft.resources.ResourceLocation.tryParse(type.getString("icon")) : null,
-                type.contains("swatchTexture") ? net.minecraft.resources.ResourceLocation.tryParse(type.getString("swatchTexture")) : null));
+                new BigInteger(type.getStringOr("exactBytes", "")),
+                type.contains("channel") ? net.minecraft.resources.Identifier.tryParse(type.getStringOr("channel", "")) : null,
+                type.contains("icon") ? net.minecraft.resources.Identifier.tryParse(type.getStringOr("icon", "")) : null,
+                type.contains("swatchTexture") ? net.minecraft.resources.Identifier.tryParse(type.getStringOr("swatchTexture", "")) : null));
         }
         return new StoragePanelState(component(tag, "title"), tag.getInt("tier"), tag.getBoolean("formed"),
             tag.getBoolean("infinite"), tag.getBoolean("migrating"), tag.getLong("energy"), tag.getLong("maxEnergy"),
             tag.getLong("drain"), tag.getString("usedBytes"), tag.getDouble("usage"), tag.getInt("cellCount"),
             tag.getInt("cellOffset"), List.copyOf(cells), List.copyOf(types), tag.getString("domain"),
             tag.getInt("missing"), tag.getBoolean("component"),
-            new BigInteger(tag.getString("totalBytes")), new BigInteger(tag.getString("exactUsedBytes")),
+            new BigInteger(tag.getStringOr("totalBytes", "")), new BigInteger(tag.getStringOr("exactUsedBytes", "")),
             tag.getInt("migrationProgress"),
             tag.contains("migrationBlocked") ? component(tag, "migrationBlocked") : Component.empty());
     }

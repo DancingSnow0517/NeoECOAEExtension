@@ -95,7 +95,7 @@ public abstract class Ae2CraftingCpuFastPathMixin {
 
     @Inject(method = "readFromNBT", at = @At("TAIL"))
     private void neoecoae$read(CompoundTag tag, HolderLookup.Provider registries, CallbackInfo ci) {
-        neoecoae$fastPath().read(tag.getCompound("neoecoaeFastPath"));
+        neoecoae$fastPath().read(tag.getCompoundOrEmpty("neoecoaeFastPath"));
     }
 
     @Inject(method = "writeToNBT", at = @At("TAIL"))

@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.gui.computation;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,7 +38,7 @@ public record ComputationControllerPanelState(
     private static final String LOWER = "low";
 
     /** Explicit presence allows a real member to have tier zero. Texture locations are server-authored. */
-    public record Member(boolean present, int tier, @Nullable ResourceLocation texture) {
+    public record Member(boolean present, int tier, @Nullable Identifier texture) {
         public static final Member ABSENT = new Member(false, 0, null);
     }
 
@@ -165,13 +165,13 @@ public record ComputationControllerPanelState(
     }
 
     private static List<Member> readMembers(CompoundTag tag, String name, int packed, boolean middle) {
-        if (!tag.contains(name, Tag.TAG_LIST)) return legacyMembers(tag.getInt(CELLS), packed, middle);
-        ListTag list = tag.getList(name, Tag.TAG_COMPOUND);
+        if (!tag.contains(name)) return legacyMembers(tag.getIntOr(CELLS, 0), packed, middle);
+        ListTag list = tag.getListOrEmpty(name);
         List<Member> members = new ArrayList<>(SLOT_COUNT);
         for (int cell = 0; cell < Math.min(SLOT_COUNT, list.size()); cell++) {
-            CompoundTag entry = list.getCompound(cell);
-            members.add(new Member(entry.getBoolean("present"), entry.getInt("tier"),
-                entry.getString("texture").isEmpty() ? null : ResourceLocation.tryParse(entry.getString("texture"))));
+            CompoundTag entry = list.getCompoundOrEmpty(cell);
+            members.add(new Member(entry.getBooleanOr("present", false), entry.getIntOr("tier", 0),
+                entry.getStringOr("texture", "").isEmpty() ? null : Identifier.tryParse(entry.getStringOr("texture", ""))));
         }
         return members;
     }
@@ -187,9 +187,9 @@ public record ComputationControllerPanelState(
             tag.getInt(UPPER),
             tag.getInt(CORE),
             tag.getInt(LOWER),
-            readMembers(tag, "upperMembers", tag.getInt(UPPER), false),
-            readMembers(tag, "coreMembers", tag.getInt(CORE), true),
-            readMembers(tag, "lowerMembers", tag.getInt(LOWER), false)
+            readMembers(tag, "upperMembers", tag.getIntOr(UPPER, 0), false),
+            readMembers(tag, "coreMembers", tag.getIntOr(CORE, 0), true),
+            readMembers(tag, "lowerMembers", tag.getIntOr(LOWER, 0), false)
         );
     }
 

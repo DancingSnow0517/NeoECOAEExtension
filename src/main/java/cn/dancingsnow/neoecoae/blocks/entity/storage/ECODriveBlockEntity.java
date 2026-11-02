@@ -97,7 +97,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     /** Writes cell contents deferred to the end of the tick; required before the stack is read, saved or moved. */
     public void flushPendingCellWrites() {
-        if (level != null && !level.isClientSide) {
+        if (level != null && !level.isClientSide()) {
             ECOCellMutationBatch.flushDeferred(this);
         }
     }
@@ -335,7 +335,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     }
 
     private void updateCellState() {
-        if (level == null || level.isClientSide) {
+        if (level == null || level.isClientSide()) {
             return;
         }
         IECOStorageCell cellInventory = getCellInventory();
@@ -365,7 +365,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     /** Flush balances before replacing the handler that cached the old partition and upgrade settings. */
     public void reloadCellConfiguration() {
-        if (level == null || level.isClientSide) return;
+        if (level == null || level.isClientSide()) return;
         flushPendingCellWrites();
         if (cachedCellInventory != null) cachedCellInventory.persist();
         ECOStorageCells.releaseCellInventory(cellStack, this);
@@ -377,7 +377,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     /** Persists an in-place CellConfig mutation and refreshes this drive's AE2 storage mount. */
     public void onCellConfigurationChanged() {
-        if (level == null || level.isClientSide) {
+        if (level == null || level.isClientSide()) {
             return;
         }
         updateCellState();
@@ -430,13 +430,13 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     public long getRestoreReceipt(UUID transactionId) {
         if (cellStack == null || cellStack.isEmpty()) return 0L;
         CompoundTag custom = cellStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        return custom.getCompound(RESTORE_RECEIPTS_TAG).getLong(transactionId.toString());
+        return custom.getCompoundOrEmpty(RESTORE_RECEIPTS_TAG).getLongOr(transactionId.toString(), 0L);
     }
 
     public void putRestoreReceipt(UUID transactionId, long amount) {
         if (cellStack == null || cellStack.isEmpty() || amount <= 0L) return;
         CompoundTag custom = cellStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        CompoundTag receipts = custom.getCompound(RESTORE_RECEIPTS_TAG);
+        CompoundTag receipts = custom.getCompoundOrEmpty(RESTORE_RECEIPTS_TAG);
         receipts.putLong(transactionId.toString(), amount);
         custom.put(RESTORE_RECEIPTS_TAG, receipts);
         cellStack.set(DataComponents.CUSTOM_DATA, CustomData.of(custom));

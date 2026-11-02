@@ -11,7 +11,7 @@ import java.util.Set;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.*;
@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class AddonWorkstationApiTest {
-    private static final ResourceLocation TYPE = id("processing"), MODULE = id("module"), ADAPTER = id("adapter");
+    private static final Identifier TYPE = id("processing"), MODULE = id("module"), ADAPTER = id("adapter");
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
     @Test void customCardControlsRecipeDiscoveryExecutionSelectionAndCacheInvalidation() {
@@ -83,14 +83,14 @@ class AddonWorkstationApiTest {
     }
 
     private static ECOWorkstationModules.Module module() {
-        return new ECOWorkstationModules.Module(MODULE, ResourceLocation.parse("minecraft:diamond"), Set.of(TYPE),
+        return new ECOWorkstationModules.Module(MODULE, Identifier.parse("minecraft:diamond"), Set.of(TYPE),
             Component.literal("Addon processing"), Component.literal("Addon"), 0x123456,
             id("textures/module.png"), id("textures/circuit.png"), id("block/idle"), id("block/working"));
     }
-    private static LargeWorkstationRecipe adapted(ResourceLocation id, ResourceLocation source) {
+    private static LargeWorkstationRecipe adapted(Identifier id, Identifier source) {
         var display = new IntegratedWorkingStationRecipe(List.of(new SizedIngredient(Ingredient.of(Items.IRON_INGOT), 1)),
             new SizedFluidIngredient(FluidIngredient.empty(), 1), new ItemStack(Items.GOLD_INGOT), FluidStack.EMPTY, 4321);
         return new LargeWorkstationRecipe(id, display, 4321, List.of(new GenericStack(AEFluidKey.of(Fluids.LAVA), 50)), source);
     }
-    private static ResourceLocation id(String path) { return ResourceLocation.fromNamespaceAndPath("addon_workstation_test", path); }
+    private static Identifier id(String path) { return Identifier.fromNamespaceAndPath("addon_workstation_test", path); }
 }

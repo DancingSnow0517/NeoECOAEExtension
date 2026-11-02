@@ -286,7 +286,7 @@ public final class ECOFastPathStacks {
         try {
             List<GenericStack> stacks = new ArrayList<>(tag.size());
             for (int i = 0; i < tag.size(); i++) {
-                GenericStack stack = GenericStack.readTag(registries, tag.getCompound(i));
+                GenericStack stack = GenericStack.readTag(registries, tag.getCompoundOrEmpty(i));
                 if (stack == null) {
                     return Optional.empty();
                 }

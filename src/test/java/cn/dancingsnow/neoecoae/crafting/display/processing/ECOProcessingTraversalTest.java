@@ -17,7 +17,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.Items;
@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 
 class ECOProcessingTraversalTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
-    private static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath("test", "progress_reader");
+    private static final Identifier ID = Identifier.fromNamespaceAndPath("test", "progress_reader");
 
     @Test void customDestinationProvidersAreAcceptedWithoutWorkstationTypeChecks() {
         var provider = mock(ICraftingProvider.class, withSettings().extraInterfaces(ECOProcessingTargetProvider.class));

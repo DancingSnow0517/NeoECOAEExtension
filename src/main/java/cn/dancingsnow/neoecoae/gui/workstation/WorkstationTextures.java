@@ -3,13 +3,13 @@ package cn.dancingsnow.neoecoae.gui.workstation;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationModule;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /** Pixel coordinates in the supplied workstation atlas; all sprites remain resource replaceable. */
 public final class WorkstationTextures {
-    public static final ResourceLocation WIDGETS = NeoECOAE.id("textures/guis/workstation/integrated_working_station_widget.png");
-    public static final ResourceLocation LARGE = NeoECOAE.id("textures/guis/workstation/large_integrated_working_station.png");
-    public static final ResourceLocation SMALL = NeoECOAE.id("textures/guis/workstation/integrated_working_station.png");
+    public static final Identifier WIDGETS = NeoECOAE.id("textures/guis/workstation/integrated_working_station_widget.png");
+    public static final Identifier LARGE = NeoECOAE.id("textures/guis/workstation/large_integrated_working_station.png");
+    public static final Identifier SMALL = NeoECOAE.id("textures/guis/workstation/integrated_working_station.png");
     static final int CIRCUIT_X = 217;
     static final int CIRCUIT_Y = 37;
 

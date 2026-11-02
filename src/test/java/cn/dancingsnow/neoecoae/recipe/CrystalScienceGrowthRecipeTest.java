@@ -11,7 +11,7 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -40,7 +40,7 @@ class CrystalScienceGrowthRecipeTest {
     static void bootstrap() throws ReflectiveOperationException {
         InventoryTestBootstrap.initialize();
         var components = (MappedRegistry<DataComponentType<?>>) BuiltInRegistries.DATA_COMPONENT_TYPE;
-        var id = ResourceLocation.parse("ae2cs:grow_process");
+        var id = Identifier.parse("ae2cs:grow_process");
         if (!components.containsKey(id)) {
             components.unfreeze();
             try {
@@ -61,7 +61,7 @@ class CrystalScienceGrowthRecipeTest {
     private static Item registerSeed(Class<? extends Item> type, String name, Item output, int ticks)
             throws ReflectiveOperationException {
         var items = (MappedRegistry<Item>) BuiltInRegistries.ITEM;
-        var id = ResourceLocation.parse("test:workstation_growth_seed_" + name);
+        var id = Identifier.parse("test:workstation_growth_seed_" + name);
         items.unfreeze();
         try {
             var seed = type.getConstructor(Item.Properties.class, Supplier.class, int.class)
@@ -172,7 +172,7 @@ class CrystalScienceGrowthRecipeTest {
             assertEquals(List.of(recipe), LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.CRYSTAL_SCIENCE));
             assertTrue(LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.REGULAR).isEmpty());
             assertSame(recipe, LargeWorkstationRecipes.getById(manager, registries, recipe.id()));
-            assertEquals(ResourceLocation.parse("neoecoae:crystal_growth/test/workstation_growth_seed_default"), recipe.id());
+            assertEquals(Identifier.parse("neoecoae:crystal_growth/test/workstation_growth_seed_default"), recipe.id());
         } finally {
             NEConfig.largeWorkstationIgnoreUpgradeCards = previous;
             LargeWorkstationRecipes.invalidate();

@@ -46,8 +46,8 @@ final class LegacyInfiniteStorageReader {
         Path directory = storePath(dataFile);
         if (!Files.exists(directory)) {
             CompoundTag root = NbtIo.readCompressed(dataFile, NbtAccounter.unlimitedHeap());
-            if (!root.contains("data", Tag.TAG_COMPOUND)) throw new IOException("Missing legacy domain data");
-            return new ReadResult(root.getCompound("data"), List.of());
+            if (!root.contains("data")) throw new IOException("Missing legacy domain data");
+            return new ReadResult(root.getCompoundOrEmpty("data"), List.of());
         }
         byte[] ready = Files.readAllBytes(directory.resolve("ready"));
         if (ready.length != 1 || ready[0] != 2) throw new IOException("Invalid legacy journal initialization marker");
@@ -91,8 +91,8 @@ final class LegacyInfiniteStorageReader {
             CompoundTag snapshot;
             try { snapshot = readSnapshot(path.resolve("snapshot.dat")); }
             catch (IOException | RuntimeException e) { snapshot = readSnapshot(path.resolve("backup.dat")); }
-            sequence = snapshot.getLong("sequence");
-            raw.addAll(snapshot.getList("rawEntries", Tag.TAG_COMPOUND));
+            sequence = snapshot.getLongOr("sequence", 0L);
+            raw.addAll(snapshot.getListOrEmpty("rawEntries"));
             apply(snapshot);
             replay(path.resolve("previous.log"));
             replay(path.resolve("journal.log"));
@@ -135,22 +135,22 @@ final class LegacyInfiniteStorageReader {
         void apply(CompoundTag changes) throws IOException {
             validateList(changes, "entries", Tag.TAG_COMPOUND);
             validateList(changes, "migrations", Tag.TAG_INT_ARRAY);
-            for (Tag value : changes.getList("entries", Tag.TAG_COMPOUND)) {
+            for (Tag value : changes.getListOrEmpty("entries")) {
                 CompoundTag entry = (CompoundTag) value;
-                CompoundTag key = entry.getCompound("key");
+                CompoundTag key = entry.getCompoundOrEmpty("key");
                 if (key.isEmpty()) { raw.add(entry.copy()); continue; }
-                CompoundTag amount = entry.getCompound("amount");
-                if (amount.contains("long", Tag.TAG_LONG) && amount.getLong("long") == 0
+                CompoundTag amount = entry.getCompoundOrEmpty("amount");
+                if (amount.contains("long") && amount.getLongOr("long", 0L) == 0
                         && !amount.contains("big") && !entry.contains("restore")) entries.remove(key);
                 else entries.put(key, entry);
             }
-            receipts.addAll(changes.getList("migrations", Tag.TAG_INT_ARRAY));
+            receipts.addAll(changes.getListOrEmpty("migrations"));
         }
     }
 
     private static CompoundTag readSnapshot(Path file) throws IOException {
         CompoundTag tag = NbtIo.readCompressed(file, NbtAccounter.unlimitedHeap());
-        if (tag.getInt("format") != 2 || !tag.contains("sequence", Tag.TAG_LONG) || tag.getLong("sequence") < 0) {
+        if (tag.getIntOr("format", 0) != 2 || !tag.contains("sequence") || tag.getLongOr("sequence", 0L) < 0) {
             throw new IOException("Invalid legacy snapshot format");
         }
         validateList(tag, "entries", Tag.TAG_COMPOUND);

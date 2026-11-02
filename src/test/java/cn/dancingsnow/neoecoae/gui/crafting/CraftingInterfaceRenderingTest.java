@@ -23,7 +23,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
@@ -227,13 +227,13 @@ class CraftingInterfaceRenderingTest {
 
         // Empty and single-page lists still draw AE2's disabled handle.
         scrollbar.drawBackgroundAdditional(context);
-        verify(context.graphics).blitSprite(ResourceLocation.fromNamespaceAndPath("ae2", "big_scroller_disabled"),
+        verify(context.graphics).blitSprite(Identifier.fromNamespaceAndPath("ae2", "big_scroller_disabled"),
                 1, 1, 12, 15);
 
         when(state.getMaxScrollOffset()).thenReturn(54.0);
         when(state.getScrollOffset()).thenReturn(54.0);
         scrollbar.drawBackgroundAdditional(context);
-        verify(context.graphics).blitSprite(ResourceLocation.fromNamespaceAndPath("ae2", "big_scroller"),
+        verify(context.graphics).blitSprite(Identifier.fromNamespaceAndPath("ae2", "big_scroller"),
                 1, 1, 12, 15);
         verify(context.pose).translate(0F, 91F, 0F);
 

@@ -569,7 +569,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
         super.loadTag(data, registries);
         markDisplayDirty();
-        ListTag threads = data.getList("craftingThreads", Tag.TAG_COMPOUND);
+        ListTag threads = data.getListOrEmpty("craftingThreads");
         craftingThreads.clear();
         // The fast-path cache is no longer per worker, so a worker load must not wipe knowledge its whole
         // cluster shares. Staleness is already impossible: every key carries the reload generation and the

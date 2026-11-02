@@ -8,7 +8,7 @@ import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /** Keeps AE2's button layout and lifecycle while using ECO's gray side rail. */
 public final class ECOGrayVerticalButtonBar extends VerticalButtonBar {
@@ -16,9 +16,9 @@ public final class ECOGrayVerticalButtonBar extends VerticalButtonBar {
     private static final int TOP_HEIGHT = 30;
     private static final int MIDDLE_HEIGHT = 24;
     private static final int BOTTOM_HEIGHT = 27;
-    private static final ResourceLocation TOP = texture("up");
-    private static final ResourceLocation MIDDLE = texture("middle");
-    private static final ResourceLocation BOTTOM = texture("down");
+    private static final Identifier TOP = texture("up");
+    private static final Identifier MIDDLE = texture("middle");
+    private static final Identifier BOTTOM = texture("down");
 
     private final List<Button> buttons = new ArrayList<>();
 
@@ -42,7 +42,7 @@ public final class ECOGrayVerticalButtonBar extends VerticalButtonBar {
         int index = 0;
         for (Button button : buttons) {
             if (!button.visible) continue;
-            ResourceLocation texture = index == 0 ? TOP : index == visibleCount - 1 ? BOTTOM : MIDDLE;
+            Identifier texture = index == 0 ? TOP : index == visibleCount - 1 ? BOTTOM : MIDDLE;
             int height = index == 0 ? TOP_HEIGHT : index == visibleCount - 1 ? BOTTOM_HEIGHT : MIDDLE_HEIGHT;
             graphics.blit(texture, button.getX() - 4, button.getY() - (index == 0 ? 3 : 2),
                 1, 0, 0, WIDTH, height, WIDTH, height);
@@ -50,7 +50,7 @@ public final class ECOGrayVerticalButtonBar extends VerticalButtonBar {
         }
     }
 
-    private static ResourceLocation texture(String segment) {
+    private static Identifier texture(String segment) {
         return NeoECOAE.id("textures/gui/common/side_bar/gray_button_slot_" + segment + ".png");
     }
 }

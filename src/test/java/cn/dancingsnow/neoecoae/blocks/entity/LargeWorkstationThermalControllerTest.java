@@ -17,7 +17,7 @@ import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
@@ -66,7 +66,7 @@ class LargeWorkstationThermalControllerTest {
             recipeRegistry.freeze();
         }
         var fluids = (MappedRegistry<Fluid>) BuiltInRegistries.FLUID;
-        var id = ResourceLocation.parse("neoecoae:cryotheum_solution");
+        var id = Identifier.parse("neoecoae:cryotheum_solution");
         fluids.unfreeze();
         // This registry entry is shared with diagnostics tests that resolve the coolant's display name.
         var cryotheumType = new FluidType(FluidType.Properties.create()
@@ -220,7 +220,7 @@ class LargeWorkstationThermalControllerTest {
         var produced = new KeyCounter();
         produced.add(AEItemKey.of(Items.DIAMOND), 100);
         Object batch = constructor.newInstance(100L, 1000L, 2, 1, owned, produced,
-            null, ResourceLocation.parse("test:thermal"), null, null, 0L);
+            null, Identifier.parse("test:thermal"), null, null, 0L);
         field(batch, "progress", 50);
         var queue = new ArrayDeque<>();
         queue.add(batch);
@@ -244,7 +244,7 @@ class LargeWorkstationThermalControllerTest {
         var produced = new KeyCounter();
         produced.add(AEItemKey.of(Items.DIAMOND), 100);
         Object batch = constructor.newInstance(100L, 1000L, 9, 1, owned, produced,
-            null, ResourceLocation.parse("test:thermal"), null, null, 0L);
+            null, Identifier.parse("test:thermal"), null, null, 0L);
         var queue = new ArrayDeque<>();
         queue.add(batch);
         field(host, "pendingBatches", queue);
@@ -484,7 +484,7 @@ class LargeWorkstationThermalControllerTest {
         var produced = new KeyCounter();
         produced.add(AEItemKey.of(Items.DIAMOND), 100);
         Object batch = constructor.newInstance(100L, 1000L, tier, 1, owned, produced,
-            null, ResourceLocation.parse("test:thermal"), null, null, 0L);
+            null, Identifier.parse("test:thermal"), null, null, 0L);
         var queue = new ArrayDeque<>();
         queue.add(batch);
         field(host, "pendingBatches", queue);
@@ -559,7 +559,7 @@ class LargeWorkstationThermalControllerTest {
         var job = java.util.UUID.randomUUID();
         Object first = sizedBatch(65_536, 6, 0, job);
         Object next = sizedBatch(65_536, 6, 0, difference.equals("job") ? java.util.UUID.randomUUID() : job);
-        if (difference.equals("recipe")) field(next, "recipeId", ResourceLocation.parse("test:different"));
+        if (difference.equals("recipe")) field(next, "recipeId", Identifier.parse("test:different"));
         if (difference.equals("progress")) field(next, "progress", 1);
         if (difference.equals("output")) ((KeyCounter) value(next, "outputTotal")).add(AEItemKey.of(Items.DIAMOND), 65_536);
         queue.add(first);
@@ -665,7 +665,7 @@ class LargeWorkstationThermalControllerTest {
         var produced = new KeyCounter();
         produced.add(AEItemKey.of(Items.DIAMOND), count);
         Object batch = constructor.newInstance(count, 1_000L, tier, 1, owned, produced,
-            job, ResourceLocation.parse("test:thermal"), null, null, 0L);
+            job, Identifier.parse("test:thermal"), null, null, 0L);
         field(batch, "progress", progress);
         return batch;
     }
@@ -1674,7 +1674,7 @@ class LargeWorkstationThermalControllerTest {
     private void coolant(Fluid fluid, int tier, FluidStack byproduct) {
         var recipe = new CoolingRecipe(SizedFluidIngredient.of(fluid, 100), byproduct, 1, tier);
         when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of(
-            new RecipeHolder<>(ResourceLocation.parse("test:cooling"), recipe)));
+            new RecipeHolder<>(Identifier.parse("test:cooling"), recipe)));
     }
 
     private void tick() {

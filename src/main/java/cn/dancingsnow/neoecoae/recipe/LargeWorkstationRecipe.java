@@ -5,7 +5,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 
 import java.util.ArrayDeque;
@@ -14,25 +14,25 @@ import java.util.Arrays;
 import java.util.List;
 
 /** Runtime-only recipe contract. Never registered in the single-block recipe type. */
-public record LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStationRecipe display,
-                                     long energy, List<GenericStack> extraInputs, ResourceLocation sourceType,
+public record LargeWorkstationRecipe(Identifier id, IntegratedWorkingStationRecipe display,
+                                     long energy, List<GenericStack> extraInputs, Identifier sourceType,
                                      List<SizedFluidIngredient> additionalFluidInputs, List<GenericStack> additionalOutputs,
                                      int processingTicks, long feEnergy, boolean feAlternative) {
-    public static final ResourceLocation NATIVE_TYPE = ResourceLocation.parse("neoecoae:integrated_working_station");
+    public static final Identifier NATIVE_TYPE = Identifier.parse("neoecoae:integrated_working_station");
     public static final int MAX_PROCESSING_TICKS = 200;
 
-    public LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStationRecipe display,
+    public LargeWorkstationRecipe(Identifier id, IntegratedWorkingStationRecipe display,
                                   long energy, List<GenericStack> extraInputs) {
         this(id, display, energy, extraInputs, NATIVE_TYPE);
     }
 
-    public LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStationRecipe display,
-                                  long energy, List<GenericStack> extraInputs, ResourceLocation sourceType) {
+    public LargeWorkstationRecipe(Identifier id, IntegratedWorkingStationRecipe display,
+                                  long energy, List<GenericStack> extraInputs, Identifier sourceType) {
         this(id, display, energy, extraInputs, sourceType, List.of(), List.of());
     }
 
-    public LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStationRecipe display,
-                                  long energy, List<GenericStack> extraInputs, ResourceLocation sourceType,
+    public LargeWorkstationRecipe(Identifier id, IntegratedWorkingStationRecipe display,
+                                  long energy, List<GenericStack> extraInputs, Identifier sourceType,
                                   List<SizedFluidIngredient> additionalFluidInputs, List<GenericStack> additionalOutputs) {
         this(id, display, energy, extraInputs, sourceType, additionalFluidInputs, additionalOutputs,
             referenceTicks(sourceType, display, energy), 0, false);
@@ -47,7 +47,7 @@ public record LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStati
     /** FE can always be paid with equivalent AE, so Applied Flux is optional. */
     public boolean requiresAppliedFlux() { return false; }
 
-    private static int referenceTicks(ResourceLocation type, IntegratedWorkingStationRecipe display, long energy) {
+    private static int referenceTicks(Identifier type, IntegratedWorkingStationRecipe display, long energy) {
         if (type.equals(NATIVE_TYPE)) return display.processingTicks();
         if (type.getNamespace().equals("ae2cs")) return (int) Math.max(1, Math.min(Integer.MAX_VALUE, energy / 200 + (energy % 200 == 0 ? 0 : 1)));
         return switch (type.toString()) {

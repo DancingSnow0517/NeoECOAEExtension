@@ -8,7 +8,7 @@ import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.core.Direction;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.client.ChunkRenderTypeSet;
@@ -36,7 +36,7 @@ class CoolingControllerBakedModelTest {
         var models = new HashMap<ModelResourceLocation, BakedModel>();
         BakedModel original = mock(BakedModel.class);
         for (String tier : List.of("l4", "l6", "l9")) {
-            var id = ResourceLocation.fromNamespaceAndPath("neoecoae", "computation_cooling_controller_" + tier);
+            var id = Identifier.fromNamespaceAndPath("neoecoae", "computation_cooling_controller_" + tier);
             models.put(ModelResourceLocation.inventory(id), original);
             for (String facing : List.of("north", "east", "south", "west")) {
                 for (boolean formed : List.of(false, true)) {
@@ -46,7 +46,7 @@ class CoolingControllerBakedModelTest {
                 }
             }
         }
-        var unrelated = new ModelResourceLocation(ResourceLocation.fromNamespaceAndPath("neoecoae", "computation_system_l9"), "formed=true");
+        var unrelated = new ModelResourceLocation(Identifier.fromNamespaceAndPath("neoecoae", "computation_system_l9"), "formed=true");
         models.put(unrelated, original);
         CoolingControllerBakedModel.onModifyBakingResult(new ModelEvent.ModifyBakingResult(models, null, null));
         assertEquals(24, models.values().stream().filter(CoolingControllerBakedModel.class::isInstance).count());

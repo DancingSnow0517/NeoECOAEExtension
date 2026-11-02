@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.api.computation;
 
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.extension.ECOExtensionRegistry;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -17,8 +17,8 @@ public final class ECOComputationCells {
             if (bytes < 0) throw new IllegalArgumentException("Negative computation bytes");
         }
     }
-    public static void register(ResourceLocation id, int priority, Adapter adapter) { REGISTRY.register(id, priority, adapter); }
-    public static boolean unregister(ResourceLocation id) { return REGISTRY.unregister(id); }
+    public static void register(Identifier id, int priority, Adapter adapter) { REGISTRY.register(id, priority, adapter); }
+    public static boolean unregister(Identifier id) { return REGISTRY.unregister(id); }
     public static long revision() { return REGISTRY.revision(); }
     @Nullable public static Memory describe(@Nullable ItemStack stack) {
         if (stack == null || stack.isEmpty()) return null;

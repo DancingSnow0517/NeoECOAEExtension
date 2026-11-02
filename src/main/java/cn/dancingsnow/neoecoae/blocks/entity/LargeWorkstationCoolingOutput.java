@@ -7,7 +7,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -15,10 +15,10 @@ import org.jetbrains.annotations.Nullable;
 final class LargeWorkstationCoolingOutput {
     private static final String TAG_KEY = "coolingOutputRemainders";
     private static final int MAX_REMAINDERS = 4096;
-    private final Map<ResourceLocation, Remainder> remainders = new HashMap<>();
+    private final Map<Identifier, Remainder> remainders = new HashMap<>();
 
     @Nullable
-    Plan plan(ResourceLocation recipeId, FluidStack output, int recipeInput, int recipeOutput, int coolantConsumed) {
+    Plan plan(Identifier recipeId, FluidStack output, int recipeInput, int recipeOutput, int coolantConsumed) {
         if (output.isEmpty()) return new Plan(recipeId, null, FluidStack.EMPTY);
         if (recipeInput <= 0 || recipeOutput <= 0 || coolantConsumed <= 0) return null;
 
@@ -59,14 +59,14 @@ final class LargeWorkstationCoolingOutput {
 
     void load(CompoundTag tag, HolderLookup.Provider registries) {
         remainders.clear();
-        ListTag entries = tag.getList(TAG_KEY, Tag.TAG_COMPOUND);
+        ListTag entries = tag.getListOrEmpty(TAG_KEY);
         for (int i = 0; i < Math.min(entries.size(), MAX_REMAINDERS); i++) {
-            CompoundTag value = entries.getCompound(i);
-            ResourceLocation id = ResourceLocation.tryParse(value.getString("recipe"));
-            int recipeInput = value.getInt("recipeInput");
-            int recipeOutput = value.getInt("recipeOutput");
-            int amount = value.getInt("amount");
-            if (!value.contains("fluid", Tag.TAG_COMPOUND)) continue;
+            CompoundTag value = entries.getCompoundOrEmpty(i);
+            Identifier id = Identifier.tryParse(value.getStringOr("recipe", ""));
+            int recipeInput = value.getIntOr("recipeInput", 0);
+            int recipeOutput = value.getIntOr("recipeOutput", 0);
+            int amount = value.getIntOr("amount", 0);
+            if (!value.contains("fluid")) continue;
             FluidStack fluid;
             try {
                 fluid = FluidStack.CODEC.parse(
@@ -82,7 +82,7 @@ final class LargeWorkstationCoolingOutput {
         }
     }
 
-    record Plan(ResourceLocation recipeId, @Nullable Remainder next, FluidStack output) {
+    record Plan(Identifier recipeId, @Nullable Remainder next, FluidStack output) {
         Plan { output = output.copy(); }
     }
 

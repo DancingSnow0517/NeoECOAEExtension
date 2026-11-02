@@ -5,19 +5,19 @@ import appeng.api.stacks.GenericStack;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /** Optional server-side ECO/F-series execution capability. It does not accept foreign task objects. */
 public interface EcoFastpathHost {
     int API_VERSION = 1;
-    ResourceLocation CAPABILITY_ID = ResourceLocation.fromNamespaceAndPath("neoecoae", "eco_fastpath");
+    Identifier CAPABILITY_ID = Identifier.fromNamespaceAndPath("neoecoae", "eco_fastpath");
 
     FastpathCapability inspect(FastpathRequest request);
 
     FastpathSubmission submit(FastpathRequest request);
 
     record FastpathRequest(AEItemKey processingId, List<List<GenericStack>> inputsPerCraft,
-            long requestedAmount, ResourceLocation targetCapabilityId, int apiVersion, UUID nonce) {
+            long requestedAmount, Identifier targetCapabilityId, int apiVersion, UUID nonce) {
         public FastpathRequest {
             Objects.requireNonNull(processingId, "processingId");
             Objects.requireNonNull(targetCapabilityId, "targetCapabilityId");
@@ -26,7 +26,7 @@ public interface EcoFastpathHost {
         }
     }
 
-    record FastpathCapability(int capabilityVersion, ResourceLocation capabilityId,
+    record FastpathCapability(int capabilityVersion, Identifier capabilityId,
             HostTier tier, long acceptedAmount, DurationClass estimatedDuration,
             RejectionReason rejectionReason) {
         public FastpathCapability {

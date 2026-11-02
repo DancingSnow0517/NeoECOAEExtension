@@ -12,7 +12,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.neoforged.api.distmarker.Dist;
@@ -31,10 +31,10 @@ public final class ProviderLocationHighlight {
     private ProviderLocationHighlight() {}
 
     public static void show(CompoundTag source) {
-        var dimension = ResourceLocation.tryParse(source.getString("dimension"));
+        var dimension = Identifier.tryParse(source.getStringOr("dimension", ""));
         if (dimension == null) return;
-        var position = BlockPos.of(source.getLong("position"));
-        var side = source.contains("side") ? Direction.byName(source.getString("side")) : null;
+        var position = BlockPos.of(source.getLongOr("position", 0L));
+        var side = source.contains("side") ? Direction.byName(source.getStringOr("side", "")) : null;
         LOCATIONS.put(new Location(ResourceKey.create(Registries.DIMENSION, dimension), position, side),
             System.currentTimeMillis() + 8_000);
     }

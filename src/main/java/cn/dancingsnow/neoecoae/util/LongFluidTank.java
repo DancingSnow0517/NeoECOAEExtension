@@ -75,7 +75,7 @@ public class LongFluidTank extends FluidTank {
     public FluidTank readFromNBT(HolderLookup.Provider registries, CompoundTag tag) {
         super.readFromNBT(registries, tag);
         amount = fluid.isEmpty() ? 0 : tag.contains("StoredAmount")
-            ? Math.max(0, tag.getLong("StoredAmount")) : fluid.getAmount();
+            ? Math.max(0, tag.getLongOr("StoredAmount", 0L)) : fluid.getAmount();
         fluid = amount == 0 ? FluidStack.EMPTY : fluid.copyWithAmount((int) Math.min(Integer.MAX_VALUE, amount));
         return this;
     }

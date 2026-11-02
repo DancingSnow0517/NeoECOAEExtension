@@ -30,7 +30,7 @@ import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.Test;
 
@@ -713,7 +713,7 @@ class ECOProcessingDispatchIntegrationTest {
             InventoryTestBootstrap.initialize();
             var keyType = mock(AEKeyType.class);
             when(key.getType()).thenReturn(keyType);
-            when(keyType.getId()).thenReturn(ResourceLocation.fromNamespaceAndPath("test", "input"));
+            when(keyType.getId()).thenReturn(Identifier.fromNamespaceAndPath("test", "input"));
             var pattern = mock(AEProcessingPattern.class);
             when(pattern.getDefinition()).thenReturn(AEItemKey.of(Items.STONE));
             when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[]{mock(IPatternDetails.IInput.class)});

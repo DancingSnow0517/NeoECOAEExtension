@@ -13,7 +13,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.google.gson.JsonObject;
 import java.util.Objects;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
 final class WorkstationInventoryUI {
     private WorkstationInventoryUI() {}
     static UIElement createNetworkToolbox(NetworkToolMenuHost<?> networkTool) {
-        return WorkstationUiJson.load(ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/workstation/network_toolbox"),
+        return WorkstationUiJson.load(Identifier.fromNamespaceAndPath("neoecoae", "screens/workstation/network_toolbox"),
             new JsonContext(networkTool));
     }
 

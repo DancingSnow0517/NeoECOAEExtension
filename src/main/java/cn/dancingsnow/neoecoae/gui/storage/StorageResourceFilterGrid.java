@@ -45,7 +45,7 @@ final class StorageResourceFilterGrid extends UIElement {
             FilterSlot element = new FilterSlot(slot);
             slots.add(element);
             addChild(element);
-            if (host.getLevel() != null && host.getLevel().isClientSide) element.xeiPhantom();
+            if (host.getLevel() != null && host.getLevel().isClientSide()) element.xeiPhantom();
         }
         BindableValue<Tag> filters = new BindableValue<>(host.getStorageResourceFilters());
         filters.setDisplay(false);

@@ -72,7 +72,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -112,7 +112,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     @DescSynced
     @com.lowdragmc.lowdraglib2.syncdata.annotation.RequireRerender
     @lombok.Getter
-    private ResourceLocation moduleAppearanceId = ResourceLocation.parse("neoecoae:regular");
+    private Identifier moduleAppearanceId = Identifier.parse("neoecoae:regular");
     private final LargeWorkstationModuleInventory moduleInventory = new LargeWorkstationModuleInventory(this::moduleChanged);
     /** Accepted ordinary-path batches, bounded by MAX_PENDING_BATCHES backpressure. */
     private final Deque<PendingBatch> pendingBatches = new ArrayDeque<>();
@@ -230,7 +230,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     public void updateState(boolean updateExposed) {
-        if (level == null || level.isClientSide || isRemoved()) return;
+        if (level == null || level.isClientSide() || isRemoved()) return;
         BlockState state = level.getBlockState(worldPosition);
         if (state.getBlock() instanceof ECOIntegratedWorkingStation) {
             BlockState next = state
@@ -520,13 +520,13 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         return custom != null ? custom : ECOWorkstationModules.builtin(getInstalledModule());
     }
 
-    public ResourceLocation getInstalledModuleId() { return getInstalledModuleDescription().id(); }
+    public Identifier getInstalledModuleId() { return getInstalledModuleDescription().id(); }
 
     public IItemHandlerModifiable getModuleInventory() { return moduleInventory; }
 
     private void moduleChanged() {
         cachedTask = null;
-        if (level == null || level.isClientSide) return;
+        if (level == null || level.isClientSide()) return;
         refreshModuleAppearance();
         settingsChanged();
     }
@@ -706,15 +706,15 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     private void recordUiEnergy(double amount) {
-        if (level != null && !level.isClientSide) {
+        if (level != null && !level.isClientSide()) {
             uiEnergyUsage.record(level.getGameTime(), amount);
         }
     }
 
     /** The installed card selects the screen and formed-controller theme, including while idle. */
     private void refreshModuleAppearance() {
-        if (level != null && !level.isClientSide) moduleAppearanceId = getInstalledModuleId();
-        if (level == null || level.isClientSide || !formed
+        if (level != null && !level.isClientSide()) moduleAppearanceId = getInstalledModuleId();
+        if (level == null || level.isClientSide() || !formed
             || !(getBlockState().getBlock() instanceof ECOIntegratedWorkingStation)) return;
         LargeWorkstationModule module = getInstalledModule();
         BlockState current = getBlockState();
@@ -726,7 +726,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     /** Returns one queued row's owned inputs after validating the menu's stable row identity. */
     private void returnTaskInputs(UUID interactionId) {
-        if (level == null || level.isClientSide || interactionId == null) return;
+        if (level == null || level.isClientSide() || interactionId == null) return;
         PendingBatch selected = null;
         for (PendingBatch batch : pendingBatches) {
             if (batch.interactionId.equals(interactionId)) {
@@ -822,7 +822,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             if (index++ < taskOffset) continue;
             if (entries.size() >= LargeWorkstationUI.SNAPSHOT_SIZE) break;
             CompoundTag entry = new CompoundTag();
-            entry.putUUID("id", batch.interactionId);
+            entry.store("id", net.minecraft.core.UUIDUtil.CODEC, batch.interactionId);
             entry.putInt("progress", (int) ((long) batch.progress * 200 / batch.processingTicks));
             entry.putInt("elapsedTicks", batch.progress);
             entry.putInt("processingTicks", batch.processingTicks);
@@ -928,7 +928,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (holder == null) return null;
         batch.recipeId = holder.id();
         batch.recipe = holder.value();
-        if (!level.isClientSide) setChanged();
+        if (!level.isClientSide()) setChanged();
         return batch.recipe;
     }
 
@@ -959,25 +959,25 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     @Override
     public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
         super.loadTag(data, registries);
-        processingFeBuffer = Math.max(0, data.getLong("processingFeBuffer"));
+        processingFeBuffer = Math.max(0, data.getLongOr("processingFeBuffer", 0L));
         uiThermalUsage = new LargeWorkstationThermalUsage();
-        moduleInventory.deserializeNBT(registries, data.getCompound("workstationModule"));
-        var thermal = LargeWorkstationThermal.load(data.getCompound("largeWorkstationThermal"));
+        moduleInventory.deserializeNBT(registries, data.getCompoundOrEmpty("workstationModule"));
+        var thermal = LargeWorkstationThermal.load(data.getCompoundOrEmpty("largeWorkstationThermal"));
         temperature = thermal.temperature();
         overheated = thermal.overheated();
         recoveryTicks = thermal.recoveryTicks();
         pendingThermalLoad = 0;
         preheatTargetTier = temperature < 20 ? 2 : temperature < 50 ? 6 : 9;
         if (overheated) preheating = false;
-        double restoredRefund = data.getDouble("pendingPowerRefund");
+        double restoredRefund = data.getDoubleOr("pendingPowerRefund", 0.0);
         pendingPowerRefund = Double.isFinite(restoredRefund) && restoredRefund > 0.0D ? restoredRefund : 0.0D;
         coolingOutput.load(data, registries);
         pendingBatches.clear();
-        ListTag batches = data.getList("pendingBatches", Tag.TAG_COMPOUND);
+        ListTag batches = data.getListOrEmpty("pendingBatches");
         setPauseReason(PauseReason.NONE);
         long currentTick = level == null ? 0L : level.getGameTime();
         for (int index = 0; index < batches.size(); index++) {
-            PendingBatch batch = PendingBatch.load(batches.getCompound(index), registries, currentTick);
+            PendingBatch batch = PendingBatch.load(batches.getCompoundOrEmpty(index), registries, currentTick);
             if (batch != null) {
                 pendingBatches.addLast(batch);
             }
@@ -1568,7 +1568,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (activeCooling && !preheating && temperature > 0) {
             RecipeHolder<CoolingRecipe> holder = getCoolingRecipeForInput();
             // Only the real cryotheum fluid can clear the safety latch, even with custom cooling recipes.
-            boolean recoveryFluid = ResourceLocation.fromNamespaceAndPath("neoecoae", "cryotheum_solution")
+            boolean recoveryFluid = Identifier.fromNamespaceAndPath("neoecoae", "cryotheum_solution")
                 .equals(BuiltInRegistries.FLUID.getKey(getInputTank().getFluid().getFluid()));
             if (!overheated || recoveryFluid) {
                 CoolingTickPlan plan = prepareCoolingTick(holder);
@@ -1601,7 +1601,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             coolingProblemId = PauseReason.COOLANT_MISSING.ordinal();
         } else if (LargeWorkstationOverclock.forCoolingTier(holder.value().maxOverclock()) == null) {
             coolingProblemId = PauseReason.COOLANT_TIER_LOW.ordinal();
-        } else if (overheated && !ResourceLocation.fromNamespaceAndPath("neoecoae", "cryotheum_solution")
+        } else if (overheated && !Identifier.fromNamespaceAndPath("neoecoae", "cryotheum_solution")
             .equals(BuiltInRegistries.FLUID.getKey(getInputTank().getFluid().getFluid()))) {
             coolingProblemId = PauseReason.COOLANT_TIER_LOW.ordinal();
         } else {
@@ -2093,7 +2093,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     /** Returns inputs still owned by incomplete batches to the ME network. */
     public void returnStoredInputs() {
-        if (level == null || level.isClientSide) return;
+        if (level == null || level.isClientSide()) return;
         var batches = new ArrayList<>(pendingBatches);
         for (PendingBatch batch : batches) {
             if (batch.progress >= batch.processingTicks) continue;
@@ -2229,7 +2229,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         @Nullable
         private final UUID craftingJobId;
         @Nullable
-        private ResourceLocation recipeId;
+        private Identifier recipeId;
         @Nullable
         private IntegratedWorkingStationRecipe recipe;
         @Nullable
@@ -2253,7 +2253,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             KeyCounter inputTotal,
             KeyCounter outputTotal,
             @Nullable UUID craftingJobId,
-            @Nullable ResourceLocation recipeId,
+            @Nullable Identifier recipeId,
             @Nullable IntegratedWorkingStationRecipe recipe,
             @Nullable GenericStack unlockStack,
             long createdTick
@@ -2286,7 +2286,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             if (segmented) tag.putBoolean("segmented", true);
             tag.putLong("thermalWorkMultiplier", thermalWorkMultiplier);
             tag.putLong("createdTick", createdTick);
-            if (craftingJobId != null) tag.putUUID("craftingJobId", craftingJobId);
+            if (craftingJobId != null) tag.store("craftingJobId", net.minecraft.core.UUIDUtil.CODEC, craftingJobId);
             if (recipeId != null) tag.putString("recipeId", recipeId.toString());
             long saveStackCount = countStackEntries(inputTotal)
                 + countStackEntries(outputTotal)
@@ -2309,21 +2309,21 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
         @Nullable
         private static PendingBatch load(CompoundTag tag, HolderLookup.Provider registries, long currentTick) {
-            if (tag.getBoolean("pendingStateTooLarge")) {
+            if (tag.getBooleanOr("pendingStateTooLarge", false)) {
                 LOGGER.error("Discarding a large workstation batch whose persisted state exceeded the save limit");
                 return null;
             }
-            long craftCount = tag.getLong("craftCount");
-            long energyPerCraft = tag.getLong("energyPerCraft");
-            int processingTicks = tag.contains("processingTicks") ? tag.getInt("processingTicks") : MAX_PROCESSING_STEPS;
-            long fePerCraft = tag.getLong("fePerCraft");
-            long feRemainder = tag.getLong("feRemainder");
-            boolean legacyTiming = !tag.contains("processingTicks") || tag.getBoolean("legacyTiming");
-            int coolingTier = tag.contains("coolingTier", Tag.TAG_INT) ? tag.getInt("coolingTier") : 0;
-            int energyMultiplier = tag.contains("energyMultiplier", Tag.TAG_INT) ? tag.getInt("energyMultiplier") : 1;
-            int progress = tag.getInt("progress");
-            long progressRemainder = tag.getLong("progressRemainder");
-            boolean segmented = tag.getBoolean("segmented");
+            long craftCount = tag.getLongOr("craftCount", 0L);
+            long energyPerCraft = tag.getLongOr("energyPerCraft", 0L);
+            int processingTicks = tag.contains("processingTicks") ? tag.getIntOr("processingTicks", 0) : MAX_PROCESSING_STEPS;
+            long fePerCraft = tag.getLongOr("fePerCraft", 0L);
+            long feRemainder = tag.getLongOr("feRemainder", 0L);
+            boolean legacyTiming = !tag.contains("processingTicks") || tag.getBooleanOr("legacyTiming", false);
+            int coolingTier = tag.contains("coolingTier") ? tag.getIntOr("coolingTier", 0) : 0;
+            int energyMultiplier = tag.contains("energyMultiplier") ? tag.getIntOr("energyMultiplier", 0) : 1;
+            int progress = tag.getIntOr("progress", 0);
+            long progressRemainder = tag.getLongOr("progressRemainder", 0L);
+            boolean segmented = tag.getBooleanOr("segmented", false);
             LargeWorkstationOverclock profile = LargeWorkstationOverclock.fromPersisted(coolingTier, energyMultiplier);
             // Grandfather already-owned normal batches accepted under the old 1,024 limit.
             long savedLimit = coolingTier == 0 ? 1_024 : profile == null ? 0 : profile.maxParallelism();
@@ -2345,13 +2345,13 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 || progress >= processingTicks && pendingOutput.isEmpty()) {
                 return null;
             }
-            UUID craftingJobId = tag.hasUUID("craftingJobId") ? tag.getUUID("craftingJobId") : null;
-            ResourceLocation recipeId = tag.contains("recipeId", Tag.TAG_STRING)
-                ? ResourceLocation.tryParse(tag.getString("recipeId")) : null;
-            GenericStack unlockStack = tag.contains("unlockStack", Tag.TAG_COMPOUND)
-                ? GenericStack.readTag(registries, tag.getCompound("unlockStack")) : null;
-            long createdTick = tag.contains("createdTick", Tag.TAG_LONG)
-                ? tag.getLong("createdTick") : currentTick;
+            UUID craftingJobId = tag.read("craftingJobId", net.minecraft.core.UUIDUtil.CODEC).isPresent() ? tag.read("craftingJobId", net.minecraft.core.UUIDUtil.CODEC).orElseThrow() : null;
+            Identifier recipeId = tag.contains("recipeId")
+                ? Identifier.tryParse(tag.getStringOr("recipeId", "")) : null;
+            GenericStack unlockStack = tag.contains("unlockStack")
+                ? GenericStack.readTag(registries, tag.getCompoundOrEmpty("unlockStack")) : null;
+            long createdTick = tag.contains("createdTick")
+                ? tag.getLongOr("createdTick", 0L) : currentTick;
             PendingBatch batch = new PendingBatch(
                 craftCount, energyPerCraft, profile.coolingTier(), profile.energyMultiplier(), inputTotal, outputTotal,
                 craftingJobId, recipeId, null, unlockStack, createdTick);
@@ -2364,8 +2364,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             batch.progress = progress;
             batch.progressRemainder = progressRemainder;
             batch.segmented = segmented;
-            batch.thermalWorkMultiplier = tag.contains("thermalWorkMultiplier", Tag.TAG_LONG)
-                ? Math.max(1, tag.getLong("thermalWorkMultiplier")) : 1;
+            batch.thermalWorkMultiplier = tag.contains("thermalWorkMultiplier")
+                ? Math.max(1, tag.getLongOr("thermalWorkMultiplier", 0L)) : 1;
             return batch;
         }
 
@@ -2384,13 +2384,13 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             String name,
             boolean requireNonEmpty
         ) {
-            ListTag entries = tag.getList(name, Tag.TAG_COMPOUND);
+            ListTag entries = tag.getListOrEmpty(name);
             if (entries.size() > ECOBatchCraftingHelper.MAX_BATCH_STACK_ENTRIES
                 || requireNonEmpty && entries.isEmpty()) return null;
             try {
                 KeyCounter result = new KeyCounter();
                 for (int i = 0; i < entries.size(); i++) {
-                    GenericStack stack = GenericStack.readTag(registries, entries.getCompound(i));
+                    GenericStack stack = GenericStack.readTag(registries, entries.getCompoundOrEmpty(i));
                     if (stack == null || stack.amount() <= 0
                         || stack.amount() > ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT) return null;
                     long total = result.get(stack.what());

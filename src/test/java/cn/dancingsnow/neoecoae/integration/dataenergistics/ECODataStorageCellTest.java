@@ -9,7 +9,7 @@ import appeng.core.definitions.AEItems;
 import appeng.util.ConfigInventory;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluids;
@@ -42,9 +42,9 @@ class ECODataStorageCellTest {
         when(binary.getAmountPerByte()).thenReturn(8);
         AEKey[] keys = {key(digital), key(digital), key(digital), key(binary)};
         try (var registry = mockStatic(AEKeyTypes.class)) {
-            registry.when(() -> AEKeyTypes.get(ResourceLocation.parse("data_energistics:digitalization")))
+            registry.when(() -> AEKeyTypes.get(Identifier.parse("data_energistics:digitalization")))
                 .thenReturn(digital);
-            registry.when(() -> AEKeyTypes.get(ResourceLocation.parse("data_energistics:manifest_binary")))
+            registry.when(() -> AEKeyTypes.get(Identifier.parse("data_energistics:manifest_binary")))
                 .thenReturn(binary);
             var item = mock(ECODataStorageCellItem.class, CALLS_REAL_METHODS);
             doReturn(digital).when(item).getKeyType();

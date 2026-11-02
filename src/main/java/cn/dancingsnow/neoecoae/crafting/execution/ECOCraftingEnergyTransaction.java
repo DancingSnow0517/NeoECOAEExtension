@@ -39,13 +39,13 @@ final class ECOCraftingEnergyTransaction {
         prepaidEnergyCredit = BigDecimal.ZERO;
         if (data.contains("prepaidEnergyCreditExact", net.minecraft.nbt.Tag.TAG_STRING)) {
             try {
-                prepaidEnergyCredit = new BigDecimal(data.getString("prepaidEnergyCreditExact"))
+                prepaidEnergyCredit = new BigDecimal(data.getStringOr("prepaidEnergyCreditExact", ""))
                     .max(BigDecimal.ZERO);
             } catch (NumberFormatException invalid) {
                 LOGGER.error("Invalid exact crafting energy credit", invalid);
             }
         } else {
-            double restored = data.getDouble("prepaidEnergyCredit");
+            double restored = data.getDoubleOr("prepaidEnergyCredit", 0.0);
             if (Double.isFinite(restored) && restored > 0) prepaidEnergyCredit = decimal(restored);
         }
     }

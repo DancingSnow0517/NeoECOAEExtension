@@ -170,7 +170,7 @@ final class ECOCraftingPatternBusCatalog {
         // *client* clicked, so a client that counted fewer pages would write somewhere else entirely. That is why
         // this runs before the client-side exit below.
         trackHighestOccupiedSlot(slot);
-        if (host.getLevel().isClientSide) {
+        if (host.getLevel().isClientSide()) {
             return;
         }
         if (patternBatchDepth > 0) {
@@ -278,7 +278,7 @@ final class ECOCraftingPatternBusCatalog {
     }
 
     void updatePatternDetails() {
-        if (host.getLevel() == null || host.getLevel().isClientSide) {
+        if (host.getLevel() == null || host.getLevel().isClientSide()) {
             return;
         }
         if (patternDetailsUpdateInProgress) {

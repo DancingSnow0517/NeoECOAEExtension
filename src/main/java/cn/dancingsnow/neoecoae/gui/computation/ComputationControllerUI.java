@@ -36,7 +36,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
@@ -44,7 +44,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Texture-backed computation controller; LDLib2 retains inventory, toolbar actions and menu synchronization. */
 public final class ComputationControllerUI {
-    private static final ResourceLocation LAYOUT = ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/computation/controller");
+    private static final Identifier LAYOUT = Identifier.fromNamespaceAndPath("neoecoae", "screens/computation/controller");
 
     public record Config(
         BooleanSupplier connected, IntSupplier networkMultiplier, IntSupplier normalSwitchCount, IntSupplier highEnergySwitchCount,
@@ -123,7 +123,7 @@ public final class ComputationControllerUI {
         UIElement info = CraftingHostPanelUI.createMaintenanceStatusIcon(config.endgameStatus());
         info.setId("computation-info");
         info.style(style -> style.backgroundTexture(SpriteTexture.of(
-            ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/common/side_bar/mirrored_button_slot_up.png"))));
+            Identifier.fromNamespaceAndPath("neoecoae", "textures/gui/common/side_bar/mirrored_button_slot_up.png"))));
         Button listToggle = HostSideButtonBar.createButton();
         UIElement listToggleIcon = new UIElement().layout(layout -> layout.heightPercent(100).setAspectRatio(1f))
             .style(style -> style.backgroundTexture(NETextures.CPU_SELECTOR_CLOSED))

@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.recipe;
 
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.neoforged.fml.ModList;
 import org.jetbrains.annotations.Nullable;
@@ -13,10 +13,10 @@ import java.util.Set;
 
 /** Explicit upstream capabilities. Never recursively imports another mod's combined recipe catalog. */
 final class LargeWorkstationRecipeSources {
-    private static final ResourceLocation REACTION = ResourceLocation.parse("advanced_ae:reaction");
-    private static final ResourceLocation LIGHTNING = ResourceLocation.parse("ae2lt:overload_processing");
-    private static final ResourceLocation DATA_SEED = ResourceLocation.parse("ae2cs:data_reassembler/data_crystal_seed");
-    private static final ResourceLocation DATA_REASSEMBLER = ResourceLocation.parse("data_energistics:data_reassembler");
+    private static final Identifier REACTION = Identifier.parse("advanced_ae:reaction");
+    private static final Identifier LIGHTNING = Identifier.parse("ae2lt:overload_processing");
+    private static final Identifier DATA_SEED = Identifier.parse("ae2cs:data_reassembler/data_crystal_seed");
+    private static final Identifier DATA_REASSEMBLER = Identifier.parse("data_energistics:data_reassembler");
 
     private LargeWorkstationRecipeSources() {}
 
@@ -24,7 +24,7 @@ final class LargeWorkstationRecipeSources {
         var module = ECOWorkstationModules.fromSourceType(recipe.sourceType());
         boolean unrestricted = !module.custom() && (module.legacy() == LargeWorkstationModule.REGULAR
             || module.legacy() == LargeWorkstationModule.OTHER);
-        Set<ResourceLocation> modules = new HashSet<>();
+        Set<Identifier> modules = new HashSet<>();
         if (!unrestricted) modules.add(module.id());
         // This one recipe is authored as a Crystal Science/Data Energistics integration.
         // Its ID alone must never grant the Crystal Science card the entire data reassembler family.
@@ -49,7 +49,7 @@ final class LargeWorkstationRecipeSources {
             || !source.additionalFluidInputs().isEmpty() || !source.additionalOutputs().isEmpty()) {
             throw new IllegalArgumentException("Unsupported borrowed reaction contract");
         }
-        var id = ResourceLocation.fromNamespaceAndPath("neoecoae", "workstation_borrowed/ae2lt/"
+        var id = Identifier.fromNamespaceAndPath("neoecoae", "workstation_borrowed/ae2lt/"
             + source.id().getNamespace() + "/" + source.id().getPath());
         // Upstream passes ReactionChamberRecipe.getEnergy() into the factory's FE budget unchanged.
         // Mirror that budget once, then retain the source fluid predicate and all material quantities.

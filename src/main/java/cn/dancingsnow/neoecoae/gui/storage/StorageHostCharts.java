@@ -504,11 +504,11 @@ final class StorageHostCharts {
     }
 
     record CapacitySegment(int swatch, int color, int width,
-        net.minecraft.resources.ResourceLocation channel, net.minecraft.resources.ResourceLocation texture) {
+        net.minecraft.resources.Identifier channel, net.minecraft.resources.Identifier texture) {
         CapacitySegment(int swatch, int color, int width) { this(swatch, color, width, null, null); }
     }
     private record ResourceColor(int swatch, int color,
-        net.minecraft.resources.ResourceLocation channel, net.minecraft.resources.ResourceLocation texture) {}
+        net.minecraft.resources.Identifier channel, net.minecraft.resources.Identifier texture) {}
 
     /** Divide the supplied filled width by exact stored bytes, merging aliases and preserving amounts beyond long. */
     static List<CapacitySegment> capacitySegments(StoragePanelState state, int availableWidth) {

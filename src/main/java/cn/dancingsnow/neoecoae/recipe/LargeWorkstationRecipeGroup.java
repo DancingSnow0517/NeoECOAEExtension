@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.recipe;
 
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.util.Comparator;
 import java.util.List;
@@ -19,12 +19,12 @@ public record LargeWorkstationRecipeGroup(LargeWorkstationRecipe representative,
     }
 
     /** Any one of these module IDs can execute a variant; this does not make all variants interchangeable. */
-    public List<ResourceLocation> supportedModules() {
+    public List<Identifier> supportedModules() {
         return variants.stream().flatMap(variant -> variant.modules().stream()).distinct()
-            .sorted(Comparator.comparing(ResourceLocation::toString)).toList();
+            .sorted(Comparator.comparing(Identifier::toString)).toList();
     }
 
-    public List<ResourceLocation> upgradeCards() {
+    public List<Identifier> upgradeCards() {
         return supportedModules().stream().map(id -> ECOWorkstationModules.resolve(id).upgradeCard()).distinct().toList();
     }
 
@@ -32,7 +32,7 @@ public record LargeWorkstationRecipeGroup(LargeWorkstationRecipe representative,
         return variants.stream().anyMatch(Variant::unrestricted);
     }
 
-    public List<Variant> availableVariants(ResourceLocation installedModule) {
+    public List<Variant> availableVariants(Identifier installedModule) {
         return LargeWorkstationRecipes.selectExecutionVariants(
             variants.stream().filter(variant -> variant.unlocks(installedModule)).toList());
     }
@@ -47,8 +47,8 @@ public record LargeWorkstationRecipeGroup(LargeWorkstationRecipe representative,
     }
 
     /** sourceId/type identify the real upstream recipe, even when recipe.id() is a borrowed execution alias. */
-    public record Variant(LargeWorkstationRecipe recipe, ResourceLocation sourceId, ResourceLocation sourceType,
-                          Set<ResourceLocation> modules, boolean unrestricted, boolean borrowed) {
+    public record Variant(LargeWorkstationRecipe recipe, Identifier sourceId, Identifier sourceType,
+                          Set<Identifier> modules, boolean unrestricted, boolean borrowed) {
         public Variant {
             Objects.requireNonNull(recipe);
             Objects.requireNonNull(sourceId);
@@ -57,7 +57,7 @@ public record LargeWorkstationRecipeGroup(LargeWorkstationRecipe representative,
             if (!unrestricted && modules.isEmpty()) throw new IllegalArgumentException("Missing module requirement");
         }
 
-        public boolean unlocks(ResourceLocation installedModule) {
+        public boolean unlocks(Identifier installedModule) {
             return unrestricted || modules.contains(installedModule);
         }
     }

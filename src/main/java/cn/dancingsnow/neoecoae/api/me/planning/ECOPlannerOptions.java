@@ -4,7 +4,7 @@ import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 
 import java.util.Set;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -14,13 +14,13 @@ import org.jetbrains.annotations.Nullable;
  * by the global {@code Debug > Calculating} configuration.</p>
  */
 public record ECOPlannerOptions(boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
-                                Set<ResourceLocation> fuzzyPlanningItemIds, boolean planningLogEnabled) {
+                                Set<Identifier> fuzzyPlanningItemIds, boolean planningLogEnabled) {
     public ECOPlannerOptions {
         fuzzyPlanningItemIds = fuzzyPlanningItemIds == null ? Set.of() : fuzzyPlanningItemIds;
     }
 
     public ECOPlannerOptions(boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
-                             Set<ResourceLocation> fuzzyPlanningItemIds) {
+                             Set<Identifier> fuzzyPlanningItemIds) {
         this(cyclePlanningEnabled, ignorePatternSubstitutions, fuzzyPlanningItemIds, false);
     }
 

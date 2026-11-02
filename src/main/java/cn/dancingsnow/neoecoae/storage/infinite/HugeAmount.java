@@ -52,9 +52,9 @@ public final class HugeAmount implements Comparable<HugeAmount> {
             return ZERO;
         }
         if (tag.contains("big")) {
-            return of(new BigInteger(tag.getString("big")));
+            return of(new BigInteger(tag.getStringOr("big", "")));
         }
-        return of(tag.getLong("long"));
+        return of(tag.getLongOr("long", 0L));
     }
 
     public CompoundTag write() {

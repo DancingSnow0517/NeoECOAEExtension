@@ -345,22 +345,22 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
 
     private void load() {
         CompoundTag custom = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        boolean modern = custom.contains(DATA_TAG, Tag.TAG_COMPOUND);
-        CompoundTag data = custom.getCompound(modern ? DATA_TAG : LEGACY_TAG);
-        int version = data.getInt("version");
+        boolean modern = custom.contains(DATA_TAG);
+        CompoundTag data = custom.getCompoundOrEmpty(modern ? DATA_TAG : LEGACY_TAG);
+        int version = data.getIntOr("version", 0);
         if (version > 2) throw new IllegalStateException("Unsupported ECO bulk format " + version);
-        if (data.contains("priority", Tag.TAG_INT)) storagePriority = data.getInt("priority");
-        for (Tag raw : data.getList("entries", Tag.TAG_COMPOUND)) loadEntry((CompoundTag) raw, version);
-        for (Tag raw : data.getList("unresolved", Tag.TAG_COMPOUND)) recover((CompoundTag) raw);
-        for (Tag raw : data.getList("cutoffs", Tag.TAG_COMPOUND)) {
+        if (data.contains("priority")) storagePriority = data.getIntOr("priority", 0);
+        for (Tag raw : data.getListOrEmpty("entries")) loadEntry((CompoundTag) raw, version);
+        for (Tag raw : data.getListOrEmpty("unresolved")) recover((CompoundTag) raw);
+        for (Tag raw : data.getListOrEmpty("cutoffs")) {
             CompoundTag entry = (CompoundTag) raw;
-            AEItemKey key = BulkItemKeys.read(entry), display = BulkItemKeys.read(entry.getCompound("display"));
+            AEItemKey key = BulkItemKeys.read(entry), display = BulkItemKeys.read(entry.getCompoundOrEmpty("display"));
             if (key != null && display != null) cutoffs.put(key, display);
         }
-        for (Tag raw : data.getList("pending", Tag.TAG_COMPOUND)) {
+        for (Tag raw : data.getListOrEmpty("pending")) {
             CompoundTag entry = (CompoundTag) raw;
             try {
-                AEItemKey key = BulkItemKeys.read(entry); BigInteger amount = new BigInteger(entry.getString("amount"));
+                AEItemKey key = BulkItemKeys.read(entry); BigInteger amount = new BigInteger(entry.getStringOr("amount", ""));
                 if (key == null || amount.signum() <= 0) throw new IllegalArgumentException();
                 pending.merge(key, amount, BigInteger::add);
             } catch (RuntimeException invalid) { quarantine(entry, version, "pending"); }
@@ -388,11 +388,11 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
         } finally { recovering = false; }
     }
     private void recover(CompoundTag envelope) {
-        if (envelope.contains("entry", Tag.TAG_COMPOUND)) loadEntry(envelope.getCompound("entry"), envelope.getInt("version"));
-        else if (envelope.contains("pending", Tag.TAG_COMPOUND)) {
-            CompoundTag entry = envelope.getCompound("pending");
+        if (envelope.contains("entry")) loadEntry(envelope.getCompoundOrEmpty("entry"), envelope.getIntOr("version", 0));
+        else if (envelope.contains("pending")) {
+            CompoundTag entry = envelope.getCompoundOrEmpty("pending");
             try {
-                AEItemKey key = BulkItemKeys.read(entry); BigInteger amount = new BigInteger(entry.getString("amount"));
+                AEItemKey key = BulkItemKeys.read(entry); BigInteger amount = new BigInteger(entry.getStringOr("amount", ""));
                 if (key == null || amount.signum() <= 0) throw new IllegalArgumentException();
                 pending.merge(key, amount, BigInteger::add);
             } catch (RuntimeException invalid) { unresolved.add(envelope.copy()); }
@@ -401,7 +401,7 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
     private void loadEntry(CompoundTag entry, int version) {
         try {
             AEItemKey key = BulkItemKeys.read(entry);
-            BigInteger amount = version >= 2 ? new BigInteger(entry.getString("units")) : BigInteger.valueOf(entry.getLong("units"));
+            BigInteger amount = version >= 2 ? new BigInteger(entry.getStringOr("units", "")) : BigInteger.valueOf(entry.getLongOr("units", 0L));
             if (key == null || amount.signum() <= 0) throw new IllegalArgumentException();
             BulkUnits units;
             if (version == 0) {
@@ -409,10 +409,10 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
                 if (!units.compressible()) throw new IllegalArgumentException("Legacy unit basis is unavailable");
             } else {
                 List<AEItemKey> items = new ArrayList<>(); List<BigInteger> factors = new ArrayList<>();
-                for (Tag raw : entry.getList("definition", Tag.TAG_COMPOUND)) {
+                for (Tag raw : entry.getListOrEmpty("definition")) {
                     CompoundTag value = (CompoundTag) raw; AEItemKey item = BulkItemKeys.read(value);
                     if (item == null) throw new IllegalArgumentException();
-                    items.add(item); factors.add(version >= 2 ? new BigInteger(value.getString("factor")) : BigInteger.valueOf(value.getLong("factor")));
+                    items.add(item); factors.add(version >= 2 ? new BigInteger(value.getStringOr("factor", "")) : BigInteger.valueOf(value.getLongOr("factor", 0L)));
                 }
                 units = new BulkUnits(items, factors);
             }

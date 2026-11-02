@@ -133,21 +133,21 @@ final class ComputationControllerArtwork extends UIElement {
     private void read(Tag value) {
         CompoundTag tag = value instanceof CompoundTag compound ? compound : new CompoundTag();
         state = ComputationControllerPanelState.fromTag(tag);
-        usedBytes = tag.getLong("usedBytes");
-        totalBytes = tag.getLong("totalBytes");
-        availableBytes = tag.getLong("availableBytes");
-        usedThreads = tag.getInt("usedThreads");
-        totalThreads = tag.getInt("totalThreads");
-        parallelCount = tag.getInt("parallelCount");
-        fullParallelCount = tag.getInt("fullParallelCount");
-        networkMultiplier = tag.getInt("networkMultiplier");
-        networkFrequency = tag.getInt("networkFrequency");
-        normalSwitchCount = tag.getInt("normalSwitchCount");
-        highEnergySwitchCount = tag.getInt("highEnergySwitchCount");
-        connected = tag.getBoolean("connected");
-        substitutions = tag.getBoolean("substitutions");
-        cyclePlanning = tag.getBoolean("cyclePlanning");
-        fastPlanner = tag.getBoolean("fastPlanner");
+        usedBytes = tag.getLongOr("usedBytes", 0L);
+        totalBytes = tag.getLongOr("totalBytes", 0L);
+        availableBytes = tag.getLongOr("availableBytes", 0L);
+        usedThreads = tag.getIntOr("usedThreads", 0);
+        totalThreads = tag.getIntOr("totalThreads", 0);
+        parallelCount = tag.getIntOr("parallelCount", 0);
+        fullParallelCount = tag.getIntOr("fullParallelCount", 0);
+        networkMultiplier = tag.getIntOr("networkMultiplier", 0);
+        networkFrequency = tag.getIntOr("networkFrequency", 0);
+        normalSwitchCount = tag.getIntOr("normalSwitchCount", 0);
+        highEnergySwitchCount = tag.getIntOr("highEnergySwitchCount", 0);
+        connected = tag.getBooleanOr("connected", false);
+        substitutions = tag.getBooleanOr("substitutions", false);
+        cyclePlanning = tag.getBooleanOr("cyclePlanning", false);
+        fastPlanner = tag.getBooleanOr("fastPlanner", false);
     }
 
     private UIElement tooltipRegion(int x, int y, int width, int height, Supplier<List<Component>> lines) {

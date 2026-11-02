@@ -303,27 +303,27 @@ public abstract class HostTaskListElement extends UIElement implements IBindable
             entriesById.put(entry.id(), entry);
         }
 
-        if (payload.contains(NBT_REMOVED, Tag.TAG_LIST)) {
-            ListTag removed = payload.getList(NBT_REMOVED, Tag.TAG_STRING);
+        if (payload.contains(NBT_REMOVED)) {
+            ListTag removed = payload.getListOrEmpty(NBT_REMOVED);
             for (int i = 0; i < removed.size(); i++) {
                 entriesById.remove(removed.getString(i));
             }
         }
 
-        if (payload.contains(NBT_UPDATES, Tag.TAG_LIST)) {
-            ListTag updates = payload.getList(NBT_UPDATES, Tag.TAG_COMPOUND);
+        if (payload.contains(NBT_UPDATES)) {
+            ListTag updates = payload.getListOrEmpty(NBT_UPDATES);
             for (int i = 0; i < updates.size(); i++) {
-                ComputationTaskEntry entry = ComputationTaskEntry.readFromNBT(registries, updates.getCompound(i));
+                ComputationTaskEntry entry = ComputationTaskEntry.readFromNBT(registries, updates.getCompoundOrEmpty(i));
                 entriesById.put(entry.id(), entry);
             }
         }
 
-        if (payload.contains(NBT_ORDER, Tag.TAG_LIST)) {
-            syncedTasks = orderTasks(entriesById, payload.getList(NBT_ORDER, Tag.TAG_STRING));
+        if (payload.contains(NBT_ORDER)) {
+            syncedTasks = orderTasks(entriesById, payload.getListOrEmpty(NBT_ORDER));
         } else {
             syncedTasks = new ArrayList<>(entriesById.values());
         }
-        syncedTotalTasks = payload.contains(NBT_TOTAL, Tag.TAG_INT) ? payload.getInt(NBT_TOTAL) : syncedTasks.size();
+        syncedTotalTasks = payload.contains(NBT_TOTAL) ? payload.getIntOr(NBT_TOTAL, 0) : syncedTasks.size();
         scrollOffset = clampTaskScrollOffset(scrollOffset, syncedTasks.size());
     }
 

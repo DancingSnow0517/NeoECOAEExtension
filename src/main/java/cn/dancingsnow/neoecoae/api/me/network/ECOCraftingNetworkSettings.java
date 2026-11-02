@@ -5,7 +5,7 @@ import appeng.api.networking.security.IActionSource;
 
 import java.util.Set;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -73,7 +73,7 @@ public interface ECOCraftingNetworkSettings {
     /**
      * Item ids selected by computation interfaces for component-insensitive planning.
      */
-    Set<ResourceLocation> neoecoae$getFuzzyPlanningItemIds();
+    Set<Identifier> neoecoae$getFuzzyPlanningItemIds();
 
     /**
      * Whether a calculation entering through AE2's normal planning path should opt into ECO. Other planners remain

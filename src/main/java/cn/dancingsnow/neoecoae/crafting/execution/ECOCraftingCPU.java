@@ -191,15 +191,15 @@ public class ECOCraftingCPU extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCP
      */
     @Nullable
     private CraftingPlan readCraftingPlanFromNBT(CompoundTag tag, HolderLookup.Provider registries) {
-        GenericStack output = GenericStack.readTag(registries, tag.getCompound("output"));
+        GenericStack output = GenericStack.readTag(registries, tag.getCompoundOrEmpty("output"));
         if (output == null) {
             // The final output no longer decodes (removed item/fluid, corrupt tag). A plan without an
             // output cannot drive a job, so refuse it instead of handing out a half-valid plan.
             return null;
         }
-        long bytes = tag.getLong("bytes");
-        boolean simulation = tag.getBoolean("simulation");
-        boolean multiplePaths = tag.getBoolean("multiplePaths");
+        long bytes = tag.getLongOr("bytes", 0L);
+        boolean simulation = tag.getBooleanOr("simulation", false);
+        boolean multiplePaths = tag.getBooleanOr("multiplePaths", false);
         // ICraftingPlan exposes these collections directly and callers are allowed to iterate them,
         // so they must be empty rather than null - only the summary fields survive persistence.
         return new CraftingPlan(
@@ -232,7 +232,7 @@ public class ECOCraftingCPU extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCP
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
         CraftingPlan restoredPlan = null;
         if (data.contains("plan")) {
-            restoredPlan = readCraftingPlanFromNBT(data.getCompound("plan"), registries);
+            restoredPlan = readCraftingPlanFromNBT(data.getCompoundOrEmpty("plan"), registries);
         }
         if (restoredPlan == null) {
             return;

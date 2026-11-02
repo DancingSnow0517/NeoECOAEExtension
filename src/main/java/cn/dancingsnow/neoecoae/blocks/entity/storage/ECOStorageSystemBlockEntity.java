@@ -331,7 +331,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                     (position, expected) -> {
                         selectedCellPriority[0] = new CellPriorityTarget(position, expected);
                         cellPriorityWindow.setDisplay(true);
-                        if (level != null && level.isClientSide) {
+                        if (level != null && level.isClientSide()) {
                             rpcToServer("selectCellPriority", position, expected);
                         }
                     },
@@ -360,13 +360,13 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     private int getCellPriority(Player player, @Nullable CellPriorityTarget clientTarget) {
-        var target = level != null && level.isClientSide ? clientTarget : cellPriorityTargets.get(player.getUUID());
+        var target = level != null && level.isClientSide() ? clientTarget : cellPriorityTargets.get(player.getUUID());
         var drive = configurableDrive(player, target);
         return drive == null ? 0 : drive.getConfiguredCellPriority();
     }
 
     private void setCellPriorityFromUi(Player player, @Nullable CellPriorityTarget clientTarget, int priority) {
-        if (level != null && level.isClientSide) {
+        if (level != null && level.isClientSide()) {
             if (clientTarget != null) rpcToServer("setCellPriority", clientTarget.position(), clientTarget.installation(), priority);
             return;
         }
@@ -374,7 +374,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     private void changeCellPriorityFromUi(Player player, @Nullable CellPriorityTarget clientTarget, int delta) {
-        if (level != null && level.isClientSide) {
+        if (level != null && level.isClientSide()) {
             if (clientTarget != null) rpcToServer("changeCellPriority", clientTarget.position(), clientTarget.installation(), delta);
             return;
         }
@@ -383,7 +383,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     private void setConfiguredCellPriority(Player player, @Nullable CellPriorityTarget target, int priority) {
-        if (level == null || level.isClientSide) return;
+        if (level == null || level.isClientSide()) return;
         var drive = configurableDrive(player, target);
         if (drive != null) drive.setConfiguredCellPriority(priority);
     }
@@ -420,7 +420,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     private void openCellConfiguration(Player player, BlockPos position, UUID expected) {
-        if (level == null || level.isClientSide || !player.containerMenu.getCarried().isEmpty()
+        if (level == null || level.isClientSide() || !player.containerMenu.getCarried().isEmpty()
             || configurableDrive(player, new CellPriorityTarget(position, expected)) == null) return;
         appeng.menu.MenuOpener.open(appeng.menu.implementations.CellWorkbenchMenu.TYPE, player,
             new cn.dancingsnow.neoecoae.menu.StorageCellWorkbenchLocator(worldPosition, position, expected));
@@ -428,7 +428,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     private CompoundTag previewBulkCellMigration(Player player, BlockPos position) {
         CompoundTag preview = new CompoundTag();
-        if (level == null || level.isClientSide || !canPlayerInteract(player)) return preview;
+        if (level == null || level.isClientSide() || !canPlayerInteract(player)) return preview;
         for (var drive : getStorageDrivesForIntegration()) {
             if (!drive.getBlockPos().equals(position) || drive.isRemoved()) continue;
             var items = StorageBulkMarkingIntegration.previewMarkAndMigrateCell(
@@ -436,7 +436,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 // recognised chain merely because its current stock is below the global
                 // convenience auto-mark threshold.
                 this, position, 0L);
-            preview.putUUID("cell_id", drive.getCellInteractionId());
+            preview.store("cell_id", net.minecraft.core.UUIDUtil.CODEC, drive.getCellInteractionId());
             preview.putInt("total", items.size());
             var entries = new net.minecraft.nbt.ListTag();
             items.stream().limit(6).forEach(stack -> entries.add(stack.save(player.registryAccess())));
@@ -516,7 +516,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     public void setEcoMegaFilterFromClient(int visualSlot, ItemStack stack) {
         int driveIndex = getSelectedEcoMegaBulkCell();
         int page = getSelectedEcoMegaPage();
-        if (level != null && level.isClientSide) {
+        if (level != null && level.isClientSide()) {
             rpcToServer("setEcoMegaFilter", driveIndex, page, visualSlot, stack);
             return;
         }
@@ -549,7 +549,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     public void cycleEcoMegaCutoffFromClient(int visualSlot, int delta) {
-        if (level != null && level.isClientSide) {
+        if (level != null && level.isClientSide()) {
             rpcToServer("cycleEcoMegaCutoff", getSelectedEcoMegaBulkCell(), getSelectedEcoMegaPage(), visualSlot, delta);
         }
     }
@@ -678,7 +678,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
      * Invalidates host UI data and refreshes AE2 mounts after an integration changes cell configuration.
      */
     public void notifyStorageConfigurationChanged() {
-        if (level == null || level.isClientSide) {
+        if (level == null || level.isClientSide()) {
             return;
         }
         invalidateInfiniteMembers();
@@ -705,20 +705,20 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         CompoundTag tag = drop.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
         rememberInfiniteMembers();
         saveInfiniteMembers(tag);
-        tag.putUUID(CONTROLLER_DOMAIN_TAG, infiniteDomainId);
+        tag.store(CONTROLLER_DOMAIN_TAG, net.minecraft.core.UUIDUtil.CODEC, infiniteDomainId);
         tag.putString(CONTROLLER_MODE_TAG, hostMode.id());
         drop.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
     }
 
     public void restoreInfiniteDomainFromItem(ItemStack stack) {
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        if (!tag.hasUUID(CONTROLLER_DOMAIN_TAG)) {
+        if (!tag.read(CONTROLLER_DOMAIN_TAG, net.minecraft.core.UUIDUtil.CODEC).isPresent()) {
             return;
         }
         infiniteModeController.release();
         loadInfiniteMembers(tag);
-        setInfiniteDomainId(tag.getUUID(CONTROLLER_DOMAIN_TAG));
-        setStorageHostMode(ECOStorageHostMode.fromId(tag.getString(CONTROLLER_MODE_TAG)));
+        setInfiniteDomainId(tag.read(CONTROLLER_DOMAIN_TAG, net.minecraft.core.UUIDUtil.CODEC).orElseThrow());
+        setStorageHostMode(ECOStorageHostMode.fromId(tag.getStringOr(CONTROLLER_MODE_TAG, "")));
         setChanged();
     }
 
@@ -754,7 +754,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
      */
     public void rememberInfiniteMembers() {
         if (!infiniteMembersDirty) return;
-        if (level == null || level.isClientSide || cluster == null || infiniteDomainId == null) return;
+        if (level == null || level.isClientSide() || cluster == null || infiniteDomainId == null) return;
         for (ECODriveBlockEntity drive : cluster.getDrives()) {
             if (ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), infiniteDomainId)) {
                 if (infiniteMemberIds.add(ECOInfiniteStorageMember.identity(drive.getCellStack()))) {
@@ -857,7 +857,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     public void onStorageInterfaceModeChanged() {
-        if (level == null || level.isClientSide) return;
+        if (level == null || level.isClientSide()) return;
         ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
         if (level.getBlockState(worldPosition).hasProperty(ECOStorageSystemBlock.STORAGE_MODE)) {
             var mode = storageInterface == null ? cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode.STORAGE
@@ -939,7 +939,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         super.saveAdditional(data, registries);
         data.putString("infiniteHostMode", hostMode.id());
         if (infiniteDomainId != null) {
-            data.putUUID("infiniteDomainId", infiniteDomainId);
+            data.store("infiniteDomainId", net.minecraft.core.UUIDUtil.CODEC, infiniteDomainId);
         }
         saveInfiniteMembers(data);
     }
@@ -948,8 +948,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
         super.loadTag(data, registries);
         loadLegacyInfiniteComponentInventory(data, registries);
-        setStorageHostMode(ECOStorageHostMode.fromId(data.getString("infiniteHostMode")));
-        setInfiniteDomainId(data.hasUUID("infiniteDomainId") ? data.getUUID("infiniteDomainId") : null);
+        setStorageHostMode(ECOStorageHostMode.fromId(data.getStringOr("infiniteHostMode", "")));
+        setInfiniteDomainId(data.read("infiniteDomainId", net.minecraft.core.UUIDUtil.CODEC).isPresent() ? data.read("infiniteDomainId", net.minecraft.core.UUIDUtil.CODEC).orElseThrow() : null);
         loadInfiniteMembers(data);
     }
 
@@ -957,7 +957,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (!infiniteComponentInventory.getStackInSlot(0).isEmpty()) {
             return;
         }
-        CompoundTag managed = data.getCompound("managed");
+        CompoundTag managed = data.getCompoundOrEmpty("managed");
         if (!managed.contains(LEGACY_COMPONENT_INVENTORY_PERSIST_KEY)) {
             return;
         }

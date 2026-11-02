@@ -16,7 +16,7 @@ import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
 import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 /** Solver-free network DTO consumed by the crafting graph client. */
@@ -26,7 +26,7 @@ public record CraftingGraphSnapshot(
     List<PatternNode> patterns,
     List<Edge> edges,
     List<CycleGroup> cycleGroups,
-    List<ResourceLocation> fuzzyPlanningItemIds,
+    List<Identifier> fuzzyPlanningItemIds,
     Summary summary
 ) implements PacketWritable {
     private static final int MAX_COMPRESSED_BYTES = 16 * 1024 * 1024;
@@ -138,7 +138,7 @@ public record CraftingGraphSnapshot(
     }
 
     private record Decoded(int rootNodeId, List<MaterialNode> nodes, List<PatternNode> patterns, List<Edge> edges,
-            List<CycleGroup> cycleGroups, List<ResourceLocation> fuzzyPlanningItemIds, Summary summary) {}
+            List<CycleGroup> cycleGroups, List<Identifier> fuzzyPlanningItemIds, Summary summary) {}
 
     public enum MaterialStatus { SATISFIED, CRAFTING, MISSING, UNSUPPORTED, CYCLE }
     public enum CandidateStatus { SELECTED, REJECTED, UNSUPPORTED }

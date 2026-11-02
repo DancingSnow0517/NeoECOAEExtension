@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.api.extension;
 
 import java.util.List;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -29,5 +29,5 @@ class ECOExtensionRegistryTest {
         assertTrue(ECOAddonApi.supports("native_me_storage_restrictions"));
         assertFalse(ECOAddonApi.supports("unknown_future_api"));
     }
-    private static ResourceLocation id(String path) { return ResourceLocation.fromNamespaceAndPath("addon_api_test", path); }
+    private static Identifier id(String path) { return Identifier.fromNamespaceAndPath("addon_api_test", path); }
 }

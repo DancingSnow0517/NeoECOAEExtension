@@ -253,9 +253,9 @@ class ComputationControllerUITest {
             var placed = mock(net.minecraft.world.level.block.state.BlockState.class);
             when(placed.getBlock()).thenReturn(block);
             var provider = (cn.dancingsnow.neoecoae.api.IHostPanelTextureProvider) block;
-            when(provider.getPanelTexture(same(placed), any())).thenReturn(net.minecraft.resources.ResourceLocation.parse("addon:badge.png"));
+            when(provider.getPanelTexture(same(placed), any())).thenReturn(net.minecraft.resources.Identifier.parse("addon:badge.png"));
             when(provider.getPanelTexture(same(placed), any(), anyInt(), anyBoolean(), anyBoolean()))
-                .thenAnswer(call -> net.minecraft.resources.ResourceLocation.parse("addon:state_" + call.getArgument(2) + "_"
+                .thenAnswer(call -> net.minecraft.resources.Identifier.parse("addon:state_" + call.getArgument(2) + "_"
                     + call.getArgument(3) + "_" + call.getArgument(4) + ".png"));
             Runnable toggle = mock(Runnable.class);
             var tier = new java.util.concurrent.atomic.AtomicReference<cn.dancingsnow.neoecoae.api.IECOTier>(cn.dancingsnow.neoecoae.api.ECOTier.L4);
@@ -297,18 +297,18 @@ class ComputationControllerUITest {
                 && sprite.getImageLocation().getNamespace().equals("addon")), anyFloat(), anyFloat(), anyFloat(), anyFloat());
             var addonTier = mock(cn.dancingsnow.neoecoae.api.IECOTier.class);
             when(addonTier.getPanelTierName()).thenReturn(Component.literal("L1"));
-            when(addonTier.getPanelAtlas(anyString())).thenAnswer(call -> net.minecraft.resources.ResourceLocation.parse(
+            when(addonTier.getPanelAtlas(anyString())).thenAnswer(call -> net.minecraft.resources.Identifier.parse(
                 "addon:" + ((String) call.getArgument(0)).toLowerCase(java.util.Locale.ROOT) + ".png"));
             tier.set(addonTier);
             clearInvocations(context);
             artwork.drawBackgroundAdditional(context);
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.spritePosition.x == 36 && sprite.spritePosition.y == 5 && sprite.spriteSize.width == 1
-                && net.minecraft.resources.ResourceLocation.parse("addon:computation-background_atlas.png")
+                && net.minecraft.resources.Identifier.parse("addon:computation-background_atlas.png")
                 .equals(cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(texture))), eq(23F), eq(5F), eq(13F), eq(18F));
-            verify(context).drawTexture(argThat(texture -> net.minecraft.resources.ResourceLocation.parse("addon:computation-widgets_atlas.png")
+            verify(context).drawTexture(argThat(texture -> net.minecraft.resources.Identifier.parse("addon:computation-widgets_atlas.png")
                 .equals(cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(texture))), eq(180F), eq(153F), eq(12F), eq(12F));
-            assertEquals(net.minecraft.resources.ResourceLocation.parse("addon:computation-widgets_atlas.png"),
+            assertEquals(net.minecraft.resources.Identifier.parse("addon:computation-widgets_atlas.png"),
                 cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(button.getButtonStyle().baseTexture()));
             verify(block, never()).defaultBlockState();
         }

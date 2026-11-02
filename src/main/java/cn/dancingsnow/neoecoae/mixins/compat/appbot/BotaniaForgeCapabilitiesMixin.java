@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.compat.appbot;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.capabilities.BlockCapability;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -37,7 +37,7 @@ public abstract class BotaniaForgeCapabilitiesMixin {
             CallbackInfoReturnable<BlockCapability<?, ?>> callback) {
         if (callback.getReturnValue() != null) return;
         try {
-            ResourceLocation id = (ResourceLocation) lookup.getClass().getMethod("getId").invoke(lookup);
+            Identifier id = (Identifier) lookup.getClass().getMethod("getId").invoke(lookup);
             Class<?> api = (Class<?>) lookup.getClass().getMethod("getApiClass").invoke(lookup);
             Class<?> context = hasContext
                 ? (Class<?>) lookup.getClass().getMethod("getContextClass").invoke(lookup)

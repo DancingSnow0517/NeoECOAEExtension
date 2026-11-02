@@ -14,7 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.world.level.Level;
 import net.minecraft.server.MinecraftServer;
@@ -171,7 +171,7 @@ public final class ECOCompressionService {
     /** data/<namespace>/eco_compression/*.json: explicit conversions and exclusions. */
     private static final class Rules extends SimpleJsonResourceReloadListener {
         Rules() { super(new Gson(), "eco_compression"); }
-        @Override protected void apply(Map<ResourceLocation, JsonElement> files, ResourceManager manager, ProfilerFiller profiler) {
+        @Override protected void apply(Map<Identifier, JsonElement> files, ResourceManager manager, ProfilerFiller profiler) {
             List<Edge> next = new ArrayList<>(); Set<AEItemKey> excluded = new HashSet<>();
             for (var file : files.entrySet().stream().sorted(Map.Entry.comparingByKey()).toList()) {
                 try {

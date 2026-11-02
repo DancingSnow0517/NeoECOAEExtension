@@ -9,7 +9,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
@@ -19,8 +19,8 @@ import java.util.List;
 
 /** Handles Mega bulk-cell selection, upgrades, marker validation and item-handler adapters. */
 final class ECOStorageMegaController {
-    private static final ResourceLocation ECO_MEGA_UPGRADE_CARD_ID =
-        ResourceLocation.fromNamespaceAndPath(NeoECOAE.MOD_ID, "eco_mega_upgrade_card");
+    private static final Identifier ECO_MEGA_UPGRADE_CARD_ID =
+        Identifier.fromNamespaceAndPath(NeoECOAE.MOD_ID, "eco_mega_upgrade_card");
     private static final int ECO_MEGA_SLOTS_PER_PAGE = 25;
     private static final int ECO_MEGA_PAGE_COUNT = 2;
     private final IItemHandlerModifiable ecoMegaUpgradeItemHandler = new EcoMegaUpgradeItemHandler();
@@ -286,7 +286,7 @@ final class ECOStorageMegaController {
         private ItemStack clientDisplayStack = ItemStack.EMPTY;
 
         private boolean isClientHandler() {
-            return host.getLevel() != null && host.getLevel().isClientSide;
+            return host.getLevel() != null && host.getLevel().isClientSide();
         }
 
         @Override

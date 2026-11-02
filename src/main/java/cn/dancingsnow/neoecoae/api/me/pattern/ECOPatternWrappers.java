@@ -8,7 +8,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 /** Explicit provider-identity delegation; ordinary patterns require no registration. */
@@ -27,7 +27,7 @@ public final class ECOPatternWrappers {
      * Register a known optional-mod contract during common initialization. Higher priority wins;
      * equal priorities use ID order. Accessors must be pure and return a non-null physical delegate.
      */
-    public static synchronized <T> void register(ResourceLocation id, int priority, Class<T> contract,
+    public static synchronized <T> void register(Identifier id, int priority, Class<T> contract,
             Function<? super T, ? extends IPatternDetails> accessor) {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(contract, "contract");
@@ -84,6 +84,6 @@ public final class ECOPatternWrappers {
         return result;
     }
 
-    private record Entry(ResourceLocation id, int priority, Class<?> contract,
+    private record Entry(Identifier id, int priority, Class<?> contract,
             Function<Object, IPatternDetails> accessor) {}
 }

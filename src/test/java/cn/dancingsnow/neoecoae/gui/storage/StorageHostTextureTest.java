@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -21,7 +21,7 @@ class StorageHostTextureTest {
 
     @Test
     void customBadgeAndMarkersUseStandaloneImagesAndBothMarkerRows() {
-        var image = ResourceLocation.parse("addon:textures/gui/host.png");
+        var image = Identifier.parse("addon:textures/gui/host.png");
         var badge = StoragePanelTextures.tier(0, image);
         assertEquals(image, badge.getImageLocation());
         assertEquals(0, badge.spritePosition.x);

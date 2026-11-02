@@ -579,27 +579,27 @@ public final class ECOExecutionRuntime {
             ExecutingCraftingJob.TaskProgress[] progressByTaskId, CompoundTag data,
             HolderLookup.Provider registries) {
         ECOExecutionRuntime runtime = new ECOExecutionRuntime(plan, patternsById, progressByTaskId);
-        int[] stepCursor = data.getIntArray("stepCursor");
-        int[] dynamicCursor = data.getIntArray("dynamicCursor");
+        int[] stepCursor = data.getIntArray("stepCursor").orElseGet(() -> new int[0]);
+        int[] dynamicCursor = data.getIntArray("dynamicCursor").orElseGet(() -> new int[0]);
         if (stepCursor.length != runtime.stepCursor.length || dynamicCursor.length != runtime.dynamicCursor.length) {
             throw new IllegalArgumentException("Execution runtime cursor shape changed");
         }
         System.arraycopy(stepCursor, 0, runtime.stepCursor, 0, stepCursor.length);
         System.arraycopy(dynamicCursor, 0, runtime.dynamicCursor, 0, dynamicCursor.length);
 
-        ListTag phases = data.getList("phases", Tag.TAG_COMPOUND);
+        ListTag phases = data.getListOrEmpty("phases");
         if (phases.size() != runtime.plan.phases().size()) {
             throw new IllegalArgumentException("Execution runtime phase count changed");
         }
         for (int phaseIndex = 0; phaseIndex < phases.size(); phaseIndex++) {
-            CompoundTag phase = phases.getCompound(phaseIndex);
-            long[] steps = phase.getLongArray("steps");
+            CompoundTag phase = phases.getCompoundOrEmpty(phaseIndex);
+            long[] steps = phase.getLongArray("steps").orElseGet(() -> new long[0]);
             if (steps.length != runtime.remainingSteps.get(phaseIndex).length) {
                 throw new IllegalArgumentException("Execution runtime step count changed");
             }
             System.arraycopy(steps, 0, runtime.remainingSteps.get(phaseIndex), 0, steps.length);
             if (phase.contains("laps")) {
-                long[] laps = phase.getLongArray("laps");
+                long[] laps = phase.getLongArray("laps").orElseGet(() -> new long[0]);
                 if (laps.length != steps.length) throw new IllegalArgumentException("Execution circuit shape changed");
                 for (int i = 0; i < laps.length; i++) {
                     if (laps[i] < 1L || laps[i] > plan.phases().get(phaseIndex).steps().get(i).repetitions()) {
@@ -611,7 +611,7 @@ public final class ECOExecutionRuntime {
                 throw new IllegalArgumentException("Repeated circuit is missing its runtime cursor");
             }
             if (phase.contains("ahead")) {
-                long[] ahead = phase.getLongArray("ahead");
+                long[] ahead = phase.getLongArray("ahead").orElseGet(() -> new long[0]);
                 if (ahead.length != steps.length) throw new IllegalArgumentException("Execution ahead-step shape changed");
                 for (int i = 0; i < ahead.length; i++) {
                     int end = runtime.batchGroupEnds.get(phaseIndex)[i];
@@ -623,25 +623,25 @@ public final class ECOExecutionRuntime {
             }
             Int2LongMap dynamic = runtime.remainingDynamicFirings.get(phaseIndex);
             dynamic.clear();
-            ListTag dynamicTag = phase.getList("dynamic", Tag.TAG_COMPOUND);
+            ListTag dynamicTag = phase.getListOrEmpty("dynamic");
             for (int i = 0; i < dynamicTag.size(); i++) {
-                CompoundTag firing = dynamicTag.getCompound(i);
-                dynamic.put(firing.getInt("task"), firing.getLong("count"));
+                CompoundTag firing = dynamicTag.getCompoundOrEmpty(i);
+                dynamic.put(firing.getIntOr("task", 0), firing.getLongOr("count", 0L));
             }
         }
         runtime.completedPhases.clear();
-        for (int phase : data.getIntArray("completed")) {
+        for (int phase : data.getIntArray("completed").orElseGet(() -> new int[0])) {
             if (phase >= 0 && phase < runtime.plan.phases().size()) runtime.completedPhases.set(phase);
         }
         runtime.startupSeedRemainingByPhase.forEach(Map::clear);
-        ListTag seeds = data.getList("startupSeeds", Tag.TAG_COMPOUND);
+        ListTag seeds = data.getListOrEmpty("startupSeeds");
         Map<AEKey, Long> legacySeeds = new LinkedHashMap<>();
         for (int i = 0; i < seeds.size(); i++) {
-            CompoundTag seed = seeds.getCompound(i);
+            CompoundTag seed = seeds.getCompoundOrEmpty(i);
             GenericStack stack = GenericStack.readTag(registries, seed);
             if (stack != null && stack.amount() > 0L) {
-                if (seed.contains("phase", Tag.TAG_INT)) {
-                    int phaseIndex = seed.getInt("phase");
+                if (seed.contains("phase")) {
+                    int phaseIndex = seed.getIntOr("phase", 0);
                     if (phaseIndex < 0 || phaseIndex >= runtime.plan.phases().size()) {
                         throw new IllegalArgumentException("Persisted startup seed has invalid phase owner");
                     }

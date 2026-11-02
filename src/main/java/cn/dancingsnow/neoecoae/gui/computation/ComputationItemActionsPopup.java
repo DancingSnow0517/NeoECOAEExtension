@@ -104,18 +104,18 @@ final class ComputationItemActionsPopup extends UIElement {
     }
 
     void accept(CompoundTag response) {
-        if (!isDisplayed() || item == null || response.getLong("sequence") != sequence) return;
-        AEKey key = AEKey.fromTagGeneric(registries, response.getCompound("key"));
+        if (!isDisplayed() || item == null || response.getLongOr("sequence", 0L) != sequence) return;
+        AEKey key = AEKey.fromTagGeneric(registries, response.getCompoundOrEmpty("key"));
         if (!item.key().equals(key)) return;
         context = response.copy();
         loaded = true;
         sources.clear();
-        for (var raw : response.getList("sources", Tag.TAG_COMPOUND)) sources.add(((CompoundTag) raw).copy());
+        for (var raw : response.getListOrEmpty("sources")) sources.add(((CompoundTag) raw).copy());
         if (response.contains("error")) {
-            message = Component.translatable(response.getString("error"));
+            message = Component.translatable(response.getStringOr("error", ""));
             mode = Mode.MESSAGE;
             dialog();
-        } else if (response.getBoolean("close")) close();
+        } else if (response.getBooleanOr("close", false)) close();
     }
 
     void close() { blur(); setDisplay(false); pressed = hovered = -1; }
@@ -166,8 +166,8 @@ final class ComputationItemActionsPopup extends UIElement {
     private void showLocations() {
         for (var source : sources) {
             highlight.accept(source);
-            Component name = Component.Serializer.fromJson(source.getString("name"), registries);
-            BlockPos position = BlockPos.of(source.getLong("position"));
+            Component name = Component.Serializer.fromJson(source.getStringOr("name", ""), registries);
+            BlockPos position = BlockPos.of(source.getLongOr("position", 0L));
             var coordinates = Component.literal(position.toShortString()).withStyle(style -> style
                 .withColor(ChatFormatting.AQUA).withUnderlined(true)
                 .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
@@ -186,8 +186,8 @@ final class ComputationItemActionsPopup extends UIElement {
         tag.putString("action", action);
         tag.putLong("sequence", sequence);
         tag.put("key", item.key().toTagGeneric(registries));
-        if (context.hasUUID("job")) tag.putUUID("job", context.getUUID("job"));
-        if (source >= 0 && source < sources.size()) tag.putString("source", sources.get(source).getString("id"));
+        if (context.read("job", net.minecraft.core.UUIDUtil.CODEC).isPresent()) tag.store("job", net.minecraft.core.UUIDUtil.CODEC, context.read("job", net.minecraft.core.UUIDUtil.CODEC).orElseThrow());
+        if (source >= 0 && source < sources.size()) tag.putString("source", sources.get(source).getStringOr("id", ""));
         request.accept(tag);
     }
 
@@ -209,10 +209,10 @@ final class ComputationItemActionsPopup extends UIElement {
                 var source = sources.get(page * PAGE_SIZE + index);
                 float top = 24 + index * 30;
                 if (mode == Mode.CHOOSE && hovered == index) context.graphics.fill(Math.round(x + 4), Math.round(y + top - 2), Math.round(x + width - 4), Math.round(y + top + 28), 0x807B81B8);
-                Component name = Component.Serializer.fromJson(source.getString("name"), registries);
+                Component name = Component.Serializer.fromJson(source.getStringOr("name", ""), registries);
                 text(context, name == null ? Component.empty() : name, 7, top, 0x413F54);
-                text(context, Component.literal(source.getString("dimension")), 7, top + 9, 0x666477);
-                text(context, Component.literal(BlockPos.of(source.getLong("position")).toShortString()
+                text(context, Component.literal(source.getStringOr("dimension", "")), 7, top + 9, 0x666477);
+                text(context, Component.literal(BlockPos.of(source.getLongOr("position", 0L)).toShortString()
                     + (source.contains("side") ? " · " + source.getString("side") : "")), 7, top + 18, 0x413F54);
             }
             divider(context, getSizeHeight() - 23);

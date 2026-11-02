@@ -9,7 +9,7 @@ import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemanticsRegistry;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -27,7 +27,7 @@ class ECOExecutionSchedulePatternContractTest {
             ComponentPlanningResult.Status.PLANNED, Map.of(key, 1L), Set.of(pattern), null, null,
             Map.of(), null, null));
         assertEquals(1, ECOExecutionSchedule.from(components, List.of(0), Map.of(pattern, 1L)).phases().size());
-        var id = ResourceLocation.fromNamespaceAndPath("eco_schedule_test", "restricted");
+        var id = Identifier.fromNamespaceAndPath("eco_schedule_test", "restricted");
         ECOPatternSemanticsRegistry.register(id, 1000, new ECOPatternSemanticAdapter() {
             @Override public boolean supports(IPatternDetails details) { return details == pattern; }
             @Override public ECOPatternSemantics analyze(IPatternDetails details, ECOPatternSemantics base) {

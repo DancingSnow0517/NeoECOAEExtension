@@ -96,7 +96,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
     final Map<AEKey, java.math.BigInteger> deferredEmitted = new LinkedHashMap<>();
     /** Outputs of successful multi-craft dispatches in this job, used by the ECO status page. */
     final Set<AEKey> batchedOutputs = new HashSet<>();
-    Set<net.minecraft.resources.ResourceLocation> fuzzyPlanningItemIds = Set.of();
+    Set<net.minecraft.resources.Identifier> fuzzyPlanningItemIds = Set.of();
     @Nullable
     Integer playerId;
     boolean suspended;
@@ -184,49 +184,49 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
 
     ExecutingCraftingJob(CompoundTag data, HolderLookup.Provider registries,
             CraftingDifferenceListener postCraftingDifference, ECOCraftingCPULogic cpu) {
-        this.link = new CraftingLink(data.getCompound(NBT_LINK), cpu.cpu);
+        this.link = new CraftingLink(data.getCompoundOrEmpty(NBT_LINK), cpu.cpu);
 
-        this.finalOutput = GenericStack.readTag(registries, data.getCompound(NBT_FINAL_OUTPUT));
-        this.reservedBytes = data.getLong("optimizationReservedBytes");
-        this.remainingAmount = Math.max(0L, data.getLong(NBT_REMAINING_AMOUNT));
-        this.exactOrder = data.getBoolean("exactOrder");
-        var fuzzyItems = new HashSet<net.minecraft.resources.ResourceLocation>();
-        for (var tag : data.getList("fuzzyPlanningItemIds", Tag.TAG_STRING)) {
-            var id = net.minecraft.resources.ResourceLocation.tryParse(tag.getAsString());
+        this.finalOutput = GenericStack.readTag(registries, data.getCompoundOrEmpty(NBT_FINAL_OUTPUT));
+        this.reservedBytes = data.getLongOr("optimizationReservedBytes", 0L);
+        this.remainingAmount = Math.max(0L, data.getLongOr(NBT_REMAINING_AMOUNT, 0L));
+        this.exactOrder = data.getBooleanOr("exactOrder", false);
+        var fuzzyItems = new HashSet<net.minecraft.resources.Identifier>();
+        for (var tag : data.getListOrEmpty("fuzzyPlanningItemIds")) {
+            var id = net.minecraft.resources.Identifier.tryParse(tag.getAsString());
             if (id != null) fuzzyItems.add(id);
         }
         this.fuzzyPlanningItemIds = Set.copyOf(fuzzyItems);
         this.waitingFor = createWaitingInventory(exactOrder, postCraftingDifference);
-        this.waitingFor.readFromNBT(data.getList(NBT_WAITING_FOR, Tag.TAG_COMPOUND), registries);
-        for (var tag : data.getList(NBT_BATCHED_OUTPUTS, Tag.TAG_COMPOUND)) {
+        this.waitingFor.readFromNBT(data.getListOrEmpty(NBT_WAITING_FOR), registries);
+        for (var tag : data.getListOrEmpty(NBT_BATCHED_OUTPUTS)) {
             var key = AEKey.fromTagGeneric(registries, (CompoundTag) tag);
             if (key != null) batchedOutputs.add(key);
         }
-        this.timeTracker = new ElapsedTimeTracker(data.getCompound(NBT_TIME_TRACKER));
-        if (data.contains(NBT_PLAYER_ID, Tag.TAG_INT)) {
-            this.playerId = data.getInt(NBT_PLAYER_ID);
+        this.timeTracker = new ElapsedTimeTracker(data.getCompoundOrEmpty(NBT_TIME_TRACKER));
+        if (data.contains(NBT_PLAYER_ID)) {
+            this.playerId = data.getIntOr(NBT_PLAYER_ID, 0);
         } else {
             this.playerId = null;
         }
 
-        ListTag tasksTag = data.getList(NBT_TASKS, Tag.TAG_COMPOUND);
+        ListTag tasksTag = data.getListOrEmpty(NBT_TASKS);
         boolean taskDefinitionLost = false;
         for (int i = 0; i < tasksTag.size(); ++i) {
-            final CompoundTag item = tasksTag.getCompound(i);
+            final CompoundTag item = tasksTag.getCompoundOrEmpty(i);
             var pattern = AEItemKey.fromTag(registries, item);
             var details = PatternDetailsHelper.decodePattern(pattern, cpu.cpu.getLevel());
             if (details != null) {
                 final TaskProgress tp = new TaskProgress();
-                tp.value = item.getLong(NBT_CRAFTING_PROGRESS);
+                tp.value = item.getLongOr(NBT_CRAFTING_PROGRESS, 0L);
                 if (item.contains("exactRemaining")) tp.setExact(
-                    new java.math.BigInteger(item.getString("exactTotal")),
-                    new java.math.BigInteger(item.getString("exactRemaining")));
+                    new java.math.BigInteger(item.getStringOr("exactTotal", "")),
+                    new java.math.BigInteger(item.getStringOr("exactRemaining", "")));
                 this.tasks.put(details, tp);
             } else taskDefinitionLost = true;
         }
 
         ECOExecutionPlan restoredPlan = null;
-        exactOrder = data.getBoolean("exactOrder");
+        exactOrder = data.getBooleanOr("exactOrder", false);
         readDeferred(data, "deferredStock", deferredStock, registries);
         readDeferred(data, "deferredEmitted", deferredEmitted, registries);
         ECOExecutionRuntime restoredRuntime = null;
@@ -235,12 +235,12 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         if (data.contains(NBT_EXECUTION_PLAN)) {
             try {
                 restoredPlan = ECOExecutionPlanNbtCodec.decode(
-                    data.getCompound(NBT_EXECUTION_PLAN), registries, cpu, this.finalOutput);
+                    data.getCompoundOrEmpty(NBT_EXECUTION_PLAN), registries, cpu, this.finalOutput);
                 Map<Integer, IPatternDetails> boundPatterns = bindExecutionPatterns(restoredPlan, false);
                 TaskProgress[] boundProgress = bindExecutionProgress(restoredPlan, boundPatterns);
                 if (data.contains(NBT_EXECUTION_RUNTIME)) {
                     restoredRuntime = ECOExecutionRuntime.fromNBT(restoredPlan, boundPatterns,
-                        boundProgress, data.getCompound(NBT_EXECUTION_RUNTIME), registries);
+                        boundProgress, data.getCompoundOrEmpty(NBT_EXECUTION_RUNTIME), registries);
                 } else {
                     restoredRuntime = new ECOExecutionRuntime(restoredPlan, boundPatterns, boundProgress);
                 }
@@ -251,13 +251,13 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         this.executionPlan = restoredPlan;
         this.executionRuntime = restoredRuntime;
         if (restoredPlan != null) restoredPlan.phases().forEach(phase -> seedKeys.addAll(phase.initialSeed().keySet()));
-        for (var tag : data.getList("optimizationSeedKeys", Tag.TAG_COMPOUND)) {
+        for (var tag : data.getListOrEmpty("optimizationSeedKeys")) {
             var key = AEKey.fromTagGeneric(registries, (CompoundTag) tag);
             if (key != null) seedKeys.add(key);
         }
-        this.suspended = data.getBoolean(NBT_SUSPENDED) || executionMetadataLost;
-        this.permanentExecutionError = data.contains(NBT_PERMANENT_EXECUTION_ERROR, Tag.TAG_STRING)
-            ? data.getString(NBT_PERMANENT_EXECUTION_ERROR) : null;
+        this.suspended = data.getBooleanOr(NBT_SUSPENDED, false) || executionMetadataLost;
+        this.permanentExecutionError = data.contains(NBT_PERMANENT_EXECUTION_ERROR)
+            ? data.getStringOr(NBT_PERMANENT_EXECUTION_ERROR, "") : null;
         if (executionMetadataLost && this.permanentExecutionError == null) {
             this.permanentExecutionError = "EXECUTION_METADATA_LOST";
         }
@@ -466,7 +466,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
 
     private static void readDeferred(CompoundTag data, String name, Map<AEKey, java.math.BigInteger> amounts,
             HolderLookup.Provider registries) {
-        var list = data.getList(name, Tag.TAG_COMPOUND);
+        var list = data.getListOrEmpty(name);
         for (int i = 0; i < list.size(); i++) {
             var entry = list.getCompound(i);
             var key = GenericStack.readTag(registries, entry.getCompound("key"));

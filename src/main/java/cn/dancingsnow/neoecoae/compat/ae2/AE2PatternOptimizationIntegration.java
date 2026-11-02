@@ -7,7 +7,7 @@ import appeng.crafting.pattern.AEStonecuttingPattern;
 import cn.dancingsnow.neoecoae.api.me.pattern.ECOExecutionOptimization;
 import cn.dancingsnow.neoecoae.api.me.pattern.ECOExecutionOptimizationAdapter;
 import cn.dancingsnow.neoecoae.api.me.pattern.ECOExecutionOptimizationRegistry;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /** AE2-specific guarantees live here rather than in the generic execution contract. */
 public final class AE2PatternOptimizationIntegration {
@@ -18,7 +18,7 @@ public final class AE2PatternOptimizationIntegration {
     public static synchronized void init() {
         if (initialized) return;
         ECOExecutionOptimizationRegistry.register(
-            ResourceLocation.fromNamespaceAndPath("neoecoae", "ae2_assembler"), 0,
+            Identifier.fromNamespaceAndPath("neoecoae", "ae2_assembler"), 0,
             new ECOExecutionOptimizationAdapter() {
                 @Override
                 public boolean supports(IPatternDetails pattern) {

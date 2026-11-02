@@ -28,7 +28,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
@@ -37,7 +37,7 @@ import org.lwjgl.glfw.GLFW;
 /** ECO-owned crafting report. Server menu and job execution remain AE2-native. */
 public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> {
     private static final int AE2_TEXT_DARK = 0x20212B;
-    private static final ResourceLocation CRAFTING_WIDGETS_TEXTURE =
+    private static final Identifier CRAFTING_WIDGETS_TEXTURE =
         NeoECOAE.id("textures/guis/crafting_widgets.png");
     private static final int CPU_TIER_TARGET_X = 38;
     private static final int CPU_TIER_TARGET_Y = 5;

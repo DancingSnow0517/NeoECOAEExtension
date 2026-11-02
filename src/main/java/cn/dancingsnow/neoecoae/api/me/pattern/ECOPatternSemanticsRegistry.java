@@ -6,7 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * Register optional semantics during common initialization. Higher priority wins, then lexicographic ID.
@@ -14,13 +14,13 @@ import net.minecraft.resources.ResourceLocation;
  * each analysis uses an immutable registration snapshot.
  */
 public final class ECOPatternSemanticsRegistry {
-    private static final Map<ResourceLocation, Registration> ADAPTERS = new LinkedHashMap<>();
+    private static final Map<Identifier, Registration> ADAPTERS = new LinkedHashMap<>();
     private static long revision;
 
     private ECOPatternSemanticsRegistry() {
     }
 
-    public static void register(ResourceLocation id, int priority, ECOPatternSemanticAdapter adapter) {
+    public static void register(Identifier id, int priority, ECOPatternSemanticAdapter adapter) {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(adapter, "adapter");
         synchronized (ECOPatternSemanticsRegistry.class) {
@@ -34,7 +34,7 @@ public final class ECOPatternSemanticsRegistry {
         }
     }
 
-    public static boolean unregister(ResourceLocation id) {
+    public static boolean unregister(Identifier id) {
         synchronized (ECOPatternSemanticsRegistry.class) {
             if (ADAPTERS.remove(id) == null) return false;
             revision++;
@@ -54,6 +54,6 @@ public final class ECOPatternSemanticsRegistry {
             .toList();
     }
 
-    public record Registration(ResourceLocation id, int priority, ECOPatternSemanticAdapter adapter) {
+    public record Registration(Identifier id, int priority, ECOPatternSemanticAdapter adapter) {
     }
 }

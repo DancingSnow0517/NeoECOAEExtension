@@ -4,7 +4,7 @@ import appeng.api.storage.cells.CellState;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOInfiniteResourceCellItem;
-import net.minecraft.util.FastColor;
+import net.minecraft.util.ARGB;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.IdentityHashMap;
@@ -43,7 +43,7 @@ public final class NEItemColors {
         if (tintIndex != statusLightTintIndex) {
             return 0xFFFFFFFF;
         }
-        return FastColor.ARGB32.opaque(stateColor(stack));
+        return ARGB.opaque(stateColor(stack));
     }
 
     private static int stateColor(ItemStack stack) {

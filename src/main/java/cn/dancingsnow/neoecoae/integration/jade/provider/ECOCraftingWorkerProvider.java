@@ -21,10 +21,10 @@ public enum ECOCraftingWorkerProvider implements IServerDataProvider<BlockAccess
     public void appendTooltip(ITooltip iTooltip, BlockAccessor blockAccessor, IPluginConfig iPluginConfig) {
         CompoundTag data = blockAccessor.getServerData();
         if (data.contains("max")) {
-            long max = data.getLong("max");
-            boolean infinite = data.getBoolean("infinite");
-            int normalHosts = data.getInt("normalSwitchHosts");
-            int highEnergyHosts = data.getInt("highEnergySwitchHosts");
+            long max = data.getLongOr("max", 0L);
+            boolean infinite = data.getBooleanOr("infinite", false);
+            int normalHosts = data.getIntOr("normalSwitchHosts", 0);
+            int highEnergyHosts = data.getIntOr("highEnergySwitchHosts", 0);
             Component normalSwitches = Component.translatable("jade.neoecoae.normal_switch")
                 .withStyle(ChatFormatting.GREEN);
             Component highEnergySwitches = Component.translatable("jade.neoecoae.high_energy_switch")
@@ -37,7 +37,7 @@ public enum ECOCraftingWorkerProvider implements IServerDataProvider<BlockAccess
                     .withStyle(ChatFormatting.LIGHT_PURPLE);
             iTooltip.add(Component.translatable("jade.neoecoae.crafting_capacity", batchCapacity));
             if ((normalHosts > 0 || highEnergyHosts > 0) && blockAccessor.getPlayer().isShiftKeyDown()) {
-                long base = data.getLong("baseCapacity");
+                long base = data.getLongOr("baseCapacity", 0L);
                 String terms = normalHosts > 0 && highEnergyHosts > 0
                     ? normalHosts + " x 2 + " + highEnergyHosts + " x 8"
                     : normalHosts > 0 ? normalHosts + " x 2" : highEnergyHosts + " x 8";

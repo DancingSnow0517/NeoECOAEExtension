@@ -191,7 +191,7 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
 
     private boolean canEdit(UIElement element) {
         var ui = element.getModularUI();
-        return host.getLevel() != null && !host.getLevel().isClientSide && host.canPlayerUse(player)
+        return host.getLevel() != null && !host.getLevel().isClientSide() && host.canPlayerUse(player)
             && ui != null && ui.getMenu() == player.containerMenu && player.containerMenu.stillValid(player);
     }
 

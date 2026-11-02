@@ -18,7 +18,7 @@ import dev.emi.emi.api.stack.EmiStack;
 import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
@@ -58,7 +58,7 @@ class PhantomItemSlotSideTest {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             ldlib.when(LDLib2::isJeiLoaded).thenReturn(true);
             ldlib.when(() -> LDLib2.id(anyString())).thenAnswer(invocation ->
-                ResourceLocation.fromNamespaceAndPath("ldlib2", invocation.getArgument(0)));
+                Identifier.fromNamespaceAndPath("ldlib2", invocation.getArgument(0)));
 
             UIElement grid = createGrid(level);
             List<ItemSlot> slots = new ArrayList<>();
@@ -101,7 +101,7 @@ class PhantomItemSlotSideTest {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             ldlib.when(LDLib2::isEmiLoaded).thenReturn(true);
             ldlib.when(() -> LDLib2.id(anyString())).thenAnswer(invocation ->
-                ResourceLocation.fromNamespaceAndPath("ldlib2", invocation.getArgument(0)));
+                Identifier.fromNamespaceAndPath("ldlib2", invocation.getArgument(0)));
             UIElement grid = createGrid(level);
             ItemStack dragged = new ItemStack(tool ? Items.DIAMOND_PICKAXE : Items.DIAMOND);
             var targets = new EMIDragDropHandler(EmiStack.of(dragged));
@@ -137,7 +137,7 @@ class PhantomItemSlotSideTest {
             ldlib.when(LDLib2::isServer).thenReturn(!client);
             ldlib.when(LDLib2::isRemote).thenReturn(client);
             ldlib.when(() -> LDLib2.id(anyString())).thenAnswer(invocation ->
-                ResourceLocation.fromNamespaceAndPath("ldlib2", invocation.getArgument(0)));
+                Identifier.fromNamespaceAndPath("ldlib2", invocation.getArgument(0)));
             // Recipe-viewer mods can be present on a dedicated server too.
             ldlib.when(LDLib2::isJeiLoaded).thenReturn(true);
             ldlib.when(LDLib2::isEmiLoaded).thenReturn(true);

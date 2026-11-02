@@ -19,7 +19,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FormattedText;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 import java.math.BigDecimal;
@@ -39,7 +39,7 @@ public final class LargeWorkstationRecipeDisplay {
     public static final float TEXT_SCALE = 0.75f;
     public static final int COLUMNS = 9;
     private static final String PREFIX = "gui.neoecoae.large_integrated_working_station.";
-    private static final Map<ResourceLocation, Function<LargeWorkstationRecipe, List<DisplayCard>>> CARD_PROVIDERS = new LinkedHashMap<>();
+    private static final Map<Identifier, Function<LargeWorkstationRecipe, List<DisplayCard>>> CARD_PROVIDERS = new LinkedHashMap<>();
 
     private LargeWorkstationRecipeDisplay() {}
 
@@ -51,7 +51,7 @@ public final class LargeWorkstationRecipeDisplay {
     }
 
     /** Register during client setup, before the recipe viewers build their layouts. Providers must be deterministic. */
-    public static void registerCardProvider(ResourceLocation id, Function<LargeWorkstationRecipe, List<DisplayCard>> provider) {
+    public static void registerCardProvider(Identifier id, Function<LargeWorkstationRecipe, List<DisplayCard>> provider) {
         CARD_PROVIDERS.put(Objects.requireNonNull(id), Objects.requireNonNull(provider));
     }
 
@@ -202,7 +202,7 @@ public final class LargeWorkstationRecipeDisplay {
         return List.copyOf(result);
     }
 
-    private static Component moduleNames(List<ResourceLocation> modules) {
+    private static Component moduleNames(List<Identifier> modules) {
         var result = Component.empty();
         for (var module : modules) {
             if (!result.getSiblings().isEmpty()) result.append(" / ");
@@ -219,7 +219,7 @@ public final class LargeWorkstationRecipeDisplay {
 
     private static Component variantTitle(LargeWorkstationRecipeGroup.Variant variant) {
         return variant.unrestricted() ? LargeWorkstationModule.REGULAR.title().copy().withColor(LargeWorkstationModule.REGULAR.color())
-            : moduleNames(variant.modules().stream().sorted(java.util.Comparator.comparing(ResourceLocation::toString)).toList());
+            : moduleNames(variant.modules().stream().sorted(java.util.Comparator.comparing(Identifier::toString)).toList());
     }
 
     private static List<Component> variantsTooltip(LargeWorkstationRecipe representative, List<LargeWorkstationRecipeGroup.Variant> variants) {

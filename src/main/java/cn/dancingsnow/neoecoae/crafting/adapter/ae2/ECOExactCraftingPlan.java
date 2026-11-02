@@ -23,7 +23,7 @@ public final class ECOExactCraftingPlan implements ICraftingPlan {
     private final Map<AEKey, BigInteger> deferredStock;
     private final Map<AEKey, BigInteger> deferredEmitted;
     private final ECOExecutionPlan execution;
-    private final java.util.Set<net.minecraft.resources.ResourceLocation> fuzzyPlanningItemIds;
+    private final java.util.Set<net.minecraft.resources.Identifier> fuzzyPlanningItemIds;
 
     public ECOExactCraftingPlan(ECOPlanningResult result, boolean forced) {
         if (!cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderAdmission.allows(result, forced))
@@ -100,7 +100,7 @@ public final class ECOExactCraftingPlan implements ICraftingPlan {
     public Map<AEKey, BigInteger> deferredStock() { return deferredStock; }
     public Map<AEKey, BigInteger> deferredEmitted() { return deferredEmitted; }
     public ECOExecutionPlan execution() { return execution; }
-    public java.util.Set<net.minecraft.resources.ResourceLocation> fuzzyPlanningItemIds() { return fuzzyPlanningItemIds; }
+    public java.util.Set<net.minecraft.resources.Identifier> fuzzyPlanningItemIds() { return fuzzyPlanningItemIds; }
     @Override public GenericStack finalOutput() { return projection.finalOutput(); }
     // Explicit large orders retain their existing exemption from AE2 byte reservations.
     @Override public long bytes() { return 0; }

@@ -4,7 +4,7 @@ import cn.dancingsnow.neoecoae.api.extension.ECOExtensionRegistry;
 import java.util.Objects;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -19,11 +19,11 @@ public final class ECOMultiblockRequirements {
     private ECOMultiblockRequirements() {}
     public record Context(@Nullable Level level, BlockPos position, BlockState expected, BlockState actual) {}
     @FunctionalInterface public interface Provider { @Nullable Boolean accepts(Context context); }
-    public static void register(ResourceLocation id, int priority, Provider provider) { REGISTRY.register(id, priority, provider); }
-    public static boolean unregister(ResourceLocation id) { return REGISTRY.unregister(id); }
+    public static void register(Identifier id, int priority, Provider provider) { REGISTRY.register(id, priority, provider); }
+    public static boolean unregister(Identifier id) { return REGISTRY.unregister(id); }
     public static long revision() { return REGISTRY.revision(); }
 
-    public static void registerAlternatives(ResourceLocation id, int priority, Block expected, Set<Block> alternatives) {
+    public static void registerAlternatives(Identifier id, int priority, Block expected, Set<Block> alternatives) {
         Set<Block> copy = Set.copyOf(alternatives);
         register(id, priority, context -> context.expected().is(expected) && copy.contains(context.actual().getBlock())
             ? matchingProperties(context.expected(), context.actual()) : null);

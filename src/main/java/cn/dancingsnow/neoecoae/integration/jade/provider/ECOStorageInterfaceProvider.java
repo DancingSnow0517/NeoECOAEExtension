@@ -7,7 +7,7 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import snownee.jade.api.BlockAccessor;
 import snownee.jade.api.IBlockComponentProvider;
 import snownee.jade.api.IServerDataProvider;
@@ -22,7 +22,7 @@ public enum ECOStorageInterfaceProvider implements IBlockComponentProvider, ISer
         CompoundTag data = accessor.getServerData();
         if (!data.contains("storageMode")) return;
         ECOStorageInterfaceMode mode = ECOStorageInterfaceMode.values()[Math.max(0,
-            Math.min(ECOStorageInterfaceMode.values().length - 1, data.getInt("storageMode")))];
+            Math.min(ECOStorageInterfaceMode.values().length - 1, data.getIntOr("storageMode", 0)))];
         if (mode == ECOStorageInterfaceMode.INPUT) {
             tooltip.add(Component.translatable("jade.neoecoae.storage_interface.input")
                 .withStyle(ChatFormatting.BLUE));
@@ -42,7 +42,7 @@ public enum ECOStorageInterfaceProvider implements IBlockComponentProvider, ISer
     }
 
     @Override
-    public ResourceLocation getUid() {
+    public Identifier getUid() {
         return NeoECOAE.id("eco_storage_interface");
     }
 }

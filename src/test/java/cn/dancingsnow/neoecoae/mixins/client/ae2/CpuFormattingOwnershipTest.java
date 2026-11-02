@@ -25,7 +25,7 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -84,7 +84,7 @@ class CpuFormattingOwnershipTest {
     void ownershipSurvivesPacketRoundTripIndependentlyOfOverlay(boolean eco, boolean overlay) throws Exception {
         var sender = new CraftingCpuListEntryMixin();
         sender.neoecoae$setEcoCpu(eco);
-        var texture = overlay ? ResourceLocation.parse("addon:textures/cpu.png") : null;
+        var texture = overlay ? Identifier.parse("addon:textures/cpu.png") : null;
         sender.neoecoae$setOverlay(texture);
         var receiver = new CraftingCpuListEntryMixin();
         // Ensure reading a foreign CPU also clears stale ECO state.

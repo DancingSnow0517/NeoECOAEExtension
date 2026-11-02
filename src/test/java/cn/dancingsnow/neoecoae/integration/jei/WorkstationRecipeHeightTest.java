@@ -11,7 +11,7 @@ import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.sugar.Local;
 import mezz.jei.api.recipe.category.IRecipeCategory;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
@@ -45,7 +45,7 @@ class WorkstationRecipeHeightTest {
         assertHeight(136, category, expanded);
         assertHeight(96, category, small);
 
-        var provider = ResourceLocation.parse("neoecoae:height_test");
+        var provider = Identifier.parse("neoecoae:height_test");
         LargeWorkstationRecipeDisplay.registerCardProvider(provider, ignored -> java.util.Collections.nCopies(5,
             new LargeWorkstationRecipeDisplay.DisplayCard(new ItemStack(Items.DIAMOND), List.of())));
         try {
@@ -63,7 +63,7 @@ class WorkstationRecipeHeightTest {
         var display = new cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe(List.of(),
             new SizedFluidIngredient(net.neoforged.neoforge.fluids.crafting.FluidIngredient.empty(), 1),
             ItemStack.EMPTY, net.neoforged.neoforge.fluids.FluidStack.EMPTY, 200_000);
-        return new LargeWorkstationRecipe(ResourceLocation.parse("neoecoae:height_test"), display, 200_000,
+        return new LargeWorkstationRecipe(Identifier.parse("neoecoae:height_test"), display, 200_000,
             List.of(), LargeWorkstationRecipe.NATIVE_TYPE, fluids, outputs);
     }
 

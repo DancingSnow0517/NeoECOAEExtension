@@ -4,7 +4,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.extension.ECOExtensionRegistry;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -26,8 +26,8 @@ public final class ECOMultiblockParts {
         public static Part of(Role role, @Nullable IECOTier tier) { return new Part(Set.of(role), tier, null, 0); }
     }
     @FunctionalInterface public interface Provider { @Nullable Part describe(Context context); }
-    public static void register(ResourceLocation id, int priority, Provider provider) { REGISTRY.register(id, priority, provider); }
-    public static boolean unregister(ResourceLocation id) { return REGISTRY.unregister(id); }
+    public static void register(Identifier id, int priority, Provider provider) { REGISTRY.register(id, priority, provider); }
+    public static boolean unregister(Identifier id) { return REGISTRY.unregister(id); }
     public static long revision() { return REGISTRY.revision(); }
 
     @Nullable public static Part describe(Context context) {

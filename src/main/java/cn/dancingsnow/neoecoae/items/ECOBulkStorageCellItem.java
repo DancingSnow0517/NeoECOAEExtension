@@ -15,7 +15,7 @@ import cn.dancingsnow.neoecoae.gui.common.HostText;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.network.chat.Component;
@@ -31,8 +31,8 @@ public class ECOBulkStorageCellItem extends ECOStorageCellItem implements IECOBu
     public static final int TYPE_LIMIT = 25;
     public static final int UPGRADED_TYPE_LIMIT = 50;
     // Resolve by registry id so legacy disks never initialize the optional MEGA item registrations.
-    private static final ResourceLocation EXPANSION_CARD =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "eco_mega_upgrade_card");
+    private static final Identifier EXPANSION_CARD =
+        Identifier.fromNamespaceAndPath("neoecoae", "eco_mega_upgrade_card");
     private final int baseTypeLimit;
     public ECOBulkStorageCellItem(Properties properties, IECOTier tier, Supplier<ECOCellType> type) {
         this(properties, tier, type, TYPE_LIMIT);

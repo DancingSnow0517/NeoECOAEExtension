@@ -5,7 +5,7 @@ import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -20,10 +20,10 @@ public final class BulkItemKeys {
         return tag;
     }
     public static @Nullable AEItemKey read(CompoundTag tag) {
-        ResourceLocation id = ResourceLocation.tryParse(tag.getString("item"));
+        Identifier id = Identifier.tryParse(tag.getStringOr("item", ""));
         var item = id == null ? null : BuiltInRegistries.ITEM.getHolder(id).orElse(null);
         if (item == null) return null;
-        var patch = DataComponentPatch.CODEC.parse(NbtOps.INSTANCE, tag.getCompound("components")).result().orElse(null);
+        var patch = DataComponentPatch.CODEC.parse(NbtOps.INSTANCE, tag.getCompoundOrEmpty("components")).result().orElse(null);
         return patch == null ? null : AEItemKey.of(new ItemStack(item, 1, patch));
     }
 }

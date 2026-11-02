@@ -27,7 +27,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -331,7 +331,7 @@ class PatternMigrationSafetyTest {
     private static ItemStack pattern(int index) {
         var stack = new ItemStack(Items.STONE);
         stack.set(AEComponents.ENCODED_CRAFTING_PATTERN, new EncodedCraftingPattern(List.of(),
-                new ItemStack(Items.DIAMOND), ResourceLocation.withDefaultNamespace("test_" + index), false, false));
+                new ItemStack(Items.DIAMOND), Identifier.withDefaultNamespace("test_" + index), false, false));
         return stack;
     }
 }

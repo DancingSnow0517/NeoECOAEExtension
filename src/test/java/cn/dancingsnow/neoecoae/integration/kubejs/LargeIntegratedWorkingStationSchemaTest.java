@@ -13,7 +13,7 @@ import dev.latvian.mods.kubejs.recipe.RecipesKubeEvent;
 import dev.latvian.mods.kubejs.recipe.schema.RecipeSchemaRegistry;
 import dev.latvian.mods.kubejs.recipe.schema.RecipeSchemaType;
 import dev.latvian.mods.kubejs.util.RegistryAccessContainer;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluids;
@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class LargeIntegratedWorkingStationSchemaTest {
-    private static final ResourceLocation TYPE = ResourceLocation.parse("neoecoae:large_integrated_working_station");
+    private static final Identifier TYPE = Identifier.parse("neoecoae:large_integrated_working_station");
 
     @BeforeAll
     static void bootstrap() throws ClassNotFoundException {
@@ -50,8 +50,8 @@ class LargeIntegratedWorkingStationSchemaTest {
         var registry = mock(RecipeSchemaRegistry.class);
         new NEKubeJSPlugin().registerRecipeSchemas(registry);
         verify(registry).register(TYPE, LargeIntegratedWorkingStationSchema.SCHEMA);
-        verify(registry).register(ResourceLocation.parse("neoecoae:integrated_working_station"), IntegratedWorkingStationSchema.SCHEMA);
-        verify(registry).register(eq(ResourceLocation.parse("neoecoae:cooling")), any(dev.latvian.mods.kubejs.recipe.schema.RecipeSchema.class));
+        verify(registry).register(Identifier.parse("neoecoae:integrated_working_station"), IntegratedWorkingStationSchema.SCHEMA);
+        verify(registry).register(eq(Identifier.parse("neoecoae:cooling")), any(dev.latvian.mods.kubejs.recipe.schema.RecipeSchema.class));
     }
 
     @Test

@@ -22,11 +22,11 @@ public final class ECOStorageCellSettings {
     public static int priority(ItemStack stack) {
         var data = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
         if (stack.getItem() instanceof ECOBulkStorageCellItem) {
-            var bulk = data.getCompound(data.contains("neoecoae_bulk", Tag.TAG_COMPOUND)
+            var bulk = data.getCompound(data.contains("neoecoae_bulk")
                 ? "neoecoae_bulk" : "neoecoae_mega_long_bulk");
-            return bulk.contains("priority", Tag.TAG_INT) ? bulk.getInt("priority") : 1;
+            return bulk.contains("priority") ? bulk.getIntOr("priority", 0) : 1;
         }
-        return data.getInt(PRIORITY);
+        return data.getIntOr(PRIORITY, 0);
     }
 
     public static void setPriority(ItemStack stack, int priority) {

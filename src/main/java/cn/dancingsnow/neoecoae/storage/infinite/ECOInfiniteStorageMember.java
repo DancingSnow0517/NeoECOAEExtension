@@ -32,7 +32,7 @@ public final class ECOInfiniteStorageMember {
 
     static boolean isSealedData(CustomData data) {
         CompoundTag tag = readTag(data);
-        return tag.hasUUID(MIGRATION_TAG) || tag.getBoolean(MEMBER_TAG);
+        return tag.read(MIGRATION_TAG, net.minecraft.core.UUIDUtil.CODEC).isPresent() || tag.getBooleanOr(MEMBER_TAG, false);
     }
 
     /**
@@ -45,9 +45,9 @@ public final class ECOInfiniteStorageMember {
 
     public static UUID identity(ItemStack stack) {
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        if (tag.hasUUID(IDENTITY_TAG)) return tag.getUUID(IDENTITY_TAG);
+        if (tag.read(IDENTITY_TAG, net.minecraft.core.UUIDUtil.CODEC).isPresent()) return tag.read(IDENTITY_TAG, net.minecraft.core.UUIDUtil.CODEC).orElseThrow();
         UUID identity = UUID.randomUUID();
-        tag.putUUID(IDENTITY_TAG, identity);
+        tag.store(IDENTITY_TAG, net.minecraft.core.UUIDUtil.CODEC, identity);
         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
         return identity;
     }
@@ -55,7 +55,7 @@ public final class ECOInfiniteStorageMember {
     public static Optional<UUID> getIdentity(@Nullable ItemStack stack) {
         if (stack == null || stack.isEmpty()) return Optional.empty();
         CompoundTag tag = readTag(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY));
-        return tag.hasUUID(IDENTITY_TAG) ? Optional.of(tag.getUUID(IDENTITY_TAG)) : Optional.empty();
+        return tag.read(IDENTITY_TAG, net.minecraft.core.UUIDUtil.CODEC).isPresent() ? Optional.of(tag.read(IDENTITY_TAG, net.minecraft.core.UUIDUtil.CODEC).orElseThrow()) : Optional.empty();
     }
 
     public static boolean isMigrating(@Nullable ItemStack stack) {
@@ -70,25 +70,25 @@ public final class ECOInfiniteStorageMember {
     public static Optional<UUID> getMigrationDomainId(@Nullable ItemStack stack) {
         if (stack == null || stack.isEmpty()) return Optional.empty();
         CompoundTag tag = readTag(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY));
-        return tag.hasUUID(MIGRATION_DOMAIN_TAG) ? Optional.of(tag.getUUID(MIGRATION_DOMAIN_TAG)) : Optional.empty();
+        return tag.read(MIGRATION_DOMAIN_TAG, net.minecraft.core.UUIDUtil.CODEC).isPresent() ? Optional.of(tag.read(MIGRATION_DOMAIN_TAG, net.minecraft.core.UUIDUtil.CODEC).orElseThrow()) : Optional.empty();
     }
 
     static @Nullable UUID migrationId(CustomData data) {
         CompoundTag tag = readTag(data);
-        return tag.hasUUID(MIGRATION_TAG) ? tag.getUUID(MIGRATION_TAG) : null;
+        return tag.read(MIGRATION_TAG, net.minecraft.core.UUIDUtil.CODEC).isPresent() ? tag.read(MIGRATION_TAG, net.minecraft.core.UUIDUtil.CODEC).orElseThrow() : null;
     }
 
     public static UUID beginMigration(ItemStack stack, UUID domain) {
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        if (tag.hasUUID(MIGRATION_TAG)) {
-            if (!tag.hasUUID(MIGRATION_DOMAIN_TAG) || !domain.equals(tag.getUUID(MIGRATION_DOMAIN_TAG))) {
+        if (tag.read(MIGRATION_TAG, net.minecraft.core.UUIDUtil.CODEC).isPresent()) {
+            if (!tag.read(MIGRATION_DOMAIN_TAG, net.minecraft.core.UUIDUtil.CODEC).isPresent() || !domain.equals(tag.read(MIGRATION_DOMAIN_TAG, net.minecraft.core.UUIDUtil.CODEC).orElseThrow())) {
                 throw new IllegalStateException("Storage cell belongs to another migration");
             }
-            return tag.getUUID(MIGRATION_TAG);
+            return tag.read(MIGRATION_TAG, net.minecraft.core.UUIDUtil.CODEC).orElseThrow();
         }
         UUID id = UUID.randomUUID();
-        tag.putUUID(MIGRATION_TAG, id);
-        tag.putUUID(MIGRATION_DOMAIN_TAG, domain);
+        tag.store(MIGRATION_TAG, net.minecraft.core.UUIDUtil.CODEC, id);
+        tag.store(MIGRATION_DOMAIN_TAG, net.minecraft.core.UUIDUtil.CODEC, domain);
         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
         return id;
     }
@@ -100,7 +100,7 @@ public final class ECOInfiniteStorageMember {
     }
 
     static boolean isMemberData(CustomData data) {
-        return readTag(data).getBoolean(MEMBER_TAG);
+        return readTag(data).getBooleanOr(MEMBER_TAG, false);
     }
 
     public static Optional<UUID> getDomainId(@Nullable ItemStack stack) {
@@ -112,10 +112,10 @@ public final class ECOInfiniteStorageMember {
 
     static Optional<UUID> domainId(CustomData data) {
         CompoundTag tag = readTag(data);
-        if (!tag.getBoolean(MEMBER_TAG) || !tag.hasUUID(DOMAIN_TAG)) {
+        if (!tag.getBooleanOr(MEMBER_TAG, false) || !tag.read(DOMAIN_TAG, net.minecraft.core.UUIDUtil.CODEC).isPresent()) {
             return Optional.empty();
         }
-        return Optional.of(tag.getUUID(DOMAIN_TAG));
+        return Optional.of(tag.read(DOMAIN_TAG, net.minecraft.core.UUIDUtil.CODEC).orElseThrow());
     }
 
     public static boolean isMemberOf(@Nullable ItemStack stack, UUID domainId) {
@@ -130,8 +130,8 @@ public final class ECOInfiniteStorageMember {
         tag.putBoolean(MEMBER_TAG, true);
         tag.remove(MIGRATION_TAG);
         tag.remove(MIGRATION_DOMAIN_TAG);
-        tag.putUUID(DOMAIN_TAG, domainId);
-        if (!tag.hasUUID(IDENTITY_TAG)) tag.putUUID(IDENTITY_TAG, UUID.randomUUID());
+        tag.store(DOMAIN_TAG, net.minecraft.core.UUIDUtil.CODEC, domainId);
+        if (!tag.read(IDENTITY_TAG, net.minecraft.core.UUIDUtil.CODEC).isPresent()) tag.store(IDENTITY_TAG, net.minecraft.core.UUIDUtil.CODEC, UUID.randomUUID());
         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
     }
 

@@ -5,7 +5,7 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import cn.dancingsnow.neoecoae.util.LongFluidTank;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
@@ -182,7 +182,7 @@ class ECOCraftingCoolingControllerTest {
 
     @Test
     void registeredCustomCoolantCanRefillAndFundVirtualExecution() {
-        var id = ResourceLocation.parse("minecraft:water");
+        var id = Identifier.parse("minecraft:water");
         ECOVirtualCraftingCoolantRegistry.register(id);
         try {
             when(host.usesTickBasedCoolant()).thenReturn(true);
@@ -205,7 +205,7 @@ class ECOCraftingCoolingControllerTest {
 
     @Test
     void registrationChangesApplyToBufferedCoolantWithoutMixingDifferentFluids() {
-        var id = ResourceLocation.parse("minecraft:water");
+        var id = Identifier.parse("minecraft:water");
         when(host.usesTickBasedCoolant()).thenReturn(true);
         when(host.isLocallyActiveCooling()).thenReturn(true);
         amount = 20000;

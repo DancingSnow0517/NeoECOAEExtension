@@ -4,7 +4,7 @@ import com.lowdragmc.lowdraglib2.editor.resource.BuiltinPath;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import java.util.function.Supplier;
 
 /** Resolves the provider on draw so even cached widget sprites observe addResource replacements. */
@@ -13,7 +13,7 @@ final class PanelAtlasSprite extends SpriteTexture {
     private final Supplier<IECOTier> tier;
     private final String atlasName;
 
-    PanelAtlasSprite(BuiltinPath atlasPath, ResourceLocation fallback, Supplier<IECOTier> tier, String atlasName) {
+    PanelAtlasSprite(BuiltinPath atlasPath, Identifier fallback, Supplier<IECOTier> tier, String atlasName) {
         this.atlasPath = atlasPath;
         this.tier = tier;
         this.atlasName = atlasName;
@@ -22,7 +22,7 @@ final class PanelAtlasSprite extends SpriteTexture {
 
     SpriteTexture resolve() {
         IECOTier current = tier.get();
-        ResourceLocation image = current == null ? null : current.getPanelAtlas(atlasName);
+        Identifier image = current == null ? null : current.getPanelAtlas(atlasName);
         if (image == null) {
             var resource = NETextures.panelAtlas(atlasPath);
             image = resource != null && resource.getRawTexture() instanceof SpriteTexture sprite

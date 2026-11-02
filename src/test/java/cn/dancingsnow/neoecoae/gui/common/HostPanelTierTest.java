@@ -8,7 +8,7 @@ import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import java.util.List;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.fml.ModList;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -56,7 +56,7 @@ class HostPanelTierTest {
     @Test
     void customMarkersUseBothRowsOfTheAddonTextureAndTheRequestedPanelGeometry() {
         IECOTier addon = mock(IECOTier.class);
-        ResourceLocation marker = ResourceLocation.fromNamespaceAndPath("addon", "textures/gui/host.png");
+        Identifier marker = Identifier.fromNamespaceAndPath("addon", "textures/gui/host.png");
         when(addon.getHostMarkerTexture()).thenReturn(marker);
         GUIContext context = mock(GUIContext.class);
         for (boolean bottom : new boolean[] {false, true}) {

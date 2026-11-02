@@ -9,7 +9,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /** Bounded cross-order structural reuse. Inventory, numeric choices and search budgets are never cached. */
 public final class CompiledStructureCache {
@@ -19,7 +19,7 @@ public final class CompiledStructureCache {
 
     public record Structure(CompiledNetwork network, CondensationGraph condensation) {}
     private record Entry(WeakReference<ICraftingService> owner, long revision, long contractGeneration, AEKey goal,
-            boolean cycles, Set<ResourceLocation> fuzzyItems, Structure structure, int weight) {}
+            boolean cycles, Set<Identifier> fuzzyItems, Structure structure, int weight) {}
 
     private CompiledStructureCache() {}
 
@@ -29,7 +29,7 @@ public final class CompiledStructureCache {
     }
 
     public static synchronized Structure get(ICraftingService service, long revision, long contractGeneration, AEKey goal,
-            boolean cycles, Set<ResourceLocation> fuzzyItems) {
+            boolean cycles, Set<Identifier> fuzzyItems) {
         ENTRIES.removeIf(entry -> entry.owner().get() == null || entry.contractGeneration() != contractGeneration
                 || entry.owner().get() == service && entry.revision() != revision);
         if (revision < 0 || revision(service) != revision
@@ -46,7 +46,7 @@ public final class CompiledStructureCache {
     }
 
     public static synchronized void put(ICraftingService service, long revision, long contractGeneration, AEKey goal,
-            boolean cycles, Set<ResourceLocation> fuzzyItems, Structure structure) {
+            boolean cycles, Set<Identifier> fuzzyItems, Structure structure) {
         if (revision < 0 || revision(service) != revision
                 || AE2PatternIntrospection.reloadGeneration() != contractGeneration) return;
         long weight = (long) structure.network().reachablePatternCount() + structure.network().edgeCount()
@@ -64,7 +64,7 @@ public final class CompiledStructureCache {
     }
 
     private static boolean matches(Entry entry, ICraftingService service, long revision, AEKey goal,
-            boolean cycles, Set<ResourceLocation> fuzzyItems) {
+            boolean cycles, Set<Identifier> fuzzyItems) {
         return entry.owner().get() == service && entry.revision() == revision && entry.goal().equals(goal)
                 && entry.cycles() == cycles && entry.fuzzyItems().equals(fuzzyItems);
     }

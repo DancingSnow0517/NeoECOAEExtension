@@ -8,7 +8,7 @@ import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import snownee.jade.api.*;
 import snownee.jade.api.config.IPluginConfig;
 
@@ -40,7 +40,7 @@ public enum ECOStorageSystemProvider implements IBlockComponentProvider, IServer
         if (data.contains("ecoStorageMigration")) {
             tooltip.add(Component.translatable("gui.neoecoae.storage.ui.migration_progress",
                 data.getInt("ecoStorageMigration")).withStyle(ChatFormatting.AQUA));
-            Component reason = blockReason(data.getString("ecoStorageMigrationBlock"),
+            Component reason = blockReason(data.getStringOr("ecoStorageMigrationBlock", ""),
                 data.getString("ecoStorageMigrationBlockDetail"));
             if (reason != null) {
                 tooltip.add(Component.translatable("gui.neoecoae.storage.ui.migration_blocked", reason)
@@ -48,7 +48,7 @@ public enum ECOStorageSystemProvider implements IBlockComponentProvider, IServer
             }
             return;
         }
-        String domain = data.getString("ecoStorageDomain");
+        String domain = data.getStringOr("ecoStorageDomain", "");
         if (domain.isEmpty()) return;
         tooltip.add(Component.translatable("jade.neoecoae.storage.infinite_enabled").withStyle(ChatFormatting.LIGHT_PURPLE));
         tooltip.add(Component.literal("UUID: " + domain).withStyle(ChatFormatting.AQUA));
@@ -65,7 +65,7 @@ public enum ECOStorageSystemProvider implements IBlockComponentProvider, IServer
     }
 
     @Override
-    public ResourceLocation getUid() {
+    public Identifier getUid() {
         return NeoECOAE.id("eco_storage_system");
     }
 }

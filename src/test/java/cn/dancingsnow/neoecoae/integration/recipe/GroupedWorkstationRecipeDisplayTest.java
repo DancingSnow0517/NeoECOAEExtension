@@ -13,7 +13,7 @@ import com.moakiee.ae2lt.me.key.LightningKey;
 import net.minecraft.network.chat.Component;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.contents.TranslatableContents;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
@@ -124,7 +124,7 @@ class GroupedWorkstationRecipeDisplayTest {
     }
 
     private static ECOWorkstationModules.Module module(String path, String card, String title) {
-        return new ECOWorkstationModules.Module(id(path), ResourceLocation.parse(card), Set.of(id(path)),
+        return new ECOWorkstationModules.Module(id(path), Identifier.parse(card), Set.of(id(path)),
             Component.literal(title), Component.literal(title), 0, null, null, null, null);
     }
 
@@ -134,9 +134,9 @@ class GroupedWorkstationRecipeDisplayTest {
         return new LargeWorkstationRecipe(id(path), display, energy, extras, id(path));
     }
 
-    private static LargeWorkstationRecipeGroup.Variant variant(LargeWorkstationRecipe recipe, ResourceLocation module) {
+    private static LargeWorkstationRecipeGroup.Variant variant(LargeWorkstationRecipe recipe, Identifier module) {
         return new LargeWorkstationRecipeGroup.Variant(recipe, recipe.id(), recipe.sourceType(), Set.of(module), false, false);
     }
 
-    private static ResourceLocation id(String path) { return ResourceLocation.fromNamespaceAndPath("group_display_test", path); }
+    private static Identifier id(String path) { return Identifier.fromNamespaceAndPath("group_display_test", path); }
 }

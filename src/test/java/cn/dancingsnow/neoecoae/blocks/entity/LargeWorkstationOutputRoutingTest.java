@@ -13,7 +13,7 @@ import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import org.junit.jupiter.api.BeforeAll;
@@ -138,7 +138,7 @@ class LargeWorkstationOutputRoutingTest {
         var constructor = batchType.getDeclaredConstructors()[0];
         constructor.setAccessible(true);
         var batch = constructor.newInstance(2L, 1L, 0, 1, new KeyCounter(), outputs, jobId,
-            ResourceLocation.parse("test:output_routing"), null, null, 0L);
+            Identifier.parse("test:output_routing"), null, null, 0L);
         var pendingField = batchType.getDeclaredField("pendingOutput");
         pendingField.setAccessible(true);
         var pending = (KeyCounter) pendingField.get(batch);

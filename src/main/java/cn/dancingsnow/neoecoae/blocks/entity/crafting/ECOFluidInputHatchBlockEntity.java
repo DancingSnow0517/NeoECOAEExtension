@@ -84,7 +84,7 @@ public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyField
     public long getStoredFluidAmount() { return tank.getStoredAmount(); }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
-        if (level.isClientSide) return;
+        if (level.isClientSide()) return;
         if (hasNetworkPullCard()) {
             if (level.getGameTime() % 20 == 0 && getMainNode().isActive()) {
                 var grid = getMainNode().getGrid();
@@ -186,7 +186,7 @@ public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyField
         super.loadTag(data, registries);
         tank.readFromNBT(registries, data);
         upgrades.readFromNBT(data, "upgrades", registries);
-        markedFluid = FluidStack.parseOptional(registries, data.getCompound("markedFluid"));
-        targetAmount = data.contains("targetAmount") ? Math.max(0, data.getLong("targetAmount")) : 16_000;
+        markedFluid = FluidStack.parseOptional(registries, data.getCompoundOrEmpty("markedFluid"));
+        targetAmount = data.contains("targetAmount") ? Math.max(0, data.getLongOr("targetAmount", 0L)) : 16_000;
     }
 }

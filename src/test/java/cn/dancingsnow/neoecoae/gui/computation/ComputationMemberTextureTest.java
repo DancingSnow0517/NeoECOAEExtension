@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
 import cn.dancingsnow.neoecoae.gui.computation.ComputationControllerPanelState.Member;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -20,7 +20,7 @@ class ComputationMemberTextureTest {
 
     @Test
     void customMemberImagesKeepTheThreeOriginalCropSizes() {
-        var image = ResourceLocation.parse("addon:textures/gui/member.png");
+        var image = Identifier.parse("addon:textures/gui/member.png");
         for (int row = 0; row < 3; row++) {
             var sprite = ComputationControllerTextures.member(new Member(true, 0, image), row);
             assertEquals(image, sprite.getImageLocation());

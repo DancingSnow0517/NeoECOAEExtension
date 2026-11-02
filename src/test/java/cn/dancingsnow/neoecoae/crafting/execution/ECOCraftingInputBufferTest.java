@@ -21,7 +21,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
@@ -192,7 +192,7 @@ class ECOCraftingInputBufferTest {
         @Override public AEKeyType getType() { return AEKeyType.items(); }
         @Override public AEKey dropSecondary() { return this; }
         @Override public Object getPrimaryKey() { return primary; }
-        @Override public ResourceLocation getId() { return ResourceLocation.fromNamespaceAndPath("test", "key_" + identifier); }
+        @Override public Identifier getId() { return Identifier.fromNamespaceAndPath("test", "key_" + identifier); }
         @Override protected Component computeDisplayName() { return Component.literal("unrelated"); }
         @Override public boolean hasComponents() { return false; }
         @Override public CompoundTag toTag(HolderLookup.Provider registries) { throw new UnsupportedOperationException(); }

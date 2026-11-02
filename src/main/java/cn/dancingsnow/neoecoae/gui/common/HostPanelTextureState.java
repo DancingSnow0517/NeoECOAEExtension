@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.gui.common;
 import cn.dancingsnow.neoecoae.api.IHostPanelTextureProvider;
 import cn.dancingsnow.neoecoae.api.IHostPanelTextureProvider.Part;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
@@ -12,8 +12,8 @@ import java.util.Map;
 import org.jetbrains.annotations.Nullable;
 
 /** Optional host artwork copied into the server's panel snapshot, without encoding a tier instance. */
-public record HostPanelTextureState(@Nullable ResourceLocation tier, @Nullable ResourceLocation marker,
-    Map<String, ResourceLocation> variants) {
+public record HostPanelTextureState(@Nullable Identifier tier, @Nullable Identifier marker,
+    Map<String, Identifier> variants) {
     public static final HostPanelTextureState EMPTY = new HostPanelTextureState(null, null);
 
     public enum Panel { STORAGE, COMPUTATION, CRAFTING }
@@ -22,7 +22,7 @@ public record HostPanelTextureState(@Nullable ResourceLocation tier, @Nullable R
         variants = Map.copyOf(variants);
     }
 
-    public HostPanelTextureState(@Nullable ResourceLocation tier, @Nullable ResourceLocation marker) {
+    public HostPanelTextureState(@Nullable Identifier tier, @Nullable Identifier marker) {
         this(tier, marker, Map.of());
     }
 
@@ -48,7 +48,7 @@ public record HostPanelTextureState(@Nullable ResourceLocation tier, @Nullable R
             case COMPUTATION -> Part.COMPUTATION_MARKER;
             case CRAFTING -> Part.CRAFTING_MARKER;
         };
-        Map<String, ResourceLocation> variants = new HashMap<>();
+        Map<String, Identifier> variants = new HashMap<>();
         if (panel == Panel.COMPUTATION) {
             captureVariants(variants, state, Part.COMPUTATION_STATUS, 6, false);
             captureVariants(variants, state, Part.COMPUTATION_SWITCH, 3, true);
@@ -59,7 +59,7 @@ public record HostPanelTextureState(@Nullable ResourceLocation tier, @Nullable R
             IHostPanelTextureProvider.texture(state, marker), variants);
     }
 
-    private static void captureVariants(Map<String, ResourceLocation> images, BlockState state, Part part,
+    private static void captureVariants(Map<String, Identifier> images, BlockState state, Part part,
         int count, boolean withHover) {
         for (int index = 0; index < count; index++) {
             for (int active = 0; active < 2; active++) {
@@ -72,7 +72,7 @@ public record HostPanelTextureState(@Nullable ResourceLocation tier, @Nullable R
     }
 
     @Nullable
-    public ResourceLocation texture(Part part, int index, boolean active, boolean hovered) {
+    public Identifier texture(Part part, int index, boolean active, boolean hovered) {
         return variants.get(key(part, index, active, hovered));
     }
 
@@ -92,8 +92,8 @@ public record HostPanelTextureState(@Nullable ResourceLocation tier, @Nullable R
     }
 
     public static HostPanelTextureState read(CompoundTag tag) {
-        Map<String, ResourceLocation> images = new HashMap<>();
-        CompoundTag variants = tag.getCompound("hostPanelVariants");
+        Map<String, Identifier> images = new HashMap<>();
+        CompoundTag variants = tag.getCompoundOrEmpty("hostPanelVariants");
         for (String key : variants.getAllKeys()) {
             var image = readTexture(variants, key);
             if (image != null) images.put(key, image);
@@ -102,8 +102,8 @@ public record HostPanelTextureState(@Nullable ResourceLocation tier, @Nullable R
     }
 
     @Nullable
-    private static ResourceLocation readTexture(CompoundTag tag, String key) {
-        String value = tag.getString(key);
-        return value.isEmpty() ? null : ResourceLocation.tryParse(value);
+    private static Identifier readTexture(CompoundTag tag, String key) {
+        String value = tag.getStringOr(key, "");
+        return value.isEmpty() ? null : Identifier.tryParse(value);
     }
 }

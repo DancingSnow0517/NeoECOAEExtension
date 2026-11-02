@@ -17,7 +17,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Items;
 import net.neoforged.fml.ModList;
 import org.junit.jupiter.api.BeforeAll;
@@ -215,7 +215,7 @@ class ComputationScrollRenderingTest {
 
     private static ComputationCpuEntry cpu(int serial) {
         return new ComputationCpuEntry(serial, "CPU " + serial, null, BigInteger.ZERO, BigInteger.ZERO,
-            0, 0, 1024, 4, CpuSelectionMode.ANY, ResourceLocation.parse("neoecoae:cpu.png"), "idle");
+            0, 0, 1024, 4, CpuSelectionMode.ANY, Identifier.parse("neoecoae:cpu.png"), "idle");
     }
 
     private static void assertDrawn(com.lowdragmc.lowdraglib2.gui.ui.UIElement element,

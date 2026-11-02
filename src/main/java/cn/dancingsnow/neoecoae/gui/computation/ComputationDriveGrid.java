@@ -85,21 +85,21 @@ final class ComputationDriveGrid extends UIElement {
 
     private void read(Tag value) {
         CompoundTag tag = value instanceof CompoundTag compound ? compound : new CompoundTag();
-        upper = readRow(tag.getList("upper", Tag.TAG_COMPOUND));
-        lower = readRow(tag.getList("lower", Tag.TAG_COMPOUND));
+        upper = readRow(tag.getListOrEmpty("upper"));
+        lower = readRow(tag.getListOrEmpty("lower"));
     }
 
     private List<ComputationDriveEntry> readRow(ListTag list) {
         List<ComputationDriveEntry> entries = new ArrayList<>(COLUMNS);
         for (int i = 0; i < COLUMNS; i++) {
-            entries.add(i < list.size() ? readDrive(list.getCompound(i)) : ComputationDriveEntry.EMPTY);
+            entries.add(i < list.size() ? readDrive(list.getCompoundOrEmpty(i)) : ComputationDriveEntry.EMPTY);
         }
         return entries;
     }
 
     private ComputationDriveEntry readDrive(CompoundTag tag) {
-        BlockPos position = tag.contains("pos") ? BlockPos.of(tag.getLong("pos")) : null;
-        return new ComputationDriveEntry(position, ItemStack.parseOptional(config.registries(), tag.getCompound("stack")));
+        BlockPos position = tag.contains("pos") ? BlockPos.of(tag.getLongOr("pos", 0L)) : null;
+        return new ComputationDriveEntry(position, ItemStack.parseOptional(config.registries(), tag.getCompoundOrEmpty("stack")));
     }
 
     final class DriveSlot extends ItemSlot {

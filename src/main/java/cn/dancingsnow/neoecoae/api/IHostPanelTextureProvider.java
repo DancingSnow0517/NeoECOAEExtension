@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.api;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
@@ -41,7 +41,7 @@ public interface IHostPanelTextureProvider {
      * Members and hosts receive their actual placed state, including facing and addon properties.
      */
     @Nullable
-    default ResourceLocation getPanelTexture(BlockState state, Part part) {
+    default Identifier getPanelTexture(BlockState state, Part part) {
         return null;
     }
 
@@ -52,19 +52,19 @@ public interface IHostPanelTextureProvider {
      * All variants are captured on the server and refreshed when the placed state changes.
      */
     @Nullable
-    default ResourceLocation getPanelTexture(BlockState state, Part part, int index,
+    default Identifier getPanelTexture(BlockState state, Part part, int index,
         boolean active, boolean hovered) {
         return getPanelTexture(state, part);
     }
 
     @Nullable
-    static ResourceLocation texture(BlockState state, Part part) {
+    static Identifier texture(BlockState state, Part part) {
         return state.getBlock() instanceof IHostPanelTextureProvider provider
             ? provider.getPanelTexture(state, part) : null;
     }
 
     @Nullable
-    static ResourceLocation texture(BlockState state, Part part, int index, boolean active, boolean hovered) {
+    static Identifier texture(BlockState state, Part part, int index, boolean active, boolean hovered) {
         return state.getBlock() instanceof IHostPanelTextureProvider provider
             ? provider.getPanelTexture(state, part, index, active, hovered) : null;
     }

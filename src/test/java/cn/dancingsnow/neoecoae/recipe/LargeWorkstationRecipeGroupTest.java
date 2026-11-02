@@ -13,7 +13,7 @@ import com.moakiee.ae2lt.me.key.LightningKey;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
@@ -278,8 +278,8 @@ class LargeWorkstationRecipeGroupTest {
              var internal = mockStatic(appeng.api.stacks.AEKeyTypesInternal.class)) {
             internal.when(appeng.api.stacks.AEKeyTypesInternal::getRegistry)
                 .thenReturn(cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys.REGISTRY);
-            types.when(() -> appeng.api.stacks.AEKeyTypes.get(any(ResourceLocation.class))).thenAnswer(call ->
-                cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys.REGISTRY.get(call.<ResourceLocation>getArgument(0)));
+            types.when(() -> appeng.api.stacks.AEKeyTypes.get(any(Identifier.class))).thenAnswer(call ->
+                cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys.REGISTRY.get(call.<Identifier>getArgument(0)));
             var missingItem = mock(net.neoforged.neoforge.registries.DeferredItem.class);
             when(missingItem.get()).thenReturn(Items.BARRIER);
             when(missingItem.asItem()).thenReturn(Items.BARRIER);
@@ -377,10 +377,10 @@ class LargeWorkstationRecipeGroupTest {
         return catalog(byId, holders);
     }
 
-    private static Catalog catalog(Map<ResourceLocation, LargeWorkstationRecipe> recipes, List<RecipeHolder<?>> holders) {
-        var registrations = new ArrayList<ResourceLocation>();
+    private static Catalog catalog(Map<Identifier, LargeWorkstationRecipe> recipes, List<RecipeHolder<?>> holders) {
+        var registrations = new ArrayList<Identifier>();
         for (var type : recipes.values().stream().map(LargeWorkstationRecipe::sourceType).distinct().toList()) {
-            var adapter = ResourceLocation.fromNamespaceAndPath("recipe_group_test", type.getNamespace() + "/" + type.getPath());
+            var adapter = Identifier.fromNamespaceAndPath("recipe_group_test", type.getNamespace() + "/" + type.getPath());
             ECOWorkstationRecipeAdapters.register(adapter, Integer.MAX_VALUE, type, (holder, lookup) -> recipes.get(holder.id()));
             registrations.add(adapter);
         }
@@ -394,7 +394,7 @@ class LargeWorkstationRecipeGroupTest {
     }
 
     private record Catalog(RecipeManager manager, RegistryAccess.Frozen registries, Level level,
-                           List<ResourceLocation> registrations) implements AutoCloseable {
+                           List<Identifier> registrations) implements AutoCloseable {
         @Override public void close() {
             registrations.forEach(ECOWorkstationRecipeAdapters::unregister);
             LargeWorkstationRecipes.invalidate();
@@ -402,6 +402,6 @@ class LargeWorkstationRecipeGroupTest {
     }
 
     private static RegistryAccess.Frozen registries() { return RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY); }
-    private static ResourceLocation id(String value) { return ResourceLocation.parse(value); }
-    private static ResourceLocation module(LargeWorkstationModule module) { return ECOWorkstationModules.builtin(module).id(); }
+    private static Identifier id(String value) { return Identifier.parse(value); }
+    private static Identifier module(LargeWorkstationModule module) { return ECOWorkstationModules.builtin(module).id(); }
 }

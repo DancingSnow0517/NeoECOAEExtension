@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 
@@ -44,10 +44,10 @@ public final class CraftingInterfaceUI {
     private static final int SCROLLBAR_BORDER = 1;
     private static final int SCROLLBAR_THUMB_HEIGHT = 15;
     private static final int SCROLLBAR_TRAVEL = PREVIEW_HEIGHT - SCROLLBAR_BORDER * 2 - SCROLLBAR_THUMB_HEIGHT;
-    private static final ResourceLocation SCROLLBAR_ENABLED = ResourceLocation.fromNamespaceAndPath("ae2", "big_scroller");
-    private static final ResourceLocation SCROLLBAR_DISABLED = ResourceLocation.fromNamespaceAndPath("ae2", "big_scroller_disabled");
-    private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/crafting/crafting_interface");
+    private static final Identifier SCROLLBAR_ENABLED = Identifier.fromNamespaceAndPath("ae2", "big_scroller");
+    private static final Identifier SCROLLBAR_DISABLED = Identifier.fromNamespaceAndPath("ae2", "big_scroller_disabled");
+    private static final Identifier JSON_LAYOUT =
+        Identifier.fromNamespaceAndPath("neoecoae", "screens/crafting/crafting_interface");
     static final int PREVIEW_QUERY_MAX_LENGTH = 128;
 
     private CraftingInterfaceUI() { }

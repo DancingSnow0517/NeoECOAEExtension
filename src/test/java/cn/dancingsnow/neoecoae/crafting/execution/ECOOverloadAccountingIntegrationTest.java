@@ -20,7 +20,7 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.*;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -150,8 +150,8 @@ class ECOOverloadAccountingIntegrationTest {
         try (var keys = mockStatic(AEKeyTypesInternal.class);
              var types = mockStatic(AEKeyTypes.class)) {
             keys.when(AEKeyTypesInternal::getRegistry).thenReturn(LargeWorkstationTestKeys.REGISTRY);
-            types.when(() -> AEKeyTypes.get(any(ResourceLocation.class)))
-                    .thenAnswer(call -> LargeWorkstationTestKeys.REGISTRY.get(call.<ResourceLocation>getArgument(0)));
+            types.when(() -> AEKeyTypes.get(any(Identifier.class)))
+                    .thenAnswer(call -> LargeWorkstationTestKeys.REGISTRY.get(call.<Identifier>getArgument(0)));
             var checkpoint = new CompoundTag();
             f.logic.writeJobAttachments(checkpoint, registries);
             assertTrue(checkpoint.getCompound("attachments").contains("ae2lt:overload_outputs"));
@@ -193,7 +193,7 @@ class ECOOverloadAccountingIntegrationTest {
         when(source.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
         when(source.getOutputs()).thenReturn(List.of(new GenericStack(expected, 1)));
         var parsed = new ParsedPatternDefinition(new SourcePatternSnapshot(
-                ResourceLocation.parse("test:overload"), null, null), List.of(),
+                Identifier.parse("test:overload"), null, null), List.of(),
                 List.of(new ParsedPatternOutput(0, template, true)));
         var details = new OverloadPatternDetails(parsed, EncodedOverloadPattern.builder()
                 .output(0, MatchMode.ID_ONLY).build());

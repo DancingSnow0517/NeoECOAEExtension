@@ -14,19 +14,19 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /** Registration point for factories that add state to every matching ECO crafting job. */
 public final class ECOCraftingJobAttachmentRegistry {
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae.api");
-    private static final Map<ResourceLocation,
+    private static final Map<Identifier,
             Function<ECOCraftingJobContext, ? extends ECOCraftingJobAttachment>> FACTORIES = new LinkedHashMap<>();
 
     private ECOCraftingJobAttachmentRegistry() {
     }
 
     public static synchronized void register(
-            ResourceLocation id,
+            Identifier id,
             Function<ECOCraftingJobContext, ? extends ECOCraftingJobAttachment> factory) {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(factory, "factory");
@@ -36,7 +36,7 @@ public final class ECOCraftingJobAttachmentRegistry {
         FACTORIES.put(id, factory);
     }
 
-    public static synchronized boolean unregister(ResourceLocation id) {
+    public static synchronized boolean unregister(Identifier id) {
         return id != null && FACTORIES.remove(id) != null;
     }
 
@@ -66,7 +66,7 @@ public final class ECOCraftingJobAttachmentRegistry {
 
     @Nullable
     @ApiStatus.Internal
-    public static ECOCraftingJobAttachment create(ResourceLocation id, ECOCraftingJobContext context) {
+    public static ECOCraftingJobAttachment create(Identifier id, ECOCraftingJobContext context) {
         Function<ECOCraftingJobContext, ? extends ECOCraftingJobAttachment> factory;
         synchronized (ECOCraftingJobAttachmentRegistry.class) {
             factory = FACTORIES.get(id);
@@ -82,7 +82,7 @@ public final class ECOCraftingJobAttachmentRegistry {
     }
 
     private record RegisteredFactory(
-            ResourceLocation id,
+            Identifier id,
             Function<ECOCraftingJobContext, ? extends ECOCraftingJobAttachment> factory) {
     }
 }

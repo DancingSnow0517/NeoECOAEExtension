@@ -12,7 +12,7 @@ import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.block.state.BlockState;
@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
 /** Custom module models use north-facing coordinates, like the built-in workstation models. */
 @EventBusSubscriber(modid = NeoECOAE.MOD_ID, value = Dist.CLIENT)
 public final class WorkstationModuleBakedModel extends BakedModelWrapper<BakedModel> {
-    private static final ModelProperty<ResourceLocation> MODULE = new ModelProperty<>();
+    private static final ModelProperty<Identifier> MODULE = new ModelProperty<>();
     public WorkstationModuleBakedModel(BakedModel original) { super(original); }
 
     @SubscribeEvent public static void additionalModels(ModelEvent.RegisterAdditional event) {
@@ -40,7 +40,7 @@ public final class WorkstationModuleBakedModel extends BakedModelWrapper<BakedMo
         }
     }
     @SubscribeEvent public static void wrapModels(ModelEvent.ModifyBakingResult event) {
-        event.getModels().replaceAll((id, model) -> id.id().equals(ResourceLocation.fromNamespaceAndPath(NeoECOAE.MOD_ID, "integrated_working_station"))
+        event.getModels().replaceAll((id, model) -> id.id().equals(Identifier.fromNamespaceAndPath(NeoECOAE.MOD_ID, "integrated_working_station"))
             && id.variant().contains("formed=true") && !(model instanceof WorkstationModuleBakedModel)
             ? new WorkstationModuleBakedModel(model) : model);
     }
@@ -55,7 +55,7 @@ public final class WorkstationModuleBakedModel extends BakedModelWrapper<BakedMo
         var module = ECOWorkstationModules.find(data.get(MODULE));
         if (module == null) return originalModel;
         boolean working = state != null && state.getOptionalValue(cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation.WORKING).orElse(false);
-        ResourceLocation id = working && module.workingModel() != null ? module.workingModel() : module.idleModel();
+        Identifier id = working && module.workingModel() != null ? module.workingModel() : module.idleModel();
         if (id == null) return originalModel;
         BakedModel model = Minecraft.getInstance().getModelManager().getModel(ModelResourceLocation.standalone(id));
         return model instanceof WorkstationModuleBakedModel || model == Minecraft.getInstance().getModelManager().getMissingModel() ? originalModel : model;

@@ -82,9 +82,9 @@ public final class ECOExactVirtualLedger {
     }
 
     public static ECOExactVirtualLedger read(CompoundTag tag, HolderLookup.Provider registries) {
-        var ledger = new ECOExactVirtualLedger(new BigInteger(tag.getString("crafts")));
-        ledger.inputs.readFromNBT(tag.getList("inputs", 10), registries);
-        ledger.outputs.readFromNBT(tag.getList("outputs", 10), registries);
+        var ledger = new ECOExactVirtualLedger(new BigInteger(tag.getStringOr("crafts", "")));
+        ledger.inputs.readFromNBT(tag.getListOrEmpty("inputs"), registries);
+        ledger.outputs.readFromNBT(tag.getListOrEmpty("outputs"), registries);
         return ledger;
     }
 }

@@ -865,7 +865,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
      * depending on luck.</p>
      */
     public void refreshAdvertisedPatterns() {
-        if (level == null || level.isClientSide) {
+        if (level == null || level.isClientSide()) {
             return;
         }
         updatePatternDetailsNow();

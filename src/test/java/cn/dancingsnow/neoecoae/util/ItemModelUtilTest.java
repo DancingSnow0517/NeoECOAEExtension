@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.util;
 
 import com.tterrag.registrate.providers.DataGenContext;
 import com.tterrag.registrate.providers.RegistrateItemModelProvider;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import org.junit.jupiter.api.Test;
 
@@ -64,7 +64,7 @@ class ItemModelUtilTest {
         when(context.getName()).thenReturn("eco_fe_cell_16m");
         ItemModelUtil.cellModel("fe", "16m").accept(context, provider);
         verify(provider).withExistingParent("eco_fe_cell_16m",
-            ResourceLocation.fromNamespaceAndPath("neoecoae", "item/cell/eco_energy_cell_16m"));
+            Identifier.fromNamespaceAndPath("neoecoae", "item/cell/eco_energy_cell_16m"));
     }
 
     @SuppressWarnings("unchecked")
@@ -75,16 +75,16 @@ class ItemModelUtilTest {
     private static RegistrateItemModelProvider provider() {
         var provider = mock(RegistrateItemModelProvider.class);
         when(provider.modLoc(anyString())).thenAnswer(call ->
-            ResourceLocation.fromNamespaceAndPath("neoecoae", call.getArgument(0)));
+            Identifier.fromNamespaceAndPath("neoecoae", call.getArgument(0)));
         return provider;
     }
 
     private static List<String> generatedTextures(java.util.function.Consumer<RegistrateItemModelProvider> generate) {
         var provider = provider();
         var textures = new AtomicReference<List<String>>();
-        when(provider.generated(any(), any(ResourceLocation[].class))).thenAnswer(call -> {
-            ResourceLocation[] layers = (ResourceLocation[]) call.getRawArguments()[1];
-            textures.set(java.util.Arrays.stream(layers).map(ResourceLocation::toString).toList());
+        when(provider.generated(any(), any(Identifier[].class))).thenAnswer(call -> {
+            Identifier[] layers = (Identifier[]) call.getRawArguments()[1];
+            textures.set(java.util.Arrays.stream(layers).map(Identifier::toString).toList());
             return null;
         });
         generate.accept(provider);

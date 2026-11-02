@@ -29,14 +29,14 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 /** Floating output-side editor and its open button. */
 final class WorkstationOutputPanel {
     private WorkstationOutputPanel() {}
-    private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/workstation/output_panel");
+    private static final Identifier JSON_LAYOUT =
+        Identifier.fromNamespaceAndPath("neoecoae", "screens/workstation/output_panel");
     static Button createOpenButton(UIElement allowOutputWindow) {
         Button button = HostSideButtonBar.createButton()
             .noText()

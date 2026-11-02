@@ -6,7 +6,7 @@ import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.core.Direction;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.client.event.ModelEvent;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -16,7 +16,7 @@ class WorkstationModuleBakedModelTest {
     @Test void wrapsTheActualControllerIdOnlyWhenFormed() {
         var event = mock(ModelEvent.ModifyBakingResult.class);
         var models = new HashMap<ModelResourceLocation, BakedModel>();
-        var id = ResourceLocation.parse("neoecoae:integrated_working_station");
+        var id = Identifier.parse("neoecoae:integrated_working_station");
         var formed = new ModelResourceLocation(id, "facing=north,formed=true,module=other,working=false");
         var small = new ModelResourceLocation(id, "facing=north,formed=false,module=regular,working=false");
         var original = mock(BakedModel.class);

@@ -15,7 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.fml.ModList;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -69,7 +69,7 @@ class PanelAtlasSpriteTest {
                 var cached = assertInstanceOf(PanelAtlasSprite.class, NETextures.panelSprite(original)
                     .setSprite(7, 11, 29, 4).setBorder(1, 0, 1, 0).setColor(0xFFAABBCC).copy());
                 assertEquals(original, cached.resolve().getImageLocation());
-                var replacement = ResourceLocation.fromNamespaceAndPath("addon", "textures/gui/" + atlas.getValue());
+                var replacement = Identifier.fromNamespaceAndPath("addon", "textures/gui/" + atlas.getValue());
                 assertTrue(provider.get().addResource(atlas.getKey(), SpriteTexture.of(replacement)));
                 SpriteTexture resolved = cached.resolve();
                 assertEquals(replacement, resolved.getImageLocation());
@@ -80,7 +80,7 @@ class PanelAtlasSpriteTest {
                 assertEquals(cached.color, resolved.color);
 
                 IECOTier addon = mock(IECOTier.class);
-                var custom = ResourceLocation.fromNamespaceAndPath("addon", "textures/tier/" + atlas.getValue());
+                var custom = Identifier.fromNamespaceAndPath("addon", "textures/tier/" + atlas.getValue());
                 when(addon.getPanelAtlas(atlas.getKey())).thenReturn(custom);
                 var activeTier = new AtomicReference<IECOTier>(addon);
                 var scoped = assertInstanceOf(PanelAtlasSprite.class, NETextures.panelSprite(original, activeTier::get)

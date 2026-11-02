@@ -70,6 +70,9 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
 
     public NEBlockEntityBuilder<T, P> clientTicker(Consumer<T> ticker) {
         clientTicker = (level, blockPos, blockState, t) -> ticker.accept(t);
+        return this;
+    }
+
     public NEBlockEntityBuilder<T, P> serverTicker(NEBlockEntityTicker<T> ticker) {
         serverTicker = (level, blockPos, blockState, t) -> ticker.tick(t, level, blockPos, blockState);
         return this;

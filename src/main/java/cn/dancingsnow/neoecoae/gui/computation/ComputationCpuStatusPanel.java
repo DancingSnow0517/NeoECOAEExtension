@@ -42,7 +42,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.apache.commons.lang3.time.DurationFormatUtils;
 
 /** The 326x254 ECO crafting CPU page shown when a CPU row is clicked. */
@@ -56,16 +56,16 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private static final int ITEM_TRACK_X = 306;
     private static final int TEXT = 0x413F54;
     private static final int BATCH_ICON_SIZE = 16, BATCH_ICON_LEFT = -1;
-    private static final ResourceLocation BATCH_ICON =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/computation/eco_batching.png");
+    private static final Identifier BATCH_ICON =
+        Identifier.fromNamespaceAndPath("neoecoae", "textures/gui/computation/eco_batching.png");
     // The source sheet is 384x384, but only the 326x254 top slice is the page background.
     // The two 67x22 CPU row states live at y=260 in the same sheet.
     private static final IGuiTexture BACKGROUND = SpriteTexture.of(
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/guis/eco_craftingcpu.png")).setSprite(0, 0, WIDTH, HEIGHT);
+        Identifier.fromNamespaceAndPath("neoecoae", "textures/guis/eco_craftingcpu.png")).setSprite(0, 0, WIDTH, HEIGHT);
     private static final IGuiTexture CPU_NORMAL = SpriteTexture.of(
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/guis/eco_craftingcpu.png")).setSprite(0, 260, CPU_WIDTH, CPU_HEIGHT);
+        Identifier.fromNamespaceAndPath("neoecoae", "textures/guis/eco_craftingcpu.png")).setSprite(0, 260, CPU_WIDTH, CPU_HEIGHT);
     private static final IGuiTexture CPU_SELECTED = SpriteTexture.of(
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/guis/eco_craftingcpu.png")).setSprite(69, 260, CPU_WIDTH, CPU_HEIGHT);
+        Identifier.fromNamespaceAndPath("neoecoae", "textures/guis/eco_craftingcpu.png")).setSprite(69, 260, CPU_WIDTH, CPU_HEIGHT);
 
     private final ComputationControllerUI.Config config;
     private final BindableValue<Integer> selectionRequest = new BindableValue<>(-1);
@@ -75,7 +75,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private final BindableValue<CompoundTag> itemActionResponse = new BindableValue<>(new CompoundTag()) {
         @Override public BindableValue<CompoundTag> setValue(CompoundTag value, boolean notify) {
             super.setValue(value, notify);
-            if (itemActionsPopup != null && value != null && value.getInt("serial") == selectedSerial) itemActionsPopup.accept(value);
+            if (itemActionsPopup != null && value != null && value.getIntOr("serial", 0) == selectedSerial) itemActionsPopup.accept(value);
             return this;
         }
     };
@@ -181,34 +181,34 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     public ComputationCpuStatusPanel setValue(CompoundTag value, boolean notify) {
         super.setValue(value, notify);
         if (value == null || !value.contains("total")) return this;
-        total = value.getInt("total");
-        if (selectedSerial != value.getInt("selectedSerial")) itemActionsPopup.close();
-        selectedSerial = value.getInt("selectedSerial");
-        itemTotal = value.getInt("itemTotal");
+        total = value.getIntOr("total", 0);
+        if (selectedSerial != value.getIntOr("selectedSerial", 0)) itemActionsPopup.close();
+        selectedSerial = value.getIntOr("selectedSerial", 0);
+        itemTotal = value.getIntOr("itemTotal", 0);
         cpuOffset = Math.clamp(cpuOffset, 0, Math.max(0, total - ROWS));
         itemOffset = Math.clamp(itemOffset / ITEM_COLS, 0, maxItemRows(itemTotal)) * ITEM_COLS;
-        int receivedCpuOffset = value.getInt("cpuOffset");
-        if (!cpuScrollPending || value.getLong("cpuScrollSequence") == cpuScrollSequence) {
+        int receivedCpuOffset = value.getIntOr("cpuOffset", 0);
+        if (!cpuScrollPending || value.getLongOr("cpuScrollSequence", 0L) == cpuScrollSequence) {
             cpuOffset = cpuPageOffset = receivedCpuOffset;
-            cpus = value.getList("cpus", Tag.TAG_COMPOUND).stream()
+            cpus = value.getListOrEmpty("cpus").stream()
                 .map(tag -> ComputationCpuEntry.read((CompoundTag) tag, config.registries())).toList();
-            cpuPage.accept(cpuOffset, value.contains("cpuPageStart") ? value.getInt("cpuPageStart") : cpuOffset,
+            cpuPage.accept(cpuOffset, value.contains("cpuPageStart") ? value.getIntOr("cpuPageStart", 0) : cpuOffset,
                 cpus);
             cpuScrollPending = false;
             cpuScrollRequest.setValue(scrollTag(cpuScrollSequence, cpuOffset), false);
         }
-        int receivedItemOffset = value.getInt("itemOffset");
-        if (!itemScrollPending || value.getLong("itemScrollSequence") == itemScrollSequence) {
+        int receivedItemOffset = value.getIntOr("itemOffset", 0);
+        if (!itemScrollPending || value.getLongOr("itemScrollSequence", 0L) == itemScrollSequence) {
             itemOffset = itemPageOffset = receivedItemOffset;
-            items = value.getList("items", Tag.TAG_COMPOUND).stream()
+            items = value.getListOrEmpty("items").stream()
                 .map(tag -> ComputationCpuItemEntry.read((CompoundTag) tag, config.registries())).toList();
-            itemPage.accept(itemOffset, value.contains("itemPageStart") ? value.getInt("itemPageStart") : itemOffset,
+            itemPage.accept(itemOffset, value.contains("itemPageStart") ? value.getIntOr("itemPageStart", 0) : itemOffset,
                 items);
             itemScrollPending = false;
             itemScrollRequest.setValue(scrollTag(itemScrollSequence, itemOffset), false);
         }
         selected = value.contains("selected")
-            ? ComputationCpuEntry.read(value.getCompound("selected"), config.registries()) : null;
+            ? ComputationCpuEntry.read(value.getCompoundOrEmpty("selected"), config.registries()) : null;
         selectionRequest.setValue(selectedSerial, false);
         cpuScrollbar.update(cpuOffset, total - ROWS, ROWS / 3);
         itemScrollbar.update(itemOffset / ITEM_COLS, maxItemRows(itemTotal), 1);
@@ -510,8 +510,8 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         private void scrollCpu(CompoundTag request) {
             if (!config.canInteract().getAsBoolean()) return;
             refresh();
-            selection.scroll(request.getInt("offset"));
-            cpuScrollSequence = request.getLong("sequence");
+            selection.scroll(request.getIntOr("offset", 0));
+            cpuScrollSequence = request.getLongOr("sequence", 0L);
             cached = null;
         }
 
@@ -519,8 +519,8 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             if (!config.canInteract().getAsBoolean()) return;
             refresh();
             int total = selectedItems(selection.selected()).size();
-            itemOffset = Math.clamp(request.getInt("offset") / ITEM_COLS, 0, maxItemRows(total)) * ITEM_COLS;
-            itemScrollSequence = request.getLong("sequence");
+            itemOffset = Math.clamp(request.getIntOr("offset", 0) / ITEM_COLS, 0, maxItemRows(total)) * ITEM_COLS;
+            itemScrollSequence = request.getLongOr("sequence", 0L);
             cached = null;
         }
 
@@ -539,21 +539,21 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             if (!config.canInteract().getAsBoolean()) return;
             var response = new CompoundTag();
             response.putInt("serial", serial);
-            response.putLong("sequence", request.getLong("sequence"));
-            response.put("key", request.getCompound("key").copy());
+            response.putLong("sequence", request.getLongOr("sequence", 0L));
+            response.put("key", request.getCompoundOrEmpty("key").copy());
             itemActionResponse = response;
             refresh();
             var cpu = selection.selected();
-            AEKey key = AEKey.fromTagGeneric(config.registries(), request.getCompound("key"));
+            AEKey key = AEKey.fromTagGeneric(config.registries(), request.getCompoundOrEmpty("key"));
             if (cpu == null || serial != selection.selectedSerial() || key == null) {
                 response.putString("error", "gui.neoecoae.processing.task_changed");
                 return;
             }
             var logic = cpu.getLogic();
             var job = logic.getProcessingJobId();
-            String action = request.getString("action");
+            String action = request.getStringOr("action", "");
             if ((!action.equals("inspect") && !action.equals("open")) || job == null
-                || (action.equals("open") && (!request.hasUUID("job") || !job.equals(request.getUUID("job"))))) {
+                || (action.equals("open") && (!request.read("job", net.minecraft.core.UUIDUtil.CODEC).isPresent() || !job.equals(request.read("job", net.minecraft.core.UUIDUtil.CODEC).orElseThrow())))) {
                 response.putString("error", "gui.neoecoae.processing.task_changed");
                 return;
             }

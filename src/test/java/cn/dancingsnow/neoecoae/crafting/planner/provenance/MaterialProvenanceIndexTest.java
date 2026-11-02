@@ -15,7 +15,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import org.junit.jupiter.api.BeforeAll;
@@ -153,7 +153,7 @@ class MaterialProvenanceIndexTest {
         @Override public AEKeyType getType() { return AEKeyType.items(); }
         @Override public AEKey dropSecondary() { return new CountedKey(id, ""); }
         @Override public Object getPrimaryKey() { return id; }
-        @Override public ResourceLocation getId() { return ResourceLocation.fromNamespaceAndPath("test", "key_" + id); }
+        @Override public Identifier getId() { return Identifier.fromNamespaceAndPath("test", "key_" + id); }
         @Override protected Component computeDisplayName() { return Component.literal("key_" + id); }
         @Override public boolean hasComponents() { return !components.isEmpty(); }
         @Override public CompoundTag toTag(net.minecraft.core.HolderLookup.Provider registries) { throw new UnsupportedOperationException(); }

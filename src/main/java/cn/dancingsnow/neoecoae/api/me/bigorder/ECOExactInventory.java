@@ -131,7 +131,7 @@ public final class ECOExactInventory extends ListCraftingInventory {
     @Override public void readFromNBT(ListTag data, HolderLookup.Provider registries) {
         if (!enabled) {
             boolean exactData = false;
-            for (int i = 0; i < data.size(); i++) exactData |= data.getCompound(i).contains("ecoExactAmount", Tag.TAG_STRING);
+            for (int i = 0; i < data.size(); i++) exactData |= data.getCompoundOrEmpty(i).contains("ecoExactAmount");
             if (!exactData) { excess.clear(); super.readFromNBT(data, registries); return; }
         }
         // Decode into a temporary ledger first. Invalid exact data must not silently become a long window.
@@ -140,12 +140,12 @@ public final class ECOExactInventory extends ListCraftingInventory {
         for (int i = 0; i < data.size(); i++) {
             var tag = data.getCompound(i);
             var key = AEKey.fromTagGeneric(registries, tag);
-            boolean exact = tag.contains("ecoExactAmount", Tag.TAG_STRING);
+            boolean exact = tag.contains("ecoExactAmount");
             if (key == null) {
                 if (exact) throw new IllegalArgumentException("Unknown key in exact inventory");
                 continue;
             }
-            var count = exact ? new BigInteger(tag.getString("ecoExactAmount")) : BigInteger.valueOf(tag.getLong("#"));
+            var count = exact ? new BigInteger(tag.getStringOr("ecoExactAmount", "")) : BigInteger.valueOf(tag.getLongOr("#", 0L));
             if (count.signum() < 0) throw new IllegalArgumentException("Negative saved inventory");
             restored.merge(key, count, BigInteger::add);
             hasExact |= exact;

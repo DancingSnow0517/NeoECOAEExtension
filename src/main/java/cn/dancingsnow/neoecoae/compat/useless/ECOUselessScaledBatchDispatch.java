@@ -38,7 +38,7 @@ final class ECOUselessScaledBatchDispatch implements ECOFastPathDispatchProvider
     private CraftingTaskContext onlineContext() {
         var entity = (BlockEntity) provider;
         var level = entity.getLevel();
-        if (level == null || level.isClientSide || entity.isRemoved()) return null;
+        if (level == null || level.isClientSide() || entity.isRemoved()) return null;
         if (provider instanceof AdvancedAlloyFurnaceBlockEntity furnace) {
             return furnace.getMainNode().isActive() ? furnace : null;
         }

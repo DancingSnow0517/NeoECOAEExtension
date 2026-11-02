@@ -18,7 +18,7 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
 import appeng.api.storage.cells.CellState;
 import net.minecraft.core.Registry;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 import java.math.BigInteger;
@@ -310,7 +310,7 @@ final class ECOStorageHostStatistics {
     }
 
     private int normalUiTypeId(int cellTypeId) {
-        ResourceLocation key = cellTypes.getKey(cellTypes.byId(cellTypeId));
+        Identifier key = cellTypes.getKey(cellTypes.byId(cellTypeId));
         if (key == null || !key.getNamespace().equals("neoecoae")) return cellTypeId;
         String baseType = switch (key.getPath()) {
             case "mega_item", "bigger_ae2_item" -> "items";
@@ -328,7 +328,7 @@ final class ECOStorageHostStatistics {
             default -> null;
         };
         if (baseType == null) return cellTypeId;
-        ECOCellType base = cellTypes.get(ResourceLocation.fromNamespaceAndPath("neoecoae", baseType));
+        ECOCellType base = cellTypes.get(Identifier.fromNamespaceAndPath("neoecoae", baseType));
         // Keep the original group if an optional channel's ordinary cell type is unavailable.
         return base == null ? cellTypeId : cellTypes.getId(base);
     }

@@ -4,7 +4,6 @@ import appeng.client.gui.style.Blitter;
 import appeng.util.Icon;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;

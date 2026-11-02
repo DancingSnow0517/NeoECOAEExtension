@@ -50,14 +50,14 @@ public class ElapsedTimeTracker {
     }
 
     public ElapsedTimeTracker(CompoundTag data) {
-        this.elapsedTime = data.getLong(NBT_ELAPSED_TIME);
-        readLongByTypeMap(data.getCompound(NBT_STARTED_WORK), startedWorkByType);
-        readLongByTypeMap(data.getCompound(NBT_COMPLETED_WORK), completedWorkByType);
-        exact = data.getBoolean("exactWork");
+        this.elapsedTime = data.getLongOr(NBT_ELAPSED_TIME, 0L);
+        readLongByTypeMap(data.getCompoundOrEmpty(NBT_STARTED_WORK), startedWorkByType);
+        readLongByTypeMap(data.getCompoundOrEmpty(NBT_COMPLETED_WORK), completedWorkByType);
+        exact = data.getBooleanOr("exactWork", false);
         if (exact) for (var type : AEKeyTypes.getAll()) {
             String id = type.getId().toString();
-            exactStarted.put(type, new java.math.BigInteger(data.getCompound("exactStarted").getString(id)));
-            exactCompleted.put(type, new java.math.BigInteger(data.getCompound("exactCompleted").getString(id)));
+            exactStarted.put(type, new java.math.BigInteger(data.getCompoundOrEmpty("exactStarted").getStringOr(id, "")));
+            exactCompleted.put(type, new java.math.BigInteger(data.getCompoundOrEmpty("exactCompleted").getStringOr(id, "")));
         }
     }
 
@@ -82,7 +82,7 @@ public class ElapsedTimeTracker {
 
     private static void readLongByTypeMap(CompoundTag tag, Reference2LongMap<AEKeyType> output) {
         for (var keyType : AEKeyTypes.getAll()) {
-            output.put(keyType, tag.getLong(keyType.getId().toString()));
+            output.put(keyType, tag.getLongOr(keyType.getId().toString(), 0L));
         }
     }
 

@@ -9,7 +9,7 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
@@ -50,10 +50,10 @@ class LargeWorkstationRecipeDeduplicationTest {
 
     @Test void lockedRecipeFamiliesCannotHideUnlockedRecipesDuringDeduplication() {
         var regular = materialRecipe("test:regular", 100, List.of());
-        var advanced = new LargeWorkstationRecipe(ResourceLocation.parse("advanced_ae:cheaper"), regular.display(),
-            50, List.of(), ResourceLocation.parse("advanced_ae:reaction"));
-        var science = new LargeWorkstationRecipe(ResourceLocation.parse("ae2cs:cheapest"), regular.display(),
-            10, List.of(), ResourceLocation.parse("ae2cs:crystal_aggregator_recipe"));
+        var advanced = new LargeWorkstationRecipe(Identifier.parse("advanced_ae:cheaper"), regular.display(),
+            50, List.of(), Identifier.parse("advanced_ae:reaction"));
+        var science = new LargeWorkstationRecipe(Identifier.parse("ae2cs:cheapest"), regular.display(),
+            10, List.of(), Identifier.parse("ae2cs:crystal_aggregator_recipe"));
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         var ops = registries.createSerializationContext(JsonOps.INSTANCE);
         var recipes = List.of(science, regular, advanced);
@@ -65,18 +65,18 @@ class LargeWorkstationRecipeDeduplicationTest {
 
     @Test void eachCardUnlocksOnlyItsFamilyAndRetainsRegularAndUncardedAdapters() {
         var sources = java.util.Map.of(
-            LargeWorkstationModule.ADVANCED_AE, ResourceLocation.parse("advanced_ae:reaction"),
-            LargeWorkstationModule.EXTENDED_AE, ResourceLocation.parse("extendedae_plus:crystal_assembler_plus"),
-            LargeWorkstationModule.CRYSTAL_SCIENCE, ResourceLocation.parse("ae2cs:circuit_etcher_recipe"),
-            LargeWorkstationModule.LIGHTNING_TECH, ResourceLocation.parse("ae2lt:lightning_assembly"),
-            LargeWorkstationModule.DATA_ENERGISTICS, ResourceLocation.parse("data_energistics:data_reassembler"),
-            LargeWorkstationModule.APPLIED_GENERATORS, ResourceLocation.parse("appgen:synthesizing"));
+            LargeWorkstationModule.ADVANCED_AE, Identifier.parse("advanced_ae:reaction"),
+            LargeWorkstationModule.EXTENDED_AE, Identifier.parse("extendedae_plus:crystal_assembler_plus"),
+            LargeWorkstationModule.CRYSTAL_SCIENCE, Identifier.parse("ae2cs:circuit_etcher_recipe"),
+            LargeWorkstationModule.LIGHTNING_TECH, Identifier.parse("ae2lt:lightning_assembly"),
+            LargeWorkstationModule.DATA_ENERGISTICS, Identifier.parse("data_energistics:data_reassembler"),
+            LargeWorkstationModule.APPLIED_GENERATORS, Identifier.parse("appgen:synthesizing"));
         for (var installed : LargeWorkstationModule.values()) {
             assertTrue(installed.unlocks(LargeWorkstationRecipe.NATIVE_TYPE));
-            assertTrue(installed.unlocks(ResourceLocation.parse("test:uncarded_adapter")));
+            assertTrue(installed.unlocks(Identifier.parse("test:uncarded_adapter")));
             for (var entry : sources.entrySet()) assertEquals(installed == entry.getKey(), installed.unlocks(entry.getValue()));
         }
-        assertTrue(LargeWorkstationModule.EXTENDED_AE.unlocks(ResourceLocation.parse("extendedae:crystal_assembler")));
+        assertTrue(LargeWorkstationModule.EXTENDED_AE.unlocks(Identifier.parse("extendedae:crystal_assembler")));
         assertEquals(7, java.util.Arrays.stream(LargeWorkstationModule.values()).filter(LargeWorkstationModule::hasUpgradeCard).count());
         assertFalse(LargeWorkstationModule.isUpgradeCard(new ItemStack(Items.PAPER)));
         assertEquals(LargeWorkstationModule.REGULAR, LargeWorkstationModule.fromUpgradeCard(ItemStack.EMPTY));
@@ -182,7 +182,7 @@ class LargeWorkstationRecipeDeduplicationTest {
 
     private static LargeWorkstationRecipe decode(String id, String type, String json) {
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        return LargeWorkstationRecipes.decode(ResourceLocation.parse(id), type, JsonParser.parseString(json).getAsJsonObject(),
+        return LargeWorkstationRecipes.decode(Identifier.parse(id), type, JsonParser.parseString(json).getAsJsonObject(),
             registries.createSerializationContext(JsonOps.INSTANCE));
     }
 
@@ -196,7 +196,7 @@ class LargeWorkstationRecipeDeduplicationTest {
 
     private static LargeWorkstationRecipe recipe(String id, List<SizedIngredient> items, SizedFluidIngredient fluid,
         ItemStack output, FluidStack fluidOutput, long energy, List<GenericStack> extras) {
-        return new LargeWorkstationRecipe(ResourceLocation.parse(id), new IntegratedWorkingStationRecipe(items, fluid, output,
+        return new LargeWorkstationRecipe(Identifier.parse(id), new IntegratedWorkingStationRecipe(items, fluid, output,
             fluidOutput, (int) Math.min(Integer.MAX_VALUE, energy)), energy, extras);
     }
 }

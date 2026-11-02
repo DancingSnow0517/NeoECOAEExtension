@@ -32,11 +32,11 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
     }
 
     @Override
-    protected ItemInteractionResult useItemOn(ItemStack heldItem, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+    protected InteractionResult useItemOn(ItemStack heldItem, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity be
             && be.getCellStack() == null
             && be.isItemValid(heldItem)) {
-            if (level.isClientSide) return ItemInteractionResult.SUCCESS;
+            if (level.isClientSide()) return InteractionResult.SUCCESS;
             be.setCellStack(heldItem.copyWithCount(1));
             if (!player.isCreative()) {
                 heldItem.shrink(1);
@@ -44,7 +44,7 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
                     player.setItemInHand(hand, ItemStack.EMPTY);
                 }
             }
-            return ItemInteractionResult.sidedSuccess(level.isClientSide());
+            return InteractionResult.sidedSuccess(level.isClientSide());
         }
         return InteractionResult.TRY_WITH_EMPTY_HAND;
     }
@@ -53,7 +53,7 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity be) {
             if (be.getCellStack() != null && player.isShiftKeyDown()) {
-                if (level.isClientSide) return InteractionResult.SUCCESS;
+                if (level.isClientSide()) return InteractionResult.SUCCESS;
                 var reason = be.getCellExtractionBlockReason();
                 if (reason != ECODriveBlockEntity.CellExtractionBlockReason.NONE) {
                     player.displayClientMessage(Component.translatable(reason.translationKey()), true);

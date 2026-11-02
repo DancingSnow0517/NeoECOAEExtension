@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.concurrent.atomic.AtomicInteger;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class ECOPatternSemanticsRegistryTest {
-    private final List<ResourceLocation> registrations = new ArrayList<>();
+    private final List<Identifier> registrations = new ArrayList<>();
 
     @AfterEach
     void cleanup() {
@@ -46,7 +46,7 @@ class ECOPatternSemanticsRegistryTest {
 
     @Test
     void duplicateRegistrationDoesNotChangeRevision() {
-        ResourceLocation id = register("duplicate", 0, adapter((pattern, base) -> base));
+        Identifier id = register("duplicate", 0, adapter((pattern, base) -> base));
         long revision = ECOPatternSemanticsRegistry.revision();
         assertThrows(IllegalArgumentException.class,
             () -> ECOPatternSemanticsRegistry.register(id, 1, adapter((pattern, base) -> base)));
@@ -57,7 +57,7 @@ class ECOPatternSemanticsRegistryTest {
     void registrationAndRemovalInvalidatePlanningAndFastPathGenerations() {
         long revision = ECOPatternSemanticsRegistry.revision();
         long generation = AE2PatternIntrospection.reloadGeneration();
-        ResourceLocation id = register("version", 0, adapter((pattern, base) -> base));
+        Identifier id = register("version", 0, adapter((pattern, base) -> base));
         assertEquals(revision + 1, ECOPatternSemanticsRegistry.revision());
         assertTrue(AE2PatternIntrospection.reloadGeneration() > generation);
         generation = AE2PatternIntrospection.reloadGeneration();
@@ -113,7 +113,7 @@ class ECOPatternSemanticsRegistryTest {
     void changedOrFailingSupportsDuringAnalysisCannotFallBack() {
         ECOPatternSemanticAdapter adapter = mock(ECOPatternSemanticAdapter.class);
         when(adapter.supports(any())).thenReturn(true, false);
-        ResourceLocation id = register("unstable", 0, adapter);
+        Identifier id = register("unstable", 0, adapter);
         assertTrue(PatternSemanticAdapters.analyze(ordinaryPattern()).unsupportedReason().endsWith("SUPPORTS_CHANGED"));
         verify(adapter, never()).analyze(any(), any());
         ECOPatternSemanticsRegistry.unregister(id);
@@ -126,7 +126,7 @@ class ECOPatternSemanticsRegistryTest {
 
     @Test
     void adapterCannotReplacePhysicalPatternOrReturnNull() {
-        ResourceLocation id = register("identity", 0,
+        Identifier id = register("identity", 0,
             adapter((pattern, base) -> unsupported(ordinaryPattern(), "wrong pattern")));
         assertTrue(PatternSemanticAdapters.analyze(ordinaryPattern()).unsupportedReason()
             .endsWith("MISMATCHED_PHYSICAL_PATTERN"));
@@ -181,8 +181,8 @@ class ECOPatternSemanticsRegistryTest {
             () -> new ECOPatternSemantics.Input(source, key, BigInteger.ONE, key, BigInteger.ZERO));
     }
 
-    private ResourceLocation register(String path, int priority, ECOPatternSemanticAdapter adapter) {
-        ResourceLocation id = ResourceLocation.fromNamespaceAndPath("pattern_api_test", path);
+    private Identifier register(String path, int priority, ECOPatternSemanticAdapter adapter) {
+        Identifier id = Identifier.fromNamespaceAndPath("pattern_api_test", path);
         ECOPatternSemanticsRegistry.register(id, priority, adapter);
         registrations.add(id);
         return id;

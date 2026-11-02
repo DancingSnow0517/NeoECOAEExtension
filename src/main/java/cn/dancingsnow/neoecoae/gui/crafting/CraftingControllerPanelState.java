@@ -123,7 +123,7 @@ public record CraftingControllerPanelState(
             return UNFORMED;
         }
         return new CraftingControllerPanelState(
-            tag.getBoolean(FORMED),
+            tag.getBooleanOr(FORMED, false),
             tag.getInt(HOST_TIER),
             tag.getInt(FX_CELLS),
             tag.getInt(UPPER),

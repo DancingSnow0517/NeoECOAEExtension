@@ -4,7 +4,7 @@ import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingJobResult;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * Per-job extension state owned and persisted by ECO.
@@ -14,7 +14,7 @@ import net.minecraft.resources.ResourceLocation;
  */
 public interface ECOCraftingJobAttachment {
 
-    ResourceLocation id();
+    Identifier id();
 
     CompoundTag save(HolderLookup.Provider registries);
 

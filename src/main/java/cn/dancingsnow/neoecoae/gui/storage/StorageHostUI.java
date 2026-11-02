@@ -27,7 +27,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
@@ -38,15 +38,15 @@ import org.jetbrains.annotations.Nullable;
 public final class StorageHostUI {
     public static final int ROOT_WIDTH = 253;
     public static final int ROOT_HEIGHT = 231;
-    private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/storage/storage_controller");
+    private static final Identifier JSON_LAYOUT =
+        Identifier.fromNamespaceAndPath("neoecoae", "screens/storage/storage_controller");
 
     private StorageHostUI() {}
 
     public record StorageTypeLine(ECOCellType type, int registryIndex, Supplier<Component> displayName,
         BooleanSupplier visible, LongSupplier usedTypes, LongSupplier totalTypes,
         LongSupplier usedBytes, LongSupplier totalBytes, Supplier<String> infiniteBytesText,
-        @Nullable ResourceLocation resourceId, Supplier<BigInteger> exactUsedBytes) {
+        @Nullable Identifier resourceId, Supplier<BigInteger> exactUsedBytes) {
         public StorageTypeLine(ECOCellType type, int registryIndex, Supplier<Component> displayName,
             BooleanSupplier visible, LongSupplier usedTypes, LongSupplier totalTypes,
             LongSupplier usedBytes, LongSupplier totalBytes, Supplier<String> infiniteBytesText) {

@@ -25,7 +25,7 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Optional;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.Resource;
 
 /** Loads the small, deliberately non-executable NeoECOAE UI JSON format. */
@@ -37,12 +37,12 @@ public final class NeoUiJsonLoader {
      * Loads {@code assets/&lt;namespace&gt;/&lt;path&gt;} from the active resource
      * manager.  The {@code .json} suffix is added when omitted.
      */
-    public static UIElement load(ResourceLocation location, NeoUiJsonContext context) {
+    public static UIElement load(Identifier location, NeoUiJsonContext context) {
         if (location == null) {
             throw new IllegalArgumentException("UI resource location cannot be null");
         }
         NeoUiJsonContext safeContext = context == null ? NeoUiJsonContext.EMPTY : context;
-        ResourceLocation resourceLocation = withJsonSuffix(location);
+        Identifier resourceLocation = withJsonSuffix(location);
         try (Reader reader = openReader(resourceLocation)) {
             if (reader == null) {
                 throw new NeoUiJsonException("UI resource not found: " + resourceLocation);
@@ -67,7 +67,7 @@ public final class NeoUiJsonLoader {
      * construction safe for server-side menu setup and headless tests; it does
      * not permit a JSON file to load arbitrary classes or code.
      */
-    private static Reader openReader(ResourceLocation location) {
+    private static Reader openReader(Identifier location) {
         try {
             var resourceManager = ResourceHelper.getResourceManager();
             if (resourceManager != null) {
@@ -85,17 +85,17 @@ public final class NeoUiJsonLoader {
     }
 
     /** Loads a JSON object directly; useful for resource reloaders and tests. */
-    public static UIElement load(JsonObject root, ResourceLocation source, NeoUiJsonContext context) {
+    public static UIElement load(JsonObject root, Identifier source, NeoUiJsonContext context) {
         if (root == null) {
             throw new IllegalArgumentException("UI root cannot be null");
         }
         JsonObject definition = rootNode(root, source == null
-            ? ResourceLocation.withDefaultNamespace("ui.json") : source);
+            ? Identifier.withDefaultNamespace("ui.json") : source);
         return createNode(definition, context == null ? NeoUiJsonContext.EMPTY : context,
-            source == null ? ResourceLocation.withDefaultNamespace("ui.json") : source);
+            source == null ? Identifier.withDefaultNamespace("ui.json") : source);
     }
 
-    private static JsonObject rootNode(JsonObject document, ResourceLocation source) {
+    private static JsonObject rootNode(JsonObject document, Identifier source) {
         JsonElement value = document.get("root");
         if (value == null || value.isJsonNull()) {
             return document;
@@ -106,7 +106,7 @@ public final class NeoUiJsonLoader {
         return value.getAsJsonObject();
     }
 
-    private static UIElement createNode(JsonObject node, NeoUiJsonContext context, ResourceLocation source) {
+    private static UIElement createNode(JsonObject node, NeoUiJsonContext context, Identifier source) {
         JsonElement typeValue = node.get("type");
         if (typeValue != null && (!typeValue.isJsonPrimitive() || !typeValue.getAsJsonPrimitive().isString())) {
             throw error(source, "type must be a string", null);
@@ -161,7 +161,7 @@ public final class NeoUiJsonLoader {
     }
 
     private static void addChildren(UIElement parent, JsonObject node, NeoUiJsonContext context,
-                                    ResourceLocation source) {
+                                    Identifier source) {
         JsonElement children = node.get("children");
         if (children == null || children.isJsonNull()) {
             return;
@@ -273,7 +273,7 @@ public final class NeoUiJsonLoader {
         return false;
     }
 
-    private static void applyTexture(UIElement element, JsonObject node, ResourceLocation source, NeoUiJsonContext context) {
+    private static void applyTexture(UIElement element, JsonObject node, Identifier source, NeoUiJsonContext context) {
         JsonElement texture = node.get("texture");
         if (texture == null || texture.isJsonNull()) {
             return;
@@ -290,7 +290,7 @@ public final class NeoUiJsonLoader {
         if (textureName == null || textureName.isBlank()) {
             throw error(source, "texture location is empty", null);
         }
-        ResourceLocation textureLocation = parseLocation(textureName, source.getNamespace(), source);
+        Identifier textureLocation = parseLocation(textureName, source.getNamespace(), source);
         SpriteTexture sprite = NETextures.panelSprite(textureLocation, context::panelTier);
         JsonElement spriteElement = textureObject == null ? node.get("sprite") : textureObject.get("sprite");
         int[] rectangle = spriteRectangle(spriteElement, source);
@@ -300,7 +300,7 @@ public final class NeoUiJsonLoader {
         element.style(style -> style.backgroundTexture(sprite));
     }
 
-    private static int[] spriteRectangle(JsonElement value, ResourceLocation source) {
+    private static int[] spriteRectangle(JsonElement value, Identifier source) {
         if (value == null || value.isJsonNull()) {
             return null;
         }
@@ -387,7 +387,7 @@ public final class NeoUiJsonLoader {
             ? value.getAsBoolean() : fallback;
     }
 
-    private static int integer(JsonObject object, String key, ResourceLocation source) {
+    private static int integer(JsonObject object, String key, Identifier source) {
         JsonElement value = object.get(key);
         if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) {
             throw error(source, "sprite " + key + " must be a number", null);
@@ -395,7 +395,7 @@ public final class NeoUiJsonLoader {
         return value.getAsInt();
     }
 
-    private static int integer(JsonElement value, ResourceLocation source) {
+    private static int integer(JsonElement value, Identifier source) {
         if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) {
             throw error(source, "sprite values must be numbers", null);
         }
@@ -410,21 +410,21 @@ public final class NeoUiJsonLoader {
         }
     }
 
-    private static ResourceLocation withJsonSuffix(ResourceLocation location) {
+    private static Identifier withJsonSuffix(Identifier location) {
         return location.getPath().endsWith(".json") ? location
-            : ResourceLocation.fromNamespaceAndPath(location.getNamespace(), location.getPath() + ".json");
+            : Identifier.fromNamespaceAndPath(location.getNamespace(), location.getPath() + ".json");
     }
 
-    private static ResourceLocation parseLocation(String value, String defaultNamespace, ResourceLocation source) {
+    private static Identifier parseLocation(String value, String defaultNamespace, Identifier source) {
         try {
-            return value.indexOf(':') >= 0 ? ResourceLocation.parse(value)
-                : ResourceLocation.fromNamespaceAndPath(defaultNamespace, value);
+            return value.indexOf(':') >= 0 ? Identifier.parse(value)
+                : Identifier.fromNamespaceAndPath(defaultNamespace, value);
         } catch (RuntimeException e) {
             throw error(source, "invalid texture resource location: " + value, e);
         }
     }
 
-    private static NeoUiJsonException error(ResourceLocation source, String message, Throwable cause) {
+    private static NeoUiJsonException error(Identifier source, String message, Throwable cause) {
         String detail = "UI " + source + ": " + message;
         return cause == null ? new NeoUiJsonException(detail) : new NeoUiJsonException(detail, cause);
     }

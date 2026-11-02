@@ -6,7 +6,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.recipes.entropy.EntropyRecipe;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -30,16 +30,16 @@ import java.util.List;
 /** Adapts inventory-backed AE2CS machine operations without linking optional mod classes. */
 final class CrystalScienceWorkstationRecipes {
     private static final Logger LOGGER = LoggerFactory.getLogger(CrystalScienceWorkstationRecipes.class);
-    static final ResourceLocation ENTROPY = ResourceLocation.parse("ae2cs:entropy_variation_reaction_chamber");
-    static final ResourceLocation GROWTH = ResourceLocation.parse("ae2cs:crystal_growth");
-    private static final ResourceLocation GROWTH_CHAMBER = ResourceLocation.parse("ae2cs:crystal_growth_chamber");
-    private static final TagKey<Item> CRYSTAL_SEEDS = TagKey.create(Registries.ITEM, ResourceLocation.parse("ae2cs:crystal_seeds"));
+    static final Identifier ENTROPY = Identifier.parse("ae2cs:entropy_variation_reaction_chamber");
+    static final Identifier GROWTH = Identifier.parse("ae2cs:crystal_growth");
+    private static final Identifier GROWTH_CHAMBER = Identifier.parse("ae2cs:crystal_growth_chamber");
+    private static final TagKey<Item> CRYSTAL_SEEDS = TagKey.create(Registries.ITEM, Identifier.parse("ae2cs:crystal_seeds"));
     private static final String SEED_CLASS = "io.github.lounode.ae2cs.common.item.CrystalSeedItem";
 
     private CrystalScienceWorkstationRecipes() {}
 
     static boolean isPresent() {
-        return BuiltInRegistries.ITEM.containsKey(ResourceLocation.parse("ae2cs:entropy_variation_reaction_chamber"));
+        return BuiltInRegistries.ITEM.containsKey(Identifier.parse("ae2cs:entropy_variation_reaction_chamber"));
     }
 
     /** Growth is a seed capability, not a RecipeManager recipe type. Tags define the chamber's inputs. */
@@ -71,7 +71,7 @@ final class CrystalScienceWorkstationRecipes {
             throw new IllegalArgumentException("Invalid crystal growth contract");
         }
         var seedId = BuiltInRegistries.ITEM.getKey(seed);
-        var id = ResourceLocation.fromNamespaceAndPath("neoecoae", "crystal_growth/"
+        var id = Identifier.fromNamespaceAndPath("neoecoae", "crystal_growth/"
             + seedId.getNamespace() + "/" + seedId.getPath());
         // An unupgraded chamber advances all seeds by 10 growth ticks every 10 ticks for 100 AE.
         // Charge one complete cycle per seed operation; partially grown seeds receive no discount.
@@ -84,7 +84,7 @@ final class CrystalScienceWorkstationRecipes {
     }
 
     @Nullable
-    static LargeWorkstationRecipe entropy(ResourceLocation id, EntropyRecipe recipe) {
+    static LargeWorkstationRecipe entropy(Identifier id, EntropyRecipe recipe) {
         var input = recipe.getInput();
         var block = input.block().map(EntropyRecipe.BlockInput::block).orElse(Blocks.VOID_AIR);
         var fluid = input.fluid().map(EntropyRecipe.FluidInput::fluid).orElse(Fluids.EMPTY);
@@ -118,8 +118,8 @@ final class CrystalScienceWorkstationRecipes {
         return new SizedFluidIngredient(FluidIngredient.empty(), 1);
     }
 
-    static LargeWorkstationRecipe wrap(ResourceLocation id, List<SizedIngredient> items, SizedFluidIngredient fluid,
-            List<GenericStack> outputs, long energy, ResourceLocation sourceType) {
+    static LargeWorkstationRecipe wrap(Identifier id, List<SizedIngredient> items, SizedFluidIngredient fluid,
+            List<GenericStack> outputs, long energy, Identifier sourceType) {
         ItemStack itemOutput = ItemStack.EMPTY;
         FluidStack fluidOutput = FluidStack.EMPTY;
         var additional = new ArrayList<GenericStack>();

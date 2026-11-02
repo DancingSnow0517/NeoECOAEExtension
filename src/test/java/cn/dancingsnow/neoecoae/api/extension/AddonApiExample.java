@@ -13,7 +13,7 @@ import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationRecipeAdapters;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import java.util.Set;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
@@ -67,5 +67,5 @@ public final class AddonApiExample {
         public RestrictedCellItem(Properties properties) { super(properties); }
     }
 
-    private static ResourceLocation id(String path) { return ResourceLocation.fromNamespaceAndPath("example_addon", path); }
+    private static Identifier id(String path) { return Identifier.fromNamespaceAndPath("example_addon", path); }
 }

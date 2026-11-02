@@ -27,7 +27,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
@@ -44,8 +44,8 @@ public final class LargeWorkstationUI {
         Runnable toggleOverclocked, Runnable toggleActiveCooling,
         Runnable togglePreheating, IItemHandlerModifiable moduleInventory) {}
 
-    private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/workstation/large");
+    private static final Identifier JSON_LAYOUT =
+        Identifier.fromNamespaceAndPath("neoecoae", "screens/workstation/large");
 
     public static ModularUI create(Config config, Player player) {
         UIElement root = WorkstationUiJson.load(JSON_LAYOUT, new JsonContext(config, player));

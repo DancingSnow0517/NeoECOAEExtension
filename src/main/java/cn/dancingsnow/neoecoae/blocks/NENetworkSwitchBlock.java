@@ -29,12 +29,12 @@ public abstract class NENetworkSwitchBlock<T extends AENetworkedBlockEntity> ext
     @Override
     public void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean isMoving) {
         super.onPlace(state, level, pos, oldState, isMoving);
-        if (!level.isClientSide && oldState.getBlock() != this) notifyAdjacentMultiblocks(level, pos);
+        if (!level.isClientSide() && oldState.getBlock() != this) notifyAdjacentMultiblocks(level, pos);
     }
 
     @Override
     public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
-        if (!level.isClientSide && newState.getBlock() != this) notifyAdjacentMultiblocks(level, pos);
+        if (!level.isClientSide() && newState.getBlock() != this) notifyAdjacentMultiblocks(level, pos);
         super.onRemove(state, level, pos, newState, isMoving);
     }
 

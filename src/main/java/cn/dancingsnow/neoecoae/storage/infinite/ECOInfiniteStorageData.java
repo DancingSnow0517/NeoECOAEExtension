@@ -104,8 +104,8 @@ public final class ECOInfiniteStorageData extends SavedData {
     static ECOInfiniteStorageData load(CompoundTag tag, HolderLookup.Provider registries, KeyCodec codec) {
         ECOInfiniteStorageData data = createNew();
         data.codec = codec;
-        int version = tag.getInt("version");
-        if (version < 1 || version > CURRENT_VERSION || tag.getBoolean("journal")) {
+        int version = tag.getIntOr("version", 0);
+        if (version < 1 || version > CURRENT_VERSION || tag.getBooleanOr("journal", false)) {
             data.markUnreadable("Unsupported or unresolved infinite storage format: " + version);
             return data;
         }
@@ -113,48 +113,48 @@ public final class ECOInfiniteStorageData extends SavedData {
             data.markUnreadable("Missing or invalid inventory entries");
             return data;
         }
-        data.unresolvedMetadata = tag.getCompound("unresolvedMetadata").copy();
-        data.journalSequence = tag.getLong("journalSequence");
-        for (Tag raw : tag.getList("entries", Tag.TAG_COMPOUND)) {
+        data.unresolvedMetadata = tag.getCompoundOrEmpty("unresolvedMetadata").copy();
+        data.journalSequence = tag.getLongOr("journalSequence", 0L);
+        for (Tag raw : tag.getListOrEmpty("entries")) {
             CompoundTag entry = (CompoundTag) raw;
             try {
-                CompoundTag amountTag = entry.getCompound("amount");
-                if (amountTag.contains("big") ? !amountTag.contains("big", Tag.TAG_STRING)
-                        : !amountTag.contains("long", Tag.TAG_LONG))
+                CompoundTag amountTag = entry.getCompoundOrEmpty("amount");
+                if (amountTag.contains("big") ? !amountTag.contains("big")
+                        : !amountTag.contains("long"))
                     throw new IllegalArgumentException("Invalid amount");
                 HugeAmount amount = HugeAmount.read(amountTag);
-                AEKey key = codec == null ? AEKey.fromTagGeneric(registries, entry.getCompound("key"))
-                        : codec.decode(entry.getCompound("key"));
+                AEKey key = codec == null ? AEKey.fromTagGeneric(registries, entry.getCompoundOrEmpty("key"))
+                        : codec.decode(entry.getCompoundOrEmpty("key"));
                 if (key == null) throw new IllegalArgumentException("Unknown key");
                 Restore restore = null;
                 if (entry.contains("restore")) {
-                    if (!entry.hasUUID("restore")) throw new IllegalArgumentException("Invalid restore transaction");
+                    if (!entry.read("restore", net.minecraft.core.UUIDUtil.CODEC).isPresent()) throw new IllegalArgumentException("Invalid restore transaction");
                     Set<UUID> targets = new HashSet<>();
                     if (entry.contains("restoreTargets")) {
                         if (!validList(entry, "restoreTargets", Tag.TAG_INT_ARRAY))
                             throw new IllegalArgumentException("Invalid restore targets");
-                        for (Tag target : entry.getList("restoreTargets", Tag.TAG_INT_ARRAY))
+                        for (Tag target : entry.getListOrEmpty("restoreTargets"))
                             targets.add(NbtUtils.loadUUID(target));
                     }
                     Map<UUID, ECOInfiniteStorageEngine.RestoreTargetAmounts> plan = new HashMap<>();
                     if (entry.contains("restorePlan")) {
                         if (!validList(entry, "restorePlan", Tag.TAG_COMPOUND))
                             throw new IllegalArgumentException("Invalid restore plan");
-                        for (Tag value : entry.getList("restorePlan", Tag.TAG_COMPOUND)) {
+                        for (Tag value : entry.getListOrEmpty("restorePlan")) {
                             CompoundTag target = (CompoundTag) value;
-                            if (!target.hasUUID("target") || !target.contains("before", Tag.TAG_LONG)
-                                    || !target.contains("after", Tag.TAG_LONG) || !target.contains("transferred", Tag.TAG_LONG)) {
+                            if (!target.read("target", net.minecraft.core.UUIDUtil.CODEC).isPresent() || !target.contains("before")
+                                    || !target.contains("after") || !target.contains("transferred")) {
                                 throw new IllegalArgumentException("Incomplete restore target");
                             }
-                            if (plan.put(target.getUUID("target"), new ECOInfiniteStorageEngine.RestoreTargetAmounts(
-                                    target.getLong("before"), target.getLong("after"), target.getLong("transferred"))) != null) {
+                            if (plan.put(target.read("target", net.minecraft.core.UUIDUtil.CODEC).orElseThrow(), new ECOInfiniteStorageEngine.RestoreTargetAmounts(
+                                    target.getLongOr("before", 0L), target.getLongOr("after", 0L), target.getLongOr("transferred", 0L))) != null) {
                                 throw new IllegalArgumentException("Duplicate restore target");
                             }
                         }
                     }
                     if (!validRestorePlan(amount, targets, plan))
                         throw new IllegalArgumentException("Incomplete restore allocation");
-                    restore = new Restore(entry.getUUID("restore"), targets, entry.getString("restoreFailure"), plan);
+                    restore = new Restore(entry.read("restore", net.minecraft.core.UUIDUtil.CODEC).orElseThrow(), targets, entry.getStringOr("restoreFailure", ""), plan);
                 }
                 if (amount.isZero() && restore != null) throw new IllegalArgumentException("Empty reserved entry");
                 // Decode all metadata before changing the authoritative quantity.
@@ -168,7 +168,7 @@ public final class ECOInfiniteStorageData extends SavedData {
             data.unresolvedMetadata.put("migrations", tag.get("migrations").copy());
         } else {
             ListTag invalid = new ListTag();
-            for (Tag receipt : tag.getList("migrations", Tag.TAG_INT_ARRAY)) {
+            for (Tag receipt : tag.getListOrEmpty("migrations")) {
                 try {
                     data.migrationReceipts.add(NbtUtils.loadUUID(receipt));
                 } catch (RuntimeException e) {
@@ -196,14 +196,14 @@ public final class ECOInfiniteStorageData extends SavedData {
             entry.put("amount", amount.write());
             Restore restore = restores.get(key);
             if (restore != null) {
-                entry.putUUID("restore", restore.transaction());
+                entry.store("restore", net.minecraft.core.UUIDUtil.CODEC, restore.transaction());
                 ListTag targets = new ListTag();
                 restore.targets().forEach(id -> targets.add(NbtUtils.createUUID(id)));
                 entry.put("restoreTargets", targets);
                 ListTag plan = new ListTag();
                 restore.plan().forEach((id, amounts) -> {
                     CompoundTag target = new CompoundTag();
-                    target.putUUID("target", id);
+                    target.store("target", net.minecraft.core.UUIDUtil.CODEC, id);
                     target.putLong("before", amounts.before());
                     target.putLong("after", amounts.after());
                     target.putLong("transferred", amounts.transferred());
@@ -413,17 +413,17 @@ public final class ECOInfiniteStorageData extends SavedData {
                 try (DataInputStream recordInput = new DataInputStream(new ByteArrayInputStream(payload))) {
                     record = NbtIo.read(recordInput, NbtAccounter.create(16L * 1024 * 1024));
                 }
-                long sequence = record.getLong("sequence");
+                long sequence = record.getLongOr("sequence", 0L);
                 if (sequence <= data.journalSequence) continue;
                 if (sequence != data.journalSequence + 1L) {
                     throw new IOException("Non-contiguous infinite-domain journal sequence " + sequence);
                 }
                 AEKey key = data.codec == null
-                        ? AEKey.fromTagGeneric(registries, record.getCompound("key"))
-                        : data.codec.decode(record.getCompound("key"));
-                long amount = record.getLong("amount");
+                        ? AEKey.fromTagGeneric(registries, record.getCompoundOrEmpty("key"))
+                        : data.codec.decode(record.getCompoundOrEmpty("key"));
+                long amount = record.getLongOr("amount", 0L);
                 if (key == null || amount <= 0L) throw new IOException("Invalid infinite-domain journal change");
-                if (record.getBoolean("added")) {
+                if (record.getBooleanOr("added", false)) {
                     data.amounts.add(key, amount);
                 } else {
                     if (data.amounts.get(key).compareTo(HugeAmount.of(amount)) < 0) {

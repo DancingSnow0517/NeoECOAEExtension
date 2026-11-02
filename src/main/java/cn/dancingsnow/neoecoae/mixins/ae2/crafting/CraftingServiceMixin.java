@@ -40,7 +40,7 @@ import com.llamalad7.mixinextras.sugar.Local;
 import com.llamalad7.mixinextras.sugar.ref.LocalLongRef;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.objectweb.asm.Opcodes;
 import org.slf4j.Logger;
@@ -265,7 +265,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     private void onAddNode(IGridNode gridNode, CompoundTag savedData, CallbackInfo ci) {
         if (!neoecoae$planningModeInitialized
                 && savedData != null
-                && savedData.contains(NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY, Tag.TAG_BYTE)) {
+                && savedData.contains(NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY)) {
             neoecoae$ignorePatternSubstitutions = savedData.getBoolean(
                     NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY);
             neoecoae$planningModeInitialized = true;
@@ -442,8 +442,8 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     }
 
     @Override
-    public Set<ResourceLocation> neoecoae$getFuzzyPlanningItemIds() {
-        Set<ResourceLocation> result = new java.util.LinkedHashSet<>();
+    public Set<Identifier> neoecoae$getFuzzyPlanningItemIds() {
+        Set<Identifier> result = new java.util.LinkedHashSet<>();
         for (ECOMachineInterfaceBlockEntity<?> machineInterface
                 : grid.getMachines(ECOMachineInterfaceBlockEntity.class)) {
             if (machineInterface.supportsComputationInterfaceUi() && machineInterface.isTargetOnline()) {

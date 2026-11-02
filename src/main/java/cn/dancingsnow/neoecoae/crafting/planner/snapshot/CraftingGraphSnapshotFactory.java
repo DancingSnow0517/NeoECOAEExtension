@@ -240,8 +240,8 @@ public final class CraftingGraphSnapshotFactory {
         int rootNodeId = rootId == null ? (rootKey == null && !nodes.isEmpty() ? 0 : -1) : rootId;
         var summary = new CraftingGraphSnapshot.Summary(result.status().name(), nodes.size(), patterns.size(),
             edges.size(), cycles.size(), result.calculationNanos());
-        List<net.minecraft.resources.ResourceLocation> fuzzyPlanningItemIds = result.fuzzyPlanningItemIds().stream()
-            .sorted(Comparator.comparing(net.minecraft.resources.ResourceLocation::toString)).toList();
+        List<net.minecraft.resources.Identifier> fuzzyPlanningItemIds = result.fuzzyPlanningItemIds().stream()
+            .sorted(Comparator.comparing(net.minecraft.resources.Identifier::toString)).toList();
         return new CraftingGraphSnapshot(rootNodeId, nodes, patterns, edges, cycles, fuzzyPlanningItemIds, summary);
     }
 

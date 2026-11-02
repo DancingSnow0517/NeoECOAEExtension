@@ -8,7 +8,7 @@ import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import snownee.jade.api.BlockAccessor;
 import snownee.jade.api.IBlockComponentProvider;
 import snownee.jade.api.IServerDataProvider;
@@ -20,7 +20,7 @@ public enum ECOComputationDriveProvider implements IBlockComponentProvider, ISer
 
     @Override
     public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
-        if (accessor.getServerData().getBoolean("tierMismatch")) {
+        if (accessor.getServerData().getBooleanOr("tierMismatch", false)) {
             tooltip.add(Component.translatable("jade.neoecoae.computation_cell_tier_too_high")
                 .withStyle(ChatFormatting.RED));
         }
@@ -37,7 +37,7 @@ public enum ECOComputationDriveProvider implements IBlockComponentProvider, ISer
     }
 
     @Override
-    public ResourceLocation getUid() {
+    public Identifier getUid() {
         return NeoECOAE.id("eco_computation_drive");
     }
 }

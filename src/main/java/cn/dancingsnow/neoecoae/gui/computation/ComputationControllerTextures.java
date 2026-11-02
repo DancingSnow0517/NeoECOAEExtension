@@ -3,14 +3,14 @@ package cn.dancingsnow.neoecoae.gui.computation;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import java.util.function.Supplier;
 import org.jetbrains.annotations.Nullable;
 
 /** Pixel rectangles in the computation controller artwork. */
 final class ComputationControllerTextures {
-    static final ResourceLocation BACKGROUND_ATLAS = ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/guis/eco_cpu_controller.png");
-    static final ResourceLocation WIDGETS_ATLAS = ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/guis/cpu_widget.png");
+    static final Identifier BACKGROUND_ATLAS = Identifier.fromNamespaceAndPath("neoecoae", "textures/guis/eco_cpu_controller.png");
+    static final Identifier WIDGETS_ATLAS = Identifier.fromNamespaceAndPath("neoecoae", "textures/guis/cpu_widget.png");
     static final int WIDTH = 253;
     static final int HEIGHT = 231;
 
@@ -36,7 +36,7 @@ final class ComputationControllerTextures {
         return tier(tier, () -> null, null);
     }
 
-    static SpriteTexture tier(int tier, Supplier<IECOTier> panelTier, @Nullable ResourceLocation custom) {
+    static SpriteTexture tier(int tier, Supplier<IECOTier> panelTier, @Nullable Identifier custom) {
         return custom != null ? SpriteTexture.of(custom).setSprite(0, 0, 13, 18)
             : widget((Math.clamp(tier, 1, 3) - 1) * 13, 0, 13, 18, panelTier);
     }
@@ -46,7 +46,7 @@ final class ComputationControllerTextures {
     }
 
     static SpriteTexture hostMarker(int tier, boolean bottom, Supplier<IECOTier> panelTier,
-        @Nullable ResourceLocation custom) {
+        @Nullable Identifier custom) {
         return custom != null ? SpriteTexture.of(custom).setSprite(0, bottom ? 8 : 0, 13, 8)
             : widget(17 + (Math.clamp(tier, 1, 3) - 1) * 16, bottom ? 43 : 19, 14, 8, panelTier);
     }
@@ -89,7 +89,7 @@ final class ComputationControllerTextures {
         return statusIcon(index, pink, () -> null, null);
     }
 
-    static SpriteTexture statusIcon(int index, boolean pink, Supplier<IECOTier> tier, @Nullable ResourceLocation custom) {
+    static SpriteTexture statusIcon(int index, boolean pink, Supplier<IECOTier> tier, @Nullable Identifier custom) {
         if (custom != null) return SpriteTexture.of(custom).setSprite(0, 0, 12, 12);
         return widget(Math.clamp(index, 0, pink ? 4 : 5) * 12, pink ? 116 : 104, 12, 12, tier);
     }
@@ -99,7 +99,7 @@ final class ComputationControllerTextures {
     }
 
     static SpriteTexture switchSprite(boolean on, boolean hover, Supplier<IECOTier> tier,
-        @Nullable ResourceLocation custom) {
+        @Nullable Identifier custom) {
         return custom != null ? SpriteTexture.of(custom).setSprite(0, 0, 15, 26)
             : widget((on ? 0 : 30) + (hover ? 15 : 0), 128, 15, 26, tier);
     }

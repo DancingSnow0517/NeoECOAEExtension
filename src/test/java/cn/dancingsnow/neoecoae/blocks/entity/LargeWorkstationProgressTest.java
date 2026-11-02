@@ -13,7 +13,7 @@ import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.ArrayDeque;
 import java.util.List;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -143,7 +143,7 @@ class LargeWorkstationProgressTest {
         output.add(AEItemKey.of(Items.STONE), 768);
         output.add(AEFluidKey.of(Fluids.WATER), 768000);
         var result = constructor.newInstance(768L, 100L, 0, 1, new KeyCounter(), output, null,
-            ResourceLocation.parse("test:workstation"), null, null, 0L);
+            Identifier.parse("test:workstation"), null, null, 0L);
         set(result, "progress", 50);
         return result;
     }

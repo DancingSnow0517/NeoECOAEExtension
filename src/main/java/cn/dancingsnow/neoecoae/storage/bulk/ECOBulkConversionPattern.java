@@ -46,8 +46,8 @@ public final class ECOBulkConversionPattern implements IPatternDetails {
         return data;
     }
     public static ECOBulkConversionPattern decode(CompoundTag data) {
-        return new ECOBulkConversionPattern(BulkItemKeys.read(data.getCompound("from")), data.getLong("input"),
-            BulkItemKeys.read(data.getCompound("to")), data.getLong("output"));
+        return new ECOBulkConversionPattern(BulkItemKeys.read(data.getCompoundOrEmpty("from")), data.getLongOr("input", 0L),
+            BulkItemKeys.read(data.getCompoundOrEmpty("to")), data.getLongOr("output", 0L));
     }
     @Override public IInput[] getInputs() {
         return new IInput[] { new IInput() {

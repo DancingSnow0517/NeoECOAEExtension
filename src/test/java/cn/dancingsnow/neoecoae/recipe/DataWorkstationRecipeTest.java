@@ -16,7 +16,7 @@ import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.Registry;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Recipe;
@@ -50,7 +50,7 @@ class DataWorkstationRecipeTest {
     @BeforeAll static void bootstrap() {
         InventoryTestBootstrap.initialize();
         var fluids = (MappedRegistry<Fluid>) BuiltInRegistries.FLUID;
-        var id = ResourceLocation.parse(PREFIX + "data_corrosion_liquid");
+        var id = Identifier.parse(PREFIX + "data_corrosion_liquid");
         if (!fluids.containsKey(id)) {
             fluids.unfreeze();
             try {
@@ -68,8 +68,8 @@ class DataWorkstationRecipeTest {
         types = mockStatic(AEKeyTypes.class);
         internal = mockStatic(AEKeyTypesInternal.class);
         internal.when(AEKeyTypesInternal::getRegistry).thenReturn(LargeWorkstationTestKeys.REGISTRY);
-        types.when(() -> AEKeyTypes.get(any(ResourceLocation.class)))
-            .thenAnswer(call -> LargeWorkstationTestKeys.REGISTRY.get(call.<ResourceLocation>getArgument(0)));
+        types.when(() -> AEKeyTypes.get(any(Identifier.class)))
+            .thenAnswer(call -> LargeWorkstationTestKeys.REGISTRY.get(call.<Identifier>getArgument(0)));
         previousIgnoreCards = NEConfig.largeWorkstationIgnoreUpgradeCards;
         NEConfig.largeWorkstationIgnoreUpgradeCards = false;
     }
@@ -94,10 +94,10 @@ class DataWorkstationRecipeTest {
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         var ops = registries.createSerializationContext(JsonOps.INSTANCE);
         Recipe<?> source = spy(serializer.codec().codec().parse(ops, fixture(name)).getOrThrow());
-        doReturn(RecipeType.simple(ResourceLocation.parse(PREFIX + name))).when(source).getType();
+        doReturn(RecipeType.simple(Identifier.parse(PREFIX + name))).when(source).getType();
         doReturn(serializer).when(source).getSerializer();
         var manager = mock(RecipeManager.class);
-        var id = ResourceLocation.parse(PREFIX + "test_" + name);
+        var id = Identifier.parse(PREFIX + "test_" + name);
         when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(id, source)));
 
         assertTrue(LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.REGULAR).isEmpty());
@@ -105,7 +105,7 @@ class DataWorkstationRecipeTest {
         var available = LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.DATA_ENERGISTICS);
         assertEquals(1, available.size());
         var recipe = available.getFirst();
-        assertEquals(ResourceLocation.parse(PREFIX + name), recipe.sourceType());
+        assertEquals(Identifier.parse(PREFIX + name), recipe.sourceType());
         assertSame(recipe, LargeWorkstationRecipes.getById(manager, registries, id));
         assertEquals(name.equals("data_reassembler") ? 0 : 1600, recipe.energy());
         if (name.equals("data_charger")) {
@@ -114,7 +114,7 @@ class DataWorkstationRecipeTest {
         if (name.equals("data_charge_press")) {
             assertEquals(250, recipe.display().inputFluid().amount());
             assertEquals(72, recipe.display().itemOutput().getCount());
-            assertEquals(ResourceLocation.parse(PREFIX + "data_corrosion_liquid"),
+            assertEquals(Identifier.parse(PREFIX + "data_corrosion_liquid"),
                 BuiltInRegistries.FLUID.getKey(recipe.display().inputFluid().ingredient().getStacks()[0].getFluid()));
         }
         when(manager.getRecipes()).thenReturn(List.of());
@@ -168,7 +168,7 @@ class DataWorkstationRecipeTest {
         var data = fixture("data_charger");
         data.addProperty("data_flow", 200);
         var second = decode("data_charger", data);
-        var nativeRecipe = new LargeWorkstationRecipe(ResourceLocation.parse("test:native"), first.display(), 1600, List.of());
+        var nativeRecipe = new LargeWorkstationRecipe(Identifier.parse("test:native"), first.display(), 1600, List.of());
         var ops = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY).createSerializationContext(JsonOps.INSTANCE);
         assertEquals(3, LargeWorkstationRecipes.deduplicate(List.of(first, second, nativeRecipe), ops).size());
     }
@@ -271,7 +271,7 @@ class DataWorkstationRecipeTest {
 
     private static LargeWorkstationRecipe decode(String name, JsonObject data) {
         var ops = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY).createSerializationContext(JsonOps.INSTANCE);
-        return LargeWorkstationRecipes.decode(ResourceLocation.parse("test:" + name), PREFIX + name, data, ops);
+        return LargeWorkstationRecipes.decode(Identifier.parse("test:" + name), PREFIX + name, data, ops);
     }
 
     private static JsonObject fixture(String name) {

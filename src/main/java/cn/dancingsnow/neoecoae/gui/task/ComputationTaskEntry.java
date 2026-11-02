@@ -177,8 +177,8 @@ public final class ComputationTaskEntry {
 
     public static ComputationTaskEntry readFromNBT(HolderLookup.Provider provider, CompoundTag tag) {
         ItemStack output = ItemStack.EMPTY;
-        if (tag.contains(NBT_OUTPUT, Tag.TAG_COMPOUND)) {
-            output = ItemStack.parseOptional(provider, tag.getCompound(NBT_OUTPUT));
+        if (tag.contains(NBT_OUTPUT)) {
+            output = ItemStack.parseOptional(provider, tag.getCompoundOrEmpty(NBT_OUTPUT));
         }
         Component cpuName = null;
         if (tag.contains(NBT_CPU_NAME)) {
@@ -191,17 +191,17 @@ public final class ComputationTaskEntry {
             output,
             tag.getLong(NBT_OUTPUT_AMOUNT),
             tag.getLong(NBT_CRAFT_COUNT),
-            Math.max(1L, tag.getLong(NBT_TOTAL_PROGRESS)),
-            Math.max(0L, tag.getLong(NBT_REMAINING_PROGRESS)),
-            readStatus(tag.getString(NBT_STATUS)),
+            Math.max(1L, tag.getLongOr(NBT_TOTAL_PROGRESS, 0L)),
+            Math.max(0L, tag.getLongOr(NBT_REMAINING_PROGRESS, 0L)),
+            readStatus(tag.getStringOr(NBT_STATUS, "")),
             tag.getInt(NBT_CPU_SERIAL),
             cpuName,
             tag.getLong(NBT_CPU_STORAGE),
             tag.getInt(NBT_CPU_CO_PROCESSORS),
-            readCpuSelectionMode(tag.getString(NBT_CPU_SELECTION_MODE)),
+            readCpuSelectionMode(tag.getStringOr(NBT_CPU_SELECTION_MODE, "")),
             tag.getFloat(NBT_PROGRESS),
             tag.getLong(NBT_ELAPSED_TIME_NANOS),
-            tag.contains(NBT_FAST_PATH_REASON, Tag.TAG_STRING) ? tag.getString(NBT_FAST_PATH_REASON) : null
+            tag.contains(NBT_FAST_PATH_REASON) ? tag.getStringOr(NBT_FAST_PATH_REASON, "") : null
         );
     }
 

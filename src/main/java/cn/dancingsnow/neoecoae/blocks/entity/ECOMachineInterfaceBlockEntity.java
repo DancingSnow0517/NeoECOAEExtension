@@ -61,7 +61,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
@@ -172,8 +172,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     @Override
     public synchronized void readCustomSyncData(HolderLookup.Provider provider, CompoundTag tag) {
-        long[] positions = tag.getLongArray(PATTERN_BUS_POSITIONS_SYNC_KEY);
-        int[] slotCounts = tag.getIntArray(PATTERN_BUS_SLOT_COUNTS_SYNC_KEY);
+        long[] positions = tag.getLongArray(PATTERN_BUS_POSITIONS_SYNC_KEY).orElseGet(() -> new long[0]);
+        int[] slotCounts = tag.getIntArray(PATTERN_BUS_SLOT_COUNTS_SYNC_KEY).orElseGet(() -> new int[0]);
         if (positions.length != slotCounts.length) {
             patternBusPositions = new long[0];
             patternBusSlotCounts = new int[0];
@@ -195,7 +195,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     public boolean isExcludingStorageBusContainers() { return !includeStorageBusContainers; }
 
     public void toggleExcludeStorageBusContainers() {
-        if (level == null || level.isClientSide || !supportsStorageInterfaceUi()) return;
+        if (level == null || level.isClientSide() || !supportsStorageInterfaceUi()) return;
         includeStorageBusContainers = !includeStorageBusContainers;
         transferredLastTick = 0L;
         setChanged();
@@ -216,7 +216,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     /** Menu RPCs validate the player and decode a complete AE key before reaching this setter. */
     public void setStorageResourceFilter(int slot, @Nullable AEKey key) {
-        if (level == null || level.isClientSide || !supportsStorageInterfaceUi()
+        if (level == null || level.isClientSide() || !supportsStorageInterfaceUi()
             || slot < 0 || slot >= StorageInterfaceFilter.SLOTS) return;
         CompoundTag updated = StorageInterfaceFilter.with(storageResourceFilters, slot, key, level.registryAccess());
         if (updated.equals(storageResourceFilters)) return;
@@ -226,7 +226,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     public void toggleIgnoreCreativeStorageInput() {
-        if (level == null || level.isClientSide || !supportsStorageInterfaceUi()) return;
+        if (level == null || level.isClientSide() || !supportsStorageInterfaceUi()) return;
         ignoreCreativeStorageInput = !ignoreCreativeStorageInput;
         setChanged();
         markForUpdate();
@@ -260,8 +260,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         return fuzzyPlanningItemHandler;
     }
 
-    public Set<ResourceLocation> getFuzzyPlanningItemIds() {
-        Set<ResourceLocation> result = new java.util.LinkedHashSet<>();
+    public Set<Identifier> getFuzzyPlanningItemIds() {
+        Set<Identifier> result = new java.util.LinkedHashSet<>();
         for (int slot = 0; slot < fuzzyPlanningInventory.size(); slot++) {
             ItemStack stack = fuzzyPlanningInventory.getStackInSlot(slot);
             if (!stack.isEmpty()) {
@@ -293,7 +293,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     public void setStorageInterfaceMode(ECOStorageInterfaceMode mode) {
         if (storageInterfaceMode == mode) return;
         storageInterfaceMode = mode;
-        if (level != null && !level.isClientSide && getBlockState().getBlock() instanceof cn.dancingsnow.neoecoae.blocks.ECOMachineInterface<?>) {
+        if (level != null && !level.isClientSide() && getBlockState().getBlock() instanceof cn.dancingsnow.neoecoae.blocks.ECOMachineInterface<?>) {
             level.setBlockAndUpdate(worldPosition, getBlockState()
                 .setValue(cn.dancingsnow.neoecoae.blocks.ECOMachineInterface.STORAGE_MODE, mode));
         }
@@ -562,7 +562,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     @RPCMethod
     public void setPatternPreview(RPCSender sender, CompoundTag payload) {
-        if (sender.isServer() && level != null && level.isClientSide && payload != null) {
+        if (sender.isServer() && level != null && level.isClientSide() && payload != null) {
             patternPreviewSync.receive(payload);
         }
     }
@@ -578,11 +578,11 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (player == null) {
             return;
         }
-        int menuId = payload.getInt("menu");
+        int menuId = payload.getIntOr("menu", 0);
         if (player.containerMenu.containerId != menuId || !patternPreviewSync.isViewer(player)) {
             return;
         }
-        patternPreviewSync.open(player, menuId, payload.getInt("revision"), payload.getLong("epoch"));
+        patternPreviewSync.open(player, menuId, payload.getIntOr("revision", 0), payload.getLongOr("epoch", 0L));
     }
 
     /** Resolve physical identity only when acting; browsing never modifies server state. */
@@ -592,29 +592,29 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 || !(supportsCraftingInterfaceUi() || supportsIntegratedWorkingStationInterfaceUi()) || isPatternMutationLocked() || payload == null) return;
         ServerPlayer player = sender.asPlayer();
         if (player == null || !patternPreviewSync.isViewer(player)
-                || payload.getInt("menu") != player.containerMenu.containerId) return;
+                || payload.getIntOr("menu", 0) != player.containerMenu.containerId) return;
         ensurePatternInterfaceMapping();
-        if (payload.getInt("revision") < 0) return;
-        long busPosition = payload.getLong("bus");
-        int physicalSlot = payload.getInt("slot");
+        if (payload.getIntOr("revision", 0) < 0) return;
+        long busPosition = payload.getLongOr("bus", 0L);
+        int physicalSlot = payload.getIntOr("slot", 0);
         PatternSlotRef target = resolvePatternSlot(busPosition, physicalSlot);
         if (target == null || target.bus().isRemoved() || target.bus().getGrid() != getMainNode().getGrid()) return;
         InternalInventory inventory = target.bus().getPatternSlotInventory();
         if (physicalSlot < 0 || physicalSlot >= inventory.size()) return;
         ItemStack existing = inventory.getStackInSlot(physicalSlot);
-        if (target.bus().ownsAuxiliary(existing) || !payload.contains("stack", Tag.TAG_COMPOUND)) return;
+        if (target.bus().ownsAuxiliary(existing) || !payload.contains("stack")) return;
         // Unrelated automation must not invalidate a click or force a full catalogue resend.
-        ItemStack expectedTarget = ItemStack.parseOptional(level.registryAccess(), payload.getCompound("stack"));
+        ItemStack expectedTarget = ItemStack.parseOptional(level.registryAccess(), payload.getCompoundOrEmpty("stack"));
         if (!ItemStack.matches(existing, expectedTarget)) return;
         ItemStack carried = player.containerMenu.getCarried();
-        int action = payload.getInt("action");
-        int button = payload.getInt("button");
+        int action = payload.getIntOr("action", 0);
+        int button = payload.getIntOr("button", 0);
         if (button < 0 || button > 1) return;
         if (action == 2) {
-            int sourceSlot = payload.getInt("sourceSlot");
+            int sourceSlot = payload.getIntOr("sourceSlot", 0);
             if (sourceSlot < 0 || sourceSlot >= 36 || !carried.isEmpty()) return;
             ItemStack source = player.getInventory().getItem(sourceSlot);
-            ItemStack expected = ItemStack.parseOptional(level.registryAccess(), payload.getCompound("sourceStack"));
+            ItemStack expected = ItemStack.parseOptional(level.registryAccess(), payload.getCompoundOrEmpty("sourceStack"));
             if (source.isEmpty() || !ItemStack.matches(source, expected) || !existing.isEmpty()
                     || !inventory.isItemValid(physicalSlot, source) || hasDuplicatePattern(target, source)) return;
             ItemStack remainder = inventory.insertItem(physicalSlot, source.copy(), false);
@@ -654,15 +654,15 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 || !(supportsCraftingInterfaceUi() || supportsIntegratedWorkingStationInterfaceUi()) || isPatternMutationLocked() || payload == null) return;
         ServerPlayer player = sender.asPlayer();
         if (player == null || !patternPreviewSync.isViewer(player)
-                || payload.getInt("menu") != player.containerMenu.containerId) return;
+                || payload.getIntOr("menu", 0) != player.containerMenu.containerId) return;
         ensurePatternInterfaceMapping();
-        if (payload.getInt("revision") < 0) return;
-        ListTag targets = payload.getList("targets", Tag.TAG_COMPOUND);
+        if (payload.getIntOr("revision", 0) < 0) return;
+        ListTag targets = payload.getListOrEmpty("targets");
         int targetCount = Math.min(targets.size(), PATTERN_INTERFACE_VISIBLE_SLOTS);
         for (int index = 0; index < targetCount; index++) {
-            CompoundTag targetTag = targets.getCompound(index);
-            int physicalSlot = targetTag.getInt("slot");
-            PatternSlotRef target = resolvePatternSlot(targetTag.getLong("bus"), physicalSlot);
+            CompoundTag targetTag = targets.getCompoundOrEmpty(index);
+            int physicalSlot = targetTag.getIntOr("slot", 0);
+            PatternSlotRef target = resolvePatternSlot(targetTag.getLongOr("bus", 0L), physicalSlot);
             if (target == null || target.bus().isRemoved() || target.bus().getGrid() != getMainNode().getGrid()) {
                 continue;
             }
@@ -670,7 +670,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             if (physicalSlot < 0 || physicalSlot >= inventory.size()) continue;
             ItemStack existing = inventory.getStackInSlot(physicalSlot);
             if (target.bus().ownsAuxiliary(existing)) continue;
-            ItemStack expected = ItemStack.parseOptional(level.registryAccess(), targetTag.getCompound("stack"));
+            ItemStack expected = ItemStack.parseOptional(level.registryAccess(), targetTag.getCompoundOrEmpty("stack"));
             if (existing.isEmpty() || !ItemStack.matches(existing, expected)) continue;
             ItemStack available = inventory.extractItem(physicalSlot, Integer.MAX_VALUE, true);
             if (available.isEmpty() || !canStoreInPlayerInventory(player, available)) continue;
@@ -724,7 +724,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     public int getPatternInterfaceSlotCount() {
         ensurePatternInterfaceMapping();
-        if (level != null && level.isClientSide) {
+        if (level != null && level.isClientSide()) {
             int total = 0;
             for (int count : patternBusSlotCounts) {
                 total += Math.max(0, count);
@@ -881,7 +881,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     private void ensurePatternInterfaceMapping() {
-        if (level == null || level.isClientSide) {
+        if (level == null || level.isClientSide()) {
             return;
         }
         Object domain = patternDomain();
@@ -1080,7 +1080,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     /** Server-authoritative single-slot quick move shared by RPC and menu integrations. */
     public boolean tryInsertPatternFromPlayer(ServerPlayer player, int inventorySlot) {
-        if (player == null || inventorySlot < 0 || inventorySlot >= 36 || level == null || level.isClientSide
+        if (player == null || inventorySlot < 0 || inventorySlot >= 36 || level == null || level.isClientSide()
                 || !formed || !(supportsCraftingInterfaceUi() || supportsIntegratedWorkingStationInterfaceUi()) || isPatternMutationLocked()
                 || !isPatternInterfacePlayer(player, (ServerLevel) level)) {
             return false;
@@ -1945,7 +1945,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     @Override
     public boolean isClientSide() {
-        return level != null && level.isClientSide;
+        return level != null && level.isClientSide();
     }
 
     @Override

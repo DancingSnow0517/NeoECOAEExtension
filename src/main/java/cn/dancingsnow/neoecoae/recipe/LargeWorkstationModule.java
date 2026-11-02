@@ -4,7 +4,7 @@ import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.item.ItemStack;
 
@@ -42,8 +42,8 @@ public enum LargeWorkstationModule implements StringRepresentable {
         return Component.translatable("gui.neoecoae.workstation.module_short." + name);
     }
 
-    public ResourceLocation upgradeCardId() {
-        return ResourceLocation.fromNamespaceAndPath("neoecoae", "integrated_working_station_module_"
+    public Identifier upgradeCardId() {
+        return Identifier.fromNamespaceAndPath("neoecoae", "integrated_working_station_module_"
             + (this == REGULAR ? "empty" : name));
     }
 
@@ -52,7 +52,7 @@ public enum LargeWorkstationModule implements StringRepresentable {
     public static boolean isUpgradeCard(ItemStack stack) {
         if (stack.isEmpty()) return false;
         if (ECOWorkstationModules.customFromCard(stack) != null) return true;
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        Identifier id = BuiltInRegistries.ITEM.getKey(stack.getItem());
         for (var module : values()) if (module.hasUpgradeCard() && module.upgradeCardId().equals(id)) return true;
         return false;
     }
@@ -60,13 +60,13 @@ public enum LargeWorkstationModule implements StringRepresentable {
     public static LargeWorkstationModule fromUpgradeCard(ItemStack stack) {
         if (!stack.isEmpty()) {
             if (ECOWorkstationModules.customFromCard(stack) != null) return OTHER;
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+            Identifier id = BuiltInRegistries.ITEM.getKey(stack.getItem());
             for (var module : values()) if (module.hasUpgradeCard() && module.upgradeCardId().equals(id)) return module;
         }
         return REGULAR;
     }
 
-    public boolean unlocks(ResourceLocation sourceType) {
+    public boolean unlocks(Identifier sourceType) {
         LargeWorkstationModule source = fromSourceType(sourceType);
         // Adapters without a registered card remain available alongside native recipes.
         return source == REGULAR || source == OTHER || source == this;
@@ -82,7 +82,7 @@ public enum LargeWorkstationModule implements StringRepresentable {
             "large_integrated_working_station_smart_cooling") : modelPath(working);
     }
 
-    public static LargeWorkstationModule fromSourceType(ResourceLocation type) {
+    public static LargeWorkstationModule fromSourceType(Identifier type) {
         if (type == null || type.equals(LargeWorkstationRecipe.NATIVE_TYPE)) return REGULAR;
         return switch (type.getNamespace()) {
             case "advanced_ae", "advancedae" -> ADVANCED_AE;

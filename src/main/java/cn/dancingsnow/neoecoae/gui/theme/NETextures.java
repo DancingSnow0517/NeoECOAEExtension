@@ -12,7 +12,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.math.Size;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,7 +26,7 @@ import java.util.function.Supplier;
 @SuppressWarnings("unused")
 public class NETextures {
     private static final Logger LOGGER = LoggerFactory.getLogger(NETextures.class);
-    private static final Map<ResourceLocation, String> PANEL_ATLASES = Map.of(
+    private static final Map<Identifier, String> PANEL_ATLASES = Map.of(
         NeoECOAE.id("textures/guis/eco_cpu_controller.png"), "Computation-BACKGROUND_ATLAS",
         NeoECOAE.id("textures/guis/cpu_widget.png"), "Computation-WIDGETS_ATLAS",
         NeoECOAE.id("textures/guis/storage/storage_controller.png"), "Storage-CONTROLLER_ATLAS",
@@ -37,12 +37,12 @@ public class NETextures {
     private static ResourceInstance<IGuiTexture> panelResources;
 
     /** A sprite whose atlas can be replaced through the ui-eco provider without changing its pixel rectangle. */
-    public static SpriteTexture panelSprite(ResourceLocation atlas) {
+    public static SpriteTexture panelSprite(Identifier atlas) {
         return panelSprite(atlas, () -> null);
     }
 
     /** Per-panel tier override takes priority over the shared resource provider. */
-    public static SpriteTexture panelSprite(ResourceLocation atlas, Supplier<IECOTier> tier) {
+    public static SpriteTexture panelSprite(Identifier atlas, Supplier<IECOTier> tier) {
         String name = PANEL_ATLASES.get(atlas);
         return name == null ? SpriteTexture.of(atlas)
             : new PanelAtlasSprite(new BuiltinPath("ui-eco:" + name), atlas, tier, name);
@@ -70,7 +70,7 @@ public class NETextures {
     public static IGuiTexture PATTERN_MANAGER_SCROLLBAR_TRACK = SpriteTexture.of(NeoECOAE.id("textures/guis/pattern_manager.png"))
         .setSprite(178, 31, 6, 108).setBorder(1);
 
-    private static final net.minecraft.resources.ResourceLocation LDLIB_ATLAS =
+    private static final net.minecraft.resources.Identifier LDLIB_ATLAS =
         NeoECOAE.id("textures/gui/vendor/ldlib/gdp_styles.png");
     public static IGuiTexture RECT_RD = SpriteTexture.of(LDLIB_ATLAS)
         .setSprite(1, 29, 13, 13).setBorder(4, 4, 4, 4);
@@ -211,9 +211,9 @@ public class NETextures {
     }
 
     public static class Crafting {
-        public static final net.minecraft.resources.ResourceLocation CONTROLLER_ATLAS =
+        public static final net.minecraft.resources.Identifier CONTROLLER_ATLAS =
             NeoECOAE.id("textures/guis/crafting_controller.png");
-        public static final net.minecraft.resources.ResourceLocation WIDGETS_ATLAS =
+        public static final net.minecraft.resources.Identifier WIDGETS_ATLAS =
             NeoECOAE.id("textures/guis/crafting_widgets.png");
         public static final int WIDGETS_WIDTH = 288;
         public static final int WIDGETS_HEIGHT = 256;

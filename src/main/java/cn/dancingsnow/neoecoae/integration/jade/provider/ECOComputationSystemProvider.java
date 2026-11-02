@@ -5,7 +5,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlo
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import snownee.jade.api.BlockAccessor;
 import snownee.jade.api.IBlockComponentProvider;
 import snownee.jade.api.IServerDataProvider;
@@ -19,14 +19,14 @@ public enum ECOComputationSystemProvider implements IBlockComponentProvider, ISe
     public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig pluginConfig) {
         CompoundTag data = accessor.getServerData();
         if (data.contains("fastPlannerEnabled")) {
-            boolean enabled = data.getBoolean("fastPlannerEnabled");
+            boolean enabled = data.getBooleanOr("fastPlannerEnabled", false);
             tooltip.add(1, Component.translatable(enabled
                     ? "jade.neoecoae.fast_planner.enabled"
                     : "jade.neoecoae.fast_planner.disabled")
                 .withStyle(enabled ? ChatFormatting.GREEN : ChatFormatting.RED));
         }
         if (data.contains("cyclePlanningEnabled")) {
-            boolean enabled = data.getBoolean("cyclePlanningEnabled");
+            boolean enabled = data.getBooleanOr("cyclePlanningEnabled", false);
             tooltip.add(2, Component.translatable(enabled
                     ? "jade.neoecoae.cycle_planning.enabled"
                     : "jade.neoecoae.cycle_planning.disabled")
@@ -43,7 +43,7 @@ public enum ECOComputationSystemProvider implements IBlockComponentProvider, ISe
     }
 
     @Override
-    public ResourceLocation getUid() {
+    public Identifier getUid() {
         return NeoECOAE.id("eco_computation_system");
     }
 }

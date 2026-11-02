@@ -60,8 +60,8 @@ public final class ECOCraftingJobLifecycle extends SavedData {
 
     /** Works without decoding a plan, so even a quarantined CPU can terminate its worker ownership. */
     public static void cancelPersistedJob(@Nullable Level level, CompoundTag cpuData) {
-        CompoundTag link = cpuData.getCompound("job").getCompound("link");
-        if (link.hasUUID("craftId")) finish(level, link.getUUID("craftId"), false);
+        CompoundTag link = cpuData.getCompoundOrEmpty("job").getCompoundOrEmpty("link");
+        if (link.read("craftId", net.minecraft.core.UUIDUtil.CODEC).isPresent()) finish(level, link.read("craftId", net.minecraft.core.UUIDUtil.CODEC).orElseThrow(), false);
     }
 
     /**
@@ -69,20 +69,20 @@ public final class ECOCraftingJobLifecycle extends SavedData {
      * Completed jobs remain terminal; only the false marker formerly written by the quarantine path is removed.
      */
     public static void resumePersistedJob(@Nullable Level level, CompoundTag cpuData) {
-        CompoundTag link = cpuData.getCompound("job").getCompound("link");
-        if (!link.hasUUID("craftId")) return;
+        CompoundTag link = cpuData.getCompoundOrEmpty("job").getCompoundOrEmpty("link");
+        if (!link.read("craftId", net.minecraft.core.UUIDUtil.CODEC).isPresent()) return;
         var data = get(level);
-        if (data != null && Boolean.FALSE.equals(data.terminatedJobs.remove(link.getUUID("craftId")))) {
+        if (data != null && Boolean.FALSE.equals(data.terminatedJobs.remove(link.read("craftId", net.minecraft.core.UUIDUtil.CODEC).orElseThrow()))) {
             data.setDirty();
         }
     }
 
     private static ECOCraftingJobLifecycle load(CompoundTag tag, HolderLookup.Provider registries) {
         var data = new ECOCraftingJobLifecycle();
-        ListTag jobs = tag.getList("jobs", Tag.TAG_COMPOUND);
+        ListTag jobs = tag.getListOrEmpty("jobs");
         for (int i = 0; i < jobs.size(); i++) {
-            CompoundTag job = jobs.getCompound(i);
-            if (job.hasUUID("id")) data.terminatedJobs.put(job.getUUID("id"), job.getBoolean("completed"));
+            CompoundTag job = jobs.getCompoundOrEmpty(i);
+            if (job.read("id", net.minecraft.core.UUIDUtil.CODEC).isPresent()) data.terminatedJobs.put(job.read("id", net.minecraft.core.UUIDUtil.CODEC).orElseThrow(), job.getBooleanOr("completed", false));
         }
         return data;
     }
@@ -92,7 +92,7 @@ public final class ECOCraftingJobLifecycle extends SavedData {
         ListTag jobs = new ListTag();
         terminatedJobs.forEach((id, completed) -> {
             CompoundTag job = new CompoundTag();
-            job.putUUID("id", id);
+            job.store("id", net.minecraft.core.UUIDUtil.CODEC, id);
             job.putBoolean("completed", completed);
             jobs.add(job);
         });

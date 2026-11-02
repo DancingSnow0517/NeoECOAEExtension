@@ -32,7 +32,7 @@ import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import java.util.List;
 import java.util.Set;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,7 +56,7 @@ public final class ECOCraftingPlannerService {
         private final PlannerInventorySnapshot inventorySnapshot;
         private final boolean cyclePlanningEnabled;
         private final boolean ignorePatternSubstitutions;
-        private final Set<ResourceLocation> fuzzyPlanningItemIds;
+        private final Set<Identifier> fuzzyPlanningItemIds;
         private final long planningRequestId = ECOPlanningStageLogger.nextRequestId();
         private ECOPlanningBudget planningBudget;
         private volatile CompiledNetwork compiled;
@@ -68,14 +68,14 @@ public final class ECOCraftingPlannerService {
 
         private Session(ICraftingService craftingService, AEKey goal, KeyCounter inventory,
                         boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
-                        Set<ResourceLocation> fuzzyPlanningItemIds) {
+                        Set<Identifier> fuzzyPlanningItemIds) {
             this(craftingService, goal, PlannerInventorySnapshot.of(inventory), cyclePlanningEnabled,
                     ignorePatternSubstitutions, fuzzyPlanningItemIds);
         }
 
         private Session(ICraftingService craftingService, AEKey goal, PlannerInventorySnapshot inventory,
                         boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
-                        Set<ResourceLocation> fuzzyPlanningItemIds) {
+                        Set<Identifier> fuzzyPlanningItemIds) {
             this.craftingService = craftingService;
             this.goal = goal;
             this.inventorySnapshot = inventory;
@@ -376,7 +376,7 @@ public final class ECOCraftingPlannerService {
 
     public Session createSession(ICraftingService service, AEKey goal, PlannerInventorySnapshot inventory,
                                  boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
-                                 Set<ResourceLocation> fuzzyPlanningItemIds) {
+                                 Set<Identifier> fuzzyPlanningItemIds) {
         return new Session(service, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions,
                 fuzzyPlanningItemIds);
     }
@@ -385,7 +385,7 @@ public final class ECOCraftingPlannerService {
     @Deprecated
     public Session createSession(ICraftingService service, AEKey goal, PlannerInventorySnapshot inventory,
                                  boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
-                                 Set<ResourceLocation> fuzzyPlanningItemIds, boolean planningLogEnabled) {
+                                 Set<Identifier> fuzzyPlanningItemIds, boolean planningLogEnabled) {
         return createSession(service, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions,
                 fuzzyPlanningItemIds);
     }
@@ -402,7 +402,7 @@ public final class ECOCraftingPlannerService {
 
     public Session createSession(ICraftingService service, AEKey goal, KeyCounter inventory,
                                  boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
-                                 Set<ResourceLocation> fuzzyPlanningItemIds) {
+                                 Set<Identifier> fuzzyPlanningItemIds) {
         return new Session(service, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions,
                 fuzzyPlanningItemIds);
     }
@@ -411,7 +411,7 @@ public final class ECOCraftingPlannerService {
     @Deprecated
     public Session createSession(ICraftingService service, AEKey goal, KeyCounter inventory,
                                  boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
-                                 Set<ResourceLocation> fuzzyPlanningItemIds, boolean planningLogEnabled) {
+                                 Set<Identifier> fuzzyPlanningItemIds, boolean planningLogEnabled) {
         return new Session(service, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions,
                 fuzzyPlanningItemIds);
     }

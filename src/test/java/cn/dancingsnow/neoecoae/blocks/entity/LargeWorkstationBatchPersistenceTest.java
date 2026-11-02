@@ -11,7 +11,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.material.Fluids;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -36,7 +36,7 @@ class LargeWorkstationBatchPersistenceTest {
             var output = new KeyCounter();
             output.add(AEFluidKey.of(Fluids.LAVA), 262_144);
             Object batch = constructor.newInstance(262_144L, 1_000L, 9, 1, owned, output,
-                null, ResourceLocation.parse("test:rebatched"), null, null, 123L);
+                null, Identifier.parse("test:rebatched"), null, null, 123L);
             var progress = type.getDeclaredField("progress");
             progress.setAccessible(true);
             progress.set(batch, 1);
@@ -91,7 +91,7 @@ class LargeWorkstationBatchPersistenceTest {
             var output = new KeyCounter();
             output.add(AEFluidKey.of(Fluids.LAVA), 4000);
             Object batch = constructor.newInstance(4L, 5_000_000_000L, 0, 1, owned, output,
-                null, ResourceLocation.parse("ae2lt:test"), null, null, 123L);
+                null, Identifier.parse("ae2lt:test"), null, null, 123L);
             var missingField = type.getDeclaredField("missingExtras");
             missingField.setAccessible(true);
             ((KeyCounter) missingField.get(batch)).add(LightningKey.EXTREME_HIGH_VOLTAGE, 18);
@@ -152,7 +152,7 @@ class LargeWorkstationBatchPersistenceTest {
             var outputs = new KeyCounter();
             outputs.add(AEFluidKey.of(Fluids.LAVA), 768);
             Object batch = constructor.newInstance(768L, 1_000L, 9, 1, owned, outputs,
-                null, ResourceLocation.parse("test:downgraded"), null, null, 123L);
+                null, Identifier.parse("test:downgraded"), null, null, 123L);
             var segmented = type.getDeclaredField("segmented");
             segmented.setAccessible(true);
             segmented.setBoolean(batch, true);

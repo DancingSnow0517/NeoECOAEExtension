@@ -9,12 +9,12 @@ import appeng.crafting.pattern.AEProcessingPattern;
 import java.util.ArrayList;
 import java.util.Set;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.Level;
 
 /** Explicit ECO item-ID matching for processing patterns; crafting recipe predicates stay authoritative. */
 public final class ECOProcessingComponentMatching {
-    private static final ThreadLocal<Set<ResourceLocation>> DISPATCH_ITEMS = new ThreadLocal<>();
+    private static final ThreadLocal<Set<Identifier>> DISPATCH_ITEMS = new ThreadLocal<>();
     private static final Scope EMPTY_SCOPE = () -> {};
 
     private ECOProcessingComponentMatching() {}
@@ -24,7 +24,7 @@ public final class ECOProcessingComponentMatching {
             && wanted.getItem() == candidate.getItem();
     }
 
-    public static boolean enabled(IPatternDetails pattern, AEKey expected, Set<ResourceLocation> items) {
+    public static boolean enabled(IPatternDetails pattern, AEKey expected, Set<Identifier> items) {
         // Subclasses may impose their own machine/recipe constraints. Only AE2's plain processing contract is widened.
         return pattern != null && pattern.getClass() == AEProcessingPattern.class
             && expected instanceof AEItemKey item
@@ -38,7 +38,7 @@ public final class ECOProcessingComponentMatching {
             || input == null || input.isValid(actual, level);
     }
 
-    public static Scope openDispatch(Set<ResourceLocation> items) {
+    public static Scope openDispatch(Set<Identifier> items) {
         var previous = DISPATCH_ITEMS.get();
         if (previous == null && items.isEmpty()) return EMPTY_SCOPE;
         if (items.isEmpty()) DISPATCH_ITEMS.remove();

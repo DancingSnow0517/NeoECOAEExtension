@@ -64,9 +64,9 @@ final class StorageCellGrid extends UIElement {
             previewedCell = null;
             if (!isOpenMenu(config)) return new CompoundTag();
             CompoundTag preview = config.cellActions().previewMigration().apply(position);
-            if (preview.hasUUID("cell_id") && preview.getInt("total") > 0) {
+            if (preview.read("cell_id", net.minecraft.core.UUIDUtil.CODEC).isPresent() && preview.getIntOr("total", 0) > 0) {
                 previewedPosition = position;
-                previewedCell = preview.getUUID("cell_id");
+                previewedCell = preview.read("cell_id", net.minecraft.core.UUIDUtil.CODEC).orElseThrow();
             }
             return preview;
         }));

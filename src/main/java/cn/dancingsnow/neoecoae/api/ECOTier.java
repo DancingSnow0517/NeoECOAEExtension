@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.api;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import lombok.Getter;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public enum ECOTier implements IECOTier {
     L4(
@@ -15,7 +15,7 @@ public enum ECOTier implements IECOTier {
         1 << 26,
         1 << 24,
         10_000_000,
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/computation/cpu_overlay/l4.png")
+        Identifier.fromNamespaceAndPath("neoecoae", "textures/gui/computation/cpu_overlay/l4.png")
     ),
     L6(
         2,
@@ -26,7 +26,7 @@ public enum ECOTier implements IECOTier {
         1 << 28,
         1 << 26,
         100_000_000,
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/computation/cpu_overlay/l6.png")
+        Identifier.fromNamespaceAndPath("neoecoae", "textures/gui/computation/cpu_overlay/l6.png")
     ),
     L9(
         3,
@@ -37,7 +37,7 @@ public enum ECOTier implements IECOTier {
         1 << 30,
         1 << 28,
         1_000_000_000,
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/computation/cpu_overlay/l9.png")
+        Identifier.fromNamespaceAndPath("neoecoae", "textures/gui/computation/cpu_overlay/l9.png")
     );
     @Getter
     private final int tier;
@@ -50,7 +50,7 @@ public enum ECOTier implements IECOTier {
     private final long storageTotalBytes;
     @Getter
     private final long powerStorageSize;
-    private final ResourceLocation cpuOverlayTexture;
+    private final Identifier cpuOverlayTexture;
 
     ECOTier(
         int tier,
@@ -61,7 +61,7 @@ public enum ECOTier implements IECOTier {
         long cpuTotalBytes,
         long storageTotalBytes,
         long powerStorageSize,
-        ResourceLocation cpuOverlayTexture
+        Identifier cpuOverlayTexture
     ) {
         this.tier = tier;
         this.crafterParallel = crafterParallel;
@@ -105,7 +105,7 @@ public enum ECOTier implements IECOTier {
     }
 
     @Override
-    public ResourceLocation getCPUOverlayTexture() {
+    public Identifier getCPUOverlayTexture() {
         return cpuOverlayTexture;
     }
 }

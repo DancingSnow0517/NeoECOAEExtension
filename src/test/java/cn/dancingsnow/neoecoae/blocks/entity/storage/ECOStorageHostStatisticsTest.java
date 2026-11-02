@@ -28,7 +28,7 @@ import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.Registry;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -125,7 +125,7 @@ class ECOStorageHostStatisticsTest {
         assertEquals(CellState.FULL, cells.get(2).state());
         assertTrue(cells.get(1).online());
         assertFalse(cells.get(2).online());
-        assertEquals(ResourceLocation.parse("neoecoae:items"), fixture.line("items").resourceId());
+        assertEquals(Identifier.parse("neoecoae:items"), fixture.line("items").resourceId());
 
         when(first.getCellInventory().getUsedBytes()).thenReturn(99L);
         when(second.getCellInventory().getUsedBytes()).thenReturn(0L);
@@ -192,7 +192,7 @@ class ECOStorageHostStatisticsTest {
         StorageHostUI.StorageTypeLine line = fixture.line(ordinary);
         assertTotals(line, 5, 12, 300, 3_000);
         assertEquals(Component.literal(ordinary), line.displayName().get());
-        assertEquals(ResourceLocation.fromNamespaceAndPath("neoecoae", ordinary), line.resourceId());
+        assertEquals(Identifier.fromNamespaceAndPath("neoecoae", ordinary), line.resourceId());
         assertTrue(line.visible().getAsBoolean());
         assertFalse(fixture.line(variant).visible().getAsBoolean());
         assertEquals(List.of(fixture.id(ordinary), fixture.id(variant)),
@@ -290,7 +290,7 @@ class ECOStorageHostStatisticsTest {
 
     private static final class Fixture {
         final Registry<ECOCellType> cellTypes = new MappedRegistry<>(ResourceKey.createRegistryKey(
-            ResourceLocation.fromNamespaceAndPath("neoecoae_test", "storage_cell_types")), Lifecycle.stable());
+            Identifier.fromNamespaceAndPath("neoecoae_test", "storage_cell_types")), Lifecycle.stable());
         final ECOStorageSystemBlockEntity host = mock(ECOStorageSystemBlockEntity.class);
         final NEStorageCluster cluster = mock(NEStorageCluster.class);
         final List<ECODriveBlockEntity> drives = new ArrayList<>();
@@ -356,8 +356,8 @@ class ECOStorageHostStatisticsTest {
             return cellTypes.getId(cellTypes.get(key(path)));
         }
 
-        private static ResourceLocation key(String path) {
-            return ResourceLocation.fromNamespaceAndPath("neoecoae", path);
+        private static Identifier key(String path) {
+            return Identifier.fromNamespaceAndPath("neoecoae", path);
         }
     }
 }

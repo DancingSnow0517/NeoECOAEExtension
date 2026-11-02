@@ -13,7 +13,7 @@ import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
@@ -37,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class AppliedGeneratorsWorkstationRecipeTest {
-    private static final ResourceLocation TYPE = ResourceLocation.parse("appgen:synthesizing");
+    private static final Identifier TYPE = Identifier.parse("appgen:synthesizing");
     private MockedStatic<AEKeyTypes> types;
     private MockedStatic<AEKeyTypesInternal> internal;
     private boolean previousIgnoreCards;
@@ -49,8 +49,8 @@ class AppliedGeneratorsWorkstationRecipeTest {
         types = mockStatic(AEKeyTypes.class);
         internal = mockStatic(AEKeyTypesInternal.class);
         internal.when(AEKeyTypesInternal::getRegistry).thenReturn(LargeWorkstationTestKeys.REGISTRY);
-        types.when(() -> AEKeyTypes.get(any(ResourceLocation.class)))
-            .thenAnswer(call -> LargeWorkstationTestKeys.REGISTRY.get(call.<ResourceLocation>getArgument(0)));
+        types.when(() -> AEKeyTypes.get(any(Identifier.class)))
+            .thenAnswer(call -> LargeWorkstationTestKeys.REGISTRY.get(call.<Identifier>getArgument(0)));
         previousIgnoreCards = NEConfig.largeWorkstationIgnoreUpgradeCards;
         NEConfig.largeWorkstationIgnoreUpgradeCards = false;
         // AEKey's encode fallback consults this deferred item; isolated tests have no mod item registration.
@@ -79,7 +79,7 @@ class AppliedGeneratorsWorkstationRecipeTest {
         var ops = registries.createSerializationContext(JsonOps.INSTANCE);
         Recipe<?> source = serializer.codec().codec().parse(ops, fixture(true)).getOrThrow();
         var manager = mock(RecipeManager.class);
-        var id = ResourceLocation.parse("appgen:test_stack_smelting_card");
+        var id = Identifier.parse("appgen:test_stack_smelting_card");
         when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(id, source)));
         for (var module : LargeWorkstationModule.values()) {
             if (module != LargeWorkstationModule.APPLIED_GENERATORS) {
@@ -132,7 +132,7 @@ class AppliedGeneratorsWorkstationRecipeTest {
                 if (data.has("fluid_input")) {
                     var fluid = data.getAsJsonObject("fluid_input");
                     expectedFluid = fluid.has("amount") ? fluid.get("amount").getAsInt() : 1;
-                    inputs.add(AEFluidKey.of(BuiltInRegistries.FLUID.get(ResourceLocation.parse(
+                    inputs.add(AEFluidKey.of(BuiltInRegistries.FLUID.get(Identifier.parse(
                         fluid.getAsJsonObject("ingredient").get("fluid").getAsString()))), expectedFluid);
                 }
                 var output = data.getAsJsonObject("output");
@@ -143,7 +143,7 @@ class AppliedGeneratorsWorkstationRecipeTest {
                 outputs.add(fluidOutput ? AEFluidKey.of(Fluids.LAVA) : AEItemKey.of(Items.DIAMOND), outputCount);
                 Recipe<?> source = serializer.codec().codec().parse(ops, data).getOrThrow();
                 var manager = mock(RecipeManager.class);
-                when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(ResourceLocation.parse("appgen:test_release"), source)));
+                when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(Identifier.parse("appgen:test_release"), source)));
                 var adapted = LargeWorkstationRecipes.getAvailable(manager, registries, LargeWorkstationModule.APPLIED_GENERATORS);
                 assertEquals(1, adapted.size(), entry.getName());
                 var recipe = adapted.getFirst();
@@ -233,7 +233,7 @@ class AppliedGeneratorsWorkstationRecipeTest {
 
     private static LargeWorkstationRecipe decode(JsonObject data) {
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        return LargeWorkstationRecipes.decode(ResourceLocation.parse("test:synthesizing"), TYPE.toString(),
+        return LargeWorkstationRecipes.decode(Identifier.parse("test:synthesizing"), TYPE.toString(),
             data, registries.createSerializationContext(JsonOps.INSTANCE));
     }
 

@@ -283,8 +283,8 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
     }
 
     private void readLegacyWorkstationPatterns(CompoundTag data, HolderLookup.Provider registries) {
-        if (data.contains(PatternProviderLogic.NBT_MEMORY_CARD_PATTERNS, Tag.TAG_LIST)
-            || !data.contains("workstationPatterns", Tag.TAG_LIST)
+        if (data.contains(PatternProviderLogic.NBT_MEMORY_CARD_PATTERNS)
+            || !data.contains("workstationPatterns")
             || !workstationProvider.getPatternInv().isEmpty()) {
             return;
         }

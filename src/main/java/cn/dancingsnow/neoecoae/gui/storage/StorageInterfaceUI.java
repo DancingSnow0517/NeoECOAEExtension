@@ -29,13 +29,13 @@ import java.util.List;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Player;
 
 /** JSON owns the texture geometry; bindings and menu actions own the interface's state. */
 public final class StorageInterfaceUI {
-    private static final ResourceLocation JSON_LAYOUT =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/storage/storage_interface");
+    private static final Identifier JSON_LAYOUT =
+        Identifier.fromNamespaceAndPath("neoecoae", "screens/storage/storage_interface");
     private static final int TEXT = 0x3F3D52;
 
     private StorageInterfaceUI() {}
@@ -146,7 +146,7 @@ public final class StorageInterfaceUI {
 
     static boolean canEdit(UIElement element, ECOMachineInterfaceBlockEntity<?> host, Player player) {
         var ui = element.getModularUI();
-        return host.getLevel() != null && !host.getLevel().isClientSide && host.supportsStorageInterfaceUi()
+        return host.getLevel() != null && !host.getLevel().isClientSide() && host.supportsStorageInterfaceUi()
             && player.level() == host.getLevel() && player.blockPosition().distSqr(host.getBlockPos()) <= 64
             && ui != null && ui.getMenu() == player.containerMenu && player.containerMenu.stillValid(player);
     }

@@ -77,7 +77,7 @@ public record ECOProcessingProgress(float progress, boolean hasProgress, State s
 
     public static ECOProcessingProgress read(CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
         if (tag.isEmpty()) return EMPTY;
-        var list = tag.getList("machines", Tag.TAG_COMPOUND);
+        var list = tag.getListOrEmpty("machines");
         var machines = new java.util.ArrayList<Machine>();
         for (int i = 0; i < Math.min(DETAIL_PAGE_SIZE, list.size()); i++) {
             var entry = list.getCompound(i);
@@ -86,7 +86,7 @@ public record ECOProcessingProgress(float progress, boolean hasProgress, State s
                 entry.getLong("parallel"), state(entry.getString("state")), component(entry.getString("reason"), registries)));
         }
         return new ECOProcessingProgress(tag.getFloat("progress"), tag.getBoolean("hasProgress"),
-            state(tag.getString("state")), Math.max(0, tag.getInt("count")), tag.getInt("page"),
+            state(tag.getStringOr("state", "")), Math.max(0, tag.getIntOr("count", 0)), tag.getIntOr("page", 0),
             tag.getBoolean("refreshing"), machines);
     }
 

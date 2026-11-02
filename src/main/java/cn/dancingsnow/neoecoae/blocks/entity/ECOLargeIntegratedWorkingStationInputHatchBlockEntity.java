@@ -79,7 +79,7 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
-        if (level.isClientSide) return;
+        if (level.isClientSide()) return;
         if (isSmartCoolingModule()) {
             if (level.getGameTime() % 20 == 0) pullNetworkCoolant();
             return;
@@ -162,6 +162,6 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
     public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
         super.loadTag(data, registries);
         tank.readFromNBT(registries, data);
-        targetTemperature = data.contains("targetTemperature") ? Math.clamp(data.getInt("targetTemperature"), 0, 99) : 75;
+        targetTemperature = data.contains("targetTemperature") ? Math.clamp(data.getIntOr("targetTemperature", 0), 0, 99) : 75;
     }
 }

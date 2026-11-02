@@ -4,7 +4,7 @@ import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.List;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
@@ -80,7 +80,7 @@ class LargeWorkstationOptionalIntegrationTest {
         var display = new IntegratedWorkingStationRecipe(
             List.of(new SizedIngredient(Ingredient.of(Items.IRON_INGOT), 1)),
             new SizedFluidIngredient(FluidIngredient.empty(), 1), new ItemStack(Items.GOLD_INGOT), FluidStack.EMPTY, 100);
-        return new LargeWorkstationRecipe(ResourceLocation.parse("test:optional_integration"), display, 100,
-            List.of(), ResourceLocation.parse(type));
+        return new LargeWorkstationRecipe(Identifier.parse("test:optional_integration"), display, 100,
+            List.of(), Identifier.parse(type));
     }
 }

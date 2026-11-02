@@ -48,7 +48,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.storage.LevelResource;
 import org.jetbrains.annotations.Nullable;
@@ -261,7 +261,7 @@ public final class CraftingPlanExport {
             } else {
                 out.append("options: cyclePlanning=").append(options.cyclePlanningEnabled())
                     .append(" ignoreSubstitutions=").append(options.ignorePatternSubstitutions())
-                    .append(" fuzzyItems=").append(options.fuzzyPlanningItemIds().stream().map(ResourceLocation::toString)
+                    .append(" fuzzyItems=").append(options.fuzzyPlanningItemIds().stream().map(Identifier::toString)
                         .sorted().toList()).append('\n');
             }
             if (result == null) {
@@ -420,7 +420,7 @@ public final class CraftingPlanExport {
             try {
                 ICraftingService service = grid.getCraftingService();
                 boolean cycles = options == null || options.cyclePlanningEnabled();
-                Set<ResourceLocation> fuzzy = options == null ? Set.of() : options.fuzzyPlanningItemIds();
+                Set<Identifier> fuzzy = options == null ? Set.of() : options.fuzzyPlanningItemIds();
                 var cached = CompiledStructureCache.get(service, CompiledStructureCache.revision(service),
                     AE2PatternIntrospection.reloadGeneration(), goal.what(), cycles, fuzzy);
                 if (cached != null) {

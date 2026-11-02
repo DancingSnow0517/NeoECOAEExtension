@@ -72,7 +72,7 @@ public final class PatternPreviewSync {
 
     /** Restores the last completed client snapshot for this host, if one exists. */
     public ClientSnapshot clientSnapshot() {
-        if (host.getLevel() == null || !host.getLevel().isClientSide) {
+        if (host.getLevel() == null || !host.getLevel().isClientSide()) {
             return null;
         }
         synchronized (CLIENT_CACHE) {
@@ -82,7 +82,7 @@ public final class PatternPreviewSync {
     }
 
     public ClientView clientView() {
-        if (host.getLevel() == null || !host.getLevel().isClientSide) return ClientView.EMPTY;
+        if (host.getLevel() == null || !host.getLevel().isClientSide()) return ClientView.EMPTY;
         synchronized (CLIENT_CACHE) {
             ClientState state = clientCache().get(clientCacheKey());
             return state == null ? ClientView.EMPTY : state.view();
@@ -90,7 +90,7 @@ public final class PatternPreviewSync {
     }
 
     public void cacheClientView(String inputs, String output, int scrollRow) {
-        if (host.getLevel() == null || !host.getLevel().isClientSide) return;
+        if (host.getLevel() == null || !host.getLevel().isClientSide()) return;
         synchronized (CLIENT_CACHE) {
             var cache = clientCache();
             ClientState previous = cache.get(clientCacheKey());
@@ -101,7 +101,7 @@ public final class PatternPreviewSync {
 
     /** Announces a newly opened menu and the client's cached revision to the server. */
     public void requestOpen(int menuId, int cachedRevision, long cachedEpoch) {
-        if (host.getLevel() == null || !host.getLevel().isClientSide) {
+        if (host.getLevel() == null || !host.getLevel().isClientSide()) {
             return;
         }
         CompoundTag payload = new CompoundTag();
@@ -113,7 +113,7 @@ public final class PatternPreviewSync {
 
     /** Stores a completed client snapshot for reuse by the next menu instance. */
     public void cacheClientSnapshot(long epoch, int revision, PatternPreviewEntry[] entries) {
-        if (host.getLevel() == null || !host.getLevel().isClientSide || entries == null) {
+        if (host.getLevel() == null || !host.getLevel().isClientSide() || entries == null) {
             return;
         }
         synchronized (CLIENT_CACHE) {
@@ -230,7 +230,7 @@ public final class PatternPreviewSync {
             if (index < 0 || index >= size) break;
             CompoundTag entry = encode(index);
             // Capacity is described by the provider layout. Empty slots have no content record.
-            if (entry.getCompound("stack").isEmpty() && !entry.getBoolean("diskSlot")
+            if (entry.getCompoundOrEmpty("stack").isEmpty() && !entry.getBooleanOr("diskSlot", false)
                     && entry.getList("disk", net.minecraft.nbt.Tag.TAG_COMPOUND).isEmpty()
                     && entry.getString("inputs").isEmpty() && entry.getString("output").isEmpty()) entry = null;
             if (!java.util.Objects.equals(entry, cachedEntries.get(index))) {
@@ -304,14 +304,14 @@ public final class PatternPreviewSync {
     }
 
     private static void rememberDisk(Viewer viewer, int index, CompoundTag entry) {
-        if (entry.getBoolean("diskSlot")) viewer.disks.put(index, entry.getList("disk", net.minecraft.nbt.Tag.TAG_COMPOUND));
+        if (entry.getBooleanOr("diskSlot", false)) viewer.disks.put(index, entry.getList("disk", net.minecraft.nbt.Tag.TAG_COMPOUND));
         else viewer.disks.remove(index);
     }
 
     private static CompoundTag diskDelta(Viewer viewer, int index, CompoundTag entry) {
         ListTag before = viewer.disks.get(index);
         rememberDisk(viewer, index, entry);
-        if (before == null || !entry.getBoolean("diskSlot")) return entry;
+        if (before == null || !entry.getBooleanOr("diskSlot", false)) return entry;
         ListTag after = entry.getList("disk", net.minecraft.nbt.Tag.TAG_COMPOUND);
         CompoundTag delta = entry.copy();
         delta.remove("disk");
@@ -319,7 +319,7 @@ public final class PatternPreviewSync {
         ListTag changes = new ListTag();
         for (int recipe = 0; recipe < after.size(); recipe++) {
             if (recipe >= before.size() || !after.get(recipe).equals(before.get(recipe))) {
-                CompoundTag changed = after.getCompound(recipe).copy();
+                CompoundTag changed = after.getCompoundOrEmpty(recipe).copy();
                 changed.putInt("recipe", recipe);
                 changes.add(changed);
             }
@@ -413,7 +413,7 @@ public final class PatternPreviewSync {
         payload.putBoolean("last", end == pending.entries.size());
         if (pending.full && pending.offset == 0) {
             payload.put("layout", pending.layout);
-            payload.putIntArray("occupied", pending.entries.stream().mapToInt(entry -> entry.getInt("index")).toArray());
+            payload.putIntArray("occupied", pending.entries.stream().mapToInt(entry -> entry.getIntOr("index", 0)).toArray());
         }
         ListTag batch = new ListTag();
         batch.addAll(pending.entries.subList(pending.offset, end));

@@ -120,7 +120,7 @@ public final class SmartCoolingModuleUI {
     }
 
     private static void setTarget(ECOLargeIntegratedWorkingStationInputHatchBlockEntity host, String text) {
-        if (host.getLevel() == null || host.getLevel().isClientSide) return;
+        if (host.getLevel() == null || host.getLevel().isClientSide()) return;
         try {
             host.setTargetTemperature(Integer.parseInt(text));
         } catch (NumberFormatException ignored) {

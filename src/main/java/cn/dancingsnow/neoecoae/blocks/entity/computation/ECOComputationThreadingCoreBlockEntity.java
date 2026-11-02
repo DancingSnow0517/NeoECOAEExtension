@@ -249,7 +249,7 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
             var cpu = cpus[i];
             boolean exact = cpu != null ? cpu.getLogic().exactInventory().isEnabled()
                 : deferredInit[i] != null && (deferredInit[i].getBoolean("ecoExactInventory")
-                    || deferredInit[i].getCompound("job").getBoolean("exactOrder"));
+                    || deferredInit[i].getCompoundOrEmpty("job").getBooleanOr("exactOrder", false));
             if (!exact) continue;
             CompoundTag saved;
             if (cpu != null) {
@@ -275,7 +275,7 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
             net.minecraft.world.item.component.CustomData.EMPTY).copyTag().getCompound("ecoExactCpuRecovery");
         for (int i = 0; i < deferredInit.length; i++) {
             if (data.contains("CPU" + i) && cpus[i] == null && deferredInit[i] == null) {
-                deferredInit[i] = data.getCompound("CPU" + i).copy();
+                deferredInit[i] = data.getCompoundOrEmpty("CPU" + i).copy();
             }
         }
         setChanged();
@@ -288,11 +288,11 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
         KeyCounter out
     ) {
         ListCraftingInventory inventory = new ListCraftingInventory(ignored -> {});
-        inventory.readFromNBT(cpuTag.getList("inventory", Tag.TAG_COMPOUND), registries);
+        inventory.readFromNBT(cpuTag.getListOrEmpty("inventory"), registries);
         out.addAll(inventory.list);
 
-        CompoundTag jobTag = cpuTag.getCompound("job");
-        long buffered = Math.max(0L, jobTag.getLong("bufferedFinalOutput"));
+        CompoundTag jobTag = cpuTag.getCompoundOrEmpty("job");
+        long buffered = Math.max(0L, jobTag.getLongOr("bufferedFinalOutput", 0L));
         if (buffered <= 0L) {
             return;
         }

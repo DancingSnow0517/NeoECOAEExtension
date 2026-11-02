@@ -21,7 +21,7 @@ public final class StorageInterfaceFilter implements Predicate<AEKey> {
         boolean present = false;
         for (int slot = 0; slot < SLOTS; slot++) {
             String name = Integer.toString(slot);
-            if (!tag.contains(name, Tag.TAG_COMPOUND)) continue;
+            if (!tag.contains(name)) continue;
             present = true;
             AEKey key = get(tag, slot, registries);
             if (key != null) keys.add(key);
@@ -34,8 +34,8 @@ public final class StorageInterfaceFilter implements Predicate<AEKey> {
     public boolean test(AEKey key) { return !configured || keys.contains(key); }
 
     public static @Nullable AEKey get(CompoundTag tag, int slot, HolderLookup.Provider registries) {
-        if (slot < 0 || slot >= SLOTS || !tag.contains(Integer.toString(slot), Tag.TAG_COMPOUND)) return null;
-        return decode(tag.getCompound(Integer.toString(slot)), registries);
+        if (slot < 0 || slot >= SLOTS || !tag.contains(Integer.toString(slot))) return null;
+        return decode(tag.getCompoundOrEmpty(Integer.toString(slot)), registries);
     }
 
     /** Use each registered channel's codec without replacing invalid keys with AE2 missing-content items. */

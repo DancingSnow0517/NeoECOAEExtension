@@ -9,7 +9,7 @@ import java.util.Map;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,8 +17,8 @@ import org.slf4j.LoggerFactory;
 public final class ECOCraftingJobAttachments {
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae");
 
-    private final Map<ResourceLocation, ECOCraftingJobAttachment> bound = new LinkedHashMap<>();
-    private final Map<ResourceLocation, CompoundTag> unboundData = new LinkedHashMap<>();
+    private final Map<Identifier, ECOCraftingJobAttachment> bound = new LinkedHashMap<>();
+    private final Map<Identifier, CompoundTag> unboundData = new LinkedHashMap<>();
 
     public void initialize(ECOCraftingJobContext context) {
         bound.clear();
@@ -35,25 +35,25 @@ public final class ECOCraftingJobAttachments {
 
     public void load(CompoundTag jobData, HolderLookup.Provider registries, ECOCraftingJobContext context) {
         initialize(context);
-        CompoundTag persisted = jobData.getCompound("attachments");
+        CompoundTag persisted = jobData.getCompoundOrEmpty("attachments");
         for (var entry : new ArrayList<>(bound.entrySet())) {
             String id = entry.getKey().toString();
-            if (!persisted.contains(id, Tag.TAG_COMPOUND)) continue;
+            if (!persisted.contains(id)) continue;
             try {
-                entry.getValue().load(persisted.getCompound(id).copy(), registries);
-                unboundData.put(entry.getKey(), persisted.getCompound(id).copy());
+                entry.getValue().load(persisted.getCompoundOrEmpty(id).copy(), registries);
+                unboundData.put(entry.getKey(), persisted.getCompoundOrEmpty(id).copy());
             } catch (RuntimeException failure) {
                 LOGGER.error("ECO job attachment {} could not be restored; preserving raw state", id, failure);
                 bound.remove(entry.getKey());
-                unboundData.put(entry.getKey(), persisted.getCompound(id).copy());
+                unboundData.put(entry.getKey(), persisted.getCompoundOrEmpty(id).copy());
             }
         }
         for (String idString : persisted.getAllKeys()) {
-            ResourceLocation id = ResourceLocation.tryParse(idString);
+            Identifier id = Identifier.tryParse(idString);
             if (id == null) {
                 LOGGER.warn("Ignoring ECO job attachment with invalid id {}", idString);
             } else if (!bound.containsKey(id)) {
-                unboundData.put(id, persisted.getCompound(idString).copy());
+                unboundData.put(id, persisted.getCompoundOrEmpty(idString).copy());
             }
         }
     }
