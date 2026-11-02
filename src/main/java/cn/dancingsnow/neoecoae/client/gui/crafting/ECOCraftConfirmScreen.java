@@ -269,7 +269,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         int localMouseX = mouseX - offsetX;
         int localMouseY = mouseY - offsetY;
         if (ECOCraftReportHeaderRenderer.isHovered(localMouseX, localMouseY)) {
-            drawTooltipWithHeader(graphics, localMouseX, localMouseY, reportSummary.tooltip());
+            // Deferred tooltips use screen coordinates, independent of the foreground pose.
+            drawTooltipWithHeader(graphics, mouseX, mouseY, reportSummary.tooltip());
         }
     }
 

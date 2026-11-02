@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.client.gui.crafting;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import appeng.menu.me.crafting.CraftConfirmMenu;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import java.math.BigInteger;
 import java.util.List;
@@ -10,6 +11,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.state.gui.GuiRenderState;
 import net.minecraft.client.renderer.state.gui.GuiTextRenderState;
 import net.minecraft.network.chat.Component;
@@ -19,6 +22,40 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 class ECOCraftReportHeaderRendererTest {
+    @Test
+    void byteTooltipFollowsTheScreenMouseWhenTheReportMoves() throws Exception {
+        for (int[] origin : List.of(new int[] {0, 0}, new int[] {37, 61}, new int[] {241, 133})) {
+            var screen = mock(ECOCraftConfirmScreen.class);
+            var graphics = graphics();
+            graphics.pose().translate(origin[0], origin[1]);
+            var summary = ECOCraftReportHeaderRenderer.pending(Component.literal("Calculating..."));
+            setField(AbstractContainerScreen.class, screen, "menu", mock(CraftConfirmMenu.class));
+            setField(Screen.class, screen, "font", mock(Font.class));
+            setField(ECOCraftConfirmScreen.class, screen, "reportSummary", summary);
+            setField(ECOCraftConfirmScreen.class, screen, "cycleItems", mock(ECOCycleItemListRenderer.class));
+            doCallRealMethod().when(screen).drawFG(any(), anyInt(), anyInt(), anyInt(), anyInt());
+
+            int mouseX = origin[0] + 70;
+            int mouseY = origin[1] + 12;
+            screen.drawFG(graphics, origin[0], origin[1], mouseX, mouseY);
+            verify(screen).drawTooltipWithHeader(graphics, mouseX, mouseY, summary.tooltip());
+
+            clearInvocations(screen);
+            for (int[] outside : List.of(new int[] {52, 12}, new int[] {155, 12},
+                    new int[] {70, 4}, new int[] {70, 20})) {
+                screen.drawFG(graphics, origin[0], origin[1],
+                    origin[0] + outside[0], origin[1] + outside[1]);
+            }
+            verify(screen, never()).drawTooltipWithHeader(any(), anyInt(), anyInt(), anyList());
+        }
+    }
+
+    private static void setField(Class<?> owner, Object target, String name, Object value) throws Exception {
+        var field = owner.getDeclaredField(name);
+        field.setAccessible(true);
+        field.set(target, value);
+    }
+
     @Test
     void byteRowAndProgressStayInsideTheTextAreaWhenTheWindowMoves() {
         for (int[] origin : List.of(new int[] {0, 0}, new int[] {37, 61}, new int[] {241, 133})) {
