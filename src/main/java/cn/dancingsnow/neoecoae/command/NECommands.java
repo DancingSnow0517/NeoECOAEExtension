@@ -33,6 +33,20 @@ public final class NECommands {
                     "The next crafting calculation you open will be exported with all network patterns."), false);
                 return 1;
             }))
+            // Development aid: opens a block's LDLib UI for the executing player (used by GUI sync smoke tests).
+            .then(literal("debug_open_ui")
+                .requires(source -> !net.neoforged.fml.loading.FMLEnvironment.isProduction())
+                .then(net.minecraft.commands.Commands.argument("pos", net.minecraft.commands.arguments.coordinates.BlockPosArgument.blockPos())
+                    .executes(context -> {
+                        var pos = net.minecraft.commands.arguments.coordinates.BlockPosArgument.getLoadedBlockPos(context, "pos");
+                        var player = context.getSource().getPlayerOrException();
+                        String block = net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                            .getKey(player.level().getBlockState(pos).getBlock()).toString();
+                        org.slf4j.LoggerFactory.getLogger("neoecoae").info("[debug_open_ui] opening {} at {}", block, pos);
+                        boolean opened = com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType.openUI(player, pos);
+                        org.slf4j.LoggerFactory.getLogger("neoecoae").info("[debug_open_ui] {} opened={}", block, opened);
+                        return opened ? 1 : 0;
+                    })))
             .then(literal("clear_fx_workers").executes(context -> clearFxWorkers(context.getSource())))
             .then(literal("storage_report").executes(context -> storageReport(context.getSource(), null))
                 .then(net.minecraft.commands.Commands.argument("pos", net.minecraft.commands.arguments.coordinates.BlockPosArgument.blockPos())
