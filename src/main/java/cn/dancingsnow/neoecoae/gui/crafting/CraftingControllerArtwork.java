@@ -102,7 +102,7 @@ final class CraftingControllerArtwork extends UIElement {
         opening.reset();
     }
 
-    private UIElement tooltipRegion(int x, int y, int width, int height, Supplier<List<Component>> lines) {
+    private UIElement tooltipRegion(int x, int y, int width, int height, Supplier<? extends List<?>> lines) {
         return new UIElement().layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
             .left(x).top(y).width(width).height(height))
             .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(

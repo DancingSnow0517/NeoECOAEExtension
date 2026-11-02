@@ -515,6 +515,16 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.ui.runtime_ticks_short", "Time %st");
         provider.add("gui.neoecoae.crafting.ui.virtual_crafting", "Virtual Crafting");
         provider.add("gui.neoecoae.crafting.ui.virtual_crafting_short", "Virtual");
+        provider.add("gui.neoecoae.crafting.ui.parallel_card.multiple", "×%s Limit");
+        provider.add("gui.neoecoae.crafting.ui.parallel_card.overflow", "Overflow");
+        provider.add("gui.neoecoae.crafting.ui.parallel_card.within", "Within Limit");
+        provider.add("gui.neoecoae.crafting.ui.parallel_card.excess", "Excess");
+        provider.add("gui.neoecoae.crafting.ui.parallel_card.runtime", "Runtime");
+        provider.add("gui.neoecoae.crafting.ui.parallel_card.overclock", "Overclock");
+        provider.add("gui.neoecoae.crafting.ui.queue_card.full", "Full");
+        provider.add("gui.neoecoae.crafting.ui.queue_card.idle", "Idle");
+        provider.add("gui.neoecoae.crafting.ui.queue_card.active", "Active");
+        provider.add("gui.neoecoae.crafting.ui.queue_card.used", "Capacity Used");
         provider.add("gui.neoecoae.crafting.ui.fx_short", "FX %s / %s");
         provider.add("gui.neoecoae.crafting.ui.ft_short", "FT %s");
         provider.add("gui.neoecoae.crafting.ui.queue", "Queue %s / %s");
