@@ -39,7 +39,9 @@ public class ECOComputationDrive extends NEBlock<ECOComputationDriveBlockEntity>
             if (level.getBlockEntity(pos) instanceof ECOComputationDriveBlockEntity be) {
                 if (be.getCellStack() == null) {
                     if (level.isClientSide()) return InteractionResult.SUCCESS;
-                    be.setCellStack(heldItem.copyWithCount(1));
+                    ItemStack installed = heldItem.copyWithCount(1);
+                    be.setCellStack(installed);
+                    if (be.getCellStack() != installed) return InteractionResult.PASS;
                     if (!player.isCreative()) {
                         heldItem.shrink(1);
                         if (heldItem.isEmpty()) {
@@ -56,10 +58,11 @@ public class ECOComputationDrive extends NEBlock<ECOComputationDriveBlockEntity>
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (level.getBlockEntity(pos) instanceof ECOComputationDriveBlockEntity be) {
-            if (!be.getCellStack().isEmpty() && player.isShiftKeyDown()) {
+            if (be.getCellStack() != null && player.isShiftKeyDown() && player.getMainHandItem().isEmpty()) {
                 if (level.isClientSide()) return InteractionResult.SUCCESS;
                 ItemStack cellStack = be.getCellStack();
-                be.setCellStack(ItemStack.EMPTY);
+                be.setCellStack(null);
+                if (be.getCellStack() != null) return InteractionResult.PASS;
                 player.setItemInHand(InteractionHand.MAIN_HAND, cellStack);
                 return InteractionResult.SUCCESS_SERVER;
             }

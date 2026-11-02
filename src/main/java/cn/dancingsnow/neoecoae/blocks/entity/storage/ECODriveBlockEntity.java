@@ -92,7 +92,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     @Nullable
     public ItemStack getCellStack() {
         flushPendingCellWrites();
-        return cellStack;
+        return cellStack == null || cellStack.isEmpty() ? null : cellStack;
     }
 
     /** Writes cell contents deferred to the end of the tick; required before the stack is read, saved or moved. */
@@ -121,18 +121,17 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         ECOStorageSystemBlockEntity controller = getStorageController();
         if (controller != null) controller.rememberInfiniteMembers();
         ECOStorageCells.releaseCellInventory(this.cellStack, this);
-        this.cellStack = cellStack;
+        this.cellStack = cellStack == null ? ItemStack.EMPTY : cellStack;
         cellInteractionId = UUID.randomUUID();
         invalidateCellInventoryCache();
         if (getLevel() != null && !isServerStopping()) {
             BlockState state = getBlockState();
-            BlockState newState = state.setValue(ECODriveBlock.HAS_CELL, cellStack != null);
+            BlockState newState = state.setValue(ECODriveBlock.HAS_CELL, !this.cellStack.isEmpty());
             if (newState != state) {
                 getLevel().setBlockAndUpdate(getBlockPos(), newState);
             }
         }
         updateState();
-        this.cellStack = cellStack;
         setChanged();
         if (controller != null) controller.notifyStorageConfigurationChanged();
     }
@@ -219,7 +218,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
         flushPendingCellWrites();
-        if (cellStack != null) {
+        if (cellStack != null && !cellStack.isEmpty()) {
             drops.add(cellStack);
         }
     }

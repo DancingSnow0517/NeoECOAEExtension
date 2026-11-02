@@ -34,8 +34,11 @@ class StorageIntegrationApiTest {
     }
 
     @Test
-    void emptyStorageSlotHasNoExtractionRestrictionAndRejectsEmptyStack() {
+    void emptyStorageSlotHasNoExtractionRestrictionAndRejectsEmptyStack() throws Exception {
         var drive = mock(ECODriveBlockEntity.class, CALLS_REAL_METHODS);
+        var field = ECODriveBlockEntity.class.getDeclaredField("cellStack");
+        field.setAccessible(true);
+        field.set(drive, ItemStack.EMPTY);
         ICellHost cellHost = drive;
         assertNull(cellHost.getCellStack());
         assertTrue(cellHost.canExtractCell());
@@ -66,6 +69,7 @@ class StorageIntegrationApiTest {
         assertNull(cellHost.getCellExtractionBlockReasonText());
         cellHost.setCellStack(null);
         assertNull(cellHost.getCellStack());
+        assertSame(ItemStack.EMPTY, field.get(drive));
         verify(drive).setChanged();
     }
 

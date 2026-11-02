@@ -35,9 +35,12 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
     protected InteractionResult useItemOn(ItemStack heldItem, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity be
             && be.getCellStack() == null
+            && be.canExtractCell()
             && be.isItemValid(heldItem)) {
             if (level.isClientSide()) return InteractionResult.SUCCESS;
-            be.setCellStack(heldItem.copyWithCount(1));
+            ItemStack installed = heldItem.copyWithCount(1);
+            be.setCellStack(installed);
+            if (be.getCellStack() != installed) return InteractionResult.PASS;
             if (!player.isCreative()) {
                 heldItem.shrink(1);
                 if (heldItem.isEmpty()) {
@@ -52,7 +55,7 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity be) {
-            if (be.getCellStack() != null && player.isShiftKeyDown()) {
+            if (be.getCellStack() != null && player.isShiftKeyDown() && player.getMainHandItem().isEmpty()) {
                 if (level.isClientSide()) return InteractionResult.SUCCESS;
                 var reason = be.getCellExtractionBlockReason();
                 if (reason != ECODriveBlockEntity.CellExtractionBlockReason.NONE) {
@@ -60,7 +63,8 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
                     return InteractionResult.SUCCESS;
                 }
                 ItemStack cellStack = be.getCellStack();
-                be.setCellStack(ItemStack.EMPTY);
+                be.setCellStack(null);
+                if (be.getCellStack() != null) return InteractionResult.PASS;
                 player.setItemInHand(InteractionHand.MAIN_HAND, cellStack);
                 return InteractionResult.SUCCESS_SERVER;
             }

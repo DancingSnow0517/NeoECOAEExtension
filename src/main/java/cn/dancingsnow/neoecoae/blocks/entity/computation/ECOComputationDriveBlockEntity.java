@@ -32,7 +32,6 @@ public class ECOComputationDriveBlockEntity
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
-    @Getter
     @DescSynced
     @Persisted
     @RequireRerender
@@ -69,11 +68,16 @@ public class ECOComputationDriveBlockEntity
     }
 
     @Override
+    @Nullable
+    public ItemStack getCellStack() {
+        return cellStack == null || cellStack.isEmpty() ? null : cellStack;
+    }
+
+    @Override
     public void setCellStack(@Nullable ItemStack cellStack) {
         if (cellStack != null && !isItemValid(cellStack)) return;
-        this.cellStack = cellStack;
-        // null clears the slot (ICellHost contract); the 26.1 HAS_CELL block-state update must tolerate it.
-        boolean hasCell = cellStack != null && !cellStack.isEmpty();
+        this.cellStack = cellStack == null ? ItemStack.EMPTY : cellStack;
+        boolean hasCell = !this.cellStack.isEmpty();
         if (getLevel() != null) {
             getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECOComputationDrive.HAS_CELL, hasCell));
         }
