@@ -273,7 +273,7 @@ final class ComputationControllerArtwork extends UIElement {
         Component title = Component.translatable("gui.neoecoae.computation.ui.title");
         context.graphics.text(font, font.plainSubstrByWidth(title.getString(), 92),
             Math.round(getPositionX()) + HostText.TITLE_X,
-            Math.round(getPositionY()) + HostText.TITLE_Y, PANEL_PRIMARY, true);
+            Math.round(getPositionY()) + HostText.TITLE_Y, 0xFF404040, false);
         drawText(context, Component.translatable("gui.neoecoae.computation.ui.control_heading"), 9, 90, TEXT_COLOR);
         drawSwitchLabels(context);
         for (int i = 0; i < PANEL_KEYS.length; i++) {

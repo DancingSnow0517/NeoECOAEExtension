@@ -164,7 +164,7 @@ final class StorageHostCharts {
                 Font font = Minecraft.getInstance().font;
                 String title = Component.translatable("gui.neoecoae.storage.ui.title").getString();
                 context.graphics.text(font, font.plainSubstrByWidth(title, (int) getSizeWidth()),
-                    Math.round(getPositionX()), Math.round(getPositionY()), 0xFFE4E4EE, true);
+                    Math.round(getPositionX()), Math.round(getPositionY()), 0xFF404040, false);
                 return;
             }
             if (metric.equals("energy")) {
