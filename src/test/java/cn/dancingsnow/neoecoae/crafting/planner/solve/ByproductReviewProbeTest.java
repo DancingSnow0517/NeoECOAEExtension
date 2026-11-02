@@ -76,8 +76,10 @@ class ByproductReviewProbeTest {
         assertEquals(5L, stock.get(ore), "Planning must not mutate real inventory");
         var provenance = result.provenance();
         provenance.requireComplete();
+        // Slag has no AE producer of its own, so it is planned through upstream's byproduct view; either view
+        // attributes it to the same five upstream firings.
         assertTrue(provenance.allocationsFor(finish).stream().anyMatch(a -> a.material().equals(slag)
-            && a.source().equals(new MaterialSource.PatternOutput(upstream, false))));
+            && a.source() instanceof MaterialSource.PatternOutput output && output.pattern() == upstream));
         replay(result, stock, goal, 5);
     }
 
@@ -95,14 +97,16 @@ class ByproductReviewProbeTest {
         replay(result, stock(ore, 1), goal, 1);
     }
 
-    @Test void byproductShortfallNeverAddsFiringsToItsSource() throws Exception {
+    @Test void byproductShortfallRunsItsSourceAgain() throws Exception {
+        // AE2 lists upstream only under ingot. Slag has no other producer, so its shortfall runs upstream again
+        // (electrolysis for oxygen) instead of being reported missing; the extra ingots are surplus.
         var upstream = pattern(List.of(stack(ore)), stack(ingot), stack(slag));
         var finish = pattern(List.of(new GenericStack(slag, 3), stack(ingot)), stack(goal));
         var result = plan(service(upstream, finish), stock(ore, 10), goal, 1, true);
-        assertEquals(PlanningStatus.MISSING_ITEMS, result.status());
-        assertEquals(1L, result.plan().patternTimes().get(upstream));
-        assertEquals(PlannerAmount.of(2), result.exactMissingItems().get(slag));
-        assertEquals(PlannerAmount.ONE, result.exactUsedItems().get(ore));
+        assertEquals(PlanningStatus.SUCCESS, result.status(), result.trace().diagnostics().toString());
+        assertEquals(3L, result.plan().patternTimes().get(upstream));
+        assertTrue(result.exactMissingItems().isEmpty());
+        assertEquals(PlannerAmount.of(3), result.exactUsedItems().get(ore));
     }
 
     @Test void requestingOnlyAByproductNeverStartsThePrimaryRecipe() throws Exception {
@@ -171,8 +175,9 @@ class ByproductReviewProbeTest {
         assertEquals(PlanningStatus.MISSING_ITEMS, result.status());
         assertFalse(result.plan().patternTimes().containsKey(rejected));
         assertFalse(result.exactUsedItems().containsKey(missing));
-        assertEquals(1L, result.plan().patternTimes().get(accepted));
-        assertEquals(PlannerAmount.ONE, result.exactMissingItems().get(slag));
+        // The second slag comes from a second accepted firing, so the shortfall is its ore, not the slag.
+        assertEquals(2L, result.plan().patternTimes().get(accepted));
+        assertEquals(PlannerAmount.ONE, result.exactMissingItems().get(ore));
         assertTrue(result.provenance().supplierAmountsOf(slag).keySet().stream().noneMatch(source ->
             source instanceof MaterialSource.PatternOutput output && output.pattern() == rejected));
     }

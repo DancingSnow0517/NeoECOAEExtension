@@ -15,8 +15,10 @@ import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECORecipeClassifier;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -79,72 +81,126 @@ public final class CraftingNetworkCompiler {
         int nextPatternId = 0;
         int edgeCount = 0;
 
-        while (!work.isEmpty()) {
-            cancellation.checkpoint();
-            AEKey key = work.removeFirst();
-            if (service.canEmitFor(key)) {
-                emittable.add(key);
-            }
-            List<CompiledPattern> compiled = new ArrayList<>();
-            Set<PatternDefinition> definitions = new HashSet<>();
-            boolean componentInsensitiveOutput = !key.equals(goal) && ignoresComponents(key, ignoredItemIds);
-            List<IPatternDetails> offered = new ArrayList<>();
-            for (IPatternDetails details : craftingFor(service, key, componentInsensitiveOutput)) {
+        while (true) {
+            while (!work.isEmpty()) {
                 cancellation.checkpoint();
-                PatternDefinition definition = patternDefinition(details);
-                if (definition == null || definitions.add(definition)) offered.add(details);
-            }
-            // AE2 advertises every output of a pattern. A pattern that yields this key only as a byproduct is
-            // not a route to it while a fast-plannable pattern makes it as its primary output: its byproduct is
-            // still credited whenever it runs for its own product, but it no longer multiplies producer choices,
-            // structural cycles and fallback route attempts. Keys obtainable only as byproducts, or whose primary
-            // producers cannot be fast-planned, keep those producers. AE's producer order is kept either way.
-            CompiledPattern[] byOffer = new CompiledPattern[offered.size()];
-            boolean primaryPlannable = false;
-            for (int i = 0; i < offered.size(); i++) {
-                if (!producesAsPrimary(offered.get(i), key, componentInsensitiveOutput)) continue;
-                cancellation.checkpoint();
-                byOffer[i] = compilePattern(nextPatternId++, offered.get(i), key, cyclePlanningEnabled,
-                    ignoredItemIds, componentInsensitiveOutput, service);
-                primaryPlannable |= byOffer[i].fastSupported();
-            }
-            for (int i = 0; i < offered.size() && !primaryPlannable; i++) {
-                if (byOffer[i] != null) continue;
-                cancellation.checkpoint();
-                byOffer[i] = compilePattern(nextPatternId++, offered.get(i), key, cyclePlanningEnabled,
-                    ignoredItemIds, componentInsensitiveOutput, service);
-            }
-            for (CompiledPattern pattern : byOffer) {
-                if (pattern == null) continue;
-                compiled.add(pattern);
-                for (CompiledInput input : pattern.inputs()) {
-                    edgeCount++;
-                    if (queued.add(input.key())) {
-                        work.addLast(input.key());
-                    }
-                    // The solver may select a reusable substitute from stock, or fall back from it to a
-                    // durability-mutating member. Compile those producer chains now; inventory is intentionally
-                    // unavailable at this stage.
-                    for (AEKey alternative : remainderAlternatives(input)) {
-                        if (queued.add(alternative)) {
-                            edgeCount++;
-                            work.addLast(alternative);
-                        }
-                    }
+                AEKey key = work.removeFirst();
+                if (service.canEmitFor(key)) {
+                    emittable.add(key);
                 }
-                for (AEKey returned : pattern.semantics().returnedKeys()) {
-                    edgeCount++;
-                    if (queued.add(returned)) work.addLast(returned);
+                List<CompiledPattern> compiled = new ArrayList<>();
+                Set<PatternDefinition> definitions = new HashSet<>();
+                boolean componentInsensitiveOutput = !key.equals(goal) && ignoresComponents(key, ignoredItemIds);
+                List<IPatternDetails> offered = new ArrayList<>();
+                for (IPatternDetails details : craftingFor(service, key, componentInsensitiveOutput)) {
+                    cancellation.checkpoint();
+                    PatternDefinition definition = patternDefinition(details);
+                    if (definition == null || definitions.add(definition)) offered.add(details);
                 }
-                for (var feedback : pattern.semantics().feedbackEdges()) {
-                    edgeCount++;
-                    if (queued.add(feedback.returnedKey())) work.addLast(feedback.returnedKey());
-                    if (queued.add(feedback.dependentOutput())) work.addLast(feedback.dependentOutput());
+                // AE2 registers a pattern under its primary output only; extended crafting services may also offer
+                // patterns that yield this key as a byproduct. Such a pattern is not a route to the key while a
+                // fast-plannable pattern makes it as its primary output: its byproduct is still credited whenever it
+                // runs for its own product, but it no longer multiplies producer choices, structural cycles and
+                // fallback route attempts. Keys obtainable only as byproducts, or whose primary producers cannot be
+                // fast-planned, keep those producers. AE's producer order is kept either way.
+                CompiledPattern[] byOffer = new CompiledPattern[offered.size()];
+                boolean primaryPlannable = false;
+                for (int i = 0; i < offered.size(); i++) {
+                    if (!producesAsPrimary(offered.get(i), key, componentInsensitiveOutput)) continue;
+                    cancellation.checkpoint();
+                    byOffer[i] = compilePattern(nextPatternId++, offered.get(i), key, cyclePlanningEnabled,
+                        ignoredItemIds, componentInsensitiveOutput, service);
+                    primaryPlannable |= byOffer[i].fastSupported();
+                }
+                for (int i = 0; i < offered.size() && !primaryPlannable; i++) {
+                    if (byOffer[i] != null) continue;
+                    cancellation.checkpoint();
+                    byOffer[i] = compilePattern(nextPatternId++, offered.get(i), key, cyclePlanningEnabled,
+                        ignoredItemIds, componentInsensitiveOutput, service);
+                }
+                for (CompiledPattern pattern : byOffer) {
+                    if (pattern == null) continue;
+                    compiled.add(pattern);
+                    edgeCount += enqueue(pattern, queued, work);
+                }
+                producers.put(key, compiled);
+            }
+            // Vanilla AE2 does not list a key that every pattern makes only as a byproduct (electrolysis oxygen,
+            // for example), so the loop above found no plannable producer for it. Running such a pattern for that
+            // key is still valid: give the key byproduct views of the compiled patterns that yield it. Their inputs
+            // are already queued, so this normally settles in one pass; new keys go back through the loop above.
+            int before = nextPatternId;
+            List<IPatternDetails> known = new ArrayList<>();
+            Set<IPatternDetails> knownIdentity = Collections.newSetFromMap(new IdentityHashMap<>());
+            Set<PatternDefinition> knownDefinitions = new HashSet<>();
+            for (List<CompiledPattern> views : producers.values()) {
+                for (CompiledPattern view : views) {
+                    if (!knownIdentity.add(view.details())) continue;
+                    PatternDefinition definition = patternDefinition(view.details());
+                    if (definition == null || knownDefinitions.add(definition)) known.add(view.details());
                 }
             }
-            producers.put(key, compiled);
+            for (var entry : producers.entrySet()) {
+                AEKey key = entry.getKey();
+                if (emittable.contains(key)
+                        || entry.getValue().stream().anyMatch(CompiledPattern::fastSupported)) continue;
+                boolean componentInsensitiveOutput = !key.equals(goal) && ignoresComponents(key, ignoredItemIds);
+                Set<IPatternDetails> present = Collections.newSetFromMap(new IdentityHashMap<>());
+                for (CompiledPattern view : entry.getValue()) present.add(view.details());
+                List<CompiledPattern> extended = null;
+                for (IPatternDetails details : known) {
+                    if (present.contains(details) || !yields(details, key, componentInsensitiveOutput)) continue;
+                    cancellation.checkpoint();
+                    CompiledPattern view = compilePattern(nextPatternId++, details, key, cyclePlanningEnabled,
+                        ignoredItemIds, componentInsensitiveOutput, service);
+                    if (extended == null) extended = new ArrayList<>(entry.getValue());
+                    extended.add(view);
+                    edgeCount += enqueue(view, queued, work);
+                }
+                if (extended != null) entry.setValue(extended);
+            }
+            if (work.isEmpty() || nextPatternId == before) break;
         }
         return new CompiledNetwork(goal, producers, emittable, nextPatternId, edgeCount);
+    }
+
+    /** Queues every key the pattern can depend on and returns the number of dependency edges it adds. */
+    private static int enqueue(CompiledPattern pattern, Set<AEKey> queued, ArrayDeque<AEKey> work) {
+        int edges = 0;
+        for (CompiledInput input : pattern.inputs()) {
+            edges++;
+            if (queued.add(input.key())) {
+                work.addLast(input.key());
+            }
+            // The solver may select a reusable substitute from stock, or fall back from it to a
+            // durability-mutating member. Compile those producer chains now; inventory is intentionally
+            // unavailable at this stage.
+            for (AEKey alternative : remainderAlternatives(input)) {
+                if (queued.add(alternative)) {
+                    edges++;
+                    work.addLast(alternative);
+                }
+            }
+        }
+        for (AEKey returned : pattern.semantics().returnedKeys()) {
+            edges++;
+            if (queued.add(returned)) work.addLast(returned);
+        }
+        for (var feedback : pattern.semantics().feedbackEdges()) {
+            edges++;
+            if (queued.add(feedback.returnedKey())) work.addLast(feedback.returnedKey());
+            if (queued.add(feedback.dependentOutput())) work.addLast(feedback.dependentOutput());
+        }
+        return edges;
+    }
+
+    /** One of the pattern's outputs, primary or byproduct, is {@code key}. */
+    private static boolean yields(IPatternDetails details, AEKey key, boolean componentInsensitiveOutput) {
+        for (GenericStack output : safeOutputs(details)) {
+            if (output == null || output.what() == null) continue;
+            if (output.what().equals(key) || componentInsensitiveOutput && sameItem(key, output.what())) return true;
+        }
+        return false;
     }
 
     /**
