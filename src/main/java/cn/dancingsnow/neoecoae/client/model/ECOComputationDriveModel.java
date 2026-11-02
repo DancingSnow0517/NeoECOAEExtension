@@ -37,10 +37,12 @@ public class ECOComputationDriveModel implements DynamicBlockStateModel {
 
     private final BlockStateModelPart baseModel;
     private final Map<Item, Entry> cellModels;
-    private final Map<IECOTier, Entry> cableDownModels;
-    private final Map<IECOTier, Entry> cableUpModels;
+    // Baked by model ID; the (tier, host block) entry is resolved per render through ECOComputationModels.
+    private final Map<Identifier, BlockStateModelPart> cableDownModels;
+    private final Map<Identifier, BlockStateModelPart> cableUpModels;
 
-    public ECOComputationDriveModel(BlockStateModelPart baseModel, Map<Item, Entry> cellModels, Map<IECOTier, Entry> cableDownModels, Map<IECOTier, Entry> cableUpModels) {
+    public ECOComputationDriveModel(BlockStateModelPart baseModel, Map<Item, Entry> cellModels,
+            Map<Identifier, BlockStateModelPart> cableDownModels, Map<Identifier, BlockStateModelPart> cableUpModels) {
         this.baseModel = baseModel;
         this.cellModels = cellModels;
         this.cableDownModels = cableDownModels;
@@ -89,13 +91,11 @@ public class ECOComputationDriveModel implements DynamicBlockStateModel {
 
             // cable model part
             if (formed) {
-                Entry model = be.isLowerDrive() ? cableDownModels.get(cableTier) : cableUpModels.get(cableTier);
-                if (model != null) {
-                    if (shouldCellWork) {
-                        parts.add(model.formedModel());
-                    } else {
-                        parts.add(model.normalModel());
-                    }
+                var entry = ECOComputationModels.resolveCableModels(cableTier, state.getBlock());
+                if (entry != null) {
+                    var baked = be.isLowerDrive() ? cableDownModels : cableUpModels;
+                    var part = baked.get(shouldCellWork ? entry.formedModel() : entry.normalModel());
+                    if (part != null) parts.add(part);
                 }
             }
         });
@@ -115,8 +115,8 @@ public class ECOComputationDriveModel implements DynamicBlockStateModel {
         @Override
         public BlockStateModel bake(ModelBaker modelBakery) {
             final Map<Item, Entry> cellModels = new IdentityHashMap<>();
-            final Map<IECOTier, Entry> cableDownModels = new IdentityHashMap<>();
-            final Map<IECOTier, Entry> cableUpModels = new IdentityHashMap<>();
+            final Map<Identifier, BlockStateModelPart> cableDownModels = new java.util.HashMap<>();
+            final Map<Identifier, BlockStateModelPart> cableUpModels = new java.util.HashMap<>();
 
             ModelState modelState = variant.modelState().asModelState();
             var baseModel = SimpleModelWrapper.bake(modelBakery, variant.modelLocation(), modelState);
@@ -129,16 +129,10 @@ public class ECOComputationDriveModel implements DynamicBlockStateModel {
                 ));
             }
 
-            for (var entry : ECOComputationModels.getCableRegistry().entrySet()) {
-                ECOComputationModels.Entry model = entry.getValue();
-                cableUpModels.put(entry.getKey(), new Entry(
-                    SimpleModelWrapper.bake(modelBakery, model.normalModel(), modelState),
-                    SimpleModelWrapper.bake(modelBakery, model.formedModel(), modelState)
-                ));
-                cableDownModels.put(entry.getKey(), new Entry(
-                    SimpleModelWrapper.bake(modelBakery, model.normalModel(), new ComposedModelState(modelState, upsideDown)),
-                    SimpleModelWrapper.bake(modelBakery, model.formedModel(), new ComposedModelState(modelState, upsideDown))
-                ));
+            var downState = new ComposedModelState(modelState, upsideDown);
+            for (var model : ECOComputationModels.getCableModels()) {
+                cableUpModels.put(model, SimpleModelWrapper.bake(modelBakery, model, modelState));
+                cableDownModels.put(model, SimpleModelWrapper.bake(modelBakery, model, downState));
             }
 
             return new ECOComputationDriveModel(baseModel, cellModels, cableDownModels, cableUpModels);
@@ -149,10 +143,7 @@ public class ECOComputationDriveModel implements DynamicBlockStateModel {
             resolver.markDependency(variant.modelLocation());
 
             // cable models
-            ECOComputationModels.getCableRegistry().values().forEach(entry -> {
-                resolver.markDependency(entry.normalModel());
-                resolver.markDependency(entry.formedModel());
-            });
+            ECOComputationModels.getCableModels().forEach(resolver::markDependency);
 
             // cell models
             ECOComputationModels.getCellRegistry().values().forEach(entry -> {

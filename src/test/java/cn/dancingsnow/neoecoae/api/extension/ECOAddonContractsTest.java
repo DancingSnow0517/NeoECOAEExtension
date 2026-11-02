@@ -133,16 +133,36 @@ class ECOAddonContractsTest {
         assertThrows(IllegalArgumentException.class, () -> new ECOComputationCells.Memory(ECOTier.L4, -1));
     }
 
-    // 26.1 port: host-specific cable models (registerCableModel(tier, block, ...)) were removed from ECOComputationModels;
-    // only the per-tier lookup remains.
-    @Test void tierCableModelsAreRegisteredAndMissingModelsAreSafe() {
+    @Test void hostSpecificCableModelsRetainTheTierLookupAndMissingModelsAreSafe() {
         IECOTier tier = mock(IECOTier.class);
         var normal = id("normal"); var formed = id("formed");
+        var hostNormal = id("host_normal"); var hostFormed = id("host_formed");
         ECOComputationModels.registerCableModel(tier, normal, formed);
+        ECOComputationModels.registerCableModel(tier, Blocks.GOLD_BLOCK, hostNormal, hostFormed);
         assertEquals(formed, ECOComputationModels.getCableRegistry().get(tier).formedModel());
-        assertEquals(normal, ECOComputationModels.getCableRegistry().get(tier).normalModel());
-        assertNull(ECOComputationModels.getCableRegistry().get(mock(IECOTier.class)));
+        assertEquals(hostFormed, ECOComputationModels.getCableConnectedModel(tier, Blocks.GOLD_BLOCK));
+        assertEquals(normal, ECOComputationModels.getCableDisconnectedModel(tier, Blocks.STONE));
+        assertEquals(formed, ECOComputationModels.getCableConnectedModel(tier, null));
+        assertTrue(ECOComputationModels.getCableModels().containsAll(java.util.Set.of(normal, formed, hostNormal, hostFormed)));
+        assertNull(ECOComputationModels.getCableConnectedModel(mock(IECOTier.class), Blocks.GOLD_BLOCK));
         assertNull(ECOComputationModels.getCellRegistry().get(Items.STICK));
+    }
+
+    @Test void cableModelProvidersTakePriorityAndDeclareAdditionalModels() {
+        IECOTier tier = mock(IECOTier.class);
+        var providerId = id("cable_provider");
+        var dynamicNormal = id("dynamic_normal"); var dynamicFormed = id("dynamic_formed");
+        ECOComputationModels.registerCableModel(tier, id("static_normal"), id("static_formed"));
+        ECOComputationModels.registerAdditionalModel(dynamicNormal);
+        ECOComputationModels.registerAdditionalModel(dynamicFormed);
+        ECOComputationModels.registerCableModelProvider(providerId, 0, (requested, host) ->
+            requested == tier && host == Blocks.DIAMOND_BLOCK ? new ECOComputationModels.Entry(dynamicNormal, dynamicFormed) : null);
+        try {
+            assertEquals(dynamicFormed, ECOComputationModels.getCableConnectedModel(tier, Blocks.DIAMOND_BLOCK));
+            assertEquals(id("static_formed"), ECOComputationModels.getCableConnectedModel(tier, Blocks.STONE));
+            assertTrue(ECOComputationModels.getCableModels().containsAll(java.util.Set.of(dynamicNormal, dynamicFormed)));
+        } finally { ECOComputationModels.unregisterCableModelProvider(providerId); }
+        assertEquals(id("static_formed"), ECOComputationModels.getCableConnectedModel(tier, Blocks.DIAMOND_BLOCK));
     }
 
     @Test void builtInFeatureEligibilityIsPreservedAndAddonTiersCanOptIn() {

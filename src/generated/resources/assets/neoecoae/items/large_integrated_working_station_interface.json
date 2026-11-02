@@ -1,6 +1,61 @@
 {
   "model": {
-    "type": "minecraft:model",
-    "model": "neoecoae:item/large_integrated_working_station_interface"
+    "type": "minecraft:select",
+    "cases": [
+      {
+        "model": {
+          "type": "minecraft:model",
+          "model": "neoecoae:block/large_integrated_working_station_compat/advanced_ae_off"
+        },
+        "when": "advanced_ae"
+      },
+      {
+        "model": {
+          "type": "minecraft:model",
+          "model": "neoecoae:block/large_integrated_working_station_compat/extendedae_off"
+        },
+        "when": "extendedae"
+      },
+      {
+        "model": {
+          "type": "minecraft:model",
+          "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_off"
+        },
+        "when": "ae2cs"
+      },
+      {
+        "model": {
+          "type": "minecraft:model",
+          "model": "neoecoae:block/large_integrated_working_station_compat/aelt_off"
+        },
+        "when": "aelt"
+      },
+      {
+        "model": {
+          "type": "minecraft:model",
+          "model": "neoecoae:block/large_integrated_working_station_compat/other_off"
+        },
+        "when": "other"
+      },
+      {
+        "model": {
+          "type": "minecraft:model",
+          "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_off"
+        },
+        "when": "data_energistics"
+      },
+      {
+        "model": {
+          "type": "minecraft:model",
+          "model": "neoecoae:block/large_integrated_working_station_compat/appgen_off"
+        },
+        "when": "appgen"
+      }
+    ],
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "neoecoae:item/large_integrated_working_station_interface"
+    },
+    "property": "minecraft:custom_model_data"
   }
 }

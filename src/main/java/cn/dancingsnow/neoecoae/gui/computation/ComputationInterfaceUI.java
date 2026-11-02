@@ -192,8 +192,16 @@ public final class ComputationInterfaceUI {
             if (LDLib2.isJeiLoaded()) {
                 FilterJEISupport.register(this);
             }
-            // TODO(26.1 port): LDLib2 26.1 ships only the JEI bridge; REI/EMI ghost-ingredient support was dropped.
+            // LDLib2 26.1 ships only the JEI bridge; REI reads our viewer-neutral targets (integration/rei).
+            // EMI has no 26.1 release yet, so it has no bridge.
+            if (LDLib2.isReiLoaded()) {
+                cn.dancingsnow.neoecoae.integration.xei.GhostItemTargets.register(this, this::acceptGhost);
+            }
             return this;
+        }
+
+        private void acceptGhost(ItemStack stack) {
+            if (!stack.isEmpty()) setValue(stack, true);
         }
 
         @Override

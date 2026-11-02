@@ -50,6 +50,7 @@ public class NeoECOAEClient {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
 
         NeoForge.EVENT_BUS.addListener(NEClientRecipe::receivedRecipe);
+        NeoForge.EVENT_BUS.addListener(NEClientRecipe::loggingOut);
     }
 
     @SubscribeEvent

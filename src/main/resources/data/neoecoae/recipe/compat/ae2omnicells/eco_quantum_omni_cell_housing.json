@@ -1,25 +1,17 @@
 {
   "neoforge:conditions": [
     {
-      "type": "neoforge:mod_loaded",
+      "type": "neoecoae:integration_active",
       "modid": "ae2omnicells"
     }
   ],
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "A": {
-      "item": "neoecoae:crystal_matrix"
-    },
-    "B": {
-      "tag": "c:dusts/ender_pearl"
-    },
-    "C": {
-      "item": "ae2omnicells:charged_ender_ingot"
-    },
-    "D": {
-      "item": "ae2omnicells:multidimensional_expansion_processor"
-    }
+    "A": "neoecoae:crystal_matrix",
+    "B": "#c:dusts/ender_pearl",
+    "C": "ae2omnicells:charged_ender_ingot",
+    "D": "ae2omnicells:multidimensional_expansion_processor"
   },
   "pattern": [
     "ABA",

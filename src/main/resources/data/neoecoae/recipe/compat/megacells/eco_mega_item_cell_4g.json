@@ -1,7 +1,7 @@
 {
   "neoforge:conditions": [
     {
-      "type": "neoforge:mod_loaded",
+      "type": "neoecoae:integration_active",
       "modid": "megacells"
     }
   ],
@@ -9,19 +9,19 @@
   "inputItems": [
     {
       "count": 10,
-      "item": "megacells:cell_component_256m"
+      "ingredient": "megacells:cell_component_256m"
     },
     {
       "count": 8,
-      "item": "megacells:accumulation_processor"
+      "ingredient": "megacells:accumulation_processor"
     },
     {
       "count": 64,
-      "item": "ae2:singularity"
+      "ingredient": "ae2:singularity"
     },
     {
       "count": 1,
-      "item": "neoecoae:mega_item_cell_housing"
+      "ingredient": "neoecoae:mega_item_cell_housing"
     }
   ],
   "itemOutput": {

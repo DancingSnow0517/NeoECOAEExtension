@@ -22,6 +22,13 @@ public class NEClientRecipe {
         supportedRecipeTypes.clear();
         supportedRecipeTypes.addAll(event.getRecipeTypes());
         recipeMap = event.getRecipeMap();
+        cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes.setClientRecipes(recipeMap);
+    }
+
+    public static void loggingOut(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
+        supportedRecipeTypes.clear();
+        recipeMap = RecipeMap.EMPTY;
+        cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes.setClientRecipes(RecipeMap.EMPTY);
     }
 
     public static <I extends RecipeInput, T extends Recipe<I>> Collection<RecipeHolder<T>> getSyncedRecipes(RecipeType<T> recipeType) {

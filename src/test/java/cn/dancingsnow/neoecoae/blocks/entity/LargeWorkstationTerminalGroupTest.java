@@ -94,20 +94,25 @@ class LargeWorkstationTerminalGroupTest {
 
     @Test
     void terminalIconModelsResolveToTheExistingModuleControllerArtwork() throws Exception {
+        // 26.1 item definitions (items/<id>.json) select by custom_model_data; legacy model overrides are ignored.
         try (var stream = getClass().getResourceAsStream(
-            "/assets/neoecoae/models/item/large_integrated_working_station_interface.json")) {
+            "/assets/neoecoae/items/large_integrated_working_station_interface.json")) {
             assertNotNull(stream);
-            var model = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();
-            assertEquals("neoecoae:block/large_integrated_working_station_interface", model.get("parent").getAsString());
-            var overrides = model.getAsJsonArray("overrides");
+            var model = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8))
+                .getAsJsonObject().getAsJsonObject("model");
+            assertEquals("minecraft:select", model.get("type").getAsString());
+            assertEquals("minecraft:custom_model_data", model.get("property").getAsString());
+            assertEquals("neoecoae:item/large_integrated_working_station_interface",
+                model.getAsJsonObject("fallback").get("model").getAsString());
+            var cases = model.getAsJsonArray("cases");
             for (var module : LargeWorkstationModule.values()) {
                 if (module == LargeWorkstationModule.REGULAR) continue;
                 var icon = host(new AtomicReference<>(module)).getTerminalIcon().getReadOnlyStack();
-                int modelData = icon.get(DataComponents.CUSTOM_MODEL_DATA).floats().getFirst().intValue();
-                var override = overrides.asList().stream().map(element -> element.getAsJsonObject())
-                    .filter(entry -> entry.getAsJsonObject("predicate").get("custom_model_data").getAsInt() == modelData)
+                String selector = icon.get(DataComponents.CUSTOM_MODEL_DATA).strings().getFirst();
+                var entry = cases.asList().stream().map(element -> element.getAsJsonObject())
+                    .filter(candidate -> candidate.get("when").getAsString().equals(selector))
                     .findFirst().orElseThrow();
-                String path = override.get("model").getAsString();
+                String path = entry.getAsJsonObject("model").get("model").getAsString();
                 assertEquals("neoecoae:" + module.modelPath(false), path);
                 assertNotNull(getClass().getResource("/assets/neoecoae/models/" + path.substring(9) + ".json"));
             }

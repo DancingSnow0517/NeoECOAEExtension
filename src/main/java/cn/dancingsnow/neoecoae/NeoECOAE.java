@@ -85,6 +85,7 @@ public class NeoECOAE {
         NEEcoTiers.register();
         NECellTypes.register();
         NERecipeTypes.register(modBus);
+        cn.dancingsnow.neoecoae.recipe.IntegrationActiveCondition.register(modBus);
         NEDataComponents.register(modBus);
         cn.dancingsnow.neoecoae.storage.bulk.ECOCompressionService.init();
         cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.register(
@@ -269,5 +270,9 @@ public class NeoECOAE {
     private static void onSyncDatapack(OnDatapackSyncEvent event) {
         event.sendRecipes(NERecipeTypes.COOLING.get());
         event.sendRecipes(NERecipeTypes.INTEGRATED_WORKING_STATION.get());
+        // Remote clients rebuild large workstation groups from the same holders (native, adapted and borrowed).
+        var server = event.getPlayerList().getServer();
+        event.sendRecipes(cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes.sourceTypes(
+            server.getRecipeManager(), server.registryAccess()));
     }
 }

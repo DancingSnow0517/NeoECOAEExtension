@@ -1,22 +1,16 @@
 {
   "neoforge:conditions": [
     {
-      "type": "neoforge:mod_loaded",
+      "type": "neoecoae:integration_active",
       "modid": "ae2lt"
     }
   ],
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "A": {
-      "item": "neoecoae:crystal_matrix"
-    },
-    "B": {
-      "tag": "c:dusts/redstone"
-    },
-    "C": {
-      "item": "ae2lt:overload_alloy"
-    }
+    "A": "neoecoae:crystal_matrix",
+    "B": "#c:dusts/redstone",
+    "C": "ae2lt:overload_alloy"
   },
   "pattern": [
     " A ",

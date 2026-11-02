@@ -271,7 +271,7 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 | `multiblock_parts` | [ECOMultiblockParts](../src/main/java/cn/dancingsnow/neoecoae/api/multiblock/ECOMultiblockParts.java) | 角色、驱动器上下排与排序 |
 | `multiblock_requirements` | [ECOMultiblockRequirements](../src/main/java/cn/dancingsnow/neoecoae/api/multiblock/ECOMultiblockRequirements.java) | 结构槽位的合法替代部件 |
 | `computation_cells` | [ECOComputationCells](../src/main/java/cn/dancingsnow/neoecoae/api/computation/ECOComputationCells.java) | 独立晶阵与按栈容量 |
-| `host_cable_models` | [ECOComputationModels](../src/main/java/cn/dancingsnow/neoecoae/api/ECOComputationModels.java) | 按档位、宿主提供模型 |
+| `host_cable_models` | [ECOComputationModels](../src/main/java/cn/dancingsnow/neoecoae/api/client/ECOComputationModels.java) | 按档位、宿主提供模型 |
 | `tier_features` | [IECOTier.supportsFeature](../src/main/java/cn/dancingsnow/neoecoae/api/IECOTier.java) | 交换机、虚拟合成与无限存储资格 |
 | `storage_channel_displays` | [ECOStorageChannelDisplays](../src/main/java/cn/dancingsnow/neoecoae/api/storage/ECOStorageChannelDisplays.java) | 存储通道名称、图标与别名 |
 | `native_me_storage_restrictions` | [INativeMEStorageRestrictedItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/INativeMEStorageRestrictedItem.java) | 原版 ME 驱动器、ME 箱子插入限制 |
@@ -349,7 +349,7 @@ ServerEvents.recipes(event => {
 
 自行创建 [StorageHostUI](../src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageHostUI.java) 等面板时，使用接收 `Supplier<IECOTier>` 和 `Supplier<BlockState>` 的重载；服务器捕获放置态纹理并同步到客户端。旧工厂签名保留。
 
-`ECOCellModels.register`、`ECOComputationModels.registerCellModel/registerCableModel` 在客户端注册模型。线缆支持 `(tier, hostBlock)` 专用条目；动态模型提供器返回的额外模型须在烘焙前用 `registerAdditionalModel` 声明。面板 provider 只更换图片，不改变按钮或业务语义。
+`ECOCellModels.register`、`ECOComputationModels.registerCellModel/registerCableModel` 在客户端注册模型。线缆支持 `(tier, hostBlock)` 专用条目，解析顺序为 provider（`registerCableModelProvider`）→ `(tier, hostBlock)` → `tier` → `registerDefaultCableModel`，宿主即被渲染的计算驱动器方块；动态模型提供器返回的额外模型须在烘焙前用 `registerAdditionalModel` 声明。面板 provider 只更换图片，不改变按钮或业务语义。
 
 ## 接入诊断
 

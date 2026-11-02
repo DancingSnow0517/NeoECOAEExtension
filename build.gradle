@@ -114,6 +114,9 @@ configurations {
     legacyCompileOnly { transitive = false }
     compileOnly.extendsFrom legacyCompileOnly
     integrationApi { transitive = false }
+    integrationCompileOnly { transitive = false }
+    compileOnly.extendsFrom integrationCompileOnly
+    testImplementation.extendsFrom integrationCompileOnly
     integrationRuntime { transitive = false }
     compileOnly.extendsFrom integrationApi
     testImplementation.extendsFrom integrationApi
@@ -131,7 +134,10 @@ dependencies {
     // ---- Optional integrations ported to their 26.1.2 builds (compile against the real API).
     // `./gradlew runClient -PwithIntegrations` also installs them in the dev client.
     integrationApi("maven.modrinth:advancedae:hPJMJOBd")            // 26.1.7
-    integrationApi("maven.modrinth:extendedae-plus:W9WXH7F7")       // 1.6.3
+    // EAEP 1.6.3 for 26.1.2 cannot load next to any 26.1 ExtendedAE build (its ClusterAssemblerMatrixMixin
+    // shadows `availableCrafters` as a ReferenceSet; every ExtendedAE 26.1 release declares a Set), so it is
+    // compiled/tested against but not installed by -PwithIntegrations. Upstream issue, not ours.
+    integrationCompileOnly("maven.modrinth:extendedae-plus:W9WXH7F7") // 1.6.3
     integrationApi("maven.modrinth:bigger-ae2:VsHV30Lz")            // 26.1.2.2.1
     integrationApi("curse.maven:applied-flux-965012:9304490")       // 26.1-1.0.4
     integrationApi("maven.modrinth:ae2-omni-cells:wv0rLPsF")        // 1.1.7-26.1.2
@@ -203,6 +209,9 @@ dependencies {
     compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}")
     runtimeOnly("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
     // compileOnly("dev.emi:emi-neoforge:${emi_version}")
+    // REI ghost-item dragging into LDLib2 filter slots (integration/rei). EMI has no 26.1 build yet.
+    compileOnly("me.shedaniel:RoughlyEnoughItems-api-neoforge:${rei_version}") { transitive = false }
+    compileOnly("me.shedaniel.cloth:basic-math:0.6.1") { transitive = false }
 
     // implementation("software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}")
 

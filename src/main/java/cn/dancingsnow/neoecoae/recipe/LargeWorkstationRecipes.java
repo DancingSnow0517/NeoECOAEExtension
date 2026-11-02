@@ -22,6 +22,7 @@ import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
+import net.minecraft.world.item.crafting.RecipeMap;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.common.crafting.DataComponentIngredient;
@@ -56,7 +57,10 @@ public final class LargeWorkstationRecipes {
         "advanced_ae:reaction", "extendedae_plus:crystal_assembler_plus", "extendedae:crystal_assembler",
         "data_energistics:data_reassembler", "data_energistics:data_charger",
         "data_energistics:data_integrated_charger", "data_energistics:data_charge_press");
-    private static final Map<RecipeManager, Cache> CACHE = new WeakHashMap<>();
+    // Keyed by the recipe source owner: a server RecipeManager, or the client's synced RecipeMap.
+    private static final Map<Object, Cache> CACHE = new WeakHashMap<>();
+    /** Recipes the server sent through {@code OnDatapackSyncEvent#sendRecipes}; used only on remote clients. */
+    private static volatile RecipeMap clientRecipes = RecipeMap.EMPTY;
     // Lightning recipes have explicit priority. AE cost, lightning amount and ID break ties.
     private static final Comparator<LargeWorkstationRecipe> COST_ORDER = (first, second) -> {
         int costs = compareCosts(first, 1, second, 1);
@@ -70,21 +74,55 @@ public final class LargeWorkstationRecipes {
 
     /**
      * 26.1 no longer exposes a full RecipeManager on the client. Use the server's manager (integrated server in
-     * single player); returns null on a remote client.
+     * single player); returns null on a remote client, which reads {@link #clientRecipes} instead.
      */
     @Nullable
     static RecipeManager recipeManager(@Nullable Level level) {
         if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) return serverLevel.recipeAccess();
-        // TODO(26.1 port): remote clients have no RecipeManager; large workstation recipes are only visible
-        // client-side in single player until a client recipe sync exists.
         var server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
         return server == null ? null : server.getRecipeManager();
     }
 
-    public static List<LargeWorkstationRecipeGroup> getGroups(Level level) {
+    /** Called by the client recipe receiver after each datapack sync; an empty map clears the remote catalog. */
+    public static synchronized void setClientRecipes(@Nullable RecipeMap recipes) {
+        var next = recipes == null ? RecipeMap.EMPTY : recipes;
+        if (clientRecipes != next) CACHE.remove(clientRecipes);
+        clientRecipes = next;
+    }
+
+    /** Server, integrated-server or synced-client catalog for this level; null only without a level. */
+    @Nullable
+    private static synchronized Cache cache(@Nullable Level level) {
+        if (level == null) return null;
         var manager = recipeManager(level);
-        if (manager == null) return List.of();
-        return getGroups(manager, level.registryAccess());
+        if (manager != null) {
+            getAll(manager, level.registryAccess());
+            return CACHE.get(manager);
+        }
+        var synced = clientRecipes;
+        build(synced, synced.values(), level.registryAccess());
+        return CACHE.get(synced);
+    }
+
+    /**
+     * Recipe types whose holders feed the large workstation catalog. The server sends exactly these to clients so
+     * remote viewers rebuild the same groups (including adapters and borrowed sources) from the real recipes.
+     */
+    public static synchronized Set<RecipeType<?>> sourceTypes(RecipeManager manager, HolderLookup.Provider registries) {
+        getAll(manager, registries);
+        var cache = CACHE.get(manager);
+        Set<RecipeType<?>> types = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        for (var holder : cache.sources) {
+            if (!cache.recipesById.containsKey(holder.id().identifier())) continue;
+            var type = holder.value().getType();
+            if (type != null) types.add(type);
+        }
+        return Set.copyOf(types);
+    }
+
+    public static List<LargeWorkstationRecipeGroup> getGroups(Level level) {
+        var cache = cache(level);
+        return cache == null ? List.of() : cache.groups;
     }
 
     public static synchronized List<LargeWorkstationRecipeGroup> getGroups(RecipeManager manager, HolderLookup.Provider registries) {
@@ -95,9 +133,8 @@ public final class LargeWorkstationRecipes {
     /** Accepts any original or borrowed variant ID, including a representative returned by getAll(). */
     @Nullable
     public static LargeWorkstationRecipeGroup getGroup(Level level, Identifier recipeId) {
-        var manager = recipeManager(level);
-        if (manager == null) return null;
-        return getGroup(manager, level.registryAccess(), recipeId);
+        var cache = cache(level);
+        return cache == null ? null : cache.groupsById.get(recipeId);
     }
 
     @Nullable
@@ -108,16 +145,20 @@ public final class LargeWorkstationRecipes {
     }
 
     public static List<LargeWorkstationRecipe> getAll(Level level) {
-        var manager = recipeManager(level);
-        if (manager == null) return List.of();
-        return getAll(manager, level.registryAccess());
+        var cache = cache(level);
+        return cache == null ? List.of() : cache.recipes;
     }
 
     public static synchronized List<LargeWorkstationRecipe> getAll(RecipeManager manager, HolderLookup.Provider registries) {
         // RecipeManager replaces its immutable by-name map on both datapack reload and client sync.
         // Its values view is stable between reloads, including for unregistered RecipeType.simple types.
-        Collection<RecipeHolder<?>> sources = manager.getRecipes();
-        var previous = CACHE.get(manager);
+        return build(manager, manager.getRecipes(), registries);
+    }
+
+    /** Builds (or reuses) the catalog of one recipe source; {@code owner} identifies it in the weak cache. */
+    private static synchronized List<LargeWorkstationRecipe> build(Object owner, Collection<RecipeHolder<?>> sources,
+            HolderLookup.Provider registries) {
+        var previous = CACHE.get(owner);
         if (previous != null && previous.sources == sources
             && previous.adapterRevision == ECOWorkstationRecipeAdapters.revision()
             && previous.moduleRevision == ECOWorkstationModules.revision()) return previous.recipes;
@@ -182,7 +223,7 @@ public final class LargeWorkstationRecipes {
         var executionRecipes = groups.stream().flatMap(group -> selectExecutionVariants(group.variants()).stream())
             .map(LargeWorkstationRecipeGroup.Variant::recipe)
             .sorted(Comparator.comparing(recipe -> recipe.id().toString())).toList();
-        CACHE.put(manager, new Cache(sources, result, executionRecipes, groups,
+        CACHE.put(owner, new Cache(sources, result, executionRecipes, groups,
             Map.copyOf(recipesById), Map.copyOf(groupsById),
             new EnumMap<>(LargeWorkstationModule.class), new HashMap<>(),
             ECOWorkstationRecipeAdapters.revision(),
@@ -193,24 +234,25 @@ public final class LargeWorkstationRecipes {
     public static synchronized List<LargeWorkstationRecipe> getAvailable(Level level, Identifier moduleId) {
         var description = ECOWorkstationModules.resolve(moduleId);
         if (!description.custom()) return getAvailable(level, description.legacy());
-        var manager = recipeManager(level);
-        if (manager == null) return List.of();
-        getAll(manager, level.registryAccess());
-        Cache cache = CACHE.get(manager);
+        Cache cache = cache(level);
+        if (cache == null) return List.of();
         if (NEConfig.largeWorkstationIgnoreUpgradeCards) return cache.executionRecipes;
         return cache.customModuleRecipes.computeIfAbsent(moduleId, installed -> available(cache.groups, installed));
     }
 
-    public static List<LargeWorkstationRecipe> getAvailable(Level level, LargeWorkstationModule module) {
-        var manager = recipeManager(level);
-        if (manager == null) return List.of();
-        return getAvailable(manager, level.registryAccess(), module);
+    public static synchronized List<LargeWorkstationRecipe> getAvailable(Level level, LargeWorkstationModule module) {
+        Cache cache = cache(level);
+        if (cache == null) return List.of();
+        return available(cache, module);
     }
 
     static synchronized List<LargeWorkstationRecipe> getAvailable(RecipeManager manager,
             HolderLookup.Provider registries, LargeWorkstationModule module) {
         getAll(manager, registries);
-        Cache cache = CACHE.get(manager);
+        return available(CACHE.get(manager), module);
+    }
+
+    private static List<LargeWorkstationRecipe> available(Cache cache, LargeWorkstationModule module) {
         if (NEConfig.largeWorkstationIgnoreUpgradeCards) return cache.executionRecipes;
         return cache.moduleRecipes.computeIfAbsent(module, installed -> available(cache.groups,
             ECOWorkstationModules.builtin(installed).id()));
@@ -248,9 +290,8 @@ public final class LargeWorkstationRecipes {
     /** Keeps original recipes addressable for batches saved before equivalent recipes were merged. */
     @Nullable
     public static LargeWorkstationRecipe getById(Level level, Identifier id) {
-        var manager = recipeManager(level);
-        if (manager == null) return null;
-        return getById(manager, level.registryAccess(), id);
+        var cache = cache(level);
+        return cache == null ? null : cache.recipesById.get(id);
     }
 
     @Nullable
@@ -349,11 +390,8 @@ public final class LargeWorkstationRecipes {
     }
 
     private static synchronized List<LargeWorkstationRecipe> executionRecipes(Level level) {
-        getAll(level);
-        var manager = recipeManager(level);
-        if (manager == null) return List.of();
-        getAll(manager, level.registryAccess());
-        return CACHE.get(manager).executionRecipes;
+        var cache = cache(level);
+        return cache == null ? List.of() : cache.executionRecipes;
     }
 
     private static Object itemPredicate(Ingredient ingredient, DynamicOps<JsonElement> ops) {

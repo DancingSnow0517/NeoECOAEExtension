@@ -1,7 +1,7 @@
 {
   "neoforge:conditions": [
     {
-      "type": "neoforge:mod_loaded",
+      "type": "neoecoae:integration_active",
       "modid": "ae2lt"
     }
   ],
@@ -9,21 +9,15 @@
   "priority": 0,
   "inputs": [
     {
-      "ingredient": {
-        "item": "neoecoae:eco_lightning_cell_housing"
-      },
+      "ingredient": "neoecoae:eco_lightning_cell_housing",
       "count": 1
     },
     {
-      "ingredient": {
-        "item": "neoecoae:eco_cell_component_16m"
-      },
+      "ingredient": "neoecoae:eco_cell_component_16m",
       "count": 1
     },
     {
-      "ingredient": {
-        "item": "ae2lt:lightning_cell_component_v"
-      },
+      "ingredient": "ae2lt:lightning_cell_component_v",
       "count": 1
     }
   ],

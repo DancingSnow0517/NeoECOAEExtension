@@ -189,6 +189,24 @@ public class ECOModelUtil {
         return (ctx, prov) -> prov.itemModelOutput.accept(ctx.get(), ItemModelUtils.plainModel(NeoECOAE.id("item/" + ctx.getName())));
     }
 
+    /**
+     * Interface item definition whose presentation-only stacks select the installed module's formed model through
+     * {@code custom_model_data} string 0 (the module's serialized name); a plain stack uses the hand-written model.
+     */
+    public static <T extends Item> NonNullBiConsumer<DataGenContext<Item, T>, RegistrateItemModelGenerator> workstationInterfaceItemModel() {
+        return (ctx, prov) -> {
+            var cases = new java.util.ArrayList<net.minecraft.client.renderer.item.SelectItemModel.SwitchCase<String>>();
+            for (var module : cn.dancingsnow.neoecoae.recipe.LargeWorkstationModule.values()) {
+                if (module == cn.dancingsnow.neoecoae.recipe.LargeWorkstationModule.REGULAR) continue;
+                cases.add(ItemModelUtils.when(module.getSerializedName(),
+                    ItemModelUtils.plainModel(NeoECOAE.id(module.modelPath(false)))));
+            }
+            prov.itemModelOutput.accept(ctx.get(), ItemModelUtils.select(
+                new net.minecraft.client.renderer.item.properties.select.CustomModelDataProperty(0),
+                ItemModelUtils.plainModel(NeoECOAE.id("item/" + ctx.getName())), cases));
+        };
+    }
+
     public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> smartCoolingModule() {
         return (ctx, prov) -> {
             var model = SMART_COOLING_MODULE.create(

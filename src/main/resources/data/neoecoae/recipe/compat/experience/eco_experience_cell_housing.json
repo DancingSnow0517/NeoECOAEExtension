@@ -1,7 +1,7 @@
 {
   "neoforge:conditions": [
     {
-      "type": "neoforge:mod_loaded",
+      "type": "neoecoae:integration_active",
       "modid": "appex"
     }
   ],
@@ -13,15 +13,9 @@
     "AAA"
   ],
   "key": {
-    "A": {
-      "item": "neoecoae:crystal_matrix"
-    },
-    "B": {
-      "item": "minecraft:experience_bottle"
-    },
-    "C": {
-      "item": "minecraft:redstone"
-    }
+    "A": "neoecoae:crystal_matrix",
+    "B": "minecraft:experience_bottle",
+    "C": "minecraft:redstone"
   },
   "result": {
     "count": 1,

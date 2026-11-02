@@ -1,26 +1,20 @@
 {
   "neoforge:conditions": [
     {
-      "type": "neoforge:mod_loaded",
+      "type": "neoecoae:integration_active",
       "modid": "megacells"
     },
     {
-      "type": "neoforge:mod_loaded",
+      "type": "neoecoae:integration_active",
       "modid": "apprep"
     }
   ],
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
-    {
-      "item": "neoecoae:eco_matter_cell_housing"
-    },
-    {
-      "item": "megacells:mega_item_cell_housing"
-    },
-    {
-      "item": "neoecoae:crystal_matrix"
-    }
+    "neoecoae:eco_matter_cell_housing",
+    "megacells:mega_item_cell_housing",
+    "neoecoae:crystal_matrix"
   ],
   "result": {
     "count": 1,

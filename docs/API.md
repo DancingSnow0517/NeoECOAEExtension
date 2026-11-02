@@ -271,7 +271,7 @@ Query these feature names with `ECOAddonApi.supports(name)`:
 | `multiblock_parts` | [ECOMultiblockParts](../src/main/java/cn/dancingsnow/neoecoae/api/multiblock/ECOMultiblockParts.java) | Part roles, drive rows and ordering |
 | `multiblock_requirements` | [ECOMultiblockRequirements](../src/main/java/cn/dancingsnow/neoecoae/api/multiblock/ECOMultiblockRequirements.java) | Alternative blocks for structure slots |
 | `computation_cells` | [ECOComputationCells](../src/main/java/cn/dancingsnow/neoecoae/api/computation/ECOComputationCells.java) | Independent computation items and per-stack capacity |
-| `host_cable_models` | [ECOComputationModels](../src/main/java/cn/dancingsnow/neoecoae/api/ECOComputationModels.java) | Models by tier and host |
+| `host_cable_models` | [ECOComputationModels](../src/main/java/cn/dancingsnow/neoecoae/api/client/ECOComputationModels.java) | Models by tier and host |
 | `tier_features` | [IECOTier.supportsFeature](../src/main/java/cn/dancingsnow/neoecoae/api/IECOTier.java) | Switch, virtual crafting and infinite storage eligibility |
 | `storage_channel_displays` | [ECOStorageChannelDisplays](../src/main/java/cn/dancingsnow/neoecoae/api/storage/ECOStorageChannelDisplays.java) | Storage channel names, icons and aliases |
 | `native_me_storage_restrictions` | [INativeMEStorageRestrictedItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/INativeMEStorageRestrictedItem.java) | Native ME drive/chest insertion restrictions |
@@ -349,7 +349,7 @@ Status indices 0–5 represent connection, substitutions, cycles, fast planning,
 
 When constructing panels such as [StorageHostUI](../src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageHostUI.java), use overloads accepting `Supplier<IECOTier>` and `Supplier<BlockState>`. The server captures placed-state texture IDs for synchronization; old factory signatures remain available.
 
-Register `ECOCellModels.register` and `ECOComputationModels.registerCellModel/registerCableModel` on the client. Cables support `(tier, hostBlock)` entries. Additional models returned by dynamic providers require `registerAdditionalModel` before baking. Panel providers change images, not button semantics.
+Register `ECOCellModels.register` and `ECOComputationModels.registerCellModel/registerCableModel` on the client. Cables support `(tier, hostBlock)` entries, resolved as provider (`registerCableModelProvider`) → `(tier, hostBlock)` → `tier` → `registerDefaultCableModel`; the host is the rendered computation drive block. Additional models returned by dynamic providers require `registerAdditionalModel` before baking. Panel providers change images, not button semantics.
 
 ## Integration diagnostics
 

@@ -20,7 +20,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
-/** Live rendering for sparse views; bounded progressive raster tiles for dense overviews. */
+/** Live rendering for sparse views; recorded render states replayed while a dense overview is stationary. */
 public final class GraphRenderer implements AutoCloseable {
     private static final int TEXT = 0xffe8edf2;
     private static final int MUTED = 0xffaab3bd;
@@ -70,7 +70,7 @@ public final class GraphRenderer implements AutoCloseable {
             frame = renderImmediate(graphics, graph, layout, cameraX, cameraY, zoom, screenWidth, screenHeight,
                 mouseX, mouseY, selectedId, profiler, visible);
         } else {
-            canvas.prepare(graphics, layout, area, layout.bounds(), zoom,
+            canvas.prepare(graphics, graph, layout, area, zoom,
                 (tile, pixelsPerUnit) -> new TilePainter(graph, layout, tile, pixelsPerUnit));
             float worldMouseX = (mouseX - cameraX) / zoom;
             float worldMouseY = (mouseY - cameraY) / zoom;

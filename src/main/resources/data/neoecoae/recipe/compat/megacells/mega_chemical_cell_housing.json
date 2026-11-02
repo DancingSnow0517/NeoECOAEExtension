@@ -1,27 +1,23 @@
 {
   "neoforge:conditions": [
     {
-      "type": "neoforge:mod_loaded",
+      "type": "neoecoae:integration_active",
       "modid": "megacells"
     },
     {
-      "type": "neoforge:mod_loaded",
+      "type": "neoecoae:integration_active",
       "modid": "mekanism"
     },
     {
-      "type": "neoforge:mod_loaded",
+      "type": "neoecoae:integration_active",
       "modid": "appmek"
     }
   ],
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
-    {
-      "item": "megacells:mega_chemical_cell_housing"
-    },
-    {
-      "item": "neoecoae:crystal_matrix"
-    }
+    "megacells:mega_chemical_cell_housing",
+    "neoecoae:crystal_matrix"
   ],
   "result": {
     "count": 1,

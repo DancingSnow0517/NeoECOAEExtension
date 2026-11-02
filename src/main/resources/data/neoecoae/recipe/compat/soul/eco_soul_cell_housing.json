@@ -1,11 +1,11 @@
 {
   "neoforge:conditions": [
     {
-      "type": "neoforge:mod_loaded",
+      "type": "neoecoae:integration_active",
       "modid": "appliedsoul"
     },
     {
-      "type": "neoforge:mod_loaded",
+      "type": "neoecoae:integration_active",
       "modid": "soulplied_energistics"
     }
   ],
@@ -17,15 +17,9 @@
     "AAA"
   ],
   "key": {
-    "A": {
-      "item": "neoecoae:crystal_matrix"
-    },
-    "B": {
-      "item": "minecraft:soul_sand"
-    },
-    "C": {
-      "item": "minecraft:redstone"
-    }
+    "A": "neoecoae:crystal_matrix",
+    "B": "minecraft:soul_sand",
+    "C": "minecraft:redstone"
   },
   "result": {
     "count": 1,

@@ -346,6 +346,31 @@ class LargeWorkstationRecipeGroupTest {
         }
     }
 
+    @Test void remoteClientRebuildsTheServerGroupsFromTheSyncedSourceTypes() {
+        var first = recipe("test:remote_a", "ae2cs:crystal_aggregator_recipe", 1, 1000, List.of());
+        var second = recipe("test:remote_b", "ae2cs:crystal_aggregator_recipe", 3, 2000, List.of());
+        try (var catalog = catalog(first, second)) {
+            var holders = catalog.manager().getRecipes();
+            var types = LargeWorkstationRecipes.sourceTypes(catalog.manager(), catalog.registries());
+            assertTrue(holders.stream().allMatch(holder -> types.contains(holder.value().getType())));
+            var client = mock(Level.class);
+            when(client.registryAccess()).thenReturn(catalog.registries());
+            assertTrue(LargeWorkstationRecipes.getGroups(client).isEmpty());
+            try {
+                // What the server sends for those types through OnDatapackSyncEvent#sendRecipes.
+                var synced = holders.stream().filter(holder -> types.contains(holder.value().getType())).toList();
+                LargeWorkstationRecipes.setClientRecipes(net.minecraft.world.item.crafting.RecipeMap.create(synced));
+                assertEquals(LargeWorkstationRecipes.getGroups(catalog.level()).size(),
+                    LargeWorkstationRecipes.getGroups(client).size());
+                assertNotNull(LargeWorkstationRecipes.getById(client, first.id()));
+                assertNotNull(LargeWorkstationRecipes.getGroup(client, second.id()));
+            } finally {
+                LargeWorkstationRecipes.setClientRecipes(net.minecraft.world.item.crafting.RecipeMap.EMPTY);
+            }
+            assertTrue(LargeWorkstationRecipes.getGroups(client).isEmpty());
+        }
+    }
+
     private static LargeWorkstationRecipeGroup onlyGroup(Catalog catalog) {
         var groups = LargeWorkstationRecipes.getGroups(catalog.level());
         assertEquals(1, groups.size());

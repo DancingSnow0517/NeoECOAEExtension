@@ -651,7 +651,7 @@ public class NEBlocks {
             .energy(256_000)
             .save(prov))
         .item()
-        .model(() -> ECOModelUtil.existingItemModel())
+        .model(() -> ECOModelUtil.workstationInterfaceItemModel())
         .build()
         .lang("Large Integrated Working Station Communication Interface")
         .register();

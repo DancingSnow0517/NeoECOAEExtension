@@ -1,32 +1,22 @@
 {
   "neoforge:conditions": [
     {
-      "type": "neoforge:mod_loaded",
+      "type": "neoecoae:integration_active",
       "modid": "ae2omnicells"
     },
     {
-      "type": "neoforge:mod_loaded",
+      "type": "neoecoae:integration_active",
       "modid": "appmek"
     }
   ],
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "A": {
-      "item": "neoecoae:crystal_matrix"
-    },
-    "B": {
-      "item": "mekanism:hdpe_sheet"
-    },
-    "C": {
-      "item": "ae2omnicells:charged_ender_ingot"
-    },
-    "D": {
-      "item": "mekanism:radioactive_waste_barrel"
-    },
-    "E": {
-      "item": "ae2omnicells:multidimensional_expansion_processor"
-    }
+    "A": "neoecoae:crystal_matrix",
+    "B": "mekanism:hdpe_sheet",
+    "C": "ae2omnicells:charged_ender_ingot",
+    "D": "mekanism:radioactive_waste_barrel",
+    "E": "ae2omnicells:multidimensional_expansion_processor"
   },
   "pattern": [
     "ABA",

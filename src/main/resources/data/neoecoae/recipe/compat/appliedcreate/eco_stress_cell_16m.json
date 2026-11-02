@@ -1,19 +1,15 @@
 {
   "neoforge:conditions": [
     {
-      "type": "neoforge:mod_loaded",
+      "type": "neoecoae:integration_active",
       "modid": "appliedcreate"
     }
   ],
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
-    {
-      "item": "neoecoae:eco_stress_cell_housing"
-    },
-    {
-      "item": "neoecoae:eco_cell_component_16m"
-    }
+    "neoecoae:eco_stress_cell_housing",
+    "neoecoae:eco_cell_component_16m"
   ],
   "result": {
     "count": 1,
