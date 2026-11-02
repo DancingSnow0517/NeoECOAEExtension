@@ -10,6 +10,24 @@ import org.junit.jupiter.api.*;
 
 class ECOProcessingExecutionPatternTest {
     @BeforeAll static void bootstrap() { cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize(); }
+    @Test void providerCatalogRecognizesAnEquivalentSeparatelyDecodedPattern() {
+        var encoded = mock(appeng.crafting.pattern.EncodedProcessingPattern.class);
+        when(encoded.sparseInputs()).thenReturn(List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 1)));
+        when(encoded.sparseOutputs()).thenReturn(List.of(new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 1)));
+        var definition = mock(AEItemKey.class);
+        when(definition.get(appeng.api.ids.AEComponents.ENCODED_PROCESSING_PATTERN)).thenReturn(encoded);
+        var original = new appeng.crafting.pattern.AEProcessingPattern(definition);
+        var decoded = new appeng.crafting.pattern.AEProcessingPattern(definition);
+        assertNotSame(original, decoded);
+        assertEquals(original, decoded);
+        var scaled = new ECOProcessingExecutionPattern(original, 64);
+        assertTrue(new ArrayList<>(List.of(decoded)).contains(scaled), "Provider lookup must follow pattern contents");
+        assertEquals(scaled, new ECOProcessingExecutionPattern(decoded, 64));
+        assertEquals(scaled.hashCode(), decoded.hashCode());
+        assertNotEquals(scaled, new ECOProcessingExecutionPattern(decoded, 32));
+        assertNotEquals(scaled, mock(IPatternDetails.class));
+        assertNotEquals(scaled, null);
+    }
     @Test void preservesRepeatedSparseSlotsAndScalesEveryInputBeforeInsertion() {
         var iron = AEItemKey.of(Items.IRON_INGOT);
         var gold = AEItemKey.of(Items.GOLD_INGOT);
