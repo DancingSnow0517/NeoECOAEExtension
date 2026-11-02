@@ -271,8 +271,9 @@ final class ComputationControllerArtwork extends UIElement {
     private void drawLabels(GUIContext context) {
         Font font = Minecraft.getInstance().font;
         Component title = Component.translatable("gui.neoecoae.computation.ui.title");
-        float titleScale = Math.min(HostText.TITLE_SCALE, 92.0F / Math.max(1, font.width(title)));
-        drawText(context, title, HostText.TITLE_X, HostText.TITLE_Y, titleScale, TEXT_COLOR);
+        context.graphics.text(font, font.plainSubstrByWidth(title.getString(), 92),
+            Math.round(getPositionX()) + HostText.TITLE_X,
+            Math.round(getPositionY()) + HostText.TITLE_Y, PANEL_PRIMARY, true);
         drawText(context, Component.translatable("gui.neoecoae.computation.ui.control_heading"), 9, 90, TEXT_COLOR);
         drawSwitchLabels(context);
         for (int i = 0; i < PANEL_KEYS.length; i++) {

@@ -160,12 +160,18 @@ final class StorageHostCharts {
 
         @Override public void drawBackgroundAdditional(IGUIContext ctx) {
             if (!(ctx instanceof GUIContext context)) return;
+            if (metric.equals("title")) {
+                Font font = Minecraft.getInstance().font;
+                String title = Component.translatable("gui.neoecoae.storage.ui.title").getString();
+                context.graphics.text(font, font.plainSubstrByWidth(title, (int) getSizeWidth()),
+                    Math.round(getPositionX()), Math.round(getPositionY()), 0xFFE4E4EE, true);
+                return;
+            }
             if (metric.equals("energy")) {
                 drawEnergyUsage(context);
                 return;
             }
             Component caption = switch (metric) {
-                case "title" -> Component.translatable("gui.neoecoae.storage.ui.title");
                 case "cells" -> StorageCellGrid.pageText(state(), pageSize);
                 case "bytes" -> Component.translatable("gui.neoecoae.storage.legacy.graph.total_bytes",
                     capacityValue(state()));
@@ -178,7 +184,7 @@ final class StorageHostCharts {
                 default -> throw new IllegalArgumentException("Unknown storage caption metric: " + metric);
             };
             float scale = metric.equals("energy_stored") ? energyRowScale() : fontScale;
-            text(context, caption, 0, 0, getSizeWidth(), scale, TEXT, metric.equals("title"), rightAligned);
+            text(context, caption, 0, 0, getSizeWidth(), scale, TEXT, false, rightAligned);
         }
 
         /**
