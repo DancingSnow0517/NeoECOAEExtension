@@ -121,6 +121,63 @@ class CellModelResourceTest {
     }
 
     @Test
+    void allDriveCellHousingsAlignWithThePhysicalDriveOpening() throws Exception {
+        Map<String, JsonObject> models = models();
+        JsonObject drive = models.get("block/eco_drive_full");
+        double left = element(drive, "body_west").getAsJsonArray("to").get(0).getAsDouble();
+        double right = element(drive, "body_connector").getAsJsonArray("from").get(0).getAsDouble();
+        double bottom = element(drive, "body_bottom").getAsJsonArray("to").get(1).getAsDouble();
+        double top = element(drive, "body_top").getAsJsonArray("from").get(1).getAsDouble();
+        for (var entry : models.entrySet()) {
+            if (!entry.getKey().startsWith("block/cell/storage_cell_")) continue;
+            JsonObject body = element(entry.getValue(), "body");
+            var from = body.getAsJsonArray("from");
+            var to = body.getAsJsonArray("to");
+            String name = entry.getKey();
+            assertEquals(left, from.get(0).getAsDouble(), name + " left edge");
+            assertEquals(right, to.get(0).getAsDouble(), name + " right edge");
+            assertEquals(bottom, from.get(1).getAsDouble(), name + " bottom edge");
+            assertEquals(top, to.get(1).getAsDouble(), name + " top edge");
+            assertEquals(0, from.get(2).getAsDouble(), name + " front edge");
+        }
+    }
+
+    @Test
+    void everyDriveCellLightSitsOutsideItsHousingWithoutCoplanarFaces() throws Exception {
+        for (var entry : models().entrySet()) {
+            if (!entry.getKey().startsWith("block/cell/storage_cell_")) continue;
+            JsonObject model = entry.getValue();
+            JsonObject body = element(model, "body");
+            for (String lightName : List.of("type", "level")) {
+                JsonObject light = element(model, lightName);
+                for (String face : light.getAsJsonObject("faces").keySet()) {
+                    int axis = switch (face) {
+                        case "north" -> 2;
+                        case "up" -> 1;
+                        case "east", "west" -> 0;
+                        default -> throw new AssertionError("Unexpected light face: " + face);
+                    };
+                    boolean positive = face.equals("up") || face.equals("east");
+                    String corner = positive ? "to" : "from";
+                    double housingPlane = body.getAsJsonArray(corner).get(axis).getAsDouble();
+                    double lightPlane = light.getAsJsonArray(corner).get(axis).getAsDouble();
+                    double separation = positive ? lightPlane - housingPlane : housingPlane - lightPlane;
+                    assertTrue(separation > 0 && separation <= 0.02,
+                        entry.getKey() + " " + lightName + " " + face + " separation: " + separation);
+                }
+            }
+        }
+    }
+
+    private static JsonObject element(JsonObject model, String name) {
+        for (var element : model.getAsJsonArray("elements")) {
+            JsonObject object = element.getAsJsonObject();
+            if (object.get("name").getAsString().equals(name)) return object;
+        }
+        throw new AssertionError("Missing model element: " + name);
+    }
+
+    @Test
     void infiniteCellsUseTheirHousingModelAndFitTheDriveOpening() throws Exception {
         String client = Files.readString(JAVA.resolve("client/NeoECOAEClient.java"));
         for (String item : List.of("ECO_INFINITE_ITEM_CELL", "ECO_INFINITE_SAND_CELL")) {

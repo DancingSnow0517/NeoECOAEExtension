@@ -21,8 +21,8 @@
 		},
 		{
 			"name": "type",
-			"from": [5, 8, 0],
-			"to": [7, 14, 2],
+			"from": [5, 8, -0.01],
+			"to": [7, 14.01, 2],
 			"faces": {
 				"north": {"uv": [4, 0, 6, 6], "texture": "#type", "neoforge_data": {"light_emission": 15}},
 				"up": {"uv": [4, 2, 6, 0], "rotation": 180, "texture": "#type", "neoforge_data": {"light_emission": 15}}
@@ -30,8 +30,8 @@
 		},
 		{
 			"name": "level",
-			"from": [2, 4, 0],
-			"to": [8, 6, 2],
+			"from": [1.99, 4, -0.01],
+			"to": [8.01, 6, 2],
 			"shade": false,
 			"faces": {
 				"north": {"uv": [0, 4, 6, 6], "texture": "#level", "neoforge_data": {"light_emission": 15}},

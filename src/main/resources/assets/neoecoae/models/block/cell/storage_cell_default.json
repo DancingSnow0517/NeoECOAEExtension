@@ -21,8 +21,8 @@
 		},
 		{
 			"name": "type",
-			"from": [5, 8, 0],
-			"to": [7, 14, 2],
+			"from": [5, 8, -0.01],
+			"to": [7, 14.01, 2],
 			"faces": {
 				"north": {"uv": [14, 6, 16, 12], "texture": "#type"},
 				"up": {"uv": [14, 8, 16, 6], "rotation": 180, "texture": "#type"}
@@ -30,8 +30,8 @@
 		},
 		{
 			"name": "level",
-			"from": [2, 4, 0],
-			"to": [8, 6, 2],
+			"from": [1.99, 4, -0.01],
+			"to": [8.01, 6, 2],
 			"shade": false,
 			"faces": {
 				"north": {"uv": [0, 6, 6, 8], "texture": "#level"},

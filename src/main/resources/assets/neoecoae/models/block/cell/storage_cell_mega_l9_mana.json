@@ -9,8 +9,8 @@
 	"elements": [
 		{
 			"name": "body",
-			"from": [0, 0, 0],
-			"to": [6, 12, 2],
+			"from": [2, 2, 0],
+			"to": [8, 14, 2],
 			"faces": {
 				"north": {"uv": [0, 0, 6, 12], "texture": "#base"},
 				"east": {"uv": [2, 0, 0, 12], "texture": "#base"},
@@ -21,8 +21,8 @@
 		},
 		{
 			"name": "type",
-			"from": [3, 6, 0],
-			"to": [5, 12, 2],
+			"from": [5, 8, -0.01],
+			"to": [7, 14.01, 2],
 			"faces": {
 				"north": {"uv": [6, 6, 8, 12], "texture": "#type", "neoforge_data": {"light_emission": 15}},
 				"up": {"uv": [6, 8, 8, 6], "rotation": 180, "texture": "#type", "neoforge_data": {"light_emission": 15}}
@@ -30,8 +30,8 @@
 		},
 		{
 			"name": "level",
-			"from": [0, 2, 0],
-			"to": [6, 4, 2],
+			"from": [1.99, 4, -0.01],
+			"to": [8.01, 6, 2],
 			"shade": false,
 			"faces": {
 				"north": {"uv": [0, 4, 6, 6], "texture": "#level", "neoforge_data": {"light_emission": 15}},
