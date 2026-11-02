@@ -67,21 +67,24 @@ public record CraftingCapabilitySnapshot(
         boolean virtualMode = virtualEligible && input.overclocked() && input.activeCooling();
         Capacity batchPerFx;
         Capacity totalCapacity;
+        long finiteBatchPerFx = exchange
+            ? NEMath.saturatingMultiply(F9_OVERCLOCKED_BATCH_PER_FX, multiplier)
+            : input.overclocked()
+                ? Math.max(BASE_BATCH_PER_FX, input.standaloneOverclockedBatchPerFx())
+                : BASE_BATCH_PER_FX;
         if (virtualMode) {
             batchPerFx = Capacity.unlimitedCapacity();
             totalCapacity = Capacity.unlimitedCapacity();
         } else {
-            long finiteBatchPerFx = exchange
-                ? NEMath.saturatingMultiply(F9_OVERCLOCKED_BATCH_PER_FX, multiplier)
-                : input.overclocked()
-                    ? Math.max(BASE_BATCH_PER_FX, input.standaloneOverclockedBatchPerFx())
-                    : BASE_BATCH_PER_FX;
             batchPerFx = Capacity.finite(finiteBatchPerFx);
             totalCapacity = Capacity.finite(NEMath.saturatingMultiply(physicalFx, finiteBatchPerFx));
         }
 
-        long baseFxCapacity = NEMath.saturatingMultiply(physicalFx, BASE_BATCH_PER_FX);
-        int theoretical = calculateOverclock(input.ftParallelCapacity(), baseFxCapacity);
+        // The exchange multiplier scales FT parallel and the FX batch limit alike, so it never changes the ratio.
+        long ftParallel = exchange
+            ? NEMath.saturatingMultiply(Math.max(0L, input.ftParallelCapacity()), multiplier)
+            : Math.max(0L, input.ftParallelCapacity());
+        int theoretical = calculateOverclock(ftParallel, NEMath.saturatingMultiply(physicalFx, finiteBatchPerFx));
         int effective = input.overclocked()
             ? (input.activeCooling()
                 ? Math.min(theoretical, Math.max(0, input.coolantState().maxSupportedOverclock()))
@@ -101,7 +104,7 @@ public record CraftingCapabilitySnapshot(
             multiplier,
             batchPerFx,
             totalCapacity,
-            input.ftParallelCapacity(),
+            ftParallel,
             input.runningBatchCount(),
             theoretical,
             effective,
@@ -112,9 +115,34 @@ public record CraftingCapabilitySnapshot(
         );
     }
 
-    /** 与耗时加速使用相同的基础 FX 容量，不受超频批量或交换网络倍率影响。 */
+    /** A logical exchange network: at least two switch hosts with a positive combined multiplier. */
+    public boolean exchangeNetwork() {
+        return normalSwitchHosts + highEnergySwitchHosts >= 2 && networkMultiplier > 0;
+    }
+
+    /**
+     * FX batch limit that FT parallel is compared against: the current per-FX batch (base, standalone overclock or
+     * exchange x2/x8) times physical FX. Virtual mode keeps its finite exchange limit here; dispatch stays unlimited.
+     */
+    public long parallelLimit() {
+        if (!virtualMode) {
+            return totalBatchCapacity.finiteValue();
+        }
+        return NEMath.saturatingMultiply(physicalFxCount,
+            NEMath.saturatingMultiply(F9_OVERCLOCKED_BATCH_PER_FX, networkMultiplier));
+    }
+
+    /** FT parallel beyond {@link #parallelLimit()}; drives the theoretical overflow overclock. */
     public long overflowCapacity() {
-        return calculateOverflow(ftParallelCapacity, NEMath.saturatingMultiply(physicalFxCount, BASE_BATCH_PER_FX));
+        return calculateOverflow(ftParallelCapacity, parallelLimit());
+    }
+
+    /**
+     * Overclock that sets crafting progress per tick. Exchange networks (and virtual mode) always finish a batch in
+     * one tick; coolant tiers stay gated by {@link #effectiveOverclock()}.
+     */
+    public int executionOverclock() {
+        return virtualMode || exchangeNetwork() ? MAX_OVERCLOCK : effectiveOverclock;
     }
 
     /** Both arguments are already non-negative: record fields are normalized and callers clamp raw input. */

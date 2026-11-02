@@ -99,7 +99,7 @@ final class MultiBlockPreviewInfo {
     }
 
     static long craftingTicks(CraftingCapabilitySnapshot capacity) {
-        int progress = ECOCraftingThread.calculateProgressPerTick(capacity.effectiveOverclock());
+        int progress = ECOCraftingThread.calculateProgressPerTick(capacity.executionOverclock());
         return (ECOCraftingThread.MAX_PROGRESS + progress - 1L) / progress;
     }
 

@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
 import appeng.core.localization.Tooltips;
-import cn.dancingsnow.neoecoae.api.me.network.CraftingCapabilitySnapshot;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.util.List;
 import java.util.Locale;
@@ -23,7 +22,7 @@ final class CraftingControllerTooltips {
     }
 
     long parallelLimit() {
-        return view.workerCores * CraftingCapabilitySnapshot.BASE_BATCH_PER_FX;
+        return view.parallelLimit;
     }
 
     String overflowPercent() {

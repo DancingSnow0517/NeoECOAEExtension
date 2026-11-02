@@ -371,9 +371,8 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     /**
      * Overclock level implied by how far the FT parallel cores overshoot the FX worker queue capacity.
      *
-     * <p>{@code availableThreads} must be the un-overclocked worker capacity. Feeding it the overclocked
-     * capacity makes the ratio shrink as soon as the player enables overclocking, which is exactly the
-     * inversion that used to pin every balanced build at level 0.
+     * <p>{@code availableThreads} is the current FX batch limit (see {@link CraftingCapabilitySnapshot#parallelLimit()});
+     * an exchange multiplier must be applied to both arguments.
      */
     static int calculateOverclockTimes(long threadCount, long availableThreads) {
         long overflow = threadCount - availableThreads;
@@ -453,6 +452,11 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     public int getEffectiveOverclockTimes() {
         return getCapabilitySnapshot().effectiveOverclock();
+    }
+
+    /** Progress-speed overclock: exchange networks always run one-tick batches. */
+    public int getExecutionOverclockTimes() {
+        return getCapabilitySnapshot().executionOverclock();
     }
 
     public int getDisplayedCoolingMaxOverclock() {
@@ -896,10 +900,11 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             this::getSingleCoreProcessingCapacity,
             () -> getCapabilitySnapshot().ftParallelCapacity(),
             () -> getCapabilitySnapshot().overflowCapacity(),
+            () -> getCapabilitySnapshot().parallelLimit(),
             this::getOverlockTimes,
             this::getEffectiveOverclockTimes,
             () -> getCapabilitySnapshot().virtualMode()
-                ? 1 : CraftingHostPanelUI.formatRecipeTimeTicks(getEffectiveOverclockTimes()),
+                ? 1 : CraftingHostPanelUI.formatRecipeTimeTicks(getExecutionOverclockTimes()),
             this::getPerformanceAverageNanos,
             this::getMaxEnergyUsage,
             this::getDisplayedCoolantAmount,

@@ -13,6 +13,7 @@ final class CraftingControllerViewState {
     long batchCapacity;
     long ftParallelCapacity;
     long overflowCapacity;
+    long parallelLimit;
     int coolantAmount;
     int coolantCapacity;
     int coolantMaxOverclock;
