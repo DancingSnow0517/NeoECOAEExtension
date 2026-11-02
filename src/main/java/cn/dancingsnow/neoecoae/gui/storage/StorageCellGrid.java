@@ -186,7 +186,8 @@ final class StorageCellGrid extends UIElement {
                 interacting = true;
                 if (!insertion.send((Boolean success) -> interacting = false,
                     cell.position(), carried.copy())) interacting = false;
-            } else if (!cell.stack().isEmpty() && cell.interactionId() != null) {
+            } else if (event.button == 0 && !cell.stack().isEmpty() && cell.interactionId() != null) {
+                // Right-click is the actions menu, never extraction: locked disks (infinite pool members) just ignore it.
                 interacting = true;
                 if (!extraction.send((Boolean success) -> interacting = false,
                     cell.position(), cell.interactionId(), UIElement.isShiftDown())) interacting = false;
