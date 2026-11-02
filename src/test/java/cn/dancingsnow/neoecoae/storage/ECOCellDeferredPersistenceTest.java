@@ -176,7 +176,9 @@ class ECOCellDeferredPersistenceTest {
         var getter = CellHostItemHandler.class.getDeclaredMethod("getStack");
         getter.setAccessible(true);
         ItemStack visible = (ItemStack) getter.invoke(new CellHostItemHandler(drive));
-        assertSame(stack, visible);
+        assertNotSame(stack, visible, "automation reads a defensive snapshot after pending writes are flushed");
+        assertEquals(stack.getCount(), visible.getCount());
+        assertEquals(150, stored(stack, stone));
         assertEquals(150, stored(visible, stone));
         assertFalse(ECOCellMutationBatch.hasDeferred(drive));
 

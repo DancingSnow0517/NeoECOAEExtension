@@ -403,6 +403,13 @@ tasks.register('copyGuidebook', Copy) {
     into 'src/guidebook/resources/assets/neoecoae/ae2guide'
 }
 
+tasks.named('processResources').configure {
+    dependsOn tasks.named('copyGuidebook')
+    // Package the current guidebook sources instead of the stale checked-in resource copies.
+    def legacyGuidebookRoot = layout.projectDirectory.dir('src/main/resources/assets/neoecoae/ae2guide').asFile.absolutePath + File.separator
+    exclude { details -> details.file.absolutePath.startsWith(legacyGuidebookRoot) }
+}
+
 idea {
     module {
         downloadSources = true
