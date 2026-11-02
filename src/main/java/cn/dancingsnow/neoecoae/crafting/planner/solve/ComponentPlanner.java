@@ -772,26 +772,12 @@ public final class ComponentPlanner {
                         boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions, ECOCancellation cancellation,
                         SeedFloors seeds)
             throws InterruptedException {
-        // Large structural universes can exhaust the session before reaching recovery. This is
-        // a cycle recovery heuristic. A selected DAG always gets its preferred route first.
-        boolean earlyJointSearched = false;
-        String earlyJointExhaustion = "";
-        if (cyclePlanningEnabled && !activeSelection.acyclic()
-                && maxRouteAttempts == 0 && network.reachablePatternCount() > 64) {
-            JointRouteOptimizer early = new JointRouteOptimizer();
-            Outcome joint = early.optimize(network, snapshot, amount, null, true, cancellation);
-            if (joint != null && joint.status() == PlanningStatus.SUCCESS) return joint;
-            earlyJointSearched = true;
-            earlyJointExhaustion = early.exhaustion();
-        }
+        // The ordinary route plan always runs first: it is fast and follows AE's producer order. The joint model is
+        // a recovery for orders that plan does not complete (or a short, optional improvement), never a prefix.
         CycleFailureCache failures = new CycleFailureCache(cycleSolver);
         ExternalDemandPlanner externalDemandPlanner = new ExternalDemandPlanner(acyclicSolver);
         Outcome preferred = plan(network, activeSelection, inventory, snapshot, amount, cyclePlanningEnabled,
             ignorePatternSubstitutions, cancellation, failures, externalDemandPlanner, seeds, false);
-        if (!earlyJointExhaustion.isEmpty()) {
-            preferred.trace().addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.ROUTE_OPTIMIZATION_BUDGET,
-                "stage=early_joint_route found no complete plan before its allowance ran out; " + earlyJointExhaustion));
-        }
         try {
             // Preserve the completed route's material report if this proof itself exhausts the session.
             // It runs before the heavyweight joint model and whole-route alternatives.
@@ -825,9 +811,7 @@ public final class ComponentPlanner {
                     return preferred;
                 }
             }
-            // The early search already ran this same feasibility model on the same stock; repeating it for an
-            // unfinished order only spends a second allowance. A completed plan still gets its improvement pass.
-            if (maxRouteAttempts == 0 && !(earlyJointSearched && preferred.status() != PlanningStatus.SUCCESS))
+            if (maxRouteAttempts == 0)
                 preferred = new JointRouteOptimizer().optimize(network, snapshot, amount, preferred,
                         cyclePlanningEnabled, cancellation);
             if (preferred.status() == PlanningStatus.SUCCESS) return preferred;

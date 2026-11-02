@@ -66,9 +66,12 @@ public final class JointRouteOptimizer {
             : new ECOPlanningBudget(cancellation, work, nanos, System::nanoTime);
         try {
             // A supplied DAG already follows AE's producer order. Fewer firings do not
-            // justify replacing that choice with a different production line.
-            if (completed && preferred.components().stream()
-                    .noneMatch(component -> component.type() == ComponentPlanningResult.Type.CYCLIC)) {
+            // justify replacing that choice with a different production line. A structural
+            // cycle that this plan serves from stock (or does not need) runs no cycle either.
+            if (completed && preferred.components().stream().noneMatch(component ->
+                    component.type() == ComponentPlanningResult.Type.CYCLIC
+                        && component.cycleDisposition() != CycleExecutionDisposition.NOT_REQUIRED
+                        && component.cycleDisposition() != CycleExecutionDisposition.STOCK_SATISFIED)) {
                 cancellation.checkpoint();
                 return preferred;
             }
