@@ -3,7 +3,7 @@
   "category": "misc",
   "ingredients": [
     "#c:ingots/black_tungsten_alloy",
-    "neoecoae:energized_fluix_crystal"
+    "#c:gems/energized_fluix_crystal"
   ],
   "result": {
     "id": "neoecoae:black_tungsten_alloy_upgrade_smithing_template"

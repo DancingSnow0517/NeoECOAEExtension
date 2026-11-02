@@ -1,6 +1,6 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "neoecoae:item/eco_item_cell_housing"
+    "model": "neoecoae:item/cell/eco_item_cell_housing"
   }
 }

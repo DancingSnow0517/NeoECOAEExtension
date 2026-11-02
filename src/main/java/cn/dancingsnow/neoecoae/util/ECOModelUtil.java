@@ -191,7 +191,7 @@ public class ECOModelUtil {
         return (ctx, prov) -> {
             var model = prov.modLoc("block/" + ctx.getName());
             prov.create(ctx.get(), model);
-            prov.registerSimpleItemModel(ctx.get(), model);
+            // The item definition comes from the block's default .item() builder.
         };
     }
 
@@ -217,7 +217,7 @@ public class ECOModelUtil {
                 prov.modelOutput
             );
             prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get(), BlockModelGenerators.plainVariant(model)));
-            prov.registerSimpleItemModel(ctx.get(), model);
+            // Item definition comes from the block's .simpleItem().
         };
     }
 

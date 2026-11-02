@@ -36,14 +36,16 @@ import java.util.function.Supplier;
 public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
 
     /** The only keys this cell accepts or supplies. */
-    private static final List<AEKey> LOCKED_KEYS = List.of(
-        AEFluidKey.of(Fluids.WATER),
-        AEItemKey.of(Items.COBBLESTONE),
-        AEFluidKey.of(Fluids.LAVA)
-    );
+    // Lazy: in 26.1 item keys cannot be created during registration (data components are not bound yet).
+    private static final com.google.common.base.Supplier<List<AEKey>> LOCKED_KEYS =
+        com.google.common.base.Suppliers.memoize(() -> List.of(
+            AEFluidKey.of(Fluids.WATER),
+            AEItemKey.of(Items.COBBLESTONE),
+            AEFluidKey.of(Fluids.LAVA)
+        ));
 
-    private final List<AEKey> suppliedKeys;
-    private final Set<AEKeyType> suppliedKeyTypes;
+    private final com.google.common.base.Supplier<List<AEKey>> suppliedKeys;
+    private final com.google.common.base.Supplier<Set<AEKeyType>> suppliedKeyTypes;
     private final String tooltipGroup;
 
     /**
@@ -58,7 +60,7 @@ public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
 
     /** Resource matrices share storage behavior while keeping their own immutable supply. */
     public ECOInfiniteResourceCellItem(Properties properties, IECOTier tier, Supplier<ECOCellType> cellType,
-            List<AEKey> suppliedKeys, String tooltipGroup) {
+            java.util.function.Supplier<List<AEKey>> suppliedKeys, String tooltipGroup) {
         super(
             properties,
             tier,
@@ -68,9 +70,10 @@ public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
             bytesPerType(tier),
             (double) tier.getStorageTotalBytes() / (1 << 20)
         );
-        this.suppliedKeys = List.copyOf(suppliedKeys);
-        this.suppliedKeyTypes = this.suppliedKeys.stream().map(AEKey::getType)
-            .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        // 26.1: keys are resolved lazily because data components are not bound during item registration.
+        this.suppliedKeys = com.google.common.base.Suppliers.memoize(() -> List.copyOf(suppliedKeys.get()));
+        this.suppliedKeyTypes = com.google.common.base.Suppliers.memoize(() -> this.suppliedKeys.get().stream()
+            .map(AEKey::getType).collect(java.util.stream.Collectors.toUnmodifiableSet()));
         this.tooltipGroup = tooltipGroup;
     }
 
@@ -80,24 +83,24 @@ public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
     }
 
     public static List<AEKey> lockedKeys() {
-        return LOCKED_KEYS;
+        return LOCKED_KEYS.get();
     }
 
     public static boolean isLockedKey(@Nullable AEKey what) {
-        return what != null && LOCKED_KEYS.contains(what);
+        return what != null && LOCKED_KEYS.get().contains(what);
     }
 
     public List<AEKey> suppliedKeys() {
-        return suppliedKeys;
+        return suppliedKeys.get();
     }
 
     public boolean suppliesKey(@Nullable AEKey what) {
-        return what != null && suppliedKeys.contains(what);
+        return what != null && suppliedKeys.get().contains(what);
     }
 
     @Override
     public Set<AEKeyType> getKeyTypes() {
-        return suppliedKeyTypes;
+        return suppliedKeyTypes.get();
     }
 
     @Override
@@ -107,7 +110,7 @@ public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
 
     @Override
     public ConfigInventory getConfigInventory(ItemStack is) {
-        return ConfigInventory.configTypes(suppliedKeys.size())
+        return ConfigInventory.configTypes(suppliedKeys.get().size())
             .slotFilter(this::suppliesKey)
             .build();
     }

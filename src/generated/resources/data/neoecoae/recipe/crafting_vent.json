@@ -3,8 +3,8 @@
   "category": "misc",
   "key": {
     "A": "neoecoae:crafting_casing",
-    "B": "minecraft:blue_ice",
-    "C": "ae2:quartz_block"
+    "B": "neoecoae:energized_superconductive_block",
+    "C": "neoecoae:phase_change_air_cooler"
   },
   "pattern": [
     "ABA",

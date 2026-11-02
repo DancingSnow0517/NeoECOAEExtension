@@ -2,9 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "A": "minecraft:blue_ice",
+    "A": "neoecoae:superconducting_processor",
     "B": "neoecoae:computation_casing",
-    "C": "neoecoae:superconducting_processor"
+    "C": "neoecoae:phase_change_air_cooler"
   },
   "pattern": [
     "ABA",

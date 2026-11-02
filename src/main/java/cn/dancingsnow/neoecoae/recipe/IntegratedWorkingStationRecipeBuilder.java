@@ -79,7 +79,10 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
 
     public IntegratedWorkingStationRecipeBuilder require(TagKey<Item> tag, int count) {
         HolderGetter<Item> lookup = itemLookup != null ? itemLookup : BuiltInRegistries.ITEM;
-        return require(new SizedIngredient(Ingredient.of(lookup.getOrThrow(tag)), count));
+        // Unbound tags (datagen without a tag-aware lookup) still serialize as "#tag".
+        var set = lookup.get(tag).<net.minecraft.core.HolderSet<Item>>map(h -> h)
+            .orElseGet(() -> net.minecraft.core.HolderSet.emptyNamed(BuiltInRegistries.ITEM, tag));
+        return require(new SizedIngredient(Ingredient.of(set), count));
     }
 
     public IntegratedWorkingStationRecipeBuilder require(TagKey<Item> tag) {
@@ -97,7 +100,9 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
 
     public IntegratedWorkingStationRecipeBuilder requireFluid(TagKey<Fluid> tag, int count) {
         HolderGetter<Fluid> lookup = fluidLookup != null ? fluidLookup : BuiltInRegistries.FLUID;
-        return requireFluid(new SizedFluidIngredient(FluidIngredient.of(lookup.getOrThrow(tag)), count));
+        var set = lookup.get(tag).<net.minecraft.core.HolderSet<Fluid>>map(h -> h)
+            .orElseGet(() -> net.minecraft.core.HolderSet.emptyNamed(BuiltInRegistries.FLUID, tag));
+        return requireFluid(new SizedFluidIngredient(FluidIngredient.of(set), count));
     }
 
     public IntegratedWorkingStationRecipeBuilder requireFluid(TagKey<Fluid> tag) {

@@ -3,7 +3,7 @@
   "category": "misc",
   "ingredients": [
     "#c:ingots/aluminum_alloy",
-    "neoecoae:energized_fluix_crystal"
+    "#c:gems/energized_fluix_crystal"
   ],
   "result": {
     "id": "neoecoae:aluminum_alloy_upgrade_smithing_template"

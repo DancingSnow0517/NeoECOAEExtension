@@ -303,6 +303,7 @@ public class NEBlockEntities {
         .forBlock(NEBlocks.FX_MONITOR_CORE)
         .validBlock(NEBlocks.FX_MONITOR_CORE)
         .renderer(() -> ECOAdvancedCraftingWorkerRenderer::new)
+        .clazz(ECOCraftingWorkerBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECOCraftingPatternBusBlockEntity> CRAFTING_PATTERN_BUS = REGISTRATE
@@ -433,6 +434,7 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_CASING)
         .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_CASING)
+        .clazz(ECOMachineCasingBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECOLargeIntegratedWorkingStationInputHatchBlockEntity> LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH = REGISTRATE
@@ -443,6 +445,7 @@ public class NEBlockEntities {
         .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH)
         .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH)
         .serverTicker(ECOLargeIntegratedWorkingStationInputHatchBlockEntity::tick)
+        .clazz(ECOLargeIntegratedWorkingStationInputHatchBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECOLargeIntegratedWorkingStationInputHatchBlockEntity> LARGE_INTEGRATED_WORKING_STATION_SMART_COOLING_MODULE = REGISTRATE
@@ -453,6 +456,7 @@ public class NEBlockEntities {
         .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_SMART_COOLING_MODULE)
         .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_SMART_COOLING_MODULE)
         .serverTicker(ECOLargeIntegratedWorkingStationInputHatchBlockEntity::tick)
+        .clazz(ECOLargeIntegratedWorkingStationInputHatchBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECOLargeIntegratedWorkingStationOutputHatchBlockEntity> LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH = REGISTRATE
@@ -463,6 +467,7 @@ public class NEBlockEntities {
         .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH)
         .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH)
         .serverTicker(ECOLargeIntegratedWorkingStationOutputHatchBlockEntity::tick)
+        .clazz(ECOLargeIntegratedWorkingStationOutputHatchBlockEntity.class)
         .register();
 
     public static final BlockEntityEntry<ECOMachineInterfaceBlockEntity<NEIntegratedWorkingStationCluster>> LARGE_INTEGRATED_WORKING_STATION_INTERFACE = REGISTRATE
@@ -472,6 +477,7 @@ public class NEBlockEntities {
         .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE)
         .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE)
         .serverTicker(ECOMachineInterfaceBlockEntity::tick)
+        .clazz(ECOLargeIntegratedWorkingStationInterfaceBlockEntity.class)
         .register();
 
     private static NEBlockEntityEntry<ECOCraftingSystemBlockEntity> createCraftingSystem(

@@ -1059,7 +1059,7 @@ public class NEItems {
     public static final ItemEntry<ECOInfiniteResourceCellItem> ECO_INFINITE_SAND_CELL = REGISTRATE
         .item("eco_infinite_sand_cell", p -> new ECOInfiniteResourceCellItem(
             p.stacksTo(1).rarity(Rarity.EPIC), ECOTier.L9, NECellTypes.ITEM,
-            List.of(appeng.api.stacks.AEItemKey.of(Items.SAND)), "tooltip.neoecoae.infinite_sand"))
+            () -> List.of(appeng.api.stacks.AEItemKey.of(Items.SAND)), "tooltip.neoecoae.infinite_sand"))
         .lang("ECO Infinite Sand Resource Storage Matrix")
         .model(() -> ECOModelUtil.infiniteCellModel("infinite_resource_cell"))
         .register();

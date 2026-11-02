@@ -1,7 +1,6 @@
 {
   "parent": "neoecoae:block/casing_base",
   "textures": {
-    "base": "neoecoae:block/cryogenic_aluminum_alloy_casing",
-    "particle": "neoecoae:block/cryogenic_aluminum_alloy_casing"
+    "texture": "neoecoae:block/cryogenic_aluminum_alloy_casing"
   }
 }

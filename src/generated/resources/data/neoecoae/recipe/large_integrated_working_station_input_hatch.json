@@ -4,39 +4,38 @@
   "inputItems": [
     {
       "count": 4,
-      "item": "neoecoae:large_integrated_working_station_casing"
+      "ingredient": "neoecoae:large_integrated_working_station_casing"
     },
     {
       "count": 2,
-      "item": "ae2:import_bus"
+      "ingredient": "ae2:import_bus"
     },
     {
       "count": 4,
-      "item": "neoecoae:cryogenic_aluminum_alloy_casing"
+      "ingredient": "neoecoae:cryogenic_aluminum_alloy_casing"
     },
     {
       "count": 1,
-      "item": "ae2:sky_stone_tank"
+      "ingredient": "ae2:sky_stone_tank"
     },
     {
       "count": 1,
-      "item": "ae2:interface"
+      "ingredient": "ae2:interface"
     },
     {
       "count": 1,
-      "item": "neoecoae:eco_fluid_cell_housing"
+      "ingredient": "neoecoae:eco_fluid_cell_housing"
     },
     {
       "count": 2,
-      "item": "neoecoae:energized_superconductive_ingot"
+      "ingredient": "neoecoae:energized_superconductive_ingot"
     },
     {
       "count": 2,
-      "item": "neoecoae:superconducting_processor"
+      "ingredient": "neoecoae:superconducting_processor"
     }
   ],
   "itemOutput": {
-    "count": 1,
     "id": "neoecoae:large_integrated_working_station_input_hatch"
   }
 }

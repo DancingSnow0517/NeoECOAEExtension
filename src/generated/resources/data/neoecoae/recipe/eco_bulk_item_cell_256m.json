@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "neoecoae:eco_item_cell_housing",
+    "neoecoae:eco_cell_component_256m"
+  ],
+  "result": {
+    "id": "neoecoae:eco_bulk_item_cell_256m"
+  }
+}

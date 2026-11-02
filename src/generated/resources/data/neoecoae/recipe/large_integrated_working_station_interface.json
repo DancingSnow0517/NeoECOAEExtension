@@ -4,31 +4,30 @@
   "inputItems": [
     {
       "count": 4,
-      "item": "neoecoae:large_integrated_working_station_casing"
+      "ingredient": "neoecoae:large_integrated_working_station_casing"
     },
     {
       "count": 1,
-      "item": "ae2:interface"
+      "ingredient": "ae2:interface"
     },
     {
       "count": 2,
-      "item": "ae2:singularity"
+      "ingredient": "ae2:singularity"
     },
     {
       "count": 1,
-      "item": "neoecoae:eco_cell_component_64m"
+      "ingredient": "neoecoae:eco_cell_component_64m"
     },
     {
       "count": 4,
-      "item": "neoecoae:energized_superconductive_ingot"
+      "ingredient": "neoecoae:energized_superconductive_ingot"
     },
     {
       "count": 4,
-      "item": "neoecoae:superconducting_processor"
+      "ingredient": "neoecoae:superconducting_processor"
     }
   ],
   "itemOutput": {
-    "count": 1,
     "id": "neoecoae:large_integrated_working_station_interface"
   }
 }
