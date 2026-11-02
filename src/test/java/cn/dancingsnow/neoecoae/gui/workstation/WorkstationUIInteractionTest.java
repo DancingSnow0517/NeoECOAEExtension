@@ -252,6 +252,29 @@ class WorkstationUIInteractionTest {
         }
     }
 
+    @Test
+    void integratedProgressClipsTheFillWithoutDrawingTheAtlasFrame() {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft()) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            WorkstationProgressBar progress = new WorkstationProgressBar(100);
+            for (int value : List.of(0, 1, 25, 50, 100, 200)) {
+                progress.setValue((float) value);
+                var context = mock(GUIContext.class);
+                progress.drawBackgroundAdditional(context);
+                int width = Math.min(value, 100) * 16 / 100;
+                if (width == 0) {
+                    verifyNoInteractions(context);
+                } else {
+                    verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                            && sprite.getImageLocation().equals(WorkstationTextures.WIDGETS)
+                            && sprite.spritePosition.getX() == 1 && sprite.spritePosition.getY() == 1
+                            && sprite.spriteSize.getWidth() == width && sprite.spriteSize.getHeight() == 4),
+                        eq(progress.getPositionX()), eq(progress.getPositionY()), eq((float) width), eq(4F));
+                }
+            }
+        }
+    }
+
     @org.junit.jupiter.api.Disabled("26.1 port: needs LDLib2's runtime access transformer (Slot.x/y non-final); the isolated test JVM does not apply ATs")
     @Test
     void integratedArtworkKeepsNativeSlotsAndTankInteriorsAfterResize() {
