@@ -87,6 +87,10 @@ public class NETextures {
     public static IGuiTexture BUTTON = SpriteTexture.of(NeoECOAE.id("textures/gui/common/button.png"))
         .setSpriteSize(Size.of(20, 20))
         .setBorder(2, 2, 2, 5);
+    // Referenced by eco.lss as ui-eco:BUTTON_HOVER; without it hovered buttons draw no background.
+    public static IGuiTexture BUTTON_HOVER = SpriteTexture.of(NeoECOAE.id("textures/gui/common/button_hover.png"))
+        .setSpriteSize(Size.of(20, 20))
+        .setBorder(2, 3, 2, 5);
     public static IGuiTexture BUTTON_HIGHLIGHTED = SpriteTexture.of(NeoECOAE.id("textures/gui/common/button_highlighted.png"))
         .setSpriteSize(Size.of(20, 20))
         .setBorder(2, 3, 2, 5);
