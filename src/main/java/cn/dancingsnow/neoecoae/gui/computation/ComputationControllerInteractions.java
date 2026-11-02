@@ -101,7 +101,7 @@ final class ComputationControllerInteractions {
                 Component.translatable("gui.neoecoae.crafting.smart_doubling"),
                 Component.translatable("gui.neoecoae.computation.ui.switch." + (on ? "on" : "off"))
                     .withColor(on ? 0x55FF55 : 0xAAAAAA),
-                Component.translatable("gui.neoecoae.computation.ui.switch.smart_doubling.desc")
+                Component.translatable("gui.neoecoae.computation.ui.switch.smart_doubling.desc").withColor(0xAAAAAA)
             ), null, null, null, null);
         });
         return button;
