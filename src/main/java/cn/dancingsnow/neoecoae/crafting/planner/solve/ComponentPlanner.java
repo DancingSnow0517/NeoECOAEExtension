@@ -772,13 +772,8 @@ public final class ComponentPlanner {
                         boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions, ECOCancellation cancellation,
                         SeedFloors seeds)
             throws InterruptedException {
-        // Large structural universes can exhaust the session before reaching recovery. This is
-        // a cycle recovery heuristic. A selected DAG always gets its preferred route first.
-        if (cyclePlanningEnabled && !activeSelection.acyclic()
-                && maxRouteAttempts == 0 && network.reachablePatternCount() > 64) {
-            Outcome joint = new JointRouteOptimizer().optimize(network, snapshot, amount, null, true, cancellation);
-            if (joint != null && joint.status() == PlanningStatus.SUCCESS) return joint;
-        }
+        // The ordinary route plan always runs first: it is fast and follows AE's producer order. The joint model is a
+        // recovery for orders that plan does not complete (or a short, optional improvement), never a prefix.
         CycleFailureCache failures = new CycleFailureCache(cycleSolver);
         ExternalDemandPlanner externalDemandPlanner = new ExternalDemandPlanner(acyclicSolver);
         Outcome preferred = plan(network, activeSelection, inventory, snapshot, amount, cyclePlanningEnabled,

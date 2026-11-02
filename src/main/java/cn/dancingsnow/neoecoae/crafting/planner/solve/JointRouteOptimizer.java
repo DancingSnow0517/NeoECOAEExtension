@@ -37,10 +37,14 @@ import java.util.Set;
 /** Bounded joint firing optimization followed by physical, demand-attributed DAG replay. */
 public final class JointRouteOptimizer {
     private boolean budgetExhausted;
+    /** Reason, work and time of the last exhausted search; empty when the last search finished. */
+    private String exhaustion = "";
     private Map<AEKey, Long> prefixRequired = Map.of();
     private Map<IPatternDetails, PlannerAmount> prefixExecuted = Map.of();
 
     public boolean budgetExhausted() { return budgetExhausted; }
+
+    public String exhaustion() { return exhaustion; }
 
     public ComponentPlanner.Outcome optimize(CompiledNetwork network, PlannerInventorySnapshot inventory,
             long amount, ComponentPlanner.Outcome preferred, ECOCancellation cancellation) throws InterruptedException {
@@ -51,6 +55,7 @@ public final class JointRouteOptimizer {
             long amount, ComponentPlanner.Outcome preferred, boolean allowOrdered,
             ECOCancellation cancellation) throws InterruptedException {
         budgetExhausted = false;
+        exhaustion = "";
         if (amount <= 0) return preferred;
         boolean completed = preferred != null && preferred.status() == PlanningStatus.SUCCESS;
         // Feasibility recovery gets a useful share; optional improvement remains short and keeps its incumbent.
@@ -61,8 +66,11 @@ public final class JointRouteOptimizer {
         try {
             // A supplied DAG already follows AE's producer order. Fewer firings do not
             // justify replacing that choice with a different production line.
+            // A structural cycle that this plan serves from stock (or does not need) runs no cycle either.
             if (completed && preferred.components().stream()
-                    .noneMatch(component -> component.type() == ComponentPlanningResult.Type.CYCLIC)) {
+                    .noneMatch(component -> component.type() == ComponentPlanningResult.Type.CYCLIC
+                        && component.cycleDisposition() != CycleExecutionDisposition.NOT_REQUIRED
+                        && component.cycleDisposition() != CycleExecutionDisposition.STOCK_SATISFIED)) {
                 cancellation.checkpoint();
                 return preferred;
             }
@@ -81,9 +89,11 @@ public final class JointRouteOptimizer {
             return proposal;
         } catch (ECOPlanningBudget.Exhausted exhausted) {
             budgetExhausted = true;
+            exhaustion = exhausted.getMessage();
             if (preferred != null) preferred.trace().addDiagnostic(new PlannerDiagnostic(
                     PlannerDiagnostic.Code.ROUTE_OPTIMIZATION_BUDGET,
-                    "Joint route search allowance exhausted; retaining the completed plan"));
+                    "Joint route search allowance exhausted; retaining the earlier result (status="
+                        + preferred.status() + "); " + exhaustion));
             return preferred;
         }
     }
