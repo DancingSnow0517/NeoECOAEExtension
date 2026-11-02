@@ -49,6 +49,9 @@ class CycleFailureCacheTest {
         cache.solve(request(0, 2, 0, false), ECOCancellation.NONE);
         cache.solve(request(0, 2, 0, false), ECOCancellation.NONE);
         assertEquals(2, calls.get());
+        // Not even as a dominance proof for a harder request.
+        cache.solveVerdict(request(0, 3, 0, false), ECOCancellation.NONE);
+        assertEquals(3, calls.get());
     }
 
     @Test
@@ -77,6 +80,52 @@ class CycleFailureCacheTest {
         assertThrows(InterruptedException.class, () -> cache.solve(request(0, 2, 0, false), () -> {
             throw new InterruptedException("cancelled");
         }));
+        assertThrows(InterruptedException.class, () -> cache.solveVerdict(request(0, 3, 0, false), () -> {
+            throw new InterruptedException("cancelled");
+        }));
+    }
+
+    @Test
+    void verdictCallersReuseAProofForHarderRequestsOnly() throws Exception {
+        var calls = new AtomicInteger();
+        var cache = new CycleFailureCache((request, cancellation) -> {
+            calls.incrementAndGet();
+            return failure(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT);
+        });
+        cache.solve(request(0, 10, 5, false), ECOCancellation.NONE);
+        // Asks for more, owns less: the earlier impossibility proof covers it, whatever the component id.
+        var reused = cache.solveVerdict(request(3, 12, 3, false), ECOCancellation.NONE);
+        assertEquals(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, reused.status());
+        assertTrue(reused.diagnostics().stream().anyMatch(d ->
+            d.code() == CycleSolveDiagnostic.Code.PROVEN_FAILURE_REUSED));
+        assertEquals(1, calls.get());
+        assertEquals(1, cache.reusedFailures());
+        // Asks for less, or owns more: each needs its own solve.
+        cache.solveVerdict(request(0, 8, 5, false), ECOCancellation.NONE);
+        cache.solveVerdict(request(0, 12, 6, false), ECOCancellation.NONE);
+        assertEquals(3, calls.get());
+        // Plain solve keeps exact-match reuse only, so callers that read the shortfall get their own numbers.
+        cache.solve(request(0, 13, 2, false), ECOCancellation.NONE);
+        assertEquals(4, calls.get());
+    }
+
+    @Test
+    void boundaryCapsOnlyDominateWhenTheyAreTighter() throws Exception {
+        var calls = new AtomicInteger();
+        var cache = new CycleFailureCache((request, cancellation) -> {
+            calls.incrementAndGet();
+            return failure(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT);
+        });
+        cache.solve(request(0, 10, 5, true).withBoundaryImportCaps(Map.of(fuel, PlannerAmount.of(2L))),
+            ECOCancellation.NONE);
+        cache.solveVerdict(request(0, 10, 5, true).withBoundaryImportCaps(Map.of(fuel, PlannerAmount.of(1L))),
+            ECOCancellation.NONE);
+        assertEquals(1, calls.get());
+        // A looser cap, or no cap at all (unlimited imports), may succeed where the capped proof failed.
+        cache.solveVerdict(request(0, 10, 5, true).withBoundaryImportCaps(Map.of(fuel, PlannerAmount.of(3L))),
+            ECOCancellation.NONE);
+        cache.solveVerdict(request(0, 10, 5, true), ECOCancellation.NONE);
+        assertEquals(3, calls.get());
     }
 
     private CycleSolveRequest request(int id, long target, long stock, boolean boundary) {

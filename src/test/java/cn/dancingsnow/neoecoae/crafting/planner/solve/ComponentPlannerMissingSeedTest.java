@@ -176,7 +176,8 @@ class ComponentPlannerMissingSeedTest {
             new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
         var stock = new KeyCounter();
         stock.add(seed, 23L);
-        stock.add(fuel, 28L);
+        // Strict seed retention: 22 of the 23 serve the consumer, the kept seed grows the other 29 and survives.
+        stock.add(fuel, 29L);
 
         var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
             .plan(network, condensation, stock, 1L, true, ECOCancellation.NONE);
@@ -184,7 +185,7 @@ class ComponentPlannerMissingSeedTest {
         assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.SUCCESS,
             outcome.status(), outcome.trace().diagnostics().toString());
         assertTrue(outcome.state().missingItems().isEmpty());
-        assertEquals(28L, outcome.state().patternTimes().get(growth.details()));
+        assertEquals(29L, outcome.state().patternTimes().get(growth.details()));
         assertEquals(1L, outcome.trace().cycles().getFirst().solveResult().requiredSeed().get(seed));
         assertTrue(outcome.trace().cycles().getFirst().solveResult().seedShortfall().isEmpty());
     }
@@ -345,7 +346,8 @@ class ComponentPlannerMissingSeedTest {
         var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
             .plan(network, condensation, stock, Long.MAX_VALUE, true, ECOCancellation.NONE);
 
-        assertEquals(PlannerAmount.of(221_670L), outcome.state().usedAmounts().get(seed));
+        // All stock except the cycle's kept seed (one copy) is spent on the unrepresentable order.
+        assertEquals(PlannerAmount.of(221_669L), outcome.state().usedAmounts().get(seed));
         var cycle = outcome.components().stream()
             .filter(candidate -> candidate.type()
                 == cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Type.CYCLIC)
@@ -392,8 +394,8 @@ class ComponentPlannerMissingSeedTest {
         var finalInputs = new java.util.ArrayList<GenericStack>();
         finalInputs.add(new GenericStack(crystal, 400_000L));
         var inventory = new KeyCounter();
-        // Four seeds each grow from one to four: 12 crystals, exactly three extra blocks.
-        inventory.add(block, 100_003L);
+        // Four seeds each grow from one to five (four delivered, one kept): 16 crystals, exactly four extra blocks.
+        inventory.add(block, 100_004L);
         for (int i = 0; i < seeds.size(); i++) {
             AEKey seed = seeds.get(i);
             inventory.add(seed, 1L);
@@ -416,11 +418,11 @@ class ComponentPlannerMissingSeedTest {
         assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.SUCCESS,
             outcome.status(), outcome.trace().diagnostics().toString());
         assertTrue(outcome.state().missingItems().isEmpty());
-        assertEquals(100_003L, outcome.state().usedItems().get(block));
+        assertEquals(100_004L, outcome.state().usedItems().get(block));
         assertEquals(0L, outcome.state().usedItems().get(crystal));
-        assertEquals(100_003L, outcome.state().patternTimes().get(unpack.details()));
+        assertEquals(100_004L, outcome.state().patternTimes().get(unpack.details()));
         for (AEKey seed : seeds) {
-            assertEquals(3L, outcome.state().patternTimes().get(producers.get(seed).getFirst().details()));
+            assertEquals(4L, outcome.state().patternTimes().get(producers.get(seed).getFirst().details()));
         }
         assertFalse(outcome.state().patternTimes().containsKey(pack.details()));
         outcome.state().executionProvenance().requireComplete();
@@ -566,7 +568,8 @@ class ComponentPlannerMissingSeedTest {
 
         assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.PARTIAL,
             outcome.status(), outcome.trace().diagnostics().toString());
-        assertEquals(1L, outcome.state().missingItems().get(fuel));
+        // B must deliver two and keep its single seed: two laps, two fuel.
+        assertEquals(2L, outcome.state().missingItems().get(fuel));
         assertTrue(outcome.components().stream().anyMatch(c -> c.cycleStatus()
             == cn.dancingsnow.neoecoae.crafting.planner.result.CyclePlanningStatus.UNKNOWN_BUDGET));
         assertFalse(outcome.state().patternTimes().containsKey(growthA.details()));

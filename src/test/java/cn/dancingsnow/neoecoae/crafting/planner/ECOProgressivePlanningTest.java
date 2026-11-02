@@ -92,7 +92,7 @@ class ECOProgressivePlanningTest {
         assertTrue(new ECOPlanningBudget(ECOCancellation.NONE).improveCompletedPlans());
     }
 
-    @Test void realSessionPublishesACompleteRouteThenImprovesItWithAnIndependentSession() throws Exception {
+    @Test void realSessionPreservesProducerOrderInConfirmationAndRemainingWorkSearches() throws Exception {
         AEKey raw = AEItemKey.of(Items.RAW_IRON), ingot = AEItemKey.of(Items.IRON_INGOT);
         AEKey copper = AEItemKey.of(Items.COPPER_INGOT), goal = AEItemKey.of(Items.GOLD_INGOT);
         var smelt = pattern(raw, ingot);
@@ -108,17 +108,17 @@ class ECOProgressivePlanningTest {
         var improved = session.fork(session.initialInventory(), ECOCancellation.NONE, false)
                 .plan(10, false, ECOCancellation.NONE);
         assertEquals(PlanningStatus.SUCCESS, improved.status(), improved.trace().diagnostics().toString());
-        assertEquals(Map.of(direct, 10L), improved.plan().patternTimes());
+        assertEquals(Map.of(smelt, 10L, finish, 10L), improved.plan().patternTimes());
         var handle = new ECOPlanningImprovements(session, first);
-        assertTrue(handle.offer(improved));
-        assertSame(improved, handle.latest(first));
+        assertFalse(handle.offer(improved));
+        assertNull(handle.latest(first));
         assertEquals(Map.of(smelt, 10L, finish, 10L), first.plan().patternTimes());
         handle.close();
         var owned = new KeyCounter(); owned.add(raw, 8);
         var remaining = handle.remaining(owned, 8).get(5, TimeUnit.SECONDS);
         assertEquals(PlanningStatus.SUCCESS, remaining.status(), remaining.trace().diagnostics().toString());
         assertEquals(new GenericStack(goal, 8), remaining.plan().finalOutput());
-        assertEquals(Map.of(direct, 8L), remaining.plan().patternTimes());
+        assertEquals(Map.of(smelt, 8L, finish, 8L), remaining.plan().patternTimes());
         assertEquals(8, remaining.plan().usedItems().get(raw));
         assertTrue(remaining.plan().emittedItems().isEmpty());
         when(((ECOCraftingProviderRevision) service).neoecoae$getProviderRevision()).thenReturn(8L);

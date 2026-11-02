@@ -88,12 +88,34 @@ public final class CraftingNetworkCompiler {
             List<CompiledPattern> compiled = new ArrayList<>();
             Set<PatternDefinition> definitions = new HashSet<>();
             boolean componentInsensitiveOutput = !key.equals(goal) && ignoresComponents(key, ignoredItemIds);
+            List<IPatternDetails> offered = new ArrayList<>();
             for (IPatternDetails details : craftingFor(service, key, componentInsensitiveOutput)) {
                 cancellation.checkpoint();
                 PatternDefinition definition = patternDefinition(details);
-                if (definition != null && !definitions.add(definition)) continue;
-                CompiledPattern pattern = compilePattern(nextPatternId++, details, key, cyclePlanningEnabled,
+                if (definition == null || definitions.add(definition)) offered.add(details);
+            }
+            // AE2 advertises every output of a pattern. A pattern that yields this key only as a byproduct is
+            // not a route to it while a fast-plannable pattern makes it as its primary output: its byproduct is
+            // still credited whenever it runs for its own product, but it no longer multiplies producer choices,
+            // structural cycles and fallback route attempts. Keys obtainable only as byproducts, or whose primary
+            // producers cannot be fast-planned, keep those producers. AE's producer order is kept either way.
+            CompiledPattern[] byOffer = new CompiledPattern[offered.size()];
+            boolean primaryPlannable = false;
+            for (int i = 0; i < offered.size(); i++) {
+                if (!producesAsPrimary(offered.get(i), key, componentInsensitiveOutput)) continue;
+                cancellation.checkpoint();
+                byOffer[i] = compilePattern(nextPatternId++, offered.get(i), key, cyclePlanningEnabled,
                     ignoredItemIds, componentInsensitiveOutput, service);
+                primaryPlannable |= byOffer[i].fastSupported();
+            }
+            for (int i = 0; i < offered.size() && !primaryPlannable; i++) {
+                if (byOffer[i] != null) continue;
+                cancellation.checkpoint();
+                byOffer[i] = compilePattern(nextPatternId++, offered.get(i), key, cyclePlanningEnabled,
+                    ignoredItemIds, componentInsensitiveOutput, service);
+            }
+            for (CompiledPattern pattern : byOffer) {
+                if (pattern == null) continue;
                 compiled.add(pattern);
                 for (CompiledInput input : pattern.inputs()) {
                     edgeCount++;
@@ -263,6 +285,18 @@ public final class CraftingNetworkCompiler {
     private static boolean sameItem(AEKey left, AEKey right) {
         return left instanceof AEItemKey leftItem && right instanceof AEItemKey rightItem
             && leftItem.getItem() == rightItem.getItem();
+    }
+
+    /** Unknown or malformed primary metadata keeps the pattern: only a proven byproduct view is dropped. */
+    private static boolean producesAsPrimary(IPatternDetails details, AEKey key, boolean componentInsensitiveOutput) {
+        GenericStack primary;
+        try {
+            primary = details.getPrimaryOutput();
+        } catch (RuntimeException e) {
+            return true;
+        }
+        if (primary == null || primary.what() == null) return true;
+        return primary.what().equals(key) || componentInsensitiveOutput && sameItem(key, primary.what());
     }
 
     private static List<CompiledInput> compileRawInputs(IPatternDetails details,
