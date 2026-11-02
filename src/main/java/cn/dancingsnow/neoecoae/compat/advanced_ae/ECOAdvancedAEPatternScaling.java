@@ -93,8 +93,11 @@ public final class ECOAdvancedAEPatternScaling {
             return original.getDirectionSideForInputKey(key);
         }
         @Override public boolean equals(Object other) {
-            return other == original || other instanceof ScaledAdvancedPattern scaled
-                    && original.equals(scaled.original) && multiplier == scaled.multiplier;
+            if (other instanceof ScaledAdvancedPattern scaled) {
+                return original.equals(scaled.original) && multiplier == scaled.multiplier;
+            }
+            // AdvancedAE checks its separately decoded catalog before accepting this execution view.
+            return original.equals(other);
         }
         @Override public int hashCode() { return original.hashCode(); }
     }
