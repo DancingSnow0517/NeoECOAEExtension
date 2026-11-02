@@ -1,0 +1,34 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "energy": 1000,
+  "inputFluid": {
+    "amount": 1000,
+    "fluid": "neoecoae:cryotheum_solution"
+  },
+  "inputItems": [
+    {
+      "count": 8,
+      "item": "neoecoae:cryogenic_aluminum_alloy_casing"
+    },
+    {
+      "count": 8,
+      "tag": "c:dusts/energized_crystal"
+    },
+    {
+      "count": 8,
+      "item": "neoecoae:cryotheum_crystal"
+    },
+    {
+      "count": 2,
+      "item": "ae2:engineering_processor"
+    },
+    {
+      "count": 1,
+      "item": "ae2:sky_stone_tank"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "neoecoae:phase_change_air_cooler"
+  }
+}

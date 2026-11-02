@@ -1,0 +1,39 @@
+{
+  "root": {
+    "type": "custom",
+    "name": "multiblock_window",
+    "id": "multiblock-window",
+    "class": "panel_bg",
+    "layout": { "position": "absolute", "left": 6, "top": 6, "width": 286 },
+    "children": [
+      {
+        "type": "container",
+        "id": "multiblock-title-bar",
+        "layout": { "width": "100%", "height": 20 },
+        "children": [
+          {
+            "type": "label",
+            "id": "multiblock-title",
+            "name": "multiblock_title",
+            "text": "gui.neoecoae.multiblock.builder",
+            "translate": true,
+            "layout": { "height": 16 }
+          },
+          {
+            "type": "button",
+            "id": "multiblock-close",
+            "name": "multiblock_close",
+            "text": "X",
+            "layout": { "width": 16, "height": 16 }
+          }
+        ]
+      },
+      {
+        "type": "custom",
+        "name": "multiblock_body",
+        "id": "multiblock-body",
+        "layout": { "width": "100%", "height": "auto" }
+      }
+    ]
+  }
+}

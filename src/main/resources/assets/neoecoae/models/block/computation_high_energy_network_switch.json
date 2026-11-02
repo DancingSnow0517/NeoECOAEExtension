@@ -1,0 +1,6 @@
+{
+  "parent": "neoecoae:block/computation_network_switch",
+  "textures": {
+    "lights": "neoecoae:block/compute/network_powered_light"
+  }
+}

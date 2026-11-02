@@ -1,0 +1,19 @@
+// Opt-in capture sources. Never use this init script when building a release JAR.
+allprojects {
+    plugins.withId('java') {
+        if (project == rootProject) {
+            def captureRoot = rootProject.findProperty('machinePromoSourceRoot') ?: 'tools/machine-promo'
+            sourceSets.main.java.srcDir(rootProject.file("${captureRoot}/src"))
+        }
+    }
+}
+
+gradle.projectsEvaluated {
+    rootProject.neoForge.runs.named('client') {
+        gameDirectory = rootProject.file('.gradle/machine-promo-client')
+        programArguments.addAll '--width', '2400', '--height', '1350',
+            '--quickPlaySingleplayer', 'machine-marketing-preview'
+        systemProperty 'neoecoae.promo.start', rootProject.findProperty('machinePromoStart') ?: '0'
+    }
+    rootProject.tasks.named('installCuriosDevMod').configure { enabled = false }
+}

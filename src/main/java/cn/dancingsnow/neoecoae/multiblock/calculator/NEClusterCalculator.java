@@ -1,19 +1,30 @@
 package cn.dancingsnow.neoecoae.multiblock.calculator;
 
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockParts;
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockRequirements;
+
 import appeng.me.cluster.MBCalculator;
+import appeng.api.orientation.IOrientationStrategy;
+import appeng.api.orientation.OrientationStrategies;
+import appeng.api.orientation.RelativeSide;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
-import com.mojang.serialization.DataResult;
+import cn.dancingsnow.neoecoae.util.MultiBlockUtil;
+import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 import java.util.List;
+import java.util.Set;
 import java.util.function.BiPredicate;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 @SuppressWarnings("BooleanMethodIsAlwaysInverted")
@@ -27,15 +38,29 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     @Override
     public void updateBlockEntities(C c, ServerLevel level, BlockPos min, BlockPos max) {
         for (BlockPos blockPos : BlockPos.betweenClosed(min, max)) {
-            NEBlockEntity<C, ?> blockEntity = (NEBlockEntity<C, ?>) level.getBlockEntity(blockPos);
-            if (blockEntity == null) {
+            BlockEntity candidate = level.getBlockEntity(blockPos);
+            if (!(candidate instanceof NEBlockEntity<?, ?>) || !isValidBlockEntity(candidate)) {
                 this.disconnect();
                 return;
             }
+            NEBlockEntity<C, ?> blockEntity = (NEBlockEntity<C, ?>) candidate;
             c.addBlockEntity(blockEntity);
         }
-        c.getBlockEntities().forEachRemaining(it -> it.updateCluster(c));
+        c.getBlockEntities().forEachRemaining(it -> {
+            if (it instanceof NEBlockEntity<?, ?> blockEntity) {
+                updateClusterUnchecked(blockEntity, c);
+            }
+        });
         c.updateFormed(true);
+        this.onClusterAttached(c);
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void updateClusterUnchecked(NEBlockEntity<?, ?> blockEntity, NECluster<?> cluster) {
+        ((NEBlockEntity) blockEntity).updateCluster(cluster);
+    }
+
+    protected void onClusterAttached(C cluster) {
     }
 
     @Override
@@ -53,17 +78,29 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
 
     protected abstract int maxLength();
 
+    protected abstract Holder<Block> casing();
+
     @FunctionalInterface
     public interface Factory<C extends NECluster<C>> {
         NEClusterCalculator<C> create(NEBlockEntity<C, ?> blockEntity);
     }
 
-    public static <T> boolean validateBlock(Level level, BlockPos pos, Predicate<BlockState> fn) {
+    public static boolean validateBlock(Level level, BlockPos pos, Predicate<BlockState> fn) {
         return fn.test(level.getBlockState(pos));
     }
 
     public static <T> boolean validateBlock(Level level, BlockPos pos, BiPredicate<BlockState, T> fn, T value) {
-        return fn.test(level.getBlockState(pos), value);
+        BlockState actual = level.getBlockState(pos);
+        boolean accepted = fn.test(actual, value);
+        Block block = value instanceof Block direct ? direct
+            : value instanceof Holder<?> holder && holder.value() instanceof Block held ? held : null;
+        if (block == null) return accepted;
+        BlockState expected = block.defaultBlockState();
+        var role = ECOMultiblockParts.acceptsExpected(
+            ECOMultiblockParts.context(level, pos), expected);
+        return ECOMultiblockRequirements.accepts(
+            new ECOMultiblockRequirements.Context(level, pos.immutable(), expected, actual),
+            role == null ? accepted : role);
     }
 
     public static BlockPos expandTowards(Level level, Direction direction, BlockPos start, Holder<Block> type) {
@@ -72,66 +109,29 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
 
     public static BlockPos expandTowards(Level level, Direction direction, BlockPos start, Block type) {
         BlockPos.MutableBlockPos mutable = start.mutable();
-        while (
-            level.getBlockState(
-                new BlockPos(
-                    mutable.getX() + direction.getStepX(),
-                    mutable.getY() + direction.getStepY(),
-                    mutable.getZ() + direction.getStepZ()
-                )
-            ).is(type)
-        ) {
-            mutable.set(
-                mutable.getX() + direction.getStepX(),
-                mutable.getY() + direction.getStepY(),
-                mutable.getZ() + direction.getStepZ()
-            );
+        // Reuse the mutable cursor while probing long structures to avoid one allocation per block.
+        while (level.getBlockState(mutable.relative(direction)).is(type)) {
+            mutable.move(direction);
         }
-        return mutable;
+        return mutable.immutable();
     }
 
     public static BlockPos expandTowards(Level level, Direction direction, BlockPos start, Predicate<BlockState> fn) {
         BlockPos.MutableBlockPos mutable = start.mutable();
-        while (
-            fn.test(level.getBlockState(
-                new BlockPos(
-                    mutable.getX() + direction.getStepX(),
-                    mutable.getY() + direction.getStepY(),
-                    mutable.getZ() + direction.getStepZ()
-                )
-            ))
-        ) {
-            mutable.set(
-                mutable.getX() + direction.getStepX(),
-                mutable.getY() + direction.getStepY(),
-                mutable.getZ() + direction.getStepZ()
-            );
+        while (fn.test(level.getBlockState(mutable.relative(direction)))) {
+            mutable.move(direction);
         }
-        return mutable;
+        return mutable.immutable();
     }
 
     public static BlockPos expandTowards(Level level, Direction direction, BlockPos start, BiPredicate<BlockState, BlockPos> fn) {
         BlockPos.MutableBlockPos mutable = start.mutable();
-        BlockPos pos = new BlockPos(
-            mutable.getX() + direction.getStepX(),
-            mutable.getY() + direction.getStepY(),
-            mutable.getZ() + direction.getStepZ()
-        );
-        while (
-            fn.test(level.getBlockState(pos), pos)
-        ) {
-            mutable.set(
-                mutable.getX() + direction.getStepX(),
-                mutable.getY() + direction.getStepY(),
-                mutable.getZ() + direction.getStepZ()
-            );
-            pos = new BlockPos(
-                mutable.getX() + direction.getStepX(),
-                mutable.getY() + direction.getStepY(),
-                mutable.getZ() + direction.getStepZ()
-            );
+        BlockPos pos = mutable.relative(direction);
+        while (fn.test(level.getBlockState(pos), pos)) {
+            mutable.move(direction);
+            pos = mutable.relative(direction);
         }
-        return mutable;
+        return mutable.immutable();
     }
 
     public static boolean validateBlocks(Level level, BlockPos from, BlockPos to, Predicate<BlockState> fn) {
@@ -145,7 +145,7 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
 
     public static <T> boolean validateBlocks(Level level, Iterable<BlockPos> iterable, BiPredicate<BlockState, T> fn, T value) {
         for (BlockPos blockPos : iterable) {
-            if (!fn.test(level.getBlockState(blockPos), value)) {
+            if (!validateBlock(level, blockPos, fn, value)) {
                 return false;
             }
         }
@@ -156,7 +156,7 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         return validateBlocks(level, BlockPos.betweenClosed(from, to), fn, value);
     }
 
-    protected static boolean validateCasing(
+    protected final boolean validateCasing(
         ServerLevel level,
         BlockPos centerPos,
         Direction top,
@@ -170,6 +170,25 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
             return false;
         }
         return validateBlock(level, centerPos.relative(down), BlockState::is, casing);
+    }
+
+    protected final boolean validateCasing(
+        ServerLevel level,
+        BlockPos centerPos,
+        Direction top,
+        Direction down
+    ) {
+        return validateCasing(level, centerPos, top, down, casing());
+    }
+
+    protected final boolean validateCasing(
+        ServerLevel level,
+        BlockPos origin,
+        Direction top,
+        Direction down,
+        Direction direction
+    ) {
+        return validateCasing(level, origin.relative(direction), top, down);
     }
 
     protected boolean validateInterface(
@@ -213,7 +232,7 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         return sameX || sameY || sameZ;
     }
 
-    protected static DataResult<BlockPos> validateBlockLine(
+    protected static Optional<BlockPos> validateBlockLine(
         Level level,
         Direction expandDirection,
         BlockPos start,
@@ -224,7 +243,7 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
             start,
             it -> blockPredicate.test(it, start)
         )) {
-            return DataResult.error(NEClusterCalculator::fail);
+            return Optional.empty();
         }
         BlockPos end = expandTowards(
             level,
@@ -232,19 +251,98 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
             start,
             blockPredicate
         );
-        if (end.equals(start)) {
-            if (validateBlock(
-                level,
-                end,
-                it -> blockPredicate.test(it, start)
-            )) {
-                return DataResult.success(end);
-            }
-        }
-        return DataResult.success(end);
+        return Optional.of(end);
     }
 
-    private static String fail() {
-        return "";
+    protected final <T extends NEBlockEntity<?, ?>> Optional<ControllerContext<T>> findUniqueController(
+        ServerLevel level,
+        BlockPos min,
+        BlockPos max,
+        Class<T> controllerType
+    ) {
+        Set<BlockPos> validControllerPositions = MultiBlockUtil.allPossibleController(min, max);
+        Optional<T> controller = findUnique(
+            BlockPos.betweenClosed(min, max),
+            pos -> controllerType.isInstance(level.getBlockEntity(pos))
+                ? controllerType.cast(level.getBlockEntity(pos))
+                : null
+        );
+        if (controller.isEmpty()) {
+            return Optional.empty();
+        }
+
+        T blockEntity = controller.orElseThrow();
+        if (!validControllerPositions.contains(blockEntity.getBlockPos())) {
+            return Optional.empty();
+        }
+        BlockState state = blockEntity.getBlockState();
+        IOrientationStrategy strategy = OrientationStrategies.horizontalFacing();
+        Direction back = strategy.getSide(state, RelativeSide.BACK);
+        Direction top = strategy.getSide(state, RelativeSide.TOP);
+        Direction left = strategy.getSide(state, RelativeSide.LEFT);
+        return Optional.of(new ControllerContext<>(
+            blockEntity,
+            blockEntity.getBlockPos(),
+            state,
+            back.getOpposite(),
+            back,
+            top,
+            top.getOpposite(),
+            left,
+            left.getOpposite()
+        ));
+    }
+
+    protected final <T extends NEBlockEntity<?, ?>> Optional<T> findCandidateController(
+        ServerLevel level, BlockPos min, BlockPos max, Class<T> controllerType
+    ) {
+        return findUnique(MultiBlockUtil.allPossibleController(min, max), pos -> {
+            BlockEntity candidate = level.getBlockEntity(pos);
+            return controllerType.isInstance(candidate) ? controllerType.cast(candidate) : null;
+        });
+    }
+
+    static <T> Optional<T> findUnique(Iterable<BlockPos> positions, Function<BlockPos, T> finder) {
+        T found = null;
+        for (BlockPos pos : positions) {
+            T candidate = finder.apply(pos);
+            if (candidate == null) {
+                continue;
+            }
+            if (found != null) {
+                return Optional.empty();
+            }
+            found = candidate;
+        }
+        return Optional.ofNullable(found);
+    }
+
+    protected static BiPredicate<BlockState, BlockPos> matchingStateFacing(
+        Holder<Block> block,
+        Direction facing
+    ) {
+        BlockState expected = block.value().defaultBlockState();
+        if (expected.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) expected = expected.setValue(BlockStateProperties.HORIZONTAL_FACING, facing);
+        BlockState wanted = expected;
+        return (state, pos) -> {
+            var role = ECOMultiblockParts.acceptsExpected(
+                new ECOMultiblockParts.Context(null, pos.immutable(), state, null), wanted);
+            return ECOMultiblockRequirements.accepts(
+                new ECOMultiblockRequirements.Context(null, pos.immutable(), wanted, state),
+                role == null ? state.is(block) && state.getOptionalValue(BlockStateProperties.HORIZONTAL_FACING).orElse(facing) == facing : role);
+        };
+    }
+
+    protected record ControllerContext<T extends NEBlockEntity<?, ?>>(
+        T controller,
+        BlockPos position,
+        BlockState state,
+        Direction front,
+        Direction back,
+        Direction top,
+        Direction down,
+        Direction left,
+        Direction right
+    ) {
     }
 }

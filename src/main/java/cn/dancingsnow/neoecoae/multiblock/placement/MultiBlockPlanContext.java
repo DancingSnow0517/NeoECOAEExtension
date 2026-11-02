@@ -1,15 +1,15 @@
 package cn.dancingsnow.neoecoae.multiblock.placement;
 
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockRequirement;
+
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiFunction;
 
 public class MultiBlockPlanContext extends MultiBlockContext {
     @Getter
@@ -29,7 +29,9 @@ public class MultiBlockPlanContext extends MultiBlockContext {
     }
 
     @Override
-    public void setBlockEntity(BlockPos pos, BiFunction<BlockPos, BlockState, BlockEntity> sup) {
+    public void setRequirement(BlockPos pos, ECOMultiblockRequirement requirement) {
+        plannedBlocks.add(new PlannedBlock(pos.immutable(), requirement.defaultState(),
+            requirement.defaultState().getBlock().asItem().getDefaultInstance().copy(), requirement));
     }
 
     @Override
@@ -39,7 +41,8 @@ public class MultiBlockPlanContext extends MultiBlockContext {
 
     @Override
     public List<BlockPos> allBlocks() {
-        return plannedBlocks.stream().map(PlannedBlock::relativePos).toList();
+        return plannedBlocks.stream().map(PlannedBlock::relativePos)
+            .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
     }
 
     @Override

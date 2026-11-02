@@ -5,11 +5,21 @@ on:
     paths:
       - .github/workflows/**
       - src/**
+      - guidebook/**
+      - gradle.properties
+      - gradle/wrapper/**
+      - gradlew
+      - gradlew.bat
       - '*.gradle'
   pull_request:
     paths:
       - .github/workflows/**
       - src/**
+      - guidebook/**
+      - gradle.properties
+      - gradle/wrapper/**
+      - gradlew
+      - gradlew.bat
       - '*.gradle'
 
 jobs:
@@ -30,9 +40,6 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
-
-      - name: Copy Guide Book
-        run: ./gradlew copyGuidebook
 
       - name: Build with Gradle
         run: ./gradlew build

@@ -33,31 +33,8 @@ public class ECOFluidInputHatchBlock extends NEBlock<ECOFluidInputHatchBlockEnti
     }
 
     @Override
-    protected RenderShape getRenderShape(BlockState state) {
-        if (state.getValue(FORMED)) {
-            return RenderShape.INVISIBLE;
-        }
-        return RenderShape.MODEL;
-    }
-
-    @Override
-    protected boolean skipRendering(BlockState state, BlockState adjacentState, Direction direction) {
-        return state.getValue(FORMED);
-    }
-
-    @Override
-    protected float getShadeBrightness(BlockState state, BlockGetter level, BlockPos pos) {
-        return state.getValue(FORMED) ? 1 : 0.2f;
-    }
-
-    @Override
-    protected VoxelShape getVisualShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return state.getValue(FORMED) ? Shapes.empty() : super.getVisualShape(state, level, pos, context);
-    }
-
-    @Override
-    protected int getLightDampening(BlockState state) {
-        return state.getValue(FORMED) ? 0 : super.getLightDampening(state);
+    protected boolean hideWhenFormed() {
+        return true;
     }
 
     @Override
@@ -66,5 +43,11 @@ public class ECOFluidInputHatchBlock extends NEBlock<ECOFluidInputHatchBlockEnti
             return be.createUI(holder);
         }
         return null;
+    }
+
+    @Override
+    public boolean stillValid(BlockUIMenuType.BlockUIHolder holder) {
+        return holder.player.level().getBlockEntity(holder.pos) instanceof ECOFluidInputHatchBlockEntity hatch
+            && hatch.canPlayerUse(holder.player);
     }
 }

@@ -1,0 +1,6 @@
+{
+  "parent": "neoecoae:block/large_integrated_working_station_off",
+  "textures": {
+    "light": "neoecoae:block/working_station/controller_formed/controller_formed_light_compat/other"
+  }
+}

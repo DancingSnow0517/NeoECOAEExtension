@@ -1,0 +1,273 @@
+{
+  "type": "custom",
+  "custom": "storage_root",
+  "id": "storage_controller_root",
+  "cell_columns": 11,
+  "overflow": "visible",
+  "layout": {
+    "position": "relative",
+    "width": 253,
+    "height": 231
+  },
+  "children": [
+    {
+      "type": "texture",
+      "id": "background",
+      "texture": "neoecoae:textures/guis/storage/storage_controller.png",
+      "sprite": [0, 0, 253, 231],
+      "layout": {
+        "position": "absolute",
+        "left": 0,
+        "top": 0,
+        "width": 253,
+        "height": 231
+      }
+    },
+    {
+      "type": "custom",
+      "id": "title",
+      "custom": "storage_caption",
+      "metric": "title",
+      "font_scale": 1.0,
+      "layout": {
+        "position": "absolute",
+        "left": 44,
+        "top": 10,
+        "width": 198,
+        "height": 9
+      }
+    },
+    {
+      "type": "custom",
+      "id": "host_tier",
+      "custom": "storage_tier",
+      "layout": {
+        "position": "absolute",
+        "left": 23,
+        "top": 5,
+        "width": 13,
+        "height": 18
+      }
+    },
+    {
+      "type": "custom",
+      "id": "host_icon",
+      "custom": "storage_host_icon",
+      "layout": {
+        "position": "absolute",
+        "left": 9,
+        "top": 40,
+        "width": 16,
+        "height": 34
+      }
+    },
+    {
+      "type": "custom",
+      "id": "storage_cells",
+      "custom": "storage_cell_grid",
+      "overflow": "visible",
+      "layout": {
+        "position": "absolute",
+        "left": 49,
+        "top": 31,
+        "width": 196,
+        "height": 52
+      }
+    },
+    {
+      "type": "custom",
+      "id": "energy_stored_text",
+      "custom": "storage_caption",
+      "metric": "energy_stored",
+      "font_scale": 0.75,
+      "layout": {
+        "position": "absolute",
+        "left": 8,
+        "top": 92,
+        "width": 160,
+        "height": 9
+      }
+    },
+    {
+      "type": "custom",
+      "id": "energy_text",
+      "custom": "storage_caption",
+      "metric": "energy",
+      "font_scale": 0.75,
+      "text_align": "right",
+      "layout": {
+        "position": "absolute",
+        "left": 8,
+        "top": 92,
+        "width": 160,
+        "height": 9
+      }
+    },
+    {
+      "type": "custom",
+      "id": "capacity_text",
+      "custom": "storage_caption",
+      "metric": "bytes",
+      "font_scale": 0.75,
+      "layout": {
+        "position": "absolute",
+        "left": 8,
+        "top": 104,
+        "width": 122,
+        "height": 8
+      }
+    },
+    {
+      "type": "custom",
+      "id": "capacity_percentage",
+      "custom": "storage_caption",
+      "metric": "usage",
+      "font_scale": 0.75,
+      "text_align": "right",
+      "layout": {
+        "position": "absolute",
+        "left": 132,
+        "top": 104,
+        "width": 36,
+        "height": 8
+      }
+    },
+    {
+      "type": "custom",
+      "id": "capacity_bar",
+      "custom": "storage_capacity_bar",
+      "layout": {
+        "position": "absolute",
+        "left": 8,
+        "top": 113,
+        "width": 160,
+        "height": 8
+      }
+    },
+    {
+      "type": "custom",
+      "id": "resource_text",
+      "custom": "storage_caption",
+      "metric": "resources",
+      "font_scale": 0.75,
+      "layout": {
+        "position": "absolute",
+        "left": 8,
+        "top": 124,
+        "width": 160,
+        "height": 9
+      }
+    },
+    {
+      "type": "custom",
+      "id": "resource_bar",
+      "custom": "storage_resource_bar",
+      "layout": {
+        "position": "absolute",
+        "left": 8,
+        "top": 134,
+        "width": 160,
+        "height": 8
+      }
+    },
+    {
+      "type": "custom",
+      "id": "energy_bar",
+      "custom": "storage_energy_bar",
+      "layout": {
+        "position": "absolute",
+        "left": 173,
+        "top": 92,
+        "width": 74,
+        "height": 7
+      }
+    },
+    {
+      "type": "custom",
+      "id": "storage_types",
+      "custom": "storage_type_panel",
+      "name_font_scale": 0.65,
+      "value_font_scale": 0.6,
+      "name_width": 21,
+      "layout": {
+        "position": "absolute",
+        "left": 173,
+        "top": 104,
+        "width": 68,
+        "height": 87
+      }
+    },
+    {
+      "type": "custom",
+      "id": "type_scrollbar",
+      "custom": "storage_type_scrollbar",
+      "layout": {
+        "position": "absolute",
+        "left": 243,
+        "top": 104,
+        "width": 6,
+        "height": 87
+      }
+    },
+    {
+      "type": "custom",
+      "id": "infinite_status",
+      "custom": "storage_infinite_status",
+      "layout": {
+        "position": "absolute",
+        "left": 194,
+        "top": 205,
+        "width": 24,
+        "height": 10
+      }
+    },
+    {
+      "type": "custom",
+      "id": "infinite_animation",
+      "custom": "storage_infinite_animation",
+      "layout": {
+        "position": "absolute",
+        "left": 177,
+        "top": 204,
+        "width": 12,
+        "height": 12
+      }
+    },
+    {
+      "type": "custom",
+      "id": "infinite_component",
+      "custom": "infinite_component_slot",
+      "layout": {
+        "position": "absolute",
+        "left": 227,
+        "top": 201,
+        "width": 18,
+        "height": 18
+      }
+    },
+    {
+      "type": "custom",
+      "id": "player_inventory",
+      "custom": "player_inventory",
+      "layout": {
+        "position": "absolute",
+        "left": 7,
+        "top": 146,
+        "width": 162,
+        "height": 76
+      }
+    },
+    {
+      "type": "custom",
+      "id": "storage_information",
+      "custom": "storage_information",
+      "layout": {
+        "position": "absolute",
+        "right": -21,
+        "top": 0,
+        "width": 23,
+        "height": 30
+      }
+    }
+  ]
+}

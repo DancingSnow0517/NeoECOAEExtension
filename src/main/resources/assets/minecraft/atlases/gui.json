@@ -1,0 +1,9 @@
+{
+  "sources": [
+    {
+      "type": "minecraft:single",
+      "resource": "neoecoae:guis/storage/storage_ifinity_icon",
+      "sprite": "neoecoae:storage/infinity"
+    }
+  ]
+}

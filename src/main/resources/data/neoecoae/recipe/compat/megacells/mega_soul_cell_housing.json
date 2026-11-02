@@ -1,0 +1,33 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "appliedsoul"
+    },
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "soulplied_energistics"
+    },
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "megacells"
+    }
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "neoecoae:eco_soul_cell_housing"
+    },
+    {
+      "item": "megacells:mega_item_cell_housing"
+    },
+    {
+      "item": "neoecoae:crystal_matrix"
+    }
+  ],
+  "result": {
+    "count": 1,
+    "id": "neoecoae:mega_soul_cell_housing"
+  }
+}

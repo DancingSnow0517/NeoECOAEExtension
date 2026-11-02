@@ -1,0 +1,17 @@
+{
+  "type": "element",
+  "id": "workstation_output_panel",
+  "layout": {
+    "position": "absolute",
+    "left": 6,
+    "top": 6,
+    "display": "none"
+  },
+  "children": [
+    {
+      "type": "custom",
+      "id": "workstation_output_panel_content",
+      "custom": "content"
+    }
+  ]
+}

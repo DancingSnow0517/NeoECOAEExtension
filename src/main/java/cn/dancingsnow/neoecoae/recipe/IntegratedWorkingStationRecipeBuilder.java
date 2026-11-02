@@ -47,6 +47,13 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
     FluidStackTemplate fluidOutput = null;
     @Setter
     int energy = 1000;
+    int processingTicks = 100;
+
+    public IntegratedWorkingStationRecipeBuilder processingTicks(int ticks) {
+        if (ticks <= 0) throw new IllegalArgumentException("Processing time must be positive");
+        this.processingTicks = ticks;
+        return this;
+    }
 
     public IntegratedWorkingStationRecipeBuilder() {
         this(null, null);

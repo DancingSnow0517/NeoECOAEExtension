@@ -23,122 +23,75 @@ item_ids:
   - neoecoae:eco_computation_cell_l4
   - neoecoae:eco_computation_cell_l6
   - neoecoae:eco_computation_cell_l9
+  - neoecoae:computation_network_switch
+  - neoecoae:computation_high_energy_network_switch
 ---
 
 # ECO 计算系统
-
-ECO 计算系统是一个强大的多方块合成CPU集群，为你的ME网络提供大规模并行合成能力。
-
-## 概述
-
-计算子系统用更强大、可扩展的解决方案替代标准AE2合成CPU。它提供多个合成线程和加速器，允许多个合成任务同时运行。
-
-## 等级
-
-共有三个等级的计算系统可用：
-
-| 等级 | 控制器 | 加速器 | 线程数 | 每单元存储 |
-|------|--------|--------|--------|------------|
-| C4 | <ItemLink id="neoecoae:computation_system_l4" /> | 64 | 1 | 64MB |
-| C6 | <ItemLink id="neoecoae:computation_system_l6" /> | 192 | 2 | 256MB |
-| C9 | <ItemLink id="neoecoae:computation_system_l9" /> | 576 | 4 | 1GB |
-
-## 结构组件
-
-### 主机
-
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_system_l4" />
-  <ItemIcon id="neoecoae:computation_system_l6" />
-  <ItemIcon id="neoecoae:computation_system_l9" />
-</ItemGrid>
-
-计算系统主机（<ItemLink id="neoecoae:computation_system_l4" />、<ItemLink id="neoecoae:computation_system_l6" /> 或 <ItemLink id="neoecoae:computation_system_l9" />）是多方块的核心。它决定等级并管理所有合成操作。
-
-### 晶阵驱动器
-
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_drive" />
-</ItemGrid>
-
-<ItemLink id="neoecoae:computation_drive" /> 用于放置计算单元，为合成操作提供存储空间。驱动器放置在传输总线上方和下方的两排。
-
-### 超导传输总线
-
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_transmitter" />
-</ItemGrid>
-
-<ItemLink id="neoecoae:computation_transmitter" /> 处理驱动器和处理核心之间的数据传输。
-
-### 线程核心
-
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_threading_core_l4" />
-  <ItemIcon id="neoecoae:computation_threading_core_l6" />
-  <ItemIcon id="neoecoae:computation_threading_core_l9" />
-</ItemGrid>
-
-线程核心（<ItemLink id="neoecoae:computation_threading_core_l4" />、<ItemLink id="neoecoae:computation_threading_core_l6" /> 或 <ItemLink id="neoecoae:computation_threading_core_l9" />）提供合成线程。每个线程可以同时处理一个合成任务。等级必须与控制器等级匹配。
-
-### 并行核心
-
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_parallel_core_l4" />
-  <ItemIcon id="neoecoae:computation_parallel_core_l6" />
-  <ItemIcon id="neoecoae:computation_parallel_core_l9" />
-</ItemGrid>
-
-并行核心（<ItemLink id="neoecoae:computation_parallel_core_l4" />、<ItemLink id="neoecoae:computation_parallel_core_l6" /> 或 <ItemLink id="neoecoae:computation_parallel_core_l9" />）提供合成加速器，加快合成操作速度。它们放置在线程核心上方和下方的两排。
-
-### 冷却系统控制器
-
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_cooling_controller_l4" />
-  <ItemIcon id="neoecoae:computation_cooling_controller_l6" />
-  <ItemIcon id="neoecoae:computation_cooling_controller_l9" />
-</ItemGrid>
-
-冷却系统控制器（<ItemLink id="neoecoae:computation_cooling_controller_l4" />、<ItemLink id="neoecoae:computation_cooling_controller_l6" /> 或 <ItemLink id="neoecoae:computation_cooling_controller_l9" />）管理计算系统的散热。它放置在结构的末端。
-
-### 通讯接口
-
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_interface" />
-</ItemGrid>
-
-<ItemLink id="neoecoae:computation_interface" /> 将系统连接到ME网络。
-
-### 结构外壳
-
-<ItemGrid>
-  <ItemIcon id="neoecoae:computation_casing" />
-</ItemGrid>
-
-<ItemLink id="neoecoae:computation_casing" /> 方块构成多方块结构的框架。
-
-## 搭建结构
-
-1. 放置**主机**，使其朝外
-2. 使用**计算系统结构外壳**在控制器周围搭建结构框架
-3. 在指定位置（控制器左后方）放置**通讯接口**
-4. 从控制器右侧的结构外壳的右侧水平排列添加**传输总线**
-5. 在传输总线后方放置**线程核心**
-6. 在传输总线上方和下方添加**驱动器**（上下各一排）
-7. 在线程核心上方和下方放置**并行核心**（上下各一排）
-8. 在传输总线排末端添加**冷却系统控制器**（玩家**在结构右侧面朝控制器放置**）
-9. 使用剩余的外壳方块完成结构
-
-结构可扩展——添加更多线程核心、并行核心、驱动器和传输总线以增加容量。
-
-若希望快速完成结构搭建，可参考 [多方块自动搭建](multiblock_builder.md) 中的自动预览与建造功能。
 
 <GameScene zoom="4" interactive={true}>
   <ImportStructure src="../scenes/comp_min.nbt" />
   <IsometricCamera yaw="45" pitch="30" />
 </GameScene>
 
-## 计算单元
+ECO 计算系统在 ME 网络中承担合成 CPU 的工作，为任务提供线程、加速器和存储空间。想同时运行更多合成任务，可以扩充线程；要容纳大型任务，还需要足够的计算单元存储。
+
+上方展示的是带普通网络交换模块的长度 1 结构。初次搭建可以先看各部件位置，模块的安装条件和组网规则在本页后半部分说明。
+
+## 配方连续发配
+
+同一合成任务内，当前配方只要材料足够且供应器继续接收，就持续优先发配该配方，不设置连续成功次数上限。缺料、供应器无法接收、任务完成，或配方被暂停及受依赖或循环限制时，再尝试其他合法配方。
+
+每 tick 的执行与探测预算保持生效。加工批量按接口提交次数而非发送份数计入预算：每个 CPU 每 tick 最多提交 64 次，单个配方最多使用其中一半；能整批接收的接口一次即可收下材料、能量、循环种子与接口容量允许的全部份数。仅因预算耗尽暂停时不视为供应器失败，下一 tick 继续当前配方。批量按实际接收量扣料并记录待回收产物。
+
+## 沿传输总线搭出计算机组
+
+<ItemGrid>
+  <ItemIcon id="neoecoae:computation_system_l4" />
+  <ItemIcon id="neoecoae:computation_system_l6" />
+  <ItemIcon id="neoecoae:computation_system_l9" />
+  <ItemIcon id="neoecoae:computation_drive" />
+  <ItemIcon id="neoecoae:computation_transmitter" />
+  <ItemIcon id="neoecoae:computation_threading_core_l4" />
+  <ItemIcon id="neoecoae:computation_threading_core_l6" />
+  <ItemIcon id="neoecoae:computation_threading_core_l9" />
+  <ItemIcon id="neoecoae:computation_parallel_core_l4" />
+  <ItemIcon id="neoecoae:computation_parallel_core_l6" />
+  <ItemIcon id="neoecoae:computation_parallel_core_l9" />
+  <ItemIcon id="neoecoae:computation_cooling_controller_l4" />
+  <ItemIcon id="neoecoae:computation_cooling_controller_l6" />
+  <ItemIcon id="neoecoae:computation_cooling_controller_l9" />
+  <ItemIcon id="neoecoae:computation_interface" />
+  <ItemIcon id="neoecoae:computation_casing" />
+</ItemGrid>
+
+主机决定等级并管理合成操作。<ItemLink id="neoecoae:computation_transmitter" /> 连接驱动器和处理核心，<ItemLink id="neoecoae:computation_drive" /> 则装入计算单元，为任务提供存储。
+
+线程核心（<ItemLink id="neoecoae:computation_threading_core_l4" />、<ItemLink id="neoecoae:computation_threading_core_l6" />、<ItemLink id="neoecoae:computation_threading_core_l9" />）提供合成线程，每个线程同时处理一个任务；主机可以使用同级或更低等级的核心。并行核心（<ItemLink id="neoecoae:computation_parallel_core_l4" />、<ItemLink id="neoecoae:computation_parallel_core_l6" />、<ItemLink id="neoecoae:computation_parallel_core_l9" />）提供加速器，放在线程核心上下两排。
+
+结构末端的冷却系统控制器（<ItemLink id="neoecoae:computation_cooling_controller_l4" />、<ItemLink id="neoecoae:computation_cooling_controller_l6" />、<ItemLink id="neoecoae:computation_cooling_controller_l9" />）管理散热。<ItemLink id="neoecoae:computation_interface" /> 接入 ME 网络，<ItemLink id="neoecoae:computation_casing" /> 构成外部框架。
+
+1. 放置主机，使其朝外，用外壳搭出周围框架。
+2. 在主机左后方放置通讯接口。
+3. 从主机右侧外壳的右侧开始，水平排列传输总线。
+4. 在传输总线后方放线程核心，上下各放一排驱动器。
+5. 在线程核心上下各放一排并行核心。
+6. 在传输总线排末端放冷却系统控制器：站在结构右侧，面朝主机放置。
+7. 用外壳补齐剩余结构。
+
+增加长度时，需要一起添加传输总线、驱动器、线程核心和并行核心。也可以使用[自动搭建](multiblock_builder.md)预览和放置结构。
+
+## 线程、并行与存储
+
+| 等级 | 控制器 | 加速器 | 线程数 | 每单元存储 |
+|------|--------|--------|--------|------------|
+| C4 | <ItemLink id="neoecoae:computation_system_l4" /> | 64 | 4 | 64 MiB |
+| C6 | <ItemLink id="neoecoae:computation_system_l6" /> | 192 | 16 | 256 MiB |
+| C9 | <ItemLink id="neoecoae:computation_system_l9" /> | 576 | 64 | 1 GiB |
+
+更多线程核心允许更多任务同时运行，更多并行核心提供更强的合成加速；计算单元的总存储还必须满足任务需求。
+
+将闪存晶阵装进驱动器：
 
 <ItemGrid>
   <ItemIcon id="neoecoae:eco_computation_cell_l4" />
@@ -146,44 +99,78 @@ ECO 计算系统是一个强大的多方块合成CPU集群，为你的ME网络�
   <ItemIcon id="neoecoae:eco_computation_cell_l9" />
 </ItemGrid>
 
-以下计算单元为合成任务提供存储：
-
 - <ItemLink id="neoecoae:eco_computation_cell_l4" /> - CE4 闪存晶阵，64MB
 - <ItemLink id="neoecoae:eco_computation_cell_l6" /> - CE6 闪存晶阵，256MB
 - <ItemLink id="neoecoae:eco_computation_cell_l9" /> - CE9 闪存晶阵，1GB
 
-## 使用方法
+普通计算网络按实际安装的晶阵汇总 CPU 存储。要进入极限模式，整个逻辑组中每台主机的上下两排驱动器都必须装满 CE9 闪存晶阵；混入一枚 CE4、CE6 或留下一个空槽，都会使整个组不满足条件。
 
-结构形成后，计算系统在ME网络中显示为合成CPU。开始合成任务时，你可以选择ECO计算系统作为目标CPU。
+## 让 ME 网络使用这台 CPU
 
-GUI显示：
-- 已用线程/总线程数
-- 已用存储/可用存储
-- 并行数
+结构形成并接入 ME 网络后，它会显示为合成 CPU。发起合成时，可以选择 ECO 计算系统作为目标 CPU。主机界面显示已用/总线程数、已用/可用存储和并行数。
 
-### ECO CPU 派单逻辑
+CPU 选择模式决定它接受哪些请求：
 
-ECO 计算系统使用的合成 CPU 派单逻辑相比原版 AE 风格更加激进。
+| 模式 | 接受的请求 |
+|------|------------|
+| 任意 | 玩家和机器发起的合成请求 |
+| 仅玩家 | 玩家手动请求 |
+| 仅机器 | 自动化请求 |
 
-这套逻辑是专门为了配合 ECO 合成系统中的高速工作核心设计的：当工作核心在高超频下可以用极少的 tick 完成一次样板时，CPU 需要更快地补上下一批任务，才能避免空转。
+## 将多台 C9 连接起来
 
-- 原版 AE 风格更偏向于在多个 tick 之间平滑分配样板提交
-- ECO CPU 会在每个 tick 尽量把当前空闲的 provider 与 worker 填满
-- 这对 ECO 合成系统尤其重要，因为高超频下样板可能只需要很少的 tick 就能完成
-- 因此，系统可以减少样板完成后的空档时间，并维持更高的持续吞吐
+<Row>
+  <BlockImage id="neoecoae:computation_network_switch" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:computation_high_energy_network_switch" scale="2"></BlockImage>
+</Row>
 
-实际效果上，ECO 计算系统更偏向于追求持续吞吐，而不是保守的逐 tick 平滑调度。
+<ItemLink id="neoecoae:computation_network_switch" /> 和 <ItemLink id="neoecoae:computation_high_energy_network_switch" /> 可将多台 C9 计算主机接入同一个逻辑计算网络。面向控制器正面时，普通结构用模块替换控制器右侧相邻的中央结构外壳，镜像结构则替换左侧；模块仅支持 C9 主机。
 
-### CPU选择模式
+组网要求同一维度、同一在线 ME 网络和相同逻辑频道；计算与合成系统分别分组。频道可选 1～4，每个逻辑组最多 8 台。极限模式不另要求冷却控制器，具体缺项可悬停信息提示查看。
 
-计算系统支持不同的CPU选择模式：
-- **任意** - 可被任何合成请求选择
-- **仅玩家** - 仅接受玩家手动请求
-- **仅机器** - 仅接受自动化请求
+### 模块倍率
 
-## 提示
+| 项目 | 普通网络交换 | 高能网络交换 |
+|------|--------------|--------------|
+| 资源倍率 | 线程、并行数和 CPU 存储 **x2** | 线程、并行数和 CPU 存储 **x8** |
+| 耗电倍率 | **x4** | **x16** |
 
-- 更多线程核心 = 更多同时进行的合成任务
-- 更多并行核心 = 更快的单个合成操作
-- 确保有足够的计算单元存储以满足大型合成任务
-- 所有单元的总存储必须满足合成任务需求
+### 资源如何汇总
+
+| 项目 | 规则 |
+|------|------|
+| 生效条件 | 同一 ME 网络中至少有 **2 台**已安装模块的 C9 计算主机；只有一台主机时保持 **x1**。 |
+| 资源聚合 | 每台物理主机先按自身模块计算有效资源，再将线程、并行数和存储容量汇总到 ME 网络。 |
+| 模块混用 | 两种模块可以混用，每台主机按自身模块档位贡献资源。 |
+
+### 达到极限模式的条件
+
+以下条件必须同时满足：
+
+1. 同一逻辑组恰好有 **8 台 C9 计算主机**。
+2. 每台主机都安装 <ItemLink id="neoecoae:computation_high_energy_network_switch" />。
+3. 每台主机都达到当前配置允许的最大结构长度。
+4. **8 台主机上下两排的每一个晶阵槽位**都装有 <ItemLink id="neoecoae:eco_computation_cell_l9" />，全部为 **CE9**。
+
+满足全部条件后，整个计算网络进入极限模式：
+
+| 项目 | 极限模式容量 |
+|------|--------------|
+| CPU 存储 | 9,223,372,036,854,775,807 字节（64 位整数上限） |
+| 线程数 | 2,147,483,647（32 位整数上限） |
+| 并行数 | 2,147,483,647（32 位整数上限） |
+
+例如，其余槽位全是 CE9，但任意一台主机下排混入一枚 CE4，整个组的 CPU 存储、线程和并行都会恢复为按实际组件与交换模块倍率汇总的有限容量。CE6、空槽或无效物品也会阻止极限模式。将所有槽位补齐为 CE9，并满足其余条件后，才会重新获得极限容量。
+
+正在运行的任务仍会占用 CPU 存储，可用字节数会扣除这些占用。将鼠标移到主机界面的信息图标上，可查看整个计算网络尚未满足的条件。
+
+## 配合高速合成系统派单
+
+ECO CPU 会在每个 tick 尽量向空闲的样板供应器和工作核心补充任务。原版 AE 风格更偏向将样板提交平滑分配到多个 tick；ECO 的派单方式着重维持持续吞吐。
+
+这在配合 [ECO 合成系统](crafting_system.md)时尤其有用：高超频的工作核心可能只需很少的 tick 就完成一批样板，及时补上下一批任务可以减少等待派单造成的空档。
+
+
+启用快速规划后，在线主机还须接受当前请求来源。循环路线需要开启循环规划并准备实际启动种子；“搜索未完成”与“缺少材料”不同。计算通讯接口可标记允许忽略组件差异的物品：手持样本左键设置、右键清空，不消耗样本；实际样板和机器仍须接受对应输入。
+
+能自我增殖的循环（例如晶种循环）会保留最小启动种子，保证之后的订单仍能继续增殖：库存不少于“启动种子 + 本次需求”时直接用库存，种子留在网络中；库存不足时先运行循环补足缺口，循环可以临时借用种子，但结束时必须把种子还回网络。例如制作水晶粉时，水晶足够就直接磨粉并留下启动所需的水晶，水晶不足才通过循环补足缺口并补回种子。若燃料等材料不足以完成增殖，计划会列出缺少的材料，而不会消耗掉种子；网络中没有任何种子时，同样会提示缺少启动种子。催化剂和容器仍按样板返回。

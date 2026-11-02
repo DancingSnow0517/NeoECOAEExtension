@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.data.recipe;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
 import appeng.core.ConventionTags;
+import appeng.core.definitions.AEParts;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEFluids;
@@ -24,6 +25,41 @@ public class EcoMachineRecipes {
     public static void init(RegistrateRecipeProvider provider) {
         HolderGetter<Item> items = provider.itemLookup();
         HolderGetter<Fluid> fluids = provider.registries().lookupOrThrow(Registries.FLUID);
+        IntegratedWorkingStationRecipe.builder()
+            .require(NEBlocks.ALUMINUM_ALLOY_CASING, 4)
+            .require(NEItems.CRYOTHEUM_CRYSTAL, 8)
+            .require(NETags.Items.ENERGIZED_CRYSTAL_DUST, 8)
+            .requireFluid(NEFluids.CRYOTHEUM_SOLUTION.getSource(), 2000)
+            .itemOutput(NEBlocks.CRYOGENIC_ALUMINUM_ALLOY_CASING)
+            .save(provider);
+
+        IntegratedWorkingStationRecipe.builder()
+            .require(NEBlocks.CRYOGENIC_ALUMINUM_ALLOY_CASING, 8)
+            .require(NETags.Items.ENERGIZED_CRYSTAL_DUST, 8)
+            .require(NEItems.CRYOTHEUM_CRYSTAL, 8)
+            .require(AEItems.ENGINEERING_PROCESSOR, 2)
+            .require(AEBlocks.SKY_STONE_TANK)
+            .requireFluid(NEFluids.CRYOTHEUM_SOLUTION.getSource(), 1000)
+            .itemOutput(NEItems.PHASE_CHANGE_AIR_COOLER)
+            .save(provider);
+
+        IntegratedWorkingStationRecipe.builder()
+            .require(NEBlocks.CRYOGENIC_ALUMINUM_ALLOY_CASING, 64)
+            .require(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH, 16)
+            .require(NEItems.PHASE_CHANGE_AIR_COOLER, 16)
+            .require(NEItems.SUPERCONDUCTING_PROCESSOR, 32)
+            .require(NEBlocks.ENERGIZED_SUPERCONDUCTIVE_BLOCK, 32)
+            .require(AEBlocks.INTERFACE, 16)
+            .require(NEItems.CRYSTAL_MATRIX, 32)
+            .require(NEItems.NETWORK_PULL_CARD, 16)
+            .require(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH, 16)
+            .require(NEItems.CRYOTHEUM_CRYSTAL, 64)
+            .require(AEItems.ENGINEERING_PROCESSOR, 32)
+            .require(AEItems.CALCULATION_PROCESSOR, 32)
+            .requireFluid(NEFluids.CRYOTHEUM_SOLUTION.getSource(), 512_000)
+            .itemOutput(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_SMART_COOLING_MODULE)
+            .saveLarge(provider);
+
         //Energized crystal
         IntegratedWorkingStationRecipe.builder(items, fluids)
             .require(AEItems.CERTUS_QUARTZ_CRYSTAL_CHARGED, 4)
@@ -189,9 +225,9 @@ public class EcoMachineRecipes {
             .pattern("ABA")
             .pattern("BCB")
             .pattern("ABA")
-            .define('A', Items.BLUE_ICE)
+            .define('A', NEItems.SUPERCONDUCTING_PROCESSOR)
             .define('B', NEBlocks.COMPUTATION_CASING)
-            .define('C', NEItems.SUPERCONDUCTING_PROCESSOR)
+            .define('C', NEItems.PHASE_CHANGE_AIR_COOLER)
             .unlockedBy("has_computation_casing", provider.has(NEBlocks.COMPUTATION_CASING))
             .save(provider);
 
@@ -245,6 +281,14 @@ public class EcoMachineRecipes {
             .energy(640000)
             .save(provider);
 
+        // FX monitor core
+        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, NEBlocks.FX_MONITOR_CORE)
+            .pattern("AB")
+            .define('A', NEBlocks.CRAFTING_WORKER)
+            .define('B', AEParts.STORAGE_MONITOR)
+            .unlockedBy("has_crafting_worker", provider.has(NEBlocks.CRAFTING_WORKER))
+            .save(provider);
+
         // crafting parallel core
         ShapedRecipeBuilder.shaped(items, RecipeCategory.MISC, NEBlocks.CRAFTING_PARALLEL_CORE_L4)
             .pattern("AAA")
@@ -276,7 +320,7 @@ public class EcoMachineRecipes {
         // cryotheum_solution
         IntegratedWorkingStationRecipe.builder(items, fluids)
             .require(NEItems.CRYOTHEUM_CRYSTAL, 4)
-            .require(NEItems.ENERGIZED_CRYSTAL, 2)
+            .require(NETags.Items.ENERGIZED_CRYSTAL, 2)
             .require(Tags.Items.DUSTS_REDSTONE, 2)
             .requireFluid(FluidTags.WATER, 1000)
             .fluidOutput(NEFluids.CRYOTHEUM_SOLUTION.getSource(), 1000)

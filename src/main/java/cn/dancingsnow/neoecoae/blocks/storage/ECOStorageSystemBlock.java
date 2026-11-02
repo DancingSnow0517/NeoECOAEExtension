@@ -11,20 +11,29 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import org.jetbrains.annotations.Nullable;
+import net.minecraft.world.level.storage.loot.LootParams;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
+import java.util.List;
 
 public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> implements BlockUIMenuType.BlockUI {
 
     public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final BooleanProperty MIRRORED = BooleanProperty.create("mirrored");
+    public static final EnumProperty<cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode> STORAGE_MODE =
+        EnumProperty.create("storage_mode", cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode.class);
 
     public ECOStorageSystemBlock(BlockBehaviour.Properties properties) {
         super(properties);
@@ -32,6 +41,7 @@ public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> 
             .setValue(FORMED, false)
             .setValue(FACING, Direction.NORTH)
             .setValue(MIRRORED, false)
+            .setValue(STORAGE_MODE, cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode.STORAGE)
         );
     }
 
@@ -39,6 +49,7 @@ public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> 
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
         builder.add(MIRRORED);
+        builder.add(STORAGE_MODE);
     }
 
     @Override
@@ -48,6 +59,9 @@ public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> 
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+        if (!isPlayerCloseEnough(level, pos, player)) {
+            return InteractionResult.FAIL;
+        }
         if (player instanceof ServerPlayer serverPlayer) {
             BlockUIMenuType.openUI(serverPlayer, pos);
             return InteractionResult.CONSUME;
@@ -57,10 +71,45 @@ public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> 
 
     @Override
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        if (holder.player.level().getBlockEntity(holder.pos) instanceof ECOStorageSystemBlockEntity be) {
+        if (isPlayerCloseEnough(holder.player.level(), holder.pos, holder.player)
+            && holder.player.level().getBlockEntity(holder.pos) instanceof ECOStorageSystemBlockEntity be) {
             return be.createUI(holder);
         }
         return null;
+    }
+
+    @Override
+    public boolean stillValid(BlockUIMenuType.BlockUIHolder holder) {
+        return BlockUIMenuType.BlockUI.super.stillValid(holder)
+            && isPlayerCloseEnough(holder.player.level(), holder.pos, holder.player);
+    }
+
+    @Override
+    public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
+        super.setPlacedBy(level, pos, state, placer, stack);
+        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof ECOStorageSystemBlockEntity be) {
+            be.restoreInfiniteDomainFromItem(stack);
+        }
+    }
+
+    public static boolean isPlayerCloseEnough(Level level, BlockPos pos, Player player) {
+        return player.level() == level
+            && level.getBlockState(pos).getBlock() instanceof ECOStorageSystemBlock
+            && player.distanceToSqr(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D) <= 64.0D;
+    }
+
+    @Override
+    public List<ItemStack> getDrops(BlockState state, LootParams.Builder params) {
+        List<ItemStack> drops = super.getDrops(state, params);
+        if (params.getOptionalParameter(LootContextParams.BLOCK_ENTITY) instanceof ECOStorageSystemBlockEntity be) {
+            for (ItemStack drop : drops) {
+                if (drop.is(asItem())) {
+                    be.applyInfiniteDomainToControllerDrop(drop);
+                    break;
+                }
+            }
+        }
+        return drops;
     }
 }
 

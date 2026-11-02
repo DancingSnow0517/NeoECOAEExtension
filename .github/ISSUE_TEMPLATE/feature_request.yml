@@ -1,0 +1,45 @@
+name: Feature Request / 功能建议
+description: Suggest an improvement or new behavior. / 提出改进或新功能建议。
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your suggestion. Please select the target version from the list before submitting.
+
+        感谢你的建议。提交前请先从列表中选择目标版本。
+
+  - type: dropdown
+    id: target_version
+    attributes:
+      label: Target Version / 目标版本
+      description: Please select the version this request is for. / 请选择这个建议面向的版本。
+      options:
+        - "1.21.1"
+        - "1.20.1"
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary / 概要
+      description: Describe the requested feature or change. / 请描述希望新增或修改的内容。
+    validations:
+      required: true
+
+  - type: textarea
+    id: reason
+    attributes:
+      label: Why Is This Useful? / 为什么需要这个功能？
+      description: Explain the use case or problem this would solve. / 请说明使用场景，或它能解决什么问题。
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Additional Details / 补充信息
+      description: Add screenshots, examples, recipes, configs, or compatibility notes if needed. / 如有需要，请补充截图、示例、配方、配置或兼容性说明。
+    validations:
+      required: false

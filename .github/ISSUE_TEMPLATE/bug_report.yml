@@ -1,0 +1,59 @@
+name: Bug Report / 错误报告
+description: Report a reproducible problem. / 反馈一个可复现的问题。
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting an issue. Please select the affected version from the list before submitting.
+
+        感谢反馈问题。提交前请先从列表中选择受影响版本。
+
+  - type: dropdown
+    id: affected_version
+    attributes:
+      label: Affected Version / 受影响版本
+      description: Please select the version where this issue occurs. / 请选择出现该问题的版本。
+      options:
+        - "1.21.1"
+        - "1.20.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: play_environment
+    attributes:
+      label: Play Environment / 游戏环境
+      description: Select where you encountered this issue. / 请选择遇到此问题的游戏环境。
+      options:
+        - "Single Player / 单人游戏"
+        - "Dedicated Server / 专用服务器"
+        - "LAN Server / 局域网"
+        - "Other / 其他"
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Behavior / 预期行为
+      description: Describe what you expected to happen. / 请描述你原本预期会发生什么。
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Crash Report or latest.log / 崩溃报告或 latest.log
+      description: Drag and drop log files here, or paste the relevant part. / 请把日志文件拖到这里，或粘贴相关片段。
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: mod_list
+    attributes:
+      label: Mod List / 模组列表
+      description: Include the modpack name/version, or paste the related mod list. / 请填写整合包名称和版本，或粘贴相关模组列表。
+    validations:
+      required: false

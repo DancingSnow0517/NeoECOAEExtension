@@ -6,7 +6,8 @@
 	"texture_size": [128, 128],
 	"textures": {
 		"coolant": "neoecoae:block/compute/coolant",
-		"particle": "neoecoae:block/compute/casing"
+		"particle": "neoecoae:block/compute/casing",
+		"base": "neoecoae:block/compute/controller_formed/controller_formed"
 	},
 	"elements": [
 		{
@@ -15,9 +16,9 @@
 			"to": [32, 32, 32],
 			"shade": false,
 			"faces": {
-				"north": {"uv": [0, 10, 6, 16], "texture": "#base", "neoforge_data": {"light_emission": 15}},
-				"east": {"uv": [6, 10, 10, 16], "texture": "#base", "neoforge_data": {"light_emission": 15}},
-				"south": {"uv": [10, 10, 16, 16], "texture": "#base", "neoforge_data": {"light_emission": 15}}
+				"north": {"uv": [0, 0, 6, 6], "texture": "#light", "neoforge_data": {"light_emission": 15}},
+				"east": {"uv": [6, 0, 10, 6], "texture": "#light", "neoforge_data": {"light_emission": 15}},
+				"south": {"uv": [10, 0, 16, 6], "texture": "#light", "neoforge_data": {"light_emission": 15}}
 			}
 		},
 		{
@@ -212,24 +213,28 @@
 		{
 			"name": "lights",
 			"origin": [0, 0, 0],
+			"scope": 0,
 			"color": 0,
 			"children": [0]
 		},
 		{
 			"name": "coolant",
 			"origin": [8, 8, 8],
+			"scope": 0,
 			"color": 0,
 			"children": [1, 2, 3]
 		},
 		{
 			"name": "controller",
 			"origin": [8, 8, 8],
+			"scope": 0,
 			"color": 0,
 			"children": [4, 5, 6, 7, 8]
 		},
 		{
 			"name": "cooler",
 			"origin": [8, 8, 8],
+			"scope": 0,
 			"color": 0,
 			"children": [9, 10, 11, 12, 13, 14]
 		},

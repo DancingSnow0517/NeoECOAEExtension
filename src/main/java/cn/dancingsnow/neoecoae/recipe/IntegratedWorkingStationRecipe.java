@@ -41,6 +41,15 @@ public record IntegratedWorkingStationRecipe(
     int energy
 ) implements Recipe<IntegratedWorkingStationRecipe.Input> {
 
+    public IntegratedWorkingStationRecipe(List<SizedIngredient> inputItems, SizedFluidIngredient inputFluid,
+            ItemStack itemOutput, FluidStack fluidOutput, int energy) {
+        this(inputItems, inputFluid, itemOutput, fluidOutput, energy, 100);
+    }
+
+    public IntegratedWorkingStationRecipe {
+        if (processingTicks <= 0) throw new IllegalArgumentException("Processing time must be positive");
+    }
+
     public static IntegratedWorkingStationRecipeBuilder builder() {
         return new IntegratedWorkingStationRecipeBuilder();
     }

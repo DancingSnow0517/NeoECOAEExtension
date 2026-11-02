@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import cn.dancingsnow.neoecoae.gui.common.FluidHatchUI;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import net.minecraft.core.BlockPos;
@@ -17,7 +18,7 @@ import net.neoforged.neoforge.transfer.fluid.FluidResource;
 import net.neoforged.neoforge.transfer.fluid.FluidStacksResourceHandler;
 import net.neoforged.neoforge.transfer.transaction.Transaction;
 
-public class ECOFluidOutputHatchBlockEntity extends AbstractCraftingBlockEntity<ECOFluidOutputHatchBlockEntity> {
+public class ECOFluidOutputHatchBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOFluidOutputHatchBlockEntity> {
 
     public static int MAX_CAPACITY = 16000;
 
@@ -30,8 +31,11 @@ public class ECOFluidOutputHatchBlockEntity extends AbstractCraftingBlockEntity<
     };
 
     public ECOFluidOutputHatchBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
-        super(type, pos, blockState);
+        super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator::new);
     }
+
+    /** Stable addon handler view. */
+    public FluidTank getFluidTankHandler() { return tank; }
 
     @Override
     public void saveAdditional(ValueOutput data) {
@@ -64,7 +68,7 @@ public class ECOFluidOutputHatchBlockEntity extends AbstractCraftingBlockEntity<
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        return CraftingUIHelper.createFluidHatchUI(holder, tank, "block.neoecoae.output_hatch", false, true);
+        return FluidHatchUI.createFluidHatchUI(holder, tank, "block.neoecoae.output_hatch", false, true);
     }
 
 }

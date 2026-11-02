@@ -5,6 +5,7 @@ bin
 .metadata
 .classpath
 .project
+.eclipse/
 
 # idea
 out
@@ -12,6 +13,9 @@ out
 *.iws
 *.iml
 .idea
+
+# vscode
+.vscode/
 
 # gradle
 build
@@ -31,3 +35,14 @@ src/generated/resources/.cache/
 .mcopilot/
 .worktrees/
 /output/
+
+# Decompiled/extracted dependency sources accidentally created at the repo root
+/appeng/
+/assets/ae2/
+/com/lowdragmc/
+/net/minecraft/
+.gitignore
+.codex/config.toml
+logs/
+STORAGE_RELIABILITY.md
+bench/

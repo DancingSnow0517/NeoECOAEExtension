@@ -36,6 +36,9 @@ public class NETags {
         public static final TagKey<Item> BLACK_TUNGSTEN_ALLOY_INGOT = common("ingots/black_tungsten_alloy");
         public static final TagKey<Item> BLACK_TUNGSTEN_ALLOY_DUST = common("dusts/black_tungsten_alloy");
 
+        public static final TagKey<Item> OBSIDIAN_INGOT = common("ingots/obsidian");
+        public static final TagKey<Item> DATA_CRYSTAL = common("gems/data_crystal");
+
         public static final TagKey<Item> ENERGIZED_CRYSTAL = common("gems/energized_crystal");
         public static final TagKey<Item> ENERGIZED_CRYSTAL_DUST = common("dusts/energized_crystal");
         public static final TagKey<Item> ENERGIZED_CRYSTAL_BLOCK = common("storage_blocks/energized_crystal");
@@ -48,6 +51,7 @@ public class NETags {
         public static final TagKey<Item> CRYSTAL_INGOT_BASE = mod("crystal_ingot_base");
         // 用于制作超导锭的基底
         public static final TagKey<Item> SUPERCONDUCTIVE_INGOT_BASE = mod("superconductive_ingot_base");
+        public static final TagKey<Item> INFINITE_CELL_COMPONENTS = mod("infinite_cell_components");
 
         private static TagKey<Item> mod(String path) {
             return ItemTags.create(NeoECOAE.id(path));

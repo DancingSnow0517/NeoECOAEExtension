@@ -1,0 +1,26 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "energy": 1000,
+  "inputFluid": {
+    "amount": 2000,
+    "fluid": "neoecoae:cryotheum_solution"
+  },
+  "inputItems": [
+    {
+      "count": 4,
+      "item": "neoecoae:aluminum_alloy_casing"
+    },
+    {
+      "count": 8,
+      "item": "neoecoae:cryotheum_crystal"
+    },
+    {
+      "count": 8,
+      "tag": "c:dusts/energized_crystal"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "neoecoae:cryogenic_aluminum_alloy_casing"
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "type": "element",
+  "id": "storage-priority-root",
+  "layout": {
+    "position": "absolute",
+    "left": 6,
+    "top": 6,
+    "width": 176,
+    "height": 125
+  },
+  "overflow": "visible",
+  "texture": {
+    "location": "neoecoae:textures/guis/priority.png",
+    "sprite": [0, 0, 176, 125]
+  },
+  "children": [
+    {
+      "type": "custom",
+      "custom": "drag_bar",
+      "layout": { "position": "absolute", "left": 0, "top": 0, "width": 176, "height": 20 },
+      "children": [
+        {
+          "type": "custom",
+          "custom": "title",
+          "layout": { "position": "absolute", "left": 8, "top": 6, "width": 140, "height": 12 }
+        },
+        {
+          "type": "custom",
+          "custom": "back",
+          "layout": { "position": "absolute", "left": 152, "top": -5, "width": 20, "height": 20 }
+        }
+      ]
+    },
+    { "type": "custom", "custom": "priority_button", "step": 1,
+      "layout": { "position": "absolute", "left": 20, "top": 30, "width": 22, "height": 20 } },
+    { "type": "custom", "custom": "priority_button", "step": 10,
+      "layout": { "position": "absolute", "left": 48, "top": 30, "width": 28, "height": 20 } },
+    { "type": "custom", "custom": "priority_button", "step": 100,
+      "layout": { "position": "absolute", "left": 82, "top": 30, "width": 32, "height": 20 } },
+    { "type": "custom", "custom": "priority_button", "step": 1000,
+      "layout": { "position": "absolute", "left": 120, "top": 30, "width": 38, "height": 20 } },
+    { "type": "custom", "custom": "priority_field",
+      "layout": { "position": "absolute", "left": 60, "top": 55, "width": 61, "height": 12 } },
+    { "type": "custom", "custom": "priority_button", "step": -1,
+      "layout": { "position": "absolute", "left": 20, "top": 72, "width": 22, "height": 20 } },
+    { "type": "custom", "custom": "priority_button", "step": -10,
+      "layout": { "position": "absolute", "left": 48, "top": 72, "width": 28, "height": 20 } },
+    { "type": "custom", "custom": "priority_button", "step": -100,
+      "layout": { "position": "absolute", "left": 82, "top": 72, "width": 32, "height": 20 } },
+    { "type": "custom", "custom": "priority_button", "step": -1000,
+      "layout": { "position": "absolute", "left": 120, "top": 72, "width": 38, "height": 20 } },
+    { "type": "custom", "custom": "help", "key": "gui.ae2.PriorityInsertionHint",
+      "layout": { "position": "absolute", "left": 8, "top": 98, "width": 160, "height": 12 } },
+    { "type": "custom", "custom": "help", "key": "gui.ae2.PriorityExtractionHint",
+      "layout": { "position": "absolute", "left": 8, "top": 110, "width": 160, "height": 12 } }
+  ]
+}

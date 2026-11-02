@@ -1,5 +1,9 @@
 {
   "values": [
-    "neoecoae:energized_fluix_crystal"
+    "neoecoae:energized_fluix_crystal",
+    {
+      "id": "ae2cs:purified_energized_fluix_crystal",
+      "required": false
+    }
   ]
 }

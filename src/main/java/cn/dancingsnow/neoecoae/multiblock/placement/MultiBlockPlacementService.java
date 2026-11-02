@@ -1,5 +1,8 @@
 package cn.dancingsnow.neoecoae.multiblock.placement;
 
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockParts;
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockRequirements;
+
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -18,12 +21,14 @@ import net.neoforged.neoforge.transfer.access.ItemAccess;
 import net.neoforged.neoforge.transfer.item.ItemResource;
 import net.neoforged.neoforge.transfer.transaction.Transaction;
 
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 
 public final class MultiBlockPlacementService {
+    private static final int PLACEMENT_DELAY_TICKS = 1;
     public enum PlacementTickResult {
         WAITING,
         ADVANCED,
@@ -32,16 +37,6 @@ public final class MultiBlockPlacementService {
     }
 
     private MultiBlockPlacementService() {
-    }
-
-    public static MultiBlockPlacementPlan preview(
-        Level level,
-        BlockPos controllerPos,
-        BlockState controllerState,
-        MultiBlockDefinition definition,
-        int repeats
-    ) {
-        return preview(level, controllerPos, controllerState, definition, repeats, false);
     }
 
     public static MultiBlockPlacementPlan preview(
@@ -60,7 +55,7 @@ public final class MultiBlockPlacementService {
         List<WorldPlannedBlock> allBlocks = new ArrayList<>();
         List<WorldPlannedBlock> missingBlocks = new ArrayList<>();
         List<BlockPos> conflictPositions = new ArrayList<>();
-        List<ItemStack> requiredItems = new ArrayList<>();
+        List<RequiredItem> requiredItems = new ArrayList<>();
         int reusedBlockCount = 0;
 
         for (PlannedBlock plannedBlock : context.getPlannedBlocks()) {
@@ -69,11 +64,12 @@ public final class MultiBlockPlacementService {
             }
             BlockPos worldPos = MultiBlockRotation.localToWorld(plannedBlock.relativePos(), controllerPos, facing, mirrored);
             BlockState targetState = MultiBlockRotation.rotateState(plannedBlock.targetState(), facing, mirrored);
-            WorldPlannedBlock worldBlock = new WorldPlannedBlock(worldPos, targetState, plannedBlock.requiredItem().copy());
+            WorldPlannedBlock worldBlock = new WorldPlannedBlock(worldPos, targetState, plannedBlock.requiredItem().copy(),
+                plannedBlock.requirement().transform(state -> MultiBlockRotation.rotateState(state, facing, mirrored)));
             allBlocks.add(worldBlock);
 
             BlockState existingState = level.getBlockState(worldPos);
-            if (existingState.equals(targetState)) {
+            if (acceptsExisting(level, worldBlock, existingState)) {
                 reusedBlockCount++;
                 continue;
             }
@@ -88,18 +84,19 @@ public final class MultiBlockPlacementService {
         return new MultiBlockPlacementPlan(allBlocks, missingBlocks, conflictPositions, requiredItems, reusedBlockCount);
     }
 
-    public static boolean buildInstant(ServerLevel level, MultiBlockPlacementPlan plan) {
-        if (!plan.getConflictPositions().isEmpty()) {
+    public static boolean buildInstant(ServerLevel level, MultiBlockPlacementPlan plan, ServerPlayer player) {
+        if (!plan.getConflictPositions().isEmpty()
+            || (!player.isCreative() && !hasRequiredItems(player, plan.getRequiredItems()))) {
             return false;
         }
         for (WorldPlannedBlock worldBlock : plan.getMissingBlocks()) {
-            level.setBlock(worldBlock.worldPos(), worldBlock.targetState(), Block.UPDATE_ALL);
+            if (!placeBuildBlock(level, worldBlock, player)) return false;
         }
         return true;
     }
 
     public static MultiBlockBuildSession createBuildSession(ServerLevel level, MultiBlockPlacementPlan plan) {
-        return new MultiBlockBuildSession(plan.getMissingBlocks(), nextPlacementDelay(level));
+        return new MultiBlockBuildSession(plan.getMissingBlocks(), PLACEMENT_DELAY_TICKS);
     }
 
     public static PlacementTickResult tickBuild(ServerLevel level, MultiBlockBuildSession session, ServerPlayer player) {
@@ -110,27 +107,48 @@ public final class MultiBlockPlacementService {
             return PlacementTickResult.WAITING;
         }
 
-        WorldPlannedBlock worldBlock = session.getCurrentBlock();
-        BlockState existingState = level.getBlockState(worldBlock.worldPos());
-        if (!existingState.equals(worldBlock.targetState()) && !(existingState.isAir() || existingState.canBeReplaced())) {
+        if (!placeBuildBlock(level, session.getCurrentBlock(), player)) {
             return PlacementTickResult.BLOCKED;
         }
-
-        if (!existingState.equals(worldBlock.targetState())) {
-            if (!player.isCreative() && !consumeRequiredItem(player, worldBlock.requiredItem())) {
-                return PlacementTickResult.BLOCKED;
-            }
-            level.setBlock(worldBlock.worldPos(), worldBlock.targetState(), Block.UPDATE_ALL);
-            playPlacementSound(level, worldBlock);
-        }
-
-        session.advance(nextPlacementDelay(level));
+        session.advance(PLACEMENT_DELAY_TICKS);
         return session.isFinished() ? PlacementTickResult.COMPLETED : PlacementTickResult.ADVANCED;
     }
 
-    public static boolean hasRequiredItems(Player player, List<ItemStack> requiredItems) {
-        for (ItemStack requiredItem : requiredItems) {
-            if (countMatchingItems(player, requiredItem) < requiredItem.getCount()) {
+    private static boolean placeBuildBlock(ServerLevel level, WorldPlannedBlock worldBlock, ServerPlayer player) {
+        if (!level.hasChunkAt(worldBlock.worldPos())
+            || !level.getWorldBorder().isWithinBounds(worldBlock.worldPos())
+            || !level.mayInteract(player, worldBlock.worldPos())) return false;
+        BlockState existingState = level.getBlockState(worldBlock.worldPos());
+        if (acceptsExisting(level, worldBlock, existingState)) return true;
+        if (!(existingState.isAir() || existingState.canBeReplaced())) return false;
+        if (!placeWithPermissionCheck(level, worldBlock, player)) return false;
+        if (!player.isCreative() && !consumeRequiredItem(player, worldBlock.requiredItem())) {
+            level.setBlock(worldBlock.worldPos(), existingState, Block.UPDATE_ALL);
+            return false;
+        }
+        playPlacementSound(level, worldBlock);
+        return true;
+    }
+
+    public static boolean acceptsExisting(Level level, WorldPlannedBlock planned, BlockState actual) {
+        var role = ECOMultiblockParts.acceptsExpected(
+            ECOMultiblockParts.context(level, planned.worldPos()), planned.targetState());
+        return ECOMultiblockRequirements.accepts(
+            new ECOMultiblockRequirements.Context(
+                level, planned.worldPos(), planned.targetState(), actual),
+            role == null ? planned.requirement().accepts(actual) : role);
+    }
+
+    /** Validates the same alternatives used by previews/building without mutating the world. */
+    public static boolean matches(Level level, BlockPos controllerPos, BlockState controllerState,
+            MultiBlockDefinition definition, int repeats, boolean mirrored) {
+        var plan = preview(level, controllerPos, controllerState, definition, repeats, mirrored);
+        return plan.getConflictPositions().isEmpty() && plan.getMissingBlocks().isEmpty();
+    }
+
+    public static boolean hasRequiredItems(Player player, List<RequiredItem> requiredItems) {
+        for (RequiredItem requiredItem : requiredItems) {
+            if (countMatchingItems(player, requiredItem.stack()) < requiredItem.count()) {
                 return false;
             }
         }
@@ -253,14 +271,31 @@ public final class MultiBlockPlacementService {
         for (ItemStack requiredItem : requiredItems) {
             if (ItemStack.isSameItemSameComponents(requiredItem, toAdd)) {
                 requiredItem.grow(toAdd.getCount());
+    private static void mergeItem(List<RequiredItem> requiredItems, ItemStack toAdd) {
+        for (int i = 0; i < requiredItems.size(); i++) {
+            RequiredItem requiredItem = requiredItems.get(i);
+            if (ItemStack.isSameItemSameComponents(requiredItem.stack(), toAdd)) {
+                requiredItems.set(i, requiredItem.grow(toAdd.getCount()));
                 return;
             }
         }
-        requiredItems.add(toAdd.copy());
+        requiredItems.add(new RequiredItem(toAdd, toAdd.getCount()));
     }
 
-    private static int nextPlacementDelay(ServerLevel level) {
-        return 1;
+    private static boolean placeWithPermissionCheck(ServerLevel level, WorldPlannedBlock worldBlock, ServerPlayer player) {
+        BlockPos pos = worldBlock.worldPos();
+        BlockSnapshot snapshot = BlockSnapshot.create(level.dimension(), level, pos, Block.UPDATE_ALL);
+        BlockState placedAgainst = level.getBlockState(pos.below());
+        if (!level.setBlock(pos, worldBlock.targetState(), Block.UPDATE_ALL)) {
+            return false;
+        }
+        BlockEvent.EntityPlaceEvent event = new BlockEvent.EntityPlaceEvent(snapshot, placedAgainst, player);
+        NeoForge.EVENT_BUS.post(event);
+        if (event.isCanceled()) {
+            snapshot.restore();
+            return false;
+        }
+        return true;
     }
 
     private static void playPlacementSound(ServerLevel level, WorldPlannedBlock worldBlock) {

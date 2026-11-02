@@ -1,0 +1,7 @@
+{
+  "parent": "neoecoae:block/large_integrated_working_station_on",
+  "textures": {
+    "screen": "neoecoae:block/working_station/controller_formed/controller_formed_screen_compat/appgen_on",
+    "light": "neoecoae:block/working_station/controller_formed/controller_formed_light_compat/appgen_on"
+  }
+}

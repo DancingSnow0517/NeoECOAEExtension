@@ -1,20 +1,25 @@
 package cn.dancingsnow.neoecoae.all;
 
-import appeng.api.AECapabilities;
 import appeng.blockentity.AEBaseBlockEntity;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInputHatchBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationOutputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationCoolingControllerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationNetworkSwitchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationParallelCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationTransmitterBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingNetworkSwitchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingVentBlockEntity;
@@ -26,21 +31,47 @@ import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOEnergyCellBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageVentBlockEntity;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
+import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOAdvancedCraftingWorkerRenderer;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
+import cn.dancingsnow.neoecoae.multiblock.calculator.NEIntegratedWorkingStationClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
 import cn.dancingsnow.neoecoae.registration.NEBlockEntityEntry;
 import com.tterrag.registrate.util.entry.BlockEntityEntry;
 import com.tterrag.registrate.util.entry.BlockEntry;
-import net.neoforged.neoforge.capabilities.Capabilities;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
 @SuppressWarnings("unused")
 public class NEBlockEntities {
+
+    public static final BlockEntityEntry<ECOCraftingNetworkSwitchBlockEntity> CRAFTING_NETWORK_SWITCH = REGISTRATE
+        .blockEntity("crafting_network_switch", ECOCraftingNetworkSwitchBlockEntity::new)
+        .validBlock(NEBlocks.CRAFTING_NETWORK_SWITCH)
+        .validBlock(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH)
+        .onRegister(type -> {
+            NEBlocks.CRAFTING_NETWORK_SWITCH.get().setBlockEntity(ECOCraftingNetworkSwitchBlockEntity.class, type, null, null);
+            NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH.get().setBlockEntity(ECOCraftingNetworkSwitchBlockEntity.class, type, null, null);
+            AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.CRAFTING_NETWORK_SWITCH.asItem());
+            AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH.asItem());
+        })
+        .register();
+
+    public static final BlockEntityEntry<ECOComputationNetworkSwitchBlockEntity> COMPUTATION_NETWORK_SWITCH = REGISTRATE
+        .blockEntity("computation_network_switch", ECOComputationNetworkSwitchBlockEntity::new)
+        .validBlock(NEBlocks.COMPUTATION_NETWORK_SWITCH)
+        .validBlock(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH)
+        .onRegister(type -> {
+            NEBlocks.COMPUTATION_NETWORK_SWITCH.get().setBlockEntity(ECOComputationNetworkSwitchBlockEntity.class, type, null, null);
+            NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.get().setBlockEntity(ECOComputationNetworkSwitchBlockEntity.class, type, null, null);
+            AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.COMPUTATION_NETWORK_SWITCH.asItem());
+            AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.asItem());
+        })
+        .register();
 
     public static final BlockEntityEntry<ECOMachineCasingBlockEntity<NEComputationCluster>> COMPUTATION_CASING = REGISTRATE
         .<ECOMachineCasingBlockEntity<NEComputationCluster>, NEComputationCluster>blockEntityClusterElement(
@@ -95,6 +126,7 @@ public class NEBlockEntities {
         .forBlock(NEBlocks.CRAFTING_INTERFACE)
         .validBlock(NEBlocks.CRAFTING_INTERFACE)
         .clazz(ECOMachineInterfaceBlockEntity.class)
+        .serverTicker(ECOMachineInterfaceBlockEntity::tick)
         .register();
 
     public static final NEBlockEntityEntry<ECOMachineInterfaceBlockEntity<NEStorageCluster>> STORAGE_INTERFACE = REGISTRATE
@@ -115,11 +147,6 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.ECO_DRIVE)
         .validBlock(NEBlocks.ECO_DRIVE)
-        .registerCapability(event -> event.registerBlockEntity(
-            Capabilities.Item.BLOCK,
-            NEBlockEntities.ECO_DRIVE.get(),
-            (be, side) -> be.getItemHandler()
-        ))
         .clazz(ECODriveBlockEntity.class)
         .renderer(() -> ECODriveRenderer::new)
         .register();
@@ -247,13 +274,6 @@ public class NEBlockEntities {
         .forBlock(NEBlocks.INPUT_HATCH)
         .validBlock(NEBlocks.INPUT_HATCH)
         .serverTicker(ECOFluidInputHatchBlockEntity::tick)
-        .registerCapability(event -> {
-            event.registerBlockEntity(
-                Capabilities.Fluid.BLOCK,
-                NEBlockEntities.INPUT_HATCH.get(),
-                (be, side) -> be.tank
-            );
-        })
         .clazz(ECOFluidInputHatchBlockEntity.class)
         .register();
 
@@ -262,13 +282,6 @@ public class NEBlockEntities {
         .forBlock(NEBlocks.OUTPUT_HATCH)
         .validBlock(NEBlocks.OUTPUT_HATCH)
         .serverTicker(ECOFluidOutputHatchBlockEntity::tick)
-        .registerCapability(event -> {
-            event.registerBlockEntity(
-                Capabilities.Fluid.BLOCK,
-                NEBlockEntities.OUTPUT_HATCH.get(),
-                (be, side) -> be.tank
-            );
-        })
         .clazz(ECOFluidOutputHatchBlockEntity.class)
         .register();
 
@@ -282,6 +295,16 @@ public class NEBlockEntities {
         .clazz(ECOCraftingWorkerBlockEntity.class)
         .register();
 
+    public static final NEBlockEntityEntry<ECOCraftingWorkerBlockEntity> FX_MONITOR_CORE = REGISTRATE
+        .blockEntityBlockLinked(
+            "fx_monitor_core",
+            ECOCraftingWorkerBlockEntity::new
+        )
+        .forBlock(NEBlocks.FX_MONITOR_CORE)
+        .validBlock(NEBlocks.FX_MONITOR_CORE)
+        .renderer(() -> ECOAdvancedCraftingWorkerRenderer::new)
+        .register();
+
     public static final NEBlockEntityEntry<ECOCraftingPatternBusBlockEntity> CRAFTING_PATTERN_BUS = REGISTRATE
         .blockEntityBlockLinked(
             "crafting_pattern_bus",
@@ -289,11 +312,6 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.CRAFTING_PATTERN_BUS)
         .validBlock(NEBlocks.CRAFTING_PATTERN_BUS)
-        .registerCapability(e -> e.registerBlockEntity(
-            Capabilities.Item.BLOCK,
-            NEBlockEntities.CRAFTING_PATTERN_BUS.get(),
-            (be, side) -> be.itemHandler
-        ))
         .clazz(ECOCraftingPatternBusBlockEntity.class)
         .register();
 
@@ -386,48 +404,75 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.COMPUTATION_DRIVE)
         .validBlock(NEBlocks.COMPUTATION_DRIVE)
-        .registerCapability(e -> e.registerBlockEntity(
-            Capabilities.Item.BLOCK,
-            NEBlockEntities.COMPUTATION_DRIVE.get(),
-            (be, unused) -> be.getItemHandler()
-        ))
+        .renderer(() -> ECOComputationDriveRenderer::new)
         .clazz(ECOComputationDriveBlockEntity.class)
         .register();
 
-    public static final BlockEntityEntry<ECOIntegratedWorkingStationBlockEntity> INTEGRATED_WORKING_STATION_BLOCK = REGISTRATE
-        .blockEntity("integrated_working_station", ECOIntegratedWorkingStationBlockEntity::new)
+    public static final BlockEntityEntry<ECOLargeIntegratedWorkingStationBlockEntity> INTEGRATED_WORKING_STATION_BLOCK = REGISTRATE
+        .blockEntity("integrated_working_station", ECOLargeIntegratedWorkingStationBlockEntity::new)
         .validBlock(NEBlocks.INTEGRATED_WORKING_STATION)
-        .registerCapability(e -> {
-            e.registerBlockEntity(
-                AECapabilities.IN_WORLD_GRID_NODE_HOST,
-                NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
-                (be, unused) -> be
-            );
-            e.registerBlockEntity(
-                Capabilities.Item.BLOCK,
-                NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
-                (be, side) -> be.getExposedItemHandler(side)
-            );
-            e.registerBlockEntity(
-                Capabilities.Fluid.BLOCK,
-                NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
-                (be, side) -> be.getFluidCombined()
-            );
-            e.registerBlockEntity(
-                Capabilities.Energy.BLOCK,
-                NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
-                (be, side) -> be.getEnergyStorage(side)
-            );
-        })
         .onRegister(type -> {
             NEBlocks.INTEGRATED_WORKING_STATION.get().setBlockEntity(
-                ECOIntegratedWorkingStationBlockEntity.class,
-                type,
+                (Class) ECOLargeIntegratedWorkingStationBlockEntity.class,
+                (net.minecraft.world.level.block.entity.BlockEntityType) type,
                 null,
-                null
+                (level, pos, state, blockEntity) -> {
+                    if (blockEntity instanceof ECOLargeIntegratedWorkingStationBlockEntity controller) {
+                        controller.tickThermal(level, pos, state);
+                    }
+                }
             );
             AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.INTEGRATED_WORKING_STATION.asItem());
         })
+        .register();
+
+    public static final BlockEntityEntry<ECOMachineCasingBlockEntity<NEIntegratedWorkingStationCluster>> LARGE_INTEGRATED_WORKING_STATION_CASING = REGISTRATE
+        .<ECOMachineCasingBlockEntity<NEIntegratedWorkingStationCluster>, NEIntegratedWorkingStationCluster>blockEntityClusterElement(
+            "large_integrated_working_station_casing",
+            NEIntegratedWorkingStationClusterCalculator::new,
+            ECOMachineCasingBlockEntity::new
+        )
+        .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_CASING)
+        .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_CASING)
+        .register();
+
+    public static final NEBlockEntityEntry<ECOLargeIntegratedWorkingStationInputHatchBlockEntity> LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH = REGISTRATE
+        .blockEntityBlockLinked(
+            "large_integrated_working_station_input_hatch",
+            ECOLargeIntegratedWorkingStationInputHatchBlockEntity::new
+        )
+        .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH)
+        .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH)
+        .serverTicker(ECOLargeIntegratedWorkingStationInputHatchBlockEntity::tick)
+        .register();
+
+    public static final NEBlockEntityEntry<ECOLargeIntegratedWorkingStationInputHatchBlockEntity> LARGE_INTEGRATED_WORKING_STATION_SMART_COOLING_MODULE = REGISTRATE
+        .blockEntityBlockLinked(
+            "large_integrated_working_station_smart_cooling_module",
+            ECOLargeIntegratedWorkingStationInputHatchBlockEntity::new
+        )
+        .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_SMART_COOLING_MODULE)
+        .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_SMART_COOLING_MODULE)
+        .serverTicker(ECOLargeIntegratedWorkingStationInputHatchBlockEntity::tick)
+        .register();
+
+    public static final NEBlockEntityEntry<ECOLargeIntegratedWorkingStationOutputHatchBlockEntity> LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH = REGISTRATE
+        .blockEntityBlockLinked(
+            "large_integrated_working_station_output_hatch",
+            ECOLargeIntegratedWorkingStationOutputHatchBlockEntity::new
+        )
+        .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH)
+        .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH)
+        .serverTicker(ECOLargeIntegratedWorkingStationOutputHatchBlockEntity::tick)
+        .register();
+
+    public static final BlockEntityEntry<ECOMachineInterfaceBlockEntity<NEIntegratedWorkingStationCluster>> LARGE_INTEGRATED_WORKING_STATION_INTERFACE = REGISTRATE
+        .<ECOMachineInterfaceBlockEntity<NEIntegratedWorkingStationCluster>, NEIntegratedWorkingStationCluster>blockEntityClusterElement(
+            "large_integrated_working_station_interface", NEIntegratedWorkingStationClusterCalculator::new,
+            ECOLargeIntegratedWorkingStationInterfaceBlockEntity::new)
+        .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE)
+        .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE)
+        .serverTicker(ECOMachineInterfaceBlockEntity::tick)
         .register();
 
     private static NEBlockEntityEntry<ECOCraftingSystemBlockEntity> createCraftingSystem(

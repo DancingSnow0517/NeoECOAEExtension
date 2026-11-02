@@ -4,9 +4,9 @@ import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
-import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -32,16 +32,19 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
     }
 
     @Override
-    protected InteractionResult useItemOn(ItemStack heldItem, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
-        if (heldItem.getItem() instanceof ECOStorageCellItem) {
-            if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity be) {
-                if (be.getCellStack().isEmpty()) {
-                    if (level.isClientSide()) return InteractionResult.SUCCESS;
-                    be.setCellStack(heldItem);
+    protected ItemInteractionResult useItemOn(ItemStack heldItem, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity be
+            && be.getCellStack() == null
+            && be.isItemValid(heldItem)) {
+            if (level.isClientSide) return ItemInteractionResult.SUCCESS;
+            be.setCellStack(heldItem.copyWithCount(1));
+            if (!player.isCreative()) {
+                heldItem.shrink(1);
+                if (heldItem.isEmpty()) {
                     player.setItemInHand(hand, ItemStack.EMPTY);
-                    return InteractionResult.SUCCESS_SERVER;
                 }
             }
+            return ItemInteractionResult.sidedSuccess(level.isClientSide());
         }
         return InteractionResult.TRY_WITH_EMPTY_HAND;
     }
@@ -49,8 +52,13 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity be) {
-            if (!be.getCellStack().isEmpty() && player.isShiftKeyDown()) {
-                if (level.isClientSide()) return InteractionResult.SUCCESS;
+            if (be.getCellStack() != null && player.isShiftKeyDown()) {
+                if (level.isClientSide) return InteractionResult.SUCCESS;
+                var reason = be.getCellExtractionBlockReason();
+                if (reason != ECODriveBlockEntity.CellExtractionBlockReason.NONE) {
+                    player.displayClientMessage(Component.translatable(reason.translationKey()), true);
+                    return InteractionResult.SUCCESS;
+                }
                 ItemStack cellStack = be.getCellStack();
                 be.setCellStack(ItemStack.EMPTY);
                 player.setItemInHand(InteractionHand.MAIN_HAND, cellStack);

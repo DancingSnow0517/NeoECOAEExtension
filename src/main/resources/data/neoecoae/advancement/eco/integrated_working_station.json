@@ -1,0 +1,38 @@
+{
+  "parent": "neoecoae:eco/root",
+  "display": {
+    "icon": {
+      "id": "neoecoae:integrated_working_station"
+    },
+    "title": {
+      "text": "融会贯通"
+    },
+    "description": {
+      "text": "第一次获得集成工作站"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "obtained": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "neoecoae:integrated_working_station"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "obtained"
+    ]
+  ],
+  "sends_telemetry_event": false
+}

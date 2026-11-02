@@ -1,10 +1,9 @@
 package cn.dancingsnow.neoecoae.api;
 
-import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.gui.NETextures;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import lombok.Getter;
-import net.minecraft.resources.Identifier;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 
 public enum ECOTier implements IECOTier {
     L4(
@@ -16,8 +15,7 @@ public enum ECOTier implements IECOTier {
         1 << 26,
         1 << 24,
         10_000_000,
-        NeoECOAE.id("textures/gui/cpu_overlay/l4.png"),
-        NETextures.Crafting.F4
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/computation/cpu_overlay/l4.png")
     ),
     L6(
         2,
@@ -28,8 +26,7 @@ public enum ECOTier implements IECOTier {
         1 << 28,
         1 << 26,
         100_000_000,
-        NeoECOAE.id("textures/gui/cpu_overlay/l6.png"),
-        NETextures.Crafting.F6
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/computation/cpu_overlay/l6.png")
     ),
     L9(
         3,
@@ -40,14 +37,11 @@ public enum ECOTier implements IECOTier {
         1 << 30,
         1 << 28,
         1_000_000_000,
-        NeoECOAE.id("textures/gui/cpu_overlay/l9.png"),
-        NETextures.Crafting.F9
+        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/computation/cpu_overlay/l9.png")
     );
     @Getter
     private final int tier;
-    @Getter
     private final int crafterParallel;
-    @Getter
     private final int overclockedCrafterParallel;
     private final int cpuAccelerators;
     private final int cpuThreads;
@@ -56,9 +50,7 @@ public enum ECOTier implements IECOTier {
     private final long storageTotalBytes;
     @Getter
     private final long powerStorageSize;
-    private final Identifier cpuOverlayTexture;
-    @Getter
-    private final IGuiTexture craftingOverlayTexture;
+    private final ResourceLocation cpuOverlayTexture;
 
     ECOTier(
         int tier,
@@ -69,8 +61,7 @@ public enum ECOTier implements IECOTier {
         long cpuTotalBytes,
         long storageTotalBytes,
         long powerStorageSize,
-        Identifier cpuOverlayTexture,
-        IGuiTexture craftingOverlayTexture
+        ResourceLocation cpuOverlayTexture
     ) {
         this.tier = tier;
         this.crafterParallel = crafterParallel;
@@ -81,7 +72,21 @@ public enum ECOTier implements IECOTier {
         this.storageTotalBytes = storageTotalBytes;
         this.powerStorageSize = powerStorageSize;
         this.cpuOverlayTexture = cpuOverlayTexture;
-        this.craftingOverlayTexture = craftingOverlayTexture;
+    }
+
+    @Override
+    public Component getPanelTierName() {
+        return Component.literal(name());
+    }
+
+    @Override
+    public int getCrafterParallel() {
+        return crafterParallel;
+    }
+
+    @Override
+    public int getOverclockedCrafterParallel() {
+        return overclockedCrafterParallel;
     }
 
     @Override
@@ -100,7 +105,7 @@ public enum ECOTier implements IECOTier {
     }
 
     @Override
-    public Identifier getCPUOverlayTexture() {
+    public ResourceLocation getCPUOverlayTexture() {
         return cpuOverlayTexture;
     }
 }

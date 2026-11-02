@@ -26,18 +26,18 @@ public class AppFluxIntegration {
     }
 
     private void initUpgrades(FMLCommonSetupEvent event) {
-        String storageCellGroup = GuiText.StorageCells.getTranslationKey();
-
-        List<ItemEntry<ECOFeStorageCellItem>> cells = List.of(
-            NEAppFluxItems.ECO_FE_CELL_16M,
-            NEAppFluxItems.ECO_FE_CELL_64M,
-            NEAppFluxItems.ECO_FE_CELL_256M
-        );
-
-        for (ItemEntry<ECOFeStorageCellItem> cell : cells) {
-            Upgrades.add(AEItems.FUZZY_CARD.get(), cell, 1, storageCellGroup);
-            Upgrades.add(AEItems.INVERTER_CARD, cell, 1, storageCellGroup);
-            Upgrades.add(AEItems.VOID_CARD, cell, 1, storageCellGroup);
-        }
+        event.enqueueWork(() -> {
+            String storageCellGroup = GuiText.StorageCells.getTranslationKey();
+            List<ItemEntry<ECOFeStorageCellItem>> cells = List.of(
+                NEAppFluxItems.ECO_FE_CELL_16M,
+                NEAppFluxItems.ECO_FE_CELL_64M,
+                NEAppFluxItems.ECO_FE_CELL_256M
+            );
+            for (ItemEntry<ECOFeStorageCellItem> cell : cells) {
+                Upgrades.add(AEItems.FUZZY_CARD.get(), cell, 1, storageCellGroup);
+                Upgrades.add(AEItems.INVERTER_CARD, cell, 1, storageCellGroup);
+                Upgrades.add(AEItems.VOID_CARD, cell, 1, storageCellGroup);
+            }
+        });
     }
 }

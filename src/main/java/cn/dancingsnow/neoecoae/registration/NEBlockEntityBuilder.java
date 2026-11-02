@@ -21,7 +21,6 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import org.jetbrains.annotations.Nullable;
 
@@ -71,21 +70,13 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
 
     public NEBlockEntityBuilder<T, P> clientTicker(Consumer<T> ticker) {
         clientTicker = (level, blockPos, blockState, t) -> ticker.accept(t);
+    public NEBlockEntityBuilder<T, P> serverTicker(NEBlockEntityTicker<T> ticker) {
+        serverTicker = (level, blockPos, blockState, t) -> ticker.tick(t, level, blockPos, blockState);
         return this;
     }
 
     public NEBlockEntityBuilder<T, P> serverTicker(Consumer<T> ticker) {
         serverTicker = (level, blockPos, blockState, t) -> ticker.accept(t);
-        return this;
-    }
-
-    public NEBlockEntityBuilder<T, P> clientTicker(NEBlockEntityTicker<T> ticker) {
-        clientTicker = (level, blockPos, blockState, t) -> ticker.tick(t, level, blockPos, blockState);
-        return this;
-    }
-
-    public NEBlockEntityBuilder<T, P> serverTicker(NEBlockEntityTicker<T> ticker) {
-        serverTicker = (level, blockPos, blockState, t) -> ticker.tick(t, level, blockPos, blockState);
         return this;
     }
 
@@ -102,11 +93,6 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
     @Override
     public NEBlockEntityBuilder<T, P> renderer(NonNullSupplier<NonNullFunction<BlockEntityRendererProvider.Context, BlockEntityRenderer<? super T, ?>>> renderer) {
         return (NEBlockEntityBuilder<T, P>) super.renderer(renderer);
-    }
-
-    @Override
-    public NEBlockEntityBuilder<T, P> registerCapability(Consumer<RegisterCapabilitiesEvent> registerCapabilitiesEvent) {
-        return (NEBlockEntityBuilder<T, P>) super.registerCapability(registerCapabilitiesEvent);
     }
 
     @Override

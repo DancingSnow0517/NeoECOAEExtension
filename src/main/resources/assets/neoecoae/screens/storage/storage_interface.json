@@ -1,0 +1,184 @@
+{
+  "type": "custom",
+  "custom": "interface_root",
+  "id": "storage_interface_root",
+  "font_size": 6,
+  "overflow": "visible",
+  "layout": {
+    "position": "relative",
+    "width": 176,
+    "height": 218
+  },
+  "children": [
+    {
+      "type": "texture",
+      "id": "background",
+      "texture": "neoecoae:textures/guis/storage/storage_interface.png",
+      "sprite": [
+        0,
+        0,
+        176,
+        218
+      ],
+      "layout": {
+        "position": "absolute",
+        "left": 0,
+        "top": 0,
+        "width": 176,
+        "height": 218
+      }
+    },
+    {
+      "type": "custom",
+      "custom": "toolbar",
+      "id": "toolbar"
+    },
+    {
+      "type": "custom",
+      "id": "title",
+      "custom": "title",
+      "layout": {
+        "position": "absolute",
+        "left": 8,
+        "top": 5,
+        "width": 160,
+        "height": 9
+      }
+    },
+    {
+      "type": "custom",
+      "id": "mode_caption",
+      "custom": "mode_caption",
+      "layout": {
+        "position": "absolute",
+        "left": 10,
+        "top": 21,
+        "width": 56,
+        "height": 9
+      }
+    },
+    {
+      "type": "custom",
+      "id": "mode_storage",
+      "custom": "mode_button",
+      "mode": "STORAGE",
+      "layout": {
+        "position": "absolute",
+        "left": 9,
+        "top": 32,
+        "width": 16,
+        "height": 18
+      }
+    },
+    {
+      "type": "custom",
+      "id": "mode_input",
+      "custom": "mode_button",
+      "mode": "INPUT",
+      "layout": {
+        "position": "absolute",
+        "left": 30,
+        "top": 32,
+        "width": 16,
+        "height": 18
+      }
+    },
+    {
+      "type": "custom",
+      "id": "mode_output",
+      "custom": "mode_button",
+      "mode": "OUTPUT",
+      "layout": {
+        "position": "absolute",
+        "left": 51,
+        "top": 32,
+        "width": 16,
+        "height": 18
+      }
+    },
+    {
+      "type": "custom",
+      "id": "structure_status",
+      "custom": "structure_status",
+      "layout": {
+        "position": "absolute",
+        "left": 76,
+        "top": 21,
+        "width": 89,
+        "height": 8
+      }
+    },
+    {
+      "type": "custom",
+      "id": "network_status",
+      "custom": "network_status",
+      "layout": {
+        "position": "absolute",
+        "left": 76,
+        "top": 30,
+        "width": 89,
+        "height": 8
+      }
+    },
+    {
+      "type": "custom",
+      "id": "transfer_status",
+      "custom": "transfer_status",
+      "layout": {
+        "position": "absolute",
+        "left": 76,
+        "top": 39,
+        "width": 89,
+        "height": 8
+      }
+    },
+    {
+      "type": "custom",
+      "id": "filter_caption",
+      "custom": "filter_caption",
+      "layout": {
+        "position": "absolute",
+        "left": 8,
+        "top": 54,
+        "width": 160,
+        "height": 10
+      }
+    },
+    {
+      "type": "custom",
+      "id": "resource_filters",
+      "custom": "resource_filters",
+      "layout": {
+        "position": "absolute",
+        "left": 7,
+        "top": 65,
+        "width": 162,
+        "height": 54
+      }
+    },
+    {
+      "type": "custom",
+      "id": "filter_hint",
+      "custom": "filter_hint",
+      "layout": {
+        "position": "absolute",
+        "left": 8,
+        "top": 122,
+        "width": 160,
+        "height": 9
+      }
+    },
+    {
+      "type": "custom",
+      "id": "player_inventory",
+      "custom": "player_inventory",
+      "layout": {
+        "position": "absolute",
+        "left": 7,
+        "top": 133,
+        "width": 162,
+        "height": 76
+      }
+    }
+  ]
+}

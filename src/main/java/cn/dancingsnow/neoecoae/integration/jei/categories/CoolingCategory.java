@@ -51,7 +51,7 @@ public class CoolingCategory extends ModularUIRecipeCategory<RecipeHolder<Coolin
 
     @Override
     public int getHeight() {
-        return 50;
+        return 60;
     }
 
     @Override

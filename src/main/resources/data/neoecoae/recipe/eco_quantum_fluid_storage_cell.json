@@ -1,0 +1,22 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "bigger_ae2"
+    }
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "neoecoae:eco_fluid_cell_housing"
+    },
+    {
+      "item": "bigger_ae2:quantum_cell_component"
+    }
+  ],
+  "result": {
+    "count": 1,
+    "id": "neoecoae:eco_quantum_fluid_storage_cell"
+  }
+}

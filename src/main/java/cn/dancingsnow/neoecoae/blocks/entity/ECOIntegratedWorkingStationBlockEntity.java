@@ -15,6 +15,7 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
+import appeng.api.orientation.BlockOrientation;
 import appeng.api.orientation.RelativeSide;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
@@ -22,15 +23,11 @@ import appeng.api.storage.MEStorage;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.IUpgradeableObject;
 import appeng.api.upgrades.UpgradeInventories;
-import appeng.api.upgrades.Upgrades;
 import appeng.api.util.AECableType;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
 import appeng.blockentity.grid.AENetworkedPoweredBlockEntity;
-import appeng.core.AppEng;
 import appeng.core.definitions.AEItems;
-import appeng.core.localization.ButtonToolTips;
-import appeng.core.localization.GuiText;
 import appeng.me.storage.CompositeStorage;
 import appeng.parts.automation.StackWorldBehaviors;
 import appeng.util.Icon;
@@ -44,57 +41,33 @@ import cn.dancingsnow.neoecoae.all.NEDataComponents;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.components.AutoExportSides;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
-import cn.dancingsnow.neoecoae.gui.AETextures;
-import cn.dancingsnow.neoecoae.gui.NEGuiColors;
-import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
-import cn.dancingsnow.neoecoae.gui.NETextures;
+import cn.dancingsnow.neoecoae.gui.workstation.IntegratedWorkstationUI;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.slot.ItemResourceHandlerSlot;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.gui.texture.ItemStackTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UI;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.FillDirection;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.FluidSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ProgressBar;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Toggle;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
-import com.lowdragmc.lowdraglib2.gui.util.WindowDragHelper;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
-import dev.vfyjxf.taffy.style.AlignContent;
-import dev.vfyjxf.taffy.style.AlignItems;
-import dev.vfyjxf.taffy.style.FlexDirection;
-import dev.vfyjxf.taffy.style.TaffyDisplay;
-import dev.vfyjxf.taffy.style.TaffyPosition;
-import guideme.GuidesCommon;
-import guideme.PageAnchor;
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import lombok.Getter;
 import lombok.Setter;
-import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponentMap;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -111,40 +84,30 @@ import net.neoforged.neoforge.transfer.transaction.Transaction;
 import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-
 public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBlockEntity
     implements ISyncPersistRPCBlockEntity, IGridTickable, IUpgradeableObject, IConfigurableObject {
-    private static final IGuiTexture AUTO_EXPORT_OFF = AETextures.icon(Icon.AUTO_EXPORT_OFF);
-    private static final IGuiTexture AUTO_EXPORT_ON = AETextures.icon(Icon.AUTO_EXPORT_ON);
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
-    private static final int MAX_INPUT_SLOTS = 9;
-    private static final int MAX_PROCESSING_STEPS = 200;
-    private static final int MAX_POWER_STORAGE = 500000;
-    private static final int MAX_TANK_CAPACITY = 16000;
+    protected static final int MAX_INPUT_SLOTS = 9;
+    protected static final int MAX_PROCESSING_STEPS = 200;
+    // Holds one full high-energy network-switch recipe.
+    protected static final int MAX_POWER_STORAGE = 16_000_000;
+    protected static final int MAX_TANK_CAPACITY = 64_000;
 
     private final IUpgradeInventory upgrades;
     private final IConfigManager configManager;
 
-    private final AppEngInternalInventory inputInv = new AppEngInternalInventory(this, MAX_INPUT_SLOTS, 64);
-    private final AppEngInternalInventory outputInv = new AppEngInternalInventory(this, 1, 64);
+    protected final AppEngInternalInventory inputInv = new AppEngInternalInventory(this, MAX_INPUT_SLOTS, 64);
+    protected final AppEngInternalInventory outputInv = new AppEngInternalInventory(this, 1, 64);
     private final InternalInventory inv = new CombinedInternalInventory(this.inputInv, this.outputInv);
 
     private final FilteredInternalInventory inputExposed = new FilteredInternalInventory(this.inputInv, AEItemFilters.INSERT_ONLY);
     private final FilteredInternalInventory outputExposed = new FilteredInternalInventory(this.outputInv, AEItemFilters.EXTRACT_ONLY);
     private final InternalInventory invExposed = new CombinedInternalInventory(this.inputExposed, this.outputExposed);
 
-    private final FluidStacksResourceHandler inputTank = new FluidStacksResourceHandler(1, MAX_TANK_CAPACITY) {
+    protected final FluidTank inputTank = new FluidTank(MAX_TANK_CAPACITY) {
         @Override
         protected void onContentsChanged(int index, FluidStack previousContents) {
             markForUpdate();
@@ -152,7 +115,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             onChangeTank();
         }
     };
-    private final FluidStacksResourceHandler outputTank = new FluidStacksResourceHandler(1, MAX_TANK_CAPACITY) {
+    protected final FluidTank outputTank = new FluidTank(MAX_TANK_CAPACITY) {
         @Override
         protected void onContentsChanged(int index, FluidStack previousContents) {
             markForUpdate();
@@ -160,6 +123,18 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             onChangeTank();
         }
     };
+
+    /**
+     * Fluid sources and sinks can be supplied by a formed multiblock controller.
+     * The standalone workstation keeps using its own tanks.
+     */
+    protected FluidTank getInputTank() {
+        return inputTank;
+    }
+
+    protected FluidTank getOutputTank() {
+        return outputTank;
+    }
 
     @DescSynced
     boolean shouldAutoExport;
@@ -172,8 +147,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         }
 
         @Override
-        public FluidResource getResource(int index) {
-            return index == 0 ? inputTank.getResource(0) : outputTank.getResource(0);
+        public FluidStack getFluidInTank(int tank) {
+            return tank == 0 ? getInputTank().getFluid() : getOutputTank().getFluid();
         }
 
         @Override
@@ -182,26 +157,25 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         }
 
         @Override
-        public long getCapacityAsLong(int index, FluidResource resource) {
-            return index == 0 ? inputTank.getCapacityAsLong(0, resource) : outputTank.getCapacityAsLong(0, resource);
+        public boolean isFluidValid(int tank, FluidStack stack) {
+            return tank == 0 ? getInputTank().isFluidValid(stack) : getOutputTank().isFluidValid(stack);
         }
 
         @Override
-        public boolean isValid(int index, FluidResource resource) {
-            return index == 0 ? inputTank.isValid(0, resource) : outputTank.isValid(0, resource);
+        public int fill(FluidStack resource, FluidAction action) {
+            return getInputTank().fill(resource, action);
         }
 
         @Override
-        public int insert(int index, FluidResource resource, int amount, TransactionContext transaction) {
-            return index == 0 ? inputTank.insert(0, resource, amount, transaction) : outputTank.insert(0, resource, amount, transaction);
+        public FluidStack drain(FluidStack resource, FluidAction action) {
+            return getOutputTank().drain(resource, action);
         }
 
         @Override
-        public int extract(int index, FluidResource resource, int amount, TransactionContext transaction) {
-            return index == 0 ? inputTank.extract(0, resource, amount, transaction) : outputTank.extract(0, resource, amount, transaction);
+        public FluidStack drain(int maxDrain, FluidAction action) {
+            return getOutputTank().drain(maxDrain, action);
         }
     };
-
 
     @Getter
     @DescSynced
@@ -217,14 +191,10 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
     private boolean dirty = false;
 
-    private @Nullable IntegratedWorkingStationRecipe cachedTask = null;
+    protected @Nullable IntegratedWorkingStationRecipe cachedTask = null;
 
     @SuppressWarnings("UnstableApiUsage")
     private final HashMap<Direction, Map<AEKeyType, ExternalStorageStrategy>> exportStrategies = new HashMap<>();
-
-    @Getter
-    @Setter
-    private boolean showWarning = false;
 
     public ECOIntegratedWorkingStationBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
@@ -238,6 +208,25 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             .build();
 
         this.setPowerSides(getGridConnectableSides(getOrientation()));
+    }
+
+    /**
+     * Keep the workstation discoverable by integrations such as JDTE from every
+     * side. The node service is registered independently of whether the node is
+     * currently connected to an ME network.
+     */
+    @Override
+    public Set<Direction> getGridConnectableSides(BlockOrientation orientation) {
+        return EnumSet.allOf(Direction.class);
+    }
+
+    @Override
+    public void onReady() {
+        super.onReady();
+        // The node is created by the parent during onReady; apply the explicit
+        // side set again so power and grid exposure stay in sync after loading.
+        this.setPowerSides(getGridConnectableSides(getOrientation()));
+        this.onGridConnectableSidesChanged();
     }
 
     public void setWorking(boolean working) {
@@ -264,7 +253,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     }
 
     public int getMaxProcessingTime() {
-        return MAX_PROCESSING_STEPS;
+        var task = getTask();
+        return task == null ? MAX_PROCESSING_STEPS : (int) Math.min(Integer.MAX_VALUE, (long) task.processingTicks() * 2);
     }
 
     @Override
@@ -305,14 +295,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         return this.inv;
     }
 
-    public InternalInventory getInput() {
-        return this.inputInv;
-    }
-
-    public InternalInventory getOutput() {
-        return this.outputInv;
-    }
-
     @Nullable
     @Override
     public InternalInventory getSubInventory(Identifier id) {
@@ -351,14 +333,18 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     }
 
     private boolean hasAutoExportWork() {
-        return configManager.getSetting(Settings.AUTO_EXPORT) == YesNo.YES && (!this.outputInv.getStackInSlot(0).isEmpty() || this.outputTank.getAmountAsLong(0) > 0);
+        return configManager.getSetting(Settings.AUTO_EXPORT) == YesNo.YES && (!this.outputInv.getStackInSlot(0).isEmpty() || !this.getOutputTank().getFluid().isEmpty());
     }
 
     private boolean hasCraftWork() {
         var task = this.getTask();
         if (task != null) {
-            try (Transaction transaction = Transaction.open(null)) {
-                if (task.hasItemOutput() && outputInv.insertItem(0, task.itemOutput(), true).isEmpty()) {
+            if (task.hasItemOutput() && outputInv.insertItem(0, task.itemOutput(), true).isEmpty()) {
+                return true;
+            }
+            if (task.hasFluidOutput()) {
+                FluidStack fluidOutput = task.fluidOutput();
+                if (getOutputTank().fill(fluidOutput, IFluidHandler.FluidAction.SIMULATE) == fluidOutput.getAmount()) {
                     return true;
                 }
                 if (task.hasFluidOutput()) {
@@ -391,9 +377,9 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         var recipe = appeng.crafting.RecipeAccess.getRecipeFor(
             level,
             NERecipeTypes.INTEGRATED_WORKING_STATION.get(),
-            new IntegratedWorkingStationRecipe.Input(inputs, getFluid(this.inputTank))
-        );
-        return recipe == null ? null : recipe.value();
+            new IntegratedWorkingStationRecipe.Input(inputs, this.getInputTank().getFluid()),
+            level
+        ).map(RecipeHolder::value).orElse(null);
     }
 
     @Override
@@ -433,9 +419,9 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                         default -> 2; // 100 ticks
                     };
 
-                final int progressReq = MAX_PROCESSING_STEPS - this.getProcessingTime();
+                final int progressReq = getMaxProcessingTime() - this.getProcessingTime();
                 final float powerRatio = progressReq < speedFactor ? (float) progressReq / speedFactor : 1;
-                final int requiredTicks = Mth.ceil((float) MAX_PROCESSING_STEPS / speedFactor);
+                final int requiredTicks = Mth.ceil((float) getMaxProcessingTime() / speedFactor);
                 final int powerConsumption = Mth.floor(((float) getTask().energy() / requiredTicks) * powerRatio);
                 final double powerThreshold = powerConsumption - 0.01;
 
@@ -454,7 +440,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                 if (powerReq > powerThreshold) {
                     src.extractAEPower(powerConsumption, Actionable.MODULATE, PowerMultiplier.CONFIG);
                     this.setProcessingTime(this.getProcessingTime() + speedFactor);
-                    setShowWarning(false);
                 } else if (powerReq != 0) {
                     var progressRatio = src == this
                         ? powerReq / powerConsumption
@@ -469,8 +454,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                         var actualFactor = (int) Math.floor(extracted / powerConsumption * speedFactor);
                         this.setProcessingTime(this.getProcessingTime() + actualFactor);
                     }
-                    // Add warning
-                    setShowWarning(true);
                 }
             });
 
@@ -488,7 +471,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                     }
 
                     if (!fluidOut.isEmpty()) {
-                        fluidCanInsert = canInsertAll(this.outputTank, fluidOut);
+                        fluidCanInsert = this.getOutputTank().fill(fluidOut, IFluidHandler.FluidAction.SIMULATE) >= fluidOut.getAmount() - 0.01;
                     }
 
                     // Only execute if both outputs can be placed; otherwise keep progress to retry later
@@ -502,8 +485,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                         }
 
                         if (!fluidOut.isEmpty()) {
-                            int added = insertFluid(this.outputTank, fluidOut);
-                            fluidInserted = added >= fluidOut.getAmount();
+                            int added = this.getOutputTank().fill(fluidOut, IFluidHandler.FluidAction.EXECUTE);
+                            fluidInserted = added >= fluidOut.getAmount() - 0.01;
                         }
 
                         if (itemInserted && fluidInserted) {
@@ -529,12 +512,9 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                                 }
                             }
 
-                            FluidStack fluidStack = getFluid(this.inputTank);
-                            if (out.inputFluid().isPresent()) {
-                                SizedFluidIngredient ingredient = out.inputFluid().get();
-                                if (ingredient.test(fluidStack)) {
-                                    extractFluid(this.inputTank, fluidStack, ingredient.amount());
-                                }
+                            FluidStack fluidStack = this.getInputTank().getFluid();
+                            if (out.inputFluid().test(fluidStack)) {
+                                getInputTank().drain(fluidStack.copyWithAmount(out.inputFluid().amount()), IFluidHandler.FluidAction.EXECUTE);
                             }
 
                             this.setProcessingTime(0);
@@ -546,7 +526,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                 }
             }
         } else {
-            setShowWarning(false);
         }
 
         if (this.pushOutResult()) {
@@ -576,14 +555,14 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                     movedStacks |= inserted > 0;
                 }
 
-                FluidStack outFluid = getFluid(this.outputTank);
+                FluidStack outFluid = this.getOutputTank().getFluid();
                 GenericStack fluid = GenericStack.fromFluidStack(outFluid);
                 if (fluid != null && fluid.what() != null) {
-                    var extracted = extractFluid(this.outputTank, outFluid, outFluid.getAmount());
+                    var extracted = this.getOutputTank().drain(outFluid, IFluidHandler.FluidAction.EXECUTE).getAmount();
                     var inserted = target.insert(fluid.what(), extracted, Actionable.MODULATE, source);
-                    insertFluid(this.outputTank, outFluid.copyWithAmount((int) (extracted - inserted)));
+                    this.getOutputTank().fill(outFluid.copyWithAmount((int) (extracted - inserted)), IFluidHandler.FluidAction.EXECUTE);
 
-                    if (this.outputTank.getAmountAsLong(0) == 0) clearFluidOut();
+                    if (this.getOutputTank().getFluidAmount() == 0) clearFluidOut();
 
                     movedStacks |= inserted > 0;
                 }
@@ -715,372 +694,52 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     @Override
     public void clearContent() {
         super.clearContent();
-        this.inputTank.set(0, FluidResource.EMPTY, 0);
-        this.outputTank.set(0, FluidResource.EMPTY, 0);
+        this.getInputTank().setFluid(FluidStack.EMPTY);
+        this.getOutputTank().setFluid(FluidStack.EMPTY);
         this.upgrades.clear();
     }
 
     public void clearFluid() {
-        this.inputTank.set(0, FluidResource.EMPTY, 0);
+        this.getInputTank().setFluid(FluidStack.EMPTY);
     }
 
     public void clearFluidOut() {
-        this.outputTank.set(0, FluidResource.EMPTY, 0);
+        this.getOutputTank().setFluid(FluidStack.EMPTY);
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        UIElement root = new UIElement().layout(layout -> layout
-            .paddingAll(4)
-            .gapAll(2)
-            .justifyContent(AlignContent.CENTER)
-        ).addClass("panel_bg");
-
-        // Floating output side config window (hidden by default)
-        UIElement allowOutputWindow = allowOutputPanel();
-
-        root.addChild(new TextElement()
-            .setText("block.neoecoae.integrated_working_station", true)
-            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(NEGuiColors.textColor(0x403e53))));
-
-        UIElement inputArea = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW).marginBottom(5));
-        // Input Fluid
-        UIElement inputFluid = new UIElement().addClass("panel_border");
-        inputFluid.addChild(new FluidSlot()
-            .bind(inputTank, 0)
-            .slotStyle(style -> style.fillDirection(FillDirection.DOWN_TO_UP))
-            .setAllowClickDrained(true)
-            .setAllowClickDrained(true)
-            .layout(style -> style.heightPercent(100)));
-        inputArea.addChild(inputFluid);
-        // Clear button to the right of fluid slot, bottom-aligned with the fluid slot
-        inputArea.addChild(new Button()
-            .noText()
-            .addPostIcon(AETextures.icon(Icon.CLEAR))
-            .setOnServerClick(e -> clearFluid())
-            .layout(layout -> layout.width(8).height(8).alignSelf(AlignItems.FLEX_END).paddingAll(1)));
-
-
-        // Input slots
-        UIElement inputSlots = new UIElement().addClass("panel_border").layout(layout -> layout.marginLeft(10).marginRight(10));
-        for (int x = 0; x < 3; x++) {
-            UIElement row = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
-            for (int y = 0; y < 3; y++) {
-                int i = x + y * 3;
-                row.addChild(new ItemSlot(new ItemResourceHandlerSlot(getExposedItemHandler(null), i)));
-            }
-            inputSlots.addChild(row);
-        }
-        inputArea.addChild(inputSlots);
-
-        // output slot
-        UIElement outputSlots = new UIElement().layout(layout -> {
-            layout.marginLeft(5);
-            layout.flexDirection(FlexDirection.COLUMN);
-            layout.justifyContent(AlignContent.CENTER);
-        });
-        UIElement outputSlot = new UIElement().addClass("panel_border").layout(layout -> layout.justifyContent(AlignContent.CENTER));
-        outputSlots.addChild(outputSlot);
-        outputSlot.addChild(new ItemSlot(new ItemResourceHandlerSlot(getExposedItemHandler(null), 9)));
-        inputArea.addChild(outputSlots);
-
-        // progress bar
-        UIElement progressBar = new UIElement().layout(layout -> {
-            layout.marginLeft(2);
-            layout.marginRight(5);
-            layout.flexDirection(FlexDirection.COLUMN);
-            layout.justifyContent(AlignContent.CENTER);
-        }).addChildren(
-            new ProgressBar()
-                .setMaxValue(MAX_PROCESSING_STEPS)
-                .progressBarStyle(style -> style.fillDirection(FillDirection.DOWN_TO_UP).interpolate(false))
-                .barContainer(element -> element.layout(layout -> layout.paddingAll(1)))
-                .label(label -> label.setText(""))
-                .bind(DataBindingBuilder.floatValS2C(() -> (float) processingTime).build())
-                .layout(layout -> layout.height(18).width(6))
-                .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                    Float value = ((ProgressBar) event.currentElement).getValue();
-                    event.hoverTooltips = HoverTooltips.create(Component.literal("%.0f%%".formatted(value / MAX_PROCESSING_STEPS * 100)));
-                })
-        );
-
-        inputArea.addChild(progressBar);
-
-        // clear button on the left of output slot, bottom-aligned
-        inputArea.addChild(new Button()
-            .noText()
-            .addPostIcon(AETextures.icon(Icon.CLEAR))
-            .setOnServerClick(e -> clearFluidOut())
-            .layout(layout -> layout.width(8).height(8).alignSelf(AlignItems.FLEX_END).paddingAll(1)));
-        // output fluid
-        UIElement outputFluid = new UIElement().addClass("panel_border");
-        outputFluid.addChild(new FluidSlot()
-            .bind(outputTank, 0)
-            .slotStyle(style -> style.fillDirection(FillDirection.DOWN_TO_UP))
-            .setAllowClickFilled(true)
-            .setAllowClickDrained(false)
-            .layout(style -> style.heightPercent(100)));
-        inputArea.addChild(outputFluid);
-
-
-        // add main input area and upgrades panel side-by-side
-        root.addChild(inputArea);
-
-        // Upgrades panel on the right (凸出�?
-        UIElement upgradesPanel = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.right(-22);
-            layout.top(0);
-            layout.paddingAll(2);
-            layout.paddingBottom(4);
-        }).style(style -> style.background(NETextures.BACKGROUND));
-        // add four upgrade slots vertically
-        for (int i = 0; i < 4; i++) {
-            upgradesPanel.addChild(new ItemSlot(new ItemResourceHandlerSlot(this.upgrades.toResourceHandler(), i))
-                .slotStyle(style -> style.slotOverlay(AETextures.icon(Icon.BACKGROUND_UPGRADE)))
-                .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                    List<Component> tooltips = new ArrayList<>();
-                    tooltips.add(GuiText.CompatibleUpgrades.text());
-                    tooltips.addAll(Upgrades.getTooltipLinesForMachine(NEBlocks.INTEGRATED_WORKING_STATION));
-                    event.hoverTooltips = HoverTooltips.create(tooltips.toArray());
-                }));
-        }
-
-        root.addChild(upgradesPanel);
-
-        UIElement settingsPanel = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(-22);
-            layout.top(0);
-            layout.paddingAll(2);
-            layout.paddingBottom(4);
-        }).style(style -> style.background(NETextures.BACKGROUND));
-
-        settingsPanel.addChild(new Button()
-            .noText()
-            .addPostIcon(AETextures.icon(Icon.HELP))
-            .setOnServerClick(e -> {
-                GuidesCommon.openGuide(holder.player, AppEng.makeId("guide"), PageAnchor.parse("neoecoae:neoecoae_intro/integrated_working_station.md"));
-            })
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                event.hoverTooltips = HoverTooltips.create(
-                    ButtonToolTips.OpenGuide.text().withColor(-1),
-                    ButtonToolTips.OpenGuideDetail.text().withStyle(ChatFormatting.GRAY)
-                );
-            })
-            .layout(style -> style.height(20).width(18)));
-
-        settingsPanel.addChild(new Toggle()
-            .noText()
-            .toggleStyle(style -> style.markTexture(AUTO_EXPORT_ON).unmarkTexture(AUTO_EXPORT_OFF))
-            .toggleButton(button -> button.setOnServerClick(e -> {
-                shouldAutoExport = !shouldAutoExport;
-                configManager.putSetting(Settings.AUTO_EXPORT, shouldAutoExport ? YesNo.YES : YesNo.NO);
-            }).layout(layout -> layout.height(20).width(18)))
-            .bindDataSource(SupplierDataSource.of(() -> shouldAutoExport))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                event.hoverTooltips = HoverTooltips.create(
-                    ButtonToolTips.AutoExport.text().withColor(-1),
-                    (shouldAutoExport ? ButtonToolTips.AutoExportOn : ButtonToolTips.AutoExportOff).text().withStyle(ChatFormatting.GRAY)
-                );
-            })
-            .layout(layout -> layout.width(18).height(22).paddingAll(0)));
-
-        // Open floating output side config
-        settingsPanel.addChild(new Button()
-            .noText()
-            .addPostIcon(NETextures.OUTPUTS)
-            .setOnClick(e -> allowOutputWindow.layout(layout -> layout.display(TaffyDisplay.FLEX)))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                event.hoverTooltips = HoverTooltips.create(Component.translatable("gui.neoecoae.integrated_working_station.allow_outputs").withStyle(ChatFormatting.WHITE));
-            })
-            .layout(style -> style.height(20).width(18)));
-
-        root.addChild(settingsPanel);
-
-        root.addChild(new TextElement()
-            .setText("container.inventory", true)
-            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(NEGuiColors.textColor(0x403e53))));
-
-        root.addChild(new InventorySlots().layout(layout -> layout.marginTop(2)));
-
-        // Add absolute-positioned floating window last so it renders on top
-        root.addChild(allowOutputWindow);
-        return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+        return IntegratedWorkstationUI.create(new IntegratedWorkstationUI.Config(
+            getInputTank(), getOutputTank(), (IItemHandlerModifiable) getExposedItemHandler(null),
+            (IItemHandlerModifiable) upgrades.toItemHandler(), () -> (int) ((long) processingTime * MAX_PROCESSING_STEPS / Math.max(1, getMaxProcessingTime())), MAX_PROCESSING_STEPS,
+            this::clearFluid, this::clearFluidOut, () -> shouldAutoExport,
+            enabled -> {
+                shouldAutoExport = enabled;
+                configManager.putSetting(Settings.AUTO_EXPORT, enabled ? YesNo.YES : YesNo.NO);
+            },
+            enabled -> shouldAutoExport = enabled,
+            allowOutputs::contains, this::toggleOutputSide, this::syncOutputSide, this::getOutputNeighborItem,
+            () -> this instanceof ECOLargeIntegratedWorkingStationBlockEntity workstation
+                ? List.of(workstation.createAutoBuildButton(holder.player)) : List.of()), holder.player);
     }
 
-    private UIElement allowOutputPanel() {
-        UIElement window = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(6);
-            layout.top(6);
-            layout.display(TaffyDisplay.NONE);
-        }).addClass("panel_bg");
+    private void toggleOutputSide(RelativeSide side) {
+        if (!allowOutputs.remove(side)) allowOutputs.add(side);
+        exportStrategies.remove(getOrientation().getSide(side));
+        saveChanges();
+        markForUpdate();
+    }
 
-        UIElement titleBar = new UIElement().layout(layout -> {
-            layout.flexDirection(FlexDirection.ROW);
-            layout.justifyContent(AlignContent.SPACE_BETWEEN);
-            layout.alignItems(AlignItems.CENTER);
-            layout.gapAll(2);
-        });
+    private void syncOutputSide(RelativeSide side, boolean enabled) {
+        if (level != null && level.isClientSide) {
+            if (enabled) allowOutputs.add(side);
+            else allowOutputs.remove(side);
+        }
+    }
 
-        titleBar.addChild(new TextElement()
-            .setText("gui.neoecoae.integrated_working_station.allow_outputs", true)
-            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(NEGuiColors.textColor(0x403e53))));
-
-        titleBar.addChild(new Button()
-            .noText()
-            .addPostIcon(AETextures.icon(Icon.CLEAR))
-            .setOnClick(e -> window.layout(layout -> layout.display(TaffyDisplay.NONE)))
-            .layout(layout -> layout.width(12).height(12).paddingAll(1)));
-
-        window.addChild(titleBar);
-
-        // Drag the window via title bar
-        WindowDragHelper.setDragMove(titleBar, window, null, null);
-
-        UIElement grid = new UIElement().layout(layout -> {
-            layout.display(TaffyDisplay.GRID);
-            layout.gridTemplateColumns("1fr 1fr 1fr");
-            layout.gridTemplateRows("auto auto auto");
-            // Keep horizontal compact; add extra vertical spacing via cell margins
-            layout.gapAll(2);
-            layout.alignItems(AlignItems.CENTER);
-            layout.justifyItems(AlignItems.CENTER);
-        });
-
-        window.addChild(grid);
-
-        Function<RelativeSide, String> toRow = side -> switch (side) {
-            case TOP -> "1";
-            case LEFT, FRONT, RIGHT -> "2";
-            case BOTTOM, BACK -> "3";
-        };
-
-        Function<RelativeSide, String> toColumn = side -> switch (side) {
-            case LEFT -> "1";
-            case TOP, FRONT, BOTTOM -> "2";
-            case RIGHT, BACK -> "3";
-        };
-
-        Function<RelativeSide, RelativeSide> toInternalSide = uiSide -> switch (uiSide) {
-            case LEFT -> RelativeSide.RIGHT;
-            case RIGHT -> RelativeSide.LEFT;
-            default -> uiSide;
-        };
-
-        Function<RelativeSide, IGuiTexture> sideIcon = uiSide -> {
-            if (level == null) {
-                return IGuiTexture.EMPTY;
-            }
-
-            RelativeSide internalSide = toInternalSide.apply(uiSide);
-
-            Direction worldDir;
-            try {
-                worldDir = getOrientation().getSide(internalSide);
-            } catch (Throwable ignored) {
-                return IGuiTexture.EMPTY;
-            }
-
-            BlockPos targetPos = worldPosition.relative(worldDir);
-            BlockState targetState = level.getBlockState(targetPos);
-
-            var item = targetState.getBlock().asItem();
-            if (item == Items.AIR) {
-                return IGuiTexture.EMPTY;
-            }
-            return new ItemStackTexture(new ItemStack(item));
-        };
-
-        BiFunction<RelativeSide, String, UIElement> sideToggle = (uiSide, labelKey) -> {
-            RelativeSide internalSide = toInternalSide.apply(uiSide);
-
-            var applyBackground = (java.util.function.BiConsumer<Button, Boolean>) (button, enabled) -> button.buttonStyle(style -> style
-                .baseTexture(enabled ? NETextures.BUTTON_HIGHLIGHTED : NETextures.BUTTON)
-                .hoverTexture(NETextures.BUTTON_HIGHLIGHTED)
-                .pressedTexture(NETextures.BUTTON_HIGHLIGHTED)
-            );
-
-            int extraRowSpacing = switch (uiSide) {
-                case TOP, LEFT, FRONT, RIGHT -> 4;
-                default -> 0;
-            };
-
-            UIElement cell = new UIElement().layout(layout -> {
-                layout.gridRow(toRow.apply(uiSide));
-                layout.gridColumn(toColumn.apply(uiSide));
-                layout.alignItems(AlignItems.CENTER);
-                layout.justifyContent(AlignContent.CENTER);
-                layout.marginBottom(extraRowSpacing);
-            });
-
-            IGuiTexture icon = sideIcon.apply(uiSide);
-            Toggle toggle = new Toggle();
-            toggle.noText();
-            // Mark icon: always render the adjacent-block item icon
-            toggle.toggleStyle(style -> style.markTexture(icon).unmarkTexture(icon));
-            toggle.toggleButton(button -> {
-                button.layout(layout -> layout.height(20).width(20).paddingAll(2));
-                button.setOnServerClick(e -> {
-                    if (allowOutputs.contains(internalSide)) {
-                        allowOutputs.remove(internalSide);
-                    } else {
-                        allowOutputs.add(internalSide);
-                    }
-
-                    // Clear cached strategy for this direction so it refreshes when re-enabled
-                    try {
-                        exportStrategies.remove(getOrientation().getSide(internalSide));
-                    } catch (Throwable ignored) {
-                    }
-
-                    saveChanges();
-                    markForUpdate();
-                });
-            });
-            toggle.bindDataSource(SupplierDataSource.of(() -> allowOutputs.contains(internalSide)));
-            toggle.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                var enabled = allowOutputs.contains(internalSide);
-                event.hoverTooltips = HoverTooltips.create(
-                    Component.translatable(labelKey).withStyle(ChatFormatting.WHITE),
-                    Component.translatable(enabled
-                        ? "gui.neoecoae.integrated_working_station.allow_outputs.enabled"
-                        : "gui.neoecoae.integrated_working_station.allow_outputs.disabled").withStyle(ChatFormatting.GRAY)
-                );
-            });
-
-            toggle.layout(layout -> layout.width(20).height(20).paddingAll(0));
-
-            // Keep visuals in-sync immediately on the client, while server remains authoritative
-            toggle.setOnToggleChanged(on -> {
-                if (level != null && level.isClientSide()) {
-                    if (on) {
-                        allowOutputs.add(internalSide);
-                    } else {
-                        allowOutputs.remove(internalSide);
-                    }
-                }
-                applyBackground.accept(toggle.toggleButton, on);
-            });
-
-            // Initialize background based on current synced value
-            applyBackground.accept(toggle.toggleButton, allowOutputs.contains(internalSide));
-
-            cell.addChild(toggle);
-
-            return cell;
-        };
-
-        //    上
-        // 左 正 右
-        //    下 背
-        grid.addChild(sideToggle.apply(RelativeSide.TOP, "gui.neoecoae.relative_side.top"));
-        grid.addChild(sideToggle.apply(RelativeSide.LEFT, "gui.neoecoae.relative_side.left"));
-        grid.addChild(sideToggle.apply(RelativeSide.FRONT, "gui.neoecoae.relative_side.front"));
-        grid.addChild(sideToggle.apply(RelativeSide.RIGHT, "gui.neoecoae.relative_side.right"));
-        grid.addChild(sideToggle.apply(RelativeSide.BOTTOM, "gui.neoecoae.relative_side.bottom"));
-        grid.addChild(sideToggle.apply(RelativeSide.BACK, "gui.neoecoae.relative_side.back"));
-
-        return window;
+    private ItemStack getOutputNeighborItem(RelativeSide side) {
+        if (level == null) return ItemStack.EMPTY;
+        BlockPos target = worldPosition.relative(getOrientation().getSide(side));
+        if (!level.hasChunkAt(target)) return ItemStack.EMPTY;
+        return new ItemStack(level.getBlockState(target).getBlock().asItem());
     }
 }

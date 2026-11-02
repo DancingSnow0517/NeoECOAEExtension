@@ -1,0 +1,116 @@
+package cn.dancingsnow.neoecoae.crafting.planner.semantic;
+
+import appeng.api.crafting.IPatternDetails;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+
+/** Normalizes the public AE2 pattern contract without depending on a concrete pattern implementation. */
+public final class AE2PatternSemanticAdapter implements PatternSemanticAdapter {
+    private final Predicate<AEKey> reusableStockKeyVerifier;
+
+    public AE2PatternSemanticAdapter() {
+        // Equality with the returned AEKey is the proof that this concrete input is unchanged. Some reusable
+        // ingredients are technically damageable items even though a particular recipe does not damage them.
+        this(key -> key instanceof AEItemKey);
+    }
+
+    /** Injectable verifier for isolated planner tests and integrations with an equivalent immutable-key proof. */
+    public AE2PatternSemanticAdapter(Predicate<AEKey> reusableStockKeyVerifier) {
+        this.reusableStockKeyVerifier = Objects.requireNonNull(reusableStockKeyVerifier);
+    }
+
+    @Override
+    public boolean supports(IPatternDetails pattern) {
+        return pattern != null;
+    }
+
+    @Override
+    public PatternSemantics analyze(IPatternDetails pattern) {
+        AEItemKey definition = null;
+        try {
+            definition = pattern.getDefinition();
+            List<GenericStack> outputs = pattern.getOutputs();
+            if (outputs == null || outputs.isEmpty()) {
+                return PatternSemantics.unsupported(pattern, definition, "NO_OUTPUTS");
+            }
+            for (GenericStack output : outputs) {
+                if (output == null || output.what() == null || output.amount() <= 0L) {
+                    return PatternSemantics.unsupported(pattern, definition, "INVALID_OUTPUT");
+                }
+            }
+            List<PatternSemantics.Input> inputs = new ArrayList<>();
+            List<GenericStack> returned = new ArrayList<>();
+            List<PatternSemantics.FeedbackEdge> feedback = new ArrayList<>();
+            PatternSemantics.MatchingMode matching = PatternSemantics.MatchingMode.EXACT;
+            boolean hasRemainder = false;
+            boolean everyRemainderIsExactReusableStock = true;
+            IPatternDetails.IInput[] rawInputs = pattern.getInputs();
+            if (rawInputs == null) return PatternSemantics.unsupported(pattern, definition, "NULL_INPUTS");
+            for (IPatternDetails.IInput input : rawInputs) {
+                if (input == null) return PatternSemantics.unsupported(pattern, definition, "NULL_INPUT");
+                GenericStack[] possible = input.getPossibleInputs();
+                if (possible == null || possible.length == 0 || possible[0] == null
+                        || possible[0].what() == null) {
+                    return PatternSemantics.unsupported(pattern, definition, "INVALID_INPUT");
+                }
+                long multiplier = input.getMultiplier();
+                if (multiplier <= 0L) {
+                    return PatternSemantics.unsupported(pattern, definition, "INVALID_INPUT_AMOUNT");
+                }
+
+                // Keep AE2's primary ingredient as the compiled demand. Substitutes are inventory choices, not
+                // unconditional route choices: the solver may prefer an unchanged reusable candidate when it is
+                // stored, but must retain the primary producer chain when that candidate is absent.
+                InputChoice choice = chooseInput(input, possible, multiplier);
+                GenericStack selected = choice.stack();
+                AEKey remaining = choice.remaining();
+                PlannerAmount amount = PlannerAmount.of(selected.amount()).multiply(multiplier);
+                PlannerAmount remainingAmount = remaining == null ? PlannerAmount.ZERO : PlannerAmount.of(multiplier);
+                inputs.add(new PatternSemantics.Input(input, selected.what(), amount, remaining, remainingAmount));
+                if (possible.length != 1) matching = PatternSemantics.MatchingMode.SUBSTITUTION;
+                if (remaining != null) {
+                    hasRemainder = true;
+                    everyRemainderIsExactReusableStock &= choice.exactReusableStock();
+                    returned.add(new GenericStack(remaining, multiplier));
+                    if (!outputs.isEmpty() && outputs.getFirst() != null && outputs.getFirst().what() != null) {
+                        feedback.add(new PatternSemantics.FeedbackEdge(remaining, outputs.getFirst().what(),
+                            remainingAmount));
+                    }
+                }
+            }
+            return new PatternSemantics(pattern, definition, inputs, outputs, returned, feedback, matching,
+                PatternSemantics.ExecutionRestriction.NONE, true,
+                // Ordinary exact processing recipes have no hidden return state. They must also enter
+                // complete cycle balance/replay; requiring a reusable remainder reduced them to local
+                // deadlock estimates and prevented compact planning of large growing recipe rings.
+                !hasRemainder || everyRemainderIsExactReusableStock, null);
+        } catch (RuntimeException rejected) {
+            return PatternSemantics.unsupported(pattern, definition, "MALFORMED_PATTERN:" + rejected.getClass().getSimpleName());
+        }
+    }
+
+    private InputChoice chooseInput(IPatternDetails.IInput input, GenericStack[] possible, long multiplier) {
+        return inspectChoice(input, possible[0], multiplier);
+    }
+
+    private InputChoice inspectChoice(IPatternDetails.IInput input, GenericStack stack, long multiplier) {
+        if (stack == null || stack.what() == null || stack.amount() <= 0L) {
+            throw new IllegalArgumentException("Invalid possible pattern input");
+        }
+        AEKey remaining = input.getRemainingKey(stack.what());
+        boolean exactReusableStock = multiplier > 0L
+            && stack.amount() == 1L
+            && remaining != null
+            && remaining.equals(stack.what())
+            && reusableStockKeyVerifier.test(stack.what());
+        return new InputChoice(stack, remaining, exactReusableStock);
+    }
+
+    private record InputChoice(GenericStack stack, AEKey remaining, boolean exactReusableStock) {}
+}

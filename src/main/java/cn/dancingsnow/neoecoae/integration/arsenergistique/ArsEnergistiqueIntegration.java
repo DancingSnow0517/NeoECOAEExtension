@@ -26,18 +26,18 @@ public class ArsEnergistiqueIntegration {
     }
 
     private void initUpgrades(FMLCommonSetupEvent event) {
-        String storageCellGroup = GuiText.StorageCells.getTranslationKey();
-
-        List<ItemEntry<ECOStorageCellItem>> cells = List.of(
-            NEArsEnergistiqueItems.ECO_SOURCE_CELL_16M,
-            NEArsEnergistiqueItems.ECO_SOURCE_CELL_64M,
-            NEArsEnergistiqueItems.ECO_SOURCE_CELL_256M
-        );
-
-        for (ItemEntry<ECOStorageCellItem> cell : cells) {
-            Upgrades.add(AEItems.FUZZY_CARD.get(), cell, 1, storageCellGroup);
-            Upgrades.add(AEItems.INVERTER_CARD, cell, 1, storageCellGroup);
-            Upgrades.add(AEItems.VOID_CARD, cell, 1, storageCellGroup);
-        }
+        event.enqueueWork(() -> {
+            String storageCellGroup = GuiText.StorageCells.getTranslationKey();
+            List<ItemEntry<ECOStorageCellItem>> cells = List.of(
+                NEArsEnergistiqueItems.ECO_SOURCE_CELL_16M,
+                NEArsEnergistiqueItems.ECO_SOURCE_CELL_64M,
+                NEArsEnergistiqueItems.ECO_SOURCE_CELL_256M
+            );
+            for (ItemEntry<ECOStorageCellItem> cell : cells) {
+                Upgrades.add(AEItems.FUZZY_CARD.get(), cell, 1, storageCellGroup);
+                Upgrades.add(AEItems.INVERTER_CARD, cell, 1, storageCellGroup);
+                Upgrades.add(AEItems.VOID_CARD, cell, 1, storageCellGroup);
+            }
+        });
     }
 }

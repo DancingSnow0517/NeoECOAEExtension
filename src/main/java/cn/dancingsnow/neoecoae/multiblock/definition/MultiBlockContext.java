@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.multiblock.definition;
 
-import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockRequirement;
+
+import cn.dancingsnow.neoecoae.multiblock.placement.RequiredItem;
 import com.lowdragmc.lowdraglib2.utils.data.BlockInfo;
 import com.lowdragmc.lowdraglib2.utils.virtuallevel.TrackedDummyWorld;
 import lombok.Getter;
@@ -8,12 +10,10 @@ import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiFunction;
 
 public abstract class MultiBlockContext {
     @Getter
@@ -21,7 +21,9 @@ public abstract class MultiBlockContext {
 
     public abstract void setBlock(BlockPos pos, BlockState blockState);
 
-    public abstract void setBlockEntity(BlockPos pos, BiFunction<BlockPos, BlockState, BlockEntity> sup);
+    public void setRequirement(BlockPos pos, ECOMultiblockRequirement requirement) {
+        setBlock(pos, requirement.defaultState());
+    }
 
     public abstract Level getLevel();
 
@@ -29,13 +31,24 @@ public abstract class MultiBlockContext {
 
     public abstract boolean isFormed();
 
+    /** Use the state's own property instance; identical property names can have different identities. */
+    public static BlockState formedPreviewState(BlockState state) {
+        for (var property : state.getProperties()) {
+            if (property instanceof net.minecraft.world.level.block.state.properties.BooleanProperty formed
+                && formed.getName().equals("formed")) {
+                return state.setValue(formed, true);
+            }
+        }
+        return state;
+    }
+
     public static MultiBlockContext.DummyDelegated dummyDelegated(int repeats, TrackedDummyWorld world) {
         return new DummyDelegated(repeats, world);
     }
 
     public static class DummyDelegated extends MultiBlockContext {
         private final TrackedDummyWorld dummyWorld;
-        private final List<ItemStack> itemStacks = new ArrayList<>(16);
+        private final List<RequiredItem> itemStacks = new ArrayList<>(16);
         private final List<BlockPos> posList = new ArrayList<>();
         @Getter
         private int yMax = 0;
@@ -58,34 +71,16 @@ public abstract class MultiBlockContext {
             dummyWorld.addBlock(pos, new BlockInfo(blockState));
         }
 
-        @Override
-        public void setBlockEntity(BlockPos pos, BiFunction<BlockPos, BlockState, BlockEntity> sup) {
-            BlockEntity be = sup.apply(pos, getLevel().getBlockState(pos));
-            if (be instanceof NEBlockEntity<?,?>){
-                ((NEBlockEntity<?, ?>) be).setFormed(formed);
-            }
-            be.setLevel(dummyWorld);
-            dummyWorld.setBlockEntity(be);
-        }
-
         public void addRequiredItem(ItemStack itemStack) {
             if (itemStack.isEmpty()) return;
-            boolean added = false;
-            for (ItemStack stack : itemStacks) {
-                if (ItemStack.isSameItemSameComponents(itemStack, stack)) {
-                    if (stack.getCount() + itemStack.getCount() > stack.getMaxStackSize()) {
-                        itemStack.setCount(stack.getCount() + itemStack.getCount() - stack.getMaxStackSize());
-                        stack.setCount(stack.getMaxStackSize());
-                    } else {
-                        stack.setCount(stack.getCount() + itemStack.getCount());
-                    }
-                    added = true;
-                    break;
+            for (int i = 0; i < itemStacks.size(); i++) {
+                RequiredItem stack = itemStacks.get(i);
+                if (ItemStack.isSameItemSameComponents(itemStack, stack.stack())) {
+                    itemStacks.set(i, stack.grow(itemStack.getCount()));
+                    return;
                 }
             }
-            if (!added) {
-                itemStacks.add(itemStack);
-            }
+            itemStacks.add(new RequiredItem(itemStack, itemStack.getCount()));
         }
 
         @Override
@@ -98,7 +93,7 @@ public abstract class MultiBlockContext {
             return dummyWorld;
         }
 
-        public List<ItemStack> getRequiredItems() {
+        public List<RequiredItem> getRequiredItems() {
             return itemStacks;
         }
     }

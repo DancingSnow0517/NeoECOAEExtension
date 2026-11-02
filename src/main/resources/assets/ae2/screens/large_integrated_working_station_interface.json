@@ -1,0 +1,76 @@
+{
+  "$schema": "schema.json",
+  "includes": ["common/common.json", "common/player_inventory.json"],
+  "background": {
+    "texture": "guis/large_integrated_working_station_interface.png",
+    "srcRect": [0, 0, 188, 245]
+  },
+  "slots": {
+    "ENCODED_PATTERN": {
+      "left": 8,
+      "top": 23,
+      "grid": "BREAK_AFTER_9COLS"
+    },
+    "STORAGE": {
+      "$comment": "Compatibility anchor for provider-screen addons; the workstation has no visible return row.",
+      "left": 8,
+      "top": 127,
+      "grid": "HORIZONTAL",
+      "hidden": true
+    },
+    "UPGRADE": {
+      "$comment": "Declare the existing right-side panel so addons do not infer an inline upgrade slot.",
+      "right": 1,
+      "top": 6,
+      "grid": "VERTICAL"
+    },
+    "PLAYER_INVENTORY": {
+      "left": 8,
+      "bottom": 84,
+      "grid": "BREAK_AFTER_9COLS"
+    },
+    "PLAYER_HOTBAR": {
+      "left": 8,
+      "bottom": 26,
+      "grid": "HORIZONTAL"
+    }
+  },
+  "text": {
+    "dialog_title": {
+      "text": {
+        "translate": "block.neoecoae.large_integrated_working_station_interface"
+      },
+      "position": {
+        "left": 8,
+        "top": 6
+      }
+    },
+    "player_inventory_title": {
+      "text": {
+        "translate": "container.inventory"
+      },
+      "position": {
+        "left": 8,
+        "bottom": 95
+      }
+    }
+  },
+  "widgets": {
+    "openPriority": {
+      "left": 164,
+      "top": -5,
+      "width": 20,
+      "height": 20
+    },
+    "patternScrollbar": {
+      "left": 174,
+      "top": 23,
+      "width": 8,
+      "height": 124
+    },
+    "lockReason": {
+      "left": 5,
+      "top": 15
+    }
+  }
+}

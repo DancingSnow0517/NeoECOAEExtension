@@ -1,0 +1,33 @@
+{
+  "parent": "neoecoae:block/large_integrated_working_station_interface",
+  "overrides": [
+    {
+      "predicate": { "custom_model_data": 1 },
+      "model": "neoecoae:block/large_integrated_working_station_compat/advanced_ae_off"
+    },
+    {
+      "predicate": { "custom_model_data": 2 },
+      "model": "neoecoae:block/large_integrated_working_station_compat/extendedae_off"
+    },
+    {
+      "predicate": { "custom_model_data": 3 },
+      "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_off"
+    },
+    {
+      "predicate": { "custom_model_data": 4 },
+      "model": "neoecoae:block/large_integrated_working_station_compat/aelt_off"
+    },
+    {
+      "predicate": { "custom_model_data": 5 },
+      "model": "neoecoae:block/large_integrated_working_station_compat/other_off"
+    },
+    {
+      "predicate": { "custom_model_data": 6 },
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_off"
+    },
+    {
+      "predicate": { "custom_model_data": 7 },
+      "model": "neoecoae:block/large_integrated_working_station_compat/appgen_off"
+    }
+  ]
+}

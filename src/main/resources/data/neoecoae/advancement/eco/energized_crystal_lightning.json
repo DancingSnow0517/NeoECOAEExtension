@@ -1,0 +1,29 @@
+{
+  "parent": "neoecoae:eco/root",
+  "display": {
+    "icon": {
+      "id": "neoecoae:energized_crystal"
+    },
+    "title": {
+      "text": "你看，他亮闪闪的"
+    },
+    "description": {
+      "text": "第一次用闪电获得盈能水晶"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "lightning": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "lightning"
+    ]
+  ],
+  "sends_telemetry_event": false
+}

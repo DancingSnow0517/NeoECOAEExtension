@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.items;
 
+import cn.dancingsnow.neoecoae.api.computation.IECOComputationCellItem;
+
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import lombok.Getter;
@@ -11,7 +13,7 @@ import net.minecraft.world.item.component.TooltipDisplay;
 
 import java.util.function.Consumer;
 
-public class ECOComputationCellItem extends Item {
+public class ECOComputationCellItem extends Item implements IECOComputationCellItem {
     @Getter
     private final IECOTier tier;
     public ECOComputationCellItem(Properties properties, IECOTier tier) {
@@ -21,12 +23,13 @@ public class ECOComputationCellItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display, Consumer<Component> tooltipComponents, TooltipFlag tooltipFlag) {
-        if (stack.getItem() instanceof ECOComputationCellItem cellItem) {
+        if (stack.getItem() instanceof IECOComputationCellItem cellItem) {
             IECOTier tier = cellItem.getTier();
             tooltipComponents.accept(Component.translatable(
                 "tooltip.neoecoae.computation_cell",
-                Tooltips.ofUnformattedNumber(tier.getCPUTotalBytes())
+                Tooltips.ofUnformattedNumber(cellItem.getComputationBytes(stack))
             ));
+            tooltipComponents.add(Component.translatable("tooltip.neoecoae.computation_cell.install"));
         }
     }
 }

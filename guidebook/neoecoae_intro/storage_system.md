@@ -20,6 +20,8 @@ item_ids:
   - neoecoae:eco_fluid_storage_cell_16m
   - neoecoae:eco_fluid_storage_cell_64m
   - neoecoae:eco_fluid_storage_cell_256m
+  - neoecoae:eco_mega_long_bulk_cell
+  - neoecoae:eco_mega_upgrade_card
 ---
 
 # ECO Storage System
@@ -34,63 +36,55 @@ The storage subsystem acts as a high-capacity storage extension for your AE2 net
 
 There are three tiers of storage systems available:
 
-| Tier | Controller | Storage Capacity | Power Storage |
+| Tier | Controller | Base Cell Capacity | Energy per Energy Cell |
 |------|------------|------------------|---------------|
-| L4 | <ItemLink id="neoecoae:storage_system_l4" /> | 16MB per cell | 10,000,000 AE |
-| L6 | <ItemLink id="neoecoae:storage_system_l6" /> | 64MB per cell | 100,000,000 AE |
-| L9 | <ItemLink id="neoecoae:storage_system_l9" /> | 256MB per cell | 1,000,000,000 AE |
+| L4 | <ItemLink id="neoecoae:storage_system_l4" /> | 16 MiB per cell | 10,000,000 AE |
+| L6 | <ItemLink id="neoecoae:storage_system_l6" /> | 64 MiB per cell | 100,000,000 AE |
+| L9 | <ItemLink id="neoecoae:storage_system_l9" /> | 256 MiB per cell | 1,000,000,000 AE |
 
 ## Structure Components
 
 ### Controller
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:storage_system_l4" />
-  <ItemIcon id="neoecoae:storage_system_l6" />
-  <ItemIcon id="neoecoae:storage_system_l9" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:storage_system_l4" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:storage_system_l6" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:storage_system_l9" scale="2"></BlockImage>
+</Row>
 
 The controller (<ItemLink id="neoecoae:storage_system_l4" />, <ItemLink id="neoecoae:storage_system_l6" />, or <ItemLink id="neoecoae:storage_system_l9" />) is the core of the storage system. It must be placed at a valid position in the multiblock structure and determines the tier of the entire system.
 
 ### Storage Drive
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:eco_drive" />
-</ItemGrid>
+<BlockImage id="neoecoae:eco_drive" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:eco_drive" /> holds ECO storage cells. Multiple drives can be added to expand storage capacity. Drives are placed in a row extending from the controller.
 
 ### Energy Cells
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:energy_cell_l4" />
-  <ItemIcon id="neoecoae:energy_cell_l6" />
-  <ItemIcon id="neoecoae:energy_cell_l9" />
-</ItemGrid>
+<Row>
+  <BlockImage id="neoecoae:energy_cell_l4" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:energy_cell_l6" scale="2"></BlockImage>
+  <BlockImage id="neoecoae:energy_cell_l9" scale="2"></BlockImage>
+</Row>
 
 High-density energy cells (<ItemLink id="neoecoae:energy_cell_l4" />, <ItemLink id="neoecoae:energy_cell_l6" />, or <ItemLink id="neoecoae:energy_cell_l9" />) provide power storage for the system. The energy cell tier must match the controller tier.
 
 ### Interface
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:storage_interface" />
-</ItemGrid>
+<BlockImage id="neoecoae:storage_interface" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:storage_interface" /> connects the storage system to your ME Network.
 
 ### Heat Sink
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:storage_vent" />
-</ItemGrid>
+<BlockImage id="neoecoae:storage_vent" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:storage_vent" /> is required for thermal management of the storage system.
 
 ### Casing
 
-<ItemGrid>
-  <ItemIcon id="neoecoae:storage_casing" />
-</ItemGrid>
+<BlockImage id="neoecoae:storage_casing" scale="2"></BlockImage>
 
 The <ItemLink id="neoecoae:storage_casing" /> blocks form the frame of the multiblock structure.
 
@@ -124,9 +118,9 @@ The following ECO storage cells can be used in the drives:
   <ItemIcon id="neoecoae:eco_item_storage_cell_256m" />
 </ItemGrid>
 
-- <ItemLink id="neoecoae:eco_item_storage_cell_16m" /> - 16MB capacity
-- <ItemLink id="neoecoae:eco_item_storage_cell_64m" /> - 64MB capacity
-- <ItemLink id="neoecoae:eco_item_storage_cell_256m" /> - 256MB capacity
+- <ItemLink id="neoecoae:eco_item_storage_cell_16m" /> - 16 MiB capacity
+- <ItemLink id="neoecoae:eco_item_storage_cell_64m" /> - 64 MiB capacity
+- <ItemLink id="neoecoae:eco_item_storage_cell_256m" /> - 256 MiB capacity
 
 ### Fluid Storage
 
@@ -136,9 +130,26 @@ The following ECO storage cells can be used in the drives:
   <ItemIcon id="neoecoae:eco_fluid_storage_cell_256m" />
 </ItemGrid>
 
-- <ItemLink id="neoecoae:eco_fluid_storage_cell_16m" /> - 16MB capacity
-- <ItemLink id="neoecoae:eco_fluid_storage_cell_64m" /> - 64MB capacity
-- <ItemLink id="neoecoae:eco_fluid_storage_cell_256m" /> - 256MB capacity
+- <ItemLink id="neoecoae:eco_fluid_storage_cell_16m" /> - 16 MiB capacity
+- <ItemLink id="neoecoae:eco_fluid_storage_cell_64m" /> - 64 MiB capacity
+- <ItemLink id="neoecoae:eco_fluid_storage_cell_256m" /> - 256 MiB capacity
+
+Storage matrices for AE2 Omni Cells and AE2 Lightning Tech are documented in [Compatibility Storage Matrices](compat_storage_matrices.md).
+
+## Bulk Compression Storage (Bigger AE2)
+
+<ItemGrid>
+  <ItemIcon id="neoecoae:eco_digital_singularity_item_storage_cell" />
+  <ItemIcon id="neoecoae:eco_mega_upgrade_card" />
+</ItemGrid>
+
+The ECO Digital Singularity Item Storage Matrix requires Bigger AE2 and provides ECO's built-in compression without compression cards or decompression modules. Configure resource markers in the host panel or cell workbench, then insert the disk into a compatible ECO drive. It supports 5 resource types, or 25 with an ECO Bulk Expansion Card supplied by the MEGA Cells integration. Stored quantities have no fixed upper bound; terminal tooltips show exact totals. The old ECO Bulk Storage Matrix remains compatible but is deprecated and has no assembly or disassembly recipes.
+
+Matrices in the same ME network share occupied markers: a compression chain already marked on one matrix cannot be marked on another. Automatic marking and migration check all network markers, and migration never extracts stock from other bulk matrices.
+
+Reversible crafting recipes form chains such as iron nugget, ingot and block. Any form in a chain can be inserted or extracted, and the whole chain occupies one marker. Shift + left-click raises the display denomination; Shift + right-click lowers it. Remainders stay visible in lower forms.
+
+A formed and powered ECO storage host in normal storage mode automatically publishes virtual compression and decompression patterns. Pending outputs stay on the accepting disk and retry when network storage is available. Disks containing stock, pending outputs or quarantined data cannot be disassembled. Changed recipe tables preserve historical quantities for recovery in their original base form. Bulk disks do not join infinite-domain migration.
 
 ## Usage
 
@@ -147,3 +158,10 @@ Once formed, the storage system will automatically connect to the ME Network thr
 The GUI displays:
 - Current energy storage level
 - Energy capacity percentage
+
+
+The communication IO port defaults to Storage mode, exposing local matrices to the ME network. Input moves network stock into this host; Output moves host stock into other network storage. Its 27 filters allow everything when empty and otherwise match complete resource keys. Hold a sample and left-click to set, or right-click to clear; samples are not consumed. Fluid containers select their fluid unless Shift is held to select the container item.
+
+Ignore Creative Storage Input defaults to on and affects Input only. Exclude Storage Bus Containers defaults to on and affects both directions. Check these switches, filters and destination capacity if nothing moves. Capacity utilization and resource distribution describe space usage and inventory composition separately; hover for exact amounts.
+
+An L9 host can migrate from Storage mode with at least 12 eligible L9 matrices in that host and 64 Infinite Storage Components in its component slot. Missing original members pause domain access. Component removal requires restoring all stock to compatible normal matrices with enough capacity and type slots. Bigger AE2 Digital Singularity cells do not participate in finite-cell migration.

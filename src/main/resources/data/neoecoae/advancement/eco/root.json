@@ -1,0 +1,29 @@
+{
+  "display": {
+    "icon": {
+      "id": "neoecoae:energized_crystal"
+    },
+    "title": {
+      "text": "Neo ECO AE Extension"
+    },
+    "description": {
+      "text": "从盈能水晶到无限存储，构建你的 ECO 网络"
+    },
+    "background": "neoecoae:textures/gui/advancements/background.png",
+    "frame": "task",
+    "show_toast": false,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "joined": {
+      "trigger": "minecraft:tick"
+    }
+  },
+  "requirements": [
+    [
+      "joined"
+    ]
+  ],
+  "sends_telemetry_event": false
+}

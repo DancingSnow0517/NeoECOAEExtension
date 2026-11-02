@@ -1,10 +1,13 @@
 package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
+import cn.dancingsnow.neoecoae.api.computation.ECOComputationCells;
+
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationDrive;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
+import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
@@ -24,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 public class ECOComputationDriveBlockEntity
-    extends AbstractComputationBlockEntity<ECOComputationDriveBlockEntity> implements ISyncPersistRPCBlockEntity, ICellHost {
+    extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster, ECOComputationDriveBlockEntity> implements ISyncPersistRPCBlockEntity, ICellHost {
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -62,11 +65,12 @@ public class ECOComputationDriveBlockEntity
     private final CellHostItemHandler itemHandler = new CellHostItemHandler(this);
 
     public ECOComputationDriveBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
-        super(type, pos, blockState);
+        super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator::new);
     }
 
     @Override
-    public void setCellStack(ItemStack cellStack) {
+    public void setCellStack(@Nullable ItemStack cellStack) {
+        if (cellStack != null && !isItemValid(cellStack)) return;
         this.cellStack = cellStack;
         if (!cellStack.isEmpty()) {
             getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECOComputationDrive.HAS_CELL, true));
@@ -82,7 +86,7 @@ public class ECOComputationDriveBlockEntity
     @Override
     public void notifyPersistence() {
         if (level instanceof ServerLevel serverLevel) {
-            serverLevel.getServer().executeIfPossible(() -> {
+            ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
                 setChanged();
                 markForUpdate();
             });
@@ -110,9 +114,13 @@ public class ECOComputationDriveBlockEntity
 
     @Override
     public void updateState(boolean updateExposed) {
+        if (isServerStopping()) {
+            return;
+        }
         super.updateState(updateExposed);
         formedState = cluster != null;
         if (cluster != null) {
+            cluster.reclassifyDrive(this);
             ECOComputationSystemBlockEntity controller = cluster.getController();
             if (controller != null) {
                 tier = controller.getTier();
@@ -136,6 +144,6 @@ public class ECOComputationDriveBlockEntity
 
     @Override
     public boolean isItemValid(ItemStack stack) {
-        return stack.getItem() instanceof ECOComputationCellItem;
+        return ECOComputationCells.describe(stack) != null;
     }
 }

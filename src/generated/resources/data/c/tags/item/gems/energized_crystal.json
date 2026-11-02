@@ -1,5 +1,9 @@
 {
   "values": [
-    "neoecoae:energized_crystal"
+    "neoecoae:energized_crystal",
+    {
+      "id": "ae2cs:purified_energized_certus_quartz_crystal",
+      "required": false
+    }
   ]
 }

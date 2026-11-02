@@ -43,6 +43,10 @@ The [Energized Budding Crystal](energized_crystal.md) is a key material for craf
 
 The [Integrated Working Station](integrated_working_station.md) is an advanced crafting machine that combines multiple AE2 device functions. It is essential for crafting most advanced components including multiblock controllers.
 
+## Large Integrated Working Station
+
+The [Large Integrated Working Station](large_integrated_working_station.md) provides high-efficiency processing for advanced recipes.
+
 ## Getting Started
 
 1. Gather materials and craft the required components for your chosen system

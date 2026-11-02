@@ -1,6 +1,21 @@
 {
   "variants": {
-    "": {
+    "formed=false,storage_mode=input": {
+      "model": "neoecoae:block/storage_interface"
+    },
+    "formed=false,storage_mode=output": {
+      "model": "neoecoae:block/storage_interface"
+    },
+    "formed=false,storage_mode=storage": {
+      "model": "neoecoae:block/storage_interface"
+    },
+    "formed=true,storage_mode=input": {
+      "model": "neoecoae:block/storage_interface"
+    },
+    "formed=true,storage_mode=output": {
+      "model": "neoecoae:block/storage_interface"
+    },
+    "formed=true,storage_mode=storage": {
       "model": "neoecoae:block/storage_interface"
     }
   }

@@ -46,4 +46,23 @@ public class ECOComputationThreadingCore extends NEBlock<ECOComputationThreading
     public IOrientationStrategy getOrientationStrategy() {
         return OrientationStrategies.horizontalFacing();
     }
+    @Override
+    public java.util.List<net.minecraft.world.item.ItemStack> getDrops(BlockState state,
+            net.minecraft.world.level.storage.loot.LootParams.Builder params) {
+        var drops = super.getDrops(state, params);
+        if (params.getOptionalParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.BLOCK_ENTITY)
+                instanceof ECOComputationThreadingCoreBlockEntity be) {
+            for (var drop : drops) if (drop.is(asItem())) { be.packExactInventories(drop); break; }
+        }
+        return drops;
+    }
+
+    @Override
+    public void setPlacedBy(net.minecraft.world.level.Level level, net.minecraft.core.BlockPos pos,
+            BlockState state, net.minecraft.world.entity.LivingEntity placer, net.minecraft.world.item.ItemStack stack) {
+        super.setPlacedBy(level, pos, state, placer, stack);
+        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof ECOComputationThreadingCoreBlockEntity be) {
+            be.restoreExactInventories(stack);
+        }
+    }
 }

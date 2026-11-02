@@ -9,6 +9,7 @@ import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.UpgradeInventories;
 import appeng.core.AEConfig;
+import appeng.core.localization.GuiText;
 import appeng.core.localization.PlayerMessages;
 import appeng.core.localization.Tooltips;
 import appeng.items.contents.CellConfig;
@@ -20,9 +21,12 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
-import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.api.storage.INativeMEStorageRestrictedItem;
+import cn.dancingsnow.neoecoae.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import lombok.Getter;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -44,31 +48,67 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
+public class ECOStorageCellItem extends Item implements IBasicECOCellItem, INativeMEStorageRestrictedItem {
 
     @Getter
     private final IECOTier tier;
     private final long totalBytes;
     private final int bytesPerType;
-    private final AEKeyType keyType;
+    private final double idleDrain;
+    private final Supplier<AEKeyType> keyType;
     private final Supplier<ECOCellType> cellType;
 
     public ECOStorageCellItem(Properties properties, IECOTier tier, AEKeyType keyType, Supplier<ECOCellType> cellType) {
+        this(properties, tier, () -> keyType, cellType);
+    }
+
+    public ECOStorageCellItem(Properties properties, IECOTier tier, Supplier<AEKeyType> keyType, Supplier<ECOCellType> cellType) {
+        this(
+            properties,
+            tier,
+            keyType,
+            cellType,
+            tier.getStorageTotalBytes(),
+            1 << (12 + tier.getTier()),
+            (double) tier.getStorageTotalBytes() / (1 << 20)
+        );
+    }
+
+    public ECOStorageCellItem(
+        Properties properties,
+        IECOTier tier,
+        AEKeyType keyType,
+        Supplier<ECOCellType> cellType,
+        long totalBytes,
+        int bytesPerType,
+        double idleDrain
+    ) {
+        this(properties, tier, () -> keyType, cellType, totalBytes, bytesPerType, idleDrain);
+    }
+
+    public ECOStorageCellItem(
+        Properties properties,
+        IECOTier tier,
+        Supplier<AEKeyType> keyType,
+        Supplier<ECOCellType> cellType,
+        long totalBytes,
+        int bytesPerType,
+        double idleDrain
+    ) {
         super(properties);
         this.tier = tier;
-        this.totalBytes = tier.getStorageTotalBytes();
-        this.bytesPerType = 1 << (12 + tier.getTier());
+        this.totalBytes = totalBytes;
+        this.bytesPerType = bytesPerType;
+        this.idleDrain = idleDrain;
         this.keyType = keyType;
         this.cellType = cellType;
     }
 
     @Override
     public AEKeyType getKeyType() {
-        return keyType;
+        return keyType.get();
     }
 
     @Override
@@ -82,6 +122,11 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     }
 
     @Override
+    public double getIdleDrain() {
+        return idleDrain;
+    }
+
+    @Override
     public int getTotalTypes() {
         return cellType.get().typeCount();
     }
@@ -92,17 +137,47 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display, Consumer<Component> lines, TooltipFlag tooltipFlag) {
+    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
+        if (ECOInfiniteStorageMember.isMember(stack)) {
+            lines.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
+                .withStyle(ChatFormatting.LIGHT_PURPLE));
+            ECOInfiniteStorageMember.getDomainId(stack).ifPresent(id -> lines.add(
+                Component.literal("UUID: " + id).withStyle(ChatFormatting.AQUA)));
+            return;
+        }
         var handler = getCellInventory(stack);
         if (handler == null) {
             return;
         }
-        lines.accept(Tooltips.bytesUsed(handler.getUsedBytes(), handler.getTotalBytes()));
-        lines.accept(Tooltips.typesUsed(handler.getStoredItemTypes(), handler.getTotalItemTypes()));
+        lines.add(bytesUsedLine(handler.getUsedBytes(), handler.getTotalBytes()));
+        lines.add(Tooltips.typesUsed(handler.getStoredItemTypes(), handler.getTotalItemTypes()));
+    }
+
+    /**
+     * {@link Long#MAX_VALUE} is the saturation sentinel for an unbounded capacity, so render it as
+     * an infinity symbol instead of the raw number.
+     */
+    private static Component bytesUsedLine(long used, long total) {
+        if (total != Long.MAX_VALUE) {
+            return Tooltips.bytesUsed(used, total);
+        }
+        return Tooltips.of(
+            GuiText.BytesUsed,
+            Tooltips.of(
+                Tooltips.ofUnformattedNumberWithRatioColor(used, 0.0, false),
+                Tooltips.of(" "),
+                Tooltips.of(GuiText.Of),
+                Tooltips.of(" "),
+                Component.literal("∞").withStyle(Tooltips.NUMBER_TEXT)
+            )
+        );
     }
 
     @Override
     public Optional<TooltipComponent> getTooltipImage(ItemStack stack) {
+        if (ECOInfiniteStorageMember.isMember(stack)) {
+            return Optional.empty();
+        }
         var handler = getCellInventory(stack);
         if (handler == null) {
             return Optional.empty();
@@ -167,10 +242,19 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Nullable
     public static ECOStorageCell getCellInventory(ItemStack stack) {
-        if (stack.getItem() instanceof ECOStorageCellItem) {
-            return new ECOStorageCell(stack, null);
+        return getCellInventory(stack, null);
+    }
+
+    @Nullable
+    public static ECOStorageCell getCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
+        if (stack.getItem() instanceof ECOStorageCellItem cellItem) {
+            return cellItem.createCellInventory(stack, host);
         }
         return null;
+    }
+
+    protected ECOStorageCell createCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
+        return new ECOStorageCell(stack, host);
     }
 
     @Override
@@ -186,7 +270,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Override
     public ConfigInventory getConfigInventory(ItemStack is) {
-        return CellConfig.create(Set.of(getKeyType()), is);
+        return CellConfig.create(getKeyTypes(), is);
     }
 
     @Override
@@ -219,7 +303,17 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
             return true;
         }
 
-        List<ItemStack> disassembledStacks = StorageCellDisassemblyRecipe.getDisassemblyResult(serverLevel, stack.getItem());
+        if (ECOInfiniteStorageMember.isMember(stack)) {
+            player.displayClientMessage(Component.translatable("tooltip.neoecoae.storage.infinite_member"), true);
+            return false;
+        }
+
+        // Only the server can authoritatively inspect contents and replace the held cell.
+        if (level.isClientSide()) {
+            return true;
+        }
+
+        List<ItemStack> disassembledStacks = StorageCellDisassemblyRecipe.getDisassemblyResult(level, stack.getItem());
         if (disassembledStacks.isEmpty()) {
             return false;
         }
@@ -230,10 +324,10 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         }
 
         ECOStorageCell cellInventory = getCellInventory(stack);
-        if (cellInventory != null && !cellInventory.getAvailableStacks().isEmpty()) {
-            if (player instanceof ServerPlayer serverPlayer) {
-                serverPlayer.sendSystemMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
-            }
+        if (cellInventory == null || !cellInventory.getAvailableStacks().isEmpty()
+                || cellInventory instanceof cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell bulk
+                    && !bulk.canFitInsideCell()) {
+            player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
             return false;
         }
 
@@ -261,7 +355,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
         @Override
         public @Nullable IECOStorageCell getCellInventory(ItemStack is, @Nullable ISaveProvider host) {
-            return ECOStorageCellItem.getCellInventory(is);
+            return ECOStorageCellItem.getCellInventory(is, host);
         }
     }
 }

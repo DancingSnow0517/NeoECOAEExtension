@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.client.renderer.blockentity;
 import appeng.client.render.AERenderTypes;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
@@ -43,6 +44,39 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
             BlockState blockState = blockEntity.getBlockState();
             state.face = blockState.getValue(BlockStateProperties.HORIZONTAL_FACING).getOpposite();
         }
+    }
+
+    private static void renderLed(ECODriveBlockEntity blockEntity, PoseStack poseStack, MultiBufferSource bufferSource, int stateColor) {
+        BlockState blockState = blockEntity.getBlockState();
+        Direction face = blockState.getValue(BlockStateProperties.HORIZONTAL_FACING).getOpposite();
+
+        poseStack.pushPose();
+
+        poseStack.translate(0.5, 0.5, 0.5);
+        poseStack.mulPose(face.getRotation());
+        poseStack.translate(0, -0.501, 0);
+
+        float pixel = 1f / 16;
+        float sizeX = pixel;
+        float sizeY = pixel * 2;
+
+        Vec2 offset = new Vec2(-5 * pixel, -5 * pixel);
+
+        float xStart = offset.x;
+        float zStart = offset.y;
+        float xEnd = offset.x + sizeX;
+        float zEnd = offset.y + sizeY;
+
+        Matrix4f matrix = poseStack.last().pose();
+
+        VertexConsumer consumer = bufferSource.getBuffer(CellLedRenderer.RENDER_LAYER);
+
+        consumer.addVertex(matrix, xStart, 0, zStart).setColor(stateColor);
+        consumer.addVertex(matrix, xEnd, 0, zStart).setColor(stateColor);
+        consumer.addVertex(matrix, xEnd, 0, zEnd).setColor(stateColor);
+        consumer.addVertex(matrix, xStart, 0, zEnd).setColor(stateColor);
+
+        poseStack.popPose();
     }
 
     @Override
