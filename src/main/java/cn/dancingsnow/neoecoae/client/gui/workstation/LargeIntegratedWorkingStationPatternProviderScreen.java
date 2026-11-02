@@ -48,7 +48,7 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
         Component title,
         ScreenStyle style
     ) {
-        super(menu, playerInventory, title, style);
+        super(menu, playerInventory, Component.translatable("block.ae2.pattern_provider"), style);
         patternScroll.setSlotCount(menu.getPatternSlotCount());
         patternScrollbar = new PatternScrollbar();
         patternScrollbar.setCaptureMouseWheel(false);
