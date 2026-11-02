@@ -550,7 +550,8 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
                 () -> buildController.autoBuild(holder.player),
                 () -> formed,
                 () -> buildInProgress,
-                buildController::createLocalPreviewPlan
+                buildController::createLocalPreviewPlan,
+                this::getBuildDefinition
         ));
     }
 

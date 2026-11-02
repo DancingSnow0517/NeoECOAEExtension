@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.integration.xei.multiblock;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
+import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockPreviewScene;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
@@ -118,14 +119,7 @@ public class MultiBlockInfoWrapper {
         UIElement sceneContainer = new UIElement().style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
         artwork.addChild(HostElements.absolute(sceneContainer, 6, 6, 156, 83));
 
-        scene = new Scene()
-            .createScene(world)
-            .setDraggable(true)
-            .setScalable(true)
-            .setRenderSelect(true)
-            .setRenderFacing(false)
-            .setShowHoverBlockTips(true)
-            .useCacheBuffer()
+        scene = MultiblockPreviewScene.create(world)
             .setOnSelected(this::onSelect);
         HostElements.absolute(scene, 0, 0, 0, 0).layout(layout -> layout.widthPercent(100).heightPercent(100));
         sceneContainer.addChild(scene);
