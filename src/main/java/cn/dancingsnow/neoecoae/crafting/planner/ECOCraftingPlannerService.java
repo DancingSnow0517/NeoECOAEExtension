@@ -22,7 +22,6 @@ import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.solve.AcyclicCraftingSolver;
 import cn.dancingsnow.neoecoae.crafting.planner.solve.ActiveRouteSelector;
 import cn.dancingsnow.neoecoae.crafting.planner.solve.ComponentPlanner;
-import cn.dancingsnow.neoecoae.crafting.planner.solve.JointRouteOptimizer;
 import cn.dancingsnow.neoecoae.crafting.planner.solve.ECOPlanMaterialValidator;
 import cn.dancingsnow.neoecoae.crafting.planner.solve.PlannerInventorySnapshot;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
@@ -111,23 +110,15 @@ public final class ECOCraftingPlannerService {
                     ComponentPlanner.Outcome solved;
                     long componentStarted = ECOPlanningStageLogger.start();
                     try {
-                        if (cyclePlanningEnabled) {
-                            if (activeSelection == null) synchronized (initializationLock) {
-                                if (activeSelection == null) {
-                                    budgetStage = "route_selection";
-                                    activeSelection = componentPlanner.selectRoutes(condensation, true, cancellation);
-                                }
+                        if (activeSelection == null) synchronized (initializationLock) {
+                            if (activeSelection == null) {
+                                budgetStage = "route_selection";
+                                activeSelection = componentPlanner.selectRoutes(condensation, cyclePlanningEnabled, cancellation);
                             }
-                            budgetStage = "component_planning";
-                            solved = componentPlanner.planWithCycleFallback(compiled, condensation, activeSelection,
-                                    inventory, inventorySnapshot, amount, ignorePatternSubstitutions, cancellation);
-                        } else {
-                            budgetStage = "component_planning";
-                            solved = componentPlanner.plan(compiled, condensation, inventory, inventorySnapshot, amount,
-                                    false, ignorePatternSubstitutions, cancellation);
-                            solved = new JointRouteOptimizer().optimize(compiled, inventorySnapshot, amount,
-                                    solved, cancellation);
                         }
+                        budgetStage = "component_planning";
+                        solved = componentPlanner.planWithRouteFallback(compiled, condensation, activeSelection,
+                                inventory, inventorySnapshot, amount, cyclePlanningEnabled, ignorePatternSubstitutions, cancellation);
                     } catch (InterruptedException | RuntimeException e) {
                         ECOPlanningStageLogger.finish("component_planning", componentStarted, false,
                                 ECOPlanningStageLogger.exceptionReason(e));

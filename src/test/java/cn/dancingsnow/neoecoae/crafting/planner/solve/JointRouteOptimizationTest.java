@@ -53,12 +53,12 @@ class JointRouteOptimizationTest {
         assertEquals(2, result.executionPlan().tasks().size());
     }
 
-    @Test void minimizesWholeSupplyChainInsteadOfFirstSuccessfulProducer() throws Exception {
+    @Test void retainsTheFirstSuccessfulProducerInsteadOfRepricingTheWholeSupplyChain() throws Exception {
         var expensive = pattern(List.of(stack(ingot, 1)), stack(goal, 1));
         var smelt = pattern(List.of(stack(iron, 1)), stack(ingot, 1));
         var direct = pattern(List.of(stack(copper, 1)), stack(goal, 1));
         assertTasks(plan(service(false, expensive, smelt, direct), stock(iron, 5, copper, 5), 5, false),
-                Map.of(direct, 5L));
+                Map.of(expensive, 5L, smelt, 5L));
     }
 
     @Test void jointlyProducesTwoRequestedMaterialsAndBuildsSupplierPhases() throws Exception {
@@ -66,7 +66,7 @@ class JointRouteOptimizationTest {
         var b = pattern(List.of(stack(iron, 1)), stack(slag, 1));
         var joint = pattern(List.of(stack(iron, 1)), stack(ingot, 1), stack(slag, 1));
         var finish = pattern(List.of(stack(ingot, 1), stack(slag, 1)), stack(goal, 1));
-        var result = plan(service(true, a, b, joint, finish), stock(iron, 10), 5, false);
+        var result = plan(service(true, a, b, joint, finish), stock(iron, 5), 5, false);
         assertTasks(result, Map.of(joint, 5L, finish, 5L));
         result.provenance().requireComplete();
         assertNull(result.executionPlanError());
@@ -119,7 +119,7 @@ class JointRouteOptimizationTest {
                 5, null, ECOCancellation.NONE));
     }
 
-    @Test void exhaustedOptimizationKeepsTheCompletedAnswerAndCancellationPropagates() throws Exception {
+    @Test void completedRouteSkipsSearchAndExhaustedRecoveryRetainsItsReport() throws Exception {
         var a = pattern(List.of(stack(iron, 1)), stack(goal, 1));
         var b = pattern(List.of(stack(copper, 1)), stack(goal, 2));
         var inventory = stock(iron, 10, copper, 10);
@@ -131,7 +131,13 @@ class JointRouteOptimizationTest {
         var limit = new ECOPlanningBudget(ECOCancellation.NONE, 1, Long.MAX_VALUE, () -> 0);
         assertSame(preferred, new JointRouteOptimizer().optimize(network, PlannerInventorySnapshot.of(inventory),
                 5, preferred, limit));
-        assertTrue(preferred.trace().diagnostics().stream().anyMatch(d -> d.code() == PlannerDiagnostic.Code.ROUTE_OPTIMIZATION_BUDGET));
+        assertTrue(preferred.trace().diagnostics().isEmpty());
+        var incomplete = new ComponentPlanner.Outcome(PlanningStatus.MISSING_ITEMS, new SolveState(inventory),
+                new cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace(), List.of(), List.of(), List.of());
+        var recoveryLimit = new ECOPlanningBudget(ECOCancellation.NONE, 1, Long.MAX_VALUE, () -> 0);
+        assertSame(incomplete, new JointRouteOptimizer().optimize(network, PlannerInventorySnapshot.of(inventory),
+                5, incomplete, recoveryLimit));
+        assertTrue(incomplete.trace().diagnostics().stream().anyMatch(d -> d.code() == PlannerDiagnostic.Code.ROUTE_OPTIMIZATION_BUDGET));
         assertThrows(InterruptedException.class, () -> new JointRouteOptimizer().optimize(network,
                 PlannerInventorySnapshot.of(inventory), 5, preferred, () -> { throw new InterruptedException(); }));
     }

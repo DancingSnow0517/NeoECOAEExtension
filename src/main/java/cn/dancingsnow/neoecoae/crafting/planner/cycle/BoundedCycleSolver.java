@@ -1034,6 +1034,10 @@ public final class BoundedCycleSolver implements CycleSolver {
         addBatchCandidate(candidates, PlannerAmount.ONE, maximum);
 
         TransitionMetadata metadata = model.metadata[transition];
+        // Long.MAX_VALUE only says that no internal input limits this transition (all inputs are boundary imports).
+        // It is not a batch: offering it lets one macro-step import ~9.2e18 firings and turn small orders into
+        // unrepresentable witnesses. Such a transition keeps its one, target-directed and unlock batches.
+        boolean unconstrained = metadata.consumedInternalKeys.length == 0;
         for (OutputTarget output : metadata.requiredOutputs) {
             int i = output.key;
             if (model.required[i].compareTo(marking[i]) <= 0) continue;
@@ -1049,7 +1053,7 @@ public final class BoundedCycleSolver implements CycleSolver {
                 target.threshold.subtract(marking[target.key]).ceilDiv(target.delta), maximum);
         }
 
-        addBatchCandidate(candidates, maximum, maximum);
+        if (!unconstrained) addBatchCandidate(candidates, maximum, maximum);
         return candidates.sorted();
     }
 

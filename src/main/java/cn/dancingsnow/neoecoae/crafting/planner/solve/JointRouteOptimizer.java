@@ -60,6 +60,13 @@ public final class JointRouteOptimizer {
         ECOCancellation bounded = cancellation instanceof ECOPlanningBudget budget ? budget.slice(work, nanos)
             : new ECOPlanningBudget(cancellation, work, nanos, System::nanoTime);
         try {
+            // A supplied DAG already follows AE's producer order. Fewer firings do not
+            // justify replacing that choice with a different production line.
+            if (completed && preferred.components().stream()
+                    .noneMatch(component -> component.type() == ComponentPlanningResult.Type.CYCLIC)) {
+                cancellation.checkpoint();
+                return preferred;
+            }
             ComponentPlanner.Outcome proposal = null;
             if (!completed && allowOrdered) {
                 // Earliest startup routes are a small candidate problem, never an exclusion proof.

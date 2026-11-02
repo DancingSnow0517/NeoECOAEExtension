@@ -92,7 +92,8 @@ class OverloadCrystalCyclePlanningTest {
                 .compile(service, crystal, true, ECOCancellation.NONE);
             var inventory = new KeyCounter();
             inventory.add(dust, 8);
-            long batches = (requested - 8L + 23L) / 24L;
+            // The 8 dust are the loop's minimal seed and must be crushed back at the end: every batch nets 24.
+            long batches = (requested + 23L) / 24L;
             inventory.add(fluix, batches * 16L);
             inventory.add(charged, batches * 8L);
             var cancellation = improveCompletedPlans ? ECOCancellation.NONE
@@ -114,20 +115,21 @@ class OverloadCrystalCyclePlanningTest {
     @ParameterizedTest
     @CsvSource({"1000,true", "1001,true", "2000,true", "999,true", "976,true", "100,true",
                 "1000,false", "1001,false", "2000,false", "999,false", "976,false", "100,false"})
-    void stockedCrystalsAreConsumedAndOnlyTheShortfallIsGrown(long crystals, boolean improve) throws Exception {
+    void stockedCrystalsServeTheOrderAndGrowthKeepsTheSeed(long crystals, boolean improve) throws Exception {
         var network = network();
         var inventory = stock(crystals);
         var cancellation = improve ? ECOCancellation.NONE : ECOCancellation.firstSolution(ECOCancellation.NONE);
         var result = plan(network, inventory, 1000, cancellation);
         assertEquals(PlanningStatus.SUCCESS, result.status(), result.trace().diagnostics().toString());
-        long batches = (Math.max(0L, 1000L - crystals) + 23L) / 24L;
+        // Strict seed retention: 1000 crystals become dust and 8 crystals (the minimal seed) must remain.
+        long batches = (Math.max(0L, 1008L - crystals) + 23L) / 24L;
         var times = result.state().patternTimes();
         var crush = network.fastProducersOf(dust).get(0).details();
         var makeSeeds = network.fastProducersOf(seed).get(0).details();
         var grow = network.fastProducersOf(crystal).get(0).details();
         assertEquals(batches, times.getOrDefault(makeSeeds, 0L));
         assertEquals(1000L + batches * 8L, times.get(crush));
-        assertEquals(Math.max(0L, 1000L + batches * 8L - crystals), times.getOrDefault(grow, 0L));
+        assertEquals(Math.max(0L, 1008L + batches * 8L - crystals), times.getOrDefault(grow, 0L));
         assertEquals(batches * 4L, result.state().usedItems().get(fluix));
         assertEquals(batches * 4L, result.state().usedItems().get(charged));
         assertEquals(batches * 4L, result.state().usedItems().get(lightning));

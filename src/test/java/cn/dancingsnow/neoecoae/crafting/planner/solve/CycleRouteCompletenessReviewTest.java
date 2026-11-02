@@ -32,7 +32,8 @@ class CycleRouteCompletenessReviewTest {
         var available = pattern(271, a, Map.of(a, 1L, fuel, 1L), Map.of(a, 2L));
         producers.add(available);
         var network = network(Map.of(goal, List.of(finish), a, producers, missing, List.of(), fuel, List.of()));
-        var stock = new KeyCounter(); stock.add(a, 1L); stock.add(fuel, 1L);
+        // Strict seed retention: two A for the goal plus the kept seed need two laps of the fuelled producer.
+        var stock = new KeyCounter(); stock.add(a, 1L); stock.add(fuel, 2L);
         var graph = graph(network);
         var planner = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver());
         var initial = new ActiveRouteSelector().selectWithChoices(graph.source(), Map.of(a, 0), ECOCancellation.NONE);
@@ -41,7 +42,7 @@ class CycleRouteCompletenessReviewTest {
         assertEquals(PlanningStatus.SUCCESS, result.status(), result.trace().diagnostics().toString());
         assertTrue(result.state().patternTimes.containsKey(available.details()));
         assertEquals(1L, stock.get(a));
-        assertEquals(1L, stock.get(fuel));
+        assertEquals(2L, stock.get(fuel));
     }
 
     @ParameterizedTest
@@ -162,7 +163,8 @@ class CycleRouteCompletenessReviewTest {
         var stock = new KeyCounter();
         stock.add(a, 1L);
         stock.add(c, 1L);
-        stock.add(fuel, 2L);
+        // Each loop delivers two and keeps its single seed: two laps, two fuel per loop.
+        stock.add(fuel, 4L);
         var graph = graph(network);
         var planner = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver(), budget);
         var both = new ActiveRouteSelector().selectWithChoices(graph.source(), Map.of(a, 1, c, 1), ECOCancellation.NONE);
@@ -179,7 +181,7 @@ class CycleRouteCompletenessReviewTest {
             d.code() == PlannerDiagnostic.Code.ROUTE_SEARCH_BUDGET_EXHAUSTED));
         assertEquals(1L, stock.get(a));
         assertEquals(1L, stock.get(c));
-        assertEquals(2L, stock.get(fuel), "Speculative routes must not mutate the caller's inventory");
+        assertEquals(4L, stock.get(fuel), "Speculative routes must not mutate the caller's inventory");
     }
 
     @Test
