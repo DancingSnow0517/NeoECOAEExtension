@@ -57,6 +57,10 @@ public class ECOModelUtil {
         TextureSlot.SIDE, TextureSlot.FRONT, TextureSlot.BOTTOM, TextureSlot.TOP);
 
     public static <T extends Item> NonNullBiConsumer<DataGenContext<Item, T>, RegistrateItemModelGenerator> cellModel(String type, String size) {
+        if (!type.equals("fe")) {
+            // main ships hand-written models (textures under item/eco_cells/) in models/item/cell/.
+            return importedTintedCellModel("eco_%s_cell_%s".formatted(type, size));
+        }
         return (ctx, prov) -> {
             var model = ModelTemplates.THREE_LAYERED_ITEM.create(
                 ctx.get(),

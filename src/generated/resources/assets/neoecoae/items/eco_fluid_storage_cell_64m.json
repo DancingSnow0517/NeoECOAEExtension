@@ -1,7 +1,7 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "neoecoae:item/eco_fluid_storage_cell_64m",
+    "model": "neoecoae:item/cell/eco_fluid_cell_64m",
     "tints": [
       {
         "type": "minecraft:constant",

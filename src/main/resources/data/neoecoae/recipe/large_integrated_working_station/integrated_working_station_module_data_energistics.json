@@ -8,39 +8,39 @@
   "type": "neoecoae:large_integrated_working_station",
   "inputItems": [
     {
-      "item": "neoecoae:integrated_working_station_module_empty",
+      "ingredient": "neoecoae:integrated_working_station_module_empty",
       "count": 1
     },
     {
-      "item": "neoecoae:superconducting_processor",
+      "ingredient": "neoecoae:superconducting_processor",
       "count": 16
     },
     {
-      "item": "neoecoae:energized_superconductive_ingot",
+      "ingredient": "neoecoae:energized_superconductive_ingot",
       "count": 64
     },
     {
-      "item": "neoecoae:crystal_matrix",
+      "ingredient": "neoecoae:crystal_matrix",
       "count": 16
     },
     {
-      "item": "ae2:singularity",
+      "ingredient": "ae2:singularity",
       "count": 16
     },
     {
-      "item": "data_energistics:data_reassembler",
+      "ingredient": "data_energistics:data_reassembler",
       "count": 4
     },
     {
-      "item": "data_energistics:data_integrated_charger",
+      "ingredient": "data_energistics:data_integrated_charger",
       "count": 4
     },
     {
-      "item": "data_energistics:digisidian_memorize_ingot",
+      "ingredient": "data_energistics:digisidian_memorize_ingot",
       "count": 64
     },
     {
-      "item": "data_energistics:data_processor",
+      "ingredient": "data_energistics:data_processor",
       "count": 128
     }
   ],

@@ -8,43 +8,43 @@
   "type": "neoecoae:large_integrated_working_station",
   "inputItems": [
     {
-      "item": "neoecoae:integrated_working_station_module_empty",
+      "ingredient": "neoecoae:integrated_working_station_module_empty",
       "count": 1
     },
     {
-      "item": "ae2lt:entangled_topological_lattice",
+      "ingredient": "ae2lt:entangled_topological_lattice",
       "count": 16
     },
     {
-      "item": "ae2lt:ultimate_overload_core",
+      "ingredient": "ae2lt:ultimate_overload_core",
       "count": 16
     },
     {
-      "item": "ae2lt:overload_alloy_plate",
+      "ingredient": "ae2lt:overload_alloy_plate",
       "count": 64
     },
     {
-      "item": "ae2lt:lightning_collapse_matrix",
+      "ingredient": "ae2lt:lightning_collapse_matrix",
       "count": 16
     },
     {
-      "item": "ae2lt:overload_singularity",
+      "ingredient": "ae2lt:overload_singularity",
       "count": 16
     },
     {
-      "item": "ae2lt:overload_processing_factory",
+      "ingredient": "ae2lt:overload_processing_factory",
       "count": 4
     },
     {
-      "item": "ae2lt:lightning_assembly_chamber",
+      "ingredient": "ae2lt:lightning_assembly_chamber",
       "count": 4
     },
     {
-      "item": "ae2lt:overload_alloy",
+      "ingredient": "ae2lt:overload_alloy",
       "count": 128
     },
     {
-      "item": "ae2lt:overload_processor",
+      "ingredient": "ae2lt:overload_processor",
       "count": 128
     }
   ],

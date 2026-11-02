@@ -9,25 +9,20 @@
   "input_items": [
     {
       "amount": 4,
-      "ingredient": {
-        "item": "neoecoae:superconducting_processor_print"
-      }
+      "ingredient": "neoecoae:superconducting_processor_print"
     },
     {
       "amount": 4,
-      "ingredient": {
-        "item": "neoecoae:crystal_matrix"
-      }
+      "ingredient": "neoecoae:crystal_matrix"
     },
     {
       "amount": 4,
-      "ingredient": {
-        "item": "ae2:printed_silicon"
-      }
+      "ingredient": "ae2:printed_silicon"
     }
   ],
   "output": {
     "count": 4,
     "id": "neoecoae:superconducting_processor"
-  }
+  },
+  "energy": 50000
 }

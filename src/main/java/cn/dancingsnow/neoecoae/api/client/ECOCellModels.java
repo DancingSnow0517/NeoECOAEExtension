@@ -10,7 +10,7 @@ import java.util.Map;
 
 public class ECOCellModels {
 
-    public static final Identifier DEFAULT_MODEL = NeoECOAE.id("cell/storage_cell_default");
+    public static final Identifier DEFAULT_MODEL = NeoECOAE.id("block/cell/storage_cell_default");
 
     private static final Map<Item, Identifier> registry = new IdentityHashMap<>();
 

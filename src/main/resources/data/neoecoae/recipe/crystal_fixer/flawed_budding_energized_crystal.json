@@ -8,9 +8,7 @@
   "type": "extendedae:crystal_fixer",
   "chance": 500,
   "fuel": {
-    "ingredient": {
-      "tag": "c:gems/energized_crystal"
-    }
+    "ingredient": "#c:gems/energized_crystal"
   },
   "input": {
     "count": 1,
