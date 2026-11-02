@@ -23,7 +23,8 @@ final class EAEPQuickSearch {
         if (mods == null || !cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("extendedae_plus")
                 || Binding.KEY == null || !Binding.KEY.matches(new KeyEvent(keyCode, scanCode, modifiers))) return Optional.empty();
         try {
-            if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("emi")) {
+            // ExtendedAE Plus 26.1 ships only its JEI helper; without EmiHelper fall through to JEI.
+            if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("emi") && Emi.HOVERED != null) {
                 return itemQuery((ItemStack) Emi.HOVERED.invoke(null), modifiers);
             }
             if (!cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("jei")) return Optional.empty();
@@ -72,8 +73,16 @@ final class EAEPQuickSearch {
         }
     }
 
+    private static Method optionalMethod(String className, String name, Class<?>... parameters) {
+        try {
+            return Class.forName(className).getMethod(name, parameters);
+        } catch (ReflectiveOperationException | LinkageError unavailable) {
+            return null;
+        }
+    }
+
     private static final class Emi {
-        static final Method HOVERED = method("com.extendedae_plus.compat.EmiHelper", "getIngredientUnderMouse");
+        static final Method HOVERED = optionalMethod("com.extendedae_plus.compat.EmiHelper", "getIngredientUnderMouse");
     }
 
     private static final class Jei {

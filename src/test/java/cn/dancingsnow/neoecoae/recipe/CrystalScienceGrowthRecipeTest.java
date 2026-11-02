@@ -63,6 +63,8 @@ class CrystalScienceGrowthRecipeTest {
         shortSeed = registerSeed(seedClass, "short", Items.EMERALD, 25);
         invalidSeed = registerSeed(seedClass, "invalid", Items.DIAMOND, 0);
         emptySeed = registerSeed(seedClass, "empty", Items.AIR, 600);
+        // 26.1: the seeds were registered after the global bootstrap, so bind their default components.
+        cn.dancingsnow.neoecoae.util.TestComponents.bindAll();
     }
 
     private static Item registerSeed(Class<? extends Item> type, String name, Item output, int ticks)

@@ -77,7 +77,7 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
         }
         UUID originalComponentId = stack.get(OCDataComponents.CELL_UUID.get());
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        String originalLegacyId = tag.getString(UUID_TAG);
+        String originalLegacyId = tag.getStringOr(UUID_TAG, "");
         if (originalComponentId != null) {
             stack.remove(OCDataComponents.CELL_UUID.get());
         } else {
@@ -121,7 +121,7 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
             return componentId;
         }
         if (!tag.contains(UUID_TAG)) return null;
-        try { return UUID.fromString(tag.getString(UUID_TAG)); }
+        try { return UUID.fromString(tag.getStringOr(UUID_TAG, "")); }
         catch (IllegalArgumentException ignored) { return null; }
     }
 }

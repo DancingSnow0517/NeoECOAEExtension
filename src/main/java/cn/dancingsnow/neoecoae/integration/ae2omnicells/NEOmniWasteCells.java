@@ -5,8 +5,8 @@ import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
 import appeng.items.materials.MaterialItem;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.integration.IntegrationCellModels;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOSpentNuclearWasteCellItem;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.registration.NECellTypeEntry;
@@ -23,7 +23,13 @@ import java.util.List;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
-/** Loaded only when both OmniCells and Applied Mekanistics are installed. */
+/**
+ * Loaded only when both OmniCells and Applied Mekanistics are installed.
+ *
+ * <p>TODO(26.1 port): Applied Mekanistics has no 26.1 build and "appmek" is in
+ * {@code NeoECOAE.UNPORTED_INTEGRATIONS}, so this class is never initialized (its items are never registered).
+ * The Mekanism references below compile against the 1.21.1 Mekanism jar (legacyCompileOnly) only.
+ */
 public final class NEOmniWasteCells {
     public static final NECellTypeEntry SPENT_NUCLEAR_WASTE = REGISTRATE.cellType("spent_nuclear_waste")
         .desc(Component.translatable("cell_type.neoecoae.spent_nuclear_waste").withColor(0x6F8259))
@@ -33,7 +39,7 @@ public final class NEOmniWasteCells {
     public static final ItemEntry<MaterialItem> ECO_SPENT_NUCLEAR_WASTE_CELL_HOUSING = REGISTRATE
         .item("eco_spent_nuclear_waste_cell_housing", MaterialItem::new)
         .lang("ECO Spent Nuclear Waste Storage Matrix Housing")
-        .model((ctx, prov) -> {})
+        .model(() -> (ctx, prov) -> {})
         .register();
 
     public static final ItemEntry<ECOSpentNuclearWasteCellItem> ECO_SPENT_NUCLEAR_WASTE_CELL_16M =
@@ -55,7 +61,7 @@ public final class NEOmniWasteCells {
                     properties.rarity(rarity), tier, SPENT_NUCLEAR_WASTE, drain, bytes))
             .lang("ECO - LE" + switch (tier) { case L4 -> "4"; case L6 -> "6"; case L9 -> "9"; }
                 + " Storage Matrix (Spent Nuclear Waste)")
-            .model((ctx, prov) -> {})
+            .model(() -> (ctx, prov) -> {})
             .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
                 .require(quantumComponent, 10)
                 .require(OCItems.SPENT_NUCLEAR_WASTE_COMPONENT)
@@ -78,15 +84,12 @@ public final class NEOmniWasteCells {
             ECO_SPENT_NUCLEAR_WASTE_CELL_256M);
     }
 
-    public static void registerModels(boolean resolved) {
+    public static void registerModels() {
         var cells = cells();
         String[] levels = {"l4", "l6", "l9"};
         for (int i = 0; i < cells.size(); i++) {
-            var cell = cells.get(i);
-            String level = levels[i];
-            var model = NeoECOAE.id("block/cell/storage_cell_" + level + "_neuclear_waste");
-            if (resolved) ECOCellModels.register(cell.get(), model);
-            else ECOCellModels.register(cell, model);
+            IntegrationCellModels.register(cells.get(i),
+                NeoECOAE.id("block/cell/storage_cell_" + levels[i] + "_neuclear_waste"));
         }
     }
 

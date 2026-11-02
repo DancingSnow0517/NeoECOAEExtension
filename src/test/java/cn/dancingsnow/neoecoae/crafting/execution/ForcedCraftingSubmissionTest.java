@@ -98,7 +98,6 @@ class ForcedCraftingSubmissionTest {
         }
     }
 
-    @org.junit.jupiter.api.Disabled("26.1 port: ExtendedAE Plus (extendedae_plus) is in NeoECOAE.UNPORTED_INTEGRATIONS, so the bridge is intentionally inactive until a 26.1 build exists")
     @Test @EnabledIf("eaepPresent")
     void installedEaepTakesPriorityAndItsMissingInputsReachTheEcoCpu() {
         var key = key();

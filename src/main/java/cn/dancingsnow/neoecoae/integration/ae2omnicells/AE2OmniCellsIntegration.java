@@ -4,13 +4,12 @@ import appeng.api.upgrades.Upgrades;
 import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
+import cn.dancingsnow.neoecoae.integration.IntegrationCellModels;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOUniversalStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.neoforged.fml.ModList;
 
 import java.util.List;
 
@@ -26,29 +25,18 @@ public final class AE2OmniCellsIntegration {
             NEOmniItems.ECO_COMPLEX_OMNI_CELL_64M, NEOmniItems.ECO_COMPLEX_OMNI_CELL_256M);
         registerModels("quantum_omni", NEOmniItems.ECO_QUANTUM_OMNI_CELL_16M,
             NEOmniItems.ECO_QUANTUM_OMNI_CELL_64M, NEOmniItems.ECO_QUANTUM_OMNI_CELL_256M);
-        if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("appmek")) {
-            NEOmniWasteCells.registerModels(false);
+        if (NeoECOAE.isIntegrationActive("appmek")) {
+            // TODO(26.1 port): unreachable until Applied Mekanistics has a 26.1 build (see NEOmniWasteCells).
+            NEOmniWasteCells.registerModels();
         }
 
         NeoECOAE.MOD_BUS.addListener(this::commonSetup);
     }
 
-    public void applyClient() {
-        registerResolvedModels("omni", NEOmniItems.ECO_OMNI_CELL_16M, NEOmniItems.ECO_OMNI_CELL_64M,
-            NEOmniItems.ECO_OMNI_CELL_256M);
-        registerResolvedModels("complex_omni", NEOmniItems.ECO_COMPLEX_OMNI_CELL_16M,
-            NEOmniItems.ECO_COMPLEX_OMNI_CELL_64M, NEOmniItems.ECO_COMPLEX_OMNI_CELL_256M);
-        registerResolvedModels("quantum_omni", NEOmniItems.ECO_QUANTUM_OMNI_CELL_16M,
-            NEOmniItems.ECO_QUANTUM_OMNI_CELL_64M, NEOmniItems.ECO_QUANTUM_OMNI_CELL_256M);
-        if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("appmek")) {
-            NEOmniWasteCells.registerModels(true);
-        }
-    }
-
     private void commonSetup(FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
             ECOStorageCells.register(ECOUniversalCellHandler.INSTANCE);
-            if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("appmek")) {
+            if (NeoECOAE.isIntegrationActive("appmek")) {
                 NEOmniWasteCells.registerUpgrades();
             }
             String group = GuiText.StorageCells.getTranslationKey();
@@ -75,19 +63,8 @@ public final class AE2OmniCellsIntegration {
         ItemEntry<ECOUniversalStorageCellItem> l6,
         ItemEntry<ECOUniversalStorageCellItem> l9
     ) {
-        ECOCellModels.register(l4, NeoECOAE.id("block/cell/storage_cell_l4_" + family));
-        ECOCellModels.register(l6, NeoECOAE.id("block/cell/storage_cell_l6_" + family));
-        ECOCellModels.register(l9, NeoECOAE.id("block/cell/storage_cell_l9_" + family));
-    }
-
-    private static void registerResolvedModels(
-        String family,
-        ItemEntry<ECOUniversalStorageCellItem> l4,
-        ItemEntry<ECOUniversalStorageCellItem> l6,
-        ItemEntry<ECOUniversalStorageCellItem> l9
-    ) {
-        ECOCellModels.register(l4.get(), NeoECOAE.id("block/cell/storage_cell_l4_" + family));
-        ECOCellModels.register(l6.get(), NeoECOAE.id("block/cell/storage_cell_l6_" + family));
-        ECOCellModels.register(l9.get(), NeoECOAE.id("block/cell/storage_cell_l9_" + family));
+        IntegrationCellModels.register(l4, NeoECOAE.id("block/cell/storage_cell_l4_" + family));
+        IntegrationCellModels.register(l6, NeoECOAE.id("block/cell/storage_cell_l6_" + family));
+        IntegrationCellModels.register(l9, NeoECOAE.id("block/cell/storage_cell_l9_" + family));
     }
 }

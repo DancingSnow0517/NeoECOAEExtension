@@ -29,9 +29,17 @@ public final class BiggerAE2Integration {
         List<ItemEntry<? extends ECOStorageCellItem>> cells = new ArrayList<>();
         List<ItemEntry<? extends ECOStorageCellItem>> bulkCells = new ArrayList<>();
         for (BiggerAE2Channel channel : BiggerAE2Channel.values()) {
-            if (channel.requiredMod != null && !cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive(channel.requiredMod)) continue;
             String typeId = "bigger_ae2_" + channel.id;
             REGISTRATE.addLang("cell_type", NeoECOAE.id(typeId), "Bigger AE2 " + channel.displayName);
+            if (channel.requiredMod != null && !NeoECOAE.isIntegrationActive(channel.requiredMod)) {
+                // The channel's mod has no 26.1 build (or is absent), so its two cells are not registered. Their
+                // hand-written models and mod-conditioned recipes still ship in src/main/resources; keep the
+                // English names in the generated lang so the resource set stays complete for when they return.
+                for (boolean singularity : new boolean[]{false, true}) {
+                    REGISTRATE.addLang("item", NeoECOAE.id(channel.cellId(singularity)), cellName(channel, singularity));
+                }
+                continue;
+            }
             var type = REGISTRATE.cellType(typeId)
                 .desc(Component.translatable("cell_type.neoecoae." + typeId).withColor(channel.color))
                 .typeCount(channel.typeLimit)
@@ -45,8 +53,7 @@ public final class BiggerAE2Integration {
                 var cell = REGISTRATE.<ECOStorageCellItem>item(channel.cellId(singularity), properties -> bulk
                         ? new BiggerAE2BulkStorageCellItem(properties.stacksTo(1), type)
                         : new BiggerAE2StorageCellItem(properties.stacksTo(1), channel, singularity, type))
-                    .lang("ECO - " + tier.name() + " " + (singularity ? "Digital Singularity" : "Quantum")
-                        + " Storage Matrix (" + channel.displayName + ")")
+                    .lang(cellName(channel, singularity))
                     .model(() -> IntegrationItemModels.compatCellModel("bigger_ae2", housing,
                         singularity ? "l9" : "l6", overlays))
                     .register();
@@ -62,5 +69,11 @@ public final class BiggerAE2Integration {
             BuiltInRegistries.ITEM.getOptional(NeoECOAE.id("eco_mega_upgrade_card")).ifPresent(card -> {
                 for (var cell : bulkCells) Upgrades.add(card, cell, 1, GuiText.StorageCells.getTranslationKey());
             })));
+    }
+
+    private static String cellName(BiggerAE2Channel channel, boolean singularity) {
+        ECOTier tier = singularity ? ECOTier.L9 : ECOTier.L6;
+        return "ECO - " + tier.name() + " " + (singularity ? "Digital Singularity" : "Quantum")
+            + " Storage Matrix (" + channel.displayName + ")";
     }
 }

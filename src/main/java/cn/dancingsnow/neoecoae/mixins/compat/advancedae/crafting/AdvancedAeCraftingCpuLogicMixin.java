@@ -125,18 +125,18 @@ public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputRec
     }
 
     @Inject(method = "readFromNBT", at = @At("TAIL"), remap = false)
-    private void neoecoae$readBatchEnergy(net.minecraft.nbt.CompoundTag tag,
-            net.minecraft.core.HolderLookup.Provider registries, CallbackInfo ci) {
-        neoecoae$batchDispatcher().read(tag.getCompound("neoecoaeFastPath"));
+    private void neoecoae$readBatchEnergy(net.minecraft.world.level.storage.ValueInput input, CallbackInfo ci) {
+        // 26.1 port: AdvancedAE 26.1 persists CPUs through ValueInput/ValueOutput; the ledger stays one compound.
+        neoecoae$batchDispatcher().read(input.read("neoecoaeFastPath", net.minecraft.nbt.CompoundTag.CODEC)
+                .orElseGet(net.minecraft.nbt.CompoundTag::new));
     }
 
     @Inject(method = "writeToNBT", at = @At("TAIL"), remap = false)
-    private void neoecoae$writeBatchEnergy(net.minecraft.nbt.CompoundTag tag,
-            net.minecraft.core.HolderLookup.Provider registries, CallbackInfo ci) {
+    private void neoecoae$writeBatchEnergy(net.minecraft.world.level.storage.ValueOutput output, CallbackInfo ci) {
         if (neoecoae$batchDispatcher == null) return;
         var ledger = new net.minecraft.nbt.CompoundTag();
         neoecoae$batchDispatcher.write(ledger);
-        tag.put("neoecoaeFastPath", ledger);
+        output.store("neoecoaeFastPath", net.minecraft.nbt.CompoundTag.CODEC, ledger);
     }
 
     /** Keeps the existing ECO worker's job-directed output routing for native single-craft fallback. */

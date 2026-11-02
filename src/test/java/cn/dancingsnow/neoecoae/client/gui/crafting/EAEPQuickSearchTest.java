@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.client.gui.crafting;
 
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.extendedae_plus.client.ModKeybindings;
-import com.extendedae_plus.compat.EmiHelper;
 import com.extendedae_plus.compat.JeiRuntimeCompat;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.world.item.ItemStack;
@@ -30,23 +29,21 @@ class EAEPQuickSearchTest {
         }
     }
 
-    @org.junit.jupiter.api.Disabled("26.1 port: contract test against the released ExtendedAE Plus jar; only its 1.21.1 build exists (legacyCompileOnly) and it cannot initialize on 26.1 (KeyMapping constructor changed)")
-    @Test void releasedEaepBindingSupportsRebindingNamesAltModFilterAndNoHoveredItem() {
+    @Test void releasedEaepBindingSupportsRebindingAndSkipsTheRemovedEmiHelper() {
         var mods = mock(ModList.class);
         when(mods.isLoaded("extendedae_plus")).thenReturn(true);
         when(mods.isLoaded("emi")).thenReturn(true);
         var binding = ModKeybindings.FILL_SEARCH_KEY;
         var original = binding.getKey();
         binding.setKey(InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_G));
-        try (var modList = mockStatic(ModList.class); var emi = mockStatic(EmiHelper.class)) {
+        try (var modList = mockStatic(ModList.class)) {
             modList.when(ModList::get).thenReturn(mods);
-            var item = new ItemStack(Items.IRON_INGOT);
-            emi.when(EmiHelper::getIngredientUnderMouse).thenReturn(item);
+            // ExtendedAE Plus 26.1 dropped its EMI helper: an EMI install must neither throw nor fill the search,
+            // and with no JEI runtime there is no viewer left to ask.
+            assertThrows(ClassNotFoundException.class, () -> Class.forName("com.extendedae_plus.compat.EmiHelper"));
             assertTrue(EAEPQuickSearch.query(GLFW.GLFW_KEY_F, 0, 0).isEmpty());
-            assertEquals(item.getHoverName().getString(), EAEPQuickSearch.query(GLFW.GLFW_KEY_G, 0, 0).orElseThrow());
-            assertEquals("@minecraft", EAEPQuickSearch.query(GLFW.GLFW_KEY_G, 0, GLFW.GLFW_MOD_ALT).orElseThrow());
-            emi.when(EmiHelper::getIngredientUnderMouse).thenReturn(ItemStack.EMPTY);
             assertTrue(EAEPQuickSearch.query(GLFW.GLFW_KEY_G, 0, 0).isEmpty());
+            assertTrue(EAEPQuickSearch.query(GLFW.GLFW_KEY_G, 0, GLFW.GLFW_MOD_ALT).isEmpty());
         } finally {
             binding.setKey(original);
         }

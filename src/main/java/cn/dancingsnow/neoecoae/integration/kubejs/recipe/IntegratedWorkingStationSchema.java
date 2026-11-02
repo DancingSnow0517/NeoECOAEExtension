@@ -21,52 +21,66 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * KubeJS 8 schema for {@code neoecoae:integrated_working_station}.
+ * JSON layout matches {@link cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe#CODEC}:
+ * {@code inputItems} (optional list), {@code inputFluid} (optional), {@code itemOutput} / {@code fluidOutput}
+ * (optional ItemStackTemplate / FluidStackTemplate shapes), {@code energy}, {@code processingTicks} (default 100).
+ */
 public interface IntegratedWorkingStationSchema {
 
     class IntegratedWorkingStationKubeRecipe extends KubeRecipe {
 
         public IntegratedWorkingStationKubeRecipe require(SizedIngredient ingredient) {
-            if (getValue(INPUT_ITEMS) == null) setValue(INPUT_ITEMS, new ArrayList<>());
-            getValue(INPUT_ITEMS).add(ingredient);
-            save();
+            // Values may come from a script/constructor as immutable lists; never mutate them in place.
+            List<SizedIngredient> current = getValue(INPUT_ITEMS);
+            List<SizedIngredient> inputs = current == null ? new ArrayList<>() : new ArrayList<>(current);
+            inputs.add(ingredient);
+            setValue(INPUT_ITEMS, inputs);
             return this;
         }
 
         public IntegratedWorkingStationKubeRecipe requireFluid(SizedFluidIngredient ingredient) {
             setValue(INPUT_FLUID, ingredient);
-            save();
             return this;
         }
 
         public IntegratedWorkingStationKubeRecipe itemOutput(ItemStack itemStack) {
             setValue(ITEM_OUTPUT, itemStack);
-            save();
             return this;
         }
 
         public IntegratedWorkingStationKubeRecipe fluidOutput(FluidStack fluidStack) {
             setValue(FLUID_OUTPUT, fluidStack);
-            save();
             return this;
         }
 
         public IntegratedWorkingStationKubeRecipe energy(int energy) {
             setValue(ENERGY, energy);
-            save();
             return this;
         }
 
         public IntegratedWorkingStationKubeRecipe processingTicks(int ticks) {
             setValue(PROCESSING_TICKS, ticks);
-            save();
             return this;
+        }
+
+        @Override
+        public void serialize() {
+            super.serialize();
+            // The native codec uses Optional<ItemStackTemplate/FluidStackTemplate/SizedFluidIngredient>,
+            // which reject the "{}" an empty optional stack encodes to: omit empty values instead.
+            KubeSchemaUtil.removeIfEmpty(this, ITEM_OUTPUT);
+            KubeSchemaUtil.removeIfEmpty(this, FLUID_OUTPUT);
+            KubeSchemaUtil.removeIfEmpty(this, INPUT_FLUID);
         }
     }
 
-    ListRecipeComponent<SizedIngredient> LIST_INPUT = ListRecipeComponent.create(SizedIngredientComponent.OPTIONAL_FLAT.instance(), true, false, IntBounds.OPTIONAL, Optional.empty());
+    ListRecipeComponent<SizedIngredient> LIST_INPUT = ListRecipeComponent.create(
+        SizedIngredientComponent.SIZED_INGREDIENT, true, false, IntBounds.OPTIONAL, Optional.empty());
 
     RecipeKey<List<SizedIngredient>> INPUT_ITEMS = LIST_INPUT.inputKey("inputItems").defaultOptional();
-    RecipeKey<SizedFluidIngredient> INPUT_FLUID = SizedFluidIngredientComponent.OPTIONAL_FLAT.inputKey("inputFluid").defaultOptional();
+    RecipeKey<SizedFluidIngredient> INPUT_FLUID = SizedFluidIngredientComponent.OPTIONAL_SIZED_FLUID_INGREDIENT.inputKey("inputFluid").defaultOptional();
     RecipeKey<ItemStack> ITEM_OUTPUT = ItemStackComponent.OPTIONAL_ITEM_STACK.outputKey("itemOutput").defaultOptional();
     RecipeKey<FluidStack> FLUID_OUTPUT = FluidStackComponent.OPTIONAL_FLUID_STACK.outputKey("fluidOutput").defaultOptional();
     RecipeKey<Integer> ENERGY = NumberComponent.intRange(0, Integer.MAX_VALUE).otherKey("energy");

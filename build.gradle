@@ -113,6 +113,14 @@ repositories {
 configurations {
     legacyCompileOnly { transitive = false }
     compileOnly.extendsFrom legacyCompileOnly
+    integrationApi { transitive = false }
+    integrationRuntime { transitive = false }
+    compileOnly.extendsFrom integrationApi
+    testImplementation.extendsFrom integrationApi
+    testRuntimeOnly.extendsFrom integrationRuntime
+    if (project.hasProperty('withIntegrations')) {
+        localRuntime.extendsFrom integrationApi, integrationRuntime
+    }
 }
 
 dependencies {
@@ -120,16 +128,36 @@ dependencies {
     // ported 26.1.2 counterpart yet. These are the 1.21.1 builds main compiles against; the
     // bridges that touch them are gated off at runtime (see NeoECOAE.UNPORTED_INTEGRATIONS),
     // so none of these classes are ever loaded.
-    legacyCompileOnly("curse.maven:advancedae-1084104:8564177")
-    legacyCompileOnly("curse.maven:extendedae-plus-1337639:8755074")
+    // ---- Optional integrations ported to their 26.1.2 builds (compile against the real API).
+    // `./gradlew runClient -PwithIntegrations` also installs them in the dev client.
+    integrationApi("maven.modrinth:advancedae:hPJMJOBd")            // 26.1.7
+    integrationApi("maven.modrinth:extendedae-plus:W9WXH7F7")       // 1.6.3
+    integrationApi("maven.modrinth:bigger-ae2:VsHV30Lz")            // 26.1.2.2.1
+    integrationApi("curse.maven:applied-flux-965012:9304490")       // 26.1-1.0.4
+    integrationApi("maven.modrinth:ae2-omni-cells:wv0rLPsF")        // 1.1.7-26.1.2
+    integrationApi("maven.modrinth:applied-replicatics:viswoEhd")   // 26.1-1.0.0
+    integrationApi("maven.modrinth:replication:KvcBmwKg")           // 26.1.2-1.2.8
+    integrationApi("maven.modrinth:kubejs:5yNEdyfc")                // 26.1.2-8.0.8
+    integrationApi("maven.modrinth:rhino:SqkDvOLG")
+    integrationRuntime("maven.modrinth:better-advanced-tooltips:DKhR2dA5") // KubeJS dependency
+    // KubeJS nests tiny-java-server via jar-in-jar; the plain-JVM test classpath does not unpack it, and
+    // RecipesKubeEvent's static init needs it. Keep the version in sync with KubeJS's META-INF/jarjar.
+    testRuntimeOnly("dev.latvian.apps:tiny-java-server:1.0.0-build.45") { transitive = false }
+    // Recipe-adapter targets: only needed at test/dev runtime.
+    integrationRuntime("maven.modrinth:applied-generators:zqlEPjwN") // 0.3.1+26.1.2
+    integrationRuntime("maven.modrinth:ae2-crystal-science:9wyPpLcp") // 26.1.2-1.1.12
+    integrationRuntime("maven.modrinth:geckolib:xfVfPcoC")          // AdvancedAE dependency
+    integrationRuntime("maven.modrinth:kotlin-lang-forge:Yt83RFhD") // Replication dependency
+    integrationRuntime("maven.modrinth:titanium:ynzx60mi")          // Replication dependency
+    // Kotlin for Forge nests kotlin-reflect, but the dev launcher does not pick it up next to LDLib2's Kotlin.
+    integrationRuntime("org.jetbrains.kotlin:kotlin-reflect:2.4.21")
+
     legacyCompileOnly("maven.modrinth:ae2-lightning-tech:wchBNoWt")
     legacyCompileOnly("maven.modrinth:thunderbolt-core:i3H7uX2O")
     legacyCompileOnly("maven.modrinth:a-useless-mod:VX1feqRC")
     legacyCompileOnly("curse.maven:omnisequence-transfinite-1624558:8991983")
     legacyCompileOnly("curse.maven:ae2-pattern-disk-1698612:9009050")
     legacyCompileOnly("curse.maven:mekanism-268560:7904058")
-    legacyCompileOnly("curse.maven:applied-flux-965012:8204513")
-    legacyCompileOnly("github.biggerae2:bigger_ae2:21.2.3")
     legacyCompileOnly("curse.maven:flux-networks-248020:6089446")
     testImplementation(platform('org.junit:junit-bom:5.11.4'))
     testImplementation('org.junit.jupiter:junit-jupiter')
@@ -158,7 +186,7 @@ dependencies {
     // implementation("curse.maven:applied-mekanistics-574300:7096962")
 
     implementation("curse.maven:glodium-957920:8196173")
-    implementation("curse.maven:ex-pattern-provider-892005:8237330")
+    implementation("curse.maven:ex-pattern-provider-892005:9129055") // ExtendedAE 26.1-1.0.5
     // implementation("curse.maven:applied-flux-965012:8204513")
 
     // implementation("curse.maven:advancedae-1084104:7374386")
@@ -255,20 +283,15 @@ sourceSets.main.resources {
 sourceSets.main.java {
     // 26.1.2 port: leaf integrations whose target mod has no ported 26.1.2 build yet.
     // Nothing in the core references these packages; see docs/26.1-migration-reduction-notes.md.
-    exclude 'cn/dancingsnow/neoecoae/integration/ae2omnicells/**'
     exclude 'cn/dancingsnow/neoecoae/integration/appbot/**'
     exclude 'cn/dancingsnow/neoecoae/integration/appliedcreate/**'
     exclude 'cn/dancingsnow/neoecoae/integration/appliedpneumatics/**'
     exclude 'cn/dancingsnow/neoecoae/integration/appliedsoul/**'
     exclude 'cn/dancingsnow/neoecoae/integration/appmek/**'
-    exclude 'cn/dancingsnow/neoecoae/integration/apprep/**'
     exclude 'cn/dancingsnow/neoecoae/integration/arsenergistique/**'
     exclude 'cn/dancingsnow/neoecoae/integration/dataenergistics/**'
     exclude 'cn/dancingsnow/neoecoae/integration/emi/**'
-    exclude 'cn/dancingsnow/neoecoae/integration/kubejs/**'
     exclude 'cn/dancingsnow/neoecoae/integration/megacells/**'
-    exclude 'cn/dancingsnow/neoecoae/mixins/compat/advancedae/**'
-    exclude 'cn/dancingsnow/neoecoae/mixins/compat/ae2omnicells/**'
     exclude 'cn/dancingsnow/neoecoae/mixins/compat/appbot/**'
     exclude 'cn/dancingsnow/neoecoae/mixins/compat/fluxnetworks/**'
     exclude 'cn/dancingsnow/neoecoae/mixins/compat/omnisequence/**'
@@ -285,17 +308,13 @@ sourceSets.test {
     runtimeClasspath += configurations.legacyCompileOnly
     java {
         // Tests of integrations excluded from the main source set (see sourceSets.main.java).
-        exclude 'cn/dancingsnow/neoecoae/integration/kubejs/**'
         exclude 'cn/dancingsnow/neoecoae/integration/emi/**'
-        exclude 'cn/dancingsnow/neoecoae/integration/ae2omnicells/**'
         exclude 'cn/dancingsnow/neoecoae/integration/appmek/**'
         exclude 'cn/dancingsnow/neoecoae/integration/megacells/**'
         exclude 'cn/dancingsnow/neoecoae/integration/dataenergistics/**'
         exclude 'cn/dancingsnow/neoecoae/integration/appbot/**'
-        exclude 'cn/dancingsnow/neoecoae/integration/apprep/**'
         exclude 'cn/dancingsnow/neoecoae/mixins/compat/**'
         // Tests of compat mixins excluded from the main source set.
-        exclude 'cn/dancingsnow/neoecoae/compat/advancedae/**'
         exclude 'cn/dancingsnow/neoecoae/compat/fluxnetworks/**'
         exclude 'cn/dancingsnow/neoecoae/compat/thunderbolt/ECOThunderboltMixinSelectionTest.java'
         exclude 'cn/dancingsnow/neoecoae/compat/thunderbolt/ECOThunderboltWorkstationBridgeTest.java'

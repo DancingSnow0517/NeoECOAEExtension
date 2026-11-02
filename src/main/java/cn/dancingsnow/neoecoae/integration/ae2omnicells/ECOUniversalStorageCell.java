@@ -239,9 +239,9 @@ public final class ECOUniversalStorageCell implements IECOStorageMigrationCell {
         var target = level.getServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
             .resolve("data/ae_universal_cell_data").resolve(id + ".dat");
         if (!data.isDirty() && java.nio.file.Files.isRegularFile(target)) return;
-        var encoded = data.save(new net.minecraft.nbt.CompoundTag(), level.registryAccess());
+        var encoded = data.toTag(level.registryAccess());
         // Omni's serializer skips keys whose codec throws. A transfer must never accept that partial snapshot.
-        if (encoded.getCompound("inventory").getList("entries", net.minecraft.nbt.Tag.TAG_COMPOUND).size()
+        if (encoded.getCompoundOrEmpty("inventory").getListOrEmpty("entries").size()
                 != data.getOriginalStorage().size()) throw new IllegalStateException("Incomplete universal cell snapshot");
         var root = new net.minecraft.nbt.CompoundTag();
         root.put("data", encoded);

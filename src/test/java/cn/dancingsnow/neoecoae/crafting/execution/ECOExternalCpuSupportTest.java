@@ -15,6 +15,7 @@ import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.result.*;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.mixins.ae2.crafting.Ae2CraftingCpuFastPathMixin;
+import cn.dancingsnow.neoecoae.mixins.compat.advancedae.crafting.AdvancedAeCraftingCpuLogicMixin;
 import java.math.BigInteger;
 import java.util.*;
 import net.minecraft.world.item.Items;
@@ -109,7 +110,7 @@ class ECOExternalCpuSupportTest {
     }
 
     void assertRejectedByCpuHooks(ICraftingPlan plan) throws Exception {
-        for (var type : List.<Class<?>>of(Ae2CraftingCpuFastPathMixin.class /* 26.1 port: AdvancedAE mixin excluded */)) {
+        for (var type : List.of(Ae2CraftingCpuFastPathMixin.class, AdvancedAeCraftingCpuLogicMixin.class)) {
             var hook = type.getDeclaredMethod("neoecoae$validatePlan", IGrid.class, ICraftingPlan.class,
                     IActionSource.class, ICraftingRequester.class, CallbackInfoReturnable.class);
             hook.setAccessible(true);

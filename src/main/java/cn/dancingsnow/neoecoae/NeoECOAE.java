@@ -138,11 +138,12 @@ public class NeoECOAE {
      * never activate on 26.1, even if a mod with that id happens to be installed.
      */
     public static final java.util.Set<String> UNPORTED_INTEGRATIONS = java.util.Set.of(
-        "ae2lt", "appflux", "bigger_ae2", "ae2_pattern_disk", "advanced_ae", "extendedae_plus",
-        "thunderbolt", "useless_mod", "molecularmanipulator", "mekanism", "appmek", "fluxnetworks",
+        // Bridges still compiled against 1.21.1 jars (legacyCompileOnly in build.gradle).
+        "ae2lt", "ae2_pattern_disk", "thunderbolt", "useless_mod", "molecularmanipulator", "mekanism",
+        "appmek", "fluxnetworks",
         // Leaf integrations excluded from compilation in build.gradle.
-        "appbot", "arseng", "apprep", "appliedsoul", "soulplied_energistics", "appliedpneumatics",
-        "appliedcreate", "data_energistics", "megacells", "ae2omnicells"
+        "appbot", "arseng", "appliedsoul", "soulplied_energistics", "appliedpneumatics",
+        "appliedcreate", "data_energistics", "megacells"
     );
 
     /** {@code true} if the mod is loaded and its integration has been ported to 26.1. */

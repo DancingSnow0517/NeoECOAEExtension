@@ -23,19 +23,19 @@ public final class NEOmniItems {
     public static final ItemEntry<MaterialItem> ECO_OMNI_CELL_HOUSING = REGISTRATE
         .item("eco_omni_cell_housing", MaterialItem::new)
         .lang("ECO Omni Storage Matrix Housing")
-        .model((ctx, prov) -> {})
+        .model(() -> cn.dancingsnow.neoecoae.integration.IntegrationItemModels.importedCellModel("eco_omni_cell_housing"))
         .register();
 
     public static final ItemEntry<MaterialItem> ECO_COMPLEX_OMNI_CELL_HOUSING = REGISTRATE
         .item("eco_complex_omni_cell_housing", MaterialItem::new)
         .lang("ECO Complex Omni Storage Matrix Housing")
-        .model((ctx, prov) -> {})
+        .model(() -> cn.dancingsnow.neoecoae.integration.IntegrationItemModels.importedCellModel("eco_complex_omni_cell_housing"))
         .register();
 
     public static final ItemEntry<MaterialItem> ECO_QUANTUM_OMNI_CELL_HOUSING = REGISTRATE
         .item("eco_quantum_omni_cell_housing", MaterialItem::new)
         .lang("ECO Quantum Omni Storage Matrix Housing")
-        .model((ctx, prov) -> {})
+        .model(() -> cn.dancingsnow.neoecoae.integration.IntegrationItemModels.importedCellModel("eco_quantum_omni_cell_housing"))
         .register();
 
     public static final ItemEntry<ECOUniversalStorageCellItem> ECO_OMNI_CELL_16M = registerCell(
@@ -118,7 +118,7 @@ public final class NEOmniItems {
                     .save(omniCellsInstalled, ctx.getId().withPrefix("integrated_working_station/"));
             })
             .lang(cellName(name, tier, totalBytes))
-            .model((ctx, prov) -> {})
+            .model(() -> cn.dancingsnow.neoecoae.util.ECOModelUtil.importedTintedCellModel(name))
             .register();
     }
 

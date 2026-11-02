@@ -18,18 +18,20 @@ import lombok.Getter;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class ECOUniversalStorageCellItem extends AEUniversalCellItem
@@ -96,19 +98,20 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display,
+                                Consumer<Component> lines, TooltipFlag tooltipFlag) {
         if (ECOInfiniteStorageMember.isMember(stack)) {
-            lines.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
+            lines.accept(Component.translatable("tooltip.neoecoae.storage.infinite_member")
                 .withStyle(ChatFormatting.LIGHT_PURPLE));
             return;
         }
         if (getECOStorageTotalBytes() > MAX_EXTERNAL_STORAGE_BYTES) {
-            lines.add(AEUniversalTooltips.bytesUsed(IAEUniversalCell.getUsedBytes(stack), getECOStorageTotalBytes()));
+            lines.accept(AEUniversalTooltips.bytesUsed(IAEUniversalCell.getUsedBytes(stack), getECOStorageTotalBytes()));
             long usedTypes = IAEUniversalCell.getUsedTypes(stack);
-            lines.add(AEUniversalTooltips.typesUsed(usedTypes, getTotalTypes()));
+            lines.accept(AEUniversalTooltips.typesUsed(usedTypes, getTotalTypes()));
             return;
         }
-        super.appendHoverText(stack, context, lines, tooltipFlag);
+        super.appendHoverText(stack, context, display, lines, tooltipFlag);
     }
 
     @Override
@@ -117,15 +120,16 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, net.minecraft.world.InteractionHand hand) {
+    public InteractionResult use(Level level, Player player, net.minecraft.world.InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         if (ECOInfiniteStorageMember.isMember(stack) && InteractionUtil.isInAlternateUseMode(player)) {
-            player.displayClientMessage(Component.translatable("tooltip.neoecoae.storage.infinite_member"), true);
-            return InteractionResultHolder.fail(stack);
+            player.sendOverlayMessage(Component.translatable("tooltip.neoecoae.storage.infinite_member"));
+            return InteractionResult.FAIL;
         }
         if (InteractionUtil.isInAlternateUseMode(player)) {
             disassembleDrive(stack, level, player);
-            return new InteractionResultHolder<>(InteractionResult.sidedSuccess(level.isClientSide()), player.getItemInHand(hand));
+            InteractionResult.Success result = level.isClientSide() ? InteractionResult.SUCCESS : InteractionResult.SUCCESS_SERVER;
+            return result.heldItemTransformedTo(player.getItemInHand(hand));
         }
         return super.use(level, player, hand);
     }
@@ -134,12 +138,12 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem
     public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
         Player player = context.getPlayer();
         if (player != null && ECOInfiniteStorageMember.isMember(stack) && InteractionUtil.isInAlternateUseMode(player)) {
-            player.displayClientMessage(Component.translatable("tooltip.neoecoae.storage.infinite_member"), true);
+            player.sendOverlayMessage(Component.translatable("tooltip.neoecoae.storage.infinite_member"));
             return InteractionResult.FAIL;
         }
         if (player != null && InteractionUtil.isInAlternateUseMode(player)) {
             return disassembleDrive(stack, context.getLevel(), player)
-                ? InteractionResult.sidedSuccess(context.getLevel().isClientSide())
+                ? context.getLevel().isClientSide() ? InteractionResult.SUCCESS : InteractionResult.SUCCESS_SERVER
                 : InteractionResult.PASS;
         }
         return super.onItemUseFirst(stack, context);
@@ -151,27 +155,27 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem
         }
 
         // Omni's SavedData inventory is unavailable on the client, not necessarily empty.
-        if (level.isClientSide()) {
+        if (!(level instanceof ServerLevel serverLevel)) {
             return true;
         }
 
-        List<ItemStack> disassembledStacks = StorageCellDisassemblyRecipe.getDisassemblyResult(level, stack.getItem());
+        List<ItemStack> disassembledStacks = StorageCellDisassemblyRecipe.getDisassemblyResult(serverLevel, stack.getItem());
         if (disassembledStacks.isEmpty()) {
             return false;
         }
 
         Inventory playerInventory = player.getInventory();
-        if (playerInventory.getSelected() != stack) {
+        if (playerInventory.getSelectedItem() != stack) {
             return false;
         }
 
         var cellInventory = ECOUniversalCellHandler.INSTANCE.getCellInventory(stack, null);
         if (cellInventory == null || !cellInventory.getAvailableStacks().isEmpty()) {
-            player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
+            player.sendOverlayMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text());
             return false;
         }
 
-        playerInventory.setItem(playerInventory.selected, ItemStack.EMPTY);
+        playerInventory.setSelectedItem(ItemStack.EMPTY);
 
         for (var disassembledStack : disassembledStacks) {
             playerInventory.placeItemBackInInventory(disassembledStack.copy());

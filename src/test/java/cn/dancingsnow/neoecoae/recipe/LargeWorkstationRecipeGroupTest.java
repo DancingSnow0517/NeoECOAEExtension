@@ -220,7 +220,7 @@ class LargeWorkstationRecipeGroupTest {
         assertSame(source, groups.getFirst().availableVariants(module(LargeWorkstationModule.ADVANCED_AE)).getFirst().recipe());
     }
 
-    @org.junit.jupiter.api.Disabled("26.1 port: needs Advanced AE's ReactionChamberRecipe/serializer; only its 1.21.1 jar exists and its classes cannot load against 26.1 (RecipeSerializer is no longer an interface)")
+    @org.junit.jupiter.api.Disabled("26.1 port: Advanced AE 26.1 is on the classpath now, but reaction borrowing needs AE2 Lightning Tech (ae2lt), which is still in NeoECOAE.UNPORTED_INTEGRATIONS with only a 1.21.1 jar")
     @Test void realReactionCapabilityIsAddedOnceAndRemovedWithItsSourceOnReload() {
         var source = recipe("advanced_ae:real", "advanced_ae:reaction", 4, 10000, List.of());
         try (var mods = mockStatic(ModList.class)) {
@@ -276,7 +276,7 @@ class LargeWorkstationRecipeGroupTest {
         }
     }
 
-    @org.junit.jupiter.api.Disabled("26.1 port: needs Advanced AE's ReactionChamberRecipe/serializer; only its 1.21.1 jar exists and its classes cannot load against 26.1 (RecipeSerializer is no longer an interface)")
+    @org.junit.jupiter.api.Disabled("26.1 port: Advanced AE 26.1 is on the classpath now, but reaction borrowing needs AE2 Lightning Tech (ae2lt), which is still in NeoECOAE.UNPORTED_INTEGRATIONS with only a 1.21.1 jar")
     @Test void releasedReactionCodecLoadsBothRoutesAndPreservesTheOriginalFluidPredicate() throws ReflectiveOperationException {
         // As in the released AppGen codec tests, supply AE2's key registry and deferred missing-content item.
         var itemField = appeng.core.definitions.ItemDefinition.class.getDeclaredField("item");
@@ -297,7 +297,7 @@ class LargeWorkstationRecipeGroupTest {
             when(modList.isLoaded("ae2lt")).thenReturn(true);
             mods.when(ModList::get).thenReturn(modList);
             var registries = registries();
-            var external = net.pedroksl.advanced_ae.recipes.ReactionChamberRecipeSerializer.INSTANCE.codec().codec().parse(
+            var external = net.pedroksl.advanced_ae.recipes.ReactionChamberRecipe.CODEC.codec().parse(
                 registries.createSerializationContext(JsonOps.INSTANCE), com.google.gson.JsonParser.parseString("""
                     {"input_items":[{"ingredient":{"item":"minecraft:iron_ingot"},"amount":4}],
                      "input_fluid":{"ingredient":{"fluid":"minecraft:water"},"amount":250},

@@ -26,7 +26,6 @@ class WorkstationFluxEnergyTest {
         }
     }
 
-    @org.junit.jupiter.api.Disabled("26.1 port: the Applied Flux bridge is intentionally inactive on 26.1 (NeoECOAE.UNPORTED_INTEGRATIONS); its 1.21.1 jar is compile-only")
     @Test void loadedModExtractsTheExactLongFeKeyAmountFromMeStorage() {
         var mods = mock(ModList.class);
         var storage = mock(MEStorage.class);

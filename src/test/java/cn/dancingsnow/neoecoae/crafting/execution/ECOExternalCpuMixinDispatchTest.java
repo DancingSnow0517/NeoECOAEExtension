@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.mixins.ae2.crafting.Ae2CraftingCpuFastPathMixin;
+import cn.dancingsnow.neoecoae.mixins.compat.advancedae.crafting.AdvancedAeCraftingCpuLogicMixin;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import net.minecraft.world.level.Level;
 import net.neoforged.fml.ModList;
@@ -20,12 +21,12 @@ class ECOExternalCpuMixinDispatchTest {
 
     @ParameterizedTest
     @CsvSource({
-            // 26.1 port: AdvancedAE rows removed (mixins/compat/advancedae excluded from main).
-            "false, false, false", "false, true, false", "false, false, true", "false, true, true"
+            "false, false, false", "false, true, false", "false, false, true", "false, true, true",
+            "true, false, false", "true, true, false", "true, false, true", "true, true, true"
     })
     void thunderboltFallbackUsesEcoButOmniSequenceKeepsItsOwnAccounting(
             boolean advanced, boolean thunderbolt, boolean omniSequence) throws Exception {
-        Class<?> type = Ae2CraftingCpuFastPathMixin.class;
+        Class<?> type = advanced ? AdvancedAeCraftingCpuLogicMixin.class : Ae2CraftingCpuFastPathMixin.class;
         Object mixin = mock(type, CALLS_REAL_METHODS);
         var dispatcher = mock(ECOExternalCpuFastPath.class);
         var field = type.getDeclaredField(advanced ? "neoecoae$batchDispatcher" : "neoecoae$fastPath");

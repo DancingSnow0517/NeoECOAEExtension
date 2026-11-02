@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.execution;
 import appeng.crafting.CraftingLink;
 import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle;
 import cn.dancingsnow.neoecoae.mixins.ae2.crafting.Ae2CraftingCpuFastPathMixin;
+import cn.dancingsnow.neoecoae.mixins.compat.advancedae.crafting.AdvancedAeCraftingCpuLogicMixin;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.UUID;
 import net.minecraft.world.level.Level;
@@ -17,10 +18,9 @@ class ECOExternalCpuCompletionTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
     @ParameterizedTest
-    // 26.1 port: AdvancedAE variant removed (mixins/compat/advancedae excluded from main).
-    @ValueSource(booleans = {false})
+    @ValueSource(booleans = {false, true})
     void completionPublishesTheTerminalDecisionEvenWhenTheCpuHasLostItsGrid(boolean advanced) throws Exception {
-        Class<?> type = Ae2CraftingCpuFastPathMixin.class;
+        Class<?> type = advanced ? AdvancedAeCraftingCpuLogicMixin.class : Ae2CraftingCpuFastPathMixin.class;
         var mixin = mock(type, CALLS_REAL_METHODS);
         var jobField = type.getDeclaredField("job");
         jobField.setAccessible(true);

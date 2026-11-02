@@ -19,8 +19,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /** Checks the actual selected dependency jars; this does not replace an in-game Mixin smoke test. */
 class ECOExternalCpuRuntimeContractTest {
-    // 26.1 port: the AdvancedAE row was dropped (mixins/compat/advancedae is excluded from main).
-    @ParameterizedTest @ValueSource(strings = {"appeng.crafting.execution"})
+    @ParameterizedTest @ValueSource(strings = {"appeng.crafting.execution", "net.pedroksl.advanced_ae.common.logic"})
     void injectionAndAccessorTargetsExistInSelectedDependencies(String prefix) throws Exception {
         var logic = Class.forName(prefix + (prefix.startsWith("appeng") ? ".CraftingCpuLogic" : ".AdvCraftingCPULogic"));
         assertEquals(int.class, logic.getDeclaredMethod("executeCrafting", int.class, CraftingService.class,
@@ -30,7 +29,7 @@ class ECOExternalCpuRuntimeContractTest {
         assertEquals(void.class, logic.getDeclaredMethod("tickCraftingLogic", IEnergyService.class,
                 CraftingService.class).getReturnType());
         assertEquals(void.class, logic.getDeclaredMethod("finishJob", boolean.class).getReturnType());
-        // AE2 26.1 persists the CPU logic through ValueInput/ValueOutput.
+        // AE2 and AdvancedAE 26.1 persist the CPU logic through ValueInput/ValueOutput.
         assertEquals(void.class, logic.getDeclaredMethod("readFromNBT",
                 net.minecraft.world.level.storage.ValueInput.class).getReturnType());
         assertEquals(void.class, logic.getDeclaredMethod("writeToNBT",

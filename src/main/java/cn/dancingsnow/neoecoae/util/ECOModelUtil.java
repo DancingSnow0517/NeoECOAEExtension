@@ -57,30 +57,10 @@ public class ECOModelUtil {
         TextureSlot.SIDE, TextureSlot.FRONT, TextureSlot.BOTTOM, TextureSlot.TOP);
 
     public static <T extends Item> NonNullBiConsumer<DataGenContext<Item, T>, RegistrateItemModelGenerator> cellModel(String type, String size) {
-        if (!type.equals("fe")) {
-            // main ships hand-written models (textures under item/eco_cells/) in models/item/cell/.
-            return importedTintedCellModel("eco_%s_cell_%s".formatted(type, size));
-        }
-        return (ctx, prov) -> {
-            var model = ModelTemplates.THREE_LAYERED_ITEM.create(
-                ctx.get(),
-                TextureMapping.layered(
-                    prov.modItemTexture("eco_%s_cell_housing".formatted(type)),
-                    prov.modItemTexture("eco_cell_light_" + size),
-                    prov.modItemTexture("eco_storage_cell_led")
-                ),
-                prov.modelOutput
-            );
-            prov.itemModelOutput.accept(
-                ctx.get(),
-                ItemModelUtils.tintedModel(
-                    model,
-                    new Constant(-1),
-                    new Constant(-1),
-                    ECOStorageCellStateTintSource.INSTANCE
-                )
-            );
-        };
+        // main ships hand-written models (textures under item/eco_cells/) in models/item/cell/.
+        // Imported item model IDs retain their existing energy family name; their textures use appflux/fe.
+        String assetType = type.equals("fe") ? "energy" : type;
+        return importedTintedCellModel("eco_%s_cell_%s".formatted(assetType, size));
     }
 
     public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> casing() {

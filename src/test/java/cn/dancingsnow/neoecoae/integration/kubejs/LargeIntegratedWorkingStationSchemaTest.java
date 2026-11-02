@@ -73,13 +73,13 @@ class LargeIntegratedWorkingStationSchemaTest {
         for (int i = 0; i < 12; i++) recipe.require(SizedIngredient.of(Items.IRON_INGOT, 2));
         recipe.serialize();
 
-        var decoded = decode(recipe.json).display();
+        var decoded = decode(recipe.json).recipe();
         assertEquals(12, decoded.inputItems().size());
         assertTrue(decoded.inputItems().stream().allMatch(input -> input.count() == 2));
         assertEquals(10000, decoded.energy());
         assertEquals(240, decoded.processingTicks());
         assertEquals(1000, decoded.inputFluid().orElseThrow().amount());
-        assertTrue(decoded.inputFluid().test(new FluidStack(Fluids.WATER, 1000)));
+        assertTrue(decoded.inputFluid().orElseThrow().test(new FluidStack(Fluids.WATER, 1000)));
         assertEquals(Items.GOLD_INGOT, decoded.itemOutput().getItem());
         assertEquals(2, decoded.itemOutput().getCount());
         assertEquals(Fluids.LAVA, decoded.fluidOutput().getFluid());
@@ -94,7 +94,7 @@ class LargeIntegratedWorkingStationSchemaTest {
         var first = recipe().energy(20).require(SizedIngredient.of(Items.IRON_INGOT, 1))
             .itemOutput(new ItemStack(Items.GOLD_INGOT));
         first.serialize();
-        var decoded = decode(first.json).display();
+        var decoded = decode(first.json).recipe();
         assertEquals(100, decoded.processingTicks());
         assertTrue(decoded.inputFluid().isEmpty());
         assertTrue(decoded.fluidOutput().isEmpty());
@@ -102,9 +102,9 @@ class LargeIntegratedWorkingStationSchemaTest {
         var second = recipe().energy(30).require(SizedIngredient.of(Items.REDSTONE, 3))
             .itemOutput(new ItemStack(Items.DIAMOND));
         second.serialize();
-        assertEquals(1, decode(first.json).display().inputItems().size());
-        assertEquals(1, decode(second.json).display().inputItems().size());
-        assertTrue(decode(second.json).display().inputItems().getFirst().ingredient().test(new ItemStack(Items.REDSTONE)));
+        assertEquals(1, decode(first.json).recipe().inputItems().size());
+        assertEquals(1, decode(second.json).recipe().inputItems().size());
+        assertTrue(decode(second.json).recipe().inputItems().getFirst().ingredient().test(new ItemStack(Items.REDSTONE)));
     }
 
     @Test
@@ -130,7 +130,8 @@ class LargeIntegratedWorkingStationSchemaTest {
         ops.setAccessible(true);
         ops.set(event, RegistryAccessContainer.BUILTIN);
         var schema = LargeIntegratedWorkingStationSchema.SCHEMA;
-        var type = new RecipeTypeFunction(event, new RecipeSchemaType(null, TYPE, schema));
+        var type = new RecipeTypeFunction(event, new RecipeSchemaType(null, TYPE, schema) {
+        });
         var recipe = (IntegratedWorkingStationKubeRecipe) schema.recipeFactory.create(type, null, true);
         recipe.json = new JsonObject();
         recipe.json.addProperty("type", type.idString);

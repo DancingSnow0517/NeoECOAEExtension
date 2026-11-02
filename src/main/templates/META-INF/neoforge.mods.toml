@@ -58,6 +58,14 @@ config="${mod_id}.terminal_big_amount.mixins.json"
 [[mixins]]
 config="${mod_id}.compat.extendedae.mixins.json"
 
+[[mixins]]
+config="${mod_id}.compat.advanced_ae.mixins.json"
+requiredMods=["advanced_ae"]
+
+[[mixins]]
+config="${mod_id}.compat.ae2omnicells.mixins.json"
+requiredMods=["ae2omnicells"]
+
 # The [[accessTransformers]] block allows you to declare where your AT file is.
 # If this block is omitted, a fallback attempt will be made to load an AT from META-INF/accesstransformer.cfg
 [[accessTransformers]]

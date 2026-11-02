@@ -14,6 +14,7 @@ import appeng.me.service.CraftingService;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import cn.dancingsnow.neoecoae.api.me.provider.*;
 import cn.dancingsnow.neoecoae.mixins.ae2.crafting.*;
+import cn.dancingsnow.neoecoae.mixins.compat.advancedae.accessor.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import net.minecraft.world.level.Level;
@@ -57,9 +58,21 @@ class ECOExternalCpuFastPathTest {
         when(input.getAmountPerOperation()).thenReturn(2);
         var link = mock(CraftingLink.class);
         when(link.getCraftingID()).thenReturn(jobId);
-        // 26.1 port: the AdvancedAE engine branch was removed (mixins/compat/advancedae excluded from main);
-        // engine-agnostic cases that used it now run on the AE2 job accessors.
-        {
+        if (engine.equals("advancedae")) {
+            var access = mock(AdvancedAeCraftingJobAccessor.class, CALLS_REAL_METHODS);
+            var task = mock(AdvancedAeTaskProgressAccessor.class, CALLS_REAL_METHODS);
+            when(task.neoecoae$getValue()).thenAnswer(c -> remaining.get());
+            doAnswer(c -> { remaining.set(c.getArgument(0)); return null; })
+                    .when(task).neoecoae$setValue(anyLong());
+            tasks.put(pattern, task);
+            doReturn(tasks).when(access).neoecoae$getTasks();
+            when(access.neoecoae$getWaitingFor()).thenReturn(waiting);
+            when(access.neoecoae$getLink()).thenReturn(link);
+            var tracker = mock(net.pedroksl.advanced_ae.common.logic.ElapsedTimeTracker.class,
+                    withSettings().extraInterfaces(AdvancedAeElapsedTimeTrackerInvoker.class));
+            when(access.neoecoae$getTimeTracker()).thenReturn(tracker);
+            job = access;
+        } else {
             // OmniCell adds coprocessors to this AE2 engine, with the same native job type.
             var access = mock(Ae2CpuJobAccessor.class, CALLS_REAL_METHODS);
             var task = mock(Ae2CpuTaskAccessor.class);
@@ -95,7 +108,7 @@ class ECOExternalCpuFastPathTest {
         return dispatcher.execute(this, job, inventory, pushSlots, service, energy, level);
     }
 
-    @ParameterizedTest @ValueSource(strings = {"ae2", "omnicell"})
+    @ParameterizedTest @ValueSource(strings = {"ae2", "omnicell", "advancedae"})
     void onePushSlotFills512WorkerSlotsAndAccountsExactlyOnce(String engine) {
         setup(engine);
         assertEquals(1, dispatch(1));
@@ -134,7 +147,7 @@ class ECOExternalCpuFastPathTest {
         assertEquals(150, waiting.list.get(output));
     }
 
-    @ParameterizedTest @ValueSource(strings = {"ae2", "omnicell"})
+    @ParameterizedTest @ValueSource(strings = {"ae2", "omnicell", "advancedae"})
     void workstationParallelProviderUsesOneCpuPushAndKeepsJobId(String engine) {
         setup(engine);
         var workstation = mock(ParallelProvider.class);
@@ -179,7 +192,7 @@ class ECOExternalCpuFastPathTest {
     }
 
     @Test void uncertainOwnershipSuspendsWithoutRefundOrRedispatch() {
-        setup("ae2"); uncertain = true;
+        setup("advancedae"); uncertain = true;
         assertThrows(ECOIndeterminateBatchException.class, () -> dispatch(1));
         verify(job).neoecoae$suspended(true);
         assertEquals(1024, inventory.list.get(input));
@@ -203,7 +216,7 @@ class ECOExternalCpuFastPathTest {
     }
 
     @Test void ordinaryProviderFailureRollsBackAndAllowsFallback() {
-        setup("ae2"); ordinaryFailure = true;
+        setup("advancedae"); ordinaryFailure = true;
         assertEquals(0, dispatch(1));
         assertEquals(2048, inventory.list.get(input));
         assertEquals(1024, remaining.get());
@@ -239,7 +252,7 @@ class ECOExternalCpuFastPathTest {
     }
 
     @Test void accountingFailureAfterAcceptanceNeverRefundsMaterials() {
-        setup("ae2");
+        setup("advancedae");
         doThrow(new IllegalStateException("tracker failed")).when(job).neoecoae$addRemainderItems(anyLong(), any());
         assertThrows(IllegalStateException.class, () -> dispatch(1));
         assertEquals(1, deliveries.size());
@@ -250,7 +263,7 @@ class ECOExternalCpuFastPathTest {
     }
 
     @Test void bridgedProviderIsFilteredOutForExternalCpu() {
-        setup("ae2");
+        setup("advancedae");
         // 创建一个只实现ICraftingProvider但不实现ECOFastPathDispatchProvider的桥接provider
         var bridgedProvider = mock(ICraftingProvider.class);
         when(service.getProviders(pattern)).thenReturn(List.of(bridgedProvider, provider));
@@ -266,7 +279,7 @@ class ECOExternalCpuFastPathTest {
     }
 
     @Test void onlyEcoNativeProvidersAreUsedForBatchDispatch() {
-        setup("ae2");
+        setup("advancedae");
         // ExtendedAEPlus矩阵和Useless熔炉会通过桥接适配器返回，但它们不是ECOFastPathDispatchProvider实例
         var nonEcoProvider1 = mock(ICraftingProvider.class);
         var nonEcoProvider2 = mock(ICraftingProvider.class);

@@ -1,0 +1,31 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "ae2omnicells"
+    }
+  ],
+  "type": "neoecoae:integrated_working_station",
+  "energy": 144000,
+  "inputItems": [
+    {
+      "count": 10,
+      "ingredient": "ae2omnicells:quantum_omni_cell_component_256m"
+    },
+    {
+      "count": 8,
+      "ingredient": "ae2omnicells:multidimensional_expansion_processor"
+    },
+    {
+      "count": 64,
+      "ingredient": "ae2:singularity"
+    },
+    {
+      "count": 1,
+      "ingredient": "neoecoae:eco_quantum_omni_cell_housing"
+    }
+  ],
+  "itemOutput": {
+    "id": "neoecoae:eco_quantum_omni_cell_256m"
+  }
+}

@@ -14,6 +14,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCraftingPlannerService;
 import cn.dancingsnow.neoecoae.crafting.planner.result.*;
 import cn.dancingsnow.neoecoae.mixins.ae2.crafting.Ae2CraftingCpuFastPathMixin;
+import cn.dancingsnow.neoecoae.mixins.compat.advancedae.crafting.AdvancedAeCraftingCpuLogicMixin;
 import cn.dancingsnow.neoecoae.mixins.ae2.crafting.CraftingServiceMixin;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
@@ -148,7 +149,7 @@ class ECOExternalCpuDagInteropTest {
     }
 
     private static void assertCpuHooksAllow(ICraftingPlan plan) throws Exception {
-        for (var type : List.<Class<?>>of(Ae2CraftingCpuFastPathMixin.class /* 26.1 port: AdvancedAE mixin excluded */)) {
+        for (var type : List.of(Ae2CraftingCpuFastPathMixin.class, AdvancedAeCraftingCpuLogicMixin.class)) {
             var hook = type.getDeclaredMethod("neoecoae$validatePlan", IGrid.class, ICraftingPlan.class,
                 IActionSource.class, ICraftingRequester.class, CallbackInfoReturnable.class);
             hook.setAccessible(true);
