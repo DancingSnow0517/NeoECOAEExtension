@@ -63,40 +63,38 @@ class CycleSeedRetentionEdgeCaseTest {
         assertEquals(Map.of(make.details(), 5L), outcome.state().patternTimes());
         assertEquals(1L, outcome.state().usedItems().get(k), describe(outcome));
         assertEquals(5L, outcome.state().usedItems().get(f));
-        assertHasDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
+        // The pattern itself returns K and K cannot grow, so no extra seed floor is needed or reported.
         assertNoDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SEED_NOT_RETAINED);
         var end = replay(cycle(outcome).cycleResult(), counts(k, 1, f, 5));
         assertTrue(end.get(k) >= 1L && end.get(t) >= 5L, end.toString());
     }
 
     @Test
-    void storedFinalOutputDoesNotForceConsumableSeedReplacement() throws Exception {
+    void storedFinalOutputStillKeepsTheConsumableSeed() throws Exception {
+        // AE2 crafts the two requested B anew; the stored B is not the cycle seed. The single A is, so the
+        // order grows it back instead of spending it.
         var outcome = planSeedCycle(inventory(a, 1, b, 1, f, 2), 2);
         assertEquals(PlanningStatus.SUCCESS, outcome.status(), describe(outcome));
-        assertEquals(Map.of(p1.details(), 1L), outcome.state().patternTimes());
-        assertNoDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
-        var end = replay(cycle(outcome).cycleResult(), counts(a, 1, b, 1, f, 1));
-        assertEquals(0L, end.get(a));
+        assertEquals(Map.of(p1.details(), 2L, p2.details(), 2L), outcome.state().patternTimes());
+        assertHasDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
+        var end = replay(cycle(outcome).cycleResult(), counts(a, 1, b, 1, f, 2));
+        assertEquals(1L, end.get(a));
         assertEquals(3L, end.get(b));
     }
 
     @Test
     void alternativeStartingSeedIsTheWitnessOwnSeed() throws Exception {
-        // Only B can start the loop (A = 0), so the witness starts from B. Strict retention keeps that very state;
-        // an alternative restart state such as A instead of B is not modelled.
+        // Only B can start the loop (A = 0), so the witness starts from B. B is also the goal: AE2 crafts the
+        // requested copy anew, so the stored B (the seed) is preserved by the order itself without a floor.
         var outcome = planSeedCycle(inventory(b, 1, f, 1), 1);
         assertEquals(PlanningStatus.SUCCESS, outcome.status(), describe(outcome));
         assertEquals(Map.of(p1.details(), 1L, p2.details(), 1L), outcome.state().patternTimes());
         var seed = cycle(outcome).cycleResult().requiredSeed();
         assertEquals(1L, seed.getOrDefault(b, 0L), seed.toString());
         assertEquals(0L, seed.getOrDefault(a, 0L), seed.toString());
-        var retained = outcome.trace().diagnostics().stream()
-            .filter(d -> d.code() == PlannerDiagnostic.Code.CYCLE_SEED_RETAINED).findFirst();
-        assertTrue(retained.isPresent(), describe(outcome));
-        assertTrue(retained.get().message().contains("B=1") && !retained.get().message().contains("A="),
-            retained.get().message());
+        assertNoDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SEED_NOT_RETAINED);
         var end = replay(cycle(outcome).cycleResult(), counts(b, 1, f, 1));
-        assertTrue(end.get(b) >= 2L, end.toString());
+        assertTrue(end.get(b) >= 2L, "One delivered and the stored seed kept: " + end);
     }
 
     @Test
@@ -134,7 +132,7 @@ class CycleSeedRetentionEdgeCaseTest {
     }
 
     @Test
-    void exhaustedRetentionSliceFallsBackToThePlainPlan() throws Exception {
+    void unmeasurableSeedIsReportedInsteadOfSilentlyConsumed() throws Exception {
         var delegate = new BoundedCycleSolver();
         CycleSolver solver = (request, cancellation) -> {
             if (request.plannerRequiredOutputs().getOrDefault(a, PlannerAmount.ZERO).signum() > 0) {
@@ -142,18 +140,19 @@ class CycleSeedRetentionEdgeCaseTest {
             }
             return delegate.solve(request, cancellation);
         };
+        // The seed probe asks for one more A than it starts with and never finishes; the probe allowance ends.
         var outcome = planSeedCycle(solver, inventory(a, 1, f, 2), 2);
         assertEquals(PlanningStatus.SUCCESS, outcome.status(), describe(outcome));
         assertEquals(Map.of(p1.details(), 1L), outcome.state().patternTimes());
         var notRetained = outcome.trace().diagnostics().stream()
             .filter(d -> d.code() == PlannerDiagnostic.Code.CYCLE_SEED_NOT_RETAINED).findFirst();
         assertTrue(notRetained.isPresent(), describe(outcome));
-        assertTrue(notRetained.get().message().contains("budget slice"), notRetained.get().message());
+        assertTrue(notRetained.get().message().contains("could not be determined"), notRetained.get().message());
         assertNoDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SEED_RETAINED);
     }
 
     @Test
-    void wholeSessionDeadlineDuringRetentionKeepsTheAlreadySuppliedOrder() throws Exception {
+    void wholeSessionDeadlineDuringCycleSolvingIsNotHiddenBehindAPartialPlan() throws Exception {
         var clock = new AtomicLong();
         var calls = new AtomicInteger();
         var delegate = new BoundedCycleSolver();
@@ -166,20 +165,16 @@ class CycleSeedRetentionEdgeCaseTest {
         var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
         var condensation = CondensationGraph.build(graph,
                 new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
-        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), solver).plan(network, condensation,
-                inventory(a, 1, f, 2), 2, true,
-                new ECOPlanningBudget(ECOCancellation.NONE, 100_000L, 100L, clock::get));
-        assertEquals(PlanningStatus.SUCCESS, outcome.status(), describe(outcome));
-        assertEquals(Map.of(p1.details(), 1L), outcome.state().patternTimes());
-        assertEquals(1L, outcome.state().usedItems().get(a));
-        assertEquals(1L, outcome.state().usedItems().get(f));
-        assertTrue(outcome.state().missingItems().isEmpty());
-        assertHasDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SEED_NOT_RETAINED);
-        assertEquals(2, calls.get(), "Do not try to rebuild the fallback after the shared deadline");
+        // Call one measures the seed, call two is the order's own cycle solve. Seed retention is part of that
+        // solve, so a deadline there is the session verdict; no seed-consuming fallback plan is published instead.
+        assertThrows(ECOPlanningBudget.Exhausted.class, () -> new ComponentPlanner(new AcyclicCraftingSolver(), solver)
+                .plan(network, condensation, inventory(a, 1, f, 2), 2, true,
+                        new ECOPlanningBudget(ECOCancellation.NONE, 100_000L, 100L, clock::get)));
+        assertEquals(2, calls.get(), "Do not retry after the shared deadline");
     }
 
     @Test
-    void userCancellationDuringOptionalRetentionStillPropagates() {
+    void userCancellationDuringCycleSolvingStillPropagates() {
         var calls = new AtomicInteger();
         var delegate = new BoundedCycleSolver();
         CycleSolver solver = (request, cancellation) -> {

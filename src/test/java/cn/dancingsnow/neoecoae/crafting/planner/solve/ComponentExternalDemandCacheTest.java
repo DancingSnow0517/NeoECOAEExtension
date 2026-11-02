@@ -41,7 +41,8 @@ class ComponentExternalDemandCacheTest {
             new TarjanSccAnalyzer().analyze(dependencyGraph, ECOCancellation.NONE), ECOCancellation.NONE);
         var initial = new ActiveRouteSelector().selectWithChoices(dependencyGraph, Map.of(goal, 0), ECOCancellation.NONE);
         var stock = new KeyCounter();
-        stock.add(seed, 1L);
+        // One seed is kept by strict seed retention; the other serves the goal, so growth still needs one boundary.
+        stock.add(seed, 2L);
         stock.add(raw, 1L);
         stock.add(fuel, 1L);
         var solver = spy(new AcyclicCraftingSolver());
@@ -52,14 +53,15 @@ class ComponentExternalDemandCacheTest {
 
         assertEquals(PlanningStatus.SUCCESS, result.status(), result.trace().diagnostics().toString());
         assertEquals(Map.of(feasible.details(), 1L), result.state().patternTimes());
-        // The original shortage is calculated once. Quantity proofs discard the two equivalent
-        // blocked goal prefixes before numeric planning, then the fuel route succeeds.
-        verify(solver, times(2)).solve(same(network), any(), any(PlannerInventorySnapshot.class), eq(1L),
+        // The original shortage is calculated once. The optimistic quantity proof must count the kept seed as
+        // available (a cycle may borrow it to start), so it can no longer discard the two blocked goal prefixes
+        // that only fail because that seed has to stay; each is planned once before the fuel route succeeds.
+        verify(solver, times(4)).solve(same(network), any(), any(PlannerInventorySnapshot.class), eq(1L),
             anyMap(), anySet(), eq(false), any());
         verify(solver).solveDemands(any(), any(), eq(Map.of(boundary, 1L)), anyMap(), anySet(), eq(false), any());
-        // The missing original is solved once; optional seed retention cannot run before a whole-order success.
+        // The missing original is solved once.
         verify(solver, times(1)).solveDemands(any(), any(), anyMap(), anyMap(), anySet(), anyBoolean(), any());
-        assertEquals(1L, stock.get(seed));
+        assertEquals(2L, stock.get(seed));
         assertEquals(1L, stock.get(raw));
         assertEquals(1L, stock.get(fuel));
 
@@ -70,8 +72,8 @@ class ComponentExternalDemandCacheTest {
         assertEquals(PlanningStatus.SUCCESS, recovered.status(), recovered.trace().diagnostics().toString());
         assertTrue(recovered.state().patternTimes().containsKey(growth.details()));
         assertTrue(recovered.state().patternTimes().containsKey(external.details()));
-        // Again one extra solve for the seed-retaining candidate ({boundary=2} fails on raw=2) plus the accepted {boundary=1}.
-        verify(solver, times(3)).solveDemands(any(), any(), anyMap(), anyMap(), anySet(), anyBoolean(), any());
+        // Seed retention is part of the first solve, so only the accepted {boundary=1} is supplied again.
+        verify(solver, times(2)).solveDemands(any(), any(), anyMap(), anyMap(), anySet(), anyBoolean(), any());
     }
 
     private static AEKey key(String name) {

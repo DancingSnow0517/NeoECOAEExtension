@@ -41,6 +41,19 @@ public final class PlannerInventorySnapshot {
         return unboundedKeys.contains(key);
     }
 
+    /** The same stock with {@code reserved} amounts set aside; unbounded keys stay unbounded. */
+    PlannerInventorySnapshot withoutReserved(java.util.Map<AEKey, PlannerAmount> reserved) {
+        if (reserved.isEmpty()) return this;
+        PlannerAmount[] remaining = amounts.clone();
+        for (int i = 0; i < keys.length; i++) {
+            PlannerAmount held = reserved.get(keys[i]);
+            if (held != null && !unboundedKeys.contains(keys[i])) {
+                remaining[i] = remaining[i].subtract(held).max(PlannerAmount.ZERO);
+            }
+        }
+        return new PlannerInventorySnapshot(keys.clone(), remaining, unboundedKeys);
+    }
+
     /** Independent AE2 counter for APIs that still require long-valued stock. */
     public KeyCounter toKeyCounter() {
         KeyCounter result = new KeyCounter();

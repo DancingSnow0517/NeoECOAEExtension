@@ -26,6 +26,12 @@ public final class NECommands {
                     cn.dancingsnow.neoecoae.network.MenuDataTransport.report()), false);
                 return 1;
             }))
+            .then(literal("export_plan").executes(context -> {
+                CraftingPlanExport.arm(context.getSource().getPlayerOrException());
+                context.getSource().sendSuccess(() -> Component.literal(
+                    "The next crafting calculation you open will be exported with all network patterns."), false);
+                return 1;
+            }))
             .then(literal("clear_fx_workers").executes(context -> clearFxWorkers(context.getSource())))
             .then(literal("storage_report").executes(context -> storageReport(context.getSource(), null))
                 .then(net.minecraft.commands.Commands.argument("pos", net.minecraft.commands.arguments.coordinates.BlockPosArgument.blockPos())

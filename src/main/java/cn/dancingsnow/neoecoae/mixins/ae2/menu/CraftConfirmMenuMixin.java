@@ -662,6 +662,12 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
             ICraftingPlan job,
             Operation<CraftingPlanSummary> original) {
         CraftingPlanSummary summary = original.call(grid, source, job);
+        if (((CraftConfirmMenu) (Object) this).getPlayer() instanceof ServerPlayer player
+                && cn.dancingsnow.neoecoae.command.CraftingPlanExport.isArmed(player)) {
+            // Resolve diagnostics only for an armed export so ordinary confirmations keep their exact behavior.
+            cn.dancingsnow.neoecoae.command.CraftingPlanExport.onPlanReady(player, grid, job,
+                neoecoae$resolveOwnedPlanningResult(job), neoecoae$originalOptions);
+        }
         // Only an ECO plan may be re-described with AE2 stored/missing semantics. A foreign plan keeps the summary
         // its own planner published, so this wrap operation is order-independent against other projection mixins.
         return neoecoae$ownsPlan(job) ? neoecoae$recheckStoredAmounts(grid, source, summary) : summary;

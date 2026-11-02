@@ -55,6 +55,8 @@ public record PlannerDiagnostic(Code code, String message) {
         /** Even an optimistic quantity bound over all producers cannot cover the requested order. */
         ROUTE_QUANTITY_BOUND,
         /** A quantity proof excluded an entire producer-choice subtree before numeric planning. */
-        ROUTE_BRANCH_PRUNED
+        ROUTE_BRANCH_PRUNED,
+        /** The whole-network material balance has no solution: no route, cycle or seed can complete the order. */
+        MATERIAL_BALANCE_INFEASIBLE
     }
 }
