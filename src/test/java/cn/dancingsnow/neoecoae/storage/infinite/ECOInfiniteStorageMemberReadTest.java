@@ -17,7 +17,7 @@ class ECOInfiniteStorageMemberReadTest {
         var tag = new CompoundTag();
         var domain = UUID.randomUUID();
         tag.putBoolean("neoecoae_infinite_member", true);
-        tag.putUUID("neoecoae_infinite_domain", domain);
+        tag.store("neoecoae_infinite_domain", net.minecraft.core.UUIDUtil.CODEC, domain);
         var payload = new CompoundTag();
         payload.putIntArray("contents", new int[10000]);
         tag.put("payload", payload);
@@ -37,7 +37,7 @@ class ECOInfiniteStorageMemberReadTest {
         assertFalse(ECOInfiniteStorageMember.isSealedData(CustomData.EMPTY));
         var tag = new CompoundTag();
         var migration = UUID.randomUUID();
-        tag.putUUID("neoecoae_migration_id", migration);
+        tag.store("neoecoae_migration_id", net.minecraft.core.UUIDUtil.CODEC, migration);
         var data = CustomData.of(tag);
         assertTrue(ECOInfiniteStorageMember.isSealedData(data));
         assertEquals(migration, ECOInfiniteStorageMember.migrationId(data));

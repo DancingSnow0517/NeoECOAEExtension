@@ -45,7 +45,7 @@
     }
   ],
   "inputFluid": {
-    "fluid": "minecraft:lava",
+    "ingredient": "minecraft:lava",
     "amount": 16000
   },
   "itemOutput": {

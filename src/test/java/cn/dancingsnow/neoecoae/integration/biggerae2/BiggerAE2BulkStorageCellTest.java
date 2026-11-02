@@ -49,7 +49,7 @@ class BiggerAE2BulkStorageCellTest {
             factory.when(() -> ECOStorageCellItem.getCellInventory(stack)).thenReturn(cell);
             types.when(AEKeyTypesInternal::getAllTypes).thenReturn(Set.of(AEKeyType.items()));
             var lines = new ArrayList<Component>();
-            item.appendHoverText(stack, null, lines, TooltipFlag.NORMAL);
+            item.appendHoverText(stack, null, null, lines::add, TooltipFlag.NORMAL);
             assertEquals(2, lines.size());
             var line = (TranslatableContents) lines.getFirst().getContents();
             assertEquals("tooltip.neoecoae.bulk.used_types", line.getKey());
@@ -77,7 +77,7 @@ class BiggerAE2BulkStorageCellTest {
             when(cell.getAvailableStacks()).thenReturn(available);
             when(cell.getStoredItemTypes()).thenReturn(1L);
             lines.clear();
-            item.appendHoverText(stack, null, lines, TooltipFlag.NORMAL);
+            item.appendHoverText(stack, null, null, lines::add, TooltipFlag.NORMAL);
             assertEquals(2, lines.size());
             preview = (StorageCellTooltipComponent) item.getTooltipImage(stack).orElseThrow();
             assertEquals(List.of(new GenericStack(key, 42)), preview.content());

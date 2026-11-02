@@ -42,7 +42,7 @@ class CrystalScienceGrowthRecipeTest {
         var components = (MappedRegistry<DataComponentType<?>>) BuiltInRegistries.DATA_COMPONENT_TYPE;
         var id = Identifier.parse("ae2cs:grow_process");
         if (!components.containsKey(id)) {
-            components.unfreeze();
+            components.unfreeze(false);
             try {
                 Registry.register(components, id, DataComponentType.<Integer>builder()
                     .persistent(Codec.INT).networkSynchronized(ByteBufCodecs.VAR_INT).build());
@@ -50,8 +50,15 @@ class CrystalScienceGrowthRecipeTest {
                 components.freeze();
             }
         }
-        progress = (DataComponentType<Integer>) components.get(id);
-        var seedClass = Class.forName("io.github.lounode.ae2cs.common.item.CrystalSeedItem").asSubclass(Item.class);
+        progress = (DataComponentType<Integer>) components.getValue(id);
+        Class<? extends Item> seedClass;
+        try {
+            seedClass = Class.forName("io.github.lounode.ae2cs.common.item.CrystalSeedItem").asSubclass(Item.class);
+        } catch (ClassNotFoundException | LinkageError unavailable) {
+            // 26.1 port: Crystal Science has no 26.1 build and its jar is not on the test classpath.
+            return;
+        }
+        crystalScienceAvailable = true;
         defaultSeed = registerSeed(seedClass, "default", Items.DIAMOND, 600);
         shortSeed = registerSeed(seedClass, "short", Items.EMERALD, 25);
         invalidSeed = registerSeed(seedClass, "invalid", Items.DIAMOND, 0);
@@ -62,13 +69,23 @@ class CrystalScienceGrowthRecipeTest {
             throws ReflectiveOperationException {
         var items = (MappedRegistry<Item>) BuiltInRegistries.ITEM;
         var id = Identifier.parse("test:workstation_growth_seed_" + name);
-        items.unfreeze();
+        items.unfreeze(false);
         try {
             var seed = type.getConstructor(Item.Properties.class, Supplier.class, int.class)
-                .newInstance(new Item.Properties(), (Supplier<Item>) () -> output, ticks);
+                .newInstance(new Item.Properties().setId(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.ITEM, id)), (Supplier<Item>) () -> output, ticks);
             return Registry.register(items, id, seed);
         } finally {
             items.freeze();
+        }
+    }
+
+    private static boolean crystalScienceAvailable;
+
+    @org.junit.jupiter.api.BeforeEach
+    void requireCrystalScience(org.junit.jupiter.api.TestInfo info) {
+        if (!info.getDisplayName().startsWith("absentCrystalScienceLoadsTheAdapterWithoutAnyOptionalClasses")) {
+            org.junit.jupiter.api.Assumptions.assumeTrue(crystalScienceAvailable,
+                "26.1 port: needs the released Crystal Science jar (CrystalSeedItem), which has no 26.1 build");
         }
     }
 
@@ -202,10 +219,10 @@ class CrystalScienceGrowthRecipeTest {
 
     @Test void datapackRecipeKeepsItsIdentityWhenAGrowthAliasWouldCollide() {
         var recipe = CrystalScienceWorkstationRecipes.growthRecipes(List.of(defaultSeed)).getFirst();
-        var nativeRecipe = new IntegratedWorkingStationRecipe(List.of(), CrystalScienceWorkstationRecipes.noFluid(),
+        var nativeRecipe = IntegratedWorkingStationRecipe.of(List.of(), CrystalScienceWorkstationRecipes.noFluid(),
             new ItemStack(Items.EMERALD), net.neoforged.neoforge.fluids.FluidStack.EMPTY, 100);
         var manager = mock(RecipeManager.class);
-        when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(recipe.id(), nativeRecipe)));
+        when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.RECIPE, recipe.id()), nativeRecipe)));
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         try (var growth = mockStatic(CrystalScienceWorkstationRecipes.class, CALLS_REAL_METHODS)) {
             growth.when(CrystalScienceWorkstationRecipes::growthRecipes).thenReturn(List.of(recipe));

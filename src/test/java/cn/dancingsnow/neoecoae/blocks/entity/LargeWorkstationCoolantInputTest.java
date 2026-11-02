@@ -10,7 +10,6 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.crafting.RecipeHolder;
-import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -32,14 +31,15 @@ import static org.mockito.Mockito.*;
 
 class LargeWorkstationCoolantInputTest {
     private ECOLargeIntegratedWorkingStationInputHatchBlockEntity hatch;
-    private RecipeManager recipes;
+    // 26.1: recipes are read through AE2's RecipeAccess (server RecipeMap), mocked statically per test.
+    private org.mockito.MockedStatic<appeng.crafting.RecipeAccess> recipeAccess;
 
     @BeforeAll
     static void bootstrap() {
         InventoryTestBootstrap.initialize();
         var registry = (MappedRegistry<RecipeType<?>>) BuiltInRegistries.RECIPE_TYPE;
         if (registry.containsKey(NERecipeTypes.COOLING.getId())) return;
-        registry.unfreeze();
+        registry.unfreeze(false);
         try {
             Registry.register(registry, NERecipeTypes.COOLING.getId(), new RecipeType<CoolingRecipe>() {});
         } finally {
@@ -65,10 +65,14 @@ class LargeWorkstationCoolantInputTest {
             public void markForUpdate() {}
         };
         var level = mock(Level.class);
-        recipes = mock(RecipeManager.class);
-        when(level.getRecipeManager()).thenReturn(recipes);
+        recipeAccess = mockStatic(appeng.crafting.RecipeAccess.class);
         hatch.setLevel(level);
-        when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of(cooling(Fluids.WATER)));
+        recipeAccess.when(() -> appeng.crafting.RecipeAccess.byType(any(), eq(NERecipeTypes.COOLING.get()))).thenReturn(List.of(cooling(Fluids.WATER)));
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void closeRecipeAccess() {
+        if (recipeAccess != null) recipeAccess.close();
     }
 
     @Test
@@ -107,7 +111,7 @@ class LargeWorkstationCoolantInputTest {
     @Test
     void recipeReloadChangesAcceptedCoolantsAndStillAllowsDrainingOldContents() {
         hatch.tank.fill(new FluidStack(Fluids.WATER, 1000), FluidAction.EXECUTE);
-        when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of(cooling(Fluids.LAVA)));
+        recipeAccess.when(() -> appeng.crafting.RecipeAccess.byType(any(), eq(NERecipeTypes.COOLING.get()))).thenReturn(List.of(cooling(Fluids.LAVA)));
         assertEquals(0, hatch.tank.fill(new FluidStack(Fluids.WATER, 1000), FluidAction.EXECUTE));
         assertEquals(1000, hatch.tank.drain(1000, FluidAction.EXECUTE).getAmount());
         assertEquals(1000, hatch.tank.fill(new FluidStack(Fluids.LAVA, 1000), FluidAction.EXECUTE));
@@ -115,7 +119,7 @@ class LargeWorkstationCoolantInputTest {
 
     @Test
     void emptyRecipeListAndDetachedHatchRejectInput() {
-        when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of());
+        recipeAccess.when(() -> appeng.crafting.RecipeAccess.byType(any(), eq(NERecipeTypes.COOLING.get()))).thenReturn(List.of());
         assertEquals(0, hatch.tank.fill(new FluidStack(Fluids.WATER, 1000), FluidAction.EXECUTE));
         hatch.setLevel(null);
         assertFalse(hatch.tank.isFluidValid(0, FluidStack.EMPTY));
@@ -123,7 +127,7 @@ class LargeWorkstationCoolantInputTest {
     }
 
     private static RecipeHolder<CoolingRecipe> cooling(net.minecraft.world.level.material.Fluid fluid) {
-        var recipe = new CoolingRecipe(SizedFluidIngredient.of(fluid, 100), FluidStack.EMPTY, 1500, 2);
-        return new RecipeHolder<>(Identifier.parse("test:coolant"), recipe);
+        var recipe = new CoolingRecipe(SizedFluidIngredient.of(fluid, 100), null, 1500, 2);
+        return new RecipeHolder<>(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.RECIPE, Identifier.parse("test:coolant")), recipe);
     }
 }

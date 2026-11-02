@@ -82,15 +82,15 @@ class ECORepeatedCircuitRuntimeTest {
         for (int i = 0; i < 2; i++) {
             var tag = new CompoundTag(); tag.putInt("testId", i);
             when(fixture.patterns.get(i).getDefinition()).thenReturn(definitions.get(i));
-            when(definitions.get(i).toTag(registries)).thenReturn(tag);
+            doAnswer(call -> { cn.dancingsnow.neoecoae.util.LegacyNbt.write((net.minecraft.world.level.storage.ValueOutput) call.getArgument(0), tag); return null; }).when(definitions.get(i)).toTag(any());
         }
         var saved = ECOExecutionPlanNbtCodec.encode(fixture.plan, registries);
-        assertEquals(4, saved.getList("phases", 10).getCompound(0).getList("steps", 10).size());
+        assertEquals(4, saved.getListOrEmpty("phases").getCompoundOrEmpty(0).getListOrEmpty("steps").size());
         var cpu = mock(ECOCraftingCPU.class);
         var logic = new ECOCraftingCPULogic(cpu);
         try (var keys = mockStatic(AEItemKey.class); var patterns = mockStatic(PatternDetailsHelper.class)) {
-            keys.when(() -> AEItemKey.fromTag(eq(registries), any())).thenAnswer(call ->
-                definitions.get(((CompoundTag) call.getArgument(1)).getInt("testId")));
+            keys.when(() -> AEItemKey.fromTag(any())).thenAnswer(call ->
+                definitions.get(((net.minecraft.world.level.storage.ValueInput) call.getArgument(0)).getIntOr("testId", 0)));
             for (int i = 0; i < 2; i++) {
                 var definition = definitions.get(i);
                 patterns.when(() -> PatternDetailsHelper.decodePattern(eq(definition), any())).thenReturn(fixture.patterns.get(i));

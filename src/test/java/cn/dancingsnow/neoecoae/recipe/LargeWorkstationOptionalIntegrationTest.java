@@ -77,9 +77,9 @@ class LargeWorkstationOptionalIntegrationTest {
     }
 
     private static LargeWorkstationRecipe recipe(String type) {
-        var display = new IntegratedWorkingStationRecipe(
+        var display = IntegratedWorkingStationRecipe.of(
             List.of(new SizedIngredient(Ingredient.of(Items.IRON_INGOT), 1)),
-            new SizedFluidIngredient(FluidIngredient.empty(), 1), new ItemStack(Items.GOLD_INGOT), FluidStack.EMPTY, 100);
+            (net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient) null, new ItemStack(Items.GOLD_INGOT), FluidStack.EMPTY, 100);
         return new LargeWorkstationRecipe(Identifier.parse("test:optional_integration"), display, 100,
             List.of(), Identifier.parse(type));
     }

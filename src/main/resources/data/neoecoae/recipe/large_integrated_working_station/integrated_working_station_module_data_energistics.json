@@ -45,7 +45,7 @@
     }
   ],
   "inputFluid": {
-    "fluid": "data_energistics:data_corrosion_liquid",
+    "ingredient": "data_energistics:data_corrosion_liquid",
     "amount": 16000
   },
   "itemOutput": {

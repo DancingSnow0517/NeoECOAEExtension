@@ -33,7 +33,7 @@ class StorageCellUiExtractionTest {
         // Display snapshots use persistent NBT, which omits network-only components.
         f.cell.get().set(DataComponents.CREATIVE_SLOT_LOCK, Unit.INSTANCE);
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        ItemStack displayed = ItemStack.parse(registries, f.cell.get().save(registries)).orElseThrow();
+        ItemStack displayed = cn.dancingsnow.neoecoae.util.LegacyNbt.parseItem(registries, cn.dancingsnow.neoecoae.util.LegacyNbt.saveItem(registries, f.cell.get()));
         assertFalse(ItemStack.matches(displayed, f.cell.get()));
         assertTrue(f.take(f.interactionId.get(), false));
         assertTrue(f.carried.get().has(DataComponents.CREATIVE_SLOT_LOCK));
@@ -47,7 +47,7 @@ class StorageCellUiExtractionTest {
         data.putLong("stored-amount", 42);
         f.cell.get().set(DataComponents.CUSTOM_DATA, CustomData.of(data));
         assertTrue(f.take(displayedId, false));
-        assertEquals(42, f.carried.get().get(DataComponents.CUSTOM_DATA).copyTag().getLong("stored-amount"));
+        assertEquals(42, f.carried.get().get(DataComponents.CUSTOM_DATA).copyTag().getLongOr("stored-amount", 0L));
     }
 
     @Test
@@ -82,7 +82,7 @@ class StorageCellUiExtractionTest {
     @Test
     void fullInventoryAndOccupiedCursorLeaveTheDiskMounted() {
         Fixture f = new Fixture();
-        for (int i = 0; i < f.inventory.items.size(); i++) f.inventory.setItem(i, new ItemStack(Items.COBBLESTONE, 64));
+        for (int i = 0; i < f.inventory.getNonEquipmentItems().size(); i++) f.inventory.setItem(i, new ItemStack(Items.COBBLESTONE, 64));
         assertFalse(f.take(f.interactionId.get(), true));
         f.carried.set(new ItemStack(Items.STONE));
         assertFalse(f.take(f.interactionId.get(), false));
@@ -95,8 +95,8 @@ class StorageCellUiExtractionTest {
         Fixture f = new Fixture();
         for (var reason : List.of(ECODriveBlockEntity.CellExtractionBlockReason.INFINITE_MIGRATION,
             ECODriveBlockEntity.CellExtractionBlockReason.INFINITE_MEMBER)) {
-            when(f.drive.getCellExtractionBlockReasonText()).thenReturn(Component.translatable(reason.translationKey()));
-            when(f.drive.canExtractCell()).thenReturn(false);
+            doReturn(Component.translatable(reason.translationKey())).when(f.drive).getCellExtractionBlockReasonText();
+            doReturn(false).when(f.drive).canExtractCell();
             assertFalse(f.take(f.interactionId.get(), false));
             assertFalse(f.take(f.interactionId.get(), true));
         }
@@ -152,7 +152,7 @@ class StorageCellUiExtractionTest {
         final ECODriveBlockEntity drive = mock(ECODriveBlockEntity.class);
         final Player player = mock(Player.class);
         final AbstractContainerMenu menu = mock(AbstractContainerMenu.class);
-        final Inventory inventory = new Inventory(player);
+        final Inventory inventory = new Inventory(player, new net.minecraft.world.entity.EntityEquipment());
         final BlockPos position = new BlockPos(10, 70, 3);
         final AtomicReference<UUID> interactionId = new AtomicReference<>(UUID.randomUUID());
         final AtomicReference<ItemStack> cell = new AtomicReference<>(new ItemStack(Items.DIAMOND));

@@ -26,7 +26,7 @@ public final class ECOWorkstationRecipeAdapters {
         for (var entry : REGISTRY.entries()) {
             if (!entry.extension().sourceType().equals(sourceType)) continue;
             var result = Objects.requireNonNull(entry.extension().adapter().adapt(recipe, registries), "Adapted recipe");
-            if (!recipe.id().equals(result.id()) || !sourceType.equals(result.sourceType()))
+            if (!recipe.id().identifier().equals(result.id()) || !sourceType.equals(result.sourceType()))
                 throw new IllegalArgumentException("Adapter changed recipe identity or source type: " + recipe.id());
             return result;
         }

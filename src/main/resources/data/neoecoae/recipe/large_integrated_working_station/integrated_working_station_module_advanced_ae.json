@@ -41,7 +41,7 @@
     }
   ],
   "inputFluid": {
-    "fluid": "advanced_ae:quantum_infusion_source",
+    "ingredient": "advanced_ae:quantum_infusion_source",
     "amount": 16000
   },
   "itemOutput": {

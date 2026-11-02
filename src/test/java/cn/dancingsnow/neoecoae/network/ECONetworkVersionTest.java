@@ -51,6 +51,7 @@ class ECONetworkVersionTest {
         assertFalse(result.success());
         var reason = assertInstanceOf(TranslatableContents.class, result.failureReason().getContents());
         assertEquals("neoforge.network.negotiation.failure.version.mismatch", reason.getKey());
-        assertArrayEquals(new Object[] {serverVersion, clientVersion}, reason.getArgs());
+        // NeoForge 26.1 reports the mismatch as (client version, server version).
+        assertArrayEquals(new Object[] {clientVersion, serverVersion}, reason.getArgs());
     }
 }

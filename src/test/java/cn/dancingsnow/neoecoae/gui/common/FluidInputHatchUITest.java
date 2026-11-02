@@ -34,7 +34,6 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AmountFormat;
 import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEmitter;
-import net.neoforged.neoforge.items.ItemStackHandler;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -86,7 +85,7 @@ class FluidInputHatchUITest {
 
     @Test
     void createsOneUpgradeSlotAlongsideDistinctBufferMarkAndQuantityControls() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft()) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             UIElement root = FluidInputHatchUI.createRoot(host(), player());
             assertInstanceOf(FluidSlot.class, node(root, "stock"));
@@ -101,7 +100,7 @@ class FluidInputHatchUITest {
     @Test
     @SuppressWarnings("unchecked")
     void insertingAndRemovingTheCardSwitchesContentsWithoutRebuildingInventoryOrSlots() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft()) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             var root = FluidInputHatchUI.createRoot(host(), player());
             var legacy = node(root, "legacy-fluid-content");
@@ -126,7 +125,7 @@ class FluidInputHatchUITest {
 
     @Test
     void savedCardStateSelectsTheNetworkContentsWhenTheMenuOpens() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft()) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             var host = host();
             when(host.hasNetworkPullCard()).thenReturn(true);
@@ -140,7 +139,7 @@ class FluidInputHatchUITest {
 
     @Test
     void originalTankLayoutDisplaysPreservedLongStockWithoutClippingItsAmount() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft()) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             var host = host();
             host.tank.add(new FluidStack(Fluids.WATER, 1), 5_000_000_001L);
@@ -155,7 +154,7 @@ class FluidInputHatchUITest {
 
     @Test
     void markingClicksUseServerActionsWithoutConsumingTheCarriedFluidContainer() throws Exception {
-        try (var ldlib = mockStatic(LDLib2.class)) {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft()) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             var host = host();
             var root = FluidInputHatchUI.createRoot(host, player());
@@ -187,7 +186,7 @@ class FluidInputHatchUITest {
     @Test
     @SuppressWarnings("unchecked")
     void gearUsesMouseDownToRequestTheNativeStockSubmenuAndKeepsTheSharedSlots() throws Exception {
-        try (var ldlib = mockStatic(LDLib2.class)) {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft()) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             var host = host();
             when(host.hasNetworkPullCard()).thenReturn(true);
@@ -232,7 +231,7 @@ class FluidInputHatchUITest {
         when(host.getTargetAmount()).thenReturn(16_000L);
         when(host.getMainNode()).thenReturn(mock(IManagedGridNode.class));
         var upgrades = mock(IUpgradeInventory.class);
-        when(upgrades.toItemHandler()).thenReturn(new ItemStackHandler(1));
+        when(upgrades.toResourceHandler()).thenReturn(new net.neoforged.neoforge.transfer.item.ItemStacksResourceHandler(1));
         when(host.getUpgrades()).thenReturn(upgrades);
         return host;
     }

@@ -198,7 +198,7 @@ class PatternCatalogScanTest {
     private static ItemStack encodedPattern() {
         ItemStack pattern = new ItemStack(Items.STONE);
         pattern.set(AEComponents.ENCODED_CRAFTING_PATTERN, new EncodedCraftingPattern(List.of(),
-                new ItemStack(Items.DIAMOND), Identifier.withDefaultNamespace("test"), false, false));
+                new ItemStack(Items.DIAMOND), net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.RECIPE, Identifier.withDefaultNamespace("test")), false, false));
         return pattern;
     }
 

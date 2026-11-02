@@ -25,7 +25,7 @@ class MultiblockPreviewRenderingTest {
     @BeforeAll static void bootstrap() {
         InventoryTestBootstrap.initialize();
         var registry = (MappedRegistry<Block>) BuiltInRegistries.BLOCK;
-        registry.unfreeze();
+        registry.unfreeze(false);
         try {
             controller = new PreviewController();
             Registry.register(registry, "neoecoae_preview_test:controller", controller);
@@ -47,21 +47,14 @@ class MultiblockPreviewRenderingTest {
     @Test void materialCountsUseVanillaDecorationsRatherThanScaledCustomText() throws Exception {
         var type = read("cn/dancingsnow/neoecoae/integration/xei/multiblock/MultiBlockInfoWrapper$RequiredItemSlot");
         var draw = type.methods.stream().filter(method -> method.name.equals("drawItemStack")).findFirst().orElseThrow();
-        boolean helper = false;
+        // 26.1 port: the GUI is a 2D extraction pass with no item depth to set up, so main now draws the item
+        // and its vanilla decorations directly instead of going through LDLib's drawItemStack helper.
+        boolean vanilla = false;
         for (var instruction : draw.instructions) {
             if (instruction instanceof MethodInsnNode call) {
                 assertNotEquals("drawStringFixedCorner", call.name);
-                helper |= call.owner.equals("com/lowdragmc/lowdraglib2/gui/util/DrawerHelper")
-                    && call.name.equals("drawItemStack");
-            }
-        }
-        assertTrue(helper, "LDLib's depth setup must keep the item visible above the recipe background");
-        var itemHelper = read("com/lowdragmc/lowdraglib2/gui/util/DrawerHelper");
-        var helperDraw = itemHelper.methods.stream().filter(method -> method.name.equals("drawItemStack")).findFirst().orElseThrow();
-        boolean vanilla = false;
-        for (var instruction : helperDraw.instructions) {
-            if (instruction instanceof MethodInsnNode call) {
-                vanilla |= call.owner.equals("net/minecraft/client/gui/GuiGraphics")
+                vanilla |= call.owner.equals("net/minecraft/client/gui/GuiGraphicsExtractor")
+                    && call.name.equals("itemDecorations")
                     && call.desc.equals("(Lnet/minecraft/client/gui/Font;Lnet/minecraft/world/item/ItemStack;IILjava/lang/String;)V");
             }
         }
@@ -99,7 +92,7 @@ class MultiblockPreviewRenderingTest {
     private static final class PreviewController extends Block {
         static final BooleanProperty FORMED = BooleanProperty.create("formed");
         static final BooleanProperty WORKING = BooleanProperty.create("working");
-        PreviewController() { super(BlockBehaviour.Properties.of()); }
+        PreviewController() { super(BlockBehaviour.Properties.of().setId(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.BLOCK, net.minecraft.resources.Identifier.parse("neoecoae_preview_test:controller")))); }
         @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
             builder.add(FORMED, WORKING);
         }

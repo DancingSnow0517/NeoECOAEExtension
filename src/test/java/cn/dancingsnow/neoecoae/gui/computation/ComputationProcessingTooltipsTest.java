@@ -14,7 +14,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import java.util.List;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.util.FormattedCharSequence;
@@ -155,9 +155,9 @@ class ComputationProcessingTooltipsTest {
         var context = context();
         tooltip.drawBackgroundAdditional(context);
         verify(font).split(left, 206);
-        verify(context.graphics).drawString(eq(font), same(first), eq(0), eq(0), anyInt(), eq(true));
-        verify(context.graphics).drawString(eq(font), same(second), eq(0), eq(font.lineHeight + 2), anyInt(), eq(true));
-        verify(context.graphics).drawString(eq(font), same(status), eq(218), eq(0), anyInt(), eq(true));
+        verify(context.graphics).text(eq(font), same(first), eq(0), eq(0), anyInt(), eq(true));
+        verify(context.graphics).text(eq(font), same(second), eq(0), eq(font.lineHeight + 2), anyInt(), eq(true));
+        verify(context.graphics).text(eq(font), same(status), eq(218), eq(0), anyInt(), eq(true));
     }
 
     @Test void machineTooltipUsesTheRegisteredLdlibComponentWithAnUnshiftedContentOrigin() throws Exception {
@@ -165,7 +165,7 @@ class ComputationProcessingTooltipsTest {
              var ldlib = mockStatic(com.lowdragmc.lowdraglib2.LDLib2.class)) {
             ldlib.when(com.lowdragmc.lowdraglib2.LDLib2::isRemote).thenReturn(true);
             com.lowdragmc.lowdraglib2.gui.ui.layout.LayoutProperties.init();
-            var client = mock(net.minecraft.client.Minecraft.class);
+            var client = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.withOptions(mock(net.minecraft.client.Minecraft.class));
             var window = mock(com.mojang.blaze3d.platform.Window.class);
             when(window.getGuiScaledWidth()).thenReturn(400);
             when(client.getWindow()).thenReturn(window);
@@ -182,9 +182,9 @@ class ComputationProcessingTooltipsTest {
                 java.math.BigInteger.TEN, false, progress);
             var tooltip = ComputationProcessingTooltips.create(List.of(Component.literal("Product"),
                 Component.literal("Crafting: 1")), item);
-            assertEquals(List.of(Component.literal("Product")), tooltip.tooltipTexts());
+            assertEquals(List.of(Component.literal("Product")), tooltip.tooltips().stream().filter(net.minecraft.network.chat.Component.class::isInstance).map(net.minecraft.network.chat.Component.class::cast).toList());
             var component = assertInstanceOf(com.lowdragmc.lowdraglib2.gui.ui.utils.ModularUITooltipComponent.class,
-                tooltip.tooltipComponent());
+                tooltip.tooltips().stream().filter(net.minecraft.world.inventory.tooltip.TooltipComponent.class::isInstance).findFirst().orElse(null));
             assertEquals(180F, component.modularUI.getWidth());
             assertTrue(component.modularUI.getHeight() > 0);
             assertEquals(0F, component.modularUI.ui.rootElement.getPositionX());
@@ -209,7 +209,7 @@ class ComputationProcessingTooltipsTest {
         var context = mock(GUIContext.class);
         var field = GUIContext.class.getDeclaredField("graphics");
         field.setAccessible(true);
-        field.set(context, mock(GuiGraphics.class));
+        field.set(context, mock(GuiGraphicsExtractor.class));
         return context;
     }
 }

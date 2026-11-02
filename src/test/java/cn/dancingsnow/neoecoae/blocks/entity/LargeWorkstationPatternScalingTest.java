@@ -11,7 +11,6 @@ import cn.dancingsnow.neoecoae.recipe.LargeWorkstationModule;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
-import com.moakiee.ae2lt.me.key.LightningKey;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -37,6 +36,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class LargeWorkstationPatternScalingTest {
+    // 26.1 port: AE2 Lightning Tech's LightningKey (1.21.1 jar only) cannot initialize on 26.1; the extra-input
+    // handling under test is key-agnostic, so two distinct item keys stand in for the two lightning tiers.
+    private static final appeng.api.stacks.AEKey EXTRA_A = appeng.api.stacks.AEItemKey.of(net.minecraft.world.item.Items.BLAZE_ROD);
+    private static final appeng.api.stacks.AEKey EXTRA_B = appeng.api.stacks.AEItemKey.of(net.minecraft.world.item.Items.GLOWSTONE_DUST);
+
     @BeforeAll static void bootstrap() throws Exception {
         InventoryTestBootstrap.initialize();
         // Controller textures initialize the mod's registrar even in isolated JVM tests.
@@ -63,18 +67,18 @@ class LargeWorkstationPatternScalingTest {
         var controller = controller();
         var base = recipe();
         var recipe = new LargeWorkstationRecipe(base.id(), base.display(), base.energy(),
-            List.of(new GenericStack(LightningKey.EXTREME_HIGH_VOLTAGE, 4)));
+            List.of(new GenericStack(EXTRA_A, 4)));
         var pattern = pattern(8, 4);
         KeyCounter[] holders;
         if (suppliedLightning) {
             var lightningInput = mock(IPatternDetails.IInput.class);
             when(lightningInput.getPossibleInputs()).thenReturn(
-                new GenericStack[]{new GenericStack(LightningKey.EXTREME_HIGH_VOLTAGE, 1)});
+                new GenericStack[]{new GenericStack(EXTRA_A, 1)});
             when(lightningInput.getMultiplier()).thenReturn(8L);
             var ironInput = pattern.getInputs()[0];
             when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[]{ironInput, lightningInput});
             holders = new KeyCounter[]{counter(AEItemKey.of(Items.IRON_INGOT), 24),
-                counter(LightningKey.EXTREME_HIGH_VOLTAGE, 24)};
+                counter(EXTRA_A, 24)};
         } else {
             holders = new KeyCounter[]{counter(AEItemKey.of(Items.IRON_INGOT), 24)};
         }
@@ -93,9 +97,9 @@ class LargeWorkstationPatternScalingTest {
         assertEquals(24L, ((KeyCounter) value(batch, "inputTotal")).get(AEItemKey.of(Items.IRON_INGOT)));
         assertEquals(12L, ((KeyCounter) value(batch, "outputTotal")).get(AEItemKey.of(Items.DIAMOND)));
         assertEquals(suppliedLightning ? 24L : 0L,
-            ((KeyCounter) value(batch, "inputTotal")).get(LightningKey.EXTREME_HIGH_VOLTAGE));
+            ((KeyCounter) value(batch, "inputTotal")).get(EXTRA_A));
         assertEquals(suppliedLightning ? 0L : 24L,
-            ((KeyCounter) value(batch, "missingExtras")).get(LightningKey.EXTREME_HIGH_VOLTAGE));
+            ((KeyCounter) value(batch, "missingExtras")).get(EXTRA_A));
         assertEquals(new GenericStack(AEItemKey.of(Items.DIAMOND), 4), value(batch, "unlockStack"));
     }
 
@@ -146,8 +150,8 @@ class LargeWorkstationPatternScalingTest {
     @Test void exactRecipeKeepsItsOriginalEnergyWhenASmallerRecipeAlsoMatches() throws Exception {
         var controller = controller();
         var base = recipe();
-        var exact = new LargeWorkstationRecipe(Identifier.parse("test:exact"), new IntegratedWorkingStationRecipe(
-            List.of(new SizedIngredient(Ingredient.of(Items.IRON_INGOT), 8)), base.display().inputFluid(),
+        var exact = new LargeWorkstationRecipe(Identifier.parse("test:exact"), IntegratedWorkingStationRecipe.of(
+            List.of(new SizedIngredient(Ingredient.of(Items.IRON_INGOT), 8)), base.display().inputFluid().orElse(null),
             new ItemStack(Items.DIAMOND, 4), FluidStack.EMPTY, 150), 150, List.of());
         var holders = new KeyCounter[]{counter(AEItemKey.of(Items.IRON_INGOT), 8)};
         try (var recipes = mockStatic(LargeWorkstationRecipes.class, CALLS_REAL_METHODS)) {
@@ -195,9 +199,9 @@ class LargeWorkstationPatternScalingTest {
     }
 
     private static LargeWorkstationRecipe recipe() {
-        return new LargeWorkstationRecipe(Identifier.parse("test:scaled"), new IntegratedWorkingStationRecipe(
+        return new LargeWorkstationRecipe(Identifier.parse("test:scaled"), IntegratedWorkingStationRecipe.of(
             List.of(new SizedIngredient(Ingredient.of(Items.IRON_INGOT), 4)),
-            new SizedFluidIngredient(FluidIngredient.empty(), 1), new ItemStack(Items.DIAMOND, 2),
+            (SizedFluidIngredient) null, new ItemStack(Items.DIAMOND, 2),
             FluidStack.EMPTY, 100), 100, List.of());
     }
 

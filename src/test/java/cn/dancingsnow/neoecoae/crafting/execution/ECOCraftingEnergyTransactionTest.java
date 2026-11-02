@@ -24,7 +24,7 @@ class ECOCraftingEnergyTransactionTest {
         var tag = new CompoundTag();
         target.writeToNBT(tag);
         return tag.contains("prepaidEnergyCreditExact")
-            ? new BigDecimal(tag.getString("prepaidEnergyCreditExact")) : BigDecimal.ZERO;
+            ? new BigDecimal(tag.getStringOr("prepaidEnergyCreditExact", "")) : BigDecimal.ZERO;
     }
 
     @Test void longMaxBatchRetainsRoundingCreditAcrossSaveAndConsumesItExactlyOnce() {

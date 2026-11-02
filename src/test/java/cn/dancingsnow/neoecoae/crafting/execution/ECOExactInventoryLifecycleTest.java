@@ -151,14 +151,14 @@ class ECOExactInventoryLifecycleTest {
         var logic = new ECOCraftingCPULogic(cpu);
         var key = mock(AEKey.class, RETURNS_DEEP_STUBS);
         var registry = mock(HolderLookup.Provider.class);
-        when(key.toTagGeneric(registry)).thenAnswer(call -> new CompoundTag());
+        doAnswer(call -> { ((net.minecraft.world.level.storage.ValueOutput) call.getArgument(0)).putString("test", "key"); return null; }).when(key).toTagGeneric(any());
         logic.exactInventory().setEnabled(true);
         for (int i = 0; i < 9; i++) logic.getInventory().insert(key, Long.MAX_VALUE, Actionable.MODULATE);
         var saved = new CompoundTag();
         logic.writeToNBT(saved, registry);
         var restored = new ECOCraftingCPULogic(cpu);
         try (var keys = mockStatic(AEKey.class)) {
-            keys.when(() -> AEKey.fromTagGeneric(eq(registry), any())).thenReturn(key);
+            keys.when(() -> AEKey.fromTagGeneric(any())).thenReturn(key);
             restored.readFromNBT(saved, registry);
         }
         var total = BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.valueOf(9));
@@ -178,7 +178,7 @@ class ECOExactInventoryLifecycleTest {
         cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize();
         var key = mock(AEKey.class, RETURNS_DEEP_STUBS);
         var registry = mock(net.minecraft.core.RegistryAccess.class);
-        when(key.toTagGeneric(registry)).thenAnswer(call -> new CompoundTag());
+        doAnswer(call -> { ((net.minecraft.world.level.storage.ValueOutput) call.getArgument(0)).putString("test", "key"); return null; }).when(key).toTagGeneric(any());
         var cpu = mock(ECOCraftingCPU.class);
         var logic = new ECOCraftingCPULogic(cpu);
         when(cpu.getLogic()).thenReturn(logic);
@@ -214,8 +214,8 @@ class ECOExactInventoryLifecycleTest {
         assertNull(restoredSlots[1]);
         var restored = new cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory(ignored -> {});
         try (var keys = mockStatic(AEKey.class)) {
-            keys.when(() -> AEKey.fromTagGeneric(eq(registry), any())).thenReturn(key);
-            restored.readFromNBT(restoredSlots[0].getList("inventory", 10), registry);
+            keys.when(() -> AEKey.fromTagGeneric(any())).thenReturn(key);
+            cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readInventory(registry, restored, restoredSlots[0].getListOrEmpty("inventory"));
         }
         assertEquals(logic.exactInventory().amount(key), restored.amount(key));
     }

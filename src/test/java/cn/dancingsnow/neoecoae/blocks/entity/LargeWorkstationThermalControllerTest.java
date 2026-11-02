@@ -20,7 +20,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.RecipeHolder;
-import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -46,7 +45,8 @@ class LargeWorkstationThermalControllerTest {
     private static Fluid cryotheum;
     private ECOLargeIntegratedWorkingStationBlockEntity host;
     private Level level;
-    private RecipeManager recipes;
+    // 26.1: recipes are read through AE2's RecipeAccess (server RecipeMap), mocked statically per test.
+    private org.mockito.MockedStatic<appeng.crafting.RecipeAccess> recipeAccess;
     private FluidTank input;
     private FluidTank output;
     private boolean previousTemperatureEnabled;
@@ -61,13 +61,13 @@ class LargeWorkstationThermalControllerTest {
         }
         var recipeRegistry = (MappedRegistry<RecipeType<?>>) BuiltInRegistries.RECIPE_TYPE;
         if (!recipeRegistry.containsKey(NERecipeTypes.COOLING.getId())) {
-            recipeRegistry.unfreeze();
+            recipeRegistry.unfreeze(false);
             Registry.register(recipeRegistry, NERecipeTypes.COOLING.getId(), new RecipeType<CoolingRecipe>() {});
             recipeRegistry.freeze();
         }
         var fluids = (MappedRegistry<Fluid>) BuiltInRegistries.FLUID;
         var id = Identifier.parse("neoecoae:cryotheum_solution");
-        fluids.unfreeze();
+        fluids.unfreeze(false);
         // This registry entry is shared with diagnostics tests that resolve the coolant's display name.
         var cryotheumType = new FluidType(FluidType.Properties.create()
             .descriptionId("fluid.neoecoae.cryotheum_solution")) {};
@@ -76,6 +76,8 @@ class LargeWorkstationThermalControllerTest {
             public FluidType getFluidType() { return cryotheumType; }
         });
         fluids.freeze();
+        // 26.1: default data components are bound when registries load; fluids registered by a test need it too.
+        cryotheum.builtInRegistryHolder().bindComponents(net.minecraft.core.component.DataComponentMap.EMPTY);
     }
 
     @BeforeEach
@@ -97,8 +99,7 @@ class LargeWorkstationThermalControllerTest {
         level = mock(Level.class);
         gameTime = 0;
         when(level.getGameTime()).thenAnswer(call -> gameTime);
-        recipes = mock(RecipeManager.class);
-        when(level.getRecipeManager()).thenReturn(recipes);
+        recipeAccess = mockStatic(appeng.crafting.RecipeAccess.class);
         input = new FluidTank(100_000);
         output = new FluidTank(100_000);
         doReturn(input).when(host).getInputTank();
@@ -118,6 +119,7 @@ class LargeWorkstationThermalControllerTest {
 
     @AfterEach
     void restoreConfig() {
+        if (recipeAccess != null) recipeAccess.close();
         NEConfig.largeWorkstationTemperatureEnabled = previousTemperatureEnabled;
     }
 
@@ -264,7 +266,7 @@ class LargeWorkstationThermalControllerTest {
     void disabledTemperatureUsesCoolantTierRegardlessOfHeatOrSelectedMaximum(int tier, int expected) throws Exception {
         NEConfig.largeWorkstationTemperatureEnabled = false;
         field(host, "activeCooling", true);
-        if (tier == 0) when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of());
+        if (tier == 0) recipeAccess.when(() -> appeng.crafting.RecipeAccess.byType(any(), eq(NERecipeTypes.COOLING.get()))).thenReturn(List.of());
         else {
             coolant(Fluids.WATER, tier, FluidStack.EMPTY);
             input.setFluid(new FluidStack(Fluids.WATER, 1000));
@@ -400,7 +402,7 @@ class LargeWorkstationThermalControllerTest {
     void acceptedCoolantBatchWaitsWhenNoCoolantRecipeIsAvailable() throws Exception {
         NEConfig.largeWorkstationTemperatureEnabled = false;
         field(host, "activeCooling", true);
-        when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of());
+        recipeAccess.when(() -> appeng.crafting.RecipeAccess.byType(any(), eq(NERecipeTypes.COOLING.get()))).thenReturn(List.of());
         var batch = queuedBatch(9);
         host.tickingRequest(mock(IGridNode.class), 1);
         assertEquals(0, value(batch, "progress"));
@@ -417,11 +419,11 @@ class LargeWorkstationThermalControllerTest {
         var snapshot = ECOLargeIntegratedWorkingStationBlockEntity.class.getDeclaredMethod("getUiSnapshot", int.class);
         snapshot.setAccessible(true);
         var value = (net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0);
-        assertFalse(value.getBoolean("temperatureEnabled"));
-        assertFalse(value.getBoolean("preheating"));
-        assertEquals(0, value.getDouble("temperature"));
-        assertEquals(256, value.getLong("parallelCapacity"));
-        assertFalse(value.getString("pause").endsWith("overheated"));
+        assertFalse(value.getBooleanOr("temperatureEnabled", false));
+        assertFalse(value.getBooleanOr("preheating", false));
+        assertEquals(0, value.getDoubleOr("temperature", 0.0D));
+        assertEquals(256, value.getLongOr("parallelCapacity", 0L));
+        assertFalse(value.getStringOr("pause", "").endsWith("overheated"));
         assertEquals(100, host.getTemperature(), "Only the display is hidden, persisted state remains intact");
     }
 
@@ -435,16 +437,16 @@ class LargeWorkstationThermalControllerTest {
         for (int i = 0; i < 20; i++) tick();
         var snapshot = ECOLargeIntegratedWorkingStationBlockEntity.class.getDeclaredMethod("getUiSnapshot", int.class);
         snapshot.setAccessible(true);
-        assertEquals(speed, ((net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0)).getDouble("coolingPerSecond"), 1e-12);
+        assertEquals(speed, ((net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0)).getDoubleOr("coolingPerSecond", 0.0D), 1e-12);
         field(host, "activeCooling", false);
-        assertEquals(speed, ((net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0)).getDouble("coolingPerSecond"), 1e-12,
+        assertEquals(speed, ((net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0)).getDoubleOr("coolingPerSecond", 0.0D), 1e-12,
             "Switching cooling off must not erase the actual previous second");
         for (int i = 0; i < 20; i++) tick();
-        assertEquals(0, ((net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0)).getDouble("coolingPerSecond"));
+        assertEquals(0, ((net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0)).getDoubleOr("coolingPerSecond", 0.0D));
         field(host, "activeCooling", true);
         input.setFluid(FluidStack.EMPTY);
         for (int i = 0; i < 20; i++) tick();
-        assertEquals(0, ((net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0)).getDouble("coolingPerSecond"));
+        assertEquals(0, ((net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0)).getDoubleOr("coolingPerSecond", 0.0D));
     }
 
     @ParameterizedTest
@@ -464,11 +466,11 @@ class LargeWorkstationThermalControllerTest {
         var snapshot = ECOLargeIntegratedWorkingStationBlockEntity.class.getDeclaredMethod("getUiSnapshot", int.class);
         snapshot.setAccessible(true);
         var tag = assertDoesNotThrow(() -> (net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0));
-        var row = tag.getList("tasks", net.minecraft.nbt.Tag.TAG_COMPOUND).getCompound(0);
-        assertEquals(amount, row.getLong("amount"));
-        assertEquals(25, row.getInt("progress"));
-        assertTrue(row.getBoolean("returnable"));
-        var icon = net.minecraft.world.item.ItemStack.parseOptional(registries, row.getCompound("item"));
+        var row = tag.getListOrEmpty("tasks").getCompoundOrEmpty(0);
+        assertEquals(amount, row.getLongOr("amount", 0L));
+        assertEquals(25, row.getIntOr("progress", 0));
+        assertTrue(row.getBooleanOr("returnable", false));
+        var icon = cn.dancingsnow.neoecoae.util.LegacyNbt.parseItem(registries, row.getCompoundOrEmpty("item"));
         assertEquals(1, icon.getCount());
         assertEquals(8, icon.getMaxStackSize());
         assertEquals("Batch icon", icon.getHoverName().getString());
@@ -766,8 +768,8 @@ class LargeWorkstationThermalControllerTest {
         var snapshot = ECOLargeIntegratedWorkingStationBlockEntity.class.getDeclaredMethod("getUiSnapshot", int.class);
         snapshot.setAccessible(true);
         var tag = (net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0);
-        assertEquals(count, tag.getLong("parallelUsed"));
-        assertEquals(count, tag.getLong("parallelCapacity"));
+        assertEquals(count, tag.getLongOr("parallelUsed", 0L));
+        assertEquals(count, tag.getLongOr("parallelCapacity", 0L));
         var settings = (net.minecraft.network.chat.contents.TranslatableContents) host.getBatchSettingsText().getContents();
         assertEquals((int) count, settings.getArgs()[0]);
         field(host, "temperature", cold);
@@ -1055,10 +1057,10 @@ class LargeWorkstationThermalControllerTest {
 
         var tag = (net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0);
 
-        assertEquals(256, tag.getLong("parallelUsed"));
-        assertEquals(65_536, tag.getLong("parallelCapacity"));
-        assertEquals(1, tag.getInt("totalTasks"));
-        assertEquals("gui.neoecoae.large_integrated_working_station.pause.power_missing", tag.getString("pause"));
+        assertEquals(256, tag.getLongOr("parallelUsed", 0L));
+        assertEquals(65_536, tag.getLongOr("parallelCapacity", 0L));
+        assertEquals(1, tag.getIntOr("totalTasks", 0));
+        assertEquals("gui.neoecoae.large_integrated_working_station.pause.power_missing", tag.getStringOr("pause", ""));
         var settings = (net.minecraft.network.chat.contents.TranslatableContents) host.getBatchSettingsText().getContents();
         assertEquals(256, settings.getArgs()[0]);
     }
@@ -1197,10 +1199,10 @@ class LargeWorkstationThermalControllerTest {
         var snapshot = ECOLargeIntegratedWorkingStationBlockEntity.class.getDeclaredMethod("getUiSnapshot", int.class);
         snapshot.setAccessible(true);
         var tag = (net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0);
-        assertEquals(0, tag.getDouble("processingHeatPerSecond"));
-        assertEquals(6.727 * 0.25 / 20, tag.getDouble("preheatPerSecond"), 1e-12);
-        assertEquals(0.005, tag.getDouble("naturalCoolingPerSecond"), 1e-12);
-        assertEquals(host.getTemperature() - 10, tag.getDouble("temperatureChangePerSecond"), 1e-12);
+        assertEquals(0, tag.getDoubleOr("processingHeatPerSecond", 0.0D));
+        assertEquals(6.727 * 0.25 / 20, tag.getDoubleOr("preheatPerSecond", 0.0D), 1e-12);
+        assertEquals(0.005, tag.getDoubleOr("naturalCoolingPerSecond", 0.0D), 1e-12);
+        assertEquals(host.getTemperature() - 10, tag.getDoubleOr("temperatureChangePerSecond", 0.0D), 1e-12);
     }
 
     @Test
@@ -1212,15 +1214,15 @@ class LargeWorkstationThermalControllerTest {
         var snapshot = ECOLargeIntegratedWorkingStationBlockEntity.class.getDeclaredMethod("getUiSnapshot", int.class);
         snapshot.setAccessible(true);
         var tag = (net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0);
-        assertEquals(6, tag.getInt("currentTier"));
-        assertEquals(256, tag.getLong("parallelCapacity"));
-        assertEquals(0, tag.getDouble("processingHeatPerSecond"));
-        assertEquals(-0.1, tag.getDouble("temperatureChangePerSecond"), 1e-10);
+        assertEquals(6, tag.getIntOr("currentTier", 0));
+        assertEquals(256, tag.getLongOr("parallelCapacity", 0L));
+        assertEquals(0, tag.getDoubleOr("processingHeatPerSecond", 0.0D));
+        assertEquals(-0.1, tag.getDoubleOr("temperatureChangePerSecond", 0.0D), 1e-10);
         NEConfig.largeWorkstationTemperatureEnabled = false;
         tick();
         tag = (net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0);
         for (String key : List.of("processingHeatPerSecond", "preheatPerSecond", "coolingPerSecond",
-            "naturalCoolingPerSecond", "temperatureChangePerSecond")) assertEquals(0, tag.getDouble(key), key);
+            "naturalCoolingPerSecond", "temperatureChangePerSecond")) assertEquals(0, tag.getDoubleOr(key, 0.0D), key);
     }
 
     @Test void timedBatchUsesFourActualTicksAndPaysTheSameTotalAe() throws Exception {
@@ -1672,9 +1674,9 @@ class LargeWorkstationThermalControllerTest {
     }
 
     private void coolant(Fluid fluid, int tier, FluidStack byproduct) {
-        var recipe = new CoolingRecipe(SizedFluidIngredient.of(fluid, 100), byproduct, 1, tier);
-        when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of(
-            new RecipeHolder<>(Identifier.parse("test:cooling"), recipe)));
+        var recipe = new CoolingRecipe(SizedFluidIngredient.of(fluid, 100), byproduct.isEmpty() ? null : net.neoforged.neoforge.fluids.FluidStackTemplate.fromNonEmptyStack(byproduct), 1, tier);
+        recipeAccess.when(() -> appeng.crafting.RecipeAccess.byType(any(), eq(NERecipeTypes.COOLING.get()))).thenReturn(List.of(
+            new RecipeHolder<>(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.RECIPE, Identifier.parse("test:cooling")), recipe)));
     }
 
     private void tick() {

@@ -101,7 +101,9 @@ class MenuDataTransportTest {
     private static ServerPlayer player(MinecraftServer server) {
         var player = mock(ServerPlayer.class);
         player.containerMenu = mock(AbstractContainerMenu.class);
-        when(player.getServer()).thenReturn(server);
+        var level = mock(net.minecraft.server.level.ServerLevel.class);
+        when(level.getServer()).thenReturn(server);
+        when(player.level()).thenReturn(level);
         when(player.registryAccess()).thenReturn(RegistryAccess.EMPTY);
         return player;
     }

@@ -48,14 +48,14 @@ class LargeWorkstationModuleInventoryTest {
             modules.when(() -> LargeWorkstationModule.isUpgradeCard(any(ItemStack.class))).thenReturn(true);
             inventory.setStackInSlot(0, new ItemStack(Items.PAPER));
         }
-        CompoundTag saved = inventory.serializeNBT(registries);
+        CompoundTag saved = cn.dancingsnow.neoecoae.util.LegacyNbt.output(registries, inventory::serialize);
         var restored = new LargeWorkstationModuleInventory(changes::incrementAndGet);
-        restored.deserializeNBT(registries, saved);
+        restored.deserialize(cn.dancingsnow.neoecoae.util.LegacyNbt.input(registries, saved));
         assertTrue(restored.getStackInSlot(0).is(Items.PAPER));
         assertEquals(1, restored.getStackInSlot(0).getCount());
-        assertEquals(saved, restored.serializeNBT(registries));
+        assertEquals(saved, cn.dancingsnow.neoecoae.util.LegacyNbt.output(registries, restored::serialize));
         assertEquals(1, changes.get(), "Loading must not republish a partly restored machine");
-        restored.deserializeNBT(registries, new CompoundTag());
+        restored.deserialize(cn.dancingsnow.neoecoae.util.LegacyNbt.input(registries, new CompoundTag()));
         assertEquals(1, restored.getSlots());
         assertTrue(restored.getStackInSlot(0).isEmpty());
     }

@@ -10,16 +10,19 @@ import cn.dancingsnow.neoecoae.gui.workstation.WorkstationPatternScroll;
 import cn.dancingsnow.neoecoae.menu.LargeIntegratedWorkingStationPatternProviderMenu;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
-import com.mojang.blaze3d.vertex.PoseStack;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonInfo;
+import net.minecraft.data.AtlasIds;
 import net.minecraft.world.inventory.Slot;
 import org.junit.jupiter.api.BeforeAll;
+import org.joml.Matrix3x2fStack;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -79,23 +82,20 @@ class WorkstationPatternViewportTest {
     @Test
     void onlyTheTwoPartiallyVisibleRowsNeedScissorsAndPoseTransformsAreRestored() throws Exception {
         var fixture = fixture(9.5);
-        GuiGraphics graphics = mock(GuiGraphics.class);
-        PoseStack pose = new PoseStack();
+        GuiGraphicsExtractor graphics = mock(GuiGraphicsExtractor.class);
+        Matrix3x2fStack pose = new Matrix3x2fStack(16);
         when(graphics.pose()).thenReturn(pose);
-        fixture.screen.renderSlot(graphics, fixture.slots.getFirst());
+        fixture.screen.extractSlot(graphics, fixture.slots.getFirst(), 0, 0);
         verify(graphics).enableScissor(108, 73, 268, 197);
         verify(graphics).disableScissor();
-        assertEquals(0, pose.last().pose().m31());
+        assertEquals(0, pose.m21());
         clearInvocations(graphics);
-        fixture.screen.renderSlot(graphics, fixture.slots.get(9));
+        fixture.screen.extractSlot(graphics, fixture.slots.get(9), 0, 0);
         verify(graphics, never()).enableScissor(anyInt(), anyInt(), anyInt(), anyInt());
         verify(graphics, never()).disableScissor();
-        assertEquals(0, pose.last().pose().m31());
-        clearInvocations(graphics);
-        fixture.screen.renderSlotHighlight(graphics, fixture.slots.get(63), 110, 190, 0);
-        verify(graphics).enableScissor(108, 73, 268, 197);
-        verify(graphics).disableScissor();
-        assertEquals(0, pose.last().pose().m31());
+        assertEquals(0, pose.m21());
+        // 26.1 port: the slot-highlight clipping case was removed; vanilla 26.1 draws the hover highlight in
+        // private methods without a per-slot hook (see TODO(26.1 port) in the screen).
     }
 
     @Test
@@ -109,9 +109,11 @@ class WorkstationPatternViewportTest {
         scrollbar.setSize(8, 124);
         set(LargeIntegratedWorkingStationPatternProviderScreen.class, fixture.screen, "patternScrollbar", scrollbar);
         set(LargeIntegratedWorkingStationPatternProviderScreen.class, fixture.screen, "shiftDraggedSlots", new HashSet<>());
-        var minecraft = mock(Minecraft.class, RETURNS_DEEP_STUBS);
-        when(minecraft.getGuiSprites().getSprite(Scrollbar.SMALL.enabledSprite()).contents().width()).thenReturn(7);
-        when(minecraft.getGuiSprites().getSprite(Scrollbar.SMALL.enabledSprite()).contents().height()).thenReturn(15);
+        var minecraft = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.withOptions(mock(Minecraft.class, RETURNS_DEEP_STUBS));
+        when(minecraft.getAtlasManager().getAtlasOrThrow(AtlasIds.GUI).getSprite(Scrollbar.SMALL.enabledSprite())
+            .contents().width()).thenReturn(7);
+        when(minecraft.getAtlasManager().getAtlasOrThrow(AtlasIds.GUI).getSprite(Scrollbar.SMALL.enabledSprite())
+            .contents().height()).thenReturn(15);
         try (var client = mockStatic(Minecraft.class); var blitters = mockStatic(Blitter.class)) {
             client.when(Minecraft::getInstance).thenReturn(minecraft);
             assertEquals(174, scrollbar.getBounds().getX());
@@ -120,12 +122,12 @@ class WorkstationPatternViewportTest {
                 "Expanding to the left must retain the original right edge");
             var blitter = mock(Blitter.class, RETURNS_SELF);
             blitters.when(() -> Blitter.guiSprite(Scrollbar.SMALL.enabledSprite())).thenReturn(blitter);
-            var graphics = mock(GuiGraphics.class);
-            when(graphics.pose()).thenReturn(new PoseStack());
+            var graphics = mock(GuiGraphicsExtractor.class);
+            when(graphics.pose()).thenReturn(new Matrix3x2fStack(16));
             scrollbar.drawForegroundLayer(graphics, scrollbar.getBounds(), Point.ZERO);
             verify(blitter).dest(174, 23, 8, 15);
-            assertTrue(fixture.screen.mouseClicked(274, 73, 0), "The newly visible left pixel must start dragging");
-            assertTrue(fixture.screen.mouseDragged(274, 182, 0, 0, 109));
+            assertTrue(fixture.screen.mouseClicked(new MouseButtonEvent(274, 73, new MouseButtonInfo(0, 0)), false), "The newly visible left pixel must start dragging");
+            assertTrue(fixture.screen.mouseDragged(new MouseButtonEvent(274, 182, new MouseButtonInfo(0, 0)), 0, 109));
             assertFalse(fixture.slots.getFirst().isActive());
             assertEquals(23, fixture.slots.get(9).y, "Dragging from the extra pixel must reach the final row");
         }

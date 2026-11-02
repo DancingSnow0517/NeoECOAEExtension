@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.gui.common.UiTestRendering;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKeyTypesInternal;
@@ -10,7 +11,7 @@ import cn.dancingsnow.neoecoae.storage.StorageInterfaceFilter;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
-import cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys;
+import cn.dancingsnow.neoecoae.gui.common.GuiTestKeys;
 import com.lowdragmc.lowdraglib2.LDLib2;
 import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEmitter;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
@@ -28,13 +29,13 @@ import com.lowdragmc.lowdraglib2.gui.ui.layout.LayoutProperties;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.style.PropertyRegistry;
 import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
-import com.mojang.blaze3d.vertex.PoseStack;
+import org.joml.Matrix3x2fStack;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.util.List;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -75,7 +76,7 @@ class StorageInterfaceUiTest {
     @Test
     @SuppressWarnings("unchecked")
     void leftToolbarAddsTheBusSwitchAndItsIconTracksTheServerState() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft()) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             var host = host();
             when(host.isExcludingStorageBusContainers()).thenReturn(true);
@@ -121,7 +122,7 @@ class StorageInterfaceUiTest {
 
     @Test
     void jsonPositionsTheInterfaceControlsAndTwentySevenPhantomFilters() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft()) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             var host = host();
             UIElement root = StorageInterfaceUI.createRoot(host, player(), () -> Long.MAX_VALUE);
@@ -156,7 +157,8 @@ class StorageInterfaceUiTest {
 
     @Test
     void longStatusTextFitsItsBoxWithoutDiscardingTheColoredState() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
+        try (var ldlib = mockStatic(LDLib2.class);
+             var minecraft = mockStatic(net.minecraft.client.Minecraft.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             UIElement root = StorageInterfaceUI.createRoot(host(), player(), () -> 0);
             Label text = spy((Label) node(root, "structure_status"));
@@ -166,33 +168,40 @@ class StorageInterfaceUiTest {
             text.getStyleBag().compute(1);
             Font font = mock(Font.class);
             when(font.width(value)).thenReturn(180);
-            doReturn(font).when(text).getFont();
+            // 26.1: the status label measures with Minecraft#font.
+            var client = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.withOptions(mock(net.minecraft.client.Minecraft.class));
+            try {
+                var fontField = net.minecraft.client.Minecraft.class.getDeclaredField("font");
+                fontField.setAccessible(true);
+                fontField.set(client, font);
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+            minecraft.when(net.minecraft.client.Minecraft::getInstance).thenReturn(client);
             doReturn(89F).when(text).getContentWidth();
             doReturn(8F).when(text).getContentHeight();
             doReturn(200F).when(text).getContentX();
             doReturn(300F).when(text).getContentY();
             GUIContext context = mock(GUIContext.class);
-            context.graphics = mock(GuiGraphics.class);
-            PoseStack pose = new PoseStack();
+            context.graphics = mock(GuiGraphicsExtractor.class);
+            Matrix3x2fStack pose = new Matrix3x2fStack(16);
             when(context.graphics.pose()).thenReturn(pose);
-            when(context.graphics.drawString(eq(font), same(value), eq(0), eq(0), anyInt(), eq(false)))
-                .thenAnswer(call -> {
-                    var matrix = pose.last().pose();
-                    assertEquals(89F, 180 * matrix.m00(), 0.001F);
-                    assertEquals(200F, matrix.m30(), 0.001F);
-                    assertEquals(300 + (8 - font.lineHeight * matrix.m00()) / 2, matrix.m31(), 0.001F);
+            doAnswer(call -> {
+                    assertEquals(89F, 180 * pose.m00(), 0.001F);
+                    assertEquals(200F, pose.m20(), 0.001F);
+                    assertEquals(300 + (8 - font.lineHeight * pose.m00()) / 2, pose.m21(), 0.001F);
                     assertEquals(0xB53643, value.getSiblings().getFirst().getStyle().getColor().getValue());
-                    return 0;
-                });
-            text.drawBackgroundAdditional(context);
-            verify(context.graphics).drawString(eq(font), same(value), eq(0), eq(0), anyInt(), eq(false));
+                    return null;
+                }).when(context.graphics).text(eq(font), same(value), eq(0), eq(0), anyInt(), eq(false));
+            UiTestRendering.drawBackgroundAdditional(text, context);
+            verify(context.graphics).text(eq(font), same(value), eq(0), eq(0), anyInt(), eq(false));
         }
     }
 
     @Test
     @SuppressWarnings("unchecked")
     void modeCaptionAndButtonStatesFollowServerSnapshotWithoutSendingModeChanges() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft()) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             var host = host();
             when(host.getStorageInterfaceMode()).thenReturn(ECOStorageInterfaceMode.OUTPUT);
@@ -238,7 +247,7 @@ class StorageInterfaceUiTest {
                             case PRESSED -> pressed;
                         };
                         GUIContext context = mock(GUIContext.class);
-                        drawing.drawBackgroundAdditional(context);
+                        UiTestRendering.drawBackgroundAdditional(drawing, context);
                         verify(context).drawTexture(same(texture), eq(209F),
                             eq(258F - texture.spriteSize.height), eq(16F), eq((float) texture.spriteSize.height));
                         verifyNoMoreInteractions(context);
@@ -252,9 +261,9 @@ class StorageInterfaceUiTest {
     @Test
     @SuppressWarnings("unchecked")
     void receivedFiltersPopulateSamplesWithoutEditingOrMovingRealItems() {
-        try (var ldlib = mockStatic(LDLib2.class); var keys = mockStatic(AEKeyTypesInternal.class)) {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft(); var keys = mockStatic(AEKeyTypesInternal.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
-            keys.when(AEKeyTypesInternal::getRegistry).thenReturn(LargeWorkstationTestKeys.REGISTRY);
+            keys.when(AEKeyTypesInternal::getRegistry).thenReturn(GuiTestKeys.REGISTRY);
             var host = host();
             Player player = player();
             var grid = (StorageResourceFilterGrid) node(StorageInterfaceUI.createRoot(host, player, () -> 0), "resource_filters");
@@ -274,9 +283,9 @@ class StorageInterfaceUiTest {
 
     @Test
     void serverRejectsEditsFromAClosedOrDistantMenuAndRejectsInvalidKeys() throws Exception {
-        try (var ldlib = mockStatic(LDLib2.class); var keys = mockStatic(AEKeyTypesInternal.class)) {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft(); var keys = mockStatic(AEKeyTypesInternal.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
-            keys.when(AEKeyTypesInternal::getRegistry).thenReturn(LargeWorkstationTestKeys.REGISTRY);
+            keys.when(AEKeyTypesInternal::getRegistry).thenReturn(GuiTestKeys.REGISTRY);
             var host = host();
             Player player = player();
             Level level = mock(Level.class);
@@ -331,7 +340,7 @@ class StorageInterfaceUiTest {
 
     @Test
     void clicksSendOnlyFilterKeysAndLeaveTheCursorStackUntouched() throws Exception {
-        try (var ldlib = mockStatic(LDLib2.class); var modifiers = mockStatic(UIElement.class, CALLS_REAL_METHODS)) {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft(); var modifiers = mockStatic(UIElement.class, CALLS_REAL_METHODS)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             modifiers.when(UIElement::isShiftDown).thenReturn(false);
             Player player = player();

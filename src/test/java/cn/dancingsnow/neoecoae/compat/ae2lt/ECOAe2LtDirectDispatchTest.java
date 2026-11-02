@@ -23,6 +23,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.*;
 
+@org.junit.jupiter.api.Disabled("26.1 port: exercises the 1.21.1 ae2lt jar (compile-only bridge), whose classes cannot run on MC 26.1 (NoClassDefFoundError: net/minecraft/resources/ResourceLocation)")
 class ECOAe2LtDirectDispatchTest {
     @BeforeAll static void bootstrap() { cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize(); }
 

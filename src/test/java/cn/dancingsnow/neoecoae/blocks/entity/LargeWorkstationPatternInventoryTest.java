@@ -125,9 +125,9 @@ class LargeWorkstationPatternInventoryTest {
 
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         CompoundTag saved = new CompoundTag();
-        provider.writeToNBT(saved, registries);
+        saved.merge(cn.dancingsnow.neoecoae.util.LegacyNbt.output(registries, provider::writeToNBT));
         var restored = provider();
-        restored.readFromNBT(saved, registries);
+        restored.readFromNBT(cn.dancingsnow.neoecoae.util.LegacyNbt.input(registries, saved));
         assertEquals(4, restored.getUpgrades().getInstalledUpgrades(AEItems.CAPACITY_CARD));
         assertEquals(1, restored.getUpgrades().getInstalledUpgrades(Items.REDSTONE));
         var menu = menu(restored);
@@ -145,9 +145,9 @@ class LargeWorkstationPatternInventoryTest {
         original.getMenuPatternInventory().setItemDirect(35, new ItemStack(Items.PAPER));
         original.getMenuPatternInventory().setItemDirect(71, new ItemStack(Items.EMERALD));
         CompoundTag saved = new CompoundTag();
-        original.writeToNBT(saved, registries);
+        saved.merge(cn.dancingsnow.neoecoae.util.LegacyNbt.output(registries, original::writeToNBT));
         var restored = provider();
-        restored.readFromNBT(saved, registries);
+        restored.readFromNBT(cn.dancingsnow.neoecoae.util.LegacyNbt.input(registries, saved));
         assertEquals(4, restored.getUnlockedPatternRows());
         assertEquals(72, restored.getPatternInv().size());
         assertFalse(restored.canInsertPattern(71));
@@ -163,9 +163,9 @@ class LargeWorkstationPatternInventoryTest {
         var oldInventory = new appeng.util.inv.AppEngInternalInventory(36);
         oldInventory.setItemDirect(35, new ItemStack(Items.PAPER));
         CompoundTag saved = new CompoundTag();
-        oldInventory.writeToNBT(saved, PatternProviderLogic.NBT_MEMORY_CARD_PATTERNS, registries);
+        saved.merge(cn.dancingsnow.neoecoae.util.LegacyNbt.output(registries, out -> oldInventory.writeToNBT(out, PatternProviderLogic.NBT_MEMORY_CARD_PATTERNS)));
         var restored = provider();
-        restored.readFromNBT(saved, registries);
+        restored.readFromNBT(cn.dancingsnow.neoecoae.util.LegacyNbt.input(registries, saved));
         assertEquals(36, restored.getPatternInv().size());
         assertTrue(restored.getPatternInv().getStackInSlot(35).is(Items.PAPER));
         assertTrue(restored.getMenuPatternInventory().getStackInSlot(36).isEmpty());
@@ -178,9 +178,9 @@ class LargeWorkstationPatternInventoryTest {
         original.getCapacityUpgrades().insertItem(0, AEItems.CAPACITY_CARD.stack(), false);
         original.getCapacityUpgrades().insertItem(1, AEItems.CAPACITY_CARD.stack(), false);
         CompoundTag saved = new CompoundTag();
-        original.writeToNBT(saved, registries);
+        saved.merge(cn.dancingsnow.neoecoae.util.LegacyNbt.output(registries, original::writeToNBT));
         var restored = provider();
-        restored.readFromNBT(saved, registries);
+        restored.readFromNBT(cn.dancingsnow.neoecoae.util.LegacyNbt.input(registries, saved));
         assertEquals(2, restored.getCapacityUpgrades().getInstalledUpgrades(AEItems.CAPACITY_CARD));
         assertEquals(54, restored.getPatternInv().size());
     }
@@ -310,9 +310,9 @@ class LargeWorkstationPatternInventoryTest {
         try (var keys = mockStatic(appeng.api.stacks.AEKeyTypesInternal.class)) {
             keys.when(appeng.api.stacks.AEKeyTypesInternal::getRegistry)
                 .thenReturn(cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys.REGISTRY);
-            provider.writeToNBT(saved, registries);
+            saved.merge(cn.dancingsnow.neoecoae.util.LegacyNbt.output(registries, provider::writeToNBT));
             var restored = provider();
-            restored.readFromNBT(saved, registries);
+            restored.readFromNBT(cn.dancingsnow.neoecoae.util.LegacyNbt.input(registries, saved));
             assertEquals(savedStack, restored.getReturnInv().getStack(0));
         }
     }
@@ -320,13 +320,13 @@ class LargeWorkstationPatternInventoryTest {
     private static LargeIntegratedWorkingStationPatternProviderMenu serverMenu(LargeWorkstationPatternProvider provider)
         throws Exception {
         var player = mock(Player.class);
-        when(player.getCommandSenderWorld()).thenReturn(mock(Level.class));
-        return menu(provider, new Inventory(player));
+        when(player.level()).thenReturn(mock(Level.class));
+        return menu(provider, new Inventory(player, new net.minecraft.world.entity.EntityEquipment()));
     }
 
     private static LargeIntegratedWorkingStationPatternProviderMenu menu(LargeWorkstationPatternProvider provider)
         throws Exception {
-        return menu(provider, new Inventory(mock(Player.class)));
+        return menu(provider, new Inventory(mock(Player.class), new net.minecraft.world.entity.EntityEquipment()));
     }
 
     private static LargeIntegratedWorkingStationPatternProviderMenu menu(

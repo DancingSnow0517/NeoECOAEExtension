@@ -38,6 +38,7 @@ class ECOOmniSequenceDirectDispatchTest {
     interface TestMolecularProvider extends ICraftingProvider, MolecularBatchCraftingProvider {}
     interface TestOmniProvider extends ICraftingProvider, OmniBatchCraftingProvider {}
 
+    @org.junit.jupiter.api.Disabled("26.1 port: OmniSequence (molecularmanipulator) is in NeoECOAE.UNPORTED_INTEGRATIONS, so the bridge is intentionally inactive until a 26.1 build exists")
     @Test
     void isLoadedReturnsFalseWhenModListIsAbsentOrModNotPresent() {
         try (var mocked = mockStatic(ModList.class)) {
@@ -54,6 +55,7 @@ class ECOOmniSequenceDirectDispatchTest {
         }
     }
 
+    @org.junit.jupiter.api.Disabled("26.1 port: OmniSequence (molecularmanipulator) is in NeoECOAE.UNPORTED_INTEGRATIONS, so the bridge is intentionally inactive until a 26.1 build exists")
     @Test
     void molecularBatchCraftingProviderBatchesAndCleansContext() {
         try (var mocked = mockStatic(ModList.class)) {
@@ -108,6 +110,7 @@ class ECOOmniSequenceDirectDispatchTest {
         }
     }
 
+    @org.junit.jupiter.api.Disabled("26.1 port: OmniSequence (molecularmanipulator) is in NeoECOAE.UNPORTED_INTEGRATIONS, so the bridge is intentionally inactive until a 26.1 build exists")
     @Test
     void omniBatchCraftingProviderAdmitsAndCommitsBatch() {
         try (var mocked = mockStatic(ModList.class)) {
@@ -161,6 +164,7 @@ class ECOOmniSequenceDirectDispatchTest {
         }
     }
 
+    @org.junit.jupiter.api.Disabled("26.1 port: OmniSequence (molecularmanipulator) is in NeoECOAE.UNPORTED_INTEGRATIONS, so the bridge is intentionally inactive until a 26.1 build exists")
     @Test
     void flushAfterCpuAccountingInvokesProviderFlush() {
         try (var mocked = mockStatic(ModList.class)) {

@@ -2,11 +2,14 @@ package cn.dancingsnow.neoecoae.mixins.ae2.storage;
 
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
-import net.minecraft.core.HolderLookup;
+import cn.dancingsnow.neoecoae.util.LegacyNbt;
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.common.util.INBTSerializable;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.neoforged.neoforge.common.util.ValueIOSerializable;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -47,7 +50,7 @@ class AppEngInternalInventorySyncTest {
         field.set(inventory, slots);
         inventory.setOnContentsChanged(() -> fail("Receiving a snapshot must not mark it dirty"));
 
-        inventory.deserializeNBT(null, new CompoundTag());
+        inventory.deserialize(LegacyNbt.input(RegistryAccess.EMPTY, new CompoundTag()));
 
         assertEquals(3, slots.size());
         assertTrue(slots.stream().allMatch(ItemStack::isEmpty));
@@ -123,15 +126,13 @@ class AppEngInternalInventorySyncTest {
         assertNotNull(type.getDeclaredMethod("size"));
         assertNotNull(type.getDeclaredMethod("getHost"));
         assertNotNull(type.getDeclaredMethod("onContentsChanged", int.class));
-        assertNotNull(type.getDeclaredMethod("readFromNBT",
-                CompoundTag.class, String.class, HolderLookup.Provider.class));
-        assertNotNull(type.getDeclaredMethod("writeToNBT",
-                CompoundTag.class, String.class, HolderLookup.Provider.class));
+        assertNotNull(type.getDeclaredMethod("readFromNBT", ValueInput.class, String.class));
+        assertNotNull(type.getDeclaredMethod("writeToNBT", ValueOutput.class, String.class));
         assertThrows(NoSuchMethodException.class,
-                () -> type.getDeclaredMethod("deserializeNBT", HolderLookup.Provider.class, CompoundTag.class),
-                "AE2 now supplies deserializeNBT itself; the mixin would be overriding it");
-        assertFalse(INBTSerializable.class.isAssignableFrom(type),
-                "AE2 now implements INBTSerializable itself; the mixin would be overriding it");
+                () -> type.getDeclaredMethod("deserialize", ValueInput.class),
+                "AE2 now supplies deserialize itself; the mixin would be overriding it");
+        assertFalse(ValueIOSerializable.class.isAssignableFrom(type),
+                "AE2 now implements ValueIOSerializable itself; the mixin would be overriding it");
     }
 
     private static void notifyChangedSlots(AppEngInternalInventory inventory, List<ItemStack> before,
@@ -145,8 +146,8 @@ class AppEngInternalInventorySyncTest {
     private static final class SnapshotReceiver extends AppEngInternalInventoryMixin {
         boolean read;
         @Override public int size() { return 3; }
-        @Override public void writeToNBT(CompoundTag data, String name, HolderLookup.Provider registries) {}
-        @Override public void readFromNBT(CompoundTag data, String name, HolderLookup.Provider registries) {
+        @Override public void writeToNBT(ValueOutput output, String name) {}
+        @Override public void readFromNBT(ValueInput input, String name) {
             read = true;
         }
     }

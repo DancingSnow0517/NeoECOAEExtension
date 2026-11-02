@@ -60,8 +60,8 @@ class WorkstationRecipeHeightTest {
     }
 
     private static LargeWorkstationRecipe recipe(List<SizedFluidIngredient> fluids, List<GenericStack> outputs) {
-        var display = new cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe(List.of(),
-            new SizedFluidIngredient(net.neoforged.neoforge.fluids.crafting.FluidIngredient.empty(), 1),
+        var display = cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe.of(List.of(),
+            (net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient) null,
             ItemStack.EMPTY, net.neoforged.neoforge.fluids.FluidStack.EMPTY, 200_000);
         return new LargeWorkstationRecipe(Identifier.parse("neoecoae:height_test"), display, 200_000,
             List.of(), LargeWorkstationRecipe.NATIVE_TYPE, fluids, outputs);

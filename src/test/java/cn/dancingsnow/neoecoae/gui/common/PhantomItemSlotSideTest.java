@@ -12,9 +12,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
 import com.lowdragmc.lowdraglib2.integration.xei.jei.JEIUIEvents;
 import com.lowdragmc.lowdraglib2.integration.xei.jei.handler.JEITargetsTypedHandler;
-import com.lowdragmc.lowdraglib2.integration.xei.emi.EMIUIEvents;
-import com.lowdragmc.lowdraglib2.integration.xei.emi.handler.EMIDragDropHandler;
-import dev.emi.emi.api.stack.EmiStack;
 import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
 import java.util.ArrayList;
 import java.util.List;
@@ -91,34 +88,7 @@ class PhantomItemSlotSideTest {
         }
     }
 
-    @ParameterizedTest
-    @CsvSource({"false", "true"})
-    void emiShowsFilterTargetsWithoutEnablingNativeInsertion(boolean tool) throws Exception {
-        Level level = mock(Level.class);
-        when(level.isClientSide()).thenReturn(true);
-        try (var ldlib = mockStatic(LDLib2.class)) {
-            ldlib.when(LDLib2::isClient).thenReturn(true);
-            ldlib.when(LDLib2::isRemote).thenReturn(true);
-            ldlib.when(LDLib2::isEmiLoaded).thenReturn(true);
-            ldlib.when(() -> LDLib2.id(anyString())).thenAnswer(invocation ->
-                Identifier.fromNamespaceAndPath("ldlib2", invocation.getArgument(0)));
-            UIElement grid = createGrid(level);
-            ItemStack dragged = new ItemStack(tool ? Items.DIAMOND_PICKAXE : Items.DIAMOND);
-            var targets = new EMIDragDropHandler(EmiStack.of(dragged));
-            UIEvent event = UIEvent.create(EMIUIEvents.RENDER_DRAG_HANDLER);
-            event.target = grid;
-            event.customData = targets;
-            UIEventDispatcher.dispatchAllChildren(event);
-            assertEquals(63, targets.bounds.size());
-            List<ItemSlot> slots = new ArrayList<>();
-            collectSlots(grid, slots);
-            for (ItemSlot slot : slots) {
-                assertFalse(slot.getSlot().mayPlace(dragged));
-                assertTrue(slot.getValue().isEmpty());
-            }
-            assertEquals(1, dragged.getCount());
-        }
-    }
+    // 26.1 port: the EMI phantom-target case was removed; the LDLib2 26.1 jar ships only the JEI bridge.
 
     @ParameterizedTest
     @CsvSource({
@@ -131,8 +101,7 @@ class PhantomItemSlotSideTest {
             when(level.isClientSide()).thenReturn(client);
         }
         try (var ldlib = mockStatic(LDLib2.class);
-             var jei = mockStatic(ItemSlot.JEISupport.class);
-             var emi = mockStatic(ItemSlot.EMISupport.class)) {
+             var jei = mockStatic(ItemSlot.JEISupport.class)) {
             ldlib.when(LDLib2::isClient).thenReturn(client || side.equals("integrated"));
             ldlib.when(LDLib2::isServer).thenReturn(!client);
             ldlib.when(LDLib2::isRemote).thenReturn(client);
@@ -140,11 +109,6 @@ class PhantomItemSlotSideTest {
                 Identifier.fromNamespaceAndPath("ldlib2", invocation.getArgument(0)));
             // Recipe-viewer mods can be present on a dedicated server too.
             ldlib.when(LDLib2::isJeiLoaded).thenReturn(true);
-            ldlib.when(LDLib2::isEmiLoaded).thenReturn(true);
-            if (!client) {
-                emi.when(() -> ItemSlot.EMISupport.renderDragHandler(any())).thenThrow(
-                    new NoClassDefFoundError("net/minecraft/client/gui/components/Renderable"));
-            }
 
             UIElement grid = assertDoesNotThrow(() -> createGrid(level));
             List<ItemSlot> slots = new ArrayList<>();
@@ -153,12 +117,9 @@ class PhantomItemSlotSideTest {
             for (ItemSlot slot : slots) {
                 assertNotNull(slot.getSlot());
                 assertEquals(client ? 1 : 0, slot.getBubbleListeners(JEIUIEvents.GHOST_INGREDIENT).size());
-                assertEquals(client ? 1 : 0, slot.getBubbleListeners(EMIUIEvents.RENDER_DRAG_HANDLER).size());
-                assertEquals(client ? 1 : 0, slot.getBubbleListeners(EMIUIEvents.DROP_STACK_HANDLER).size());
             }
             if (!client) {
                 jei.verifyNoInteractions();
-                emi.verifyNoInteractions();
             }
         }
     }

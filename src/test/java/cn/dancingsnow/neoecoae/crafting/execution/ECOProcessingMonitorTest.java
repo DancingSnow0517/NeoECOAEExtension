@@ -103,7 +103,7 @@ class ECOProcessingMonitorTest {
         var restored = new ECOProcessingMonitor();
         restored.load(original.save(registries()), registries());
         assertEquals(original.save(registries()), restored.save(registries()));
-        assertEquals(1000, restored.save(registries()).getList("entries", 10).getCompound(0).getList("targets", 10).size());
+        assertEquals(1000, restored.save(registries()).getListOrEmpty("entries").getCompoundOrEmpty(0).getListOrEmpty("targets").size());
         restored.clear(new ECOCraftingJobResult(ECOCraftingJobResult.Status.CANCELLED, 1, 0, 1));
         assertTrue(restored.save(registries()).isEmpty());
     }
@@ -120,7 +120,7 @@ class ECOProcessingMonitorTest {
         if (registeredHere) ECOProcessingMonitor.initialize();
         try {
             assertSame(monitor, ECOCraftingJobAttachmentRegistry.create(id, first));
-            monitor.observe(AEItemKey.of(Items.STONE), new Target(Level.OVERWORLD.location(), BlockPos.ZERO));
+            monitor.observe(AEItemKey.of(Items.STONE), new Target(Level.OVERWORLD.identifier(), BlockPos.ZERO));
             assertFalse(monitor.save(registries()).isEmpty());
             var next = new ECOCraftingJobContext(cpu, UUID.randomUUID(), null, 1, 1);
             assertSame(monitor, ECOCraftingJobAttachmentRegistry.create(id, next));
@@ -131,7 +131,7 @@ class ECOProcessingMonitorTest {
     private static ECOProcessingMonitor monitor(int count) {
         var monitor = new ECOProcessingMonitor();
         for (int i = 0; i < count; i++) monitor.observe(AEItemKey.of(Items.STONE),
-            new Target(Level.OVERWORLD.location(), new BlockPos(i, 64, 0)));
+            new Target(Level.OVERWORLD.identifier(), new BlockPos(i, 64, 0)));
         return monitor;
     }
 

@@ -67,7 +67,7 @@ class FluidHatchInterfaceConfigTest {
             stacks.when(() -> GenericStack.unwrapItemStack(any(ItemStack.class))).thenAnswer(call -> {
                 ItemStack wrapper = call.getArgument(0);
                 var data = wrapper.get(DataComponents.CUSTOM_DATA);
-                return wrapper.isEmpty() || data == null ? null : wrappers.get(data.copyTag().getInt("wrapper"));
+                return wrapper.isEmpty() || data == null ? null : wrappers.get(data.copyTag().getIntOr("wrapper", 0));
             });
             containers.when(() -> ContainerItemStrategies.getEmptyingAction(bucket))
                 .thenReturn(new EmptyingAction(Component.literal("Water"), water, 1000));

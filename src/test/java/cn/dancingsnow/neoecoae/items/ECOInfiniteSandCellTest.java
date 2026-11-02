@@ -39,7 +39,7 @@ class ECOInfiniteSandCellTest {
 
     @BeforeAll static void bootstrap() throws ReflectiveOperationException {
         InventoryTestBootstrap.initialize();
-        ((net.minecraft.core.MappedRegistry<?>) BuiltInRegistries.ITEM).unfreeze();
+        ((net.minecraft.core.MappedRegistry<?>) BuiltInRegistries.ITEM).unfreeze(false);
         try (var configuration = mockStatic(appeng.core.AEConfig.class)) {
             configuration.when(appeng.core.AEConfig::instance).thenReturn(mock(appeng.core.AEConfig.class));
             Class.forName("appeng.core.definitions.AEItems");
@@ -49,13 +49,15 @@ class ECOInfiniteSandCellTest {
         when(tier.getStorageTotalBytes()).thenReturn(268435456L);
         var type = new ECOCellType(Component.literal("Item"), 63);
         sandItem = Registry.register(BuiltInRegistries.ITEM, "infinite_sand_test:sand", new ECOInfiniteResourceCellItem(
-            new Item.Properties(), tier, () -> type, List.of(AEItemKey.of(Items.SAND)), "tooltip.neoecoae.infinite_sand") {
+            new Item.Properties().setId(itemKey("infinite_sand_test:sand")), tier, () -> type, () -> List.of(AEItemKey.of(Items.SAND)), "tooltip.neoecoae.infinite_sand") {
                 @Override public appeng.api.upgrades.IUpgradeInventory getUpgrades(ItemStack stack) {
                     return mock(appeng.api.upgrades.IUpgradeInventory.class);
                 }
             });
         baseItem = Registry.register(BuiltInRegistries.ITEM, "infinite_sand_test:base",
-            new ECOInfiniteResourceCellItem(new Item.Properties(), tier, () -> type));
+            new ECOInfiniteResourceCellItem(new Item.Properties().setId(itemKey("infinite_sand_test:base")), tier, () -> type));
+        // 26.1: default components of items registered after the bootstrap must be bound explicitly.
+        cn.dancingsnow.neoecoae.util.TestComponents.bindAll();
     }
 
     @Test void sandSupplyCannotBeWidenedWithPartitionConfiguration() {
@@ -93,5 +95,9 @@ class ECOInfiniteSandCellTest {
         assertTrue(baseItem.suppliesKey(AEItemKey.of(Items.COBBLESTONE)));
         assertTrue(baseItem.suppliesKey(AEFluidKey.of(Fluids.WATER)));
         assertTrue(baseItem.suppliesKey(AEFluidKey.of(Fluids.LAVA)));
+    }
+    private static net.minecraft.resources.ResourceKey<Item> itemKey(String id) {
+        return net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.ITEM,
+            net.minecraft.resources.Identifier.parse(id));
     }
 }

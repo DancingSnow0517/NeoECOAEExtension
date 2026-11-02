@@ -45,8 +45,8 @@ class SmartCoolingModelResourceTest {
             assertEquals(java.util.Set.of("east", "south"), glow.getAsJsonObject("faces").keySet());
             for (var face : glow.getAsJsonObject("faces").entrySet()) {
                 var light = face.getValue().getAsJsonObject().getAsJsonObject("neoforge_data");
-                assertEquals(15, light.get("block_light").getAsInt());
-                assertEquals(15, light.get("sky_light").getAsInt());
+                // 26.1: NeoForge ExtraFaceData has a single light_emission instead of block_light/sky_light.
+                assertEquals(15, light.get("light_emission").getAsInt());
                 assertFalse(light.get("ambient_occlusion").getAsBoolean());
             }
         }

@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
-import appeng.api.client.AEKeyRendering;
+import appeng.client.api.AEKeyRendering;
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.stacks.AEItemKey;
 import appeng.core.AEConfig;
@@ -8,13 +8,12 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
-import com.mojang.blaze3d.vertex.PoseStack;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.resources.Identifier;
@@ -46,7 +45,7 @@ class ComputationScrollRenderingTest {
     @org.junit.jupiter.api.BeforeEach void registerKeyTypes() throws Exception {
         keyTypes = mockStatic(appeng.api.stacks.AEKeyTypesInternal.class);
         keyTypes.when(appeng.api.stacks.AEKeyTypesInternal::getRegistry)
-            .thenReturn(cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys.REGISTRY);
+            .thenReturn(cn.dancingsnow.neoecoae.gui.common.GuiTestKeys.REGISTRY);
         // AEKey encoding consults the deferred fallback item, absent in an isolated unit runner.
         var itemField = appeng.core.definitions.ItemDefinition.class.getDeclaredField("item");
         itemField.setAccessible(true);
@@ -65,60 +64,76 @@ class ComputationScrollRenderingTest {
     }
 
     @Test void statusRetainsBothPagesAndIgnoresEarlierScrollReplies() throws Exception {
-        var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
-        panel.setValue(snapshot(0, 0, 1), false);
-        scroll(panel, "scrollCpuTo", 3);
-        scroll(panel, "scrollCpuTo", 6);
-        scroll(panel, "scrollItemsTo", 3);
-        scroll(panel, "scrollItemsTo", 6);
-        assertDrawn(panel, 1);
+        // 26.1: LDLib2 DataBindingBuilder.build() needs a side; these are client-side views.
+        try (var ldlibSide = org.mockito.Mockito.mockStatic(com.lowdragmc.lowdraglib2.LDLib2.class)) {
+            ldlibSide.when(com.lowdragmc.lowdraglib2.LDLib2::isRemote).thenReturn(true);
+            var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
+            panel.setValue(snapshot(0, 0, 1), false);
+            scroll(panel, "scrollCpuTo", 3);
+            scroll(panel, "scrollCpuTo", 6);
+            scroll(panel, "scrollItemsTo", 3);
+            scroll(panel, "scrollItemsTo", 6);
+            assertDrawn(panel, 1);
 
-        panel.setValue(snapshot(3, 3, 4, 1, 1), false);
-        assertEquals(6, field(panel, "cpuOffset"));
-        assertEquals(6, field(panel, "itemOffset"));
-        assertDrawn(panel, 1);
+            panel.setValue(snapshot(3, 3, 4, 1, 1), false);
+            assertEquals(6, field(panel, "cpuOffset"));
+            assertEquals(6, field(panel, "itemOffset"));
+            assertDrawn(panel, 1);
 
-        panel.setValue(snapshot(6, 6, 7, 2, 2), false);
-        assertEquals(6, field(panel, "cpuPageOffset"));
-        assertEquals(6, field(panel, "itemPageOffset"));
-        assertDrawn(panel, 7);
+            panel.setValue(snapshot(6, 6, 7, 2, 2), false);
+            assertEquals(6, field(panel, "cpuPageOffset"));
+            assertEquals(6, field(panel, "itemPageOffset"));
+            assertDrawn(panel, 7);
+        }
     }
 
     @Test void selectingAnotherCpuClearsAnUnfinishedItemScroll() throws Exception {
-        var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
-        panel.setValue(snapshot(0, 0, 1), false);
-        scroll(panel, "scrollItemsTo", 6);
-        panel.open(2);
-        panel.setValue(snapshot(0, 0, 2), false);
-        assertEquals(0, field(panel, "itemOffset"));
-        assertFalse((boolean) field(panel, "itemScrollPending"));
+        // 26.1: LDLib2 DataBindingBuilder.build() needs a side; these are client-side views.
+        try (var ldlibSide = org.mockito.Mockito.mockStatic(com.lowdragmc.lowdraglib2.LDLib2.class)) {
+            ldlibSide.when(com.lowdragmc.lowdraglib2.LDLib2::isRemote).thenReturn(true);
+            var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
+            panel.setValue(snapshot(0, 0, 1), false);
+            scroll(panel, "scrollItemsTo", 6);
+            panel.open(2);
+            panel.setValue(snapshot(0, 0, 2), false);
+            assertEquals(0, field(panel, "itemOffset"));
+            assertFalse((boolean) field(panel, "itemScrollPending"));
+        }
     }
 
     @Test void sidebarKeepsItsPageVisibleUntilTheLatestScrollReply() throws Exception {
-        var selector = new ComputationCpuSelector(config(), ignored -> {}, new CpuSelectionState.Identities<>());
-        selector.setValue(sidebarSnapshot(0, 1, 0), false);
-        scroll(selector, "scrollTo", 2);
-        scroll(selector, "scrollTo", 4);
-        assertDrawn(selector, 1);
-        selector.setValue(sidebarSnapshot(2, 3, 1), false);
-        assertEquals(4, field(selector, "offset"));
-        assertDrawn(selector, 1);
-        selector.setValue(sidebarSnapshot(4, 5, 2), false);
-        assertDrawn(selector, 5);
+        // 26.1: LDLib2 DataBindingBuilder.build() needs a side; these are client-side views.
+        try (var ldlibSide = org.mockito.Mockito.mockStatic(com.lowdragmc.lowdraglib2.LDLib2.class)) {
+            ldlibSide.when(com.lowdragmc.lowdraglib2.LDLib2::isRemote).thenReturn(true);
+            var selector = new ComputationCpuSelector(config(), ignored -> {}, new CpuSelectionState.Identities<>());
+            selector.setValue(sidebarSnapshot(0, 1, 0), false);
+            scroll(selector, "scrollTo", 2);
+            scroll(selector, "scrollTo", 4);
+            assertDrawn(selector, 1);
+            selector.setValue(sidebarSnapshot(2, 3, 1), false);
+            assertEquals(4, field(selector, "offset"));
+            assertDrawn(selector, 1);
+            selector.setValue(sidebarSnapshot(4, 5, 2), false);
+            assertDrawn(selector, 5);
+        }
     }
 
     @Test void returningToTheOriginalOffsetCannotAcknowledgeAnOldSnapshot() throws Exception {
-        var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
-        panel.setValue(snapshot(0, 0, 1), false);
-        scroll(panel, "scrollCpuTo", 3);
-        scroll(panel, "scrollCpuTo", 0);
-        panel.setValue(snapshot(0, 0, 1), false);
-        assertTrue((boolean) field(panel, "cpuScrollPending"));
-        panel.setValue(snapshot(3, 0, 4, 1, 0), false);
-        assertEquals(0, field(panel, "cpuOffset"));
-        assertDrawn(panel, 1);
-        panel.setValue(snapshot(0, 0, 1, 2, 0), false);
-        assertFalse((boolean) field(panel, "cpuScrollPending"));
+        // 26.1: LDLib2 DataBindingBuilder.build() needs a side; these are client-side views.
+        try (var ldlibSide = org.mockito.Mockito.mockStatic(com.lowdragmc.lowdraglib2.LDLib2.class)) {
+            ldlibSide.when(com.lowdragmc.lowdraglib2.LDLib2::isRemote).thenReturn(true);
+            var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
+            panel.setValue(snapshot(0, 0, 1), false);
+            scroll(panel, "scrollCpuTo", 3);
+            scroll(panel, "scrollCpuTo", 0);
+            panel.setValue(snapshot(0, 0, 1), false);
+            assertTrue((boolean) field(panel, "cpuScrollPending"));
+            panel.setValue(snapshot(3, 0, 4, 1, 0), false);
+            assertEquals(0, field(panel, "cpuOffset"));
+            assertDrawn(panel, 1);
+            panel.setValue(snapshot(0, 0, 1, 2, 0), false);
+            assertFalse((boolean) field(panel, "cpuScrollPending"));
+        }
     }
 
     @Test void tooltipCollectionUsesTheUiMousePositionWithoutCoordinatesInTheEvent() throws Exception {
@@ -131,7 +146,7 @@ class ComputationScrollRenderingTest {
             var snapshot = snapshot(0, 0, 1);
             var item = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE), new BigInteger("123456789012345678901"),
                 BigInteger.ONE, BigInteger.TEN, true);
-            snapshot.getList("items", net.minecraft.nbt.Tag.TAG_COMPOUND).set(0, item.write(config().registries()));
+            snapshot.getListOrEmpty("items").set(0, item.write(config().registries()));
             panel.setValue(snapshot, false);
             assertDrawn(panel, 1);
 
@@ -142,7 +157,7 @@ class ComputationScrollRenderingTest {
             set(ui, "lastHoveredElement", cpuHitbox);
             var cpuTooltip = cpuHitbox.collectHoverTooltips();
             assertNotNull(cpuTooltip);
-            assertEquals(ComputationCpuSelector.tooltip(cpu(1)), cpuTooltip.tooltipTexts());
+            assertEquals(ComputationCpuSelector.tooltip(cpu(1)), cpuTooltip.tooltips().stream().filter(net.minecraft.network.chat.Component.class::isInstance).map(net.minecraft.network.chat.Component.class::cast).toList());
 
             var itemHitbox = panel.hitTest(panel.getPositionX() + 100, panel.getPositionY() + 20).getA();
             set(ui, "lastMouseX", panel.getPositionX() + 100);
@@ -158,7 +173,7 @@ class ComputationScrollRenderingTest {
                     appeng.core.localization.GuiText.Scheduled.text(item.amount(item.pending(), true)),
                     net.minecraft.network.chat.Component.translatable("gui.neoecoae.crafting.smart_doubling").withColor(0xC7A6FF),
                     net.minecraft.network.chat.Component.translatable("gui.neoecoae.processing.context_hint")
-                        .withStyle(net.minecraft.ChatFormatting.DARK_GRAY)), tooltip.tooltipTexts());
+                        .withStyle(net.minecraft.ChatFormatting.DARK_GRAY)), tooltip.tooltips().stream().filter(net.minecraft.network.chat.Component.class::isInstance).map(net.minecraft.network.chat.Component.class::cast).toList());
                 // The one-pixel separator must stay empty after scrolling stops interpolating rows.
                 set(ui, "lastMouseY", panel.getPositionY() + 19 + 22);
                 assertNull(itemHitbox.collectHoverTooltips());
@@ -209,7 +224,7 @@ class ComputationScrollRenderingTest {
         var snapshot = snapshot(offset, 0, serial);
         snapshot.putInt("offset", offset);
         snapshot.putLong("scrollSequence", sequence);
-        snapshot.put("page", snapshot.getList("cpus", net.minecraft.nbt.Tag.TAG_COMPOUND));
+        snapshot.put("page", snapshot.getListOrEmpty("cpus"));
         return snapshot;
     }
 
@@ -220,10 +235,10 @@ class ComputationScrollRenderingTest {
 
     private static void assertDrawn(com.lowdragmc.lowdraglib2.gui.ui.UIElement element,
             int serial) throws Exception {
-        var client = mock(Minecraft.class);
+        var client = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.withOptions(mock(Minecraft.class));
         set(client, "font", mock(Font.class));
-        var graphics = mock(GuiGraphics.class);
-        when(graphics.pose()).thenReturn(new PoseStack());
+        var graphics = mock(GuiGraphicsExtractor.class);
+        when(graphics.pose()).thenReturn(new org.joml.Matrix3x2fStack(16));
         var context = mock(GUIContext.class);
         set(context, "graphics", graphics);
         var drawn = new ArrayList<Integer>();
@@ -238,7 +253,9 @@ class ComputationScrollRenderingTest {
                     drawn.add(((ComputationCpuEntry) call.getArgument(2)).serial());
                     return null;
                 });
-            element.drawBackgroundAdditional(context);
+            // The concrete panels expose drawBackgroundAdditional publicly; UIElement's is protected.
+            com.lowdragmc.lowdraglib2.gui.ui.UIElementRendererRegistry.findRenderer(element)
+                .drawBackgroundAdditional(element, context);
             assertEquals(List.of(serial), drawn, "a pending page must keep drawing the last complete CPU rows");
             if (element instanceof ComputationCpuStatusPanel) {
                 keys.verify(() -> AEKeyRendering.drawInGui(client, graphics, 0, 0, AEItemKey.of(Items.STONE)));

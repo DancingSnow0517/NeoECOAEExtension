@@ -82,8 +82,8 @@ class CraftingPatternPreviewStateTest {
             act.invoke(state, 0, 1, 0);
             var payload = ArgumentCaptor.forClass(CompoundTag.class);
             verify(f.host).rpcToServer(eq("actOnPatternPreview"), payload.capture());
-            assertEquals(7, payload.getValue().getInt("revision"));
-            assertEquals(0, payload.getValue().getInt("slot"));
+            assertEquals(7, payload.getValue().getIntOr("revision", 0));
+            assertEquals(0, payload.getValue().getIntOr("slot", 0));
             state.receive(f.page(false, true, true, -1, 7, 65_536, 65_535, 1));
             assertEquals(7, f.sync.clientSnapshot().revision());
             assertTrue(f.sync.clientSnapshot().entries()[1].stack().isEmpty());
@@ -109,7 +109,7 @@ class CraftingPatternPreviewStateTest {
             assertTrue(state.insertCarriedPattern(0));
             var payload = ArgumentCaptor.forClass(CompoundTag.class);
             verify(f.host).rpcToServer(eq("actOnPatternPreview"), payload.capture());
-            assertEquals(2, payload.getValue().getInt("slot"), "an unreceived occupied slot is not free capacity");
+            assertEquals(2, payload.getValue().getIntOr("slot", 0), "an unreceived occupied slot is not free capacity");
         }
     }
 
@@ -203,11 +203,11 @@ class CraftingPatternPreviewStateTest {
         verify(f.host, times(2)).rpcToServer(eq("quickMovePatternPreview"), moves.capture());
         for (int i = 0; i < 2; i++) {
             var payload = moves.getAllValues().get(i);
-            assertEquals(8, payload.getInt("revision"));
-            var targets = payload.getList("targets", net.minecraft.nbt.Tag.TAG_COMPOUND);
+            assertEquals(8, payload.getIntOr("revision", 0));
+            var targets = payload.getListOrEmpty("targets");
             assertEquals(1, targets.size());
-            assertEquals(10, targets.getCompound(0).getLong("bus"));
-            assertEquals(i + 1, targets.getCompound(0).getInt("slot"));
+            assertEquals(10, targets.getCompoundOrEmpty(0).getLongOr("bus", 0L));
+            assertEquals(i + 1, targets.getCompoundOrEmpty(0).getIntOr("slot", 0));
         }
         assertFalse(preview.getChildren().get(0).isVisible());
         assertTrue(preview.getChildren().get(1).isVisible());
@@ -225,8 +225,8 @@ class CraftingPatternPreviewStateTest {
         state.tick();
         state.tick();
         assertEquals(1, f.requests.size());
-        assertEquals(42, f.requests.getFirst().getInt("menu"));
-        assertEquals(-1, f.requests.getFirst().getInt("revision"));
+        assertEquals(42, f.requests.getFirst().getIntOr("menu", 0));
+        assertEquals(-1, f.requests.getFirst().getIntOr("revision", 0));
     }
 
     @Test void equalCoordinatesInAnotherClientWorldCannotRestoreOldPatternsOrSearches() throws Exception {
@@ -283,7 +283,7 @@ class CraftingPatternPreviewStateTest {
         }
         var action = ArgumentCaptor.forClass(CompoundTag.class);
         verify(f.host).rpcToServer(eq("actOnPatternPreview"), action.capture());
-        assertEquals(9, action.getValue().getInt("slot"));
+        assertEquals(9, action.getValue().getIntOr("slot", 0));
 
         state.setScrollOffset(100_000);
         assertEquals(72, state.getScrollOffset());
@@ -312,7 +312,7 @@ class CraftingPatternPreviewStateTest {
         var f = new Fixture();
         var state = new CraftingPatternPreviewState(f.host, f.player);
         var page = f.page(true, true, true, -1, 7, 90, 0, 90);
-        var incoming = page.getList("entries", net.minecraft.nbt.Tag.TAG_COMPOUND);
+        var incoming = page.getListOrEmpty("entries");
         for (int index = 63; index < 72; index++) {
             var entry = new PatternPreviewEntry(10, index, new ItemStack(Items.DIAMOND),
                 "iron", "gear", List.of(), false).encode(RegistryAccess.EMPTY);
@@ -372,6 +372,7 @@ class CraftingPatternPreviewStateTest {
 
         Fixture() throws Exception {
             setField(level, "isClientSide", true);
+            when(level.isClientSide()).thenReturn(true); // 26.1: isClientSide() is a method now
             when(level.dimension()).thenReturn(Level.OVERWORLD);
             when(level.registryAccess()).thenReturn(RegistryAccess.EMPTY);
             when(player.level()).thenReturn(level);
@@ -387,8 +388,8 @@ class CraftingPatternPreviewStateTest {
 
         CompoundTag emptyPage(boolean full, int base, int revision, int size, int start, int count) {
             var payload = page(true, true, full, base, revision, size, start, count);
-            var contents = payload.getList("entries", net.minecraft.nbt.Tag.TAG_COMPOUND);
-            for (int i = 0; i < contents.size(); i++) contents.getCompound(i).put("stack", new CompoundTag());
+            var contents = payload.getListOrEmpty("entries");
+            for (int i = 0; i < contents.size(); i++) contents.getCompoundOrEmpty(i).put("stack", new CompoundTag());
             return payload;
         }
 

@@ -39,8 +39,9 @@ public final class ECOInfiniteStorageMember {
      * Read-only access: mutations must still copy the tag and replace the component.
      */
     private static CompoundTag readTag(CustomData data) {
-        // 26.1 port: CustomData#getUnsafe was removed.
-        return data.copyTag();
+        // 26.1 port: CustomData#getUnsafe was removed; read the backing tag through the access transformer
+        // (META-INF/accesstransformer.cfg) instead of copyTag(), which would copy large member payloads on every read.
+        return data.tag;
     }
 
     public static UUID identity(ItemStack stack) {

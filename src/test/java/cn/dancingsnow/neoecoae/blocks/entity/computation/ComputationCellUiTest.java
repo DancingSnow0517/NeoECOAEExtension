@@ -186,7 +186,7 @@ class ComputationCellUiTest {
         final ECOComputationDriveBlockEntity lower = mock(ECOComputationDriveBlockEntity.class);
         final Player player = mock(Player.class);
         final AbstractContainerMenu menu = mock(AbstractContainerMenu.class);
-        final Inventory inventory = new Inventory(player);
+        final Inventory inventory = new Inventory(player, new net.minecraft.world.entity.EntityEquipment());
         final BlockPos upperPosition = new BlockPos(10, 70, 3);
         final BlockPos lowerPosition = new BlockPos(10, 66, 3);
         final AtomicReference<ItemStack> upperCell = new AtomicReference<>();

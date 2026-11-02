@@ -48,7 +48,7 @@ class StoragePanelStateTest {
         StorageHostUI.Config config = config(cells, false);
         StoragePanelState first = StoragePanelState.capture(config, 0, 33);
         assertEquals(72, first.cellCount());
-        assertEquals(33, first.toTag().getList("cells", Tag.TAG_COMPOUND).size());
+        assertEquals(33, first.toTag().getListOrEmpty("cells").size());
         assertEquals(BigInteger.valueOf(7_200), first.totalBytes());
         assertEquals(0, first.cells().get(0).usedBytes());
         assertEquals(24, first.cells().get(11).usedBytes());

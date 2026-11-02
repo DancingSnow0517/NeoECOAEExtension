@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.gui.common.UiTestRendering;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.common.HostProgressTestSupport;
@@ -20,7 +21,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.style.PropertyRegistry;
 import com.lowdragmc.lowdraglib2.gui.ui.layout.LayoutProperties;
-import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
+import com.lowdragmc.lowdraglib2.gui.util.DrawerHelperClient;
 import appeng.api.storage.cells.CellState;
 import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
 import java.util.List;
@@ -29,9 +30,9 @@ import dev.vfyjxf.taffy.style.LengthPercentageAuto;
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Font;
-import com.mojang.blaze3d.vertex.PoseStack;
+import org.joml.Matrix3x2fStack;
 import net.minecraft.nbt.Tag;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.RegistryAccess;
@@ -84,14 +85,14 @@ class StorageHostUiTest {
                 var image = javax.imageio.ImageIO.read(png);
                 var animation = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(metadata,
                     java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject().getAsJsonObject("animation");
-                var parsed = net.minecraft.client.resources.metadata.animation.AnimationMetadataSection.SERIALIZER
-                    .fromJson(animation);
+                var parsed = net.minecraft.client.resources.metadata.animation.AnimationMetadataSection.CODEC
+                    .parse(com.mojang.serialization.JsonOps.INSTANCE, animation).getOrThrow();
                 var frame = parsed.calculateFrameSize(image.getWidth(), image.getHeight());
                 assertEquals(12, frame.width());
                 assertEquals(12, frame.height());
                 assertEquals(10, image.getHeight() / frame.height());
-                assertEquals(3, parsed.getDefaultFrameTime());
-                assertTrue(parsed.isInterpolatedFrames());
+                assertEquals(3, parsed.defaultFrameTime());
+                assertTrue(parsed.interpolatedFrames());
             }
         }
     }
@@ -113,7 +114,7 @@ class StorageHostUiTest {
                 doReturn(222F).when(grid).getPositionX();
                 doReturn(111F).when(grid).getPositionY();
                 GUIContext context = mock(GUIContext.class);
-                grid.drawBackgroundAdditional(context);
+                UiTestRendering.drawBackgroundAdditional(grid, context);
                 verify(context, times(columns * 2)).drawTexture(any(SpriteTexture.class), anyFloat(), anyFloat(), eq(16F), eq(18F));
                 verify(context, times(columns)).drawTexture(any(SpriteTexture.class), anyFloat(), anyFloat(), eq(16F), eq(16F));
                 verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
@@ -185,7 +186,7 @@ class StorageHostUiTest {
                 base.storageTypes(), base.infiniteStorage(), base.migratingToInfinite(), base.canExtractInfiniteComponents(),
                 base.domainId(), base.missingMembers(), base.infiniteComponentInventory());
             GUIContext context = mock(GUIContext.class);
-            node(StorageHostUI.create(config), "storage_cells").drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(node(StorageHostUI.create(config), "storage_cells"), context);
             verifyNoInteractions(context);
         }
     }
@@ -333,8 +334,8 @@ class StorageHostUiTest {
             assertEquals(LengthPercentageAuto.length(92), node(normal, "energy_bar").getLayout().getValueImmediate(LayoutProperties.TOP));
             assertEquals(TaffyDimension.length(74), node(normal, "energy_bar").getLayout().getValueImmediate(LayoutProperties.WIDTH));
             assertEquals(TaffyDimension.length(7), node(normal, "energy_bar").getLayout().getValueImmediate(LayoutProperties.HEIGHT));
-            assertEquals(org.appliedenergistics.yoga.YogaOverflow.VISIBLE,
-                node(normal, "storage_cells").getStyle().getValueImmediate(LayoutProperties.OVERFLOW));
+            // 26.1: LDLib2 overflow is the style's clip mode; the cell grid must not scissor its slots.
+            assertEquals(com.lowdragmc.lowdraglib2.gui.ui.data.Clip.NONE, node(normal, "storage_cells").getStyle().clip());
             assertEquals(TaffyDimension.length(52), node(normal, "storage_cells").getLayout().getValueImmediate(LayoutProperties.HEIGHT));
             assertEquals(LengthPercentageAuto.length(146), node(normal, "player_inventory").getLayout().getValueImmediate(LayoutProperties.TOP));
             assertEquals(LengthPercentageAuto.length(201), node(normal, "infinite_component").getLayout().getValueImmediate(LayoutProperties.TOP));
@@ -349,7 +350,7 @@ class StorageHostUiTest {
     void energyCaptionsUseSyncedAmountsAndCapacityCaptionsAlignToBothBarEdges() throws ReflectiveOperationException {
         try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
-            Minecraft client = mock(Minecraft.class);
+            Minecraft client = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.withOptions(mock(Minecraft.class));
             var fontField = Minecraft.class.getDeclaredField("font");
             fontField.setAccessible(true);
             Font font = mock(Font.class);
@@ -365,30 +366,30 @@ class StorageHostUiTest {
                 12_000_000_000L, 22_000_000_000L, 72_000, "150", 0.75, 0, 0,
                 List.of(), List.of(), "", 0, false, BigInteger.valueOf(200)).toTag());
             GUIContext context = mock(GUIContext.class);
-            context.graphics = mock(GuiGraphics.class);
-            PoseStack pose = spy(new PoseStack());
+            context.graphics = mock(GuiGraphicsExtractor.class);
+            Matrix3x2fStack pose = spy(new Matrix3x2fStack(16));
             when(context.graphics.pose()).thenReturn(pose);
             UIElement stored = positionedBar(root, "energy_stored_text", 208, 294, 160, 9);
             UIElement drain = positionedBar(root, "energy_text", 208, 303, 160, 9);
             UIElement bytes = positionedBar(root, "capacity_text", 208, 312, 122, 9);
             UIElement usage = positionedBar(root, "capacity_percentage", 332, 312, 36, 9);
-            for (UIElement caption : List.of(stored, drain, bytes, usage)) caption.drawBackgroundAdditional(context);
+            for (UIElement caption : List.of(stored, drain, bytes, usage)) UiTestRendering.drawBackgroundAdditional(caption, context);
             var rendered = org.mockito.ArgumentCaptor.forClass(net.minecraft.network.chat.FormattedText.class);
             verify(font, times(3)).substrByWidth(rendered.capture(), anyInt());
             assertEquals(Component.translatable("gui.neoecoae.storage.ui.energy", "12G", "22G"), rendered.getAllValues().get(0));
             assertEquals(Component.literal("75.0%"), rendered.getAllValues().get(2));
-            verify(pose).translate(208F, 312F, 0F);
+            verify(pose).translate(208F, 312F);
             // The 32px text at 0.75 scale ends at x=368, the capacity bar's right edge.
-            verify(pose).translate(344F, 312F, 0F);
+            verify(pose).translate(344F, 312F);
 
             display.setValue(new StoragePanelState(Component.empty(), 2, true, true, false,
                 0, 22_000_000_000L, 0, "0", 1, 0, 0,
                 List.of(), List.of(), "", 0, false).toTag());
             clearInvocations(font, pose, context.graphics);
-            stored.drawBackgroundAdditional(context);
-            usage.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(stored, context);
+            UiTestRendering.drawBackgroundAdditional(usage, context);
             verify(font).substrByWidth(eq(Component.translatable("gui.neoecoae.storage.ui.energy", "0", "22G")), anyInt());
-            verify(context.graphics, times(1)).drawString(eq(font), any(net.minecraft.util.FormattedCharSequence.class), eq(0), eq(0), anyInt(), eq(false));
+            verify(context.graphics, times(1)).text(eq(font), any(net.minecraft.util.FormattedCharSequence.class), eq(0), eq(0), anyInt(), eq(false));
         }
     }
 
@@ -427,12 +428,12 @@ class StorageHostUiTest {
                 Component.literal("UUID: test-domain").withColor(0x55FFFF),
                 Component.translatable("gui.neoecoae.storage.members_missing", 4).withColor(0xFF6A75),
                 Component.translatable("gui.neoecoae.storage.members_return").withColor(0xFF6A75)),
-                tooltip.hoverTooltips.tooltipTexts());
+                tooltip.hoverTooltips.tooltips());
             display.setValue(StoragePanelState.EMPTY.toTag());
             UIEvent restored = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
             restored.target = information;
             UIEventDispatcher.dispatchEvent(restored, false, false, false);
-            assertEquals(List.of(Component.translatable("gui.neoecoae.storage.ui.normal")), restored.hoverTooltips.tooltipTexts());
+            assertEquals(List.of(Component.translatable("gui.neoecoae.storage.ui.normal")), restored.hoverTooltips.tooltips());
             UIEvent frameHover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
             frameHover.target = frame;
             UIEventDispatcher.dispatchEvent(frameHover, false, false, false);
@@ -458,17 +459,17 @@ class StorageHostUiTest {
                 UIEvent tooltip = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
                 tooltip.target = panel.getChildren().get(row);
                 UIEventDispatcher.dispatchEvent(tooltip, false, false, false);
-                assertEquals(types.get(row).name(), tooltip.hoverTooltips.tooltipTexts().getFirst());
+                assertEquals(types.get(row).name(), tooltip.hoverTooltips.tooltips().getFirst());
             }
             GUIContext context = mock(GUIContext.class);
-            node(root, "type_scrollbar").drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(node(root, "type_scrollbar"), context);
             verifyNoInteractions(context);
         }
     }
 
     @Test
     void hostIconRendersTheSuppliedItemInEveryTierWithoutAStorageUsageFill() {
-        try (var ldlib = mockStatic(LDLib2.class); var drawer = mockStatic(DrawerHelper.class)) {
+        try (var ldlib = mockStatic(LDLib2.class); var drawer = mockStatic(DrawerHelperClient.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             for (int tier : List.of(1, 2, 3)) {
                 for (boolean formed : List.of(false, true)) {
@@ -485,8 +486,8 @@ class StorageHostUiTest {
                         UIElement icon = positionedBar(StorageHostUI.create(config), "host_icon", 209, 240, 16, 34);
                         item.set(DataComponents.CUSTOM_NAME, Component.literal("Changed after UI creation"));
                         GUIContext context = mock(GUIContext.class);
-                        context.graphics = mock(GuiGraphics.class);
-                        icon.drawBackgroundAdditional(context);
+                        context.graphics = mock(GuiGraphicsExtractor.class);
+                        UiTestRendering.drawBackgroundAdditional(icon, context);
                         verify(context).drawTexture(StoragePanelTextures.HOST_ICON_BACKGROUND, 209F, 240F, 16F, 34F);
                         if (formed) {
                             int sourceX = 18 + (tier - 1) * 16;
@@ -499,7 +500,7 @@ class StorageHostUiTest {
                                 && sprite.spriteSize.width == 13 && sprite.spriteSize.height == 8),
                                 eq(211F), eq(265F), eq(13F), eq(8F));
                         }
-                        verify(context.graphics).renderItem(argThat(stack -> ItemStack.matches(expected, stack)), eq(209), eq(249));
+                        verify(context.graphics).item(argThat((ItemStack stack) -> ItemStack.matches(expected, stack)), eq(209), eq(249));
                         verifyNoMoreInteractions(context, context.graphics);
                     }
                 }
@@ -574,20 +575,20 @@ class StorageHostUiTest {
             UIElement resources = positionedBar(root, "resource_bar", 208, 334, 160, 8);
             UIElement energy = positionedBar(root, "energy_bar", 373, 292, 74, 7);
             GUIContext context = mock(GUIContext.class);
-            context.graphics = mock(GuiGraphics.class);
-            PoseStack pose = spy(new PoseStack());
+            context.graphics = mock(GuiGraphicsExtractor.class);
+            Matrix3x2fStack pose = spy(new Matrix3x2fStack(16));
             when(context.graphics.pose()).thenReturn(pose);
             display.setValue(StoragePanelState.EMPTY.toTag());
-            capacity.drawBackgroundAdditional(context);
-            resources.drawBackgroundAdditional(context);
-            energy.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(capacity, context);
+            UiTestRendering.drawBackgroundAdditional(resources, context);
+            UiTestRendering.drawBackgroundAdditional(energy, context);
             verifyNoInteractions(context);
             for (boolean migrating : List.of(false, true)) {
                 display.setValue(new StoragePanelState(Component.empty(), 2, true, !migrating, migrating,
                     0, 100, 999, "0", 0, 0, 0, List.of(), List.of(), "", 0, false).toTag());
                 HostProgressTestSupport.drawAfterOpening(capacity, context);
-                resources.drawBackgroundAdditional(context);
-                energy.drawBackgroundAdditional(context);
+                UiTestRendering.drawBackgroundAdditional(resources, context);
+                UiTestRendering.drawBackgroundAdditional(energy, context);
                 verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_FILL, 208F, 313F, 72F, 8F);
                 verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_SYMBOL, 280F, 313F, 16F, 8F);
                 verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_FILL, 296F, 313F, 72F, 8F);
@@ -599,7 +600,7 @@ class StorageHostUiTest {
                 1, 10, 100, 100, "100", 2, BigInteger.valueOf(100));
             display.setValue(new StoragePanelState(Component.empty(), 2, true, false, false,
                 0, 100, 999, "100", 1, 0, 0, List.of(), List.of(item), "", 0, false).toTag());
-            capacity.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(capacity, context);
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.spritePosition.x == 32 && sprite.spritePosition.y == 62), eq(208F), eq(313F), eq(160F), eq(8F));
             verifyNoInteractions(context.graphics, pose);
@@ -620,7 +621,7 @@ class StorageHostUiTest {
     void unusedResourceCardRowsStayHiddenAndRemovingTheLastTypeClearsItsCard() throws ReflectiveOperationException {
         try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
-            Minecraft client = mock(Minecraft.class);
+            Minecraft client = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.withOptions(mock(Minecraft.class));
             var fontField = Minecraft.class.getDeclaredField("font");
             fontField.setAccessible(true);
             fontField.set(client, mock(Font.class));
@@ -631,30 +632,30 @@ class StorageHostUiTest {
             BindableValue<Tag> display = (BindableValue<Tag>) root.getChildren().getFirst();
             UIElement panel = positionedBar(root, "storage_types", 373, 304, 68, 87);
             GUIContext context = mock(GUIContext.class);
-            context.graphics = mock(GuiGraphics.class);
-            when(context.graphics.pose()).thenReturn(new PoseStack());
+            context.graphics = mock(GuiGraphicsExtractor.class);
+            when(context.graphics.pose()).thenReturn(new Matrix3x2fStack(16));
             display.setValue(new StoragePanelState(Component.empty(), 2, true, false, false,
                 0, 100, 0, "0", 0, 0, 0, List.of(), List.of(), "", 4, false).toTag());
-            panel.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(panel, context);
             verifyNoInteractions(context);
             var emptyItemDisk = new StoragePanelState.TypeLine(2, Component.literal("items"), 0xEC8600,
                 0, 10, 0, 100, "0", 2, BigInteger.ZERO);
             display.setValue(new StoragePanelState(Component.empty(), 2, true, false, false,
                 0, 100, 0, "0", 0, 0, 0, List.of(), List.of(emptyItemDisk), "", 4, false).toTag());
-            panel.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(panel, context);
             verify(context, times(1)).drawTexture(eq(StoragePanelTextures.TYPE_PANEL), eq(373F), eq(304F), eq(68F), eq(29F));
             verify(context, never()).drawTexture(eq(StoragePanelTextures.TYPE_PANEL), anyFloat(), eq(333F), anyFloat(), anyFloat());
             verify(context, never()).drawTexture(eq(StoragePanelTextures.TYPE_PANEL), anyFloat(), eq(362F), anyFloat(), anyFloat());
             display.setValue(StoragePanelState.EMPTY.toTag());
             clearInvocations(context);
-            panel.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(panel, context);
             verifyNoInteractions(context);
         }
     }
 
     @Test
     void installedDiskUsesTheActualItemStackAndItsNativeItemRenderer() {
-        try (var ldlib = mockStatic(LDLib2.class); var drawer = mockStatic(DrawerHelper.class)) {
+        try (var ldlib = mockStatic(LDLib2.class); var drawer = mockStatic(DrawerHelperClient.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             ItemStack disk = new ItemStack(Items.DIAMOND);
             UIElement root = StorageHostUI.create(StoragePanelStateTest.config(List.of(StoragePanelStateTest.cell(50, 100)
@@ -664,15 +665,15 @@ class StorageHostUiTest {
             // Display slots do not rebind changing native menu slot IDs when paging.
             assertInstanceOf(LocalSlot.class, slot.getSlot());
             GUIContext context = mock(GUIContext.class);
-            context.graphics = mock(GuiGraphics.class);
+            context.graphics = mock(GuiGraphicsExtractor.class);
             slot.drawItemStack(context, slot.getValue());
-            drawer.verify(() -> DrawerHelper.drawItemStack(context.graphics, slot.getValue(), 0, 0, context.elementColor, null));
+            drawer.verify(() -> DrawerHelperClient.drawItemStack(context, slot.getValue(), 0, 0, 0));
         }
     }
 
     @Test
     void installedCellsUseNativeItemRenderingWithoutExtraStatusLights() {
-        try (var ldlib = mockStatic(LDLib2.class); var drawer = mockStatic(DrawerHelper.class)) {
+        try (var ldlib = mockStatic(LDLib2.class); var drawer = mockStatic(DrawerHelperClient.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             ItemStack disk = new ItemStack(Items.DIAMOND);
             List<StorageHostUI.CellEntry> cells = new java.util.ArrayList<>(java.util.Collections.nCopies(33, StorageHostUI.CellEntry.EMPTY));
@@ -683,12 +684,12 @@ class StorageHostUiTest {
             UIElement root = StorageHostUI.create(StoragePanelStateTest.config(cells, false));
             UIElement grid = node(root, "storage_cells");
             GUIContext context = mock(GUIContext.class);
-            context.graphics = mock(GuiGraphics.class);
+            context.graphics = mock(GuiGraphicsExtractor.class);
             assertTrue(((ItemSlot) grid.getChildren().getFirst()).getValue().isEmpty());
             for (int i = 1; i <= 3; i++) {
                 var slot = (StorageCellGrid.CellSlot) grid.getChildren().get(i);
                 slot.drawItemStack(context, slot.getValue());
-                drawer.verify(() -> DrawerHelper.drawItemStack(context.graphics, slot.getValue(), 0, 0, context.elementColor, null));
+                drawer.verify(() -> DrawerHelperClient.drawItemStack(context, slot.getValue(), 0, 0, 0));
             }
             drawer.verifyNoMoreInteractions();
         }
@@ -744,7 +745,7 @@ class StorageHostUiTest {
             doReturn(12F).when(animation).getSizeWidth();
             doReturn(12F).when(animation).getSizeHeight();
             GUIContext context = mock(GUIContext.class);
-            animation.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(animation, context);
             assertEquals("neoecoae:storage/infinity", StoragePanelTextures.INFINITE_ANIMATION.getSprite().toString());
             verify(context).drawTexture(StoragePanelTextures.INFINITE_ANIMATION, 322F, 411F, 12F, 12F);
             BindableValue<Tag> display = (BindableValue<Tag>) root.getChildren().getFirst();
@@ -753,15 +754,15 @@ class StorageHostUiTest {
                 display.setValue(new StoragePanelState(Component.empty(), 2, true, false, migrating,
                     0, 100, 0, "0", 0, 0, 0, List.of(), List.of(), "", 0, false).toTag());
                 clearInvocations(context);
-                animation.drawBackgroundAdditional(context);
+                UiTestRendering.drawBackgroundAdditional(animation, context);
                 verifyNoInteractions(context);
                 UIEvent tooltip = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
                 tooltip.target = animation;
                 UIEventDispatcher.dispatchEvent(tooltip, false, false, false);
-                assertTrue(tooltip.hoverTooltips.tooltipTexts().isEmpty());
+                assertTrue(tooltip.hoverTooltips.tooltips().isEmpty());
             }
             display.setValue(active);
-            animation.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(animation, context);
             verify(context).drawTexture(StoragePanelTextures.INFINITE_ANIMATION, 322F, 411F, 12F, 12F);
         }
     }
@@ -771,7 +772,7 @@ class StorageHostUiTest {
     void placedProviderAndScopedAtlasReachStorageBackgroundChartsSliderAndCachedCellSprites() throws Exception {
         try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
-            Minecraft client = mock(Minecraft.class);
+            Minecraft client = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.withOptions(mock(Minecraft.class));
             var field = Minecraft.class.getDeclaredField("font");
             field.setAccessible(true);
             field.set(client, mock(Font.class));
@@ -801,14 +802,14 @@ class StorageHostUiTest {
             ((BindableValue<Tag>) root.getChildren().getFirst()).setValue(tag);
             var badge = positionedBar(root, "host_tier", 23, 5, 13, 18);
             GUIContext badgeContext = mock(GUIContext.class);
-            badge.drawBackgroundAdditional(badgeContext);
+            UiTestRendering.drawBackgroundAdditional(badge, badgeContext);
             verify(badgeContext).drawTexture(argThat(texture -> net.minecraft.resources.Identifier.parse("addon:storage_host.png")
                 .equals(cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(texture))), eq(23F), eq(5F), eq(13F), eq(18F));
             for (String id : List.of("host_icon", "capacity_bar", "resource_bar", "energy_bar", "storage_types", "type_scrollbar", "storage_cells")) {
                 UIElement element = positionedBar(root, id, 0, 0, 160, 87);
                 GUIContext context = mock(GUIContext.class);
-                context.graphics = mock(GuiGraphics.class);
-                when(context.graphics.pose()).thenReturn(new PoseStack());
+                context.graphics = mock(GuiGraphicsExtractor.class);
+                when(context.graphics.pose()).thenReturn(new Matrix3x2fStack(16));
                 HostProgressTestSupport.drawAfterOpening(element, context);
                 verify(context, atLeastOnce()).drawTexture(argThat(texture -> net.minecraft.resources.Identifier.parse("addon:storage-atlas.png")
                     .equals(cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(texture))), anyFloat(), anyFloat(), anyFloat(), anyFloat());

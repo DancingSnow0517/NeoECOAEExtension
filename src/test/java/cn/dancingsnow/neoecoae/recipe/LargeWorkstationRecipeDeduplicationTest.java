@@ -32,11 +32,11 @@ class LargeWorkstationRecipeDeduplicationTest {
 
     @Test void crossModAdaptersKeepCheaperRecipeAndItsOriginalType() {
         var extended = decode("extendedae:assembler", "extendedae:crystal_assembler", """
-            {"input_items":[{"ingredient":{"item":"minecraft:iron_ingot"},"amount":4}],
+            {"input_items":[{"ingredient":"minecraft:iron_ingot","amount":4}],
              "output":{"id":"minecraft:diamond","count":2}}
             """);
         var science = decode("ae2cs:aggregator", "ae2cs:crystal_aggregator_recipe", """
-            {"input_a":{"item":"minecraft:iron_ingot","count":4},
+            {"input_a":{"ingredient":"minecraft:iron_ingot","count":4},
              "result":{"id":"minecraft:diamond","count":2},"energy_cost":1000}
             """);
         assertEquals(List.of(science), deduplicate(extended, science));
@@ -95,6 +95,7 @@ class LargeWorkstationRecipeDeduplicationTest {
         assertEquals(List.of(narrower, cheaper), deduplicate(first, cheaper, narrower));
     }
 
+    @org.junit.jupiter.api.Disabled("26.1 port: needs AE2 Lightning Tech LightningKey; only its 1.21.1 jar exists and it cannot initialize on 26.1 (no ResourceLocation)")
     @Test void lightningHasPriorityThenAeCostThenLightningAmount() {
         var base = materialRecipe("test:plain", 1, List.of());
         var high = com.moakiee.ae2lt.me.key.LightningKey.HIGH_VOLTAGE;
@@ -121,9 +122,9 @@ class LargeWorkstationRecipeDeduplicationTest {
             new ItemStack(Items.DIAMOND), new FluidStack(Fluids.LAVA, 250), 100, List.of());
         var inputAmount = recipe("test:c", inputs, new SizedFluidIngredient(FluidIngredient.of(Fluids.WATER), 1001),
             new ItemStack(Items.DIAMOND), new FluidStack(Fluids.LAVA, 250), 100, List.of());
-        var outputAmount = recipe("test:d", inputs, first.display().inputFluid(),
+        var outputAmount = recipe("test:d", inputs, first.display().inputFluid().orElse(null),
             new ItemStack(Items.DIAMOND), new FluidStack(Fluids.LAVA, 251), 100, List.of());
-        var outputType = recipe("test:e", inputs, first.display().inputFluid(),
+        var outputType = recipe("test:e", inputs, first.display().inputFluid().orElse(null),
             new ItemStack(Items.DIAMOND), new FluidStack(Fluids.WATER, 250), 100, List.of());
         assertEquals(List.of(first, alternatives, inputAmount, outputAmount, outputType),
             deduplicate(outputType, first, inputAmount, outputAmount, alternatives));
@@ -131,7 +132,7 @@ class LargeWorkstationRecipeDeduplicationTest {
 
     @Test void absentFluidIgnoresItsPlaceholderAmount() {
         var first = materialRecipe("test:a", 100, List.of());
-        var cheaper = recipe("test:b", first.display().inputItems(), new SizedFluidIngredient(FluidIngredient.empty(), 1000),
+        var cheaper = recipe("test:b", first.display().inputItems(), (net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient) null,
             first.display().itemOutput().copy(), FluidStack.EMPTY, 50, List.of());
         assertEquals(List.of(cheaper), deduplicate(first, cheaper));
     }
@@ -171,7 +172,7 @@ class LargeWorkstationRecipeDeduplicationTest {
             ItemStack.EMPTY, new FluidStack(Fluids.LAVA, 250), 50, List.of());
         var namedOutput = new FluidStack(Fluids.LAVA, 250);
         namedOutput.set(DataComponents.CUSTOM_NAME, Component.literal("Distinct output"));
-        var output = recipe("test:d", inputs, cheaper.display().inputFluid(), ItemStack.EMPTY, namedOutput, 50, List.of());
+        var output = recipe("test:d", inputs, cheaper.display().inputFluid().orElse(null), ItemStack.EMPTY, namedOutput, 50, List.of());
         assertEquals(List.of(cheaper, partial, output), deduplicate(first, cheaper, partial, output));
     }
 
@@ -187,7 +188,7 @@ class LargeWorkstationRecipeDeduplicationTest {
     }
 
     private static SizedIngredient input(Ingredient ingredient, int amount) { return new SizedIngredient(ingredient, amount); }
-    private static SizedFluidIngredient emptyFluid() { return new SizedFluidIngredient(FluidIngredient.empty(), 1); }
+    private static SizedFluidIngredient emptyFluid() { return (net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient) null; }
 
     private static LargeWorkstationRecipe materialRecipe(String id, long energy, List<GenericStack> extras) {
         return recipe(id, List.of(input(Ingredient.of(Items.IRON_INGOT), 4)), emptyFluid(), new ItemStack(Items.DIAMOND),
@@ -196,7 +197,7 @@ class LargeWorkstationRecipeDeduplicationTest {
 
     private static LargeWorkstationRecipe recipe(String id, List<SizedIngredient> items, SizedFluidIngredient fluid,
         ItemStack output, FluidStack fluidOutput, long energy, List<GenericStack> extras) {
-        return new LargeWorkstationRecipe(Identifier.parse(id), new IntegratedWorkingStationRecipe(items, fluid, output,
+        return new LargeWorkstationRecipe(Identifier.parse(id), IntegratedWorkingStationRecipe.of(items, fluid, output,
             fluidOutput, (int) Math.min(Integer.MAX_VALUE, energy)), energy, extras);
     }
 }

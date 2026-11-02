@@ -254,8 +254,8 @@ class ECOExactOrderTest {
         var pattern = pattern(key);
         var definition = mock(AEItemKey.class);
         when(pattern.getDefinition()).thenReturn(definition);
-        var registries = mock(HolderLookup.Provider.class);
-        when(definition.toTag(registries)).thenAnswer(i -> new CompoundTag());
+        HolderLookup.Provider registries = net.minecraft.core.RegistryAccess.EMPTY; // 26.1: TagValueOutput needs a real serialization context
+        doAnswer(call -> { ((net.minecraft.world.level.storage.ValueOutput) call.getArgument(0)).putString("test", "key"); return null; }).when(definition).toTag(any());
         var result = result(key, Map.of(pattern, PlannerAmount.of(HUGE)));
         result.setExactMaterials(Map.of(key, PlannerAmount.of(HUGE)), Map.of(), Map.of());
         var cpu = mock(ECOCraftingCPU.class);
@@ -264,11 +264,11 @@ class ECOExactOrderTest {
              var definitions = mockStatic(AEItemKey.class);
              var patterns = mockStatic(appeng.api.crafting.PatternDetailsHelper.class);
              var stacks = mockStatic(GenericStack.class, CALLS_REAL_METHODS)) {
-            definitions.when(() -> AEItemKey.fromTag(eq(registries), any())).thenReturn(definition);
+            definitions.when(() -> AEItemKey.fromTag(any())).thenReturn(definition);
             patterns.when(() -> appeng.api.crafting.PatternDetailsHelper.decodePattern(eq(definition), any())).thenReturn(pattern);
-            stacks.when(() -> GenericStack.writeTag(eq(registries), any())).thenReturn(new CompoundTag());
-            stacks.when(() -> GenericStack.readTag(eq(registries), any())).thenReturn(new GenericStack(key, 10));
-            var link = new CraftingLink(CraftingCpuHelper.generateLinkData(UUID.randomUUID(), true, false), cpu);
+            stacks.when(() -> GenericStack.writeTag(any(), any())).thenAnswer(call -> { ((net.minecraft.world.level.storage.ValueOutput) call.getArgument(0)).putString("test", "stack"); return null; });
+            stacks.when(() -> GenericStack.readTag(any())).thenReturn(new GenericStack(key, 10));
+            var link = new CraftingLink(UUID.randomUUID(), true, cpu);
             var plan = new ECOExactCraftingPlan(result, false);
             var job = new ExecutingCraftingJob(plan, ignored -> {}, link, null);
             job.tasks.get(pattern).accept(37);

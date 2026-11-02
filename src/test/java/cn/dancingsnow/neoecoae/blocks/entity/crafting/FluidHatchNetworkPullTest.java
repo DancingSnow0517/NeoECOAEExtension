@@ -148,9 +148,10 @@ class FluidHatchNetworkPullTest {
         loaded.readFromNBT(registries, saved);
         assertEquals(9_000_000_000L, loaded.getStoredAmount());
         assertEquals(Integer.MAX_VALUE, loaded.getFluidAmount());
-        var legacy = new net.neoforged.neoforge.fluids.capability.templates.FluidTank(16000);
-        legacy.fill(water.toStack(7500), FluidAction.EXECUTE);
-        loaded.readFromNBT(registries, legacy.writeToNBT(registries, new CompoundTag()));
+        // 1.21.1 FluidTank#writeToNBT layout: {Fluid: <FluidStack>}.
+        var legacy = new CompoundTag();
+        legacy.put("Fluid", cn.dancingsnow.neoecoae.util.LegacyNbt.saveFluid(registries, water.toStack(7500)));
+        loaded.readFromNBT(registries, legacy);
         assertEquals(7500, loaded.getStoredAmount());
         assertEquals(7500, loaded.getFluidAmount());
     }

@@ -16,9 +16,9 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.EnhancedPoseStack;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
+import com.lowdragmc.lowdraglib2.gui.util.DrawerHelperClient;
 import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.nbt.CompoundTag;
@@ -70,9 +70,10 @@ class CraftingInterfaceRenderingTest {
         // A running ModularUI computes inline styles before rendering each element.
         preview.getStyleBag().compute(0);
         var context = mock(GUIContext.class);
-        context.graphics = mock(GuiGraphics.class);
+        context.graphics = mock(GuiGraphicsExtractor.class);
         context.elementColor = -1;
-        preview.drawContents(context);
+        // 26.1: the contents phase lives in the registered UIElementRenderer (ElementRenderHooks for PatternPreview).
+        com.lowdragmc.lowdraglib2.gui.ui.UIElementRendererRegistry.findRenderer(preview).drawContents(preview, context);
         assertEquals(63, slots.size());
         for (var slot : slots) {
             verify(slot).drawInBackground(context);
@@ -97,10 +98,10 @@ class CraftingInterfaceRenderingTest {
 
         assertEquals(1, fixture.actions.size());
         var action = fixture.actions.getFirst();
-        assertEquals(60, action.getInt("slot"));
-        assertEquals(0, action.getInt("action"));
-        assertEquals(0, action.getInt("button"));
-        assertTrue(action.getCompound("stack").isEmpty(), "insertion must address an empty physical slot");
+        assertEquals(60, action.getIntOr("slot", 0));
+        assertEquals(0, action.getIntOr("action", 0));
+        assertEquals(0, action.getIntOr("button", 0));
+        assertTrue(action.getCompoundOrEmpty("stack").isEmpty(), "insertion must address an empty physical slot");
     }
 
     @Test void fullCatalogueConsumesLeftClicksWithoutReplacingOrQuickMoving() throws Exception {
@@ -121,9 +122,9 @@ class CraftingInterfaceRenderingTest {
 
         assertEquals(1, fixture.actions.size());
         var action = fixture.actions.getFirst();
-        assertEquals(3, action.getInt("slot"));
-        assertEquals(1, action.getInt("button"));
-        assertFalse(action.getCompound("stack").isEmpty(), "replacement must validate the selected pattern");
+        assertEquals(3, action.getIntOr("slot", 0));
+        assertEquals(1, action.getIntOr("button", 0));
+        assertFalse(action.getCompoundOrEmpty("stack").isEmpty(), "replacement must validate the selected pattern");
     }
 
     @Test void emptyCursorLeftClickStillTakesTheSelectedPattern() throws Exception {
@@ -132,7 +133,7 @@ class CraftingInterfaceRenderingTest {
         fixture.click(0, false);
 
         assertEquals(1, fixture.actions.size());
-        assertEquals(3, fixture.actions.getFirst().getInt("slot"));
+        assertEquals(3, fixture.actions.getFirst().getIntOr("slot", 0));
     }
 
     @Test void leftClickOnAReadOnlyDiskRecipeInsertsWithoutTargetingTheDisk() throws Exception {
@@ -142,7 +143,7 @@ class CraftingInterfaceRenderingTest {
         fixture.click(0, false);
 
         assertEquals(1, fixture.actions.size());
-        assertEquals(1, fixture.actions.getFirst().getInt("slot"));
+        assertEquals(1, fixture.actions.getFirst().getIntOr("slot", 0));
         assertSame(fixture.preview, fixture.preview.getChildren().getFirst()
                 .getFirstAncestorOfType(CraftingInterfaceUI.PatternPreview.class));
         try (var patterns = mockStatic(PatternDetailsHelper.class)) {
@@ -168,6 +169,7 @@ class CraftingInterfaceRenderingTest {
             var clientSide = Level.class.getDeclaredField("isClientSide");
             clientSide.setAccessible(true);
             clientSide.setBoolean(level, true);
+            when(level.isClientSide()).thenReturn(true); // 26.1: isClientSide() is a method now
             when(level.dimension()).thenReturn(Level.OVERWORLD);
             when(level.registryAccess()).thenReturn(RegistryAccess.EMPTY);
             when(player.level()).thenReturn(level);
@@ -212,8 +214,8 @@ class CraftingInterfaceRenderingTest {
         var secondary = Component.literal("背包空间不足，仍有 1 个样板待回收");
         var lines = CraftingInterfaceUI.statusTooltipLines(network, primary, secondary);
         var tooltip = HoverTooltips.empty().append(lines.toArray(Component[]::new));
-        assertEquals(List.of(network, primary, secondary), tooltip.tooltipTexts());
-        assertTrue(tooltip.tooltipTexts().stream().noneMatch(line -> line.getString().contains("\n")));
+        assertEquals(List.of(network, primary, secondary), tooltip.tooltips().stream().filter(net.minecraft.network.chat.Component.class::isInstance).map(net.minecraft.network.chat.Component.class::cast).toList());
+        assertTrue(tooltip.tooltips().stream().filter(net.minecraft.network.chat.Component.class::isInstance).map(net.minecraft.network.chat.Component.class::cast).toList().stream().noneMatch(line -> line.getString().contains("\n")));
         assertEquals(List.of(network, primary), CraftingInterfaceUI.statusTooltipLines(network, primary, Component.empty()));
     }
 
@@ -221,63 +223,68 @@ class CraftingInterfaceRenderingTest {
         var state = mock(CraftingPatternPreviewState.class);
         var scrollbar = CraftingInterfaceUI.patternPreviewScrollbar(state);
         var context = mock(GUIContext.class);
-        context.graphics = mock(GuiGraphics.class);
-        context.pose = mock(EnhancedPoseStack.class);
+        context.graphics = mock(GuiGraphicsExtractor.class);
         context.pose = mock(EnhancedPoseStack.class);
 
         // Empty and single-page lists still draw AE2's disabled handle.
-        scrollbar.drawBackgroundAdditional(context);
-        verify(context.graphics).blitSprite(Identifier.fromNamespaceAndPath("ae2", "big_scroller_disabled"),
-                1, 1, 12, 15);
+        com.lowdragmc.lowdraglib2.gui.ui.UIElementRendererRegistry.findRenderer(scrollbar).drawBackgroundAdditional(scrollbar, context);
+        verify(context.graphics).blitSprite(eq(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED),
+                eq(Identifier.fromNamespaceAndPath("ae2", "big_scroller_disabled")),
+                eq(1), eq(1), eq(12), eq(15));
 
         when(state.getMaxScrollOffset()).thenReturn(54.0);
         when(state.getScrollOffset()).thenReturn(54.0);
-        scrollbar.drawBackgroundAdditional(context);
-        verify(context.graphics).blitSprite(Identifier.fromNamespaceAndPath("ae2", "big_scroller"),
-                1, 1, 12, 15);
-        verify(context.pose).translate(0F, 91F, 0F);
+        com.lowdragmc.lowdraglib2.gui.ui.UIElementRendererRegistry.findRenderer(scrollbar).drawBackgroundAdditional(scrollbar, context);
+        verify(context.graphics).blitSprite(eq(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED),
+                eq(Identifier.fromNamespaceAndPath("ae2", "big_scroller")),
+                eq(1), eq(1), eq(12), eq(15));
+        verify(context.pose).translate(0F, 91F);
 
         when(state.getScrollOffset()).thenReturn(9.5);
-        scrollbar.drawBackgroundAdditional(context);
-        verify(context.pose).translate(0F, 91F * (float) (9.5 / 54), 0F);
+        com.lowdragmc.lowdraglib2.gui.ui.UIElementRendererRegistry.findRenderer(scrollbar).drawBackgroundAdditional(scrollbar, context);
+        verify(context.pose).translate(0F, 91F * (float) (9.5 / 54));
     }
 
     @Test void operationIndicatorDistinguishesServerOperationsAndRendersTheHoverRowWithoutStretching() throws Exception {
-        var host = mock(ECOMachineInterfaceBlockEntity.class, CALLS_REAL_METHODS);
-        var indicator = spy(new CraftingInterfaceUI.PatternOperationIndicator(host));
-        assertEquals(0, indicator.getValue());
-        var transfer = ECOMachineInterfaceBlockEntity.class.getDeclaredField("patternTransferInProgress");
-        transfer.setAccessible(true);
-        transfer.setBoolean(host, true);
-        assertEquals(1, new CraftingInterfaceUI.PatternOperationIndicator(host).getValue());
-        transfer.setBoolean(host, false);
-        var organize = ECOMachineInterfaceBlockEntity.class.getDeclaredField("patternOrganizeInProgress");
-        organize.setAccessible(true);
-        organize.setBoolean(host, true);
-        assertTrue(host.isPatternTransferInProgress(), "the old combined progress flag also includes organizing");
-        assertEquals(2, new CraftingInterfaceUI.PatternOperationIndicator(host).getValue());
-        organize.setBoolean(host, false);
-        assertEquals(0, new CraftingInterfaceUI.PatternOperationIndicator(host).getValue());
+        // 26.1: LDLib2 DataBindingBuilder.build() needs a side; these are client-side views.
+        try (var ldlibSide = org.mockito.Mockito.mockStatic(com.lowdragmc.lowdraglib2.LDLib2.class)) {
+            ldlibSide.when(com.lowdragmc.lowdraglib2.LDLib2::isRemote).thenReturn(true);
+            var host = mock(ECOMachineInterfaceBlockEntity.class, CALLS_REAL_METHODS);
+            var indicator = spy(new CraftingInterfaceUI.PatternOperationIndicator(host));
+            assertEquals(0, indicator.getValue());
+            var transfer = ECOMachineInterfaceBlockEntity.class.getDeclaredField("patternTransferInProgress");
+            transfer.setAccessible(true);
+            transfer.setBoolean(host, true);
+            assertEquals(1, new CraftingInterfaceUI.PatternOperationIndicator(host).getValue());
+            transfer.setBoolean(host, false);
+            var organize = ECOMachineInterfaceBlockEntity.class.getDeclaredField("patternOrganizeInProgress");
+            organize.setAccessible(true);
+            organize.setBoolean(host, true);
+            assertTrue(host.isPatternTransferInProgress(), "the old combined progress flag also includes organizing");
+            assertEquals(2, new CraftingInterfaceUI.PatternOperationIndicator(host).getValue());
+            organize.setBoolean(host, false);
+            assertEquals(0, new CraftingInterfaceUI.PatternOperationIndicator(host).getValue());
 
-        doReturn(301F).when(indicator).getPositionX();
-        doReturn(84F).when(indicator).getPositionY();
-        var context = mock(GUIContext.class);
-        for (int state = 0; state < 3; state++) {
-            final int spriteX = 8 + state * 10;
-            indicator.setValue(state);
-            doReturn(false).when(indicator).isHover();
-            indicator.drawBackgroundAdditional(context);
-            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
-                && sprite.spritePosition.x == spriteX && sprite.spritePosition.y == 129),
-                eq(301F), eq(84F), eq(10F), eq(12F));
-            doReturn(true).when(indicator).isHover();
-            indicator.drawBackgroundAdditional(context);
-            verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
-                && sprite.spritePosition.x == spriteX && sprite.spritePosition.y == 142),
-                eq(301F), eq(85F), eq(10F), eq(11F));
+            doReturn(301F).when(indicator).getPositionX();
+            doReturn(84F).when(indicator).getPositionY();
+            var context = mock(GUIContext.class);
+            for (int state = 0; state < 3; state++) {
+                final int spriteX = 8 + state * 10;
+                indicator.setValue(state);
+                doReturn(false).when(indicator).isHover();
+                indicator.drawBackgroundAdditional(context);
+                verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                    && sprite.spritePosition.x == spriteX && sprite.spritePosition.y == 129),
+                    eq(301F), eq(84F), eq(10F), eq(12F));
+                doReturn(true).when(indicator).isHover();
+                indicator.drawBackgroundAdditional(context);
+                verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
+                    && sprite.spritePosition.x == spriteX && sprite.spritePosition.y == 142),
+                    eq(301F), eq(85F), eq(10F), eq(11F));
+            }
+            indicator.setValue(0);
+            assertEquals(0, indicator.getValue(), "completion returns the synchronized lamp to green");
         }
-        indicator.setValue(0);
-        assertEquals(0, indicator.getValue(), "completion returns the synchronized lamp to green");
     }
 
     @Test void occupiedPreviewUsesTheContinuousRowInsteadOfCoveringItsGridWithAnotherSprite() {
@@ -291,17 +298,17 @@ class CraftingInterfaceRenderingTest {
         doReturn(16F).when(slot).getContentWidth();
         doReturn(16F).when(slot).getContentHeight();
         var context = mock(GUIContext.class);
-        context.graphics = mock(GuiGraphics.class);
+        context.graphics = mock(GuiGraphicsExtractor.class);
         context.pose = mock(EnhancedPoseStack.class);
-        context.modularUI = mock(ModularUI.class);
+        doReturn(mock(ModularUI.class)).when(slot).getModularUI();
         context.elementColor = -1;
         var order = new ArrayList<String>();
         doAnswer(call -> { order.add("backdrop"); return null; }).when(context)
             .drawTexture(NETextures.PATTERN_MANAGER_SLOT, 0F, 0F, 16F, 16F);
-        try (var drawer = mockStatic(DrawerHelper.class)) {
-            drawer.when(() -> DrawerHelper.drawItemStack(context.graphics, item, 0, 0, -1, null))
+        try (var drawer = mockStatic(DrawerHelperClient.class)) {
+            drawer.when(() -> DrawerHelperClient.drawItemStack(context, item, 0, 0, 0))
                 .thenAnswer(call -> { order.add("item"); return null; });
-            slot.drawBackgroundAdditional(context);
+            new com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot.ItemSlotRenderer().drawBackgroundAdditional(slot, context);
             assertEquals(List.of("item"), order);
         }
     }
@@ -312,7 +319,7 @@ class CraftingInterfaceRenderingTest {
         when(state.createSlot(anyInt())).thenAnswer(call -> new PatternItemSlot());
         var preview = CraftingInterfaceUI.patternPreview(state);
         var context = mock(GUIContext.class);
-        preview.drawBackgroundAdditional(context);
+        ((CraftingInterfaceUI.PatternPreview) preview).drawBackgroundAdditional(context);
         for (int row = 0; row <= 6; row++) {
             verify(context).drawTexture(NETextures.PATTERN_MANAGER_ROW, 0F, row * 18F - 9.5F, 162F, 18F);
         }

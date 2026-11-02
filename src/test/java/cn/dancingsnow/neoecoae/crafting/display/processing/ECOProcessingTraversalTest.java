@@ -66,7 +66,7 @@ class ECOProcessingTraversalTest {
     @Test void missingChunkAndDimensionNeverResolveOrLoadABlockEntity() {
         var fixture = new Fixture();
         when(fixture.level.hasChunkAt(any())).thenReturn(false);
-        var scan = new ECOWorkstationMachineStatus.Scan(List.of(target(0), new Target(Level.NETHER.location(), BlockPos.ZERO)),
+        var scan = new ECOWorkstationMachineStatus.Scan(List.of(target(0), new Target(Level.NETHER.identifier(), BlockPos.ZERO)),
             AEItemKey.of(Items.STONE));
         scan.step(fixture.level);
         scan.step(fixture.level);
@@ -96,7 +96,7 @@ class ECOProcessingTraversalTest {
 
     private static Machine sample() { return new Machine(Component.literal("addon"), "test", "test", 25, 100,
         1, State.RUNNING, Component.empty()); }
-    private static Target target(int x) { return new Target(Level.OVERWORLD.location(), new BlockPos(x, 0, 0)); }
+    private static Target target(int x) { return new Target(Level.OVERWORLD.identifier(), new BlockPos(x, 0, 0)); }
     private static final class Fixture {
         final ServerLevel level = mock(ServerLevel.class);
         final MinecraftServer server = mock(MinecraftServer.class);

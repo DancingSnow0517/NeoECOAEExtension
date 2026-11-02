@@ -172,7 +172,10 @@ class ECOCellDeferredPersistenceTest {
         verify(server, never()).executeIfPossible(any());
 
         // UI extraction, automation and every other reader goes through getCellStack().
-        ItemStack visible = new CellHostItemHandler(drive).getStackInSlot(0);
+        // 26.1: the transfer handler reads the stack through its protected getStack() hook.
+        var getter = CellHostItemHandler.class.getDeclaredMethod("getStack");
+        getter.setAccessible(true);
+        ItemStack visible = (ItemStack) getter.invoke(new CellHostItemHandler(drive));
         assertSame(stack, visible);
         assertEquals(150, stored(visible, stone));
         assertFalse(ECOCellMutationBatch.hasDeferred(drive));

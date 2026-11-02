@@ -37,6 +37,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.MockedStatic;
 
+@org.junit.jupiter.api.Disabled("26.1 port: OmniSequence (molecularmanipulator) is in NeoECOAE.UNPORTED_INTEGRATIONS, so the bridge is intentionally inactive until a 26.1 build exists")
 class ECOOmniSequenceDispatchIntegrationTest {
     interface MolecularProvider extends ICraftingProvider, MolecularBatchCraftingProvider {}
     interface OmniProvider extends ICraftingProvider, OmniBatchCraftingProvider {}

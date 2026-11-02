@@ -5,7 +5,6 @@ import cn.dancingsnow.neoecoae.gui.common.HostProgressTestSupport;
 import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
-import com.mojang.blaze3d.vertex.PoseStack;
 import com.lowdragmc.lowdraglib2.LDLib2;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
@@ -14,16 +13,16 @@ import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.EnhancedPoseStack;
-import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
+import com.lowdragmc.lowdraglib2.gui.util.DrawerHelperClient;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
 import net.minecraft.client.Minecraft;
-import net.minecraft.Util;
+import net.minecraft.util.Util;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -80,26 +79,27 @@ class CraftingHostPanelRenderingTest {
             verify(context).drawTexture(any(), eq(143F), eq(85F), eq(13F), eq(18F));
             verify(context).drawTexture(any(), eq(169F), eq(109F), eq(16F), eq(34F));
             verify(context).drawTexture(any(), eq(296F), eq(181F), eq(8F), eq(23F));
-            verify(context.graphics).renderItem(argThat(stack -> ItemStack.matches(hostItem, stack)), eq(129), eq(118));
-            verify(context.graphics).drawString(font, "0 us", 349, 90, 0xFFE4E4EE, true);
-            verify(context.graphics.pose()).translate(150.5D, 148.0D, 0.0D);
-            verify(context.graphics.pose()).translate(137.5D, 164.0D, 0.0D);
-            verify(context.graphics.pose()).translate(164.5D, 164.0D, 0.0D);
-            verify(context.graphics.pose()).translate(209.5D, 148.0D, 0.0D);
-            verify(context.graphics.pose()).translate(262.5D, 148.0D, 0.0D);
-            verify(context.graphics.pose()).translate(300.0D, 148.0D, 0.0D);
-            verify(context.graphics.pose()).translate(325.0D, 148.0D, 0.0D);
-            verify(context.graphics.pose()).translate(356.0D, 148.0D, 0.0D);
+            verify(context.graphics).item(argThat((ItemStack stack) -> ItemStack.matches(hostItem, stack)), eq(129), eq(118));
+            verify(context.graphics).text(font, "0 us", 349, 90, 0xFFE4E4EE, true);
+            verify(context.graphics.pose()).translate(150.5F, 148.0F);
+            verify(context.graphics.pose()).translate(137.5F, 164.0F);
+            verify(context.graphics.pose()).translate(164.5F, 164.0F);
+            verify(context.graphics.pose()).translate(209.5F, 148.0F);
+            verify(context.graphics.pose()).translate(262.5F, 148.0F);
+            verify(context.graphics.pose()).translate(300.0F, 148.0F);
+            verify(context.graphics.pose()).translate(325.0F, 148.0F);
+            verify(context.graphics.pose()).translate(356.0F, 148.0F);
             for (String heading : List.of("control_heading", "cooling_short", "overclock_short", "queue_heading", "parallel_heading",
                 "energy_heading", "coolant_heading", "output_heading")) {
-                verify(context.graphics).drawString(eq(font), eq(Component.translatable("gui.neoecoae.crafting.ui." + heading)),
-                    eq(0), eq(0), eq(0xFFE4E4EE), eq(true));
+                // Build the component before recording matchers (creating it may touch static mocks).
+                Component expected = Component.translatable("gui.neoecoae.crafting.ui." + heading);
+                verify(context.graphics).text(eq(font), eq(expected), eq(0), eq(0), eq(0xFFE4E4EE), eq(true));
             }
-            verify(context.graphics.pose()).translate(316.0D, 214.0D, 0.0D);
-            verify(context.graphics).drawString(font, "gui.neoecoae.crafting.ui.fx_short", 0, 0,
+            verify(context.graphics.pose()).translate(316.0F, 214.0F);
+            verify(context.graphics).text(font, "gui.neoecoae.crafting.ui.fx_short", 0, 0,
                 0xFFE4E4EE, true);
-            verify(context.graphics.pose()).translate(316.0D, 249.0D, 0.0D);
-            verify(context.graphics).drawString(font, "gui.neoecoae.crafting.ui.coolant_overclock", 0, 0,
+            verify(context.graphics.pose()).translate(316.0F, 249.0F);
+            verify(context.graphics).text(font, "gui.neoecoae.crafting.ui.coolant_overclock", 0, 0,
                 0xFFB4B6CC, true);
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.spritePosition.x == 8 && sprite.spritePosition.y == 115),
@@ -152,21 +152,21 @@ class CraftingHostPanelRenderingTest {
             installFont(minecraft);
             UIElement artwork = positioned(artwork(formedState()));
             GUIContext context = context();
-            artwork.drawBackgroundAdditional(context);
+            ((CraftingControllerArtwork) artwork).drawBackgroundAdditional(context);
             verify(context, never()).drawTexture(any(), eq(186F), eq(194F), anyFloat(), eq(7F));
             verify(context, never()).drawTexture(any(), eq(241F), eq(194F), anyFloat(), eq(7F));
             verify(context, never()).drawTexture(any(), eq(296F), anyFloat(), eq(8F), anyFloat());
 
             clearInvocations(context);
             now.set(250);
-            artwork.drawBackgroundAdditional(context);
+            ((CraftingControllerArtwork) artwork).drawBackgroundAdditional(context);
             verify(context).drawTexture(any(), eq(186F), eq(194F), eq(11F), eq(7F));
             verify(context).drawTexture(any(), eq(241F), eq(194F), eq(6F), eq(7F));
             verify(context).drawTexture(any(), eq(296F), eq(192F), eq(8F), eq(12F));
 
             clearInvocations(context);
             now.set(500);
-            artwork.drawBackgroundAdditional(context);
+            ((CraftingControllerArtwork) artwork).drawBackgroundAdditional(context);
             verify(context).drawTexture(any(), eq(186F), eq(194F), eq(22F), eq(7F));
             verify(context).drawTexture(any(), eq(241F), eq(194F), eq(11F), eq(7F));
             verify(context).drawTexture(any(), eq(296F), eq(181F), eq(8F), eq(23F));
@@ -182,17 +182,18 @@ class CraftingHostPanelRenderingTest {
             UIElement artwork = positioned(artwork(CraftingControllerPanelState.UNFORMED, hostItem));
             GUIContext context = context();
 
-            artwork.drawBackgroundAdditional(context);
+            ((CraftingControllerArtwork) artwork).drawBackgroundAdditional(context);
 
             verify(context).drawTexture(NETextures.Crafting.CONTROLLER, 120F, 80F, 253F, 214F);
             verifyNoMoreInteractions(context);
-            verify(context.graphics).drawString(font, "0 us", 349, 90, 0xFFE4E4EE, true);
-            verify(context.graphics).renderItem(argThat(stack -> ItemStack.matches(hostItem, stack)), eq(129), eq(118));
+            verify(context.graphics).text(font, "0 us", 349, 90, 0xFFE4E4EE, true);
+            verify(context.graphics).item(argThat((ItemStack stack) -> ItemStack.matches(hostItem, stack)), eq(129), eq(118));
             verify(context.graphics, times(8)).pose();
             for (String heading : List.of("control_heading", "cooling_short", "overclock_short", "queue_heading", "parallel_heading",
                 "energy_heading", "coolant_heading", "output_heading")) {
-                verify(context.graphics).drawString(eq(font), eq(Component.translatable("gui.neoecoae.crafting.ui." + heading)),
-                    eq(0), eq(0), eq(0xFFE4E4EE), eq(true));
+                // Build the component before recording matchers (creating it may touch static mocks).
+                Component expected = Component.translatable("gui.neoecoae.crafting.ui." + heading);
+                verify(context.graphics).text(eq(font), eq(expected), eq(0), eq(0), eq(0xFFE4E4EE), eq(true));
             }
             verifyNoMoreInteractions(context.graphics);
         }
@@ -211,7 +212,7 @@ class CraftingHostPanelRenderingTest {
             event.target = information;
             UIEventDispatcher.dispatchEvent(event);
 
-            List<Component> lines = event.hoverTooltips.tooltipTexts();
+            List<Component> lines = event.hoverTooltips.tooltips().stream().filter(net.minecraft.network.chat.Component.class::isInstance).map(net.minecraft.network.chat.Component.class::cast).toList();
             assertEquals(List.of("status", "first condition", "second condition"),
                 lines.stream().map(Component::getString).toList());
             assertEquals(0xD8B4FE, lines.getFirst().getStyle().getColor().getValue() & 0xFFFFFF);
@@ -243,29 +244,31 @@ class CraftingHostPanelRenderingTest {
             UIElement artwork = positioned(artwork(state, ItemStack.EMPTY, items));
             BindableValue<Tag> synced = (BindableValue<Tag>) artwork.getChildren().getFirst();
             CompoundTag payload = (CompoundTag) synced.getValue();
-            ListTag encoded = payload.getList("workerOutputs", Tag.TAG_COMPOUND);
+            ListTag encoded = payload.getListOrEmpty("workerOutputs");
             assertEquals(11, encoded.size());
-            assertTrue(encoded.getCompound(9).isEmpty());
+            assertTrue(encoded.getCompoundOrEmpty(9).isEmpty());
             var slots = workerSlots(artwork);
             assertEquals(11, slots.size());
             assertTrue(ItemStack.matches(diamond, slots.get(10).getValue()));
             assertTrue(ItemStack.matches(emerald, slots.get(8).getValue()));
             assertTrue(slots.get(9).getValue().isEmpty());
-            assertEquals("1000000000000000000000000000000", encoded.getCompound(10).getString("amount"));
-            assertTrue(slots.get(10).getFullTooltipTexts(false).getLast().getString().endsWith(
+            assertEquals("1000000000000000000000000000000", encoded.getCompoundOrEmpty(10).getStringOr("amount", ""));
+            assertTrue(slots.get(10).getFullTooltipTexts().getLast().getString().endsWith(
                 "1,000,000,000,000,000,000,000,000,000,000"));
 
             CompoundTag countUpdate = payload.copy();
-            countUpdate.getList("workerOutputs", Tag.TAG_COMPOUND).getCompound(10).putString("amount", "2000");
+            countUpdate.getListOrEmpty("workerOutputs").getCompoundOrEmpty(10).putString("amount", "2000");
             synced.setValue(countUpdate);
             assertTrue(ItemStack.matches(diamond, slots.get(10).getValue()));
-            assertTrue(slots.get(10).getFullTooltipTexts(false).getLast().getString().endsWith("2,000"));
+            assertTrue(slots.get(10).getFullTooltipTexts().getLast().getString().endsWith("2,000"));
 
             CompoundTag update = state.toTag();
             update.put("workerOutputs", new ListTag());
             synced.setValue(update);
             assertTrue(slots.stream().allMatch(slot -> slot.getValue().isEmpty()));
-            assertTrue(slots.get(10).getFullTooltipTexts(false).isEmpty());
+            // 26.1: LDLib2 may still contribute generic (empty-stack) item lines; the amount line must be gone.
+            assertTrue(slots.get(10).getFullTooltipTexts().stream()
+                .noneMatch(line -> line.getString().contains("gui.neoecoae.crafting.ui.amount_short")));
         }
     }
 
@@ -273,7 +276,8 @@ class CraftingHostPanelRenderingTest {
     @SuppressWarnings("unchecked")
     void outputSlotsShowNativeItemTooltipsHoverAndBottomRightCompactCounts() throws ReflectiveOperationException {
         try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class);
-             var drawer = mockStatic(DrawerHelper.class)) {
+             var drawer = mockStatic(DrawerHelperClient.class);
+             var itemTooltips = mockStatic(com.lowdragmc.lowdraglib2.gui.util.ItemTooltipTextHelper.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             Font font = installFont(minecraft);
             when(font.width(anyString())).thenAnswer(call -> ((String) call.getArgument(0)).length() * 6);
@@ -285,29 +289,32 @@ class CraftingHostPanelRenderingTest {
             doReturn(true).when(slot).isHover();
             doReturn(16F).when(slot).getContentWidth();
             doReturn(16F).when(slot).getContentHeight();
-            drawer.when(() -> DrawerHelper.getItemToolTip(any())).thenReturn(
-                List.of(Component.literal("Actual item name"), Component.literal("Actual item details")));
+            // 26.1: LDLib2's ItemSlot takes the vanilla item lines from ItemTooltipTextHelper.
+            List<Component> itemLines = List.of(Component.literal("Actual item name"), Component.literal("Actual item details"));
+            itemTooltips.when(() -> com.lowdragmc.lowdraglib2.gui.util.ItemTooltipTextHelper.getTooltip(any()))
+                .thenAnswer(call -> new java.util.ArrayList<>(itemLines));
             UIEvent event = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
             event.target = slot;
             UIEventDispatcher.dispatchEvent(event);
-            assertEquals("Actual item details", event.hoverTooltips.tooltipTexts().get(1).getString());
+            assertEquals("Actual item details", event.hoverTooltips.tooltips().stream().filter(net.minecraft.network.chat.Component.class::isInstance).map(net.minecraft.network.chat.Component.class::cast).toList().get(1).getString());
             assertTrue(ItemStack.matches(item, event.hoverTooltips.tooltipStack()));
-            assertTrue(event.hoverTooltips.tooltipTexts().getLast().getString().endsWith("32"));
+            assertTrue(event.hoverTooltips.tooltips().stream().filter(net.minecraft.network.chat.Component.class::isInstance).map(net.minecraft.network.chat.Component.class::cast).toList().getLast().getString().endsWith("32"));
             GUIContext context = context();
-            context.modularUI = mock(ModularUI.class);
             context.pose = mock(EnhancedPoseStack.class);
             context.elementColor = -1;
             for (var count : List.of("32", "512", "2000")) {
                 CompoundTag update = ((CompoundTag) synced.getValue()).copy();
-                update.getList("workerOutputs", Tag.TAG_COMPOUND).getCompound(0).putString("amount", count);
+                update.getListOrEmpty("workerOutputs").getCompoundOrEmpty(0).putString("amount", count);
                 synced.setValue(update);
                 var updatedSlot = spy(workerSlots(artwork).getFirst());
                 doReturn(true).when(updatedSlot).isHover();
                 doReturn(16F).when(updatedSlot).getContentWidth();
                 doReturn(16F).when(updatedSlot).getContentHeight();
-                updatedSlot.drawBackgroundAdditional(context);
+                doReturn(mock(ModularUI.class)).when(updatedSlot).getModularUI();
+                // 26.1: ItemSlot contents are drawn by the registered ItemSlotRenderer, not the element itself.
+                new ItemSlot.ItemSlotRenderer().drawBackgroundAdditional(updatedSlot, context);
                 String displayed = count.equals("2000") ? "2k" : count;
-                drawer.verify(() -> DrawerHelper.drawStringFixedCorner(eq(context.graphics), eq(displayed),
+                drawer.verify(() -> DrawerHelperClient.drawStringFixedCorner(same(context), eq(displayed),
                     eq(16F), eq(16F), eq(-1), eq(true), anyFloat()));
             }
             verify(context, times(3)).drawTexture(NETextures.AE2_SLOT_HIGHLIGHT, 0F, 0F, 16F, 16F);
@@ -365,13 +372,13 @@ class CraftingHostPanelRenderingTest {
             assertEquals(15, ((SpriteTexture) coolingButton.getButtonStyle().hoverTexture()).spritePosition.x);
             assertEquals(30, ((SpriteTexture) overclockButton.getButtonStyle().baseTexture()).spritePosition.x);
             GUIContext context = context();
-            coolingButton.drawBackgroundAdditional(context);
+            new Button.ButtonRenderer().drawBackgroundAdditional(coolingButton, context);
             verify(context).drawTexture(eq(coolingButton.getButtonStyle().hoverTexture()),
                 anyFloat(), anyFloat(), anyFloat(), anyFloat());
             UIEvent tooltip = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
             tooltip.target = coolingButton;
             UIEventDispatcher.dispatchEvent(tooltip, false, false, false);
-            assertEquals("gui.neoecoae.crafting.active_cooling.on", tooltip.hoverTooltips.tooltipTexts().getFirst().getString());
+            assertEquals("gui.neoecoae.crafting.active_cooling.on", tooltip.hoverTooltips.tooltips().stream().filter(net.minecraft.network.chat.Component.class::isInstance).map(net.minecraft.network.chat.Component.class::cast).toList().getFirst().getString());
         }
     }
 
@@ -431,7 +438,7 @@ class CraftingHostPanelRenderingTest {
                 cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(coolingButton.getButtonStyle().baseTexture()));
             clearInvocations(context);
             when(tier.getPanelTierName()).thenReturn(Component.literal("L1"));
-            artwork.drawBackgroundAdditional(context);
+            ((CraftingControllerArtwork) artwork).drawBackgroundAdditional(context);
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.spritePosition.x == 36 && sprite.spritePosition.y == 5 && sprite.spriteSize.width == 1),
                 eq(143F), eq(85F), eq(13F), eq(18F));
@@ -474,7 +481,7 @@ class CraftingHostPanelRenderingTest {
     }
 
     private static Font installFont(org.mockito.MockedStatic<Minecraft> minecraft) throws ReflectiveOperationException {
-        Minecraft client = mock(Minecraft.class);
+        Minecraft client = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.withOptions(mock(Minecraft.class));
         Font font = mock(Font.class);
         var field = Minecraft.class.getDeclaredField("font");
         field.setAccessible(true);
@@ -486,8 +493,8 @@ class CraftingHostPanelRenderingTest {
 
     private static GUIContext context() {
         GUIContext context = mock(GUIContext.class);
-        context.graphics = mock(GuiGraphics.class);
-        PoseStack pose = spy(new PoseStack());
+        context.graphics = mock(GuiGraphicsExtractor.class);
+        var pose = spy(new org.joml.Matrix3x2fStack(16));
         when(context.graphics.pose()).thenReturn(pose);
         return context;
     }

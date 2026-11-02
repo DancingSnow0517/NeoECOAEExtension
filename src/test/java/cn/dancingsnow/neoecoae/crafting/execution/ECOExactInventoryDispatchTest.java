@@ -136,28 +136,28 @@ class ECOExactInventoryDispatchTest {
     @Test void exactAndLegacyNbtRoundTripWithoutDuplicatingTheCompatibilityWindow() {
         fill(); inventory.insert(input, 7, Actionable.MODULATE);
         var registry = mock(net.minecraft.core.HolderLookup.Provider.class);
-        when(input.toTagGeneric(registry)).thenAnswer(call -> new net.minecraft.nbt.CompoundTag());
+        doAnswer(call -> { ((net.minecraft.world.level.storage.ValueOutput) call.getArgument(0)).putString("test", "key"); return null; }).when(input).toTagGeneric(any());
         try (var keys = mockStatic(AEKey.class)) {
-            keys.when(() -> AEKey.fromTagGeneric(eq(registry), any())).thenReturn(input);
-            var saved = inventory.writeToNBT(registry);
-            assertEquals(Long.MAX_VALUE, saved.getCompound(0).getLong("#"));
+            keys.when(() -> AEKey.fromTagGeneric(any())).thenReturn(input);
+            var saved = cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeInventory(registry, inventory);
+            assertEquals(Long.MAX_VALUE, saved.getCompoundOrEmpty(0).getLongOr("#", 0L));
             var restored = new ECOExactInventory(ignored -> {});
-            restored.readFromNBT(saved, registry);
+            cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readInventory(registry, restored, saved);
             assertEquals(inventory.amount(input), restored.amount(input));
             assertTrue(restored.isEnabled());
             assertEquals(Long.MAX_VALUE, restored.list.get(input));
             // Repeated load replaces rather than adds the saved ledger.
-            restored.readFromNBT(saved, registry);
+            cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readInventory(registry, restored, saved);
             assertEquals(inventory.amount(input), restored.amount(input));
             for (int i = 0; i < 9; i++) restored.extract(input, Long.MAX_VALUE, Actionable.MODULATE);
             assertEquals(BigInteger.valueOf(7), restored.amount(input));
             var legacy = new net.minecraft.nbt.ListTag();
             var entry = new net.minecraft.nbt.CompoundTag(); entry.putLong("#", 17); legacy.add(entry);
-            restored.readFromNBT(legacy, registry);
+            cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readInventory(registry, restored, legacy);
             assertEquals(BigInteger.valueOf(17), restored.amount(input));
-            assertFalse(restored.writeToNBT(registry).getCompound(0).contains("ecoExactAmount"));
-            saved.getCompound(0).putString("ecoExactAmount", "invalid");
-            assertThrows(NumberFormatException.class, () -> restored.readFromNBT(saved, registry));
+            assertFalse(cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeInventory(registry, restored).getCompoundOrEmpty(0).contains("ecoExactAmount"));
+            saved.getCompoundOrEmpty(0).putString("ecoExactAmount", "invalid");
+            assertThrows(NumberFormatException.class, () -> cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readInventory(registry, restored, saved));
             assertEquals(BigInteger.valueOf(17), restored.amount(input));
         }
     }

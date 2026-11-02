@@ -48,7 +48,7 @@ class ECOInfiniteStorageTransferTest {
         var tag = new CompoundTag();
         tag.putString("id", BuiltInRegistries.ITEM.getKey(item).toString());
         tag.putString("#c", "ae2:i");
-        doReturn(tag).when(key).toTagGeneric(any());
+        doAnswer(call -> { cn.dancingsnow.neoecoae.util.LegacyNbt.write((net.minecraft.world.level.storage.ValueOutput) call.getArgument(0), tag); return null; }).when(key).toTagGeneric(any());
         return key;
     }
 
@@ -155,7 +155,7 @@ class ECOInfiniteStorageTransferTest {
         assertEquals(ECOInfiniteStorageTransfer.State.COMPLETED, result.state());
         verify(key, times(1)).toTagGeneric(any());
 
-        CompoundTag tag = key.toTagGeneric(REGISTRIES);
+        CompoundTag tag = cn.dancingsnow.neoecoae.util.LegacyNbt.output(REGISTRIES, key::toTagGeneric);
         long amount = 1L;
         // The formulas below are the pre-refactoring code, copied verbatim.
         UUID legacy = UUID.nameUUIDFromBytes((DOMAIN + ":" + "to-domain" + ":" + source.position + ":"

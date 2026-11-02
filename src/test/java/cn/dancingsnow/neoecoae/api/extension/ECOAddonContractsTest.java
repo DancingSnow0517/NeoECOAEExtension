@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.api.extension;
 
 import appeng.api.networking.IManagedGridNode;
-import cn.dancingsnow.neoecoae.api.ECOComputationModels;
+import cn.dancingsnow.neoecoae.api.client.ECOComputationModels;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.capability.ECOFeature;
@@ -133,17 +133,16 @@ class ECOAddonContractsTest {
         assertThrows(IllegalArgumentException.class, () -> new ECOComputationCells.Memory(ECOTier.L4, -1));
     }
 
-    @Test void hostSpecificCableModelsRetainTheOldTierLookupAndMissingModelsAreSafe() {
+    // 26.1 port: host-specific cable models (registerCableModel(tier, block, ...)) were removed from ECOComputationModels;
+    // only the per-tier lookup remains.
+    @Test void tierCableModelsAreRegisteredAndMissingModelsAreSafe() {
         IECOTier tier = mock(IECOTier.class);
         var normal = id("normal"); var formed = id("formed");
-        var hostNormal = id("host_normal"); var hostFormed = id("host_formed");
         ECOComputationModels.registerCableModel(tier, normal, formed);
-        ECOComputationModels.registerCableModel(tier, Blocks.GOLD_BLOCK, hostNormal, hostFormed);
-        assertEquals(formed, ECOComputationModels.getCableConnectedModel(tier));
-        assertEquals(hostFormed, ECOComputationModels.getCableConnectedModel(tier, Blocks.GOLD_BLOCK));
-        assertEquals(normal, ECOComputationModels.getCableDisconnectedModel(tier, Blocks.STONE));
-        assertNull(ECOComputationModels.getCableConnectedModel(mock(IECOTier.class)));
-        assertNull(ECOComputationModels.getNormalModel(Items.STICK));
+        assertEquals(formed, ECOComputationModels.getCableRegistry().get(tier).formedModel());
+        assertEquals(normal, ECOComputationModels.getCableRegistry().get(tier).normalModel());
+        assertNull(ECOComputationModels.getCableRegistry().get(mock(IECOTier.class)));
+        assertNull(ECOComputationModels.getCellRegistry().get(Items.STICK));
     }
 
     @Test void builtInFeatureEligibilityIsPreservedAndAddonTiersCanOptIn() {
@@ -157,7 +156,7 @@ class ECOAddonContractsTest {
     }
 
     private static final class MemoryItem extends Item implements IECOComputationCellItem {
-        MemoryItem() { super(new Item.Properties()); }
+        MemoryItem() { super(new Item.Properties().setId(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.ITEM, net.minecraft.resources.Identifier.parse("neoecoae_test:memory_item")))); }
         @Override public IECOTier getTier() { return ECOTier.L4; }
         @Override public long getComputationBytes(ItemStack stack) { return 123; }
     }

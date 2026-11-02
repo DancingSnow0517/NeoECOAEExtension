@@ -98,6 +98,7 @@ class ForcedCraftingSubmissionTest {
         }
     }
 
+    @org.junit.jupiter.api.Disabled("26.1 port: ExtendedAE Plus (extendedae_plus) is in NeoECOAE.UNPORTED_INTEGRATIONS, so the bridge is intentionally inactive until a 26.1 build exists")
     @Test @EnabledIf("eaepPresent")
     void installedEaepTakesPriorityAndItsMissingInputsReachTheEcoCpu() {
         var key = key();
@@ -131,12 +132,12 @@ class ForcedCraftingSubmissionTest {
         assertEquals(4, logic.getInventory().list.get(key));
 
         var registries = mock(HolderLookup.Provider.class);
-        when(key.toTagGeneric(registries)).thenAnswer(call -> new CompoundTag());
+        doAnswer(call -> { ((net.minecraft.world.level.storage.ValueOutput) call.getArgument(0)).putString("test", "key"); return null; }).when(key).toTagGeneric(any());
         try (var keys = mockStatic(AEKey.class)) {
-            keys.when(() -> AEKey.fromTagGeneric(eq(registries), any())).thenReturn(key);
-            var saved = job.waitingFor.writeToNBT(registries);
+            keys.when(() -> AEKey.fromTagGeneric(any())).thenReturn(key);
+            var saved = cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeInventory(registries, job.waitingFor);
             job.waitingFor.clear();
-            job.waitingFor.readFromNBT(saved, registries);
+            cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readInventory(registries, job.waitingFor, saved);
         }
         assertEquals(5, logic.getWaitingFor(key));
         assertEquals(5, logic.insert(key, 100, Actionable.MODULATE));

@@ -50,6 +50,7 @@ class WorkstationPatternScreenStyleTest {
         assertEquals(SlotGridLayout.VERTICAL, style.getSlots().get("UPGRADE").getGrid());
     }
 
+    @org.junit.jupiter.api.Disabled("26.1 port: contract test against the released Data Energistics jar, which has no 26.1 build and is not on the classpath")
     @Test
     void releasedDataEnergisticsPatchAcceptsTheStyleAndRetainsTheRightUpgradePanel() throws Exception {
         var type = Class.forName("com.fish_dan_.data_energistics.client.screen.AePatternProviderSlotStylePatch");
@@ -88,7 +89,7 @@ class WorkstationPatternScreenStyleTest {
             if (stream == null) throw new FileNotFoundException(id.toString());
             return new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8));
         });
-        StyleManager.initialize(resources);
+        StyleManager.getReloadListener().onResourceManagerReload(resources);
         var style = StyleManager.loadStyleDoc("/screens/large_integrated_working_station_interface.json");
         verify(resources).getResource(Identifier.parse("ae2:screens/large_integrated_working_station_interface.json"));
         return style;

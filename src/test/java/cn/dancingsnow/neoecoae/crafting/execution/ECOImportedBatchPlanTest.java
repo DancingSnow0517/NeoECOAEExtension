@@ -26,8 +26,8 @@ class ECOImportedBatchPlanTest {
         when(base.getOutputs()).thenReturn(List.of(new GenericStack(key, 1)));
         var definition = mock(AEItemKey.class);
         when(base.getDefinition()).thenReturn(definition);
-        var registries = mock(HolderLookup.Provider.class);
-        when(definition.toTag(registries)).thenAnswer(call -> new CompoundTag());
+        HolderLookup.Provider registries = net.minecraft.core.RegistryAccess.EMPTY; // 26.1: TagValueOutput needs a real serialization context
+        doAnswer(call -> { ((net.minecraft.world.level.storage.ValueOutput) call.getArgument(0)).putString("test", "key"); return null; }).when(definition).toTag(any());
         var cpu = mock(ECOCraftingCPU.class);
         var logic = new ECOCraftingCPULogic(cpu);
         var wrapper = new ScaledProcessingPattern(base, 10);
@@ -39,11 +39,11 @@ class ECOImportedBatchPlanTest {
              var keys = mockStatic(AEItemKey.class);
              var patterns = mockStatic(PatternDetailsHelper.class);
              var stacks = mockStatic(GenericStack.class, CALLS_REAL_METHODS)) {
-            keys.when(() -> AEItemKey.fromTag(eq(registries), any())).thenReturn(definition);
+            keys.when(() -> AEItemKey.fromTag(any())).thenReturn(definition);
             patterns.when(() -> PatternDetailsHelper.decodePattern(eq(definition), any())).thenReturn(base);
-            stacks.when(() -> GenericStack.writeTag(eq(registries), any())).thenReturn(new CompoundTag());
-            stacks.when(() -> GenericStack.readTag(eq(registries), any())).thenReturn(new GenericStack(key, Long.MAX_VALUE));
-            var link = new CraftingLink(CraftingCpuHelper.generateLinkData(UUID.randomUUID(), true, false), cpu);
+            stacks.when(() -> GenericStack.writeTag(any(), any())).thenAnswer(call -> { ((net.minecraft.world.level.storage.ValueOutput) call.getArgument(0)).putString("test", "stack"); return null; });
+            stacks.when(() -> GenericStack.readTag(any())).thenReturn(new GenericStack(key, Long.MAX_VALUE));
+            var link = new CraftingLink(UUID.randomUUID(), true, cpu);
             var job = new ExecutingCraftingJob(plan, ignored -> {}, link, null);
             assertFalse(job.tasks.containsKey(wrapper));
             assertEquals(BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.TEN), job.tasks.get(base).remainingExact());

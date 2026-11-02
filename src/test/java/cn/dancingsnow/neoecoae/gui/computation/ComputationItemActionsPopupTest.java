@@ -33,7 +33,7 @@ class ComputationItemActionsPopupTest {
         ldlib.when(com.lowdragmc.lowdraglib2.LDLib2::isRemote).thenReturn(true);
         keys = org.mockito.Mockito.mockStatic(appeng.api.stacks.AEKeyTypesInternal.class);
         keys.when(appeng.api.stacks.AEKeyTypesInternal::getRegistry)
-            .thenReturn(cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys.REGISTRY);
+            .thenReturn(cn.dancingsnow.neoecoae.gui.common.GuiTestKeys.REGISTRY);
         var itemField = appeng.core.definitions.ItemDefinition.class.getDeclaredField("item");
         itemField.setAccessible(true);
         previousMissingContentItem = itemField.get(appeng.core.definitions.AEItems.MISSING_CONTENT);
@@ -78,28 +78,28 @@ class ComputationItemActionsPopupTest {
             assertTrue(coordinates.getStyle().isUnderlined());
             var click = coordinates.getStyle().getClickEvent();
             assertNotNull(click);
-            assertEquals(ClickEvent.Action.SUGGEST_COMMAND, click.getAction());
-            assertEquals("/tp " + i + " 64 20", click.getValue());
-            assertEquals(new BlockPos(i, 64, 20).asLong(), fixture.highlights.get(i).getLong("position"));
+            assertEquals(ClickEvent.Action.SUGGEST_COMMAND, click.action());
+            assertEquals("/tp " + i + " 64 20", ((ClickEvent.SuggestCommand) click).command());
+            assertEquals(new BlockPos(i, 64, 20).asLong(), fixture.highlights.get(i).getLongOr("position", 0L));
         }
         assertEquals(1, fixture.requests.size());
-        assertEquals("inspect", fixture.requests.get(0).getString("action"));
+        assertEquals("inspect", fixture.requests.get(0).getStringOr("action", ""));
     }
 
     @Test void partLocationsKeepTheirSideAndOnlyAppearAfterTheLocateAction() {
         var fixture = new Fixture(1);
         assertTrue(fixture.chat.isEmpty());
         var response = fixture.response();
-        response.getList("sources", 10).getCompound(0).putString("side", "north");
-        response.getList("sources", 10).getCompound(0).putLong("position", new BlockPos(264, 35, -201).asLong());
+        response.getListOrEmpty("sources").getCompoundOrEmpty(0).putString("side", "north");
+        response.getListOrEmpty("sources").getCompoundOrEmpty(0).putLong("position", new BlockPos(264, 35, -201).asLong());
         fixture.popup.accept(response);
         fixture.click(25);
         assertEquals(1, fixture.chat.size());
-        assertEquals("north", fixture.highlights.getFirst().getString("side"));
+        assertEquals("north", fixture.highlights.getFirst().getStringOr("side", ""));
         assertTrue(fixture.chat.get(0).getString().endsWith(" · north"));
         var message = assertInstanceOf(TranslatableContents.class, fixture.chat.get(0).getContents());
         var coordinates = assertInstanceOf(Component.class, message.getArgs()[3]);
-        assertEquals("/tp 264 35 -201", coordinates.getStyle().getClickEvent().getValue());
+        assertEquals("/tp 264 35 -201", ((ClickEvent.SuggestCommand) coordinates.getStyle().getClickEvent()).command());
     }
 
     @Test void openingMultipleProvidersRequiresChoosingTheSourceAndCarriesTheJobToken() {
@@ -108,9 +108,9 @@ class ComputationItemActionsPopupTest {
         fixture.arrange();
         assertEquals(1, fixture.requests.size());
         fixture.click(28);
-        assertEquals("open", fixture.requests.get(1).getString("action"));
-        assertEquals("source-0", fixture.requests.get(1).getString("source"));
-        assertEquals(fixture.job, fixture.requests.get(1).getUUID("job"));
+        assertEquals("open", fixture.requests.get(1).getStringOr("action", ""));
+        assertEquals("source-0", fixture.requests.get(1).getStringOr("source", ""));
+        assertEquals(fixture.job, fixture.requests.get(1).read("job", net.minecraft.core.UUIDUtil.CODEC).orElseThrow());
     }
 
     @Test void aReplyForAnEarlierContextCannotEnableTheNewMenu() {
@@ -126,8 +126,8 @@ class ComputationItemActionsPopupTest {
     @Test void aSingleProviderOpensDirectlyAndAnEmptyListDisablesBothActions() {
         var single = new Fixture(1);
         single.click(41);
-        assertEquals("open", single.requests.getLast().getString("action"));
-        assertEquals("source-0", single.requests.getLast().getString("source"));
+        assertEquals("open", single.requests.getLast().getStringOr("action", ""));
+        assertEquals("source-0", single.requests.getLast().getStringOr("source", ""));
         var empty = new Fixture(0);
         empty.click(25);
         empty.click(41);
@@ -144,7 +144,7 @@ class ComputationItemActionsPopupTest {
         wheel.deltaY = -1;
         com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher.dispatchEvent(wheel);
         fixture.click(28);
-        assertEquals("source-4", fixture.requests.getLast().getString("source"));
+        assertEquals("source-4", fixture.requests.getLast().getStringOr("source", ""));
         var escape = UIEvent.create(UIEvents.KEY_DOWN);
         escape.target = fixture.popup;
         escape.keyCode = 256;
@@ -161,36 +161,32 @@ class ComputationItemActionsPopupTest {
             set(fixture.ui, "lastMouseY", fixture.popup.getPositionY() + top);
             var tooltip = fixture.popup.collectHoverTooltips();
             assertNotNull(tooltip);
-            assertEquals(List.of(Component.translatable("gui.neoecoae.processing.no_pattern")), tooltip.tooltipTexts());
+            assertEquals(List.of(Component.translatable("gui.neoecoae.processing.no_pattern")), tooltip.tooltips().stream().filter(net.minecraft.network.chat.Component.class::isInstance).map(net.minecraft.network.chat.Component.class::cast).toList());
         }
     }
 
-    @Test void popupRendersAboveItemDepthAndFlushesItsBackgroundBeforeDrawingText() throws Exception {
+    // 26.1 port: GUI rendering is deferred to strata in GuiRenderState, so the old depth (z > 200) and flush()
+    // assertions no longer apply; only the background-before-text order and pose restoration remain.
+    @Test void popupDrawsItsBackgroundBeforeText() throws Exception {
         var fixture = new Fixture(1);
-        var client = mock(net.minecraft.client.Minecraft.class);
+        var client = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.withOptions(mock(net.minecraft.client.Minecraft.class));
         set(client, "font", mock(net.minecraft.client.gui.Font.class));
         when(client.font.plainSubstrByWidth(anyString(), anyInt())).thenAnswer(call -> call.getArgument(0));
-        var graphics = mock(net.minecraft.client.gui.GuiGraphics.class);
-        var pose = new com.mojang.blaze3d.vertex.PoseStack();
+        var graphics = mock(net.minecraft.client.gui.GuiGraphicsExtractor.class);
+        var pose = new org.joml.Matrix3x2fStack(16);
         when(graphics.pose()).thenReturn(pose);
         var context = spy(new com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext());
         context.graphics = graphics;
         context.pose = new com.lowdragmc.lowdraglib2.gui.ui.rendering.EnhancedPoseStack(pose);
-        doAnswer(call -> {
-            // Native GUI item models write depth at up to 200 above their parent plane.
-            assertTrue(pose.last().pose().m32() > 200, "the menu background must cover item depth");
-            return null;
-        }).when(context).drawTexture(any(), anyFloat(), anyFloat(), anyFloat(), anyFloat());
+        doNothing().when(context).drawTexture(any(), anyFloat(), anyFloat(), anyFloat(), anyFloat());
         try (var minecraft = mockStatic(net.minecraft.client.Minecraft.class)) {
             minecraft.when(net.minecraft.client.Minecraft::getInstance).thenReturn(client);
-            fixture.popup.drawInBackground(context);
+            fixture.popup.drawBackgroundAdditional(context);
         }
         var order = inOrder(context, graphics);
-        order.verify(graphics).flush();
         order.verify(context).drawTexture(any(), anyFloat(), anyFloat(), anyFloat(), anyFloat());
-        order.verify(graphics).flush();
-        order.verify(graphics).drawString(eq(client.font), anyString(), anyInt(), anyInt(), anyInt(), eq(false));
-        assertEquals(0, pose.last().pose().m32(), "the popup must restore the enclosing GUI pose");
+        order.verify(graphics).text(eq(client.font), anyString(), anyInt(), anyInt(), anyInt(), eq(false));
+        assertEquals(new org.joml.Matrix3x2f(), new org.joml.Matrix3x2f(pose), "the popup must restore the enclosing GUI pose");
     }
 
     private static void set(Object target, String name, Object value) throws Exception {
@@ -220,14 +216,16 @@ class ComputationItemActionsPopupTest {
         }
         CompoundTag response() {
             var response = new CompoundTag();
-            response.putLong("sequence", requests.get(0).getLong("sequence"));
-            response.put("key", item.key().toTagGeneric(registries));
-            response.putUUID("job", job);
+            response.putLong("sequence", requests.get(0).getLongOr("sequence", 0L));
+            response.put("key", cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeKey(registries, item.key()));
+            response.store("job", net.minecraft.core.UUIDUtil.CODEC, job);
             var sources = new ListTag();
             for (int i = 0; i < count; i++) {
                 var source = new CompoundTag();
                 source.putString("id", "source-" + i);
-                source.putString("name", Component.Serializer.toJson(Component.literal("Provider " + i), registries));
+                source.putString("name", net.minecraft.network.chat.ComponentSerialization.CODEC.encodeStart(
+                    registries.createSerializationContext(com.mojang.serialization.JsonOps.INSTANCE),
+                    Component.literal("Provider " + i)).getOrThrow().toString());
                 source.putString("dimension", "minecraft:overworld");
                 source.putLong("position", new BlockPos(i, 64, 20).asLong());
                 sources.add(source);

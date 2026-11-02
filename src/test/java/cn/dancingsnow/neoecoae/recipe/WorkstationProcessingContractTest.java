@@ -15,7 +15,7 @@ class WorkstationProcessingContractTest {
 
     @Test void nativeDurationDefaultsToTheUnupgradedSingleBlockTimeAndRoundTrips() {
         var ops = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY).createSerializationContext(JsonOps.INSTANCE);
-        var codec = IntegratedWorkingStationRecipe.Serializer.CODEC.codec();
+        var codec = IntegratedWorkingStationRecipe.CODEC.codec();
         var json = JsonParser.parseString("{\"energy\":1000}").getAsJsonObject();
         assertEquals(100, codec.parse(ops, json).getOrThrow().processingTicks());
         json.addProperty("processingTicks", 37);
@@ -25,8 +25,8 @@ class WorkstationProcessingContractTest {
         var buffer = new net.minecraft.network.RegistryFriendlyByteBuf(io.netty.buffer.Unpooled.buffer(),
             RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY));
         try {
-            IntegratedWorkingStationRecipe.Serializer.STREAM_CODEC.encode(buffer, parsed);
-            assertEquals(parsed, IntegratedWorkingStationRecipe.Serializer.STREAM_CODEC.decode(buffer));
+            IntegratedWorkingStationRecipe.STREAM_CODEC.encode(buffer, parsed);
+            assertEquals(parsed, IntegratedWorkingStationRecipe.STREAM_CODEC.decode(buffer));
             assertFalse(buffer.isReadable(), "The duration is included in the network contract");
         } finally { buffer.release(); }
         json.addProperty("processingTicks", 0);
@@ -36,7 +36,7 @@ class WorkstationProcessingContractTest {
     @Test void zeroEnergyReassemblyStillRetainsItsExplicitDuration() {
         var ops = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY).createSerializationContext(JsonOps.INSTANCE);
         var json = JsonParser.parseString("""
-            {"duration":77,"inputs":{"items":[{"item":"minecraft:iron_ingot","count":1}]},
+            {"duration":77,"inputs":{"items":[{"ingredient":"minecraft:iron_ingot","count":1}]},
              "outputs":{"items":[{"id":"minecraft:diamond","count":1}]}}
             """).getAsJsonObject();
         var recipe = DataWorkstationRecipes.decode(Identifier.parse("test:timed"), "data_energistics:data_reassembler", json, ops);
@@ -48,7 +48,7 @@ class WorkstationProcessingContractTest {
 
     @Test void crystalScienceDurationUsesItsUnupgradedTwoHundredAePerTickRate() {
         var ops = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY).createSerializationContext(JsonOps.INSTANCE);
-        var json = JsonParser.parseString("{\"input_a\":{\"item\":\"minecraft:iron_ingot\",\"count\":1},\"result\":{\"id\":\"minecraft:diamond\"},\"energy_cost\":57600}").getAsJsonObject();
+        var json = JsonParser.parseString("{\"input_a\":{\"ingredient\":\"minecraft:iron_ingot\",\"count\":1},\"result\":{\"id\":\"minecraft:diamond\"},\"energy_cost\":57600}").getAsJsonObject();
         var recipe = LargeWorkstationRecipes.decode(Identifier.parse("test:processor"), "ae2cs:circuit_etcher_recipe", json, ops);
         assertEquals(200, recipe.processingTicks());
         assertEquals(57600, recipe.energy());
@@ -56,9 +56,8 @@ class WorkstationProcessingContractTest {
     }
 
     @Test void durationCapPreservesShortRecipesAndDoesNotChangeTheOriginalMachineOrBudgets() {
-        var original = new IntegratedWorkingStationRecipe(java.util.List.of(),
-            new net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient(
-                net.neoforged.neoforge.fluids.crafting.FluidIngredient.empty(), 1),
+        var original = IntegratedWorkingStationRecipe.of(java.util.List.of(),
+            (net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient) null,
             net.minecraft.world.item.ItemStack.EMPTY, net.neoforged.neoforge.fluids.FluidStack.EMPTY, 1000, 160_000);
         var large = new LargeWorkstationRecipe(Identifier.parse("test:long"), original, 1000, java.util.List.of());
         assertEquals(200, large.processingTicks());

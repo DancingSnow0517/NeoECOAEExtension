@@ -11,7 +11,7 @@ import cn.dancingsnow.neoecoae.compat.ae2.ECOProviderActions;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPULogic;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
-import cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys;
+import cn.dancingsnow.neoecoae.gui.common.GuiTestKeys;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -46,7 +46,7 @@ class ComputationItemActionsTest {
 
     @Test void openingRechecksTheCurrentJobAndSourceRatherThanTrustingTheClient() throws Exception {
         try (var keys = mockStatic(AEKeyTypesInternal.class); var providers = mockStatic(ECOProviderActions.class)) {
-            keys.when(AEKeyTypesInternal::getRegistry).thenReturn(LargeWorkstationTestKeys.REGISTRY);
+            keys.when(AEKeyTypesInternal::getRegistry).thenReturn(GuiTestKeys.REGISTRY);
             var fixture = new Fixture();
             var source = mock(ECOProviderActions.Source.class);
             when(source.id()).thenReturn("provider");
@@ -54,12 +54,12 @@ class ComputationItemActionsTest {
             when(source.open(fixture.player)).thenReturn(true);
             providers.when(() -> ECOProviderActions.find(List.of(), fixture.crafting)).thenReturn(List.of(source));
             var request = fixture.request("inspect");
-            assertEquals(fixture.job, fixture.send(1, request).getUUID("job"));
+            assertEquals(fixture.job, fixture.send(1, request).read("job", net.minecraft.core.UUIDUtil.CODEC).orElseThrow());
 
             request = fixture.request("open");
-            request.putUUID("job", fixture.job);
+            request.store("job", net.minecraft.core.UUIDUtil.CODEC, fixture.job);
             request.putString("source", "forged-provider");
-            assertEquals("gui.neoecoae.processing.open_unavailable", fixture.send(1, request).getString("error"));
+            assertEquals("gui.neoecoae.processing.open_unavailable", fixture.send(1, request).getStringOr("error", ""));
             verify(source, never()).open(any());
             request.putString("source", "provider");
             assertFalse(fixture.send(1, request).contains("error"));
@@ -67,23 +67,23 @@ class ComputationItemActionsTest {
 
             clearInvocations(source);
             when(fixture.logic.getProcessingJobId()).thenReturn(UUID.randomUUID());
-            assertEquals("gui.neoecoae.processing.task_changed", fixture.send(1, request).getString("error"));
+            assertEquals("gui.neoecoae.processing.task_changed", fixture.send(1, request).getStringOr("error", ""));
             verify(source, never()).open(any());
         }
     }
 
     @Test void removedCpuWrongSerialAndLostAccessCannotOpenAProvider() throws Exception {
         try (var keys = mockStatic(AEKeyTypesInternal.class); var providers = mockStatic(ECOProviderActions.class)) {
-            keys.when(AEKeyTypesInternal::getRegistry).thenReturn(LargeWorkstationTestKeys.REGISTRY);
+            keys.when(AEKeyTypesInternal::getRegistry).thenReturn(GuiTestKeys.REGISTRY);
             var fixture = new Fixture();
             var request = fixture.request("inspect");
             var previous = fixture.send(2, request);
-            assertEquals("gui.neoecoae.processing.task_changed", previous.getString("error"));
+            assertEquals("gui.neoecoae.processing.task_changed", previous.getStringOr("error", ""));
             fixture.allowed.set(false);
             assertSame(previous, fixture.send(1, request));
             fixture.allowed.set(true);
             fixture.cpus.set(List.of());
-            assertEquals("gui.neoecoae.processing.task_changed", fixture.send(1, request).getString("error"));
+            assertEquals("gui.neoecoae.processing.task_changed", fixture.send(1, request).getStringOr("error", ""));
             providers.verifyNoInteractions();
         }
     }
@@ -137,14 +137,14 @@ class ComputationItemActionsTest {
             var request = new CompoundTag();
             request.putString("action", action);
             request.putLong("sequence", 7);
-            request.put("key", AEItemKey.of(Items.STONE).toTagGeneric(config.registries()));
+            request.put("key", cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeKey(config.registries(), AEItemKey.of(Items.STONE)));
             return request;
         }
 
         CompoundTag send(int serial, CompoundTag request) throws Exception {
             action.invoke(state, serial, request);
             var tag = (CompoundTag) response.get(state);
-            assertEquals(7, tag.getLong("sequence"));
+            assertEquals(7, tag.getLongOr("sequence", 0L));
             return tag;
         }
     }

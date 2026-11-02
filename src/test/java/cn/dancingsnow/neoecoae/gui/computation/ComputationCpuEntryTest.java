@@ -20,6 +20,7 @@ import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeAll;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class ComputationCpuEntryTest {
@@ -85,12 +86,15 @@ class ComputationCpuEntryTest {
         ComputationCpuEntry entry = new ComputationCpuEntry(7, "", fluid, requested,
             requested.subtract(BigInteger.ONE), 0.5F, 20, 1024, 32, CpuSelectionMode.PLAYER_ONLY,
             Identifier.parse("neoecoae:textures/gui/computation/cpu_overlay/l4.png"), "running");
-        CompoundTag fluidTag = new CompoundTag();
-        fluidTag.putString("type", "fluid");
-        when(fluid.toTagGeneric(RegistryAccess.EMPTY)).thenReturn(fluidTag);
+        // 26.1: AE2 keys serialize through ValueOutput/ValueInput.
+        doAnswer(call -> {
+            ((net.minecraft.world.level.storage.ValueOutput) call.getArgument(0)).putString("type", "fluid");
+            return null;
+        }).when(fluid).toTagGeneric(any(net.minecraft.world.level.storage.ValueOutput.class));
         CompoundTag payload = entry.write(RegistryAccess.EMPTY);
         try (var keys = mockStatic(AEKey.class)) {
-            keys.when(() -> AEKey.fromTagGeneric(RegistryAccess.EMPTY, fluidTag)).thenReturn(fluid);
+            keys.when(() -> AEKey.fromTagGeneric(argThat((net.minecraft.world.level.storage.ValueInput input) ->
+                "fluid".equals(input.getStringOr("type", ""))))).thenReturn(fluid);
             assertEquals(entry, ComputationCpuEntry.read(payload, RegistryAccess.EMPTY));
         }
     }

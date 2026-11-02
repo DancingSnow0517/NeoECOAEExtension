@@ -30,6 +30,7 @@ class EAEPQuickSearchTest {
         }
     }
 
+    @org.junit.jupiter.api.Disabled("26.1 port: contract test against the released ExtendedAE Plus jar; only its 1.21.1 build exists (legacyCompileOnly) and it cannot initialize on 26.1 (KeyMapping constructor changed)")
     @Test void releasedEaepBindingSupportsRebindingNamesAltModFilterAndNoHoveredItem() {
         var mods = mock(ModList.class);
         when(mods.isLoaded("extendedae_plus")).thenReturn(true);

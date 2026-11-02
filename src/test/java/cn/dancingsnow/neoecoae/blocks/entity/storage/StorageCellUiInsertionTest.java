@@ -35,7 +35,7 @@ class StorageCellUiInsertionTest {
         ItemStack expected = disk.copy();
         assertTrue(f.insert());
         assertTrue(ItemStack.matches(expected, f.cell.get()));
-        assertEquals("stored-disk-123", f.cell.get().get(DataComponents.CUSTOM_DATA).copyTag().getString("disk-id"));
+        assertEquals("stored-disk-123", f.cell.get().get(DataComponents.CUSTOM_DATA).copyTag().getStringOr("disk-id", ""));
         assertEquals(Component.literal("Disk with contents"), f.cell.get().get(DataComponents.CUSTOM_NAME));
         assertTrue(f.carried.get().isEmpty());
         verify(f.menu, times(2)).broadcastChanges();

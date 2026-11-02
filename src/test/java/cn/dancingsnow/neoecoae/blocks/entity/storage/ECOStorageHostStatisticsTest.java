@@ -330,7 +330,7 @@ class ECOStorageHostStatisticsTest {
             when(drive.getCellStack()).thenReturn(stack);
             when(drive.getCellInventory()).thenReturn(inventory);
             when(drive.getBlockPos()).thenReturn(new BlockPos(drives.size(), 0, 0));
-            when(inventory.getCellType()).thenReturn(cellTypes.get(key(path)));
+            when(inventory.getCellType()).thenReturn(cellTypes.getValue(key(path)));
             when(inventory.getTier()).thenReturn(ECOTier.L9);
             when(inventory.getStoredItemTypes()).thenReturn(usedTypes);
             when(inventory.getTotalItemTypes()).thenReturn(totalTypes);
@@ -353,7 +353,7 @@ class ECOStorageHostStatisticsTest {
         }
 
         int id(String path) {
-            return cellTypes.getId(cellTypes.get(key(path)));
+            return cellTypes.getId(cellTypes.getValue(key(path)));
         }
 
         private static Identifier key(String path) {

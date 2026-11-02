@@ -30,8 +30,10 @@ final class CraftingOutputSlot extends ItemSlot {
     }
 
     @Override
-    public List<Component> getFullTooltipTexts() {
-        List<Component> lines = super.getFullTooltipTexts();
+    public List<Component> getFullTooltipTexts(boolean withItemTooltips) {
+        // Override the boolean overload (as on main): LDLib2's no-arg overload and the recipe-viewer path both
+        // delegate here, so the amount line is shown in every tooltip.
+        List<Component> lines = super.getFullTooltipTexts(withItemTooltips);
         if (!getValue().isEmpty()) {
             lines.add(Component.translatable("gui.neoecoae.crafting.ui.amount_short").append(": ")
                 .append(BigNumberFormatter.formatTooltip(amount, 1)));

@@ -32,13 +32,17 @@ class NEComputationEndgameTest {
     static void bootstrap() {
         InventoryTestBootstrap.initialize();
         var registry = (MappedRegistry<Item>) BuiltInRegistries.ITEM;
-        registry.unfreeze();
+        registry.unfreeze(false);
         for (ECOTier tier : ECOTier.values()) {
-            CELLS.put(tier, Registry.register(BuiltInRegistries.ITEM,
-                "computation_endgame_test:cell_" + tier.name().toLowerCase(java.util.Locale.ROOT),
-                new ECOComputationCellItem(new Item.Properties(), tier)));
+            var id = net.minecraft.resources.Identifier.parse(
+                "computation_endgame_test:cell_" + tier.name().toLowerCase(java.util.Locale.ROOT));
+            CELLS.put(tier, Registry.register(BuiltInRegistries.ITEM, id,
+                new ECOComputationCellItem(new Item.Properties().setId(net.minecraft.resources.ResourceKey.create(
+                    net.minecraft.core.registries.Registries.ITEM, id)), tier)));
         }
         registry.freeze();
+        // 26.1: default components of items registered after the bootstrap must be bound explicitly.
+        cn.dancingsnow.neoecoae.util.TestComponents.bindAll();
     }
 
     @Test

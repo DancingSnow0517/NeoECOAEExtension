@@ -4,27 +4,27 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
-import com.mojang.blaze3d.vertex.PoseStack;
 import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
-import org.joml.Matrix4f;
+import org.joml.Matrix3x2f;
+import org.joml.Matrix3x2fStack;
 import org.junit.jupiter.api.Test;
 
 class ECOCraftReportHeaderRendererTest {
     @Test
     void byteRowAndProgressStayInsideTheTextAreaWhenTheWindowMoves() {
         for (int[] origin : List.of(new int[] {37, 61}, new int[] {241, 133})) {
-            var graphics = mock(GuiGraphics.class);
-            var font = spy(new Font(ignored -> null, false));
-            var pose = new PoseStack();
-            pose.translate(origin[0], origin[1], 0);
-            var originalPose = new Matrix4f(pose.last().pose());
+            var graphics = mock(GuiGraphicsExtractor.class);
+            var font = spy(new Font(mock(Font.Provider.class)));
+            var pose = new Matrix3x2fStack(16);
+            pose.translate(origin[0], origin[1]);
+            var originalPose = new Matrix3x2f(pose);
             when(graphics.pose()).thenReturn(pose);
             doAnswer(call -> ((Component) call.getArgument(0)).getString().length() * 6)
                 .when(font).width(any(Component.class));
@@ -39,12 +39,11 @@ class ECOCraftReportHeaderRendererTest {
                 return null;
             }).when(graphics).enableScissor(anyInt(), anyInt(), anyInt(), anyInt());
             doAnswer(call -> { clips.pop(); return null; }).when(graphics).disableScissor();
-            when(graphics.drawString(eq(font), any(Component.class), anyInt(), anyInt(), anyInt(), anyBoolean()))
-                .thenAnswer(call -> {
+            doAnswer(call -> {
                     Component text = call.getArgument(1);
-                    var matrix = pose.last().pose();
-                    float left = matrix.m30();
-                    float top = matrix.m31();
+                    var matrix = pose;
+                    float left = matrix.m20();
+                    float top = matrix.m21();
                     float right = left + font.width(text) * matrix.m00();
                     float bottom = top + font.lineHeight * matrix.m11();
                     int[] clip = clips.peek();
@@ -53,8 +52,8 @@ class ECOCraftReportHeaderRendererTest {
                     assertTrue(top >= clip[1] && bottom <= clip[3] + 0.0001F);
                     assertTrue((boolean) call.getArgument(5));
                     rows.add(new float[] {left, top, right, bottom});
-                    return 0;
-                });
+                    return null;
+                }).when(graphics).text(eq(font), any(Component.class), anyInt(), anyInt(), anyInt(), anyBoolean());
             doAnswer(call -> {
                 int[] clip = clips.peek();
                 assertNotNull(clip);
@@ -71,29 +70,29 @@ class ECOCraftReportHeaderRendererTest {
 
             assertEquals(1, rows.size());
             assertTrue(clips.isEmpty());
-            assertEquals(originalPose, pose.last().pose());
+            assertEquals(originalPose, new Matrix3x2f(pose));
             verify(graphics, times(2)).fill(anyInt(), anyInt(), anyInt(), anyInt(), anyInt());
         }
     }
 
     @Test
     void renderingFailureRestoresPoseAndClippingForTheRestOfTheScreen() {
-        var graphics = mock(GuiGraphics.class);
+        var graphics = mock(GuiGraphicsExtractor.class);
         var font = mock(Font.class);
-        var pose = new PoseStack();
-        pose.translate(100, 80, 0);
-        var originalPose = new Matrix4f(pose.last().pose());
+        var pose = new Matrix3x2fStack(16);
+        pose.translate(100, 80);
+        var originalPose = new Matrix3x2f(pose);
         when(graphics.pose()).thenReturn(pose);
-        when(graphics.drawString(eq(font), any(Component.class), anyInt(), anyInt(), anyInt(), anyBoolean()))
-            .thenThrow(new IllegalStateException("Render failed"));
+        doThrow(new IllegalStateException("Render failed"))
+            .when(graphics).text(eq(font), any(Component.class), anyInt(), anyInt(), anyInt(), anyBoolean());
         var summary = ECOCraftReportHeaderRenderer.pending(Component.literal("Calculating..."));
 
         assertThrows(IllegalStateException.class, () ->
             ECOCraftReportHeaderRenderer.render(graphics, font, 100, 80, summary, null));
 
-        assertEquals(originalPose, pose.last().pose());
+        assertEquals(originalPose, new Matrix3x2f(pose));
         verify(graphics, times(2)).disableScissor();
-        verify(graphics, times(2)).flush();
+        // 26.1: GuiGraphicsExtractor has no flush(); rendering is deferred to the GUI render state.
     }
 
     @Test

@@ -17,7 +17,7 @@ import java.lang.reflect.Field;
 import java.util.Set;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.storage.DimensionDataStorage;
+import net.minecraft.world.level.storage.SavedDataStorage;
 
 class ECOAe2LtCancellationBridgeTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
@@ -28,11 +28,11 @@ class ECOAe2LtCancellationBridgeTest {
         var decisions = new ECOCraftingJobLifecycle();
         var server = mock(MinecraftServer.class);
         var level = mock(ServerLevel.class);
-        var storage = mock(DimensionDataStorage.class);
+        var storage = mock(SavedDataStorage.class);
         when(level.getServer()).thenReturn(server);
         when(server.overworld()).thenReturn(level);
         when(level.getDataStorage()).thenReturn(storage);
-        doReturn(decisions).when(storage).computeIfAbsent(any(), eq("neoecoae_crafting_job_lifecycle"));
+        doReturn(decisions).when(storage).computeIfAbsent(any(net.minecraft.world.level.saveddata.SavedDataType.class));
         var cpu = mock(TimeWheelCraftingCPU.class);
         when(cpu.getLevel()).thenReturn(level);
         var logic = mock(Ae2LtTimeWheelCraftingCpuLogic.class);

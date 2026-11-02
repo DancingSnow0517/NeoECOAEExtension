@@ -8,7 +8,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.mojang.blaze3d.vertex.PoseStack;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
@@ -19,10 +18,10 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.IntConsumer;
 import net.minecraft.network.chat.Component;
-import net.minecraft.Util;
+import net.minecraft.util.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
@@ -52,7 +51,7 @@ class ComputationControllerUITest {
 
     @Test
     void loadsLayoutWithArtworkSwitchesInventoryAndToolbar() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft()) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             UIElement root = ComputationControllerUI.create(
                 config(mock(Runnable.class), mock(Runnable.class), mock(Runnable.class)),
@@ -75,7 +74,7 @@ class ComputationControllerUITest {
 
     @Test
     void driveGridHasOneSlotPerDriveWithoutDrives() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft()) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             UIElement root = ComputationControllerUI.create(
                 config(mock(Runnable.class), mock(Runnable.class), mock(Runnable.class)),
@@ -90,7 +89,7 @@ class ComputationControllerUITest {
 
     @Test
     void switchesRunTheirServerActions() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft()) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             Runnable substitutions = mock(Runnable.class);
             Runnable cyclePlanning = mock(Runnable.class);
@@ -114,7 +113,7 @@ class ComputationControllerUITest {
 
     @Test
     void switchTooltipListsNameStateDescriptionAndCount() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft()) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             UIElement root = ComputationControllerUI.create(
                 config(mock(Runnable.class), mock(Runnable.class), mock(Runnable.class)),
@@ -126,7 +125,7 @@ class ComputationControllerUITest {
             tooltip.target = substitutions;
             UIEventDispatcher.dispatchEvent(tooltip, false, false, false);
             assertNotNull(tooltip.hoverTooltips);
-            assertEquals(4, tooltip.hoverTooltips.tooltipTexts().size());
+            assertEquals(4, tooltip.hoverTooltips.tooltips().stream().filter(net.minecraft.network.chat.Component.class::isInstance).map(net.minecraft.network.chat.Component.class::cast).toList().size());
         }
     }
 
@@ -138,7 +137,7 @@ class ComputationControllerUITest {
              var clock = mockStatic(Util.class, CALLS_REAL_METHODS)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             clock.when(Util::getMillis).thenAnswer(call -> now.get());
-            Minecraft client = mock(Minecraft.class);
+            Minecraft client = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.withOptions(mock(Minecraft.class));
             var fontField = Minecraft.class.getDeclaredField("font");
             fontField.setAccessible(true);
             fontField.set(client, mock(Font.class));
@@ -146,15 +145,15 @@ class ComputationControllerUITest {
             UIElement root = ComputationControllerUI.create(config(() -> {}, () -> {}, () -> {}),
                 () -> new ComputationControllerPanelState(true, 1, 0, 0, 0, 0),
                 new UIElement(), new UIElement(), new UIElement());
-            UIElement artwork = find(root, "computation_artwork");
+            var artwork = (ComputationControllerArtwork) find(root, "computation_artwork");
             BindableValue<Tag> synced = (BindableValue<Tag>) artwork.getChildren().getLast();
             CompoundTag update = ((CompoundTag) synced.getValue()).copy();
             update.putLong("usedBytes", 512);
             update.putInt("usedThreads", 2);
             synced.setValue(update);
             GUIContext context = mock(GUIContext.class);
-            context.graphics = mock(GuiGraphics.class);
-            PoseStack pose = new PoseStack();
+            context.graphics = mock(GuiGraphicsExtractor.class);
+            var pose = new org.joml.Matrix3x2fStack(16);
             when(context.graphics.pose()).thenReturn(pose);
 
             artwork.drawBackgroundAdditional(context);
@@ -215,7 +214,7 @@ class ComputationControllerUITest {
     @Test
     @SuppressWarnings("unchecked")
     void smartDoublingLivesInLeftToolbarAndFollowsServerState() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft()) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             Runnable toggle = mock(Runnable.class);
             UIElement root = ComputationControllerUI.create(config(() -> {}, () -> {}, () -> {}, toggle),
@@ -243,7 +242,7 @@ class ComputationControllerUITest {
     void placedHostArtworkOverridesBadgesMarkersStatusAndSwitchesAndRefreshesWhileOpen() throws Exception {
         try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
-            Minecraft client = mock(Minecraft.class);
+            Minecraft client = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.withOptions(mock(Minecraft.class));
             var fontField = Minecraft.class.getDeclaredField("font");
             fontField.setAccessible(true);
             fontField.set(client, mock(Font.class));
@@ -262,10 +261,10 @@ class ComputationControllerUITest {
             UIElement root = ComputationControllerUI.create(config(toggle, () -> {}, () -> {}),
                 () -> new ComputationControllerPanelState(true, 1, 0, 0, 0, 0),
                 new UIElement(), new UIElement(), new UIElement(), tier::get, () -> placed);
-            UIElement artwork = find(root, "computation_artwork");
+            var artwork = (ComputationControllerArtwork) find(root, "computation_artwork");
             GUIContext context = mock(GUIContext.class);
-            context.graphics = mock(GuiGraphics.class);
-            when(context.graphics.pose()).thenReturn(new PoseStack());
+            context.graphics = mock(GuiGraphicsExtractor.class);
+            when(context.graphics.pose()).thenReturn(new org.joml.Matrix3x2fStack(16));
             artwork.drawBackgroundAdditional(context);
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.getImageLocation().toString().equals("addon:badge.png")), eq(23F), eq(5F), eq(13F), eq(18F));

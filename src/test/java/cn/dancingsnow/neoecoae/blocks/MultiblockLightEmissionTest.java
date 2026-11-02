@@ -27,13 +27,13 @@ class MultiblockLightEmissionTest {
     static void bootstrap() {
         InventoryTestBootstrap.initialize();
         var registry = (MappedRegistry<Block>) BuiltInRegistries.BLOCK;
-        registry.unfreeze();
+        registry.unfreeze(false);
         try {
             blocks = List.of(
-                new ECODriveBlock(BlockBehaviour.Properties.of().noOcclusion()),
-                new ECOComputationDrive(BlockBehaviour.Properties.of().noOcclusion()),
-                new ECOComputationNetworkSwitch(BlockBehaviour.Properties.of()),
-                new ECOComputationDrive(BlockBehaviour.Properties.of().lightLevel(state -> 7)));
+                new ECODriveBlock(BlockBehaviour.Properties.of().setId(blockKey("neoecoae_light_emission_test:block_0")).noOcclusion()),
+                new ECOComputationDrive(BlockBehaviour.Properties.of().setId(blockKey("neoecoae_light_emission_test:block_1")).noOcclusion()),
+                new ECOComputationNetworkSwitch(BlockBehaviour.Properties.of().setId(blockKey("neoecoae_light_emission_test:block_2"))),
+                new ECOComputationDrive(BlockBehaviour.Properties.of().setId(blockKey("neoecoae_light_emission_test:block_3")).lightLevel(state -> 7)));
             for (int index = 0; index < blocks.size(); index++) {
                 Block block = blocks.get(index);
                 Registry.register(registry, "neoecoae_light_emission_test:block_" + index, block);
@@ -61,5 +61,9 @@ class MultiblockLightEmissionTest {
         for (BlockState state : blocks.getLast().getStateDefinition().getPossibleStates()) {
             assertEquals(7, state.getLightEmission(EmptyBlockGetter.INSTANCE, BlockPos.ZERO));
         }
+    }
+    private static net.minecraft.resources.ResourceKey<Block> blockKey(String id) {
+        return net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.BLOCK,
+            net.minecraft.resources.Identifier.parse(id));
     }
 }

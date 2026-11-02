@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class NeoEcoLegacyCpuCompatibilityTest {
+    @org.junit.jupiter.api.Disabled("26.1 port: exercises the 1.21.1 Useless mod jar (compile-only bridge), whose classes cannot run on MC 26.1 (NoClassDefFoundError: net/minecraft/resources/ResourceLocation)")
     @Test
     void releasedUselessBridgeResolvesGridFromCurrentCpu() throws Exception {
         cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize();

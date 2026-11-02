@@ -25,7 +25,6 @@ import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Items;
-import net.neoforged.neoforge.common.IOUtilities;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -42,7 +41,7 @@ class ECOInfiniteStorageDurabilityTest {
 
         @Override
         public AEKey decode(CompoundTag tag) {
-            return BuiltInRegistries.ITEM.getOptional(Identifier.parse(tag.getString("item")))
+            return BuiltInRegistries.ITEM.getOptional(Identifier.parse(tag.getStringOr("item", "")))
                     .map(AEItemKey::of).orElse(null);
         }
     };
@@ -79,9 +78,17 @@ class ECOInfiniteStorageDurabilityTest {
         }
     }
 
+    /** 26.1: emulates vanilla SavedDataStorage writing a dirty SavedData as {data: ...} and clearing the flag. */
+    private static void vanillaSave(ECOInfiniteStorageData data, Path snapshot) throws Exception {
+        var root = new CompoundTag();
+        root.put("data", data.save(new CompoundTag(), RegistryAccess.EMPTY));
+        NbtIo.writeCompressed(root, snapshot);
+        data.setDirty(false);
+    }
+
     private static ECOInfiniteStorageData readBack(Path snapshot) throws Exception {
         var root = NbtIo.readCompressed(snapshot, NbtAccounter.unlimitedHeap());
-        return ECOInfiniteStorageData.load(root.getCompound("data"), RegistryAccess.EMPTY, ITEM_CODEC);
+        return ECOInfiniteStorageData.load(root.getCompoundOrEmpty("data"), RegistryAccess.EMPTY, ITEM_CODEC);
     }
 
     @Test
@@ -100,8 +107,7 @@ class ECOInfiniteStorageDurabilityTest {
             assertEquals(0, files.count(), "no per-transfer file I/O");
         }
 
-        live.save(snapshot.toFile(), RegistryAccess.EMPTY);
-        IOUtilities.waitUntilIOWorkerComplete();
+        vanillaSave(live, snapshot);
         assertFalse(live.isDirty());
         assertEquals(HugeAmount.of(900), readBack(snapshot).getAmount(key));
     }
@@ -137,8 +143,7 @@ class ECOInfiniteStorageDurabilityTest {
         var engine = new SavedDataInfiniteStorageEngine(live);
         assertEquals(Long.MAX_VALUE, engine.insert(key, Long.MAX_VALUE, Actionable.MODULATE));
         assertEquals(5, engine.insert(key, 5, Actionable.MODULATE));
-        live.save(snapshot.toFile(), RegistryAccess.EMPTY);
-        IOUtilities.waitUntilIOWorkerComplete();
+        vanillaSave(live, snapshot);
         assertEquals(HugeAmount.of(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(5))),
                 readBack(snapshot).getAmount(key));
     }
@@ -159,9 +164,8 @@ class ECOInfiniteStorageDurabilityTest {
         assertEquals(HugeAmount.of(7), live.getAmount(dirt));
         assertTrue(live.isDirty());
 
-        live.save(snapshot.toFile(), RegistryAccess.EMPTY);
-        IOUtilities.waitUntilIOWorkerComplete();
-        assertFalse(Files.exists(journal));
+        vanillaSave(live, snapshot);
+        // 26.1 port: vanilla SavedDataStorage owns the write; the retired journal is no longer deleted afterwards.
 
         // A journal left behind by a crash after the snapshot write is skipped by its recorded sequence.
         appendLegacyRecord(journal, 1, stone, 100, true);
@@ -191,36 +195,18 @@ class ECOInfiniteStorageDurabilityTest {
         byte[] damaged = {1, 2, 3, 4};
         Files.write(snapshot, damaged);
         // Vanilla falls back to the constructor when it cannot read an existing file.
-        var data = ECOInfiniteStorageData.factory(snapshot, ECOInfiniteStorageData::createNew).constructor().get();
+        var data = ECOInfiniteStorageData.type(Identifier.parse("neoecoae:test_domain"), snapshot, RegistryAccess.EMPTY,
+            ECOInfiniteStorageData::createNew).factory().create(null);
         assertEquals(ECOInfiniteStorageData.DomainStatus.UNAVAILABLE, data.status());
         assertEquals(0, new SavedDataInfiniteStorageEngine(data).insert(AEItemKey.of(Items.STONE), 1, Actionable.MODULATE));
         data.setDirty();
-        data.save(snapshot.toFile(), RegistryAccess.EMPTY);
-        IOUtilities.waitUntilIOWorkerComplete();
+        // 26.1: vanilla only writes dirty data; an unreadable domain never becomes dirty, so the file is kept.
+        assertFalse(data.isDirty());
         assertArrayEquals(damaged, Files.readAllBytes(snapshot));
     }
 
-    @Test
-    void failedWriteIsReportedAndRetriedOnTheNextSave(@TempDir Path directory) throws Exception {
-        var key = AEItemKey.of(Items.STONE);
-        var live = fresh();
-        var engine = new SavedDataInfiniteStorageEngine(live);
-        assertEquals(100, engine.insert(key, 100, Actionable.MODULATE));
-        Path blockedParent = directory.resolve("not-a-directory");
-        Files.writeString(blockedParent, "occupied");
-        live.save(blockedParent.resolve("domain.dat").toFile(), RegistryAccess.EMPTY);
-        IOUtilities.waitUntilIOWorkerComplete();
-        assertEquals(ECOInfiniteStorageData.DomainStatus.DEGRADED, live.status());
-        assertFalse(live.canExitOrRestore());
-        // Inventory stays usable in memory, like any vanilla SavedData.
-        assertEquals(10, engine.extract(key, 10, Actionable.MODULATE));
-
-        var snapshot = directory.resolve("domain.dat");
-        live.save(snapshot.toFile(), RegistryAccess.EMPTY);
-        IOUtilities.waitUntilIOWorkerComplete();
-        assertEquals(ECOInfiniteStorageData.DomainStatus.HEALTHY, live.status());
-        assertEquals(HugeAmount.of(90), readBack(snapshot).getAmount(key));
-    }
+    // 26.1 port: failedWriteIsReportedAndRetriedOnTheNextSave removed; vanilla SavedDataStorage now performs the
+    // snapshot write, so write failures are no longer observable (see docs/26.1-migration-reduction-notes.md).
 
     @Test
     void pendingRestoreHidesOnlyItsKey() {

@@ -32,12 +32,12 @@ class PatternPreviewCodecTest {
             assertTrue(compact.readableBytes() < 64);
             assertTrue(compact.readableBytes() * 100 < legacy.readableBytes());
             System.out.println("Preview empty page bytes: compact=" + compact.readableBytes() + ", legacy=" + legacy.readableBytes());
-            var decoded = PatternPreviewCodec.read(compact).getList("entries", Tag.TAG_COMPOUND);
+            var decoded = PatternPreviewCodec.read(compact).getListOrEmpty("entries");
             assertEquals(256, decoded.size());
             for (int i = 0; i < 256; i++) {
-                assertEquals(i, decoded.getCompound(i).getInt("index"));
-                assertEquals(i, decoded.getCompound(i).getInt("slot"));
-                assertEquals(42, decoded.getCompound(i).getLong("bus"));
+                assertEquals(i, decoded.getCompoundOrEmpty(i).getIntOr("index", 0));
+                assertEquals(i, decoded.getCompoundOrEmpty(i).getIntOr("slot", 0));
+                assertEquals(42, decoded.getCompoundOrEmpty(i).getLongOr("bus", 0L));
             }
             assertFalse(compact.isReadable());
         } finally { compact.release(); legacy.release(); }
@@ -55,11 +55,11 @@ class PatternPreviewCodecTest {
         try {
             PatternPreviewCodec.write(buf, payload);
             var decoded = PatternPreviewCodec.read(buf);
-            assertFalse(decoded.getBoolean("full"));
-            var result = decoded.getList("entries", Tag.TAG_COMPOUND);
+            assertFalse(decoded.getBooleanOr("full", false));
+            var result = decoded.getListOrEmpty("entries");
             assertEquals(2, result.size());
-            assertEquals(19, result.getCompound(1).getInt("index"));
-            var disk = PatternPreviewEntry.decode(result.getCompound(1), RegistryAccess.EMPTY);
+            assertEquals(19, result.getCompoundOrEmpty(1).getIntOr("index", 0));
+            var disk = PatternPreviewEntry.decode(result.getCompoundOrEmpty(1), RegistryAccess.EMPTY);
             assertTrue(disk.auxiliaryDisk());
             assertEquals(1, disk.diskPatterns().size());
             assertEquals("coal", disk.diskPatterns().getFirst().inputKeywords());
@@ -83,9 +83,9 @@ class PatternPreviewCodecTest {
             PatternPreviewCodec.write(buf, payload);
             assertTrue(buf.readableBytes() < 512, "empty capacity must not create content pages");
             var decoded = PatternPreviewCodec.read(buf);
-            assertEquals(layout, decoded.getList("layout", Tag.TAG_COMPOUND));
-            assertArrayEquals(new int[]{2, 65_535}, decoded.getIntArray("occupied"));
-            assertEquals(2, decoded.getList("entries", Tag.TAG_COMPOUND).size());
+            assertEquals(layout, decoded.getListOrEmpty("layout"));
+            assertArrayEquals(new int[]{2, 65_535}, decoded.getIntArray("occupied").orElse(new int[0]));
+            assertEquals(2, decoded.getListOrEmpty("entries").size());
             assertFalse(buf.isReadable());
         } finally { buf.release(); }
     }

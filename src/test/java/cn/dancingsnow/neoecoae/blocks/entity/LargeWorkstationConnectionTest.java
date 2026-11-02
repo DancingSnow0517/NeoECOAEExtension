@@ -80,12 +80,12 @@ class LargeWorkstationConnectionTest {
         var host = controller();
         var adapter = host.getEnergyStorage(Direction.NORTH);
         assertNotNull(adapter);
-        assertTrue(adapter.receiveEnergy(1000, false) > 0);
+        assertTrue(receive(adapter, 1000, false) > 0);
         double stored = host.getAECurrentPower();
 
         host.setFormed(true);
-        assertEquals(0, adapter.receiveEnergy(1000, true));
-        assertEquals(0, adapter.receiveEnergy(1000, false));
+        assertEquals(0, receive(adapter, 1000, true));
+        assertEquals(0, receive(adapter, 1000, false));
         assertEquals(0.0, host.getExternalPowerDemand(PowerUnit.AE, 1000));
         assertEquals(1000.0, host.injectExternalPower(PowerUnit.AE, 1000, Actionable.MODULATE));
         assertEquals(stored, host.getAECurrentPower());
@@ -95,7 +95,7 @@ class LargeWorkstationConnectionTest {
         assertEquals(stored + 1000, host.getAECurrentPower());
 
         host.setFormed(false);
-        assertTrue(adapter.receiveEnergy(1000, false) > 0);
+        assertTrue(receive(adapter, 1000, false) > 0);
     }
 
     @Test
@@ -161,5 +161,14 @@ class LargeWorkstationConnectionTest {
             } catch (NoSuchFieldException ignored) { }
         }
         throw new NoSuchFieldException(name);
+    }
+
+    /** 26.1: IEnergyStorage#receiveEnergy became EnergyHandler#insert inside a transaction. */
+    private static int receive(net.neoforged.neoforge.transfer.energy.EnergyHandler handler, int amount, boolean simulate) {
+        try (var transaction = net.neoforged.neoforge.transfer.transaction.Transaction.openRoot()) {
+            int inserted = handler.insert(amount, transaction);
+            if (!simulate) transaction.commit();
+            return inserted;
+        }
     }
 }

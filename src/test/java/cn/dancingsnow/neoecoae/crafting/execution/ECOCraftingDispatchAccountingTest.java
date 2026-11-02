@@ -55,7 +55,7 @@ class ECOCraftingDispatchAccountingTest {
 
     private ExecutingCraftingJob newJob() {
         return new ExecutingCraftingJob(plan, ignored -> {},
-            new CraftingLink(CraftingCpuHelper.generateLinkData(UUID.randomUUID(), true, false), cpu), null);
+            new CraftingLink(UUID.randomUUID(), true, cpu), null);
     }
 
     private void accept(ExecutingCraftingJob job, long crafts) {
@@ -101,22 +101,22 @@ class ECOCraftingDispatchAccountingTest {
         var registries = RegistryAccess.EMPTY;
         var definition = mock(AEItemKey.class);
         when(pattern.getDefinition()).thenReturn(definition);
-        when(definition.toTag(registries)).thenAnswer(ignored -> new CompoundTag());
+        doAnswer(call -> { ((net.minecraft.world.level.storage.ValueOutput) call.getArgument(0)).putString("test", "key"); return null; }).when(definition).toTag(any());
         var outputTag = new CompoundTag(); outputTag.putString("testKey", "output");
         var secondaryTag = new CompoundTag(); secondaryTag.putString("testKey", "secondary");
-        when(output.toTagGeneric(registries)).thenReturn(outputTag);
-        when(secondary.toTagGeneric(registries)).thenReturn(secondaryTag);
+        doAnswer(call -> { cn.dancingsnow.neoecoae.util.LegacyNbt.write((net.minecraft.world.level.storage.ValueOutput) call.getArgument(0), outputTag); return null; }).when(output).toTagGeneric(any());
+        doAnswer(call -> { cn.dancingsnow.neoecoae.util.LegacyNbt.write((net.minecraft.world.level.storage.ValueOutput) call.getArgument(0), secondaryTag); return null; }).when(secondary).toTagGeneric(any());
         var logic = new ECOCraftingCPULogic(cpu);
         try (var keys = mockStatic(AEItemKey.class);
              var genericKeys = mockStatic(AEKey.class);
              var patterns = mockStatic(PatternDetailsHelper.class);
              var stacks = mockStatic(GenericStack.class, CALLS_REAL_METHODS)) {
-            keys.when(() -> AEItemKey.fromTag(eq(registries), any())).thenReturn(definition);
-            genericKeys.when(() -> AEKey.fromTagGeneric(eq(registries), any())).thenAnswer(invocation ->
-                ((CompoundTag) invocation.getArgument(1)).getString("testKey").equals("output") ? output : secondary);
+            keys.when(() -> AEItemKey.fromTag(any())).thenReturn(definition);
+            genericKeys.when(() -> AEKey.fromTagGeneric(any())).thenAnswer(invocation ->
+                ((net.minecraft.world.level.storage.ValueInput) invocation.getArgument(0)).getStringOr("testKey", "").equals("output") ? output : secondary);
             patterns.when(() -> PatternDetailsHelper.decodePattern(eq(definition), any())).thenReturn(pattern);
-            stacks.when(() -> GenericStack.writeTag(eq(registries), any())).thenReturn(new CompoundTag());
-            stacks.when(() -> GenericStack.readTag(eq(registries), any())).thenReturn(new GenericStack(output, 30));
+            stacks.when(() -> GenericStack.writeTag(any(), any())).thenAnswer(call -> { ((net.minecraft.world.level.storage.ValueOutput) call.getArgument(0)).putString("test", "stack"); return null; });
+            stacks.when(() -> GenericStack.readTag(any())).thenReturn(new GenericStack(output, 30));
             var job = newJob();
             job.batchedOutputs.addAll(Set.of(output, secondary));
             job.fuzzyPlanningItemIds = Set.of(net.minecraft.resources.Identifier.parse("minecraft:iron_pickaxe"));

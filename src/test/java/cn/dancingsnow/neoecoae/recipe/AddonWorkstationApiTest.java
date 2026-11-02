@@ -37,15 +37,15 @@ class AddonWorkstationApiTest {
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         Recipe<?> external = mock(Recipe.class);
         doReturn(RecipeType.simple(TYPE)).when(external).getType();
-        var holder = new RecipeHolder<>(id("recipe"), external);
+        var holder = new RecipeHolder<>(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.RECIPE, id("recipe")), external);
         when(manager.getRecipes()).thenReturn(List.of(holder));
-        Level level = mock(Level.class);
-        when(level.getRecipeManager()).thenReturn(manager);
+        var level = mock(net.minecraft.server.level.ServerLevel.class);
+        when(level.recipeAccess()).thenReturn(manager);
         when(level.registryAccess()).thenReturn(registries);
         assertTrue(LargeWorkstationRecipes.getAll(manager, registries).isEmpty());
         var module = module();
         ECOWorkstationModules.register(0, module);
-        ECOWorkstationRecipeAdapters.register(ADAPTER, 0, TYPE, (recipe, lookup) -> adapted(recipe.id(), TYPE));
+        ECOWorkstationRecipeAdapters.register(ADAPTER, 0, TYPE, (recipe, lookup) -> adapted(recipe.id().identifier(), TYPE));
         try {
             assertTrue(LargeWorkstationModule.isUpgradeCard(new ItemStack(Items.DIAMOND)));
             assertEquals(MODULE, ECOWorkstationModules.fromCard(new ItemStack(Items.DIAMOND)).id());
@@ -70,7 +70,7 @@ class AddonWorkstationApiTest {
     }
 
     @Test void adaptersCannotChangeRecipeIdentityOrSilentlyDropTheirCostsOnFailure() {
-        var holder = new RecipeHolder<>(id("recipe"), mock(Recipe.class));
+        var holder = new RecipeHolder<>(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.RECIPE, id("recipe")), mock(Recipe.class));
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         ECOWorkstationRecipeAdapters.register(ADAPTER, 0, TYPE, (recipe, lookup) -> adapted(id("different"), TYPE));
         try {
@@ -88,8 +88,8 @@ class AddonWorkstationApiTest {
             id("textures/module.png"), id("textures/circuit.png"), id("block/idle"), id("block/working"));
     }
     private static LargeWorkstationRecipe adapted(Identifier id, Identifier source) {
-        var display = new IntegratedWorkingStationRecipe(List.of(new SizedIngredient(Ingredient.of(Items.IRON_INGOT), 1)),
-            new SizedFluidIngredient(FluidIngredient.empty(), 1), new ItemStack(Items.GOLD_INGOT), FluidStack.EMPTY, 4321);
+        var display = IntegratedWorkingStationRecipe.of(List.of(new SizedIngredient(Ingredient.of(Items.IRON_INGOT), 1)),
+            (net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient) null, new ItemStack(Items.GOLD_INGOT), FluidStack.EMPTY, 4321);
         return new LargeWorkstationRecipe(id, display, 4321, List.of(new GenericStack(AEFluidKey.of(Fluids.LAVA), 50)), source);
     }
     private static Identifier id(String path) { return Identifier.fromNamespaceAndPath("addon_workstation_test", path); }

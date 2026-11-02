@@ -25,9 +25,9 @@ class IntegratedWorkstationOcclusionTest {
     static void bootstrap() {
         InventoryTestBootstrap.initialize();
         var registry = (MappedRegistry<Block>) BuiltInRegistries.BLOCK;
-        registry.unfreeze();
+        registry.unfreeze(false);
         try {
-            workstation = new ECOIntegratedWorkingStation(BlockBehaviour.Properties.of());
+            workstation = new ECOIntegratedWorkingStation(BlockBehaviour.Properties.of().setId(blockKey("neoecoae_occlusion_test:workstation")));
             Registry.register(registry, "neoecoae_occlusion_test:workstation", workstation);
             workstation.getStateDefinition().getPossibleStates().forEach(BlockState::initCache);
         } finally {
@@ -44,8 +44,8 @@ class IntegratedWorkstationOcclusionTest {
                     .setValue(ECOIntegratedWorkingStation.WORKING, working);
                 var level = mock(BlockGetter.class);
                 when(level.getBlockState(BlockPos.ZERO)).thenReturn(state);
-                assertTrue(Block.shouldRenderFace(Blocks.GRASS_BLOCK.defaultBlockState(), level,
-                    BlockPos.ZERO.above(), Direction.DOWN, BlockPos.ZERO), facing + " working=" + working);
+                assertTrue(Block.shouldRenderFace(level, BlockPos.ZERO.above(),
+                    Blocks.GRASS_BLOCK.defaultBlockState(), state, Direction.DOWN), facing + " working=" + working);
                 assertFalse(Block.isShapeFullBlock(state.getShape(EmptyBlockGetter.INSTANCE, BlockPos.ZERO)));
             }
         }
@@ -63,8 +63,8 @@ class IntegratedWorkstationOcclusionTest {
                     var level = mock(BlockGetter.class);
                     when(level.getBlockState(BlockPos.ZERO)).thenReturn(state);
                     for (Direction direction : Direction.values()) {
-                        assertTrue(Block.shouldRenderFace(Blocks.STONE.defaultBlockState(), level,
-                            BlockPos.ZERO.relative(direction), direction.getOpposite(), BlockPos.ZERO),
+                        assertTrue(Block.shouldRenderFace(level, BlockPos.ZERO.relative(direction),
+                            Blocks.STONE.defaultBlockState(), state, direction.getOpposite()),
                             facing + " formed=" + formed + " working=" + working + " neighbour=" + direction);
                     }
                 }
@@ -81,5 +81,9 @@ class IntegratedWorkstationOcclusionTest {
                 .setValue(ECOIntegratedWorkingStation.FORMED, true);
             assertTrue(Block.isShapeFullBlock(state.getCollisionShape(level, BlockPos.ZERO)), facing.toString());
         }
+    }
+    private static net.minecraft.resources.ResourceKey<Block> blockKey(String id) {
+        return net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.BLOCK,
+            net.minecraft.resources.Identifier.parse(id));
     }
 }

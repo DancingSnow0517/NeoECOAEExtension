@@ -7,7 +7,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.events.GuiEventListener;
-import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.neoforged.fml.ModList;
@@ -36,11 +36,9 @@ class CraftingInterfaceSearchInputTest {
 
     @Test void shortcutFillsTheSelectedFieldBeforeTypingAndSuppressesItsCharacterCallback() throws Exception {
         try (var minecraft = mockStatic(Minecraft.class);
-             var quickSearch = mockStatic(EAEPQuickSearch.class);
-             var screenKeys = mockStatic(Screen.class, CALLS_REAL_METHODS)) {
-            screenKeys.when(Screen::hasControlDown).thenReturn(false);
-            screenKeys.when(Screen::hasShiftDown).thenReturn(false);
-            var client = mock(Minecraft.class);
+             var quickSearch = mockStatic(EAEPQuickSearch.class)) {
+            // 26.1: modifier state travels with the KeyEvent/CharacterEvent; Screen.hasShiftDown() is gone.
+            var client = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.withOptions(mock(Minecraft.class));
             var font = mock(Font.class);
             when(font.plainSubstrByWidth(anyString(), anyInt())).thenAnswer(call -> call.getArgument(0));
             when(font.plainSubstrByWidth(anyString(), anyInt(), anyBoolean())).thenAnswer(call -> call.getArgument(0));
@@ -71,7 +69,7 @@ class CraftingInterfaceSearchInputTest {
             assertTrue(CraftingInterfaceClientUI.handleSearchKeyPressed(screen, GLFW.GLFW_KEY_F, 0, 0));
             assertEquals("\u94c1\u952d", inputs.getLast());
             assertTrue(outputs.isEmpty());
-            assertTrue(CraftingInterfaceClientUI.handleSearchCharTyped(screen, 'f', 0));
+            assertTrue(CraftingInterfaceClientUI.handleSearchCharTyped(screen, new CharacterEvent('f')));
             assertEquals("\u94c1\u952d", inputs.getLast(), "the shortcut character must not be appended to the filled query");
 
             quickSearch.when(() -> EAEPQuickSearch.query(GLFW.GLFW_KEY_TAB, 0, 0)).thenReturn(Optional.empty());
@@ -83,7 +81,7 @@ class CraftingInterfaceSearchInputTest {
 
             quickSearch.when(() -> EAEPQuickSearch.query(GLFW.GLFW_KEY_A, 0, 0)).thenReturn(Optional.empty());
             assertTrue(CraftingInterfaceClientUI.handleSearchKeyPressed(screen, GLFW.GLFW_KEY_A, 0, 0));
-            assertTrue(CraftingInterfaceClientUI.handleSearchCharTyped(screen, 'a', 0));
+            assertTrue(CraftingInterfaceClientUI.handleSearchCharTyped(screen, new CharacterEvent('a')));
             assertEquals("\u94bb\u77f3a", outputs.getLast(), "a later typed character must survive a shortcut without a char callback");
         }
     }

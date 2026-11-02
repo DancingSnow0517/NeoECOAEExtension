@@ -154,7 +154,7 @@ class ECOOverloadAccountingIntegrationTest {
                     .thenAnswer(call -> LargeWorkstationTestKeys.REGISTRY.get(call.<Identifier>getArgument(0)));
             var checkpoint = new CompoundTag();
             f.logic.writeJobAttachments(checkpoint, registries);
-            assertTrue(checkpoint.getCompound("attachments").contains("ae2lt:overload_outputs"));
+            assertTrue(checkpoint.getCompoundOrEmpty("attachments").contains("ae2lt:overload_outputs"));
             ECOOverloadCpuAccountingBridge.clear(f.logic);
             assertEquals(0, pending(f));
             f.logic.loadJobAttachments(checkpoint, registries);

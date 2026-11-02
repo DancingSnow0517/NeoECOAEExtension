@@ -195,7 +195,7 @@ class ECOCraftingInputBufferTest {
         @Override public Identifier getId() { return Identifier.fromNamespaceAndPath("test", "key_" + identifier); }
         @Override protected Component computeDisplayName() { return Component.literal("unrelated"); }
         @Override public boolean hasComponents() { return false; }
-        @Override public CompoundTag toTag(HolderLookup.Provider registries) { throw new UnsupportedOperationException(); }
+        @Override public void toTag(net.minecraft.world.level.storage.ValueOutput output) { throw new UnsupportedOperationException(); }
         @Override public void writeToPacket(RegistryFriendlyByteBuf buffer) { throw new UnsupportedOperationException(); }
         @Override public void addDrops(long amount, List<ItemStack> drops, Level level, BlockPos position) {
             throw new UnsupportedOperationException();

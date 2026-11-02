@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.gui.common.UiTestRendering;
 import com.lowdragmc.lowdraglib2.LDLib2;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -8,7 +9,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
-import net.minecraft.Util;
+import net.minecraft.util.Util;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
@@ -38,13 +39,13 @@ class StorageHostProgressAnimationTest {
             UIElement capacity = bar(root, "capacity_bar", 208, 313, 160, 8);
             UIElement energy = bar(root, "energy_bar", 373, 292, 74, 7);
             GUIContext context = mock(GUIContext.class);
-            capacity.drawBackgroundAdditional(context);
-            energy.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(capacity, context);
+            UiTestRendering.drawBackgroundAdditional(energy, context);
             verifyNoInteractions(context);
 
             now.set(250);
-            capacity.drawBackgroundAdditional(context);
-            energy.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(capacity, context);
+            UiTestRendering.drawBackgroundAdditional(energy, context);
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.spritePosition.x == 32 && sprite.spritePosition.y == 62),
                 eq(208F), eq(313F), eq(60F), eq(8F));
@@ -55,7 +56,7 @@ class StorageHostProgressAnimationTest {
 
             clearInvocations(context);
             now.set(375);
-            capacity.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(capacity, context);
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.spritePosition.x == 32 && sprite.spritePosition.y == 62),
                 eq(208F), eq(313F), eq(90F), eq(8F));
@@ -66,8 +67,8 @@ class StorageHostProgressAnimationTest {
 
             clearInvocations(context);
             now.set(500);
-            capacity.drawBackgroundAdditional(context);
-            energy.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(capacity, context);
+            UiTestRendering.drawBackgroundAdditional(energy, context);
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.spritePosition.x == 32 && sprite.spritePosition.y == 62),
                 eq(208F), eq(313F), eq(90F), eq(8F));
@@ -83,10 +84,10 @@ class StorageHostProgressAnimationTest {
             parent.removeChild(capacity);
             parent.addChild(capacity);
             clearInvocations(context);
-            capacity.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(capacity, context);
             verifyNoInteractions(context);
             now.set(1_000);
-            capacity.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(capacity, context);
             verify(context).drawTexture(argThat(texture -> texture instanceof SpriteTexture sprite
                 && sprite.spritePosition.x == 32 && sprite.spritePosition.y == 62),
                 eq(208F), eq(313F), eq(90F), eq(8F));
@@ -111,31 +112,31 @@ class StorageHostProgressAnimationTest {
             GUIContext context = mock(GUIContext.class);
             context.mouseX = 220;
             context.mouseY = 337;
-            resources.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(resources, context);
             verifyNoInteractions(context);
-            assertTrue(resources.collectHoverTooltips().tooltipTexts().isEmpty());
+            assertTrue(resources.collectHoverTooltips().tooltips().isEmpty());
 
             now.set(250);
-            resources.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(resources, context);
             verify(context).drawTexture(StoragePanelTextures.RESOURCE_HOVER, 208F, 334F, 80F, 8F);
             clearInvocations(context);
             context.mouseX = 330;
-            resources.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(resources, context);
             verify(context, never()).drawTexture(eq(StoragePanelTextures.RESOURCE_HOVER),
                 anyFloat(), anyFloat(), anyFloat(), anyFloat());
-            assertTrue(resources.collectHoverTooltips().tooltipTexts().isEmpty());
+            assertTrue(resources.collectHoverTooltips().tooltips().isEmpty());
 
             clearInvocations(context);
             now.set(375);
-            resources.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(resources, context);
             verify(context).drawTexture(StoragePanelTextures.RESOURCE_HOVER, 328F, 334F, 15F, 8F);
-            var line = resources.collectHoverTooltips().tooltipTexts().getFirst();
+            var line = (Component) resources.collectHoverTooltips().tooltips().getFirst();
             var arguments = assertInstanceOf(TranslatableContents.class, line.getContents()).getArgs();
             assertEquals("25.0%", arguments[2]);
 
             clearInvocations(context);
             now.set(500);
-            resources.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(resources, context);
             verify(context).drawTexture(StoragePanelTextures.RESOURCE_HOVER, 328F, 334F, 40F, 8F);
         }
     }
@@ -153,10 +154,10 @@ class StorageHostProgressAnimationTest {
                 ((BindableValue<Tag>) root.getChildren().getFirst()).setValue(state(!migrating, migrating).toTag());
                 UIElement capacity = bar(root, "capacity_bar", 208, 313, 160, 8);
                 GUIContext context = mock(GUIContext.class);
-                capacity.drawBackgroundAdditional(context);
+                UiTestRendering.drawBackgroundAdditional(capacity, context);
                 verifyNoInteractions(context);
                 now.set(250);
-                capacity.drawBackgroundAdditional(context);
+                UiTestRendering.drawBackgroundAdditional(capacity, context);
                 verify(context).enableScissor(208F, 313F, 80F, 8F);
                 verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_FILL, 208F, 313F, 72F, 8F);
                 verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_SYMBOL, 280F, 313F, 16F, 8F);
@@ -165,7 +166,7 @@ class StorageHostProgressAnimationTest {
                 verifyNoMoreInteractions(context);
                 clearInvocations(context);
                 now.set(500);
-                capacity.drawBackgroundAdditional(context);
+                UiTestRendering.drawBackgroundAdditional(capacity, context);
                 verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_FILL, 208F, 313F, 72F, 8F);
                 verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_SYMBOL, 280F, 313F, 16F, 8F);
                 verify(context).drawTexture(StoragePanelTextures.INFINITE_CAPACITY_FILL, 296F, 313F, 72F, 8F);

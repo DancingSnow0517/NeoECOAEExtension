@@ -60,18 +60,18 @@ class ECOCompressionServiceTest {
     @Test void realCraftingRecipesRequireAnExactReverseAndUseNonemptySlots() {
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         var pattern = ShapedRecipePattern.of(java.util.Map.of('#', Ingredient.of(Items.IRON_NUGGET)), List.of("###", "###", "###"));
-        var compressed = new ShapedRecipe("", CraftingBookCategory.MISC, pattern, new ItemStack(Items.IRON_INGOT));
-        var decompressed = new ShapelessRecipe("", CraftingBookCategory.MISC, new ItemStack(Items.IRON_NUGGET, 9),
-            NonNullList.of(Ingredient.EMPTY, Ingredient.of(Items.IRON_INGOT)));
+        var compressed = new ShapedRecipe(new net.minecraft.world.item.crafting.Recipe.CommonInfo(true), new net.minecraft.world.item.crafting.CraftingRecipe.CraftingBookInfo(CraftingBookCategory.MISC, ""), pattern, new net.minecraft.world.item.ItemStackTemplate(Items.IRON_INGOT));
+        var decompressed = new ShapelessRecipe(new net.minecraft.world.item.crafting.Recipe.CommonInfo(true), new net.minecraft.world.item.crafting.CraftingRecipe.CraftingBookInfo(CraftingBookCategory.MISC, ""),
+            new net.minecraft.world.item.ItemStackTemplate(Items.IRON_NUGGET, 9), List.of(Ingredient.of(Items.IRON_INGOT)));
         assertEquals(List.of(edge(a, b, 9)), ECOCompressionService.recognizeRecipes(List.of(compressed, decompressed), registries, null));
         assertTrue(ECOCompressionService.recognizeRecipes(List.of(compressed), registries, null).isEmpty());
-        var lossy = new ShapelessRecipe("", CraftingBookCategory.MISC, new ItemStack(Items.IRON_NUGGET, 8),
-            NonNullList.of(Ingredient.EMPTY, Ingredient.of(Items.IRON_INGOT)));
+        var lossy = new ShapelessRecipe(new net.minecraft.world.item.crafting.Recipe.CommonInfo(true), new net.minecraft.world.item.crafting.CraftingRecipe.CraftingBookInfo(CraftingBookCategory.MISC, ""),
+            new net.minecraft.world.item.ItemStackTemplate(Items.IRON_NUGGET, 8), List.of(Ingredient.of(Items.IRON_INGOT)));
         assertTrue(ECOCompressionService.recognizeRecipes(List.of(compressed, lossy), registries, null).isEmpty());
         var padded = ShapedRecipePattern.of(java.util.Map.of('#', Ingredient.of(Items.IRON_NUGGET)), List.of("# #", "   ", "# #"));
-        var four = new ShapedRecipe("", CraftingBookCategory.MISC, padded, new ItemStack(Items.IRON_INGOT));
-        var unpackFour = new ShapelessRecipe("", CraftingBookCategory.MISC, new ItemStack(Items.IRON_NUGGET, 4),
-            NonNullList.of(Ingredient.EMPTY, Ingredient.of(Items.IRON_INGOT)));
+        var four = new ShapedRecipe(new net.minecraft.world.item.crafting.Recipe.CommonInfo(true), new net.minecraft.world.item.crafting.CraftingRecipe.CraftingBookInfo(CraftingBookCategory.MISC, ""), padded, new net.minecraft.world.item.ItemStackTemplate(Items.IRON_INGOT));
+        var unpackFour = new ShapelessRecipe(new net.minecraft.world.item.crafting.Recipe.CommonInfo(true), new net.minecraft.world.item.crafting.CraftingRecipe.CraftingBookInfo(CraftingBookCategory.MISC, ""),
+            new net.minecraft.world.item.ItemStackTemplate(Items.IRON_NUGGET, 4), List.of(Ingredient.of(Items.IRON_INGOT)));
         assertEquals(List.of(edge(a, b, 4)), ECOCompressionService.recognizeRecipes(List.of(four, unpackFour), registries, null));
     }
     @Test void conversionPatternEncodingKeepsIdentityAndExactInputValidation() {

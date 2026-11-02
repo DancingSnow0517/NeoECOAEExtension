@@ -83,11 +83,11 @@ class ECOFastPathExpandedSupportTest {
         energy.putString("type", "mana");
         before.put("energy", energy);
         CompoundTag after = before.copy();
-        after.getCompound("energy").putInt("stored", 90);
+        after.getCompoundOrEmpty("energy").putInt("stored", 90);
         CompoundTag result = ECOStateTransitionBatchModel.applyCustomDataTransition(before, after, 4).orElseThrow();
-        assertEquals(60, result.getCompound("energy").getInt("stored"));
-        assertEquals("mana", result.getCompound("energy").getString("type"));
-        assertEquals("player", result.getString("owner"));
+        assertEquals(60, result.getCompoundOrEmpty("energy").getIntOr("stored", 0));
+        assertEquals("mana", result.getCompoundOrEmpty("energy").getStringOr("type", ""));
+        assertEquals("player", result.getStringOr("owner", ""));
         after.putString("owner", "another");
         assertTrue(ECOStateTransitionBatchModel.applyCustomDataTransition(before, after, 4).isEmpty());
     }

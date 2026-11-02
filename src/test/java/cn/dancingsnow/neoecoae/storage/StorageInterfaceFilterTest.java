@@ -5,7 +5,6 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKeyTypesInternal;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys;
-import com.moakiee.ae2lt.me.key.LightningKey;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -31,20 +30,17 @@ class StorageInterfaceFilterTest {
             named.set(DataComponents.CUSTOM_NAME, Component.literal("Exact sample"));
             var item = AEItemKey.of(named);
             var water = AEFluidKey.of(Fluids.WATER);
-            var lightning = LightningKey.EXTREME_HIGH_VOLTAGE;
+            // 26.1 port: the ae2lt LightningKey (addon key) part was removed; its 1.21.1 classes cannot run on 26.1.
             CompoundTag empty = new CompoundTag();
             CompoundTag saved = StorageInterfaceFilter.with(empty, 0, item, registries);
             saved = StorageInterfaceFilter.with(saved, 13, water, registries);
-            saved = StorageInterfaceFilter.with(saved, 26, lightning, registries);
             assertTrue(empty.isEmpty());
             var restored = new StorageInterfaceFilter(saved.copy(), registries);
             assertTrue(restored.test(item));
             assertTrue(restored.test(water));
-            assertTrue(restored.test(lightning));
             assertFalse(restored.test(AEItemKey.of(Items.STONE)));
             assertFalse(restored.test(AEFluidKey.of(Fluids.LAVA)));
             assertEquals(water, StorageInterfaceFilter.get(saved, 13, registries));
-            assertEquals(lightning, StorageInterfaceFilter.get(saved, 26, registries));
         }
     }
 

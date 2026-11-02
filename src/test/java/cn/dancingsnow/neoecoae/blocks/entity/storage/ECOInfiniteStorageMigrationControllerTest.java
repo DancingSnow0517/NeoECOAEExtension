@@ -59,9 +59,12 @@ class ECOInfiniteStorageMigrationControllerTest {
     private static AEKey key(int index) {
         var item = new ArrayList<>(BuiltInRegistries.ITEM.stream().filter(i -> i != Items.AIR).limit(64).toList()).get(index);
         var key = spy(AEItemKey.of(item));
-        var tag = new CompoundTag();
-        tag.putString("id", BuiltInRegistries.ITEM.getKey(item).toString());
-        doReturn(tag).when(key).toTagGeneric(any());
+        // 26.1: toTagGeneric writes into a ValueOutput (void); stub the identity it writes.
+        String id = BuiltInRegistries.ITEM.getKey(item).toString();
+        doAnswer(call -> {
+            call.<net.minecraft.world.level.storage.ValueOutput>getArgument(0).putString("id", id);
+            return null;
+        }).when(key).toTagGeneric(any());
         return key;
     }
 

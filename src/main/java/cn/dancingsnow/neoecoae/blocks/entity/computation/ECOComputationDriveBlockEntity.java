@@ -72,10 +72,10 @@ public class ECOComputationDriveBlockEntity
     public void setCellStack(@Nullable ItemStack cellStack) {
         if (cellStack != null && !isItemValid(cellStack)) return;
         this.cellStack = cellStack;
-        if (!cellStack.isEmpty()) {
-            getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECOComputationDrive.HAS_CELL, true));
-        } else {
-            getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECOComputationDrive.HAS_CELL, false));
+        // null clears the slot (ICellHost contract); the 26.1 HAS_CELL block-state update must tolerate it.
+        boolean hasCell = cellStack != null && !cellStack.isEmpty();
+        if (getLevel() != null) {
+            getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECOComputationDrive.HAS_CELL, hasCell));
         }
         if (this.cluster != null) {
             this.cluster.recalculateRemainingStorage();

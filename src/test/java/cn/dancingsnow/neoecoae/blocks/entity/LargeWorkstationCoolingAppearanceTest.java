@@ -27,9 +27,9 @@ class LargeWorkstationCoolingAppearanceTest {
     static void bootstrap() {
         InventoryTestBootstrap.initialize();
         var registry = (MappedRegistry<Block>) BuiltInRegistries.BLOCK;
-        registry.unfreeze();
+        registry.unfreeze(false);
         try {
-            workstation = new ECOIntegratedWorkingStation(BlockBehaviour.Properties.of());
+            workstation = new ECOIntegratedWorkingStation(BlockBehaviour.Properties.of().setId(blockKey("neoecoae_cooling_appearance_test:workstation")));
             Registry.register(registry, "neoecoae_cooling_appearance_test:workstation", workstation);
             workstation.getStateDefinition().getPossibleStates().forEach(BlockState::initCache);
         } finally {
@@ -117,4 +117,8 @@ class LargeWorkstationCoolingAppearanceTest {
     private record Fixture(ECOLargeIntegratedWorkingStationBlockEntity host, Level level,
                            ECOLargeIntegratedWorkingStationInputHatchBlockEntity hatch,
                            AtomicReference<BlockState> state) { }
+    private static net.minecraft.resources.ResourceKey<Block> blockKey(String id) {
+        return net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.BLOCK,
+            net.minecraft.resources.Identifier.parse(id));
+    }
 }

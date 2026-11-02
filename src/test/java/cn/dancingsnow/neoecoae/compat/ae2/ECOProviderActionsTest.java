@@ -47,9 +47,9 @@ class ECOProviderActionsTest {
         when(crafting.getProviders(second)).thenReturn(List.of(provider));
         var sources = ECOProviderActions.find(List.of(first, second), crafting);
         assertEquals(1, sources.size());
-        assertEquals(new BlockPos(10, 64, 20).asLong(), sources.get(0).describe(registries).getLong("position"));
+        assertEquals(new BlockPos(10, 64, 20).asLong(), sources.get(0).describe(registries).getLongOr("position", 0L));
         verify(provider, never()).pushPattern(any(), any());
-        verify(be, never()).saveWithFullMetadata(any());
+        verify(be, never()).saveWithFullMetadata(any(net.minecraft.core.HolderLookup.Provider.class));
     }
 
     @Test void serverLocatorRefusesToLoadAnUnloadedTarget() {
@@ -59,7 +59,7 @@ class ECOProviderActionsTest {
         var hostLevel = mock(ServerLevel.class);
         when(hostLevel.registryAccess()).thenReturn(net.minecraft.core.RegistryAccess.fromRegistryOfRegistries(net.minecraft.core.registries.BuiltInRegistries.REGISTRY));
         when(be.getLevel()).thenReturn(hostLevel);
-        when(be.saveWithFullMetadata(any())).thenReturn(new net.minecraft.nbt.CompoundTag());
+        when(be.saveWithFullMetadata(any(net.minecraft.core.HolderLookup.Provider.class))).thenReturn(new net.minecraft.nbt.CompoundTag());
         var player = mock(Player.class); var level = mock(ServerLevel.class);
         when(player.level()).thenReturn(level);
         when(player.registryAccess()).thenReturn(net.minecraft.core.RegistryAccess.fromRegistryOfRegistries(net.minecraft.core.registries.BuiltInRegistries.REGISTRY));
@@ -76,7 +76,7 @@ class ECOProviderActionsTest {
         when(be.getLevel()).thenReturn(level);
         when(be.getBlockPos()).thenReturn(position);
         when(be.getBlockState()).thenReturn(Blocks.CHEST.defaultBlockState());
-        when(be.saveWithFullMetadata(any())).thenReturn(new net.minecraft.nbt.CompoundTag());
+        when(be.saveWithFullMetadata(any(net.minecraft.core.HolderLookup.Provider.class))).thenReturn(new net.minecraft.nbt.CompoundTag());
         when(player.level()).thenReturn(level);
         when(level.hasChunkAt(position)).thenReturn(true);
         when(level.getBlockEntity(position)).thenReturn(be);
@@ -115,6 +115,7 @@ class ECOProviderActionsTest {
         var player = mock(Player.class);
         var level = mock(Level.class);
         var side = Level.class.getDeclaredField("isClientSide"); side.setAccessible(true); side.setBoolean(level, true);
+        when(level.isClientSide()).thenReturn(true); // 26.1: main reads the accessor, which the mock intercepts
         when(player.level()).thenReturn(level);
         when(player.registryAccess()).thenReturn(net.minecraft.core.RegistryAccess.fromRegistryOfRegistries(net.minecraft.core.registries.BuiltInRegistries.REGISTRY));
         var proxy = locator.locate(player, BlockEntity.class);

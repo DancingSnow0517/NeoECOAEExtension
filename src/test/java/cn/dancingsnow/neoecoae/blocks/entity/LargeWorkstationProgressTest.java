@@ -101,7 +101,7 @@ class LargeWorkstationProgressTest {
         when(server.getLevel(Level.OVERWORLD)).thenReturn(level);
         var controller = controller(batch());
         var target = new cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingTargetProvider.Target(
-            Level.OVERWORLD.location(), controller.getBlockPos());
+            Level.OVERWORLD.identifier(), controller.getBlockPos());
         var output = AEItemKey.of(Items.STONE);
         var unloaded = new cn.dancingsnow.neoecoae.crafting.display.processing.ECOWorkstationMachineStatus.Scan(List.of(target), output);
         unloaded.step(level);

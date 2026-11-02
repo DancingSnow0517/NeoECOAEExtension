@@ -5,7 +5,6 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
-import com.moakiee.ae2lt.me.key.LightningKey;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -15,6 +14,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class LargeWorkstationExtraInputsTest {
+    // 26.1 port: AE2 Lightning Tech's LightningKey (1.21.1 jar only) cannot initialize on 26.1; the extra-input
+    // handling under test is key-agnostic, so two distinct item keys stand in for the two lightning tiers.
+    private static final appeng.api.stacks.AEKey EXTRA_A = appeng.api.stacks.AEItemKey.of(net.minecraft.world.item.Items.BLAZE_ROD);
+    private static final appeng.api.stacks.AEKey EXTRA_B = appeng.api.stacks.AEItemKey.of(net.minecraft.world.item.Items.GLOWSTONE_DUST);
+
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
     @Test void partialExtractionIsOwnedAndRetryOnlyRequestsRemainder() {
@@ -23,29 +27,29 @@ class LargeWorkstationExtraInputsTest {
         var missing = new KeyCounter();
         var owned = new KeyCounter();
         var changes = new AtomicInteger();
-        missing.add(LightningKey.EXTREME_HIGH_VOLTAGE, 28);
-        when(storage.extract(LightningKey.EXTREME_HIGH_VOLTAGE, 28, Actionable.MODULATE, source)).thenReturn(10L);
-        when(storage.extract(LightningKey.EXTREME_HIGH_VOLTAGE, 18, Actionable.MODULATE, source)).thenReturn(18L);
+        missing.add(EXTRA_A, 28);
+        when(storage.extract(EXTRA_A, 28, Actionable.MODULATE, source)).thenReturn(10L);
+        when(storage.extract(EXTRA_A, 18, Actionable.MODULATE, source)).thenReturn(18L);
         assertFalse(LargeWorkstationExtraInputs.acquire(missing, owned, storage, source, changes::incrementAndGet));
-        assertEquals(10, owned.get(LightningKey.EXTREME_HIGH_VOLTAGE));
-        assertEquals(18, missing.get(LightningKey.EXTREME_HIGH_VOLTAGE));
+        assertEquals(10, owned.get(EXTRA_A));
+        assertEquals(18, missing.get(EXTRA_A));
         assertTrue(LargeWorkstationExtraInputs.acquire(missing, owned, storage, source, changes::incrementAndGet));
-        assertEquals(28, owned.get(LightningKey.EXTREME_HIGH_VOLTAGE));
+        assertEquals(28, owned.get(EXTRA_A));
         assertEquals(2, changes.get());
         assertTrue(LargeWorkstationExtraInputs.acquire(missing, owned, storage, source, changes::incrementAndGet));
-        verify(storage).extract(LightningKey.EXTREME_HIGH_VOLTAGE, 28, Actionable.MODULATE, source);
-        verify(storage).extract(LightningKey.EXTREME_HIGH_VOLTAGE, 18, Actionable.MODULATE, source);
+        verify(storage).extract(EXTRA_A, 28, Actionable.MODULATE, source);
+        verify(storage).extract(EXTRA_A, 18, Actionable.MODULATE, source);
         verifyNoMoreInteractions(storage);
     }
 
     @Test void missingLightningNeverCreatesOwnedResources() {
         var missing = new KeyCounter();
         var owned = new KeyCounter();
-        missing.add(LightningKey.HIGH_VOLTAGE, 4096);
+        missing.add(EXTRA_B, 4096);
         assertFalse(LargeWorkstationExtraInputs.acquire(missing, owned, mock(MEStorage.class), mock(IActionSource.class),
             () -> fail("No mutation should be saved")));
-        assertEquals(0, owned.get(LightningKey.HIGH_VOLTAGE));
-        assertEquals(4096, missing.get(LightningKey.HIGH_VOLTAGE));
+        assertEquals(0, owned.get(EXTRA_B));
+        assertEquals(4096, missing.get(EXTRA_B));
     }
 
     @Test void returningOwnedInputsNeverInsertsUnacquiredExtras() {
@@ -53,15 +57,15 @@ class LargeWorkstationExtraInputsTest {
         var source = mock(IActionSource.class);
         var owned = new KeyCounter();
         var stillMissing = new KeyCounter();
-        owned.add(LightningKey.EXTREME_HIGH_VOLTAGE, 10);
-        stillMissing.add(LightningKey.EXTREME_HIGH_VOLTAGE, 18);
-        when(storage.insert(LightningKey.EXTREME_HIGH_VOLTAGE, 10, Actionable.MODULATE, source)).thenReturn(10L);
+        owned.add(EXTRA_A, 10);
+        stillMissing.add(EXTRA_A, 18);
+        when(storage.insert(EXTRA_A, 10, Actionable.MODULATE, source)).thenReturn(10L);
 
         assertTrue(LargeWorkstationExtraInputs.returnOwned(owned, storage, source, () -> {}));
 
-        assertEquals(0, owned.get(LightningKey.EXTREME_HIGH_VOLTAGE));
-        assertEquals(18, stillMissing.get(LightningKey.EXTREME_HIGH_VOLTAGE));
-        verify(storage).insert(LightningKey.EXTREME_HIGH_VOLTAGE, 10, Actionable.MODULATE, source);
+        assertEquals(0, owned.get(EXTRA_A));
+        assertEquals(18, stillMissing.get(EXTRA_A));
+        verify(storage).insert(EXTRA_A, 10, Actionable.MODULATE, source);
         verifyNoMoreInteractions(storage);
     }
 
@@ -70,17 +74,17 @@ class LargeWorkstationExtraInputsTest {
         var source = mock(IActionSource.class);
         var owned = new KeyCounter();
         var changes = new AtomicInteger();
-        owned.add(LightningKey.HIGH_VOLTAGE, 10);
-        when(storage.insert(LightningKey.HIGH_VOLTAGE, 10, Actionable.MODULATE, source)).thenReturn(4L);
-        when(storage.insert(LightningKey.HIGH_VOLTAGE, 6, Actionable.MODULATE, source)).thenReturn(6L);
+        owned.add(EXTRA_B, 10);
+        when(storage.insert(EXTRA_B, 10, Actionable.MODULATE, source)).thenReturn(4L);
+        when(storage.insert(EXTRA_B, 6, Actionable.MODULATE, source)).thenReturn(6L);
 
         assertFalse(LargeWorkstationExtraInputs.returnOwned(owned, storage, source, changes::incrementAndGet));
-        assertEquals(6, owned.get(LightningKey.HIGH_VOLTAGE));
+        assertEquals(6, owned.get(EXTRA_B));
         assertTrue(LargeWorkstationExtraInputs.returnOwned(owned, storage, source, changes::incrementAndGet));
-        assertEquals(0, owned.get(LightningKey.HIGH_VOLTAGE));
+        assertEquals(0, owned.get(EXTRA_B));
         assertEquals(2, changes.get());
-        verify(storage).insert(LightningKey.HIGH_VOLTAGE, 10, Actionable.MODULATE, source);
-        verify(storage).insert(LightningKey.HIGH_VOLTAGE, 6, Actionable.MODULATE, source);
+        verify(storage).insert(EXTRA_B, 10, Actionable.MODULATE, source);
+        verify(storage).insert(EXTRA_B, 6, Actionable.MODULATE, source);
         verifyNoMoreInteractions(storage);
     }
 }

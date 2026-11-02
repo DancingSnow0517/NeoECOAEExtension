@@ -173,8 +173,8 @@ class ECOBigOrderLifecycleTest {
              var codec = mockStatic(GenericStack.class, CALLS_REAL_METHODS)) {
             helpers.when(() -> CraftingCpuHelper.tryExtractInitialItems(any(), any(), any(), any())).thenReturn(null);
             var registries = mock(HolderLookup.Provider.class);
-            codec.when(() -> GenericStack.writeTag(eq(registries), any())).thenReturn(new CompoundTag());
-            codec.when(() -> GenericStack.readTag(eq(registries), any())).thenReturn(new GenericStack(key, 1));
+            codec.when(() -> GenericStack.writeTag(any(), any())).thenAnswer(call -> { ((net.minecraft.world.level.storage.ValueOutput) call.getArgument(0)).putString("test", "stack"); return null; });
+            codec.when(() -> GenericStack.readTag(any())).thenReturn(new GenericStack(key, 1));
             assertTrue(admission.submit(carrier -> logic.trySubmitJob(grid, carrier, IActionSource.empty(), null)).successful());
             var link = logic.getLastLink();
             var saved = new CompoundTag();

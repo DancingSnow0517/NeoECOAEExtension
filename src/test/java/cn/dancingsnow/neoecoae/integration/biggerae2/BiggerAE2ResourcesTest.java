@@ -12,6 +12,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BiggerAE2ResourcesTest {
+    @org.junit.jupiter.api.Disabled("26.1 port: the Bigger AE2 integration is inactive on 26.1 (UNPORTED_INTEGRATIONS), so runData no longer registers its cells and the generated en_us.json lacks their names")
     @Test
     void allTwelveCellsHaveConditionalAssemblyDisassemblyAndMatchingArtwork() throws Exception {
         for (var channel : BiggerAE2Channel.values()) {

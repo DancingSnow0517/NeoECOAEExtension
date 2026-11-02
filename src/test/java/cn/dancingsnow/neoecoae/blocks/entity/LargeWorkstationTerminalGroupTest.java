@@ -103,7 +103,7 @@ class LargeWorkstationTerminalGroupTest {
             for (var module : LargeWorkstationModule.values()) {
                 if (module == LargeWorkstationModule.REGULAR) continue;
                 var icon = host(new AtomicReference<>(module)).getTerminalIcon().getReadOnlyStack();
-                int modelData = icon.get(DataComponents.CUSTOM_MODEL_DATA).value();
+                int modelData = icon.get(DataComponents.CUSTOM_MODEL_DATA).floats().getFirst().intValue();
                 var override = overrides.asList().stream().map(element -> element.getAsJsonObject())
                     .filter(entry -> entry.getAsJsonObject("predicate").get("custom_model_data").getAsInt() == modelData)
                     .findFirst().orElseThrow();

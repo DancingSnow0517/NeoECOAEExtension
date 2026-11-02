@@ -62,10 +62,9 @@ class FluidInputHatchBinaryCompatibilityTest {
         assertEquals(Integer.MAX_VALUE, legacy.getFluidAmount());
         assertEquals(exact, hatch.getStoredFluidAmount());
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-        var saved = new CompoundTag();
-        hatch.saveAdditional(saved, registries);
+        CompoundTag saved = cn.dancingsnow.neoecoae.util.LegacyNbt.output(registries, hatch::saveAdditional);
         hatch.tank.setFluid(FluidStack.EMPTY);
-        hatch.loadTag(saved, registries);
+        hatch.loadTag(cn.dancingsnow.neoecoae.util.LegacyNbt.input(registries, saved));
         assertEquals(exact, hatch.getStoredFluidAmount());
         assertSame(legacy, readField(ECOFluidInputHatchBlockEntity.class, LongFluidTank.class));
         assertEquals(1000, legacy.drain(1000, FluidAction.SIMULATE).getAmount());

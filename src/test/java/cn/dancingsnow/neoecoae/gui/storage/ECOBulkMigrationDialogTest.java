@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.gui.common.UiTestRendering;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -17,7 +18,7 @@ import java.util.List;
 import java.util.UUID;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistryAccess;
@@ -142,7 +143,7 @@ class ECOBulkMigrationDialogTest {
             var side = f.root.hitTest(f.root.getPositionX() - 30, f.root.getPositionY() + 30);
             assertNotNull(side, "root=" + f.root.getPositionX() + "," + f.root.getPositionY()
                 + " dialog=" + f.dialog.getPositionX() + "," + f.dialog.getPositionY()
-                + " overflow=" + f.root.getStyle().overflowVisible());
+                + " overflow=" + f.root.getStyle().clip());
             assertSame(f.dialog, side.getA(), "Host side buttons must be covered");
             assertSame(f.dialog, f.root.hitTest(f.root.getPositionX() - 100,
                 f.root.getPositionY() - 50).getA(), "Outside clicks must not drop carried items");
@@ -156,7 +157,7 @@ class ECOBulkMigrationDialogTest {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             Fixture f = new Fixture();
             f.dialog.accept(f.request, f.preview(8));
-            Minecraft client = mock(Minecraft.class);
+            Minecraft client = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.withOptions(mock(Minecraft.class));
             var fontField = Minecraft.class.getDeclaredField("font");
             fontField.setAccessible(true);
             Font font = mock(Font.class);
@@ -164,9 +165,9 @@ class ECOBulkMigrationDialogTest {
             minecraft.when(Minecraft::getInstance).thenReturn(client);
             when(font.plainSubstrByWidth(anyString(), anyInt())).thenAnswer(call -> call.getArgument(0));
             GUIContext context = mock(GUIContext.class);
-            context.graphics = mock(GuiGraphics.class);
-            f.dialog.drawBackgroundAdditional(context);
-            verify(context.graphics, times(6)).renderItem(any(ItemStack.class), anyInt(), anyInt());
+            context.graphics = mock(GuiGraphicsExtractor.class);
+            UiTestRendering.drawBackgroundAdditional(f.dialog, context);
+            verify(context.graphics, times(6)).item(any(ItemStack.class), anyInt(), anyInt());
             assertTrue(f.confirmed.isEmpty());
         }
     }
@@ -200,12 +201,12 @@ class ECOBulkMigrationDialogTest {
 
         CompoundTag preview(int count) {
             CompoundTag tag = new CompoundTag();
-            tag.putUUID("cell_id", cellId);
+            tag.store("cell_id", net.minecraft.core.UUIDUtil.CODEC, cellId);
             tag.putInt("total", count);
             ListTag items = new ListTag();
             var examples = List.of(Items.IRON_INGOT, Items.GOLD_INGOT, Items.DIAMOND, Items.COAL,
                 Items.REDSTONE, Items.EMERALD, Items.LAPIS_LAZULI, Items.QUARTZ);
-            for (int i = 0; i < count; i++) items.add(new ItemStack(examples.get(i)).save(registries));
+            for (int i = 0; i < count; i++) items.add(cn.dancingsnow.neoecoae.util.LegacyNbt.saveItem(registries, new ItemStack(examples.get(i))));
             tag.put("items", items);
             return tag;
         }

@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.gui.common.UiTestRendering;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.common.HostProgressTestSupport;
 import com.lowdragmc.lowdraglib2.LDLib2;
@@ -41,7 +42,7 @@ class StorageResourceHoverTest {
             GUIContext context = mock(GUIContext.class);
             context.mouseX = 220;
             context.mouseY = 337;
-            bar.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(bar, context);
             verify(context, times(1)).drawTexture(eq(StoragePanelTextures.RESOURCE_HOVER),
                 eq(208F), eq(334F), eq(itemWidth), eq(8F));
             Object[] item = tooltipArguments(bar, tooltipLines);
@@ -51,7 +52,7 @@ class StorageResourceHoverTest {
 
             clearInvocations(context);
             context.mouseX = Math.round(208 + itemWidth); // Exact boundary belongs to the next resource, not both.
-            bar.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(bar, context);
             verify(context, times(1)).drawTexture(eq(StoragePanelTextures.RESOURCE_HOVER),
                 eq(208F + itemWidth), eq(334F), eq(fluidWidth), eq(8F));
             Object[] fluid = tooltipArguments(bar, tooltipLines);
@@ -62,10 +63,10 @@ class StorageResourceHoverTest {
             for (float mouseX : new float[] {208 + itemWidth + fluidWidth, 209 + itemWidth + fluidWidth}) {
                 clearInvocations(context);
                 context.mouseX = Math.round(mouseX);
-                bar.drawBackgroundAdditional(context);
+                UiTestRendering.drawBackgroundAdditional(bar, context);
                 verify(context, never()).drawTexture(eq(StoragePanelTextures.RESOURCE_HOVER),
                     anyFloat(), anyFloat(), anyFloat(), anyFloat());
-                assertEquals(capacity ? 2 : 0, bar.collectHoverTooltips().tooltipTexts().size());
+                assertEquals(capacity ? 2 : 0, bar.collectHoverTooltips().tooltips().size());
             }
         }
     }
@@ -81,11 +82,11 @@ class StorageResourceHoverTest {
             for (int offset : List.of(0, 33)) {
                 StoragePanelState snapshot = StoragePanelState.capture(StoragePanelStateTest.config(cells, false), offset, 33);
                 UIElement capacity = bar(snapshot, "capacity_bar");
-                var lines = capacity.collectHoverTooltips().tooltipTexts();
+                var lines = capacity.collectHoverTooltips().tooltips();
                 assertEquals(2, lines.size());
-                Object[] bytes = assertInstanceOf(TranslatableContents.class, lines.getFirst().getContents()).getArgs();
+                Object[] bytes = assertInstanceOf(TranslatableContents.class, ((Component) lines.getFirst()).getContents()).getArgs();
                 assertEquals("1,750 / 3,500", ((Component) bytes[0]).getString());
-                Object[] usage = assertInstanceOf(TranslatableContents.class, lines.getLast().getContents()).getArgs();
+                Object[] usage = assertInstanceOf(TranslatableContents.class, ((Component) lines.getLast()).getContents()).getArgs();
                 assertEquals("50.0%", usage[0]);
             }
         }
@@ -101,25 +102,25 @@ class StorageResourceHoverTest {
                 new int[] {207, 337}, new int[] {220, 333}, new int[] {220, 342})) {
                 context.mouseX = 220;
                 context.mouseY = 337;
-                bar.drawBackgroundAdditional(context);
-                assertFalse(bar.collectHoverTooltips().tooltipTexts().isEmpty());
+                UiTestRendering.drawBackgroundAdditional(bar, context);
+                assertFalse(bar.collectHoverTooltips().tooltips().isEmpty());
                 clearInvocations(context);
                 context.mouseX = point[0];
                 context.mouseY = point[1];
-                bar.drawBackgroundAdditional(context);
+                UiTestRendering.drawBackgroundAdditional(bar, context);
                 verify(context, never()).drawTexture(eq(StoragePanelTextures.RESOURCE_HOVER),
                     anyFloat(), anyFloat(), anyFloat(), anyFloat());
-                assertTrue(bar.collectHoverTooltips().tooltipTexts().isEmpty());
+                assertTrue(bar.collectHoverTooltips().tooltips().isEmpty());
             }
             context.mouseX = 220;
             context.mouseY = 337;
-            bar.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(bar, context);
             clearInvocations(context);
             doReturn(false).when(bar).isHover();
-            bar.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(bar, context);
             verify(context, never()).drawTexture(eq(StoragePanelTextures.RESOURCE_HOVER),
                 anyFloat(), anyFloat(), anyFloat(), anyFloat());
-            assertTrue(bar.collectHoverTooltips().tooltipTexts().isEmpty());
+            assertTrue(bar.collectHoverTooltips().tooltips().isEmpty());
         }
     }
 
@@ -132,7 +133,7 @@ class StorageResourceHoverTest {
             GUIContext context = mock(GUIContext.class);
             context.mouseX = 321;
             context.mouseY = 337;
-            bar.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(bar, context);
             verify(context).drawTexture(StoragePanelTextures.RESOURCE_HOVER, 208F, 334F, 114F, 8F);
             Object[] fluid = tooltipArguments(bar);
             assertEquals("fluids", ((Component) fluid[0]).getString());
@@ -141,7 +142,7 @@ class StorageResourceHoverTest {
 
             clearInvocations(context);
             context.mouseX = 322;
-            bar.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(bar, context);
             verify(context).drawTexture(StoragePanelTextures.RESOURCE_HOVER, 322F, 334F, 46F, 8F);
             Object[] item = tooltipArguments(bar);
             assertEquals("items", ((Component) item[0]).getString());
@@ -160,7 +161,7 @@ class StorageResourceHoverTest {
             GUIContext context = mock(GUIContext.class);
             context.mouseX = 327;
             context.mouseY = 337;
-            bar.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(bar, context);
             verify(context).drawTexture(StoragePanelTextures.RESOURCE_HOVER, 208F, 334F, 120F, 8F);
             Object[] tooltip = tooltipArguments(bar);
             assertEquals("items", ((Component) tooltip[0]).getString());
@@ -182,13 +183,13 @@ class StorageResourceHoverTest {
             GUIContext context = mock(GUIContext.class);
             context.mouseX = 220;
             context.mouseY = 337;
-            bar.drawBackgroundAdditional(context);
-            assertFalse(bar.collectHoverTooltips().tooltipTexts().isEmpty());
+            UiTestRendering.drawBackgroundAdditional(bar, context);
+            assertFalse(bar.collectHoverTooltips().tooltips().isEmpty());
             display.setValue(StoragePanelState.EMPTY.toTag());
             clearInvocations(context);
-            bar.drawBackgroundAdditional(context);
+            UiTestRendering.drawBackgroundAdditional(bar, context);
             verifyNoInteractions(context);
-            assertTrue(bar.collectHoverTooltips().tooltipTexts().isEmpty());
+            assertTrue(bar.collectHoverTooltips().tooltips().isEmpty());
         }
     }
 
@@ -215,9 +216,9 @@ class StorageResourceHoverTest {
 
     private static Object[] tooltipArguments(UIElement bar, int expectedLines) {
         // LDLib2 collects hover tooltips after drawing, without filling in event.x/event.y.
-        var lines = bar.collectHoverTooltips().tooltipTexts();
+        var lines = bar.collectHoverTooltips().tooltips();
         assertEquals(expectedLines, lines.size());
-        return assertInstanceOf(TranslatableContents.class, lines.getLast().getContents()).getArgs();
+        return assertInstanceOf(TranslatableContents.class, ((Component) lines.getLast()).getContents()).getArgs();
     }
 
     private static UIElement bar(StoragePanelState state) {

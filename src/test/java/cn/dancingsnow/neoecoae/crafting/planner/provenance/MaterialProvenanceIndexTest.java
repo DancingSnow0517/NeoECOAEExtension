@@ -156,7 +156,7 @@ class MaterialProvenanceIndexTest {
         @Override public Identifier getId() { return Identifier.fromNamespaceAndPath("test", "key_" + id); }
         @Override protected Component computeDisplayName() { return Component.literal("key_" + id); }
         @Override public boolean hasComponents() { return !components.isEmpty(); }
-        @Override public CompoundTag toTag(net.minecraft.core.HolderLookup.Provider registries) { throw new UnsupportedOperationException(); }
+        @Override public void toTag(net.minecraft.world.level.storage.ValueOutput output) { throw new UnsupportedOperationException(); }
         @Override public void writeToPacket(RegistryFriendlyByteBuf buffer) { throw new UnsupportedOperationException(); }
         @Override public void addDrops(long amount, List<ItemStack> drops, Level level, BlockPos pos) {
             throw new UnsupportedOperationException();

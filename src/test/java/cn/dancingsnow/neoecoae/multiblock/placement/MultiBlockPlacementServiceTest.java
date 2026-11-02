@@ -37,7 +37,7 @@ class MultiBlockPlacementServiceTest {
     void insufficientMaterialsPreventAnyWorldChanges() {
         ServerLevel level = mock(ServerLevel.class);
         ServerPlayer player = mock(ServerPlayer.class);
-        Inventory inventory = new Inventory(player);
+        Inventory inventory = new Inventory(player, new net.minecraft.world.entity.EntityEquipment());
         when(player.getInventory()).thenReturn(inventory);
         var block = new WorldPlannedBlock(BlockPos.ZERO, Blocks.COBBLESTONE.defaultBlockState(),
             new ItemStack(Items.COBBLESTONE));
@@ -53,7 +53,7 @@ class MultiBlockPlacementServiceTest {
     void blockPlacedSincePreviewIsReusedWithoutConsumingMaterials() {
         ServerLevel level = mock(ServerLevel.class);
         ServerPlayer player = mock(ServerPlayer.class);
-        Inventory inventory = new Inventory(player);
+        Inventory inventory = new Inventory(player, new net.minecraft.world.entity.EntityEquipment());
         inventory.setItem(0, new ItemStack(Items.COBBLESTONE));
         when(player.getInventory()).thenReturn(inventory);
         when(level.hasChunkAt(BlockPos.ZERO)).thenReturn(true);

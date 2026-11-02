@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.api.extension;
 
-import cn.dancingsnow.neoecoae.api.ECOComputationModels;
+import cn.dancingsnow.neoecoae.api.client.ECOComputationModels;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.capability.ECOFeature;
 import cn.dancingsnow.neoecoae.api.computation.IECOComputationCellItem;
@@ -45,7 +45,8 @@ public final class AddonApiExample {
 
     /** Call before model baking on the client, once the block registration is available. */
     public static void clientModels(IECOTier tier, Block drive) {
-        ECOComputationModels.registerCableModel(tier, drive, id("block/cable_off"), id("block/cable_on"));
+        // 26.1 port: cable models are registered per tier only (no host-block variant).
+        ECOComputationModels.registerCableModel(tier, id("block/cable_off"), id("block/cable_on"));
     }
 
     public abstract static class AddonTier implements IECOTier {

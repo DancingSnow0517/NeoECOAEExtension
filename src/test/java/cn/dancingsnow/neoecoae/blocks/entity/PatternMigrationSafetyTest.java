@@ -331,7 +331,7 @@ class PatternMigrationSafetyTest {
     private static ItemStack pattern(int index) {
         var stack = new ItemStack(Items.STONE);
         stack.set(AEComponents.ENCODED_CRAFTING_PATTERN, new EncodedCraftingPattern(List.of(),
-                new ItemStack(Items.DIAMOND), Identifier.withDefaultNamespace("test_" + index), false, false));
+                new ItemStack(Items.DIAMOND), net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.RECIPE, Identifier.withDefaultNamespace("test_" + index)), false, false));
         return stack;
     }
 }

@@ -78,14 +78,14 @@ class LargeIntegratedWorkingStationSchemaTest {
         assertTrue(decoded.inputItems().stream().allMatch(input -> input.count() == 2));
         assertEquals(10000, decoded.energy());
         assertEquals(240, decoded.processingTicks());
-        assertEquals(1000, decoded.inputFluid().amount());
+        assertEquals(1000, decoded.inputFluid().orElseThrow().amount());
         assertTrue(decoded.inputFluid().test(new FluidStack(Fluids.WATER, 1000)));
         assertEquals(Items.GOLD_INGOT, decoded.itemOutput().getItem());
         assertEquals(2, decoded.itemOutput().getCount());
         assertEquals(Fluids.LAVA, decoded.fluidOutput().getFluid());
         assertEquals(250, decoded.fluidOutput().getAmount());
         assertEquals(TYPE.toString(), recipe.json.get("type").getAsString());
-        assertTrue(IntegratedWorkingStationRecipe.Serializer.CODEC.codec()
+        assertTrue(IntegratedWorkingStationRecipe.CODEC.codec()
             .parse(RegistryAccessContainer.BUILTIN.json(), recipe.json).error().isPresent());
     }
 
@@ -96,7 +96,7 @@ class LargeIntegratedWorkingStationSchemaTest {
         first.serialize();
         var decoded = decode(first.json).display();
         assertEquals(100, decoded.processingTicks());
-        assertTrue(decoded.inputFluid().ingredient().isEmpty());
+        assertTrue(decoded.inputFluid().isEmpty());
         assertTrue(decoded.fluidOutput().isEmpty());
 
         var second = recipe().energy(30).require(SizedIngredient.of(Items.REDSTONE, 3))
@@ -112,14 +112,14 @@ class LargeIntegratedWorkingStationSchemaTest {
         var recipe = recipe().energy(1).itemOutput(new ItemStack(Items.GOLD_INGOT));
         for (int i = 0; i < 13; i++) recipe.require(SizedIngredient.of(Items.IRON_INGOT, 1));
         recipe.serialize();
-        assertTrue(LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec()
+        assertTrue(LargeIntegratedWorkingStationRecipe.CODEC.codec()
             .parse(RegistryAccessContainer.BUILTIN.json(), recipe.json).error().isPresent());
 
         var valid = recipe().energy(1).require(SizedIngredient.of(Items.IRON_INGOT, 1))
             .itemOutput(new ItemStack(Items.GOLD_INGOT));
         valid.serialize();
         valid.json.addProperty("processingTicks", 0);
-        assertTrue(LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec()
+        assertTrue(LargeIntegratedWorkingStationRecipe.CODEC.codec()
             .parse(RegistryAccessContainer.BUILTIN.json(), valid.json).error().isPresent());
     }
 
@@ -138,7 +138,7 @@ class LargeIntegratedWorkingStationSchemaTest {
     }
 
     private static LargeIntegratedWorkingStationRecipe decode(JsonObject json) {
-        return LargeIntegratedWorkingStationRecipe.Serializer.CODEC.codec()
+        return LargeIntegratedWorkingStationRecipe.CODEC.codec()
             .parse(RegistryAccessContainer.BUILTIN.json(), json).getOrThrow();
     }
 }

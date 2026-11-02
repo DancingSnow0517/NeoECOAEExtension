@@ -29,8 +29,8 @@ class CrystalScienceWorkstationRecipeTest {
         var ops = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY).createSerializationContext(JsonOps.INSTANCE);
         var recipe = LargeWorkstationRecipes.decode(Identifier.parse("test:pulverizer"), "ae2cs:crystal_pulverizer_recipe",
             JsonParser.parseString("""
-                {"input":{"item":"minecraft:iron_ingot","count":4},"result":{"id":"minecraft:diamond","count":2},
-                 "fluid_input":{"fluid":"minecraft:water","amount":250},
+                {"input":{"ingredient":"minecraft:iron_ingot","count":4},"result":{"id":"minecraft:diamond","count":2},
+                 "fluid_input":{"ingredient":"minecraft:water","amount":250},
                  "fluid_output":{"id":"minecraft:lava","amount":125},"energy_cost":345}
                 """).getAsJsonObject(), ops);
         var inputs = new KeyCounter();
@@ -81,7 +81,7 @@ class CrystalScienceWorkstationRecipeTest {
 
     @Test void ae2AloneDoesNotUnlockEntropyRecipes() {
         var manager = mock(RecipeManager.class);
-        when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(Identifier.parse("test:entropy_absent"), entropy("""
+        when(manager.getRecipes()).thenReturn(List.of(new RecipeHolder<>(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.RECIPE, Identifier.parse("test:entropy_absent")), entropy("""
             {"mode":"heat","input":{"block":{"id":"minecraft:stone"}},"output":{"block":{"id":"minecraft:cobblestone"}}}
             """))));
         assertTrue(LargeWorkstationRecipes.getAll(manager,

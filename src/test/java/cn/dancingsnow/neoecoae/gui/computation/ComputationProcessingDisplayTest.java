@@ -11,7 +11,7 @@ import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import java.math.BigInteger;
 import java.util.List;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.BeforeAll;
@@ -71,7 +71,7 @@ class ComputationProcessingDisplayTest {
         var context = mock(GUIContext.class);
         var field = context.getClass().getDeclaredField("graphics");
         field.setAccessible(true);
-        field.set(context, mock(GuiGraphics.class));
+        field.set(context, mock(GuiGraphicsExtractor.class));
         return context;
     }
 }

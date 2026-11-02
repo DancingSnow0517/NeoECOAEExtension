@@ -5,8 +5,6 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
-import com.moakiee.ae2lt.me.key.LightningKey;
-import com.moakiee.ae2lt.me.key.LightningKeyType;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -20,6 +18,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class LargeWorkstationBatchPersistenceTest {
+    // 26.1 port: AE2 Lightning Tech's LightningKey (1.21.1 jar only) cannot initialize on 26.1; the extra-input
+    // handling under test is key-agnostic, so two distinct fluid keys (AE2 item keys cannot be serialized here: AE2 items are unregistered) stand in for the two lightning tiers.
+    private static final appeng.api.stacks.AEKey EXTRA_A = AEFluidKey.of(Fluids.FLOWING_LAVA);
+    private static final appeng.api.stacks.AEKey EXTRA_B = AEFluidKey.of(Fluids.FLOWING_WATER);
+
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
     @Test void rebatchedFractionalProgressSurvivesReloadAndRejectsInvalidRemainders() throws Exception {
@@ -28,6 +31,7 @@ class LargeWorkstationBatchPersistenceTest {
             internal.when(appeng.api.stacks.AEKeyTypesInternal::getRegistry)
                 .thenReturn(cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys.REGISTRY);
             keys.when(() -> AEKeyTypes.get(AEKeyType.fluids().getId())).thenReturn(AEKeyType.fluids());
+            keys.when(() -> AEKeyTypes.get(AEKeyType.items().getId())).thenReturn(AEKeyType.items());
             var type = Class.forName(ECOLargeIntegratedWorkingStationBlockEntity.class.getName() + "$PendingBatch");
             var constructor = type.getDeclaredConstructors()[0];
             constructor.setAccessible(true);
@@ -81,20 +85,20 @@ class LargeWorkstationBatchPersistenceTest {
             internal.when(appeng.api.stacks.AEKeyTypesInternal::getRegistry)
                 .thenReturn(cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys.REGISTRY);
             keys.when(() -> AEKeyTypes.get(AEKeyType.fluids().getId())).thenReturn(AEKeyType.fluids());
-            keys.when(() -> AEKeyTypes.get(LightningKey.TYPE_ID)).thenReturn(LightningKeyType.INSTANCE);
+            keys.when(() -> AEKeyTypes.get(AEKeyType.items().getId())).thenReturn(AEKeyType.items());
             var type = Class.forName(ECOLargeIntegratedWorkingStationBlockEntity.class.getName() + "$PendingBatch");
             var constructor = type.getDeclaredConstructors()[0];
             constructor.setAccessible(true);
             var owned = new KeyCounter();
             owned.add(AEFluidKey.of(Fluids.WATER), 16000);
-            owned.add(LightningKey.EXTREME_HIGH_VOLTAGE, 10);
+            owned.add(EXTRA_A, 10);
             var output = new KeyCounter();
             output.add(AEFluidKey.of(Fluids.LAVA), 4000);
             Object batch = constructor.newInstance(4L, 5_000_000_000L, 0, 1, owned, output,
                 null, Identifier.parse("ae2lt:test"), null, null, 123L);
             var missingField = type.getDeclaredField("missingExtras");
             missingField.setAccessible(true);
-            ((KeyCounter) missingField.get(batch)).add(LightningKey.EXTREME_HIGH_VOLTAGE, 18);
+            ((KeyCounter) missingField.get(batch)).add(EXTRA_A, 18);
             var save = type.getDeclaredMethod("save", HolderLookup.Provider.class);
             save.setAccessible(true);
             var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
@@ -105,17 +109,17 @@ class LargeWorkstationBatchPersistenceTest {
             assertNotNull(restored);
             var resaved = (CompoundTag) save.invoke(restored, registries);
             assertEquals(tag, resaved);
-            assertEquals(5_000_000_000L, resaved.getLong("energyPerCraft"));
-            assertEquals(18, ((KeyCounter) missingField.get(restored)).get(LightningKey.EXTREME_HIGH_VOLTAGE));
+            assertEquals(5_000_000_000L, resaved.getLongOr("energyPerCraft", 0L));
+            assertEquals(18, ((KeyCounter) missingField.get(restored)).get(EXTRA_A));
 
             var legacy = tag.copy();
             for (String field : java.util.List.of("processingTicks", "fePerCraft", "feRemainder", "legacyTiming")) legacy.remove(field);
             var legacyBatch = load.invoke(null, legacy, registries, 234L);
             assertNotNull(legacyBatch);
             var legacyTag = (CompoundTag) save.invoke(legacyBatch, registries);
-            assertEquals(200, legacyTag.getInt("processingTicks"));
-            assertEquals(0, legacyTag.getLong("fePerCraft"));
-            assertTrue(legacyTag.getBoolean("legacyTiming"));
+            assertEquals(200, legacyTag.getIntOr("processingTicks", 0));
+            assertEquals(0, legacyTag.getLongOr("fePerCraft", 0L));
+            assertTrue(legacyTag.getBooleanOr("legacyTiming", false));
 
             // Legacy batches stored an int; NBT numeric widening must preserve that energy cost.
             tag.putInt("energyPerCraft", 12345);
@@ -125,7 +129,7 @@ class LargeWorkstationBatchPersistenceTest {
             var migrated = load.invoke(null, tag, registries, 234L);
             assertNotNull(migrated, "Legacy overclocked batches retain their owned materials");
             var migratedTag = (CompoundTag) save.invoke(migrated, registries);
-            assertEquals(1, migratedTag.getInt("energyMultiplier"));
+            assertEquals(1, migratedTag.getIntOr("energyMultiplier", 0));
             assertEquals(tag.get("inputTotal"), migratedTag.get("inputTotal"));
             tag.putInt("coolingTier", 0);
             tag.putInt("energyMultiplier", 1);
@@ -142,13 +146,13 @@ class LargeWorkstationBatchPersistenceTest {
             internal.when(appeng.api.stacks.AEKeyTypesInternal::getRegistry)
                 .thenReturn(cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys.REGISTRY);
             keys.when(() -> AEKeyTypes.get(AEKeyType.fluids().getId())).thenReturn(AEKeyType.fluids());
-            keys.when(() -> AEKeyTypes.get(LightningKey.TYPE_ID)).thenReturn(LightningKeyType.INSTANCE);
+            keys.when(() -> AEKeyTypes.get(AEKeyType.items().getId())).thenReturn(AEKeyType.items());
             var type = Class.forName(ECOLargeIntegratedWorkingStationBlockEntity.class.getName() + "$PendingBatch");
             var constructor = type.getDeclaredConstructors()[0];
             constructor.setAccessible(true);
             var owned = new KeyCounter();
             owned.add(AEFluidKey.of(Fluids.WATER), 3_072);
-            owned.add(LightningKey.EXTREME_HIGH_VOLTAGE, 256);
+            owned.add(EXTRA_A, 256);
             var outputs = new KeyCounter();
             outputs.add(AEFluidKey.of(Fluids.LAVA), 768);
             Object batch = constructor.newInstance(768L, 1_000L, 9, 1, owned, outputs,
@@ -164,7 +168,7 @@ class LargeWorkstationBatchPersistenceTest {
             remainder.setLong(batch, 256);
             var missing = type.getDeclaredField("missingExtras");
             missing.setAccessible(true);
-            ((KeyCounter) missing.get(batch)).add(LightningKey.EXTREME_HIGH_VOLTAGE, 512);
+            ((KeyCounter) missing.get(batch)).add(EXTRA_A, 512);
             var save = type.getDeclaredMethod("save", HolderLookup.Provider.class);
             save.setAccessible(true);
             var load = type.getDeclaredMethod("load", CompoundTag.class, HolderLookup.Provider.class, long.class);
@@ -177,7 +181,7 @@ class LargeWorkstationBatchPersistenceTest {
             assertEquals(tag, save.invoke(restored, registries));
             assertTrue(segmented.getBoolean(restored));
             assertEquals(25_600L, (long) progress.getInt(restored) * 768 + remainder.getLong(restored));
-            assertEquals(512, ((KeyCounter) missing.get(restored)).get(LightningKey.EXTREME_HIGH_VOLTAGE));
+            assertEquals(512, ((KeyCounter) missing.get(restored)).get(EXTRA_A));
 
             // A blocked portion can coexist with the remaining task in the same saved queue entry.
             progress.setInt(batch, 0);

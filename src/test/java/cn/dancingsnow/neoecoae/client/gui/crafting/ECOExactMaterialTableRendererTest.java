@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.client.gui.crafting;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import appeng.api.client.AEKeyRendering;
+import appeng.client.api.AEKeyRendering;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;

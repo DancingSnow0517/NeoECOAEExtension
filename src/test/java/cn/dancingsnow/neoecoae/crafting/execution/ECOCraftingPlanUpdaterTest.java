@@ -212,22 +212,22 @@ class ECOCraftingPlanUpdaterTest {
                     .thenReturn(cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys.REGISTRY);
             // AE2's generic item codec requires its live missing-content item registration. Keep that platform
             // boundary deterministic while exercising the real job, phase, cursor and progress NBT codecs.
-            stacks.when(() -> GenericStack.writeTag(eq(registries), any())).thenAnswer(call -> {
+            stacks.when(() -> GenericStack.writeTag(any(), any())).thenAnswer(call -> {
+                net.minecraft.world.level.storage.ValueOutput output = call.getArgument(0);
                 GenericStack stack = call.getArgument(1);
-                var tag = new net.minecraft.nbt.CompoundTag();
                 if (stack != null) {
-                    tag.put("testKey", ((AEItemKey) stack.what()).toTag(registries));
-                    tag.putLong("amount", stack.amount());
+                    ((AEItemKey) stack.what()).toTag(output.child("testKey"));
+                    output.putLong("amount", stack.amount());
                 }
-                return tag;
+                return null;
             });
-            stacks.when(() -> GenericStack.readTag(eq(registries), any())).thenAnswer(call -> {
-                net.minecraft.nbt.CompoundTag tag = call.getArgument(1);
-                var key = AEItemKey.fromTag(registries, tag.getCompound("testKey"));
-                return key == null ? null : new GenericStack(key, tag.getLong("amount"));
+            stacks.when(() -> GenericStack.readTag(any())).thenAnswer(call -> {
+                net.minecraft.world.level.storage.ValueInput input = call.getArgument(0);
+                var key = input.child("testKey").map(AEItemKey::fromTag).orElse(null);
+                return key == null ? null : new GenericStack(key, input.getLongOr("amount", 0L));
             });
             var saved = f.job.writeToNBT(registries);
-            assertFalse(saved.getBoolean("executionPersistenceFailed"));
+            assertFalse(saved.getBooleanOr("executionPersistenceFailed", false));
             patterns.when(() -> PatternDetailsHelper.decodePattern(eq(f.direct.getDefinition()), any())).thenReturn(f.direct);
             var restored = new ExecutingCraftingJob(saved, registries, ignored -> {}, f.host);
             assertFalse(restored.suspended, restored.permanentExecutionError);
@@ -276,7 +276,7 @@ class ECOCraftingPlanUpdaterTest {
         Fixture() {
             when(cpu.getAvailableStorage()).thenReturn(100000L);
             when(context.isCurrent()).thenReturn(true);
-            var link = new CraftingLink(CraftingCpuHelper.generateLinkData(UUID.randomUUID(), true, false), cpu);
+            var link = new CraftingLink(UUID.randomUUID(), true, cpu);
             job = new ExecutingCraftingJob(plan(product, 10, Map.of(first, 10L, second, 10L), stock(raw, 10)),
                     ignored -> {}, link, 42);
             job.tasks.get(first).accept(2);
