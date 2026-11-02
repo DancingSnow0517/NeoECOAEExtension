@@ -65,6 +65,8 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
         UIElement legacy = root.getChildren().get(1);
         legacy.setId("legacy-fluid-content");
         UIElement title = root.getChildren().getFirst();
+        ((TextElement) title.getChildren().getFirst()).textStyle(style ->
+            style.textColor(0xFFFFFFFF).textShadow(true));
         InventorySlots inventory = (InventorySlots) root.getChildren().get(2);
         UIElement network = NeoUiJsonLoader.load(NeoECOAE.id("screens/fluid_input_hatch"), context);
         root.addChildAt(network, 2);
@@ -88,8 +90,6 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
                 if (enabled) layout.width(160).height(10);
                 else layout.widthPercent(100).heightAuto();
             });
-            ((TextElement) title.getChildren().getFirst()).textStyle(style ->
-                style.textColor(enabled ? 0x403F54 : 0xFFFFFFFF).textShadow(!enabled));
             inventory.layout(layout -> layout.positionType(enabled ? TaffyPosition.ABSOLUTE : TaffyPosition.RELATIVE)
                 .left(enabled ? 7 : 0).top(enabled ? 74 : 0));
             inventory.hotbar.layout(layout -> layout.marginTop(enabled ? 4 : 5));

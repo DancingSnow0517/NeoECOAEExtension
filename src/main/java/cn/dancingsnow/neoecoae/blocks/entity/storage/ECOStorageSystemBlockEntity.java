@@ -616,6 +616,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 () -> formed,
                 () -> buildInProgress,
                 buildController::createLocalPreviewPlan,
+                this::getBuildDefinition,
                 () -> storagePriority,
                 priority -> setStoragePriority(holder.player, priority),
                 delta -> changeStoragePriority(holder.player, delta)

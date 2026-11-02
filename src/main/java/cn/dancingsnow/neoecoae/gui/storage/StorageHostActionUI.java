@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 
+import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import net.minecraft.world.entity.player.Player;
@@ -30,6 +31,7 @@ public final class StorageHostActionUI {
         BooleanSupplier formed,
         BooleanSupplier buildInProgress,
         Supplier<MultiBlockPlacementPlan> previewPlan,
+        Supplier<MultiBlockDefinition> definition,
         IntSupplier priority,
         IntConsumer setPriority,
         IntConsumer changePriority
@@ -65,7 +67,8 @@ public final class StorageHostActionUI {
             config.build(),
             config.formed(),
             config.buildInProgress(),
-            config.previewPlan()
+            config.previewPlan(),
+            config.definition()
         ));
         UIElement priorityWindow = StoragePriorityUI.createFloatingPanel(new StoragePriorityUI.Config(
             config.priority(),

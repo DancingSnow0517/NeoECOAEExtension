@@ -3,36 +3,116 @@
     "type": "custom",
     "name": "multiblock_window",
     "id": "multiblock-window",
-    "class": "panel_bg",
-    "layout": { "position": "absolute", "left": 6, "top": 6, "width": 286 },
+    "layout": {
+      "position": "absolute",
+      "left": 6,
+      "top": 6,
+      "width": 176,
+      "height": 177
+    },
     "children": [
       {
         "type": "container",
-        "id": "multiblock-title-bar",
-        "layout": { "width": "100%", "height": 20 },
+        "name": "multiblock_artwork",
+        "id": "multiblock-artwork",
+        "layout": {
+          "position": "absolute",
+          "left": 0,
+          "top": 0,
+          "width": 176,
+          "height": 177
+        },
         "children": [
           {
-            "type": "label",
-            "id": "multiblock-title",
-            "name": "multiblock_title",
-            "text": "gui.neoecoae.multiblock.builder",
-            "translate": true,
-            "layout": { "height": 16 }
+            "type": "container",
+            "name": "multiblock_title_bar",
+            "id": "multiblock-title-bar",
+            "layout": {
+              "position": "absolute",
+              "left": 2,
+              "top": 2,
+              "width": 172,
+              "height": 11
+            },
+            "children": [
+              {
+                "type": "label",
+                "name": "multiblock_title",
+                "id": "multiblock-title",
+                "text": "gui.neoecoae.multiblock.builder",
+                "translate": true,
+                "layout": {
+                  "position": "absolute",
+                  "left": 3,
+                  "top": 0,
+                  "width": 148,
+                  "height": 11
+                }
+              },
+              {
+                "type": "button",
+                "name": "multiblock_close",
+                "id": "multiblock-close",
+                "text": "X",
+                "layout": {
+                  "position": "absolute",
+                  "left": 161,
+                  "top": 0,
+                  "width": 11,
+                  "height": 11
+                }
+              }
+            ]
           },
           {
-            "type": "button",
-            "id": "multiblock-close",
-            "name": "multiblock_close",
-            "text": "X",
-            "layout": { "width": 16, "height": 16 }
+            "type": "custom",
+            "name": "multiblock_preview",
+            "id": "multiblock-preview",
+            "layout": {
+              "position": "absolute",
+              "left": 9,
+              "top": 16,
+              "width": 158,
+              "height": 86
+            }
+          },
+          {
+            "type": "custom",
+            "name": "multiblock_controls",
+            "id": "multiblock-controls",
+            "layout": {
+              "position": "absolute",
+              "left": 9,
+              "top": 110,
+              "width": 62,
+              "height": 34
+            }
+          },
+          {
+            "type": "custom",
+            "name": "multiblock_materials",
+            "id": "multiblock-materials",
+            "layout": {
+              "position": "absolute",
+              "left": 78,
+              "top": 109,
+              "width": 90,
+              "height": 36
+            }
           }
         ]
       },
       {
         "type": "custom",
-        "name": "multiblock_body",
-        "id": "multiblock-body",
-        "layout": { "width": "100%", "height": "auto" }
+        "name": "multiblock_footer",
+        "id": "multiblock-footer",
+        "layout": {
+          "position": "absolute",
+          "left": 0,
+          "top": 150,
+          "width": 176,
+          "height": 18
+        }
       }
     ]
   }

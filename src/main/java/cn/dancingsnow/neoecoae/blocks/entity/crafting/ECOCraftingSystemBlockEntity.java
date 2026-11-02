@@ -1237,7 +1237,8 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             () -> buildController.autoBuild(holder.player),
             () -> formed,
             () -> buildInProgress,
-            buildController::createLocalPreviewPlan
+            buildController::createLocalPreviewPlan,
+            this::getBuildDefinition
         ));
     }
 
