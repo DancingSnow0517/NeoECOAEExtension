@@ -1380,7 +1380,7 @@
   "gui.neoecoae.storage.bulk_cell.migrate.result.busy": "存储迁移正忙，当前无法执行大宗盘迁移",
   "gui.neoecoae.storage.bulk_cell.migrate.result.unavailable": "ECO 大宗迁移功能不可用",
   "tooltip.neoecoae.bulk.bytes": "已用字节：%s / %s",
-  "gui.neoecoae.storage.bulk_cell.priority.title": "????????????????",
+  "gui.neoecoae.storage.bulk_cell.priority.title": "存储优先级",
   "gui.neoecoae.storage.bulk_cell.migrate.confirm.title": "确认自动迁移",
   "gui.neoecoae.storage.bulk_cell.migrate.confirm.description": "将匹配物品迁入当前大宗盘",
   "gui.neoecoae.storage.bulk_cell.migrate.confirm.loading": "正在检查可迁移物品……",

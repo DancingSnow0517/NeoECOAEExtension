@@ -535,7 +535,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.ui.recipe_time_ratio", "Runtime");
         provider.add("gui.neoecoae.crafting.ui.batch_per_thread.detail", "Authoritative Crafting Capability");
         provider.add("gui.neoecoae.crafting.ui.batch_per_thread.total", "Max Crafts per Tick: %s");
-        provider.add("gui.neoecoae.host.crafting.host_line", "%s · FT Parallel Capacity %d · Batch %d");
+        provider.add("gui.neoecoae.host.crafting.host_line", "%1$s · FT Parallel Capacity %2$d · Batch %3$d");
         provider.add("gui.neoecoae.crafting.capability.fx", "FX Cores: %d active / %d physical");
         provider.add("gui.neoecoae.crafting.capability.network_composition", "Network: x2 %d / x8 %d");
         provider.add("gui.neoecoae.crafting.capability.network_multiplier", "Network Multiplier M: %d");
@@ -738,7 +738,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.virtual_blocked.coolant", "Virtual crafting: tier-9 coolant unavailable");
         provider.add("gui.neoecoae.crafting.virtual_blocked.coolant_type", "Virtual crafting: requires %s");
         provider.add("gui.neoecoae.crafting.virtual_blocked.energy", "Virtual crafting: insufficient AE power");
-        provider.add("gui.neoecoae.crafting.virtual_blocked.coolant_required", "Requires %s (tier %d): %d points per FX tick");
+        provider.add("gui.neoecoae.crafting.virtual_blocked.coolant_required", "Requires %1$s (tier %2$d): %3$d points per FX tick");
         provider.add("gui.neoecoae.crafting.virtual_blocked.energy_required", "Requires %d AE per network tick, paid in full");
         provider.add("gui.neoecoae.crafting.virtual_blocked.coolant_hint", "Cancel the job, leave Infinite Mode, and stop feeding the old coolant.");
         provider.add("gui.neoecoae.crafting.virtual_blocked.coolant_recovery", "Consume the old buffer with normal crafting, then supply an allowed coolant and restore Infinite Mode.");
@@ -858,6 +858,11 @@ public class GuiLangs {
         provider.add("gui.neoecoae.processing.state.queued", "Queued");
         provider.add("gui.neoecoae.processing.state.unavailable", "Unavailable");
         provider.add("gui.neoecoae.storage.bulk_cell.action.migrate", "Mark and migrate matching resources now");
+        provider.add("gui.neoecoae.storage.bulk_cell.action.priority", "Adjust storage priority");
+        provider.add("gui.neoecoae.storage.bulk_cell.action.compression_display", "Adjust compression display");
+        provider.add("gui.neoecoae.storage.bulk_cell.compression_display.reserved", "The compression display menu will be available in a future update");
+        provider.add("gui.neoecoae.storage.bulk_cell.priority.title", "Storage Priority");
+        provider.add("tooltip.neoecoae.bulk.bytes", "Bytes used: %s / %s");
         provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.title", "Confirm automatic migration");
         provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.description", "Move matching items into this bulk cell");
         provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.loading", "Checking available items...");
