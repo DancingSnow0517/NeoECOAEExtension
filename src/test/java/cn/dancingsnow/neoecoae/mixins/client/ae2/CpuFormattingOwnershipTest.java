@@ -153,6 +153,6 @@ class CpuFormattingOwnershipTest {
 
     private static CraftingStatusMenu.CraftingCpuListEntry entry() {
         return new CraftingStatusMenu.CraftingCpuListEntry(1, Long.MAX_VALUE, 1_500_000,
-            null, CpuSelectionMode.ANY, null, 0, 0);
+            null, CpuSelectionMode.ANY, null, 0, 0, false);
     }
 }

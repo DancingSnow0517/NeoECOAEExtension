@@ -24,7 +24,7 @@ class CpuListPageSyncTest {
 
     private static List<CraftingStatusMenu.CraftingCpuListEntry> cpus(int size) {
         return IntStream.rangeClosed(1, size).mapToObj(i -> new CraftingStatusMenu.CraftingCpuListEntry(
-            i, 1024, 1, null, CpuSelectionMode.ANY, null, 0, 0)).toList();
+            i, 1024, 1, null, CpuSelectionMode.ANY, null, 0, 0, false)).toList();
     }
 
     @Test void pageCodecRoundTripsOffscreenSelectionAndConsumesOnlyItsOwnBytes() {

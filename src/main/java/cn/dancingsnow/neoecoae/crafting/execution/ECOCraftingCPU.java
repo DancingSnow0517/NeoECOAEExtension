@@ -89,7 +89,7 @@ public class ECOCraftingCPU extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCP
                         - elapsedTimeTracker.getSyntheticRemainingItemCount());
             return new CraftingJobStatus(
                 finalOutput, elapsedTimeTracker.getSyntheticStartItemCount(), progress,
-                elapsedTimeTracker.getElapsedTime());
+                elapsedTimeTracker.getElapsedTime(), logic.isJobSuspended());
         } else {
             return null;
         }

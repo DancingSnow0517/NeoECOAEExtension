@@ -123,6 +123,14 @@ public class NeoECOAE {
         NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onLevelUnload);
         NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopped);
         NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerTick);
+        if (Boolean.getBoolean("neoecoae.mixinAudit")) {
+            // Dev check (./gradlew runServer|runClient -PmixinAudit): apply every mixin now so a stale
+            // target fails at startup instead of when the class is first used.
+            NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStartedEvent event) -> {
+                org.spongepowered.asm.mixin.MixinEnvironment.getCurrentEnvironment().audit();
+                LoggerFactory.getLogger(MOD_ID).info("Mixin audit finished");
+            });
+        }
     }
 
     /**

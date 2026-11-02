@@ -149,8 +149,8 @@ dependencies {
     api("com.tterrag.registrate:Registrate:MC26.1-1.5.4")
     jarJar("com.tterrag.registrate:Registrate:MC26.1-1.5.4")
 
-    implementation("org.appliedenergistics:appliedenergistics2:26.1.10-beta")
-    implementation("org.appliedenergistics:guideme:26.1.12-beta")
+    implementation("org.appliedenergistics:appliedenergistics2:26.1.13-beta")
+    implementation("org.appliedenergistics:guideme:26.1.17-beta")
 
     implementation("com.lowdragmc.ldlib2:ldlib2-neoforge-26.1:${ldlib2_version}")
     compileOnly("dev.vfyjxf:taffy:${taffy_version}")
@@ -163,7 +163,7 @@ dependencies {
 
     // implementation("curse.maven:advancedae-1084104:7374386")
 
-    implementation("maven.modrinth:jade:26.1.3+neoforge")
+    implementation("maven.modrinth:jade:26.1.12+neoforge")
 
     // implementation("vazkii.botania:botania-neoforge-1.21.1:454-SNAPSHOT")
     // implementation("curse.maven:applied-botanics-addon-610632:7234122")
@@ -227,6 +227,9 @@ neoForge {
         }
 
         configureEach {
+            if (project.hasProperty('mixinAudit')) {
+                systemProperty 'neoecoae.mixinAudit', 'true'
+            }
             systemProperty 'forge.logging.markers', 'REGISTRIES'
             jvmArgument '-XX:+IgnoreUnrecognizedVMOptions'
             jvmArgument '-XX:+AllowEnhancedClassRedefinition'

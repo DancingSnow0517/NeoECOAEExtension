@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ECOCpuListPagingTest {
     private final List<CraftingCpuListEntry> cpus = IntStream.rangeClosed(1, 1000)
-        .mapToObj(i -> new CraftingCpuListEntry(i, 1024, 1, null, CpuSelectionMode.ANY, null, 0, 0)).toList();
+        .mapToObj(i -> new CraftingCpuListEntry(i, 1024, 1, null, CpuSelectionMode.ANY, null, 0, 0, false)).toList();
 
     @Test void largeNetworksSendOnlySixRowsAndTheOffscreenSelectedCpu() {
         var page = ECOCpuListPage.sample(cpus, 500, 12, 1);
