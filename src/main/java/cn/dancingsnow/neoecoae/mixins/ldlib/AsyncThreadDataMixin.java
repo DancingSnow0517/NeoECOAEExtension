@@ -9,11 +9,13 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Prevents repeated block-entity lifecycle callbacks from registering the same async logic more than once.
+ * Only patches LDLib2's legacy list implementation; 2.2.45+ manages registrations with its own counted map.
  */
 @Mixin(value = AsyncThreadData.class, remap = false)
 public abstract class AsyncThreadDataMixin {
     @Redirect(
         method = "addAsyncLogic",
+        require = 0,
         at = @At(
             value = "INVOKE",
             target = "Ljava/util/concurrent/CopyOnWriteArrayList;add(Ljava/lang/Object;)Z"
