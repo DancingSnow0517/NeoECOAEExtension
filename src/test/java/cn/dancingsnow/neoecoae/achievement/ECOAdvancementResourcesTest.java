@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.achievement;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mojang.serialization.JsonOps;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -9,6 +10,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import javax.imageio.ImageIO;
+import net.minecraft.core.ClientAsset;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -62,9 +64,9 @@ class ECOAdvancementResourcesTest {
         JsonObject display = root.getAsJsonObject("display");
         assertFalse(display.get("show_toast").getAsBoolean());
         assertFalse(display.get("announce_to_chat").getAsBoolean());
-        String[] background = display.get("background").getAsString().split(":", 2);
-        assertEquals(2, background.length);
-        String resource = "assets/" + background[0] + "/" + background[1];
+        var background = ClientAsset.ResourceTexture.CODEC.parse(JsonOps.INSTANCE, display.get("background"))
+            .getOrThrow().texturePath();
+        String resource = "assets/" + background.getNamespace() + "/" + background.getPath();
         try (var stream = getClass().getClassLoader().getResourceAsStream(resource)) {
             assertNotNull(stream, "Missing advancement background: " + resource);
             assertNotNull(ImageIO.read(stream), "Invalid advancement background: " + resource);
