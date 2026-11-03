@@ -310,7 +310,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     }
 
     private ComputationCpuItemEntry withProcessing(ComputationCpuItemEntry item) {
-        if (item.active().signum() <= 0) return item;
+        if (item.active().signum() <= 0 && item.pending().signum() <= 0) return item;
         var progress = processingByKey.get(item.key());
         return progress == null ? item : item.withProcessing(progress);
     }
@@ -425,7 +425,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
 
     static void drawItem(GUIContext context, Font font, ComputationCpuItemEntry entry, float x, float y,
             boolean colored) {
-        int overlay = colored ? entry.active().signum() > 0
+        int overlay = entry.waitingForMachine() ? 0xE2AA4F : colored ? entry.active().signum() > 0
             ? (entry.batched() ? AEColor.PURPLE : AEColor.GREEN).blackVariant
             : entry.pending().signum() > 0 ? AEColor.YELLOW.blackVariant : 0 : 0;
         if (!drawProcessingProgress(context, entry, x, y, overlay) && overlay != 0) {
@@ -472,11 +472,12 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         }
     }
 
-    private static List<Component> itemDescription(ComputationCpuItemEntry item, boolean full) {
+    static List<Component> itemDescription(ComputationCpuItemEntry item, boolean full) {
         List<Component> lines = new ArrayList<>();
         if (item.stored().signum() > 0) lines.add(GuiText.FromStorage.text(item.amount(item.stored(), full)));
         if (item.active().signum() > 0) lines.add(GuiText.Crafting.text(item.amount(item.active(), full)));
         if (item.pending().signum() > 0) lines.add(GuiText.Scheduled.text(item.amount(item.pending(), full)));
+        if (item.waitingForMachine()) lines.add(Component.translatable("gui.neoecoae.processing.state.waiting"));
         return lines;
     }
 
@@ -612,7 +613,8 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             }
             if (serial != selection.selectedSerial() || selection.selected() == null) return;
             AEKey key = AEKey.fromTagGeneric(request.getCompound("key"));
-            if (key == null || selection.selected().getLogic().getWaitingFor(key) <= 0) return;
+            var logic = selection.selected().getLogic();
+            if (key == null || (logic.getWaitingFor(key) <= 0 && logic.getPendingOutputs(key) <= 0)) return;
             viewing = true;
             processingDetailKey = key;
             processingDetailPage = Math.max(0, request.getInt("page"));
@@ -696,7 +698,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             var entries = new ListTag();
             if (active) {
                 for (var item : processingItems) {
-                    if (item.active().signum() <= 0) continue;
+                    if (item.active().signum() <= 0 && item.pending().signum() <= 0) continue;
                     var progress = cpu.getLogic().getProcessingProgress(item.key());
                     if (progress == null || (progress.machineCount() == 0 && !progress.refreshing())) continue;
                     var entry = new CompoundTag();

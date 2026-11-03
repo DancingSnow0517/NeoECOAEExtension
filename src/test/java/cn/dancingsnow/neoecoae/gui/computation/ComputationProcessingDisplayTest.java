@@ -26,6 +26,39 @@ import org.junit.jupiter.api.Test;
 class ComputationProcessingDisplayTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
+    @Test void pendingOverheatStatusReachesTheCellAndTooltipWithoutInventingACycle() throws Exception {
+        var key = AEItemKey.of(Items.STONE);
+        var progress = ECOProcessingProgress.summarize(List.of(new Machine(Component.literal("Workstation"),
+            "minecraft:overworld [62, -60, -97]", "", 0, 0, 0, State.WAITING,
+            Component.translatable("gui.neoecoae.large_integrated_working_station.pause.overheated"))));
+        var pending = new ComputationCpuItemEntry(key, BigInteger.ZERO, BigInteger.ZERO, BigInteger.TEN, false);
+        var panel = mock(ComputationCpuStatusPanel.class, CALLS_REAL_METHODS);
+        UiTestSupport.set(panel, "processingByKey", java.util.Map.of(key, progress));
+        var bind = ComputationCpuStatusPanel.class.getDeclaredMethod("withProcessing", ComputationCpuItemEntry.class);
+        bind.setAccessible(true);
+        var observed = (ComputationCpuItemEntry) bind.invoke(panel, pending);
+        assertTrue(observed.waitingForMachine());
+        assertEquals(BigInteger.ZERO, observed.active());
+        assertEquals(BigInteger.TEN, observed.pending());
+        assertFalse(observed.processing().hasProgress());
+        assertTrue(ComputationProcessingTooltips.rows(observed).toString().contains("pause.overheated"));
+        assertTrue(ComputationProcessingTooltips.describe(observed).toString().contains("pause.overheated"));
+        assertTrue(ComputationCpuStatusPanel.itemDescription(observed, false).stream()
+            .anyMatch(line -> key(line).equals("gui.neoecoae.processing.state.waiting")));
+        var graphics = mock(GuiGraphics.class);
+        var context = mock(GUIContext.class);
+        UiTestSupport.set(context, "graphics", graphics);
+        assertFalse(ComputationCpuStatusPanel.drawProcessingProgress(context, observed, 0, 0, 0));
+        verifyNoInteractions(graphics);
+
+        UiTestSupport.set(panel, "processingByKey", java.util.Map.of(key, ECOProcessingProgress.EMPTY));
+        var recovered = (ComputationCpuItemEntry) bind.invoke(panel, pending);
+        assertFalse(recovered.waitingForMachine());
+        assertTrue(ComputationProcessingTooltips.rows(recovered).isEmpty());
+        assertTrue(ComputationCpuStatusPanel.itemDescription(recovered, false).stream()
+            .noneMatch(line -> key(line).equals("gui.neoecoae.processing.state.waiting")));
+    }
+
     @Test void progressFillsTheWholeCellAndAddsNoText() {
         var context = mock(GUIContext.class);
         var graphics = mock(GuiGraphics.class);
