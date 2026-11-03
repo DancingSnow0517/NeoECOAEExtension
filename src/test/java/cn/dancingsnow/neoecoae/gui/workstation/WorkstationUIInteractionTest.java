@@ -347,10 +347,12 @@ class WorkstationUIInteractionTest {
     }
 
     @Test
-    void largeArtworkKeepsInventoryContentsAndFluidInsideBakedFrames() {
-        try (var ldlib = mockStatic(LDLib2.class); var factory = mockStatic(ECOModularUI.class)) {
+    void largeArtworkKeepsInventoryContentsAndFluidInsideBakedFrames() throws ReflectiveOperationException {
+        try (var ldlib = mockStatic(LDLib2.class); var factory = mockStatic(ECOModularUI.class);
+             var minecraft = mockStatic(net.minecraft.client.Minecraft.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             LayoutProperties.init();
+            installFont(minecraft);
             AtomicReference<UIElement> captured = new AtomicReference<>();
             Player player = mock(Player.class);
             when(player.getInventory()).thenReturn(new Inventory(player));
@@ -641,10 +643,11 @@ class WorkstationUIInteractionTest {
     }
 
     @Test
-    void temperatureHoverShowsActualSignedRatesAndHidesThemInCoolantMode() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
+    void temperatureHoverShowsActualSignedRatesAndHidesThemInCoolantMode() throws ReflectiveOperationException {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(net.minecraft.client.Minecraft.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             LayoutProperties.init();
+            installFont(minecraft);
             var snapshot = new CompoundTag();
             snapshot.putDouble("temperature", 15.5);
             snapshot.putDouble("temperatureChangePerSecond", 0.123);
@@ -657,26 +660,48 @@ class WorkstationUIInteractionTest {
             UIEvent hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
             hover.target = region;
             UIEventDispatcher.dispatchEvent(hover, false, false, false);
-            var lines = hover.hoverTooltips.tooltipTexts();
-            var temperature = assertInstanceOf(net.minecraft.network.chat.contents.TranslatableContents.class, lines.get(1).getContents());
-            assertEquals("15.50", temperature.getArgs()[0]);
-            var net = assertInstanceOf(net.minecraft.network.chat.contents.TranslatableContents.class, lines.get(3).getContents());
-            assertEquals("gui.neoecoae.workstation.temperature_net_rate", net.getKey());
+            // The card keeps the vanilla tooltip frame: a title line followed by the card component.
+            assertEquals(1, hover.hoverTooltips.tooltipTexts().size());
+            assertNotNull(hover.hoverTooltips.tooltipComponent());
+            var texts = panel.temperatureCardBuilder().texts();
+            assertTrue(texts.stream().anyMatch(text -> "15.50%".equals(text.getString())));
+            // Rows follow the card order: net change, processing heat, active cooling, natural cooling.
+            var net = translatable(texts, "gui.neoecoae.workstation.card.rate");
             assertEquals("+0.12", net.getArgs()[0]);
-            var processing = assertInstanceOf(net.minecraft.network.chat.contents.TranslatableContents.class, lines.get(4).getContents());
-            assertEquals("gui.neoecoae.workstation.temperature_processing_rate", processing.getKey());
-            assertEquals("0.00", processing.getArgs()[0], "Idle telemetry must not substitute theoretical full-load heating");
-            assertFalse(lines.stream().anyMatch(line -> line.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents text
-                && "gui.neoecoae.workstation.temperature_preheat_rate".equals(text.getKey())));
+            var rates = texts.stream().map(Component::getContents)
+                .filter(TranslatableContents.class::isInstance).map(TranslatableContents.class::cast)
+                .filter(text -> "gui.neoecoae.workstation.card.rate_short".equals(text.getKey())).toList();
+            assertEquals("+0.00", rates.getFirst().getArgs()[0], "Idle telemetry must not substitute theoretical full-load heating");
+            assertEquals("-0.10", rates.getLast().getArgs()[0]);
+            assertFalse(texts.stream().anyMatch(text -> text.getContents() instanceof TranslatableContents contents
+                && "gui.neoecoae.workstation.card.preheat".equals(contents.getKey())));
             snapshot.putBoolean("temperatureEnabled", false);
             panel.setValue(snapshot.copy());
             hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
             hover.target = region;
             UIEventDispatcher.dispatchEvent(hover, false, false, false);
-            assertEquals(3, hover.hoverTooltips.tooltipTexts().size());
-            assertTrue(hover.hoverTooltips.tooltipTexts().stream().noneMatch(line -> line.getContents()
-                instanceof net.minecraft.network.chat.contents.TranslatableContents text && text.getKey().endsWith("_rate")));
+            assertNotNull(hover.hoverTooltips.tooltipComponent());
+            assertTrue(panel.temperatureCardBuilder().texts().stream().noneMatch(text -> text.getContents()
+                instanceof TranslatableContents contents && contents.getKey().startsWith("gui.neoecoae.workstation.card.rate")));
         }
+    }
+
+    private static TranslatableContents translatable(List<Component> texts, String key) {
+        return texts.stream().map(Component::getContents).filter(TranslatableContents.class::isInstance)
+            .map(TranslatableContents.class::cast).filter(text -> key.equals(text.getKey())).findFirst().orElseThrow(() ->
+                new AssertionError("Missing " + key + " in " + texts));
+    }
+
+    private static void installFont(org.mockito.MockedStatic<net.minecraft.client.Minecraft> minecraft)
+        throws ReflectiveOperationException {
+        var client = mock(net.minecraft.client.Minecraft.class);
+        var font = mock(net.minecraft.client.gui.Font.class);
+        when(font.width(org.mockito.ArgumentMatchers.any(net.minecraft.network.chat.FormattedText.class)))
+            .thenAnswer(call -> ((net.minecraft.network.chat.FormattedText) call.getArgument(0)).getString().length() * 6);
+        var field = net.minecraft.client.Minecraft.class.getDeclaredField("font");
+        field.setAccessible(true);
+        field.set(client, font);
+        minecraft.when(net.minecraft.client.Minecraft::getInstance).thenReturn(client);
     }
 
     @Test
