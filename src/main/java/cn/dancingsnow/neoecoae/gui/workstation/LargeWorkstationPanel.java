@@ -4,7 +4,10 @@ import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
 
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEFluidKey;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.LargeWorkstationOverclock;
+import cn.dancingsnow.neoecoae.gui.crafting.CraftingListCard;
+import cn.dancingsnow.neoecoae.gui.crafting.CraftingTooltipCard;
 import cn.dancingsnow.neoecoae.blocks.entity.LargeWorkstationThermal;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.workstation.LargeWorkstationUI.Config;
@@ -46,6 +49,8 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     private static final int TASK_RUNNING = 0xFF55FF55;
     private static final int TASK_QUEUED = 0xFFFFFF55;
     private static final String PREFIX = "gui.neoecoae.workstation.";
+    /** Temperature scale colours: regular, then the 4 / 6 / 9 bands. */
+    private static final int[] BAND_COLORS = {0xFF8A7FA0, 0xFFA48AD0, 0xFFD08AC0, 0xFFF0A080};
     private final Config config;
     private final Player player;
     private final BindableValue<Integer> pageRequest = new BindableValue<>(0);
@@ -123,9 +128,10 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             }
         }, true);
         addChild(scrollbar());
-        overclock = toggle("overclock", 102, config.toggleOverclocked(), config.togglePreheating(), () -> controlTooltip(this::overclockTooltip));
+        overclock = toggle("overclock", 102, config.toggleOverclocked(), config.togglePreheating(),
+            () -> new HoverTooltips(controlTooltip(this::overclockTooltip), null, null, null));
         addChild(overclock);
-        cooling = toggle("cooling", 146, config.toggleActiveCooling(), null, () -> controlTooltip(this::coolingTooltip));
+        cooling = toggle("cooling", 146, config.toggleActiveCooling(), null, () -> coolingCard(true));
         addChild(cooling);
         addChild(region("module-logo", 6, 6, 15, 15, this::moduleTooltip));
         addChild(region("machine-title", 25, 6, 115, 14, () -> List.of(
@@ -133,26 +139,25 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         addChild(region("module-info", 176, 34, 69, 31, this::moduleTooltip));
         addChild(informationIcon());
         addChild(region("parallel", 99, 35, 64, 32, this::parallelTooltip));
-        addChild(region("temperature", 172, 69, 15, 55, this::temperatureTooltip));
+        addChild(cardRegion("temperature", 172, 69, 15, 55, this::temperatureCard));
         addChild(region("energy", 189, 69, 12, 55, this::energyTooltip));
-        addChild(region("temperature-setting", 99, 117, 64, 10, this::temperatureTooltip));
-        addChild(region("temperature-info", 176, 130, 68, 24, this::temperatureTooltip));
-        addChild(region("cooling-info", 176, 155, 68, 24, this::coolingTooltip));
+        addChild(cardRegion("temperature-setting", 99, 117, 64, 10, this::temperatureCard));
+        addChild(cardRegion("temperature-info", 176, 130, 68, 24, this::temperatureCard));
+        addChild(cardRegion("cooling-info", 176, 155, 68, 24, () -> coolingCard(false)));
         addChild(region("overclock-info", 176, 180, 68, 24, this::overclockTooltip));
         registerValueListener(this::read);
         read(config.snapshot().apply(0));
         bind(DataBindingBuilder.tagS2C(() -> config.snapshot().apply(serverOffset)).build());
     }
 
-    private Button toggle(String name, int x, Runnable action, Runnable secondaryAction, Supplier<List<Component>> tooltip) {
+    private Button toggle(String name, int x, Runnable action, Runnable secondaryAction, Supplier<HoverTooltips> tooltip) {
         Button button = new Button().noText().setOnServerClick(event -> {
             if (event.button == 0) action.run();
             else if (event.button == 1 && secondaryAction != null) secondaryAction.run();
         });
         button.setId("large-workstation-" + name);
         absolute(button, x, 89, 15, 26);
-        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips =
-            new HoverTooltips(tooltip.get(), null, null, null));
+        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = tooltip.get());
         return button;
     }
 
@@ -364,64 +369,123 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         return lines;
     }
 
-    private List<Component> temperatureTooltip() {
-        if (!temperatureEnabled()) return List.of(title("thermal"), coolantModeText(), hint("thermal_disabled_hint"));
-        List<Component> lines = new ArrayList<>();
-        lines.add(title("temperature_setting"));
-        lines.add(tr("temperature_value", precise(state.getDouble("temperature"))));
-        var profile = LargeWorkstationOverclock.forTemperature(true, state.getDouble("temperature"));
-        long limit = state.getBoolean("overheated") ? 0 : profile.maxParallelism();
-        lines.add(tr("current_band", tr("temperature_band_value", temperatureBandName(), HostText.expandedNumber(limit))));
-        lines.add(tr("temperature_net_rate", signedRate(state.getDouble("temperatureChangePerSecond"))));
-        lines.add(tr("temperature_processing_rate", precise(state.getDouble("processingHeatPerSecond"))));
-        if (state.getDouble("preheatPerSecond") > 0) {
-            lines.add(tr("temperature_preheat_rate", precise(state.getDouble("preheatPerSecond"))));
-        }
-        lines.add(tr("temperature_cooling_rate", precise(state.getDouble("coolingPerSecond"))));
-        if (state.getDouble("naturalCoolingPerSecond") > 0) {
-            lines.add(tr("temperature_natural_rate", precise(state.getDouble("naturalCoolingPerSecond"))));
-        }
-        lines.add(hint("temperature_automatic_hint"));
-        lines.add(hint("temperature_slowing_hint"));
-        for (int tier : new int[] {2, 6, 9}) {
-            var threshold = LargeWorkstationOverclock.forCoolingTier(tier);
-            lines.add(tr("temperature_band_limits", displayTier(tier), (int) threshold.minimumTemperature(),
-                HostText.expandedNumber(threshold.maxParallelism())).withStyle(ChatFormatting.GRAY));
-        }
-        if (state.getBoolean("overheated")) {
-            lines.add(pauseText());
-            lines.add(tr("recovery_progress", decimal(state.getInt("recoveryTicks") / 20.0),
-                LargeWorkstationThermal.RECOVERY_TICKS / 20));
-        } else lines.add(hint("temperature_overheat_hint"));
-        return lines;
+    private HoverTooltips temperatureCard() {
+        return CraftingListCard.hover(temperatureCardBuilder().build());
     }
 
-    private List<Component> coolingTooltip() {
-        List<Component> lines = new ArrayList<>();
-        lines.add(title("active_cooling"));
-        if (state.getBoolean("smartCooling")) {
-            lines.add(Component.translatable("gui.neoecoae.smart_cooling.control", state.getInt("coolingTarget"))
-                .withStyle(ChatFormatting.AQUA));
-            lines.add(Component.translatable("gui.neoecoae.smart_cooling.help").withStyle(ChatFormatting.GRAY));
+    /** Temperature and automatic band card drawn inside the vanilla tooltip frame. */
+    CraftingListCard.Builder temperatureCardBuilder() {
+        if (!temperatureEnabled()) {
+            return CraftingListCard.builder()
+                .header(CraftingListCard.Glyph.THERMOMETER, tr("thermal"), coolantModeText(), CraftingTooltipCard.MUTED)
+                .text(tr("thermal_disabled_hint"), Component.empty(), CraftingTooltipCard.MUTED);
         }
-        lines.add(settingState(state.getBoolean("activeCooling")));
-        lines.add(tr("coolant_value", coolantTitle()));
-        if (temperatureEnabled()) {
-            lines.add(tr("cooling_rate", precise(state.getDouble("coolingPerSecond"))));
-            double circulation = state.getBoolean("smartCooling")
-                ? (double) state.getInt("coolantPerTick") / LargeWorkstationThermal.COOLANT_PER_TICK : 1;
-            lines.add(tr("cooling_capacity", decimal(LargeWorkstationThermal.coolingPerSecond(state.getInt("coolantTier")) * circulation))
-                .withStyle(ChatFormatting.GRAY));
+        double temperature = state.getDouble("temperature");
+        boolean overheated = state.getBoolean("overheated");
+        var profile = LargeWorkstationOverclock.forTemperature(true, temperature);
+        long limit = overheated ? 0 : profile.maxParallelism();
+        int[] tiers = {2, 6, 9};
+        List<CraftingListCard.Band> bands = new ArrayList<>();
+        List<Component> ticks = new ArrayList<>();
+        List<CraftingListCard.Tile> tiles = new ArrayList<>();
+        ticks.add(Component.literal("0%"));
+        for (int i = 0; i < tiers.length; i++) {
+            var threshold = LargeWorkstationOverclock.forCoolingTier(tiers[i]);
+            int minimum = (int) threshold.minimumTemperature();
+            bands.add(new CraftingListCard.Band(minimum / 100.0, BAND_COLORS[i]));
+            ticks.add(Component.literal(minimum + "%"));
+            tiles.add(new CraftingListCard.Tile(Component.literal("≥" + minimum + "%"),
+                Component.literal(CraftingTooltipCard.group(threshold.maxParallelism())),
+                card("tile_caption", displayTier(tiers[i])), !overheated && profile.coolingTier() == tiers[i]));
         }
-        if (!state.getBoolean("smartCooling")) {
-            lines.add(hint(temperatureEnabled() ? "cooling_thermal_hint" : "cooling_coolant_hint"));
+        bands.add(new CraftingListCard.Band(1.0, BAND_COLORS[tiers.length]));
+        ticks.add(Component.literal("100%"));
+
+        var card = CraftingListCard.builder()
+            .header(CraftingListCard.Glyph.THERMOMETER, tr("temperature_setting"), temperatureBandName(),
+                overheated ? CraftingListCard.DANGER : CraftingTooltipCard.MUTED)
+            .metrics(card("current_temperature"), Component.literal(precise(temperature) + "%"),
+                overheated ? CraftingListCard.DANGER : CraftingTooltipCard.ACCENT,
+                card("current_parallel"), Component.literal(CraftingTooltipCard.group(limit)), CraftingTooltipCard.PRIMARY)
+            .scale(bands, temperature / 100.0, ticks)
+            .divider()
+            .section(card("band_unlock"))
+            .tiles(tiles)
+            .divider()
+            .row(null, CraftingTooltipCard.MUTED, card("net_change"),
+                card("rate", signedRate(state.getDouble("temperatureChangePerSecond"))), CraftingTooltipCard.PRIMARY);
+        rateRow(card, "processing", "+", state.getDouble("processingHeatPerSecond"), CraftingTooltipCard.WARN, true);
+        rateRow(card, "preheat", "+", state.getDouble("preheatPerSecond"), CraftingTooltipCard.WARN, false);
+        rateRow(card, "cooling", "-", state.getDouble("coolingPerSecond"), CraftingTooltipCard.CYAN, true);
+        rateRow(card, "natural", "-", state.getDouble("naturalCoolingPerSecond"), CraftingTooltipCard.CYAN, false);
+        int recoverySeconds = LargeWorkstationThermal.RECOVERY_TICKS / 20;
+        if (overheated) {
+            card.banner(CraftingListCard.Glyph.WARNING, tr("status_overheated"),
+                tr("recovery_progress", decimal(state.getInt("recoveryTicks") / 20.0), recoverySeconds),
+                CraftingListCard.DANGER, CraftingListCard.DANGER_BACKGROUND);
+        } else {
+            card.banner(CraftingListCard.Glyph.WARNING, card("overheat_warning"), card("overheat_recovery", recoverySeconds),
+                CraftingListCard.DANGER, CraftingListCard.DANGER_BACKGROUND);
         }
+        return card.text(card("temperature_footer"), Component.empty(), CraftingTooltipCard.MUTED);
+    }
+
+    private static void rateRow(CraftingListCard.Builder card, String key, String sign, double value, int color, boolean always) {
+        if (!always && !(value > 0)) return;
+        card.row(null, CraftingTooltipCard.MUTED, card(key).withColor(CraftingTooltipCard.MUTED),
+            card("rate_short", sign + precise(value)), color);
+    }
+
+    /** Active cooling card; {@code toggle} adds the left-click hint shown on the toggle button. */
+    private HoverTooltips coolingCard(boolean toggle) {
+        boolean enabled = state.getBoolean("activeCooling");
+        boolean smart = state.getBoolean("smartCooling");
+        var card = CraftingListCard.builder()
+            .header(CraftingListCard.Glyph.SNOW, tr("active_cooling"), tr(enabled ? "enabled" : "disabled"),
+                enabled ? CraftingTooltipCard.OK : CraftingTooltipCard.MUTED);
         String problem = state.getString("coolingProblem");
-        if (state.getBoolean("activeCooling") && !problem.isEmpty() && !problem.endsWith(".none")) {
-            lines.add(Component.translatable(problem).withStyle(ChatFormatting.GOLD));
+        if (enabled && !problem.isEmpty() && !problem.endsWith(".none")) {
+            card.banner(CraftingListCard.Glyph.PAUSE, Component.translatable(problem), Component.empty(),
+                CraftingTooltipCard.WARN, CraftingListCard.WARN_BACKGROUND);
         }
-        if (!state.getBoolean("smartCooling")) lines.add(hint("cooling_preheat_hint"));
-        return lines;
+        if (smart) {
+            int target = state.getInt("coolingTarget");
+            card.metric(card("target_temperature"), Component.literal(target + "%"), CraftingTooltipCard.CYAN,
+                    card("smart_constant"), CraftingTooltipCard.MUTED)
+                .bar(target / 100.0, CraftingTooltipCard.CYAN);
+        }
+        boolean supplied = state.getInt("coolantTier") > 0;
+        card.divider()
+            .row(null, CraftingTooltipCard.MUTED, tr("coolant"), supplied ? coolantTitle() : card("coolant_unsupplied"),
+                supplied ? CraftingTooltipCard.CYAN : CraftingTooltipCard.WARN);
+        if (temperatureEnabled()) {
+            double circulation = smart
+                ? (double) state.getInt("coolantPerTick") / LargeWorkstationThermal.COOLANT_PER_TICK : 1;
+            card.row(null, CraftingTooltipCard.MUTED, card("actual_cooling"),
+                    card("rate", precise(state.getDouble("coolingPerSecond"))), CraftingTooltipCard.PRIMARY)
+                .row(null, CraftingTooltipCard.MUTED, card("cooling_capacity"), card("rate",
+                    precise(LargeWorkstationThermal.coolingPerSecond(state.getInt("coolantTier")) * circulation)),
+                    CraftingTooltipCard.PRIMARY);
+        }
+        card.divider();
+        if (smart) {
+            card.row(null, CraftingTooltipCard.MUTED,
+                card("energy", CraftingTooltipCard.group(ECOLargeIntegratedWorkingStationBlockEntity.SMART_COOLING_AE_PER_TICK))
+                    .withColor(CraftingTooltipCard.MUTED),
+                card("coolant_usage", CraftingTooltipCard.group(state.getInt("coolantPerTick"))), CraftingTooltipCard.MUTED);
+        } else {
+            card.text(tr(temperatureEnabled() ? "cooling_thermal_hint" : "cooling_coolant_hint"), Component.empty(),
+                    CraftingTooltipCard.MUTED)
+                .text(tr("cooling_preheat_hint"), Component.empty(), CraftingTooltipCard.MUTED);
+        }
+        MutableComponent hint = Component.empty();
+        if (toggle) hint.append(card("toggle_hint"));
+        if (smart) {
+            if (toggle) hint.append(" · ");
+            hint.append(card("smart_hint"));
+        }
+        if (!hint.getString().isEmpty()) card.text(hint, Component.empty(), CraftingTooltipCard.MUTED);
+        return CraftingListCard.hover(card.build());
     }
 
     private LargeWorkstationModule module() { return LargeWorkstationModule.byName(state.getString("module")); }
@@ -582,6 +646,14 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         }
     }
 
+    private static UIElement cardRegion(String id, int x, int y, int width, int height, Supplier<HoverTooltips> tooltip) {
+        UIElement element = new UIElement();
+        element.setId("large-workstation-" + id);
+        absolute(element, x, y, width, height);
+        element.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = tooltip.get());
+        return element;
+    }
+
     private static UIElement region(String id, int x, int y, int width, int height, Supplier<List<Component>> tooltip) {
         UIElement element = new UIElement();
         element.setId("large-workstation-" + id);
@@ -626,6 +698,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     }
     private static int displayTier(int tier) { return tier == 2 ? 4 : tier; }
     private static MutableComponent tr(String key, Object... args) { return Component.translatable(PREFIX + key, args); }
+    private static MutableComponent card(String key, Object... args) { return tr("card." + key, args); }
     private static Component title(String key) { return tr(key).withStyle(ChatFormatting.YELLOW); }
     private static Component hint(String key) { return tr(key).withStyle(ChatFormatting.GRAY); }
     private static Component settingState(boolean enabled) {

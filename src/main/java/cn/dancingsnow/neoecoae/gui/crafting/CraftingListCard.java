@@ -34,6 +34,16 @@ public final class CraftingListCard extends UIElement {
     private static final int ICON_BOX = 20;
     private static final int ICON_BACKGROUND = 0xFF2E2640;
     private static final int WRAP = 220;
+    private static final int BANNER_PAD = 4;
+    private static final int TILE_PAD = 4;
+    private static final int TILE_GAP = 5;
+    private static final int TILE_BORDER = 0xFF4A4058;
+    private static final int TILE_BACKGROUND = 0xFF241D30;
+    private static final int TILE_ACTIVE = 0xFF33284A;
+    /** Headline values of a metric block, relative to the card content. */
+    private static final float METRIC_SCALE = 2.0F;
+    public static final int WARN_BACKGROUND = 0xFF3A2C1E;
+    public static final int DANGER_BACKGROUND = 0xFF3A2026;
 
     /** Pixel glyphs, one string per row, '#' marks a filled pixel. */
     public enum Glyph {
@@ -50,7 +60,10 @@ public final class CraftingListCard extends UIElement {
         STEPS("###....", "#.#....", "###....", ".#.....", ".#.###.", ".##.#.#", "....###"),
         INFO("..###..", ".#...#.", "#..#..#", "#.....#", "#..#..#", ".#.#.#.", "..###.."),
         POINTER(".#.....", ".##....", ".###...", ".####..", ".#####.", ".##....", "...#..."),
-        BOOK("##.##..", "#.#.#..", "#.#.#..", "#.#.#..", "#.#.#..", "##.##..", "..#....");
+        BOOK("##.##..", "#.#.#..", "#.#.#..", "#.#.#..", "#.#.#..", "##.##..", "..#...."),
+        THERMOMETER(".#.", "#.#", "#.#", "#.#", "#.#", "###", "###", ".#."),
+        PAUSE(".###.", "#####", "#.#.#", "#.#.#", "#####", ".###."),
+        WARNING("...#...", "..#.#..", "..###..", ".##.##.", ".#####.", "##.#.##", "#######");
 
         private final String[] rows;
 
@@ -279,6 +292,169 @@ public final class CraftingListCard extends UIElement {
         }
     }
 
+    /** Tinted callout box with a leading glyph, a title line and an optional muted detail line. */
+    private record Banner(Glyph glyph, Component title, Component detail, int color, int background) implements Entry {
+        public int width(Font font) {
+            return BANNER_PAD * 2 + Math.max(ICON_SPACE + font.width(title), font.width(detail));
+        }
+
+        public int height() {
+            return (hasDetail() ? 2 * (LINE + 2) : LINE + 1) + BANNER_PAD * 2 + 3;
+        }
+
+        private boolean hasDetail() {
+            return !detail.getString().isEmpty();
+        }
+
+        public void draw(GuiGraphics graphics, Font font, int x, int y, int width) {
+            int bottom = y + height() - 3;
+            graphics.fill(x, y, x + width, bottom, background);
+            int textY = y + BANNER_PAD + 1;
+            glyph.draw(graphics, x + BANNER_PAD, textY, color);
+            graphics.drawString(font, title, x + BANNER_PAD + ICON_SPACE, textY, color, true);
+            if (hasDetail()) {
+                graphics.drawString(font, detail, x + BANNER_PAD, textY + LINE + 2, CraftingTooltipCard.MUTED, true);
+            }
+        }
+    }
+
+    /**
+     * A muted label above a double-size headline value, with an optional right column that is either another
+     * label/headline pair or a small note on the headline line.
+     */
+    private record Metric(Component label, Component value, int valueColor, Component rightLabel, Component rightValue,
+                          int rightColor, boolean rightLarge) implements Entry {
+        public int width(Font font) {
+            int left = Math.max(font.width(label), scaled(font, value));
+            int right = Math.max(font.width(rightLabel), rightLarge ? scaled(font, rightValue) : font.width(rightValue));
+            return left + (right == 0 ? 0 : GAP) + right;
+        }
+
+        public int height() {
+            return LINE + 2 + Math.round(LINE * METRIC_SCALE) + 2;
+        }
+
+        private static int scaled(Font font, Component text) {
+            return (int) Math.ceil(font.width(text) * METRIC_SCALE);
+        }
+
+        public void draw(GuiGraphics graphics, Font font, int x, int y, int width) {
+            graphics.drawString(font, label, x, y, CraftingTooltipCard.MUTED, true);
+            drawRight(graphics, font, rightLabel, x + width, y, CraftingTooltipCard.MUTED);
+            int valueY = y + LINE + 2;
+            drawScaled(graphics, font, value, x, valueY, valueColor);
+            if (rightLarge) {
+                drawScaled(graphics, font, rightValue, x + width - scaled(font, rightValue), valueY, rightColor);
+            } else {
+                drawRight(graphics, font, rightValue, x + width, valueY + 1, rightColor);
+            }
+        }
+
+        private static void drawScaled(GuiGraphics graphics, Font font, Component text, int x, int y, int color) {
+            if (font.width(text) == 0) return;
+            var pose = graphics.pose();
+            pose.pushPose();
+            try {
+                pose.translate(x, y, 0);
+                pose.scale(METRIC_SCALE, METRIC_SCALE, 1.0F);
+                graphics.drawString(font, text, 0, 0, color, true);
+            } finally {
+                pose.popPose();
+            }
+        }
+    }
+
+    /** One coloured range of a scale bar, ending at {@code end} (0..1). */
+    public record Band(double end, int color) {}
+
+    /**
+     * Bar split into bands with small gaps and a tick label under every band boundary. The part of each band
+     * below {@code value} is drawn at full colour, the remainder dimmed.
+     */
+    private record Scale(List<Band> bands, double value, List<Component> ticks) implements Entry {
+        public int width(Font font) {
+            int total = 0;
+            for (Component tick : ticks) total += font.width(tick) + 6;
+            return total;
+        }
+
+        public int height() {
+            return 4 + 3 + LINE + 2;
+        }
+
+        public void draw(GuiGraphics graphics, Font font, int x, int y, int width) {
+            double fill = Mth.clamp(value, 0.0D, 1.0D);
+            int filled = x + (int) Math.round(width * fill);
+            double start = 0.0D;
+            for (int i = 0; i < bands.size(); i++) {
+                Band band = bands.get(i);
+                int left = x + (int) Math.round(width * start) + (i == 0 ? 0 : 1);
+                int right = x + (int) Math.round(width * Mth.clamp(band.end(), 0.0D, 1.0D)) - (i == bands.size() - 1 ? 0 : 1);
+                if (right > left) {
+                    graphics.fill(left, y, right, y + 4, dim(band.color()));
+                    int lit = Math.min(right, filled);
+                    if (lit > left) graphics.fill(left, y, lit, y + 4, band.color());
+                }
+                start = band.end();
+            }
+            if (fill > 0.0D) {
+                int marker = Math.min(x + width - 1, filled);
+                graphics.fill(marker, y - 1, marker + 1, y + 5, CraftingTooltipCard.PRIMARY);
+            }
+            int tickY = y + 4 + 3;
+            for (int i = 0; i < ticks.size(); i++) {
+                Component tick = ticks.get(i);
+                double at = i == 0 || bands.isEmpty() ? 0.0D : bands.get(Math.min(i, bands.size()) - 1).end();
+                int tickWidth = font.width(tick);
+                int tickX = Mth.clamp(x + (int) Math.round(width * at) - tickWidth / 2, x, x + width - tickWidth);
+                boolean reached = at > 0.0D && fill >= at;
+                graphics.drawString(font, tick, tickX, tickY,
+                    reached ? CraftingTooltipCard.PRIMARY : CraftingTooltipCard.MUTED, true);
+            }
+        }
+
+        private static int dim(int color) {
+            int r = (color >> 16 & 0xFF) * 2 / 5, g = (color >> 8 & 0xFF) * 2 / 5, b = (color & 0xFF) * 2 / 5;
+            return 0xFF000000 | r << 16 | g << 8 | b;
+        }
+    }
+
+    /** Three short lines in a bordered box: accent heading, primary value and muted caption. */
+    public record Tile(Component heading, Component value, Component caption, boolean active) {}
+
+    private record Tiles(List<Tile> tiles) implements Entry {
+        public int width(Font font) {
+            int widest = 0;
+            for (Tile tile : tiles) {
+                widest = Math.max(widest, Math.max(font.width(tile.heading()),
+                    Math.max(font.width(tile.value()), font.width(tile.caption()))));
+            }
+            return tiles.size() * (widest + TILE_PAD * 2) + Math.max(0, tiles.size() - 1) * TILE_GAP;
+        }
+
+        public int height() {
+            return 3 * (LINE + 2) + TILE_PAD * 2 + 3;
+        }
+
+        public void draw(GuiGraphics graphics, Font font, int x, int y, int width) {
+            int count = tiles.size();
+            if (count == 0) return;
+            int tileWidth = (width - (count - 1) * TILE_GAP) / count;
+            int bottom = y + height() - 3;
+            for (int i = 0; i < count; i++) {
+                Tile tile = tiles.get(i);
+                int left = x + i * (tileWidth + TILE_GAP);
+                int right = i == count - 1 ? x + width : left + tileWidth;
+                graphics.fill(left, y, right, bottom, tile.active() ? CraftingTooltipCard.ACCENT : TILE_BORDER);
+                graphics.fill(left + 1, y + 1, right - 1, bottom - 1, tile.active() ? TILE_ACTIVE : TILE_BACKGROUND);
+                int textX = left + TILE_PAD, textY = y + TILE_PAD;
+                graphics.drawString(font, tile.heading(), textX, textY, CraftingTooltipCard.ACCENT, true);
+                graphics.drawString(font, tile.value(), textX, textY + LINE + 2, CraftingTooltipCard.PRIMARY, true);
+                graphics.drawString(font, tile.caption(), textX, textY + 2 * (LINE + 2), CraftingTooltipCard.MUTED, true);
+            }
+        }
+    }
+
     private final Font font;
     private final List<Entry> entries;
     private final int width;
@@ -384,6 +560,44 @@ public final class CraftingListCard extends UIElement {
             return this;
         }
 
+        /** A row whose leading icon is the pass/fail glyph, with a right-aligned value in the same colour. */
+        public Builder checkRow(boolean ok, Component left, Component right) {
+            int color = ok ? CraftingTooltipCard.OK : DANGER;
+            entries.add(new Row(ok ? Glyph.CHECK : Glyph.CROSS, color, left, CraftingTooltipCard.PRIMARY, null,
+                right, Component.empty(), color, false));
+            return this;
+        }
+
+        /** A tinted callout box; {@code detail} may be empty. */
+        public Builder banner(Glyph glyph, Component title, Component detail, int color, int background) {
+            entries.add(new Banner(glyph, title, detail, color, background));
+            return this;
+        }
+
+        /** A muted label over a large value, with a small right-aligned note on the value line. */
+        public Builder metric(Component label, Component value, int valueColor, Component note, int noteColor) {
+            entries.add(new Metric(label, value, valueColor, Component.empty(), note, noteColor, false));
+            return this;
+        }
+
+        /** Two label-over-large-value columns, the second right-aligned. */
+        public Builder metrics(Component label, Component value, int valueColor,
+                               Component rightLabel, Component rightValue, int rightColor) {
+            entries.add(new Metric(label, value, valueColor, rightLabel, rightValue, rightColor, true));
+            return this;
+        }
+
+        /** A banded bar; {@code ticks} holds one label for 0 and one per band end. */
+        public Builder scale(List<Band> bands, double value, List<Component> ticks) {
+            entries.add(new Scale(List.copyOf(bands), value, List.copyOf(ticks)));
+            return this;
+        }
+
+        public Builder tiles(List<Tile> tiles) {
+            entries.add(new Tiles(List.copyOf(tiles)));
+            return this;
+        }
+
         /** A row with a double-size right value and a muted suffix such as {@code / 11}. */
         public Builder largeRow(Glyph glyph, Component left, String value, String suffix, int valueColor) {
             entries.add(new Row(glyph, CraftingTooltipCard.MUTED, left, CraftingTooltipCard.PRIMARY, null,
@@ -424,6 +638,33 @@ public final class CraftingListCard extends UIElement {
         public Builder bar(double fraction, int color) {
             entries.add(new Bar(fraction, color));
             return this;
+        }
+
+        /** Every non-empty text of the card in display order, for narration and content checks. */
+        public List<Component> texts() {
+            List<Component> texts = new ArrayList<>();
+            for (Entry entry : entries) {
+                switch (entry) {
+                    case Header header -> add(texts, header.title(), header.right());
+                    case Section section -> add(texts, section.label(), section.right());
+                    case Row row -> add(texts, row.left(), row.right(), row.suffix());
+                    case Note note -> add(texts, note.text());
+                    case Text text -> add(texts, text.left(), text.right());
+                    case IconHeader header -> add(texts, header.title(), header.subtitle());
+                    case Banner banner -> add(texts, banner.title(), banner.detail());
+                    case Metric metric -> add(texts, metric.label(), metric.value(), metric.rightLabel(), metric.rightValue());
+                    case Scale scale -> texts.addAll(scale.ticks());
+                    case Tiles tiles -> tiles.tiles().forEach(tile -> add(texts, tile.heading(), tile.value(), tile.caption()));
+                    default -> {}
+                }
+            }
+            return texts;
+        }
+
+        private static void add(List<Component> texts, Component... values) {
+            for (Component value : values) {
+                if (!value.getString().isEmpty()) texts.add(value);
+            }
         }
 
         /** LDLib2 2.2.x needs a vanilla text line: the leading header becomes that line, the rest is the card. */
