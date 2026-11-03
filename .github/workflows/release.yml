@@ -6,12 +6,14 @@ on:
 
 jobs:
   build:
+    if: startsWith(github.event.release.tag_name, '21.')
     runs-on: ubuntu-latest
     permissions: write-all
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.release.tag_name }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -54,7 +56,8 @@ jobs:
         with:
           name: "${{ steps.properties.outputs.mod_name }} v${{ steps.var.outputs.version }}"
           version: ${{ steps.var.outputs.version }}
-          version-type: release
+          version-type: ${{ github.event.release.prerelease && 'beta' || 'release' }}
+          changelog: ${{ github.event.release.body }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
