@@ -6,6 +6,11 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingTargetProvider;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingTargetProvider.Target;
+import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingStatusReader;
+import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingStatusRegistry;
+import cn.dancingsnow.neoecoae.compat.processing.AssemblerMatrixProcessingStatus;
+import cn.dancingsnow.neoecoae.compat.processing.MekanismProcessingStatus;
+import cn.dancingsnow.neoecoae.crafting.display.processing.ECOFxProcessingStatus;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.Machine;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.State;
 import java.lang.reflect.Field;
@@ -38,6 +43,9 @@ public final class ECOGregTechMachineStatus {
     };
 
     private ECOGregTechMachineStatus() {}
+    private static final List<ECOProcessingStatusReader> BUILTINS = List.of(
+        new ECOFxProcessingStatus(), new AssemblerMatrixProcessingStatus(), new MekanismProcessingStatus());
+    private static final java.util.Set<Class<?>> FAILED_READERS = ConcurrentHashMap.newKeySet();
 
     public static List<Target> targets(ICraftingProvider provider) {
         Object current = provider;
@@ -56,6 +64,11 @@ public final class ECOGregTechMachineStatus {
             if (next == current) break;
             current = next;
         }
+        // Matrix providers own their executor cluster, rather than pushing to an adjacent inventory.
+        if (provider instanceof net.minecraft.world.level.block.entity.BlockEntity machine
+                && machine.getLevel() != null && BUILTINS.get(1).supports(machine)) {
+            return List.of(new Target(machine.getLevel().dimension().location(), machine.getBlockPos()));
+        }
         return List.of();
     }
 
@@ -66,10 +79,16 @@ public final class ECOGregTechMachineStatus {
         private final java.util.LinkedHashMap<String, Machine> machines = new java.util.LinkedHashMap<>();
         private final LinkedHashSet<Target> machineTargets = new LinkedHashSet<>();
         private final AEKey output;
+        private final java.util.UUID jobId;
 
         public Scan(Iterable<Target> roots, AEKey output) {
+            this(roots, output, null);
+        }
+
+        public Scan(Iterable<Target> roots, AEKey output, java.util.UUID jobId) {
             for (var root : roots) pending.add(root);
             this.output = output;
+            this.jobId = jobId;
         }
 
         public boolean complete() { return pending.isEmpty(); }
@@ -89,10 +108,17 @@ public final class ECOGregTechMachineStatus {
             }
             var be = level.getBlockEntity(target.position());
             if (be == null || be.isRemoved()) return;
+            var contextInfo = new ECOProcessingStatusReader.Context(output, jobId);
+            for (var reader : ECOProcessingStatusRegistry.readers()) {
+                if (read(reader, be, target, contextInfo)) return;
+            }
             if (be instanceof cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity workstation) {
                 machineTargets.add(target);
                 machines.put(location(target), workstation.getProcessingStatus(output));
                 return;
+            }
+            for (var reader : BUILTINS) {
+                if (read(reader, be, target, contextInfo)) return;
             }
             Object machine = value(be, "getMetaMachine");
             if (machine == null) return;
@@ -106,6 +132,27 @@ public final class ECOGregTechMachineStatus {
             addPositions(pending, target, value(machine, "controllerPositions"));
             if (buffer(machine.getClass())) addPositions(pending, target, value(machine, "proxies"));
             if (proxy(machine.getClass())) addPositions(pending, target, value(machine, "bufferPos"));
+        }
+
+        private boolean read(ECOProcessingStatusReader reader, net.minecraft.world.level.block.entity.BlockEntity machine,
+                Target target, ECOProcessingStatusReader.Context context) {
+            try {
+                if (!reader.supports(machine)) return false;
+                accept(target, reader.read(machine, context));
+                return true;
+            } catch (RuntimeException | LinkageError incompatible) {
+                if (FAILED_READERS.add(reader.getClass())) org.slf4j.LoggerFactory.getLogger("neoecoae").warn(
+                    "Processing reader {} could not observe {}; crafting is unaffected", reader.getClass().getName(), target, incompatible);
+                return false;
+            }
+        }
+
+        private void accept(Target target, ECOProcessingStatusReader.Observation observation) {
+            if (observation.sample() != null) {
+                machineTargets.add(target);
+                machines.put(location(target), observation.sample());
+            }
+            for (var link : observation.links()) addRoot(link);
         }
     }
 

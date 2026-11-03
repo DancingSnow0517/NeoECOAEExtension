@@ -59,7 +59,7 @@ final class ECOCraftingPatternBusDispatcher {
             int candidateIndex = (start + offset) % candidates.size();
             ECOCraftingWorkerBlockEntity worker = candidates.get(candidateIndex);
             // The worker performs the authoritative capacity check immediately before accepting ownership.
-            if (worker.pushPattern(execution, craftingJobId)) {
+            if (host.recordProcessingTarget(worker, worker.pushPattern(execution, craftingJobId))) {
                 roundRobinIndex = (candidateIndex + 1) % candidates.size();
                 return true;
             }
@@ -127,7 +127,8 @@ final class ECOCraftingPatternBusDispatcher {
         return new ECOFastPathDispatchProvider.ExactPreparation(requested, () -> {
             var cluster = host.getCraftingCluster();
             return cluster != null && cluster.isDispatchCandidate(offer.worker())
-                && offer.worker().pushExactVirtualBatch(offer.recipe(), requested, context.craftingJobId());
+                && host.recordProcessingTarget(offer.worker(),
+                    offer.worker().pushExactVirtualBatch(offer.recipe(), requested, context.craftingJobId()));
         });
     }
 
@@ -150,7 +151,7 @@ final class ECOCraftingPatternBusDispatcher {
             || availableThreadSlots() < batchSize) {
             return false;
         }
-        return worker.pushBatch(verified);
+        return host.recordProcessingTarget(worker, worker.pushBatch(verified));
     }
 
     boolean pushVirtualBatch(ECOVerifiedVirtualExecution verified,
@@ -162,7 +163,7 @@ final class ECOCraftingPatternBusDispatcher {
         ECOCraftingWorkerBlockEntity worker = offer.worker();
         return cluster.isDispatchCandidate(worker)
             && worker.getAvailableBatchCapacity() > 0
-            && worker.pushVirtualBatch(verified);
+            && host.recordProcessingTarget(worker, worker.pushVirtualBatch(verified));
     }
 
     @Nullable

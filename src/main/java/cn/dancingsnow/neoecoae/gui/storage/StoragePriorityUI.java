@@ -3,6 +3,8 @@ package cn.dancingsnow.neoecoae.gui.storage;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
+import cn.dancingsnow.neoecoae.gui.common.AE2TextButton;
+import cn.dancingsnow.neoecoae.gui.common.AE2TextField;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.common.HostSubWindowControls;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
@@ -15,6 +17,7 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.TextElement;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.TextField;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.util.WindowDragHelper;
 import com.google.gson.JsonObject;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyDisplay;
@@ -140,15 +143,15 @@ public final class StoragePriorityUI {
         }
     }
 
-    private static Button priorityButton(int step, IntConsumer changePriority) {
-        Button button = HostSubWindowControls.textButton(() ->
-            Component.literal(step > 0 ? "+" + step : String.valueOf(step)));
+    private static AE2TextButton priorityButton(int step, IntConsumer changePriority) {
+        AE2TextButton button = new AE2TextButton(step > 0 ? "+" + step : String.valueOf(step));
         button.setOnServerClick(event -> changePriority.accept(step));
         return button;
     }
 
     private static TextField priorityField(Config config) {
-        TextField field = HostSubWindowControls.integerField(Integer.MIN_VALUE, Integer.MAX_VALUE);
+        TextField field = new AE2TextField();
+        field.setNumbersOnlyInt(Integer.MIN_VALUE, Integer.MAX_VALUE);
         field.setTextResponder(text -> parsePriority(text, config.setPriority()));
         field.bind(DataBindingBuilder.string(
             () -> String.valueOf(config.priority().getAsInt()),
@@ -203,4 +206,28 @@ public final class StoragePriorityUI {
         style.adaptiveHeight(true).adaptiveWidth(false).textWrap(TextWrap.NONE).textColor(0x413f54).textShadow(false);
     }
 
+    private static final class PriorityBackButton extends Button {
+        private PriorityBackButton() {
+            noText();
+        }
+
+        @Override
+        public void drawBackgroundAdditional(GUIContext guiContext) {
+            IGuiTexture texture = isFocused()
+                ? AETextures.icon(ECOIcon.TAB_BUTTON_BACKGROUND_FOCUS)
+                : AETextures.icon(ECOIcon.TAB_BUTTON_BACKGROUND);
+            float size = isFocused() ? 22 : 20;
+            guiContext.drawTexture(texture, getPositionX(), getPositionY(), size, size);
+        }
+
+        @Override
+        public void drawContents(GUIContext guiContext) {
+            super.drawContents(guiContext);
+            guiContext.drawTexture(AETextures.icon(ECOIcon.BACK),
+                getPositionX() + 2,
+                getPositionY() + 1,
+                16,
+                16);
+        }
+    }
 }

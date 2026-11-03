@@ -56,6 +56,11 @@ public class NEItems {
         REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
     }
 
+    public static final ItemEntry<Item> PHASE_CHANGE_AIR_COOLER = REGISTRATE
+        .item("phase_change_air_cooler", Item::new)
+        .lang("Phase-Change Air-Cooled Heat Sink")
+        .register();
+
     public static final ItemEntry<cn.dancingsnow.neoecoae.items.StructureTerminalItem> STRUCTURE_TERMINAL = REGISTRATE
         .item("structure_terminal", cn.dancingsnow.neoecoae.items.StructureTerminalItem::new)
         .lang("Structure Terminal")

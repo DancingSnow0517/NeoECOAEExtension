@@ -231,7 +231,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     }
 
     /** The list and capacity readouts cover the same logical computation network. */
-    private List<ECOCraftingCPU> collectDisplayedCpus() {
+    public List<ECOCraftingCPU> collectDisplayedCpus() {
         if (cluster == null || !getMainNode().isOnline()) return List.of();
         var network = cluster.getNetworkCluster();
         var members = network == null ? List.of(cluster) : network.getMembers();

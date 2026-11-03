@@ -3,13 +3,13 @@
   "category": "misc",
   "key": {
     "A": {
-      "item": "minecraft:blue_ice"
+      "item": "neoecoae:superconducting_processor"
     },
     "B": {
       "item": "neoecoae:computation_casing"
     },
     "C": {
-      "item": "neoecoae:superconducting_processor"
+      "item": "neoecoae:phase_change_air_cooler"
     }
   },
   "pattern": [
@@ -18,7 +18,7 @@
     "ABA"
   ],
   "result": {
-    "count": 1,
     "item": "neoecoae:computation_cooling_controller_l4"
-  }
+  },
+  "show_notification": true
 }
