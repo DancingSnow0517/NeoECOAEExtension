@@ -141,7 +141,7 @@ public class NELangGenerator {
         provider.add("jade.neoecoae.coolant", "Coolant %s");
         provider.add("jade.neoecoae.coolant_max_overclock", "Coolant Max Overclock: %d");
         provider.add("jade.neoecoae.coolant_max_overclock.none", "Coolant Max Overclock: None");
-        provider.add("jade.neoecoae.network_composition", "Network: %d %s+%d %s");
+        provider.add("jade.neoecoae.network_composition", "Network: %1$d %2$s+%3$d %4$s");
         provider.add("jade.neoecoae.normal_switch", "normal exchange(s)");
         provider.add("jade.neoecoae.high_energy_switch", "high-energy exchange(s)");
         provider.add("jade.neoecoae.total_crafting_capacity", "Total Crafting Capacity: %s");
