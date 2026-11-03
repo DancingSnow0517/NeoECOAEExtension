@@ -22,6 +22,8 @@ public final class CraftingListCard extends UIElement {
     private static final int TRACK = 0xFF332E3B;
     private static final int DIVIDER = 0xFF37303F;
     private static final int LINE = 9;
+    /** Height of a row whose value is drawn at {@link CraftingTooltipCard#LARGE_SCALE}. */
+    private static final int LARGE_HEIGHT = 15;
     private static final int MIN_WIDTH = 150;
     private static final int GAP = 12;
     private static final int ICON_SPACE = 12;
@@ -142,17 +144,17 @@ public final class CraftingListCard extends UIElement {
     private record Row(Glyph glyph, int glyphColor, Component left, int leftColor, Glyph rightGlyph,
                        Component right, Component suffix, int rightColor, boolean large) implements Entry {
         public int width(Font font) {
-            int rightWidth = font.width(right) * (large ? 2 : 1) + font.width(suffix)
+            int rightWidth = (large ? (int) Math.ceil(font.width(right) * CraftingTooltipCard.LARGE_SCALE) : font.width(right)) + font.width(suffix)
                 + (rightGlyph == null ? 0 : GLYPH_SPACE);
             return (glyph == null ? 0 : ICON_SPACE) + font.width(left) + (rightWidth == 0 ? 0 : GAP) + rightWidth;
         }
 
         public int height() {
-            return large ? LINE * 2 + 1 : LINE + 2;
+            return large ? LARGE_HEIGHT : LINE + 2;
         }
 
         public void draw(GuiGraphics graphics, Font font, int x, int y, int width) {
-            int textY = large ? y + LINE / 2 + 1 : y;
+            int textY = large ? y + 3 : y;
             int textX = x;
             if (glyph != null) {
                 glyph.draw(graphics, x, textY, glyphColor);
@@ -162,18 +164,18 @@ public final class CraftingListCard extends UIElement {
             int end = x + width;
             int suffixWidth = font.width(suffix);
             if (suffixWidth > 0) {
-                graphics.drawString(font, suffix, end - suffixWidth, textY + (large ? 3 : 0), CraftingTooltipCard.MUTED, true);
+                graphics.drawString(font, suffix, end - suffixWidth, textY + (large ? 1 : 0), CraftingTooltipCard.MUTED, true);
                 end -= suffixWidth;
             }
             int rightWidth = font.width(right);
             if (rightWidth > 0) {
                 if (large) {
-                    int start = end - rightWidth * 2;
+                    int start = end - (int) Math.ceil(rightWidth * CraftingTooltipCard.LARGE_SCALE);
                     var pose = graphics.pose();
                     pose.pushPose();
                     try {
                         pose.translate(start, y, 0);
-                        pose.scale(2.0F, 2.0F, 1.0F);
+                        pose.scale(CraftingTooltipCard.LARGE_SCALE, CraftingTooltipCard.LARGE_SCALE, 1.0F);
                         graphics.drawString(font, right, 0, 0, rightColor, true);
                     } finally {
                         pose.popPose();
@@ -287,7 +289,7 @@ public final class CraftingListCard extends UIElement {
                 ? Math.max(1, text.lines(font, width).size()) * (LINE + 2) : entry.height();
             height += heights[i];
         }
-        int w = width, h = Math.max(0, height - 2);
+        int w = (int) Math.ceil(width * CraftingTooltipCard.CONTENT_SCALE), h = (int) Math.ceil((Math.max(0, height - 2)) * CraftingTooltipCard.CONTENT_SCALE);
         layout(layout -> layout.width(w).height(h).paddingAll(0));
     }
 
@@ -297,7 +299,20 @@ public final class CraftingListCard extends UIElement {
 
     @Override
     public void drawBackgroundAdditional(GUIContext context) {
-        int x = Math.round(getPositionX()), y = Math.round(getPositionY());
+        var pose = context.graphics.pose();
+        pose.pushPose();
+        try {
+            pose.translate(Math.round(getPositionX()), Math.round(getPositionY()), 0);
+            pose.scale(CraftingTooltipCard.CONTENT_SCALE, CraftingTooltipCard.CONTENT_SCALE, 1.0F);
+            drawEntries(context);
+        } finally {
+            pose.popPose();
+        }
+    }
+
+    /** Draws the content with its top-left corner at the origin, before content scaling. */
+    private void drawEntries(GUIContext context) {
+        int x = 0, y = 0;
         for (int i = 0; i < entries.size(); i++) {
             entries.get(i).draw(context.graphics, font, x, y, width);
             y += heights[i];

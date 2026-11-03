@@ -157,8 +157,8 @@ class CraftingControllerTooltipsTest {
                 .status(Component.literal("Overflow"), CraftingTooltipCard.WARN)
                 .segment(0.5, CraftingTooltipCard.ACCENT, false).build();
             var renderer = factories.get(ModularUITooltipComponent.class).apply(content);
-            assertTrue(renderer.getWidth(font) >= 140);
-            assertTrue(renderer.getHeight() >= 38);
+            assertTrue(renderer.getWidth(font) >= (int) Math.ceil(140 * CraftingTooltipCard.CONTENT_SCALE));
+            assertTrue(renderer.getHeight() >= (int) Math.ceil(33 * CraftingTooltipCard.CONTENT_SCALE));
             var graphics = mock(GuiGraphics.class);
             var pose = new PoseStack();
             when(graphics.pose()).thenReturn(pose);
