@@ -981,6 +981,14 @@ public class GuiLangs {
         provider.add("gui.neoecoae.processing.state.queued", "Queued");
         provider.add("gui.neoecoae.processing.state.unavailable", "Unavailable");
         provider.add("gui.neoecoae.storage.bulk_cell.action.migrate", "Mark and migrate matching resources now");
+        provider.add("gui.neoecoae.storage.bulk_cell.action.priority", "Adjust storage priority");
+        provider.add("gui.neoecoae.storage.bulk_cell.action.compression_display", "Adjust compression display");
+        provider.add("gui.neoecoae.storage.bulk_cell.compression_display.reserved", "Compression display menu is reserved for a future GUI");
+        provider.add("gui.neoecoae.storage.bulk_cell.priority.title", "Bulk cell priority (relative to host)");
+        provider.add("gui.neoecoae.storage.bulk_cell.migrate.result.busy", "Storage migration is busy; the bulk-cell migration cannot run now");
+        provider.add("gui.neoecoae.storage.bulk_cell.migrate.result.no_bulk_cell", "The selected slot is not an available ECO bulk cell");
+        provider.add("gui.neoecoae.storage.bulk_cell.migrate.result.success", "Bulk-cell migration complete: %s");
+        provider.add("gui.neoecoae.storage.bulk_cell.migrate.result.unavailable", "ECO bulk migration is unavailable");
         provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.title", "Confirm automatic migration");
         provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.description", "Move matching items into this bulk cell");
         provider.add("gui.neoecoae.storage.bulk_cell.migrate.confirm.loading", "Checking available items...");

@@ -8,8 +8,10 @@ import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.util.ItemModelUtil;
+import com.tterrag.registrate.providers.ProviderType;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import com.tterrag.registrate.util.entry.ItemEntry;
+import com.tterrag.registrate.util.nullness.NonNullBiConsumer;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
@@ -20,6 +22,7 @@ import net.neoforged.neoforge.common.conditions.ModLoadedCondition;
 import java.util.List;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
+/** Names are supplied by NELangGenerator, including runs without Data Energistics. */
 public class NEDataItems {
     static {
         REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
@@ -43,7 +46,7 @@ public class NEDataItems {
                 .unlockedBy("has_data_crystal", RegistrateRecipeProvider.has(NETags.Items.DATA_CRYSTAL))
                 .save(dataenergisticsInstalled);
         })
-        .lang("ECO Storage Matrix Housing (Data)")
+        .setData(ProviderType.LANG, NonNullBiConsumer.noop())
         .model(ItemModelUtil.importedCellModel("eco_data_cell_housing"))
         .register();
 
@@ -65,7 +68,7 @@ public class NEDataItems {
                 NEDataItems.ECO_DATA_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_16M.asStack(10)));
             dataenergisticsInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
-        .lang("ECO - LE4 Storage Matrix (Data)")
+        .setData(ProviderType.LANG, NonNullBiConsumer.noop())
         .model(ItemModelUtil.cellModel("data", "16m"))
         .register();
 
@@ -87,7 +90,7 @@ public class NEDataItems {
                 NEDataItems.ECO_DATA_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_64M.asStack(10)));
             dataenergisticsInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
-        .lang("ECO - LE6 Storage Matrix (Data)")
+        .setData(ProviderType.LANG, NonNullBiConsumer.noop())
         .model(ItemModelUtil.cellModel("data", "64m"))
         .register();
 
@@ -109,7 +112,7 @@ public class NEDataItems {
                 NEDataItems.ECO_DATA_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_256M.asStack(10)));
             dataenergisticsInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
-        .lang("ECO - LE9 Storage Matrix (Data)")
+        .setData(ProviderType.LANG, NonNullBiConsumer.noop())
         .model(ItemModelUtil.cellModel("data", "256m"))
         .register();
 
