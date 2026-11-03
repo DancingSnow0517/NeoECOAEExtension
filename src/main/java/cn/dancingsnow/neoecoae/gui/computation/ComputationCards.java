@@ -18,6 +18,8 @@ import net.minecraft.network.chat.Component;
 final class ComputationCards {
     private static final String CARD = "gui.neoecoae.computation.ui.card.";
     private static final int SCHEDULED = 0xFFC9A6FF;
+    /** 1.7.10's processing bar: light green fill over a dark green track. */
+    static final int PROGRESS_FILL = 0xFF60CD64, PROGRESS_TRACK = 0xFF1F4A24;
 
     private ComputationCards() {}
 
@@ -98,7 +100,8 @@ final class ComputationCards {
         for (var row : machines) {
             switch (row.kind()) {
                 case SEPARATOR -> card.divider();
-                case PROGRESS -> card.bar(row.progress(), CraftingTooltipCard.OK);
+                // 1.7.10's machine progress: light green over a dark green track.
+                case PROGRESS -> card.bar(row.progress(), PROGRESS_FILL, PROGRESS_TRACK);
                 case TEXT -> card.text(row.left(), row.right(), CraftingTooltipCard.PRIMARY);
             }
         }

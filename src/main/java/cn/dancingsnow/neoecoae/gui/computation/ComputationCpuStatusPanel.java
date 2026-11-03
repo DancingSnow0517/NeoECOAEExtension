@@ -89,12 +89,12 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     // Suspend/cancel sit higher than the lower extension's floor, between the lists and the panel bottom.
     private static final int FOOTER_X = 97, FOOTER_WIDTH = 233, BUTTON_Y = 196;
     private static final int TEXT = 0x413F54;
-    private static final int BATCH_ICON_SIZE = 16, BATCH_ICON_LEFT = -1;
-    private static final ResourceLocation BATCH_ICON =
-        ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/computation/eco_batching.png");
+    // Header text right of the ECO logo, above the line's low segment (which steps up near x=255).
+    private static final int TIME_X = 152, TIME_Y = 12, TIME_WIDTH = 100;
+    // 1.7.10's light text: the list cells are dark, so dark text loses contrast there.
+    private static final int TEXT_LIGHT = 0xF2F3F7;
     private static final ResourceLocation ATLAS =
         ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/guis/eco_crafting_processing.png");
-    private static final int ATLAS_WIDTH = 432, ATLAS_HEIGHT = 288;
     // The panel body ends at y=200 with a 237x26 lower extension; the row states sit in the notch beside it.
     private static final int BODY_BOTTOM = 200, LOWER_X = 95, LOWER_WIDTH = 237, LOWER_HEIGHT = 26;
     private static final int STRIP_V = LIST_Y + ROW_STRIDE, TAIL_V = LIST_Y + (ROWS - 1) * ROW_STRIDE, MAX_ROWS = 48;
@@ -265,7 +265,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         styleButton.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
             List.<Component>of(ButtonToolTips.TerminalStyle.text(), styleTooltip(AEConfig.instance().getTerminalStyle())
                 .withStyle(ChatFormatting.GRAY)), null, null, null));
-        styleBar = HostSideButtonBar.left(styleButton);
+        styleBar = HostSideButtonBar.grayLeft(styleButton);
         addChildren(back, pauseButton, cancelButton, styleBar, itemActionsPopup);
     }
 
@@ -284,10 +284,14 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private int extra() { return (rows - ROWS) * ROW_STRIDE; }
 
     /** AE2's terminal rule: the style takes a share of the rows that fit between the screen margins. */
-    private static int desiredRows() {
-        int available = Minecraft.getInstance().getWindow().getGuiScaledHeight() - 2 * AEConfig.instance().getTerminalMargin();
+    private int desiredRows() {
+        // Without a window or AE2 config (headless rendering in tests) the page keeps its current height.
+        var minecraft = Minecraft.getInstance();
+        var config = AEConfig.instance();
+        if (minecraft == null || minecraft.getWindow() == null || config == null) return rows;
+        int available = minecraft.getWindow().getGuiScaledHeight() - 2 * config.getTerminalMargin();
         int max = ROWS + Math.max(0, (available - HEIGHT) / ROW_STRIDE);
-        return Math.clamp(AEConfig.instance().getTerminalStyle().getRows(max), ROWS, MAX_ROWS);
+        return Math.clamp(config.getTerminalStyle().getRows(max), ROWS, MAX_ROWS);
     }
 
     private void applyRows(int next) {
@@ -552,6 +556,12 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         context.drawTexture(BACKGROUND_LOWER, x + LOWER_X, stripY + BODY_BOTTOM - TAIL_V, LOWER_WIDTH, LOWER_HEIGHT);
         drawTier(context, font, x, y);
         context.graphics.flush();
+        // Elapsed time of the selected job, in the header space between the logo and the line's raised step.
+        String elapsed = selected == null || selected.status().equals("idle") || selected.elapsed() <= 0 ? "--"
+            : DurationFormatUtils.formatDuration(TimeUnit.NANOSECONDS.toMillis(selected.elapsed()), GuiText.ETAFormat.getLocal());
+        ComputationCpuSelector.fittedText(context, font,
+            Component.translatable("gui.neoecoae.computation.status.time", elapsed).getString(),
+            x + TIME_X, y + TIME_Y, TIME_WIDTH, 0.75F, TEXT);
         // Switch complete acknowledged pages together with the rows used for hit testing.
         cpuPage.advance();
         itemPage.advance();
@@ -647,49 +657,42 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             ROW_NORMAL, ROW_SELECTED, opening.value(entry.progress()));
     }
 
-    /** A running task card: the whole frame fills from the normal row state to the selected row state. */
+    /**
+     * A running task drawn straight on the list's own row, without a card: name, crafting amount and state, with
+     * 1.7.10's processing bar (light green over dark green) along the bottom when machines report progress.
+     */
     private void drawTask(GUIContext context, Font font, ComputationCpuItemEntry entry, float x, float y) {
-        int left = Math.round(x), top = Math.round(y);
-        context.drawTexture(ROW_NORMAL, left, top, ROW_WIDTH, ROW_HEIGHT);
-        context.graphics.flush();
         var processing = entry.processing();
-        float progress = processing.hasProgress() ? opening.value(Math.clamp(processing.progress(), 0, 1)) : 0;
-        int filled = Math.round(ROW_WIDTH * progress);
-        if (filled > 0) {
-            context.graphics.blit(ATLAS, left, top, ROW_SELECTED_U, ROW_SELECTED_V, filled, ROW_HEIGHT,
-                ATLAS_WIDTH, ATLAS_HEIGHT);
-        }
-        key(context, entry.key(), x + ROW_WIDTH - 19, y + 3, 1.0F);
+        key(context, entry.key(), x + ROW_WIDTH - 19, y + 2, 1.0F);
+        context.graphics.flush();
         ComputationCpuSelector.fittedText(context, font, entry.key().getDisplayName().getString(),
-            x + 3, y + 3, ROW_WIDTH - 23, 0.5F, TEXT);
+            x + 3, y + 3, ROW_WIDTH - 23, 0.5F, TEXT_LIGHT);
         ComputationCpuSelector.fittedText(context, font, GuiText.Crafting.text(entry.amount(entry.active(), false)).getString(),
-            x + 3, y + 9, ROW_WIDTH - 23, 0.5F, TEXT);
+            x + 3, y + 9, ROW_WIDTH - 23, 0.5F, TEXT_LIGHT);
         Component state = processing.hasProgress()
             ? Component.literal(Math.round(processing.progress() * 100) + "%")
             : Component.translatable("gui.neoecoae.processing.state." + processing.state().name().toLowerCase(Locale.ROOT));
         ComputationCpuSelector.fittedText(context, font, state.getString(), x + 3, y + 15, ROW_WIDTH - 23, 0.5F,
-            processing.state() == ECOProcessingProgress.State.WAITING ? 0x8A5A12 : TEXT);
+            processing.state() == ECOProcessingProgress.State.WAITING ? 0xE2AA4F : TEXT_LIGHT);
+        if (!processing.hasProgress()) return;
+        int left = Math.round(x + 1), right = Math.round(x + ROW_WIDTH - 1), top = Math.round(y + ROW_HEIGHT - 2);
+        context.graphics.fill(left, top, right, top + 2, ComputationCards.PROGRESS_TRACK);
+        int filled = Math.round((right - left) * opening.value(Math.clamp(processing.progress(), 0, 1)));
+        if (filled > 0) context.graphics.fill(left, top, left + filled, top + 2, ComputationCards.PROGRESS_FILL);
     }
 
+    /** AE2's status cell: green while crafting, yellow while scheduled, amounts beside the stack, no extra marks. */
     static void drawItem(GUIContext context, Font font, ComputationCpuItemEntry entry, float x, float y,
             boolean colored) {
         if (colored) {
-            int color = entry.active().signum() > 0
-                ? (entry.batched() ? AEColor.PURPLE : AEColor.GREEN).blackVariant
+            int color = entry.active().signum() > 0 ? AEColor.GREEN.blackVariant
                 : entry.pending().signum() > 0 ? AEColor.YELLOW.blackVariant : 0;
             if (color != 0) context.graphics.fill(Math.round(x), Math.round(y), Math.round(x + ITEM_WIDTH),
                 Math.round(y + ITEM_HEIGHT), color | 0x5A000000);
         }
-        if (entry.batched()) {
-            context.graphics.blit(BATCH_ICON, Math.round(x + BATCH_ICON_LEFT),
-                Math.round(y + (ITEM_HEIGHT - BATCH_ICON_SIZE) / 2F), 0, 0,
-                BATCH_ICON_SIZE, BATCH_ICON_SIZE, BATCH_ICON_SIZE, BATCH_ICON_SIZE);
-        }
         key(context, entry.key(), x + ITEM_WIDTH - 19, y + 3, 1.0F);
         drawItemDescription(context, font, itemDescription(entry, false), x, y);
-        drawProcessingProgress(context, entry, x, y);
     }
-
     static void drawProcessingProgress(GUIContext context, ComputationCpuItemEntry entry, float x, float y) {
         if (entry.active().signum() <= 0 || !entry.processing().hasProgress()) return;
         int left = Math.round(x + 2), right = Math.round(x + ITEM_WIDTH - 2);
@@ -714,7 +717,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             context.graphics.pose().translate(x + ITEM_WIDTH - 21 - font.width(value) * scale,
                 top + line * (font.lineHeight * scale + 1), 0);
             context.graphics.pose().scale(scale, scale, 1);
-            context.graphics.drawString(font, value, 0, 0, 0xFF000000 | TEXT, false);
+            context.graphics.drawString(font, value, 0, 0, 0xFF000000 | TEXT_LIGHT, false);
             context.graphics.pose().popPose();
         }
     }

@@ -216,7 +216,7 @@ public final class CraftingListCard extends UIElement {
         }
     }
 
-    private record Bar(double fraction, int color) implements Entry {
+    private record Bar(double fraction, int color, int track) implements Entry {
         public int width(Font font) {
             return 0;
         }
@@ -226,7 +226,7 @@ public final class CraftingListCard extends UIElement {
         }
 
         public void draw(GuiGraphics graphics, Font font, int x, int y, int width) {
-            graphics.fill(x, y + 1, x + width, y + 4, TRACK);
+            graphics.fill(x, y + 1, x + width, y + 4, track);
             int length = (int) Math.round(width * Mth.clamp(fraction, 0.0D, 1.0D));
             if (length > 0) graphics.fill(x, y + 1, x + length, y + 4, color);
         }
@@ -422,7 +422,11 @@ public final class CraftingListCard extends UIElement {
         }
 
         public Builder bar(double fraction, int color) {
-            entries.add(new Bar(fraction, color));
+            return bar(fraction, color, TRACK);
+        }
+
+        public Builder bar(double fraction, int color, int track) {
+            entries.add(new Bar(fraction, color, track));
             return this;
         }
 

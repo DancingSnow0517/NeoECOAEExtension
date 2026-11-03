@@ -313,6 +313,7 @@
   "gui.neoecoae.computation.settings.fast_planner": "启用 ECO 快速规划",
   "gui.neoecoae.computation.settings.frequency": "网络频道：%s / %s",
   "gui.neoecoae.computation.settings.back": "返回 CPU 列表",
+  "gui.neoecoae.computation.status.time": "时间：%s",
   "gui.neoecoae.computation.ui.control_heading": "控制开关",
   "gui.neoecoae.computation.ui.switch.substitutions": "替换",
   "gui.neoecoae.computation.ui.switch.cycle_planning": "循环",
