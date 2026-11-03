@@ -686,6 +686,56 @@ class WorkstationUIInteractionTest {
         }
     }
 
+    @Test
+    void overclockEnergyAndModuleHoversAreCards() throws ReflectiveOperationException {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(net.minecraft.client.Minecraft.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            LayoutProperties.init();
+            installFont(minecraft);
+            var snapshot = new CompoundTag();
+            snapshot.putBoolean("overclocked", true);
+            snapshot.putLong("parallelCapacity", 256);
+            snapshot.putDouble("energyUsage", 12.5);
+            snapshot.putDouble("energyStored", 4_000_000);
+            snapshot.putDouble("energyCapacity", 16_000_000);
+            var panel = new LargeWorkstationPanel(new LargeWorkstationUI.Config(new FluidTank(1000),
+                offset -> snapshot.copy(), () -> null, ignored -> {}, () -> {}, () -> {}, () -> {},
+                new ItemStackHandler(1)), mock(Player.class));
+            for (String id : List.of("overclock", "overclock-info", "energy", "module-info", "module-logo")) {
+                UIElement region = collect(panel, UIElement.class).stream()
+                    .filter(element -> ("large-workstation-" + id).equals(element.getId())).findFirst().orElseThrow();
+                UIEvent hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+                hover.target = region;
+                UIEventDispatcher.dispatchEvent(hover, false, false, false);
+                assertEquals(1, hover.hoverTooltips.tooltipTexts().size(), id);
+                assertNotNull(hover.hoverTooltips.tooltipComponent(), id);
+            }
+
+            var overclock = panel.overclockCardBuilder(true).texts();
+            assertTrue(overclock.stream().anyMatch(text -> "256".equals(text.getString())));
+            translatable(overclock, "gui.neoecoae.workstation.card.auto_preheat");
+            translatable(overclock, "gui.neoecoae.workstation.card.preheat_off");
+            assertFalse(panel.overclockCardBuilder(false).texts().stream().anyMatch(text -> text.getString().contains(
+                "gui.neoecoae.workstation.card.mouse_left")), "The info region carries no click hints");
+            snapshot.putBoolean("smartCooling", true);
+            panel.setValue(snapshot.copy());
+            assertFalse(panel.overclockCardBuilder(true).texts().stream().anyMatch(text -> text.getContents()
+                instanceof TranslatableContents contents && "gui.neoecoae.workstation.card.auto_preheat".equals(contents.getKey())),
+                "Smart cooling owns the temperature, so preheat is hidden");
+
+            var energy = panel.energyCardBuilder().texts();
+            assertTrue(energy.stream().anyMatch(text -> "12.5".equals(text.getString())));
+            String quarter = cn.dancingsnow.neoecoae.gui.common.HostText.percent(0.25);
+            assertTrue(energy.stream().anyMatch(text -> quarter.equals(text.getString())), "Bar caption: " + energy);
+
+            var collapsed = translatable(panel.moduleCardBuilder(false).texts(), "gui.neoecoae.workstation.card.card_count_shift");
+            int cards = (Integer) collapsed.getArgs()[0];
+            assertTrue(cards > 0);
+            assertEquals(panel.moduleCardBuilder(false).texts().size() + cards,
+                panel.moduleCardBuilder(true).texts().size(), "Shift lists every supported card");
+        }
+    }
+
     private static TranslatableContents translatable(List<Component> texts, String key) {
         return texts.stream().map(Component::getContents).filter(TranslatableContents.class::isInstance)
             .map(TranslatableContents.class::cast).filter(text -> key.equals(text.getKey())).findFirst().orElseThrow(() ->
