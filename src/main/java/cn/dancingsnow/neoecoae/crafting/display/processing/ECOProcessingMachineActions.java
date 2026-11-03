@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.display.processing;
 
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingTargetProvider.Target;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -15,6 +16,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
@@ -36,10 +38,24 @@ public final class ECOProcessingMachineActions {
             if (level == null || !level.hasChunkAt(target.position())) continue;
             var blockEntity = level.getBlockEntity(target.position());
             if (blockEntity == null || blockEntity.isRemoved()) continue;
-            var machine = new Machine(level, target.position(), level.getBlockState(target.position()).getBlock().getName());
+            var pos = menuOwner(blockEntity);
+            if (pos == null) continue;
+            var machine = new Machine(level, pos, level.getBlockState(pos).getBlock().getName());
             machines.putIfAbsent(machine.id(), machine);
         }
         return new ArrayList<>(machines.values());
+    }
+
+    /**
+     * The block whose menu represents {@code machine}. FX worker cores have no menu of their own; they are listed and
+     * opened as their F-series crafting host, so every core of one host collapses into a single entry.
+     */
+    @Nullable
+    private static BlockPos menuOwner(BlockEntity machine) {
+        if (!(machine instanceof ECOCraftingWorkerBlockEntity worker)) return machine.getBlockPos();
+        var controller = worker.getCluster() == null ? null : worker.getCluster().getController();
+        return controller == null || controller.isRemoved() || controller.getLevel() != worker.getLevel()
+            ? null : controller.getBlockPos();
     }
 
     public record Machine(ServerLevel level, BlockPos pos, Component name) {
