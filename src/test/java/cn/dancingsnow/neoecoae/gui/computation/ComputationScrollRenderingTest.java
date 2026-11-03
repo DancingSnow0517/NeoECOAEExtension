@@ -79,8 +79,8 @@ class ComputationScrollRenderingTest {
         assertDrawn(panel, 1);
 
         panel.setValue(snapshot(6, 6, 7, 2, 2), false);
-        assertEquals(6, field(panel, "cpuPageOffset"));
-        assertEquals(6, field(panel, "itemPageOffset"));
+        assertFalse((boolean) field(panel, "cpuScrollPending"));
+        assertFalse((boolean) field(panel, "itemScrollPending"));
         assertDrawn(panel, 7);
     }
 
@@ -127,7 +127,7 @@ class ComputationScrollRenderingTest {
             com.lowdragmc.lowdraglib2.gui.ui.layout.LayoutProperties.init();
             var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
             var ui = com.lowdragmc.lowdraglib2.gui.ui.ModularUI.of(com.lowdragmc.lowdraglib2.gui.ui.UI.of(panel));
-            ui.init(326, 254);
+            ui.init(ComputationCpuStatusPanel.WIDTH, ComputationCpuStatusPanel.HEIGHT);
             var snapshot = snapshot(0, 0, 1);
             var item = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE), new BigInteger("123456789012345678901"),
                 BigInteger.ONE, BigInteger.TEN, true);
@@ -136,18 +136,20 @@ class ComputationScrollRenderingTest {
             assertDrawn(panel, 1);
 
             try (var minecraft = cardClient()) {
-            var cpuHitbox = panel.hitTest(panel.getPositionX() + 10, panel.getPositionY() + 20).getA();
-            assertSame(panel.getChildren().get(5), cpuHitbox);
-            set(ui, "lastMouseX", panel.getPositionX() + 10);
-            set(ui, "lastMouseY", panel.getPositionY() + 20);
+            var cpuHitbox = panel.hitTest(panel.getPositionX() + 12, panel.getPositionY() + 28).getA();
+            assertNotSame(panel, cpuHitbox);
+            set(ui, "lastMouseX", panel.getPositionX() + 12);
+            set(ui, "lastMouseY", panel.getPositionY() + 28);
             set(ui, "lastHoveredElement", cpuHitbox);
             var cpuTooltip = cpuHitbox.collectHoverTooltips();
             assertNotNull(cpuTooltip);
             assertTrue(cpuTooltip.tooltipTexts().get(0).getString().startsWith("CPU 1"));
             assertNotNull(cpuTooltip.tooltipComponent());
 
-            var itemHitbox = panel.hitTest(panel.getPositionX() + 100, panel.getPositionY() + 20).getA();
-            set(ui, "lastMouseX", panel.getPositionX() + 100);
+            var itemHitbox = panel.hitTest(panel.getPositionX() + 106, panel.getPositionY() + 28).getA();
+            assertNotSame(panel, itemHitbox);
+            assertNotSame(cpuHitbox, itemHitbox);
+            set(ui, "lastMouseX", panel.getPositionX() + 106);
             set(ui, "lastHoveredElement", itemHitbox);
             try (var keys = mockStatic(AEKeyRendering.class)) {
                 keys.when(() -> AEKeyRendering.getTooltip(item.key()))
@@ -158,7 +160,7 @@ class ComputationScrollRenderingTest {
                     net.minecraft.ChatFormatting.BOLD)), tooltip.tooltipTexts());
                 assertNotNull(tooltip.tooltipComponent());
                 // The one-pixel separator must stay empty after scrolling stops interpolating rows.
-                set(ui, "lastMouseY", panel.getPositionY() + 19 + 22);
+                set(ui, "lastMouseY", panel.getPositionY() + 27 + 22);
                 assertNull(itemHitbox.collectHoverTooltips());
             }
             }
@@ -202,9 +204,11 @@ class ComputationScrollRenderingTest {
         var snapshot = new CompoundTag();
         snapshot.putInt("total", 30);
         snapshot.putInt("cpuOffset", cpuOffset);
+        snapshot.putInt("cpuPageStart", cpuOffset);
         snapshot.putInt("selectedSerial", serial);
         snapshot.putInt("itemTotal", 60);
         snapshot.putInt("itemOffset", itemOffset);
+        snapshot.putInt("itemPageStart", itemOffset);
         snapshot.putLong("cpuScrollSequence", cpuSequence);
         snapshot.putLong("itemScrollSequence", itemSequence);
         var cpus = new ListTag();

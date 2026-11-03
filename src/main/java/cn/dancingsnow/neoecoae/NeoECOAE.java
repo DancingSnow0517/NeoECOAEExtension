@@ -77,6 +77,7 @@ public class NeoECOAE {
         NECreativeTabs.register();
         NEMenus.register(modBus);
         cn.dancingsnow.neoecoae.menu.StorageCellWorkbenchLocator.register();
+        cn.dancingsnow.neoecoae.gui.computation.ECOCraftingStatusUI.register();
         NEItems.register();
         NEBlocks.register();
         NEFluids.register();

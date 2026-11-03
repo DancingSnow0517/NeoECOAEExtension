@@ -102,15 +102,15 @@ public final class ComputationControllerUI {
         Button frequency = ComputationControllerInteractions.createNetworkFrequencyButton(config);
         frequency.setId("computation-frequency");
         Button smartDoubling = ComputationControllerInteractions.createSmartDoublingButton(config);
-        var identities = new CpuSelectionState.Identities<ECOCraftingCPU>();
-        ComputationCpuStatusPanel status = new ComputationCpuStatusPanel(config, identities);
+        var identities = new CpuSelectionState.Identities<appeng.api.networking.crafting.ICraftingCPU>();
+        ComputationCpuStatusPanel status = new ComputationCpuStatusPanel(ComputationCpuStatusPanel.Source.of(config), identities);
         status.setDisplay(false);
         UIElement[] rootRef = new UIElement[1];
         ComputationCpuSelector selector = new ComputationCpuSelector(config, serial -> {
             mainOf(rootRef[0]).setDisplay(false);
             status.setDisplay(true);
             status.open(serial);
-            setViewSize(rootRef[0], 326, 254);
+            setViewSize(rootRef[0], ComputationCpuStatusPanel.WIDTH, ComputationCpuStatusPanel.HEIGHT);
             recenter();
         }, identities);
         selector.setDisplay(false);

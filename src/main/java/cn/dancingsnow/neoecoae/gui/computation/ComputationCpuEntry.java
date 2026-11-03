@@ -1,7 +1,9 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
 import appeng.api.config.CpuSelectionMode;
+import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.stacks.AEKey;
+import appeng.me.cluster.implementations.CraftingCPUCluster;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
@@ -18,7 +20,7 @@ import org.jetbrains.annotations.Nullable;
 /** Compact status shared by the CPU row, selected summary and tooltips, including fluid targets. */
 record ComputationCpuEntry(int serial, String name, @Nullable AEKey output,
         BigInteger requested, BigInteger remaining, float progress, long elapsed,
-        long storage, int parallel, CpuSelectionMode mode, ResourceLocation overlay, String status) {
+        long storage, int parallel, CpuSelectionMode mode, @Nullable ResourceLocation overlay, String status) {
     String amount(BigInteger value, boolean full) {
         int unit = output == null ? 1 : Math.max(1, output.getAmountPerUnit());
         String number = full ? DisplayNumbers.grouped(new BigDecimal(value)
@@ -30,6 +32,32 @@ record ComputationCpuEntry(int serial, String name, @Nullable AEKey output,
 
     String storageText() { return NEByteFormatter.formatCpuStorage(storage); }
     String fullStorageText() { return storageText() + " (" + HostText.expandedNumber(storage) + " B)"; }
+
+    /** Any CPU the AE2 crafting service lists; ECO CPUs keep their exact big-order amounts. */
+    static ComputationCpuEntry sample(ICraftingCPU cpu, int serial) {
+        if (cpu instanceof ECOCraftingCPU eco) return sample(eco, serial);
+        var job = cpu.getJobStatus();
+        var output = job == null ? null : job.crafting();
+        float progress = job == null || job.totalItems() <= 0 ? 0 : (float) (job.progress() / (double) job.totalItems());
+        progress = Float.isFinite(progress) ? Math.clamp(progress, 0, 1) : 0;
+        BigInteger requested = BigInteger.valueOf(output == null ? 0 : Math.max(0, output.amount()));
+        // AE2 estimates its ETA from synthetic item progress; keep the same ratio for the shared title.
+        BigInteger remaining = new BigDecimal(requested).multiply(BigDecimal.valueOf(1 - progress))
+            .setScale(0, RoundingMode.CEILING).toBigInteger().min(requested);
+        String status;
+        if (cpu instanceof CraftingCPUCluster cluster && cluster.craftingLogic.hasJob()) {
+            var logic = cluster.craftingLogic;
+            status = logic.isJobSuspended() ? "suspended" : logic.isCantStoreItems() ? "returning" : "running";
+        } else if (cpu instanceof CraftingCPUCluster cluster && cluster.craftingLogic.isCantStoreItems()) {
+            status = "returning";
+        } else {
+            status = cpu.isBusy() || job != null ? "running" : "idle";
+        }
+        return new ComputationCpuEntry(serial, cpu.getName() == null ? "" : cpu.getName().getString(),
+            output == null ? null : output.what(), requested, remaining, progress,
+            job == null ? 0 : Math.max(0, job.elapsedTimeNanos()), cpu.getAvailableStorage(), cpu.getCoProcessors(),
+            cpu.getSelectionMode(), null, status);
+    }
 
     static ComputationCpuEntry sample(ECOCraftingCPU cpu, int serial) {
         var logic = cpu.getLogic();
@@ -63,7 +91,7 @@ record ComputationCpuEntry(int serial, String name, @Nullable AEKey output,
         tag.putLong("storage", storage);
         tag.putInt("parallel", parallel);
         tag.putInt("mode", mode.ordinal());
-        tag.putString("overlay", overlay.toString());
+        if (overlay != null) tag.putString("overlay", overlay.toString());
         tag.putString("status", status);
         return tag;
     }
@@ -74,6 +102,6 @@ record ComputationCpuEntry(int serial, String name, @Nullable AEKey output,
             new BigInteger(tag.getByteArray("requested")), new BigInteger(tag.getByteArray("remaining")),
             tag.getFloat("progress"), tag.getLong("elapsed"), tag.getLong("storage"), tag.getInt("parallel"),
             CpuSelectionMode.values()[Math.clamp(tag.getInt("mode"), 0, CpuSelectionMode.values().length - 1)],
-            ResourceLocation.parse(tag.getString("overlay")), tag.getString("status"));
+            tag.contains("overlay") ? ResourceLocation.parse(tag.getString("overlay")) : null, tag.getString("status"));
     }
 }

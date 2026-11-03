@@ -121,9 +121,9 @@ class ComputationItemActionsTest {
             when(cpu.getGrid()).thenReturn(grid);
             when(grid.getCraftingService()).thenReturn(crafting);
             var type = Class.forName(ComputationCpuStatusPanel.class.getName() + "$ServerState");
-            var constructor = type.getDeclaredConstructor(ComputationControllerUI.Config.class, CpuSelectionState.Identities.class);
+            var constructor = type.getDeclaredConstructor(ComputationCpuStatusPanel.Source.class, CpuSelectionState.Identities.class);
             constructor.setAccessible(true);
-            state = constructor.newInstance(config, new CpuSelectionState.Identities<ECOCraftingCPU>());
+            state = constructor.newInstance(ComputationCpuStatusPanel.Source.of(config), new CpuSelectionState.Identities<ECOCraftingCPU>());
             var select = type.getDeclaredMethod("select", int.class);
             select.setAccessible(true);
             select.invoke(state, 1);

@@ -28,7 +28,7 @@ final class CpuSelectionState<T> {
         this.identities = identities;
     }
 
-    void update(List<T> cpus, Predicate<T> busy, Function<T, String> name) {
+    void update(List<? extends T> cpus, Predicate<T> busy, Function<T, String> name) {
         ReferenceSet<T> present = new ReferenceOpenHashSet<>(cpus.size());
         List<T> next = new ArrayList<>();
         for (T cpu : cpus) {

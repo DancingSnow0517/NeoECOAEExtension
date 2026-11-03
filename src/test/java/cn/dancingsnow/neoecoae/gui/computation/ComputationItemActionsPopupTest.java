@@ -58,8 +58,8 @@ class ComputationItemActionsPopupTest {
 
     @Test void locationsAreWrittenToChatAndCloseTheMenuWithoutOpeningADialogOrSendingAnotherRequest() {
         var fixture = new Fixture(6);
-        assertTrue(fixture.popup.getPositionX() + fixture.popup.getSizeWidth() <= 326);
-        assertTrue(fixture.popup.getPositionY() + fixture.popup.getSizeHeight() <= 254);
+        assertTrue(fixture.popup.getPositionX() + fixture.popup.getSizeWidth() <= ComputationCpuStatusPanel.WIDTH);
+        assertTrue(fixture.popup.getPositionY() + fixture.popup.getSizeHeight() <= ComputationCpuStatusPanel.HEIGHT);
         assertEquals(138, fixture.popup.getSizeWidth());
         fixture.click(25);
         fixture.arrange();
@@ -205,7 +205,8 @@ class ComputationItemActionsPopupTest {
         final List<CompoundTag> highlights = new ArrayList<>();
         final ComputationItemActionsPopup popup = new ComputationItemActionsPopup(registries,
             request -> requests.add(request.copy()), chat::add, source -> highlights.add(source.copy()));
-        final UIElement root = new UIElement().layout(layout -> layout.width(326).height(254));
+        final UIElement root = new UIElement().layout(layout ->
+            layout.width(ComputationCpuStatusPanel.WIDTH).height(ComputationCpuStatusPanel.HEIGHT));
         final ComputationCpuItemEntry item = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE),
             BigInteger.ZERO, BigInteger.ONE, BigInteger.TEN, false);
         final com.lowdragmc.lowdraglib2.gui.ui.ModularUI ui = com.lowdragmc.lowdraglib2.gui.ui.ModularUI.of(com.lowdragmc.lowdraglib2.gui.ui.UI.of(root));
@@ -214,7 +215,7 @@ class ComputationItemActionsPopupTest {
         Fixture(int count) {
             this.count = count;
             root.addChild(popup);
-            popup.open(item, 320, 250);
+            popup.open(item, ComputationCpuStatusPanel.WIDTH - 6, ComputationCpuStatusPanel.HEIGHT - 4);
             popup.accept(response());
             arrange();
         }
@@ -236,7 +237,7 @@ class ComputationItemActionsPopupTest {
             return response;
         }
         void arrange() {
-            ui.init(326, 254);
+            ui.init(ComputationCpuStatusPanel.WIDTH, ComputationCpuStatusPanel.HEIGHT);
             // LDLib2 refreshes this during rendering before it routes mouse events.
             try {
                 var hovered = com.lowdragmc.lowdraglib2.gui.ui.ModularUI.class.getDeclaredField("lastHoveredElement");
