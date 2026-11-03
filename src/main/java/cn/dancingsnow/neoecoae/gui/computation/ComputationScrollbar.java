@@ -13,11 +13,13 @@ import net.minecraft.client.renderer.Rect2i;
 /** Adapts AE2's native scrollbar, including track paging and held-click repeats, to LDLib events. */
 final class ComputationScrollbar extends UIElement {
     static final int WIDTH = 12, THUMB_HEIGHT = 15;
-    static final int SMALL_WIDTH = 7;
+    static final int SMALL_WIDTH = 7, THIN_WIDTH = 6;
+    // AE2's scrollbar is a client class; the dedicated-server copy of this tree only tracks the published value.
     @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
     private Scrollbar scrollbar;
     private final IntConsumer onScroll;
-    private int published;
+    private final boolean thin;
+    private int published, max;
     private boolean pressed;
 
     ComputationScrollbar(UIElement owner, int x, int y, int height, IntConsumer onScroll) {
@@ -26,16 +28,26 @@ final class ComputationScrollbar extends UIElement {
 
     ComputationScrollbar(UIElement owner, int x, int y, int height, boolean small, int width,
             IntConsumer onScroll) {
+        this(owner, x, y, height, small, width, false, onScroll);
+    }
+
+    /** A 6-pixel artwork track: AE2 keeps the input rules while the thumb is drawn inside the 4-pixel interior. */
+    static ComputationScrollbar thin(UIElement owner, int x, int y, int height, IntConsumer onScroll) {
+        return new ComputationScrollbar(owner, x, y, height, true, THIN_WIDTH, true, onScroll);
+    }
+
+    private ComputationScrollbar(UIElement owner, int x, int y, int height, boolean small, int width,
+            boolean thin, IntConsumer onScroll) {
         this.onScroll = onScroll;
+        this.thin = thin;
         HostElements.absolute(this, x, y, width, height);
         if (net.minecraftforge.fml.loading.FMLEnvironment.dist == net.minecraftforge.api.distmarker.Dist.CLIENT) {
-            initializeClient(owner, x, y, height, small, width, onScroll);
+            initializeClient(owner, height, small);
         }
     }
 
     @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
-    private void initializeClient(UIElement owner, int x, int y, int height, boolean small, int width,
-            IntConsumer onScroll) {
+    private void initializeClient(UIElement owner, int height, boolean small) {
         scrollbar = new Scrollbar(clientStyle(small));
         scrollbar.setHeight(height).setCaptureMouseWheel(false);
         addEventListener(UIEvents.MOUSE_DOWN, event -> {
@@ -66,16 +78,29 @@ final class ComputationScrollbar extends UIElement {
         });
     }
 
-    void update(int value, int max, int pageSize) {
-        published = Math.max(0, Math.min(value, Math.max(0, max)));
+    void resize(int height) {
+        layout(layout -> layout.height(height));
         if (net.minecraftforge.fml.loading.FMLEnvironment.dist == net.minecraftforge.api.distmarker.Dist.CLIENT) {
-            updateClient(value, max, pageSize);
+            resizeClient(height);
         }
     }
 
     @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
-    private void updateClient(int value, int max, int pageSize) {
-        scrollbar.setRange(0, Math.max(0, max), pageSize);
+    private void resizeClient(int height) {
+        scrollbar.setHeight(height);
+    }
+
+    void update(int value, int max, int pageSize) {
+        this.max = Math.max(0, max);
+        published = Math.max(0, Math.min(value, this.max));
+        if (net.minecraftforge.fml.loading.FMLEnvironment.dist == net.minecraftforge.api.distmarker.Dist.CLIENT) {
+            updateClient(value, pageSize);
+        }
+    }
+
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
+    private void updateClient(int value, int pageSize) {
+        scrollbar.setRange(0, max, pageSize);
         scrollbar.setCurrentScroll(value);
         published = scrollbar.getCurrentScroll();
     }
@@ -93,8 +118,22 @@ final class ComputationScrollbar extends UIElement {
         }
         // LDLib backgrounds are buffered while vanilla sprites draw immediately.
         context.graphics.flush();
+        if (thin) {
+            drawThin(context);
+            return;
+        }
         scrollbar.drawForegroundLayer(context.graphics, new Rect2i(0, 0, 0, 0),
             new Point(Math.round(context.mouseX), Math.round(context.mouseY)));
+    }
+
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
+    private void drawThin(GUIContext context) {
+        int left = Math.round(getPositionX()) + 1, top = Math.round(getPositionY()) + 1;
+        int travel = Math.max(0, Math.round(getSizeHeight()) - 2 - THUMB_HEIGHT);
+        int thumbY = top + (max <= 0 ? 0 : Math.round(travel * (scrollbar.getCurrentScroll() / (float) max)));
+        int body = max <= 0 ? 0xFF6E6A82 : pressed ? 0xFFE6E1F2 : 0xFFC9C3DA;
+        context.graphics.fill(left, thumbY, left + THIN_WIDTH - 2, thumbY + THUMB_HEIGHT, 0xFF3F3D52);
+        context.graphics.fill(left, thumbY + 1, left + THIN_WIDTH - 2, thumbY + THUMB_HEIGHT - 1, body);
     }
 
     @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
@@ -121,9 +160,9 @@ final class ComputationScrollbar extends UIElement {
     private static Point mouse(UIEvent event) {
         return new Point(Math.round(event.x), Math.round(event.y));
     }
+
     @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
     private static Scrollbar.Style clientStyle(boolean small) {
         return small ? Scrollbar.SMALL : cn.dancingsnow.neoecoae.client.gui.widget.NEScrollbars.BIG;
     }
-
 }

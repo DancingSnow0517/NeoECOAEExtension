@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.client.gui.graph;
 
 import appeng.api.client.AEKeyRendering;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
 import cn.dancingsnow.neoecoae.crafting.graph.ClientCraftingGraph;
@@ -124,7 +125,10 @@ public final class GraphRenderer implements AutoCloseable {
 
         for (var link : links) {
             drawLink(graphics, graph, layout, link, selectedId, neighborhood, cameraX, cameraY, zoom);
-            if (graph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER && zoom >= 0.55f) {
+        }
+        // Amount labels go on top of every line so a later edge never paints over an earlier label.
+        if (graph.view() != ClientCraftingGraph.View.MAIN && zoom >= 0.55f) {
+            for (var link : links) {
                 drawEdgeAmount(graphics, graph, link, layout.edgePoints(link), cameraX, cameraY, zoom);
             }
         }
@@ -288,6 +292,13 @@ public final class GraphRenderer implements AutoCloseable {
             && (neighborhood.contains(link.fromId()) || neighborhood.contains(link.toId()));
         int color = highlighted ? 0xfff6c453 : link.selected() ? 0xff8293a4 : 0xff66505a;
         List<GraphLayoutSnapshot.Point> route = layout.edgePoints(link);
+        if (route.size() >= 2 && graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) {
+            if (!highlighted) color = cycleLinkColor(graph, link, route);
+            int thickness = cycleLineThickness(zoom);
+            drawRoutedLink(graphics, route, color, cameraX, cameraY, zoom, thickness);
+            drawArrowHead(graphics, route, color, cameraX, cameraY, zoom, thickness);
+            return;
+        }
         if (route.size() >= 2) {
             drawRoutedLink(graphics, route, color, cameraX, cameraY, zoom);
             drawArrowHead(graphics, route, color, cameraX, cameraY, zoom);
@@ -329,8 +340,32 @@ public final class GraphRenderer implements AutoCloseable {
         var end = new GraphLayoutSnapshot.Point(start.x() + dx * 30, start.y() + dy * 30);
         var route = List.of(start, end);
         int color = 0xff75c48b;
-        drawRoutedLink(graphics, route, color, cameraX, cameraY, zoom);
-        drawArrowHead(graphics, route, color, cameraX, cameraY, zoom);
+        int thickness = cycleLineThickness(zoom);
+        drawRoutedLink(graphics, route, color, cameraX, cameraY, zoom, thickness);
+        drawArrowHead(graphics, route, color, cameraX, cameraY, zoom, thickness);
+    }
+
+    /** Cycle focus lines widen with zoom so the loop reads as the primary structure on screen. */
+    private static int cycleLineThickness(float zoom) {
+        return zoom >= 1.25f ? 2 : 1;
+    }
+
+    /**
+     * Colors encode the role of each strip edge: loop-closing lanes use the cycle accent, short external inputs
+     * show red while still missing, and ordinary forward steps stay neutral.
+     */
+    private static int cycleLinkColor(ClientCraftingGraph graph, ClientCraftingGraph.Link link,
+            List<GraphLayoutSnapshot.Point> route) {
+        if (!link.selected()) return 0xff66505a;
+        if (graph.isExternalInput(link.fromId())) {
+            var node = graph.nodes().get(link.fromId());
+            boolean missing = node != null && node.material() != null && node.material().missing() > 0;
+            return missing ? 0xffcf5e5e : 0xff7d8c99;
+        }
+        if (graph.isBoundaryOutput(link.toId())) return 0xff6f9c80;
+        // Strip layout runs forward steps left to right; anything ending further left closes the loop.
+        if (cn.dancingsnow.neoecoae.platform.JdkCompat.last(route).x() < route.get(0).x() - 0.5f) return 0xffd59b45;
+        return 0xffa7b6c4;
     }
 
     static @Nullable Integer cycleOutputNodeId(ClientCraftingGraph graph) {
@@ -360,11 +395,24 @@ public final class GraphRenderer implements AutoCloseable {
     private static void drawEdgeAmount(GuiGraphics graphics, ClientCraftingGraph graph,
             ClientCraftingGraph.Link link, List<GraphLayoutSnapshot.Point> route, float cameraX, float cameraY,
             float zoom) {
+        if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS && Math.abs(link.amount()) == 1) return;
         String text = edgeAmount(graph, link);
         if (text.isEmpty() || route.size() < 2) return;
-        var point = route.get(route.size() / 2);
-        int x = screen(cameraX, point.x(), zoom);
-        int y = screen(cameraY, point.y(), zoom);
+        // Orthogonal routes have their middle point on a corner; label the longest run instead.
+        int longest = 1;
+        float longestLength = -1;
+        for (int i = 1; i < route.size(); i++) {
+            float length = Math.abs(route.get(i).x() - route.get(i - 1).x())
+                + Math.abs(route.get(i).y() - route.get(i - 1).y());
+            if (length > longestLength) {
+                longestLength = length;
+                longest = i;
+            }
+        }
+        var a = route.get(longest - 1);
+        var b = route.get(longest);
+        int x = screen(cameraX, (a.x() + b.x()) / 2, zoom);
+        int y = screen(cameraY, (a.y() + b.y()) / 2, zoom) + (a.x() == b.x() ? 4 : 0);
         var font = Minecraft.getInstance().font;
         int width = font.width(text) + 6;
         GraphDraw.fill(graphics, x - width / 2, y - 8, x + (width + 1) / 2, y + 3, 0xcc171b20);
@@ -427,6 +475,31 @@ public final class GraphRenderer implements AutoCloseable {
                 GraphDraw.hLine(graphics, Math.min(x1, x2), Math.max(x1, x2), y1, color);
             } else {
                 drawDiagonal(graphics, x1, y1, x2, y2, color);
+            }
+        }
+    }
+
+    /** Orthogonal segments become solid pixel rectangles; square caps fill each corner without gaps. */
+    private static void drawRoutedLink(GuiGraphics graphics, List<GraphLayoutSnapshot.Point> route, int color,
+            float cameraX, float cameraY, float zoom, int thickness) {
+        if (thickness <= 1) {
+            drawRoutedLink(graphics, route, color, cameraX, cameraY, zoom);
+            return;
+        }
+        int before = thickness / 2;
+        int after = thickness - before;
+        for (int i = 1; i < route.size(); i++) {
+            var from = route.get(i - 1);
+            var to = route.get(i);
+            int x1 = screen(cameraX, from.x(), zoom);
+            int y1 = screen(cameraY, from.y(), zoom);
+            int x2 = screen(cameraX, to.x(), zoom);
+            int y2 = screen(cameraY, to.y(), zoom);
+            if (x1 == x2 || y1 == y2) {
+                GraphDraw.fill(graphics, Math.min(x1, x2) - before, Math.min(y1, y2) - before,
+                    Math.max(x1, x2) + after, Math.max(y1, y2) + after, color);
+            } else {
+                GraphDraw.line(graphics, x1, y1, x2, y2, color, thickness / 2f);
             }
         }
     }
@@ -534,12 +607,27 @@ public final class GraphRenderer implements AutoCloseable {
     private static void drawCompactCycleNode(GuiGraphics graphics, ClientCraftingGraph graph,
             ClientCraftingGraph.Node node, GraphLayoutSnapshot.Box box, int border, boolean selected, int x, int y,
             int right, int bottom, int pixelWidth, int pixelHeight, float cameraY, float zoom) {
-        GraphDraw.fill(graphics, x, y, right, bottom, 0xee171b20);
+        boolean strip = graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS;
+        boolean pattern = node.kind() == ClientCraftingGraph.Kind.PATTERN;
         int borderWidth = selected ? 2 : 1;
-        GraphDraw.fill(graphics, x, y, right, Math.min(bottom, y + borderWidth), border);
-        GraphDraw.fill(graphics, x, Math.max(y, bottom - borderWidth), right, bottom, border);
-        GraphDraw.fill(graphics, x, y, Math.min(right, x + borderWidth), bottom, border);
-        GraphDraw.fill(graphics, Math.max(x, right - borderWidth), y, right, bottom, border);
+        if (strip && pattern) {
+            // Recipes read as process steps: tinted body, notched corners and a solid header bar.
+            GraphDraw.fill(graphics, x + 1, y + 1, right - 1, bottom - 1, 0xee17221f);
+            GraphDraw.fill(graphics, x + 2, y, right - 2, Math.min(bottom, y + Math.max(2, borderWidth)), border);
+            GraphDraw.fill(graphics, x + 2, Math.max(y, bottom - borderWidth), right - 2, bottom, border);
+            GraphDraw.fill(graphics, x, y + 2, Math.min(right, x + borderWidth), bottom - 2, border);
+            GraphDraw.fill(graphics, Math.max(x, right - borderWidth), y + 2, right, bottom - 2, border);
+            GraphDraw.fill(graphics, x + 1, y + 1, x + 2, y + 2, border);
+            GraphDraw.fill(graphics, right - 2, y + 1, right - 1, y + 2, border);
+            GraphDraw.fill(graphics, x + 1, bottom - 2, x + 2, bottom - 1, border);
+            GraphDraw.fill(graphics, right - 2, bottom - 2, right - 1, bottom - 1, border);
+        } else {
+            GraphDraw.fill(graphics, x, y, right, bottom, 0xee171b20);
+            GraphDraw.fill(graphics, x, y, right, Math.min(bottom, y + borderWidth), border);
+            GraphDraw.fill(graphics, x, Math.max(y, bottom - borderWidth), right, bottom, border);
+            GraphDraw.fill(graphics, x, y, Math.min(right, x + borderWidth), bottom, border);
+            GraphDraw.fill(graphics, Math.max(x, right - borderWidth), y, right, bottom, border);
+        }
         if (pixelWidth < 12 || pixelHeight < 18) return;
 
         Font font = Minecraft.getInstance().font;
@@ -548,14 +636,18 @@ public final class GraphRenderer implements AutoCloseable {
         if (node.kind() == ClientCraftingGraph.Kind.MATERIAL && node.material() != null) {
             int iconX = x + Math.max(0, (pixelWidth - 16) / 2);
             int iconY = y + Math.max(0, (iconBottom - y - 16) / 2);
+            // Fluid and other non-item keys blit immediately; submit the buffered node body first, otherwise it
+            // is drawn afterwards on top of the icon and hides it.
+            if (!(node.material().key() instanceof AEItemKey)) graphics.flush();
             AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, iconX, iconY, node.material().key());
-        } else if (node.kind() == ClientCraftingGraph.Kind.PATTERN) {
+        } else if (pattern) {
             graphics.drawCenteredString(font, "⚒", (x + right) / 2,
                 y + Math.max(1, (iconBottom - y - font.lineHeight) / 2), border);
         }
 
         CompactCycleValue value = compactCycleValue(graph, node);
-        drawScaledAmount(graphics, font, value.text(), x, numberTop, right, bottom, value.color());
+        String text = strip && pattern ? "×" + value.text() : value.text();
+        drawScaledAmount(graphics, font, text, x, numberTop, right, bottom, value.color(), strip ? 1.0f : 0.5f);
     }
 
     private record CompactCycleValue(String text, int color) {}
@@ -581,9 +673,14 @@ public final class GraphRenderer implements AutoCloseable {
 
     private static void drawScaledAmount(GuiGraphics graphics, Font font, String amount, int left, int top,
             int right, int bottom, int color) {
+        drawScaledAmount(graphics, font, amount, left, top, right, bottom, color, 0.5f);
+    }
+
+    private static void drawScaledAmount(GuiGraphics graphics, Font font, String amount, int left, int top,
+            int right, int bottom, int color, float maxScale) {
         int availableWidth = Math.max(1, right - left - 2);
         int availableHeight = Math.max(1, bottom - top);
-        float scale = Math.min(0.5f, Math.min((float) availableWidth / Math.max(1, font.width(amount)),
+        float scale = Math.min(maxScale, Math.min((float) availableWidth / Math.max(1, font.width(amount)),
             (float) availableHeight / font.lineHeight));
         float centerX = (left + right) / 2.0f;
         float textY = top + (availableHeight - font.lineHeight * scale) / 2.0f;
@@ -682,7 +779,8 @@ public final class GraphRenderer implements AutoCloseable {
             return node.pattern().status() == CraftingGraphSnapshot.CandidateStatus.SELECTED ? 0xff66a182 : 0xff9a5964;
         }
         if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS && graph.isBoundaryMaterial(node.id())) {
-            return 0xff71808a;
+            return graph.isExternalInput(node.id()) && node.material() != null && node.material().missing() > 0
+                ? 0xffcf5e5e : 0xff71808a;
         }
         return switch (node.material().status()) {
             case SATISFIED -> 0xff68a878;
@@ -714,6 +812,12 @@ public final class GraphRenderer implements AutoCloseable {
     /** Draws a tangent-aligned triangle so curved cycle arrows do not snap to four directions. */
     private static void drawArrowHead(GuiGraphics graphics, List<GraphLayoutSnapshot.Point> route, int color,
             float cameraX, float cameraY, float zoom) {
+        drawArrowHead(graphics, route, color, cameraX, cameraY, zoom, 1);
+    }
+
+    private static void drawArrowHead(GuiGraphics graphics, List<GraphLayoutSnapshot.Point> route, int color,
+            float cameraX, float cameraY, float zoom, int thickness) {
+        float scale = 1 + (thickness - 1) * 0.5f;
         var end = cn.dancingsnow.neoecoae.platform.JdkCompat.last(route);
         GraphLayoutSnapshot.Point previous = route.get(route.size() - 2);
         for (int i = route.size() - 2; i >= 0 && previous.equals(end); i--) previous = route.get(i);
@@ -724,10 +828,10 @@ public final class GraphRenderer implements AutoCloseable {
         float length = Math.max(0.001f, (float) Math.hypot(dx, dy));
         float unitX = dx / length;
         float unitY = dy / length;
-        float baseX = tipX - unitX * 6f;
-        float baseY = tipY - unitY * 6f;
-        float normalX = -unitY * 3.5f;
-        float normalY = unitX * 3.5f;
+        float baseX = tipX - unitX * 6f * scale;
+        float baseY = tipY - unitY * 6f * scale;
+        float normalX = -unitY * 3.5f * scale;
+        float normalY = unitX * 3.5f * scale;
         fillTriangle(graphics, tipX, tipY, baseX + normalX, baseY + normalY,
             baseX - normalX, baseY - normalY, color);
     }

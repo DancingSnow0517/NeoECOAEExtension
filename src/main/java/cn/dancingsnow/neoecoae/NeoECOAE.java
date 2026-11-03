@@ -77,6 +77,7 @@ public class NeoECOAE {
         }
         NECreativeTabs.register();
         NEMenus.register(modBus);
+        cn.dancingsnow.neoecoae.gui.computation.ECOCraftingStatusUI.register();
         NEItems.register();
         NEBlocks.register();
         NEFluids.register();
@@ -207,6 +208,7 @@ public class NeoECOAE {
         // A remote client must know the factory before receiving LDLib's UI-open packet.
         // Enqueue on both physical sides instead of relying on a server-side openUI call.
         event.enqueueWork(BlockUIMenuType::register);
+        event.enqueueWork(cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory.PlayerUIMenuType::registerFactory);
     }
 
     private static void initUpgrades(FMLCommonSetupEvent event) {

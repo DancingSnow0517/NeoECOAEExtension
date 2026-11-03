@@ -144,6 +144,13 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
         saveWithSerializer(recipeOutput, id, NERecipeTypes.INTEGRATED_WORKING_STATION_SERIALIZER.get());
     }
 
+    /** Twelve-input recipes use the large workstation type, keyed by the output item. */
+    public void saveLarge(Consumer<FinishedRecipe> recipeOutput) {
+        saveWithSerializer(recipeOutput, cn.dancingsnow.neoecoae.NeoECOAE.id(
+            net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(itemOutput.getItem()).getPath()),
+            NERecipeTypes.LARGE_INTEGRATED_WORKING_STATION_SERIALIZER.get());
+    }
+
     public void saveWithSerializer(Consumer<FinishedRecipe> recipeOutput, ResourceLocation id, RecipeSerializer<?> serializer) {
         // check
         if (itemOutput.isEmpty() && fluidOutput.isEmpty()) {

@@ -176,6 +176,8 @@ public final class CompactTreeRenderer {
             if (material != null && material.key() != null && right - x >= 16 && bottom - y >= 20) {
                 int iconX = x + (right - x - 16) / 2;
                 int iconY = y + (Math.min(20, bottom - y) - 16) / 2;
+                // Non-item keys (fluids) blit immediately; flush the buffered node body so it stays underneath.
+                if (!(material.key() instanceof appeng.api.stacks.AEItemKey)) graphics.flush();
                 AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, iconX, iconY, material.key());
             }
             if (material != null && material.key() != null && bottom - y >= 24

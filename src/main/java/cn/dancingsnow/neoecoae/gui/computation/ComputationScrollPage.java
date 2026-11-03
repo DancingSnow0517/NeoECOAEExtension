@@ -4,7 +4,8 @@ import java.util.List;
 
 /** Switches acknowledged pages by whole rows; input always uses the last rendered page. */
 final class ComputationScrollPage<T> {
-    private final int rows, columns;
+    private int rows;
+    private final int columns;
     private Page<T> pending = new Page<>(0, 0, List.of());
     private Page<T> rendered = pending;
 
@@ -35,6 +36,8 @@ final class ComputationScrollPage<T> {
         int index = row * columns + column - rendered.start;
         return index >= 0 && index < rendered.entries.size() ? rendered.entries.get(index) : null;
     }
+
+    void rows(int rows) { this.rows = Math.max(1, rows); }
 
     void reset() { rendered = pending = new Page<>(0, 0, List.of()); }
 

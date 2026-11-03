@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.integration.emi.recipe;
 import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
 import cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapper;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
+import cn.dancingsnow.neoecoae.multiblock.placement.RequiredItem;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.integration.xei.emi.ModularUIEMIRecipe;
 import dev.emi.emi.api.recipe.EmiRecipeCategory;
 import dev.emi.emi.api.stack.EmiIngredient;
@@ -25,7 +26,8 @@ public class MultiblockEmiRecipe extends ModularUIEMIRecipe {
             definition,
             recipe.getDisplayWidth(),
             recipe.getDisplayHeight(),
-            recipeState::setExpand
+            recipeState::setExpand,
+            recipeState::setRequiredItems
         ).createModularUI());
         this.definition = definition;
         this.recipeState = recipeState;
@@ -33,7 +35,9 @@ public class MultiblockEmiRecipe extends ModularUIEMIRecipe {
 
     @Override
     public List<EmiIngredient> getInputs() {
-        return definition.getRequiredItems(recipeState.expand).stream()
+        List<RequiredItem> items = recipeState.requiredItems;
+        if (items == null) items = definition.getRequiredItems(recipeState.expand);
+        return items.stream()
             .filter(requiredItem -> !requiredItem.isEmpty())
             .map(requiredItem -> (EmiIngredient) EmiStack.of(requiredItem.stackWithCount()))
             .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
@@ -61,9 +65,14 @@ public class MultiblockEmiRecipe extends ModularUIEMIRecipe {
 
     private static final class RecipeState {
         private int expand = 1;
+        private List<RequiredItem> requiredItems;
 
         private void setExpand(int expand) {
             this.expand = expand;
+        }
+
+        private void setRequiredItems(List<RequiredItem> requiredItems) {
+            this.requiredItems = requiredItems;
         }
     }
 }

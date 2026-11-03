@@ -78,6 +78,8 @@ public class ECOCraftingSystem extends NEBlock<ECOCraftingSystemBlockEntity> imp
     public static boolean isPlayerCloseEnough(Level level, BlockPos pos, Player player) {
         return player.level() == level
             && level.getBlockState(pos).getBlock() instanceof ECOCraftingSystem
-            && player.distanceToSqr(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D) <= 64.0D;
+            && (player.distanceToSqr(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D) <= 64.0D
+                // Opened from the crafting status page; the exemption ends with the menu it produced.
+                || cn.dancingsnow.neoecoae.crafting.display.processing.ECORemoteMachineReach.allows(player, pos));
     }
 }

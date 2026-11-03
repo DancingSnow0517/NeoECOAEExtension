@@ -38,7 +38,7 @@ public final class LargeWorkstationThermal {
         return switch (tier) { case 2 -> 0.1; case 6 -> 0.3; case 9 -> 0.6; default -> 0; };
     }
 
-    /** Work is measured against a full batch, including multiplied-pattern base operations. */
+    /** Load represents paid overclocked working time, independent of batch size or parallel capacity. */
     public static State process(State state, double load) {
         if (state.overheated || !Double.isFinite(load) || load <= 0) return state;
         return new State(state.temperature + heatingPerSecond(state.temperature) * load / TICKS_PER_SECOND, false, 0);
@@ -56,6 +56,39 @@ public final class LargeWorkstationThermal {
 
     /** Applied heat and cooling in percentage points for one server tick, before averaging for the UI. */
     public record TickResult(State state, double processingHeat, double preheatHeat, double cooling, double naturalCooling) {}
+
+    /** A fully paid thermostat tick circulates coolant even when holding or heating its target. */
+    record RegulationPlan(int coolantAmount, TickResult result) {}
+
+    static RegulationPlan regulate(State state, double processingLoad, int target, int coolantTier, int minimumCoolant) {
+        double coolingPerTick = coolingPerSecond(coolantTier) / TICKS_PER_SECOND;
+        if (coolingPerTick <= 0 || minimumCoolant <= 0) {
+            throw new IllegalArgumentException("Regulation requires a supported coolant and positive circulation");
+        }
+        if (state.overheated) {
+            return new RegulationPlan(minimumCoolant, step(state, 0, 0, coolantTier, true));
+        }
+        double load = Double.isFinite(processingLoad) ? Math.max(0, processingLoad) : 0;
+        double processing = heatingPerSecond(state.temperature) * load / TICKS_PER_SECOND;
+        double natural = load == 0 ? Math.min(state.temperature, IDLE_COOLING_PER_SECOND / TICKS_PER_SECOND) : 0;
+        double baseline = state.temperature + processing - natural;
+        double boundedTarget = cn.dancingsnow.neoecoae.platform.JdkCompat.clamp(target, 0, 99);
+        double heating = 0;
+        double cooling = 0;
+        double next;
+        if (baseline <= boundedTarget) {
+            heating = Math.min(boundedTarget - baseline, preheatPerSecond(state.temperature) / TICKS_PER_SECOND);
+            next = Math.min(boundedTarget, baseline + heating);
+        } else {
+            // Remove paid processing heat as well as lowering the temperature at the circulation rate.
+            cooling = Math.min(baseline - boundedTarget,
+                processing + coolingPerTick * minimumCoolant / COOLANT_PER_TICK);
+            next = Math.max(boundedTarget, baseline - cooling);
+        }
+        double needed = Math.ceil(cooling / coolingPerTick * COOLANT_PER_TICK);
+        int coolant = (int) Math.min(Integer.MAX_VALUE, Math.max(minimumCoolant, needed));
+        return new RegulationPlan(coolant, new TickResult(new State(next, false, 0), processing, heating, cooling, natural));
+    }
 
     public static TickResult step(State state, double processingLoad, double preheatFraction, int coolantTier, boolean consumedCoolant) {
         if (state.overheated) {
