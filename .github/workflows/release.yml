@@ -82,23 +82,12 @@ jobs:
             build/test-results/test/
             build/compat-build-evidence/
           if-no-files-found: ignore
-      - name: Upload pre-release jar to GitHub Release
-        if: github.event.release.prerelease
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-          RELEASE_VERSION: ${{ steps.release.outputs.version }}
-        run: >-
-          gh release upload "$RELEASE_TAG"
-          "build/libs/neoecoae-$RELEASE_VERSION.jar"
-          "build/libs/neoecoae-$RELEASE_VERSION-sources.jar" --clobber
       - name: Publish Mod
-        if: '!github.event.release.prerelease'
         uses: Kir-Antipov/mc-publish@v3.3.1
         with:
           name: Neo ECO AE Extension v${{ steps.release.outputs.version }}
           version: ${{ steps.release.outputs.version }}
-          version-type: release
+          version-type: ${{ github.event.release.prerelease && 'beta' || 'release' }}
           changelog-file: ${{ steps.release.outputs.notes }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           github-tag: ${{ github.event.release.tag_name }}
