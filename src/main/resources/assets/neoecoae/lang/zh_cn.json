@@ -404,6 +404,8 @@
   "gui.neoecoae.multiblock.preview.layer.tooltip": "只显示单层结构",
   "gui.neoecoae.multiblock.preview.length": "长度 %d",
   "gui.neoecoae.multiblock.preview.length.tooltip": "结构长度 (%d-%d)",
+  "gui.neoecoae.multiblock.preview.module": "升级卡模型：%s",
+  "gui.neoecoae.multiblock.preview.module.tooltip": "切换已注册的升级卡并预览对应的成型外观",
   "gui.neoecoae.multiblock.required_items": "所需材料: %d",
   "gui.neoecoae.multiblock.reused": "复用: %d",
   "gui.neoecoae.multiblock.status.build_in_progress": "正在搭建中",

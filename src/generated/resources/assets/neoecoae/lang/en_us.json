@@ -753,6 +753,8 @@
   "gui.neoecoae.multiblock.preview.layer.tooltip": "Show a single layer",
   "gui.neoecoae.multiblock.preview.length": "Length %d",
   "gui.neoecoae.multiblock.preview.length.tooltip": "Structure length (%d-%d)",
+  "gui.neoecoae.multiblock.preview.module": "Upgrade card model: %s",
+  "gui.neoecoae.multiblock.preview.module.tooltip": "Cycle registered upgrade cards and preview their formed appearance",
   "gui.neoecoae.multiblock.required_items": "Required Items: %d",
   "gui.neoecoae.multiblock.reused": "Reused: %d",
   "gui.neoecoae.multiblock.status.build_in_progress": "Build in progress",

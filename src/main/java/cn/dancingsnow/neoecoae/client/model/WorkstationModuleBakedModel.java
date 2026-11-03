@@ -31,7 +31,13 @@ import org.jetbrains.annotations.Nullable;
 @EventBusSubscriber(modid = NeoECOAE.MOD_ID, value = Dist.CLIENT)
 public final class WorkstationModuleBakedModel extends BakedModelWrapper<BakedModel> {
     private static final ModelProperty<ResourceLocation> MODULE = new ModelProperty<>();
+    private static final ModelProperty<ResourceLocation> PREVIEW_MODULE = new ModelProperty<>();
     public WorkstationModuleBakedModel(BakedModel original) { super(original); }
+
+    /** Dummy recipe worlds supply the selected addon appearance without installing a real card. */
+    public static ModelData previewData(ResourceLocation module) {
+        return ModelData.builder().with(PREVIEW_MODULE, module).build();
+    }
 
     @SubscribeEvent public static void additionalModels(ModelEvent.RegisterAdditional event) {
         for (var module : ECOWorkstationModules.registered()) {
@@ -47,6 +53,7 @@ public final class WorkstationModuleBakedModel extends BakedModelWrapper<BakedMo
 
     @Override public ModelData getModelData(BlockAndTintGetter level, BlockPos pos, BlockState state, ModelData data) {
         var original = originalModel.getModelData(level, pos, state, data);
+        if (data.has(PREVIEW_MODULE)) return original.derive().with(MODULE, data.get(PREVIEW_MODULE)).build();
         return level.getBlockEntity(pos) instanceof ECOLargeIntegratedWorkingStationBlockEntity host
             ? original.derive().with(MODULE, host.getModuleAppearanceId()).build() : original;
     }
