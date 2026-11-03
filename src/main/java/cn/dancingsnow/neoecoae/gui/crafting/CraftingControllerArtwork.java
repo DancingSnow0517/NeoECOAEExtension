@@ -90,7 +90,7 @@ final class CraftingControllerArtwork extends UIElement {
         addChild(tooltipRegion(176, 78, 8, 46, tooltips::energyTooltip));
         addChild(tooltipRegion(195, 78, 20, 46, tooltips::coolantTooltip));
         addChild(tooltipRegion(226, 78, 20, 46, tooltips::outputTooltip));
-        addChild(tooltipRegion(196, 130, 48, 22, tooltips::fxTooltip));
+        addChild(cardTooltipRegion(196, 130, 48, 22, tooltips::fxTooltip));
         addChild(tooltipRegion(196, 155, 48, 23, tooltips::coolantRowTooltip));
         addChild(tooltipRegion(196, 180, 48, 24, tooltips::switchTooltip));
         for (CraftingOutputSlot slot : workerSlots) addChild(slot);

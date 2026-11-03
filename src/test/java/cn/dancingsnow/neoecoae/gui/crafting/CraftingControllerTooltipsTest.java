@@ -102,6 +102,52 @@ class CraftingControllerTooltipsTest {
         });
     }
 
+    @Test void fxCardShowsActiveCoresParallelAndBatchCapacity() {
+        withFont(font -> {
+            var view = new CraftingControllerViewState();
+            view.activeWorkerCores = 3;
+            view.workerCores = 11;
+            view.ftParallelCapacity = 5_632;
+            view.batchCapacity = 352;
+            var drawn = draw(new CraftingControllerTooltips(view).fxTooltip(), font);
+            assertTrue(drawn.contains("gui.neoecoae.crafting.ui.fx_card.title"));
+            assertTrue(drawn.contains("gui.neoecoae.crafting.ui.fx_card.fx_active"));
+            assertTrue(drawn.contains("3"));
+            assertTrue(drawn.contains(" / 11"));
+            assertTrue(drawn.contains("5,632"));
+            assertTrue(drawn.contains("352"));
+            view.batchCapacity = Long.MAX_VALUE;
+            assertTrue(draw(new CraftingControllerTooltips(view).fxTooltip(), font).contains("∞"));
+        });
+    }
+
+    @Test void infiniteModeChecklistIsRebuiltFromTheSyncedReasons() {
+        withFont(font -> {
+            String reason = "gui.neoecoae.crafting.virtual_reason.";
+            var status = Component.translatable(VirtualModeStatusCard.TITLE_KEY)
+                .append("\n").append(Component.translatable(reason + "overclock"))
+                .append("\n").append(Component.translatable(reason + "coolant_type", Component.literal("Rime Solution")))
+                .append("\n").append(Component.translatable(reason + "host_count", "1", "8"))
+                .append("\n").append(Component.translatable(reason + "high_energy_switch"));
+            assertTrue(VirtualModeStatusCard.applies(status));
+            assertFalse(VirtualModeStatusCard.applies(Component.literal("other")));
+            var drawn = draw(VirtualModeStatusCard.create(status), font);
+            String card = "gui.neoecoae.crafting.ui.virtual_card.";
+            assertTrue(drawn.contains(card + "unmet"));
+            assertTrue(drawn.contains("1 / 8"));
+            assertTrue(drawn.contains(card + "disabled"));
+            assertTrue(drawn.contains(card + "enabled"));
+            assertTrue(drawn.contains(card + "requires"));
+            assertTrue(drawn.contains(card + "high_energy_switch.missing"));
+            assertFalse(drawn.contains(card + "max_length.missing"));
+            assertFalse(drawn.contains(card + "f9.missing"));
+
+            var satisfied = draw(VirtualModeStatusCard.create(Component.translatable(VirtualModeStatusCard.TITLE_KEY)), font);
+            assertTrue(satisfied.contains(card + "met"));
+            assertTrue(satisfied.contains("8 / 8"));
+        });
+    }
+
     @Test void forgeRegistersAnImageOnlyTooltipWithMeasuredContentAndRestoresPose() {
         withFont(font -> {
             Map<Class<? extends TooltipComponent>, Function<TooltipComponent, ClientTooltipComponent>> factories = new HashMap<>();
