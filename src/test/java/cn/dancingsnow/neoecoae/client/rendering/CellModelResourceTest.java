@@ -121,6 +121,34 @@ class CellModelResourceTest {
     }
 
     @Test
+    void everyDriveCellLightHasASmallGapFromItsHousing() throws Exception {
+        for (var entry : models().entrySet()) {
+            if (!entry.getKey().startsWith("block/cell/storage_cell_")) continue;
+            var elements = new LinkedHashMap<String, JsonObject>();
+            for (var element : entry.getValue().getAsJsonArray("elements")) {
+                var object = element.getAsJsonObject();
+                elements.put(object.get("name").getAsString(), object);
+            }
+            var body = elements.get("body");
+            // The 1.20.1 renderer translates these local coordinates by (2,2,0).
+            assertEquals(List.of(0, 0, 0), body.getAsJsonArray("from").asList().stream().map(JsonElement::getAsInt).toList());
+            assertEquals(List.of(6, 12, 2), body.getAsJsonArray("to").asList().stream().map(JsonElement::getAsInt).toList());
+            for (String name : List.of("type", "level")) {
+                var light = elements.get(name);
+                for (String face : light.getAsJsonObject("faces").keySet()) {
+                    int axis = face.equals("north") ? 2 : face.equals("up") ? 1 : 0;
+                    boolean positive = face.equals("up") || face.equals("east");
+                    String corner = positive ? "to" : "from";
+                    double housing = body.getAsJsonArray(corner).get(axis).getAsDouble();
+                    double plane = light.getAsJsonArray(corner).get(axis).getAsDouble();
+                    double separation = positive ? plane - housing : housing - plane;
+                    assertEquals(0.01, separation, 0.00001, entry.getKey() + " " + name + " " + face);
+                }
+            }
+        }
+    }
+
+    @Test
     void cellItemLayersMatchTheStatusTintContractIncludingInfiniteAndAnimations() throws Exception {
         Map<String, JsonObject> models = models();
         int cells = 0;
