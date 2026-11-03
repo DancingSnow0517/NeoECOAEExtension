@@ -372,6 +372,8 @@
   "gui.neoecoae.multiblock.more_conflicts": "又有 %d 處",
   "gui.neoecoae.multiblock.no_conflicts": "無衝格",
   "gui.neoecoae.multiblock.parameters": "營構之參",
+  "gui.neoecoae.multiblock.preview.module": "UNLOCALIZED: Upgrade card model: %s",
+  "gui.neoecoae.multiblock.preview.module.tooltip": "UNLOCALIZED: Cycle registered upgrade cards and preview their formed appearance",
   "gui.neoecoae.multiblock.required_items": "所需材: %d",
   "gui.neoecoae.multiblock.reused": "仍用: %d",
   "gui.neoecoae.multiblock.status.build_in_progress": "方營構中",
