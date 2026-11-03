@@ -32,6 +32,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -319,10 +320,14 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         lines.add(tr("task_source", LargeWorkstationModule.byName(state.getString("recipeModule")).title()));
         lines.add(hint("module_slot_hint"));
         lines.add(hint("module_swap_hint"));
-        lines.add(tr("module_cards"));
+        List<Component> cards = new ArrayList<>();
         for (var module : LargeWorkstationModule.values()) {
-            if (module.hasUpgradeCard()) lines.add(Component.translatable("item.neoecoae." + module.upgradeCardId().getPath())
+            if (module.hasUpgradeCard() && BuiltInRegistries.ITEM.containsKey(module.upgradeCardId())) cards.add(Component.translatable("item.neoecoae." + module.upgradeCardId().getPath())
                 .withStyle(neColor -> neColor.withColor(module.color())));
+        }
+        if (!cards.isEmpty()) {
+            lines.add(tr("module_cards"));
+            lines.addAll(cards);
         }
         if (state.getBoolean("ignoreUpgradeCards")) lines.add(tr("compat_all_unlocked").withStyle(ChatFormatting.GREEN));
         return lines;

@@ -17,6 +17,48 @@ import org.joml.Matrix4f;
 import org.junit.jupiter.api.Test;
 
 class ECOCraftReportHeaderRendererTest {
+    @org.junit.jupiter.api.BeforeAll
+    static void bootstrap() throws ClassNotFoundException {
+        cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize();
+        try (var mods = mockStatic(net.minecraftforge.fml.ModList.class);
+             var registrate = mockStatic(cn.dancingsnow.neoecoae.registration.NERegistrate.class)) {
+            var modList = mock(net.minecraftforge.fml.ModList.class);
+            when(modList.getAllScanData()).thenReturn(List.of());
+            mods.when(net.minecraftforge.fml.ModList::get).thenReturn(modList);
+            registrate.when(() -> cn.dancingsnow.neoecoae.registration.NERegistrate.create("neoecoae"))
+                .thenReturn(mock(cn.dancingsnow.neoecoae.registration.NERegistrate.class));
+            Class.forName(ECOCraftConfirmScreen.class.getName());
+        }
+    }
+
+    @Test
+    void byteTooltipUsesScreenCoordinatesAndChecksEveryHoverBoundary() throws Exception {
+        for (int[] origin : List.of(new int[] {0, 0}, new int[] {37, 61}, new int[] {241, 133})) {
+            var screen = mock(ECOCraftConfirmScreen.class);
+            var graphics = mock(GuiGraphics.class);
+            var summary = ECOCraftReportHeaderRenderer.pending(Component.literal("Calculating..."));
+            setField(net.minecraft.client.gui.screens.inventory.AbstractContainerScreen.class, screen, "leftPos", origin[0]);
+            setField(net.minecraft.client.gui.screens.inventory.AbstractContainerScreen.class, screen, "topPos", origin[1]);
+            setField(ECOCraftConfirmScreen.class, screen, "reportSummary", summary);
+            doCallRealMethod().when(screen).renderReportTooltip(any(), anyInt(), anyInt());
+            screen.renderReportTooltip(graphics, origin[0] + 70, origin[1] + 12);
+            verify(screen).drawTooltipWithHeader(graphics, origin[0] + 70, origin[1] + 12, summary.tooltip());
+
+            clearInvocations(screen);
+            for (int[] outside : List.of(new int[] {52, 12}, new int[] {155, 12},
+                    new int[] {70, 4}, new int[] {70, 20})) {
+                screen.renderReportTooltip(graphics, origin[0] + outside[0], origin[1] + outside[1]);
+            }
+            verify(screen, never()).drawTooltipWithHeader(any(), anyInt(), anyInt(), anyList());
+        }
+    }
+
+    private static void setField(Class<?> owner, Object target, String name, Object value) throws Exception {
+        var field = owner.getDeclaredField(name);
+        field.setAccessible(true);
+        field.set(target, value);
+    }
+
     @Test
     void byteRowAndProgressStayInsideTheTextAreaWhenTheWindowMoves() {
         for (int[] origin : List.of(new int[] {37, 61}, new int[] {241, 133})) {

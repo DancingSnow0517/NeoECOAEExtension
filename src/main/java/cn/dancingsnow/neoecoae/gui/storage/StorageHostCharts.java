@@ -164,7 +164,7 @@ final class StorageHostCharts {
                 String title = font.plainSubstrByWidth(
                     Component.translatable("gui.neoecoae.storage.ui.title").getString(), (int) getSizeWidth());
                 context.graphics.drawString(font, title, Math.round(getPositionX()), Math.round(getPositionY()),
-                    TITLE_COLOR, true);
+                    0xFF404040, false);
                 return;
             }
             if (metric.equals("energy")) {

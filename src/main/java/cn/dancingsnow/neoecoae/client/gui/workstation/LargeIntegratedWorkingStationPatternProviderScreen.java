@@ -52,7 +52,7 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
         Component title,
         ScreenStyle style
     ) {
-        super(menu, playerInventory, title, style);
+        super(menu, playerInventory, Component.translatable("block.ae2.pattern_provider"), style);
         defaultHeading = style.getText().get(TEXT_ID_DIALOG_TITLE).getText();
         patternScroll.setSlotCount(menu.getPatternSlotCount());
         patternScrollbar = new PatternScrollbar();

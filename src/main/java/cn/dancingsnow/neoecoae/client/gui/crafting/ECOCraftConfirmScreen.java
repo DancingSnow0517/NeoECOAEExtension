@@ -271,10 +271,18 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         }
 
         cycleItems.renderTooltip(graphics);
-        int localMouseX = mouseX - offsetX;
-        int localMouseY = mouseY - offsetY;
-        if (ECOCraftReportHeaderRenderer.isHovered(localMouseX, localMouseY)) {
-            drawTooltipWithHeader(graphics, localMouseX, localMouseY, reportSummary.tooltip());
+    }
+
+    @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        super.render(graphics, mouseX, mouseY, partialTicks);
+        renderReportTooltip(graphics, mouseX, mouseY);
+    }
+
+    void renderReportTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (ECOCraftReportHeaderRenderer.isHovered(mouseX - leftPos, mouseY - topPos)) {
+            // 1.20.1 tooltips render immediately. Wait until the foreground pose is restored,
+            // then use screen coordinates for both the cursor and vanilla edge placement.
+            drawTooltipWithHeader(graphics, mouseX, mouseY, reportSummary.tooltip());
         }
     }
 
