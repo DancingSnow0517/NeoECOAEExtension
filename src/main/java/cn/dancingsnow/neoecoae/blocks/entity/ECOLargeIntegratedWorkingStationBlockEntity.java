@@ -557,6 +557,10 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (!formed) {
             state = State.UNAVAILABLE;
             reason = Component.translatable("gui.neoecoae.processing.unformed");
+        } else if (isTemperatureEnabled() && overheated) {
+            // Admission is blocked even if this output has never entered the queue.
+            state = State.WAITING;
+            reason = getPauseReasonText();
         } else if (matches) {
             if (!getMainNode().isActive()) {
                 state = State.WAITING;

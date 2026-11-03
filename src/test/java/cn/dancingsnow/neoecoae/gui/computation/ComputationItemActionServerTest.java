@@ -76,6 +76,37 @@ class ComputationItemActionServerTest {
         verify(fixture.logic, never()).getProcessingProgress(any());
     }
 
+    @Test void pendingAdmissionFailureIsSynchronizedBeforeTheFirstActiveOutput() throws Exception {
+        var fixture = new Fixture();
+        when(fixture.logic.getExactActivePreview()).thenReturn(Map.of());
+        when(fixture.logic.getWaitingFor(fixture.key)).thenReturn(0L);
+        when(fixture.logic.getPendingOutputs(fixture.key)).thenReturn(10L);
+        when(fixture.logic.getExactPendingPreview()).thenReturn(Map.of(fixture.key, java.math.BigInteger.TEN));
+        var progress = ECOProcessingProgress.summarize(List.of(new ECOProcessingProgress.Machine(
+            Component.literal("Workstation"), "minecraft:overworld [62, -60, -97]", "", 0, 0, 0,
+            ECOProcessingProgress.State.WAITING, Component.translatable(
+                "gui.neoecoae.large_integrated_working_station.pause.overheated"))));
+        when(fixture.logic.getProcessingProgress(fixture.key)).thenReturn(progress);
+        fixture.tick.set(3);
+        fixture.call("select", new Class<?>[]{int.class}, 1);
+        fixture.call("snapshot", new Class<?>[0]);
+        var request = new CompoundTag();
+        request.put("key", fixture.key.toTagGeneric());
+        request.putInt("page", 0);
+        fixture.call("processingDetails", new Class<?>[]{int.class, CompoundTag.class}, 1, request);
+        var snapshot = (CompoundTag) fixture.call("processingSnapshot", new Class<?>[0]);
+        var observed = ECOProcessingProgress.read(snapshot.getList("items", 10).getCompound(0).getCompound("progress"));
+        assertEquals(ECOProcessingProgress.State.WAITING, observed.state());
+        assertEquals(1, observed.machineCount());
+        assertFalse(observed.hasProgress());
+        assertTrue(observed.machines().get(0).reason().toString().contains("pause.overheated"));
+
+        when(fixture.logic.getProcessingProgress(fixture.key)).thenReturn(ECOProcessingProgress.EMPTY);
+        fixture.tick.set(13);
+        var recovered = (CompoundTag) fixture.call("processingSnapshot", new Class<?>[0]);
+        assertTrue(recovered.getList("items", 10).isEmpty());
+    }
+
     @Test void openingTheDefaultCpuEnablesProgressAndReopeningItRestartsTheSubscription() throws Exception {
         var fixture = new Fixture();
         var progress = ECOProcessingProgress.summarize(List.of(new ECOProcessingProgress.Machine(

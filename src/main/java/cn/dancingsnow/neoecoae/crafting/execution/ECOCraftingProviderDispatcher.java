@@ -63,6 +63,10 @@ final class ECOCraftingProviderDispatcher {
                 || processing.mayAttemptBatch(provider, pattern);
     }
 
+    void observeProcessingTarget(ExecutingCraftingJob job, IPatternDetails pattern, ICraftingProvider provider) {
+        if (owner != null) owner.getProcessingMonitor().considered(job.link.getCraftingID(), pattern, provider);
+    }
+
     Result dispatchCandidate(ECOCraftingDispatchRequest request, List<ICraftingProvider> providers,
             ECOCraftingDispatchBudget budget, IEnergyService energyService,
             ECODispatchStallDiagnostics diagnostics, Consumer<ICraftingProvider> markProviderAttempt,

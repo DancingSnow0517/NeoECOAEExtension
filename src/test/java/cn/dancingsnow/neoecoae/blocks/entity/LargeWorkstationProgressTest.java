@@ -60,6 +60,35 @@ class LargeWorkstationProgressTest {
         assertEquals(0, unavailable.durationTicks());
     }
 
+    @Test void overheatBeforeAdmissionShowsItsReasonAndClearsAfterRecovery() throws Exception {
+        var controller = controller(null);
+        doReturn(true).when(controller).isTemperatureEnabled();
+        set(controller, "temperature", 100.0);
+        set(controller, "overheated", true);
+        assertFalse(controller.canAcceptPattern());
+        var waiting = controller.getProcessingStatus(AEItemKey.of(Items.STONE));
+        assertEquals(State.WAITING, waiting.state());
+        assertEquals(net.minecraft.network.chat.Component.translatable(
+            "gui.neoecoae.large_integrated_working_station.pause.overheated"), waiting.reason());
+        assertEquals(0, waiting.parallel());
+        assertEquals(0, waiting.durationTicks());
+        assertEquals("", waiting.recipe());
+        assertEquals(true, field(controller, "overheated"), "Sampling must not release the safety latch");
+
+        set(controller, "overheated", false);
+        assertTrue(controller.canAcceptPattern());
+        var recovered = controller.getProcessingStatus(AEItemKey.of(Items.STONE));
+        assertEquals(State.QUEUED, recovered.state());
+        assertEquals(net.minecraft.network.chat.Component.empty(), recovered.reason());
+    }
+
+    @Test void disabledTemperatureModeDoesNotReportASavedOverheatLatch() throws Exception {
+        var controller = controller(null);
+        set(controller, "overheated", true);
+        assertTrue(controller.canAcceptPattern());
+        assertEquals(State.QUEUED, controller.getProcessingStatus(AEItemKey.of(Items.STONE)).state());
+    }
+
     @Test void fallbackShowsTheActualPortionProgressAndParallelism() throws Exception {
         var batch = batch();
         set(batch, "segmented", true);
