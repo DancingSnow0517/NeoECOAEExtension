@@ -1,11 +1,14 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.LargeWorkstationThermal;
 import cn.dancingsnow.neoecoae.gui.common.AE2TextButton;
 import cn.dancingsnow.neoecoae.gui.common.AE2TextField;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
+import cn.dancingsnow.neoecoae.gui.common.FluidHatchInterfaceConfig;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
@@ -24,6 +27,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.util.List;
@@ -37,6 +41,8 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.entity.player.Player;
+import net.neoforged.neoforge.fluids.FluidStack;
 
 /**
  * Smart cooling module panel laid out as header, target control, status/buffer, parameters and notes.
@@ -77,10 +83,14 @@ public final class SmartCoolingModuleUI {
 
     public static ModularUI create(BlockUIMenuType.BlockUIHolder holder,
         ECOLargeIntegratedWorkingStationInputHatchBlockEntity host) {
-        return ECOModularUI.create(createRoot(host), holder.player);
+        return ECOModularUI.create(createRoot(host, holder.player), holder.player);
     }
 
     static UIElement createRoot(ECOLargeIntegratedWorkingStationInputHatchBlockEntity host) {
+        return createRoot(host, null);
+    }
+
+    static UIElement createRoot(ECOLargeIntegratedWorkingStationInputHatchBlockEntity host, Player player) {
         View view = new View();
         view.read(snapshot(host));
 
@@ -151,12 +161,13 @@ public final class SmartCoolingModuleUI {
         root.addChild(syncedComponent("status-hint-sync", () -> statusHint(host), statusHint::setText));
         root.addChild(statusCard);
 
-        // Coolant buffer: AE2 slot for the tank, amount and fill relative to one second of demand.
+        // Coolant buffer and a separate ghost slot for the player's fluid selection.
         UIElement buffer = card("buffer", 120, 88, 109, 58);
         buffer.addChild(icon("buffer-icon", ECOIcon.LEVEL_GAUGE, 4, 3, 16));
-        buffer.addChild(text("buffer-label", tr("buffer_title"), 22, 7, 82, 9, 8, TEXT, Horizontal.LEFT));
-        TextElement amount = text("buffer-amount", Component.empty(), 27, 22, 77, 9, 9, TEXT, Horizontal.LEFT);
-        TextElement bufferTarget = text("buffer-target", tr("buffer_target", number(view.bufferTarget())),
+        buffer.addChild(text("buffer-label", tr("buffer_title"), 22, 7, 62, 9, 8, TEXT, Horizontal.LEFT));
+        buffer.addChild(place(new MarkedCoolantSlot(host, player), 86, 3, 18, 18));
+        TextElement amount = text("buffer-amount", Component.empty(), 27, 22, 77, 9, 7, TEXT, Horizontal.LEFT);
+        TextElement bufferTarget = text("buffer-target", tr("buffer_target", number(host.tank.getCapacity())),
             27, 32, 77, 8, 7, MUTED, Horizontal.LEFT);
         FluidSlot coolant = new FluidSlot() {
             @Override
@@ -176,12 +187,12 @@ public final class SmartCoolingModuleUI {
         buffer.addChild(place(coolant, 5, 21, 18, 18));
         buffer.addChild(amount);
         buffer.addChild(bufferTarget);
-        Bar bufferBar = new Bar(() -> view.bufferTarget() <= 0 ? 0
-            : coolant.getValue().getAmount() / (double) view.bufferTarget(), () -> 0xFF4F8CC9, () -> Double.NaN);
+        Bar bufferBar = new Bar(() -> coolant.getValue().getAmount() / (double) host.tank.getCapacity(),
+            () -> 0xFF4F8CC9, () -> Double.NaN);
         bufferBar.setId("buffer-bar");
         tooltip(bufferBar, () -> List.of(
             tr("buffer_amount", number(coolant.getValue().getAmount())).withStyle(ChatFormatting.YELLOW),
-            tr("buffer_hint", number(view.bufferTarget())).withStyle(ChatFormatting.GRAY)));
+            tr("buffer_hint", number(host.tank.getCapacity())).withStyle(ChatFormatting.GRAY)));
         buffer.addChild(place(bufferBar, 5, 46, 99, 6));
         root.addChild(buffer);
 
@@ -217,11 +228,66 @@ public final class SmartCoolingModuleUI {
             targetValue.setText(percent(view.target));
             status.textStyle(style -> style.textColor(view.phase.color));
             coolantValue.setText(tr("coolant_value", number(view.coolantPerTick)));
-            bufferTarget.setText(tr("buffer_target", number(view.bufferTarget())));
         });
         state.bind(DataBindingBuilder.tagS2C(() -> snapshot(host)).build());
         root.addChild(state);
         return root;
+    }
+
+    private static final class MarkedCoolantSlot extends FluidSlot {
+        private final RPCEmitter click;
+
+        private MarkedCoolantSlot(ECOLargeIntegratedWorkingStationInputHatchBlockEntity host, Player player) {
+            setId("coolant-filter");
+            setAllowClickFilled(false);
+            setAllowClickDrained(false);
+            amountLabel.setDisplay(false);
+            slotStyle(style -> style.slotOverlay(AETextures.icon(ECOIcon.FLUID_CELL)).showSlotOverlayOnlyEmpty(true));
+            style(style -> style.backgroundTexture(AETextures.slotWithFrame()));
+            bind(DataBindingBuilder.fluidStack(host::getMarkedCoolant, fluid -> {
+                if (canEdit(host, player, this)) host.setMarkedCoolant(fluid);
+            }).build());
+            click = addRPCEvent(RPCEventBuilder.simple(Integer.class, button -> {
+                if (button == null || button < 0 || button > 1 || !canEdit(host, player, this)) return;
+                markCoolant(host, player, button);
+            }));
+            if (player != null && player.level().isClientSide) xeiPhantom();
+        }
+
+        @Override
+        public List<Component> getFullTooltipTexts(boolean withFluidName) {
+            var lines = new java.util.ArrayList<Component>();
+            lines.add(tr("marked_coolant").withStyle(ChatFormatting.YELLOW));
+            if (!getValue().isEmpty()) lines.add(AEFluidKey.of(getValue()).getDisplayName());
+            lines.add(tr("mark_hint").withStyle(ChatFormatting.GRAY));
+            return lines;
+        }
+
+        @Override
+        protected void onMouseDown(UIEvent event) {
+            event.hasHandler = true;
+            event.stopImmediatePropagation();
+            if (event.button == 0 || event.button == 1) click.send(event.button);
+        }
+    }
+
+    static void markCoolant(ECOLargeIntegratedWorkingStationInputHatchBlockEntity host, Player player, int button) {
+        FluidStack marked = host.getMarkedCoolant();
+        GenericStack current = marked.isEmpty() ? null : new GenericStack(AEFluidKey.of(marked), 1);
+        ItemStack carried = player.containerMenu.getCarried();
+        // This compact panel has no player inventory: a held container must also be usable.
+        if (carried.isEmpty() && button == 1) carried = player.getMainHandItem();
+        var updated = FluidHatchInterfaceConfig.click(current, carried, button);
+        host.setMarkedCoolant(updated == null ? FluidStack.EMPTY : ((AEFluidKey) updated.what()).toStack(1));
+    }
+
+    private static boolean canEdit(ECOLargeIntegratedWorkingStationInputHatchBlockEntity host, Player player,
+        UIElement element) {
+        var ui = element.getModularUI();
+        return player != null && host.getLevel() != null && !host.getLevel().isClientSide && !host.isRemoved()
+            && player.level() == host.getLevel() && host.getLevel().getBlockEntity(host.getBlockPos()) == host
+            && player.blockPosition().distSqr(host.getBlockPos()) <= 64 && ui != null
+            && ui.getMenu() == player.containerMenu && player.containerMenu.stillValid(player);
     }
 
     private static UIElement stepButton(String id, String label, int sign, RPCEmitter adjust, int x, int y) {
@@ -293,6 +359,7 @@ public final class SmartCoolingModuleUI {
     static Phase phase(ECOLargeIntegratedWorkingStationInputHatchBlockEntity host) {
         var controller = controller(host);
         if (controller == null) return Phase.OFFLINE;
+        if (host.getMarkedCoolant().isEmpty()) return Phase.ALERT;
         if (!controller.isTemperatureEnabled()) return Phase.DISABLED;
         return controller.hasSmartCoolingProblem() ? Phase.ALERT : Phase.ACTIVE;
     }
@@ -312,6 +379,7 @@ public final class SmartCoolingModuleUI {
     static Component status(ECOLargeIntegratedWorkingStationInputHatchBlockEntity host) {
         var controller = controller(host);
         if (controller == null) return tr("unformed");
+        if (host.getMarkedCoolant().isEmpty()) return tr("unmarked");
         if (!controller.isTemperatureEnabled()) return tr("disabled");
         return controller.getSmartCoolingStatusText();
     }
@@ -368,11 +436,6 @@ public final class SmartCoolingModuleUI {
             target = Math.clamp(tag.getInt("target"), 0, 99);
             temperature = tag.getDouble("temperature");
             coolantPerTick = Math.max(0, tag.getInt("coolant"));
-        }
-
-        /** The module keeps one second of current demand buffered from the ME network. */
-        long bufferTarget() {
-            return (long) coolantPerTick * LargeWorkstationThermal.TICKS_PER_SECOND;
         }
     }
 
