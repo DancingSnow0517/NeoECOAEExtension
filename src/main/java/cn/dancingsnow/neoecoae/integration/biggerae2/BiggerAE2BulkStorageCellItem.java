@@ -46,8 +46,11 @@ final class BiggerAE2BulkStorageCellItem extends ECOBulkStorageCellItem {
         lines.add(Component.translatable("tooltip.neoecoae.bulk.used_types",
             Tooltips.ofUnformattedNumberWithRatioColor(used, (double) used / total, false),
             Tooltips.ofUnformattedNumber(total)));
+        boolean marked = cell instanceof ECOBulkStorageCell bulk && !bulk.getEffectiveConfiguredFilters().isEmpty();
         lines.add(Component.translatable("tooltip.neoecoae.bulk.compression",
-            Component.translatable("tooltip.neoecoae.bulk.compression_enabled").withStyle(ChatFormatting.GREEN)));
+            Component.translatable(marked ? "tooltip.neoecoae.bulk.compression_enabled"
+                : "tooltip.neoecoae.bulk.compression_requires_marker")
+                .withStyle(marked ? ChatFormatting.GREEN : ChatFormatting.GRAY)));
     }
 
     @Override
@@ -82,10 +85,10 @@ final class BiggerAE2BulkStorageCellItem extends ECOBulkStorageCellItem {
                 contents.merge(key, entry.amount(), BigInteger::add);
             }
             // Persist the exact replacement before removing the old component or notifying the host.
-            new ECOBulkStorageCell(stack, null, contents).persist();
+            new ECOBulkStorageCell(stack, null, contents, true).persist();
             stack.remove(BiggerAE2SingularityContents.TYPE);
             if (host != null) host.saveChanges();
         }
-        return super.createCellInventory(stack, host);
+        return new ECOBulkStorageCell(stack, host, true);
     }
 }

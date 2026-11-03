@@ -739,6 +739,7 @@
   "tooltip.neoecoae.bulk.moved": "UNLOCALIZED: Functionality moved to the Digital Singularity Item Storage Matrix",
   "tooltip.neoecoae.bulk.compression": "UNLOCALIZED: Compression: %s",
   "tooltip.neoecoae.bulk.compression_enabled": "UNLOCALIZED: Enabled",
+  "tooltip.neoecoae.bulk.compression_requires_marker": "UNLOCALIZED: Mark resources to enable",
   "gui.neoecoae.storage.cell.priority.tooltip": "UNLOCALIZED: Storage cell priority: %s",
   "gui.neoecoae.computation.ui.endgame_card.drives": "驅動器槽位",
   "gui.neoecoae.computation.ui.endgame_card.drives.missing": "存在空槽或缺少 CE9 快閃晶陣",

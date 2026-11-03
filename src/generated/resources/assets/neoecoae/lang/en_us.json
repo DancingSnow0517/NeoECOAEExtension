@@ -1500,6 +1500,7 @@
   "tooltip.neoecoae.bulk.moved": "Functionality moved to the Digital Singularity Item Storage Matrix",
   "tooltip.neoecoae.bulk.compression": "Compression: %s",
   "tooltip.neoecoae.bulk.compression_enabled": "Enabled",
+  "tooltip.neoecoae.bulk.compression_requires_marker": "Mark resources to enable",
   "gui.neoecoae.storage.cell.priority.tooltip": "Storage cell priority: %s",
   "gui.neoecoae.computation.ui.endgame_card.drives": "Drive slots",
   "gui.neoecoae.computation.ui.endgame_card.drives.missing": "Empty slot or missing CE9 flash crystal matrix",

@@ -1485,6 +1485,7 @@
   "tooltip.neoecoae.bulk.moved": "功能迁移至数字奇点物品存储矩阵中",
   "tooltip.neoecoae.bulk.compression": "压缩功能：%s",
   "tooltip.neoecoae.bulk.compression_enabled": "已开启",
+  "tooltip.neoecoae.bulk.compression_requires_marker": "标记资源后开启",
   "tooltip.neoecoae.bulk.used_types": "已用资源种类：%s / %s",
   "tooltip.neoecoae.bulk.capacity": "数量不限；已用资源种类 %s / %s",
   "tooltip.neoecoae.bulk.configure": "默认支持 25 类资源，ECO 大宗扩展卡可扩至 50 类",

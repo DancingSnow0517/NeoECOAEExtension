@@ -6,6 +6,7 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypesInternal;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
+import cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.BeforeAll;
@@ -21,6 +22,21 @@ import static org.mockito.Mockito.*;
 class ECOBulkStorageCellItemTest {
     @BeforeAll
     static void bootstrap() { InventoryTestBootstrap.initialize(); }
+
+    @Test
+    void expansionCannotBeRemovedWhileUnmarkedStockExceedsBaseTypeLimit() throws Exception {
+        var stack = new ItemStack(Items.PAPER);
+        var bulk = mock(ECOBulkStorageCell.class);
+        var check = ECOBulkStorageCellItem.class.getDeclaredMethod("hasTooManyTypes", ItemStack.class, int.class);
+        check.setAccessible(true);
+        try (var factory = mockStatic(ECOStorageCellItem.class)) {
+            factory.when(() -> ECOStorageCellItem.getCellInventory(stack)).thenReturn(bulk);
+            when(bulk.getStoredItemTypes()).thenReturn(6L);
+            assertEquals(true, check.invoke(null, stack, 5));
+            when(bulk.getStoredItemTypes()).thenReturn(5L);
+            assertEquals(false, check.invoke(null, stack, 5));
+        }
+    }
 
     @Test
     void expansionUsesCellLimitsAndPreservesInactiveMarkerSlots() {
