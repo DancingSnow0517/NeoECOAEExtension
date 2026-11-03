@@ -8,6 +8,7 @@ import net.minecraft.client.renderer.Rect2i;
 /** Keeps a fixed source layout usable when it is taller than the current GUI viewport. */
 public final class RetainedUIGuiContainer extends ModularUIGuiContainer {
     private float renderScale=1;
+    private cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.utils.ModularUITooltipComponent contentTooltip;
 
     public RetainedUIGuiContainer(com.lowdragmc.lowdraglib.gui.modular.ModularUI ui,int windowId){
         super(ui,windowId);
@@ -45,11 +46,24 @@ public final class RetainedUIGuiContainer extends ModularUIGuiContainer {
     public double toScreen(double coordinate){return coordinate*renderScale;}
 
     @Override public void render(GuiGraphics graphics,int mouseX,int mouseY,float partialTicks){
+        contentTooltip=null;
         graphics.pose().pushPose();
         try{
             graphics.pose().scale(renderScale,renderScale,1);
             super.render(graphics,(int)Math.round(toLogical(mouseX)),(int)Math.round(toLogical(mouseY)),partialTicks);
         }finally{graphics.flush();graphics.pose().popPose();}
+        // Draw after the host scale is restored so tooltip placement uses actual screen bounds.
+        if(contentTooltip!=null&&draggingElement==null){
+            graphics.renderComponentTooltipFromElements(font,List.of(com.mojang.datafixers.util.Either.right(contentTooltip)),
+                mouseX,mouseY,net.minecraft.world.item.ItemStack.EMPTY);
+        }
+    }
+
+    @Override public void setHoverTooltip(List<net.minecraft.network.chat.Component> lines,
+            net.minecraft.world.item.ItemStack stack,net.minecraft.client.gui.Font tooltipFont,
+            net.minecraft.world.inventory.tooltip.TooltipComponent component){
+        contentTooltip=component instanceof cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.utils.ModularUITooltipComponent content?content:null;
+        super.setHoverTooltip(contentTooltip==null?lines:List.of(),stack,tooltipFont,component);
     }
 
     @Override public boolean mouseClicked(double x,double y,int button){return super.mouseClicked(toLogical(x),toLogical(y),button);}

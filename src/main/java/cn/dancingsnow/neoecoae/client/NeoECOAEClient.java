@@ -58,6 +58,12 @@ public class NeoECOAEClient {
                 cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.style.StylesheetManager.INSTANCE.setResourceOpener(manager::open);
             }));
         modBus.addListener(NeoECOAEClient::onRegisterItemColors);
+        modBus.addListener(NeoECOAEClient::onRegisterTooltipComponents);
+    }
+
+    public static void onRegisterTooltipComponents(net.minecraftforge.client.event.RegisterClientTooltipComponentFactoriesEvent event) {
+        event.register(cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.utils.ModularUITooltipComponent.class,
+            cn.dancingsnow.neoecoae.client.gui.ClientModularUITooltipComponent::new);
     }
 
     public static void onClientSetup(FMLClientSetupEvent event) {
