@@ -435,6 +435,11 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             : temperature > target ? "gui.neoecoae.smart_cooling.cooling" : "gui.neoecoae.smart_cooling.holding");
     }
 
+    /** True while smart cooling is blocked by a supply problem or overheating; read-only for UI state. */
+    public boolean hasSmartCoolingProblem() {
+        return coolingProblemId > 0 || overheated;
+    }
+
     private double smartCoolingOperatingPower() {
         return hasSmartCoolingModule()
             && (!smartCoolingPowerPaid || smartCoolingPowerPaidTick != level.getGameTime())

@@ -81,6 +81,11 @@ class WorkstationUIInteractionTest {
         }
     }
 
+    private static final List<String> SMART_COOLING_TEXTS = List.of(
+        "title", "subtitle", "target-label", "target-range", "target-value", "target-min", "target-max",
+        "status-label", "status", "status-hint", "buffer-label", "buffer-amount", "buffer-target",
+        "energy-label", "energy-value", "coolant-use-label", "coolant-use-value", "help", "help-warning");
+
     @Test
     @SuppressWarnings("unchecked")
     void smartCoolingTextAndControlsStayInSeparateRegionsAfterStatusUpdatesAndResize() {
@@ -90,21 +95,21 @@ class WorkstationUIInteractionTest {
             UIElement root = SmartCoolingModuleUI.createRoot(smartCoolingHost());
             ModularUI ui = new ModularUI(UI.of(root));
             BindableValue<Component> status = (BindableValue<Component>) root.selectId("status-sync").findFirst().orElseThrow();
+            BindableValue<Component> hint = (BindableValue<Component>) root.selectId("status-hint-sync").findFirst().orElseThrow();
             for (int[] size : List.of(new int[] {320, 240}, new int[] {640, 360}, new int[] {800, 480})) {
                 for (Component state : List.of(
                     Component.translatable("gui.neoecoae.smart_cooling.unformed"),
-                    Component.translatable("gui.neoecoae.smart_cooling.coolant_mode"),
-                    Component.translatable("gui.neoecoae.smart_cooling.status", "80.00",
-                        Component.translatable("gui.neoecoae.smart_cooling.holding")),
-                    Component.translatable("gui.neoecoae.smart_cooling.status", "99.99",
-                        Component.translatable("gui.neoecoae.smart_cooling.running")))) {
+                    Component.translatable("gui.neoecoae.smart_cooling.disabled"),
+                    Component.translatable("gui.neoecoae.smart_cooling.holding"),
+                    Component.translatable("gui.neoecoae.smart_cooling.heating"))) {
                     status.setValue(state);
+                    hint.setValue(Component.translatable("gui.neoecoae.smart_cooling.current", "99.99"));
                     ui.init(size[0], size[1]);
                     assertTrue(root.getPositionX() >= 0 && root.getPositionY() >= 0);
                     assertTrue(root.getPositionX() + root.getSizeWidth() <= size[0]);
                     assertTrue(root.getPositionY() + root.getSizeHeight() <= size[1]);
                     assertEquals(state, ((TextElement) root.selectId("status").findFirst().orElseThrow()).getText());
-                    for (String id : List.of("title", "target-label", "status", "buffer-label", "buffer-amount", "help")) {
+                    for (String id : SMART_COOLING_TEXTS) {
                         TextElement text = (TextElement) root.selectId(id).findFirst().orElseThrow();
                         assertEquals(TextWrap.WRAP, text.getTextStyle().textWrap());
                         assertFalse(text.getTextStyle().textShadow());
@@ -113,17 +118,33 @@ class WorkstationUIInteractionTest {
                         assertTrue(text.getSizeHeight() > 0);
                         assertInside(text, text.getParent());
                     }
-                    List<UIElement> regions = List.of("title", "settings", "status-card", "buffer", "help")
-                        .stream().map(id -> root.selectId(id).findFirst().orElseThrow()).toList();
-                    for (int index = 0; index < regions.size(); index++) {
-                        assertInside(regions.get(index), root);
-                        if (index > 0) assertTrue(regions.get(index - 1).getPositionY()
-                            + regions.get(index - 1).getSizeHeight() <= regions.get(index).getPositionY());
+                    // Rows stack vertically; the two cards of each row sit side by side.
+                    List<List<String>> rows = List.of(List.of("badge"), List.of("settings"),
+                        List.of("status-card", "buffer"), List.of("energy", "coolant-use"), List.of("notes"));
+                    for (int row = 0; row < rows.size(); row++) {
+                        List<UIElement> cards = rows.get(row).stream()
+                            .map(id -> root.selectId(id).findFirst().orElseThrow()).toList();
+                        cards.forEach(card -> assertInside(card, root));
+                        if (cards.size() == 2) assertTrue(cards.get(0).getPositionX() + cards.get(0).getSizeWidth()
+                            <= cards.get(1).getPositionX());
+                        if (row == 0) continue;
+                        for (String above : rows.get(row - 1)) {
+                            UIElement previous = root.selectId(above).findFirst().orElseThrow();
+                            for (UIElement card : cards) {
+                                assertTrue(previous.getPositionY() + previous.getSizeHeight() <= card.getPositionY(), above);
+                            }
+                        }
                     }
                     UIElement label = root.selectId("target-label").findFirst().orElseThrow();
+                    UIElement value = root.selectId("target-value").findFirst().orElseThrow();
+                    UIElement decrease = root.selectId("target-decrease").findFirst().orElseThrow();
                     UIElement field = root.selectId("target").findFirst().orElseThrow();
-                    assertTrue(label.getPositionX() + label.getSizeWidth() <= field.getPositionX());
-                    assertInside(field, field.getParent());
+                    UIElement increase = root.selectId("target-increase").findFirst().orElseThrow();
+                    assertTrue(label.getPositionX() + label.getSizeWidth() <= decrease.getPositionX());
+                    assertTrue(value.getPositionX() + value.getSizeWidth() <= decrease.getPositionX());
+                    assertTrue(decrease.getPositionX() + decrease.getSizeWidth() <= field.getPositionX());
+                    assertTrue(field.getPositionX() + field.getSizeWidth() <= increase.getPositionX());
+                    for (UIElement control : List.of(decrease, field, increase)) assertInside(control, control.getParent());
                 }
             }
         }
@@ -143,6 +164,7 @@ class WorkstationUIInteractionTest {
             }
             field.setText("");
             assertEquals(75, host.getTargetTemperature());
+            assertEquals("75%", ((TextElement) root.selectId("target-value").findFirst().orElseThrow()).getText().getString());
             FluidSlot coolant = (FluidSlot) root.selectId("coolant").findFirst().orElseThrow();
             assertFalse(coolant.isAllowClickFilled());
             assertTrue(coolant.isAllowClickDrained());
@@ -150,9 +172,14 @@ class WorkstationUIInteractionTest {
             for (int quantity : List.of(2_000, 1_024_000, 0)) {
                 coolant.setValue(quantity == 0 ? FluidStack.EMPTY : new FluidStack(Fluids.WATER, quantity), false);
                 var contents = assertInstanceOf(TranslatableContents.class, amount.getText().getContents());
-                assertEquals("gui.neoecoae.fluid_input_hatch.stored", contents.getKey());
+                assertEquals("gui.neoecoae.smart_cooling.buffer_amount", contents.getKey());
                 assertArrayEquals(new Object[] {String.format(java.util.Locale.ROOT, "%,d", quantity)}, contents.getArgs());
             }
+            assertEquals(SmartCoolingModuleUI.Phase.OFFLINE, SmartCoolingModuleUI.phase(host));
+            assertEquals("gui.neoecoae.smart_cooling.unformed",
+                ((TranslatableContents) SmartCoolingModuleUI.status(host).getContents()).getKey());
+            assertEquals("gui.neoecoae.smart_cooling.unformed_hint",
+                ((TranslatableContents) SmartCoolingModuleUI.statusHint(host).getContents()).getKey());
         }
     }
 
@@ -168,17 +195,22 @@ class WorkstationUIInteractionTest {
                 try (var stream = getClass().getClassLoader().getResourceAsStream("assets/neoecoae/lang/" + locale + ".json")) {
                     assertNotNull(stream);
                     var translations = JsonParser.parseString(new String(stream.readAllBytes(), StandardCharsets.UTF_8)).getAsJsonObject();
-                    for (String id : List.of("title", "target-label", "buffer-label", "help")) {
+                    for (String id : SMART_COOLING_TEXTS) {
                         TextElement text = (TextElement) root.selectId(id).findFirst().orElseThrow();
-                        String key = ((TranslatableContents) text.getText().getContents()).getKey();
-                        assertTextFits(splitter, text, translations.get(key).getAsString(), locale);
+                        if (!(text.getText().getContents() instanceof TranslatableContents contents)) continue;
+                        String translated = String.format(java.util.Locale.ROOT,
+                            translations.get(contents.getKey()).getAsString(), "1,024,000");
+                        assertTextFits(splitter, text, translated, locale);
                     }
                     TextElement status = (TextElement) root.selectId("status").findFirst().orElseThrow();
-                    for (String key : List.of("unformed", "coolant_mode", "status")) {
-                        String translated = translations.get("gui.neoecoae.smart_cooling." + key).getAsString();
-                        if (key.equals("status")) translated = String.format(java.util.Locale.ROOT, translated,
-                            "99.99", translations.get("gui.neoecoae.smart_cooling.running").getAsString());
-                        assertTextFits(splitter, status, translated, locale);
+                    for (String key : List.of("unformed", "disabled", "heating", "cooling", "holding")) {
+                        assertTextFits(splitter, status, translations.get("gui.neoecoae.smart_cooling." + key).getAsString(), locale);
+                    }
+                    TextElement hint = (TextElement) root.selectId("status-hint").findFirst().orElseThrow();
+                    for (String key : List.of("unformed_hint", "coolant_mode", "current")) {
+                        String translated = String.format(java.util.Locale.ROOT,
+                            translations.get("gui.neoecoae.smart_cooling." + key).getAsString(), "99.99");
+                        assertTextFits(splitter, hint, translated, locale);
                     }
                 }
             }
@@ -186,10 +218,12 @@ class WorkstationUIInteractionTest {
     }
 
     private static void assertTextFits(StringSplitter splitter, TextElement text, String translated, String locale) {
-        int lines = splitter.splitLines(translated, Math.round(text.getContentWidth()), Style.EMPTY).size();
         var style = text.getTextStyle();
+        // LDLib wraps at the unscaled width: content width divided by fontSize / 9.
+        int wrapWidth = Math.round(text.getContentWidth() * 9 / style.fontSize());
+        int lines = splitter.splitLines(translated, wrapWidth, Style.EMPTY).size();
         float renderedHeight = lines * style.fontSize() + Math.max(0, lines - 1) * style.lineSpacing();
-        assertTrue(renderedHeight <= text.getContentHeight(), locale + ": " + translated);
+        assertTrue(renderedHeight <= text.getContentHeight(), locale + " " + text.getId() + ": " + translated);
     }
 
     private static ECOLargeIntegratedWorkingStationInputHatchBlockEntity smartCoolingHost() {
