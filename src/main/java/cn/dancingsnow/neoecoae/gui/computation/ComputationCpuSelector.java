@@ -5,9 +5,7 @@ import cn.dancingsnow.neoecoae.platform.JdkCompat;
 import appeng.api.client.AEKeyRendering;
 import appeng.api.config.CpuSelectionMode;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
-import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
-import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation;
@@ -21,9 +19,7 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.function.IntConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -126,7 +122,7 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
         });
         hitbox.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
             ComputationCpuEntry entry = rowEntry(row);
-            if (entry != null) event.hoverTooltips = HoverTooltips.empty().append(tooltip(entry).toArray(Component[]::new));
+            if (entry != null) event.hoverTooltips = new HoverTooltips(List.of(), ComputationCards.cpu(entry), null, null);
         });
         return hitbox;
     }
@@ -233,23 +229,6 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
 
     static Component status(ComputationCpuEntry entry) {
         return Component.translatable("gui.neoecoae.cpu.status." + entry.status());
-    }
-
-    static List<Component> tooltip(ComputationCpuEntry entry) {
-        List<Component> lines = new ArrayList<>();
-        lines.add(name(entry));
-        lines.add(status(entry));
-        lines.add(ButtonToolTips.CpuStatusStorage.text(Component.literal(entry.fullStorageText()).withStyle(Tooltips.NUMBER_TEXT)));
-        lines.add(ButtonToolTips.CpuStatusCoProcessors.text(Tooltips.ofNumber(entry.parallel())));
-        if (entry.mode() != CpuSelectionMode.ANY) lines.add(entry.mode() == CpuSelectionMode.PLAYER_ONLY
-            ? ButtonToolTips.CpuSelectionModePlayersOnly.text() : ButtonToolTips.CpuSelectionModeAutomationOnly.text());
-        if (entry.output() != null) {
-            lines.add(entry.output().getDisplayName());
-            lines.add(Component.translatable("gui.neoecoae.cpu.remaining", entry.amount(entry.remaining(), true)));
-            lines.add(Component.translatable("gui.neoecoae.big_order.requested", entry.amount(entry.requested(), true)));
-            lines.add(ButtonToolTips.CpuStatusCraftedIn.text(Tooltips.ofPercent(entry.progress()), Tooltips.ofDuration(entry.elapsed(), TimeUnit.NANOSECONDS)));
-        }
-        return lines;
     }
 
     private static IGuiTexture sprite(int x, int y, int width, int height) {

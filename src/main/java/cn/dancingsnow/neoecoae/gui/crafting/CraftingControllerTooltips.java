@@ -118,12 +118,25 @@ final class CraftingControllerTooltips {
                 HostText.totalPart(HostText.expandedNumber(view.outputCapacity) + " mB")));
     }
 
-    List<Component> fxTooltip() {
-        return List.of(Component.translatable("gui.neoecoae.crafting.ui.fx_active", view.activeWorkerCores, view.workerCores),
-            Component.empty(),
-            Component.translatable("gui.neoecoae.crafting.ui.ft_parallel", view.ftParallelCapacity),
-            Component.empty(),
-            Component.translatable("gui.neoecoae.crafting.ui.batch_capacity", formatCapacity(view.batchCapacity)));
+    ModularUITooltipComponent fxTooltip() {
+        int total = Math.max(0, view.workerCores);
+        int active = Math.max(0, view.activeWorkerCores);
+        String batch = view.batchCapacity == Long.MAX_VALUE ? "∞"
+            : CraftingTooltipCard.group(Math.max(0L, view.batchCapacity));
+        return CraftingListCard.builder()
+            .header(null, Component.translatable("gui.neoecoae.crafting.ui.fx_card.title"),
+                Component.translatable("gui.neoecoae.crafting.ui.fx_card.overview"), CraftingTooltipCard.MUTED)
+            .divider()
+            .largeRow(CraftingListCard.Glyph.STACK, Component.translatable("gui.neoecoae.crafting.ui.fx_card.fx_active"),
+                CraftingTooltipCard.group(active), "/ " + CraftingTooltipCard.group(total), CraftingTooltipCard.PRIMARY)
+            .bar(total <= 0 ? 0.0D : active / (double) total, CraftingTooltipCard.ACCENT)
+            .largeRow(CraftingListCard.Glyph.BOLT, Component.translatable("gui.neoecoae.crafting.ui.fx_card.ft_parallel"),
+                CraftingTooltipCard.group(Math.max(0L, view.ftParallelCapacity)), null, CraftingTooltipCard.ACCENT)
+            .divider()
+            .row(null, CraftingTooltipCard.MUTED, Component.translatable("gui.neoecoae.crafting.ui.fx_card.batch_capacity")
+                .withStyle(style -> style.withColor(CraftingTooltipCard.MUTED)), Component.literal(batch),
+                CraftingTooltipCard.PRIMARY)
+            .build();
     }
 
     List<Component> coolantRowTooltip() {
