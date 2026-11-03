@@ -11,7 +11,9 @@ import cn.dancingsnow.neoecoae.integration.megacells.item.ECOMegaItemStorageCell
 import cn.dancingsnow.neoecoae.items.ECOBulkStorageCellItem;
 import cn.dancingsnow.neoecoae.integration.megacells.item.MegaCellHousingItem;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import com.tterrag.registrate.providers.ProviderType;
 import com.tterrag.registrate.util.entry.ItemEntry;
+import com.tterrag.registrate.util.nullness.NonNullBiConsumer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.ItemStack;
@@ -66,11 +68,12 @@ public final class NEMegaItems {
 
     static ItemEntry<Item> housing(String family, String displayFamily) {
         String housingFamily = displayFamily.startsWith("Mega ") ? displayFamily.substring("Mega ".length()) : displayFamily;
-        return REGISTRATE.<Item>item(family + "_cell_housing",
+        var builder = REGISTRATE.<Item>item(family + "_cell_housing",
                 MegaCellHousingItem::new)
             .lang("ECO MEGA Storage Matrix Housing (" + housingFamily + ")")
-            .model((ctx, prov) -> {})
-            .register();
+            .model((ctx, prov) -> {});
+        if (hasCentralizedLang(family)) builder.setData(ProviderType.LANG, NonNullBiConsumer.noop());
+        return builder.register();
     }
 
     private static ItemEntry<ECOMegaItemStorageCellItem> itemCell(String size, long capacity, Rarity rarity) {
@@ -95,11 +98,17 @@ public final class NEMegaItems {
         String family, String displayFamily, String size, ECOTier tier, long capacity, Rarity rarity,
         CellFactory<T> factory, Supplier<ECOCellType> type
     ) {
-        return REGISTRATE.item("eco_" + family + "_cell_" + size,
+        var builder = REGISTRATE.item("eco_" + family + "_cell_" + size,
                 p -> factory.create(p.stacksTo(1).rarity(rarity), tier, type, capacity))
             .lang(cellName(displayFamily, tier))
-            .model((ctx, prov) -> {})
-            .register();
+            .model((ctx, prov) -> {});
+        if (hasCentralizedLang(family)) builder.setData(ProviderType.LANG, NonNullBiConsumer.noop());
+        return builder.register();
+    }
+
+    /** These names remain available through NELangGenerator even without their optional integrations. */
+    private static boolean hasCentralizedLang(String family) {
+        return family.equals("mega_mana") || family.equals("mega_matter");
     }
 
     private static String cellName(String family, ECOTier tier) {

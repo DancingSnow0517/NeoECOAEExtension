@@ -66,7 +66,11 @@ final class NEMegaExternalCellTypes {
     }
 
     private static final class Mana {
-        private static final NECellTypeEntry TYPE = register("mega_mana", "MEGA Mana", 0x50c878);
+        // NELangGenerator also supplies this name when the optional Mana integration is absent.
+        private static final NECellTypeEntry TYPE = REGISTRATE.cellType("mega_mana")
+            .desc(Component.translatable("cell_type.neoecoae.mega_mana").withColor(0x50c878))
+            .typeCount(1)
+            .register();
     }
 
     private static final class Source {

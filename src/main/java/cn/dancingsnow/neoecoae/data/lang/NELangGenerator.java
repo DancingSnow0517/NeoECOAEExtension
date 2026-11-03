@@ -52,6 +52,7 @@ public class NELangGenerator {
         provider.add("tooltip.neoecoae.bulk.compression_enabled", "Enabled");
         provider.add("tooltip.neoecoae.bulk.compression_requires_marker", "Mark resources to enable");
         provider.add("tooltip.neoecoae.bulk.used_types", "Resource types used: %s / %s");
+        provider.add("tooltip.neoecoae.bulk.bytes", "Bytes used: %s / %s");
         provider.add("tooltip.neoecoae.bulk.capacity", "Unlimited quantity; %s / %s marked resource types");
         provider.add("tooltip.neoecoae.bulk.configure", "25 resource types; an ECO Bulk Expansion Card expands this to 50");
         provider.add("tooltip.neoecoae.bulk.legacy_configure", "Legacy single-resource bulk matrix; all forms of one compression chain share its marker");
