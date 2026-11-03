@@ -124,7 +124,7 @@ class ComputationProcessingTooltipsTest {
         assertEquals("broken [1,2", ComputationProcessingTooltips.location("broken [1,2").getString());
     }
 
-    @Test void cardRowsComeOnlyFromActivelyCraftingItems() {
+    @Test void pendingItemsShowAdmissionFailuresWithoutBorrowingARunningCycle() {
         var progress = ECOProcessingProgress.summarize(List.of(machine(41, 200, State.RUNNING, Component.empty())));
         var active = new ComputationCpuItemEntry(null, java.math.BigInteger.ZERO, java.math.BigInteger.ONE,
             java.math.BigInteger.TEN, false, progress);
@@ -133,6 +133,15 @@ class ComputationProcessingTooltipsTest {
         var queued = new ComputationCpuItemEntry(null, java.math.BigInteger.ZERO, java.math.BigInteger.ZERO,
             java.math.BigInteger.TEN, false, progress);
         assertTrue(ComputationProcessingTooltips.rows(queued).isEmpty());
+        var blocked = queued.withProcessing(ECOProcessingProgress.summarize(List.of(
+            machine(0, 0, State.WAITING, Component.translatable(
+                "gui.neoecoae.large_integrated_working_station.pause.overheated")))));
+        var rows = ComputationProcessingTooltips.rows(blocked);
+        assertTrue(rows.toString().contains("pause.overheated"));
+        assertTrue(rows.stream().noneMatch(row -> row.kind() == Kind.PROGRESS));
+        assertTrue(ComputationProcessingTooltips.rows(new ComputationCpuItemEntry(null,
+            java.math.BigInteger.ONE, java.math.BigInteger.ZERO, java.math.BigInteger.ZERO, false,
+            blocked.processing())).isEmpty(), "Stored stock has no pending admission");
     }
 
     private static Machine machine(int done, int duration, State state, Component reason) {

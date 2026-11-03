@@ -1,6 +1,10 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
 import appeng.api.stacks.AEKey;
+import appeng.api.crafting.IPatternDetails;
+import appeng.api.networking.crafting.ICraftingProvider;
+import cn.dancingsnow.neoecoae.blocks.entity.LargeWorkstationPatternProvider;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
 import cn.dancingsnow.neoecoae.api.me.attachment.ECOCraftingJobAttachment;
 import cn.dancingsnow.neoecoae.api.me.attachment.ECOCraftingJobAttachmentRegistry;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingTargetProvider.Target;
@@ -59,6 +63,23 @@ public final class ECOProcessingMonitor implements ECOCraftingJobAttachment {
             for (var output : event.pattern().getOutputs()) {
                 if (output.amount() <= 0) continue;
                 for (Target target : destinations) observe(output.what(), target);
+            }
+        } catch (RuntimeException | LinkageError incompatible) {
+            report(incompatible);
+        }
+    }
+
+    /** A native workstation has a fixed destination even when its safety latch prevents the first push. */
+    void considered(UUID id, IPatternDetails pattern, ICraftingProvider provider) {
+        if (!(provider instanceof LargeWorkstationPatternProvider workstation)) return;
+        try {
+            if (!(workstation.getWorkstationInterface().getCluster() instanceof NEIntegratedWorkingStationCluster cluster)) return;
+            var controller = cluster.getController();
+            if (controller == null || controller.getLevel() == null) return;
+            bind(id);
+            var target = new Target(controller.getLevel().dimension().location(), controller.getBlockPos());
+            for (var output : pattern.getOutputs()) {
+                if (output.amount() > 0) observe(output.what(), target);
             }
         } catch (RuntimeException | LinkageError incompatible) {
             report(incompatible);

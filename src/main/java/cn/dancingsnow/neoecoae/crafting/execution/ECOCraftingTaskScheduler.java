@@ -253,7 +253,10 @@ final class ECOCraftingTaskScheduler {
                             stallDiagnostics.providerConsidered(eligible);
                             return eligible;
                         },
-                        (providerCandidate, busy) -> stallDiagnostics.provider(pattern, providerCandidate, busy),
+                        (providerCandidate, busy) -> {
+                            providerDispatcher.observeProcessingTarget(current, pattern, providerCandidate);
+                            stallDiagnostics.provider(pattern, providerCandidate, busy);
+                        },
                         (providerCandidate, busy) -> ECOCraftingDispatchPolicyRegistry.isProviderAvailable(
                                 cpuContext, providerCandidate, busy));
                 if (providers.isEmpty()) {
