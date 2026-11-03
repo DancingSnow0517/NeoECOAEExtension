@@ -30,10 +30,14 @@ public final class CraftingTooltipCard extends UIElement {
     private static final int GAP = 12;
     // LDLib2 2.2.x (1.21.1) needs a vanilla text line, so the header is that line and the body starts below it.
     private static final int VALUE_Y = 2;
-    private static final int BAR_Y = 23;
-    private static final int ROWS_Y = 31;
+    private static final int BAR_Y = 18;
+    private static final int ROWS_Y = 26;
     private static final int ROW_STEP = 10;
     private static final int DIVIDER_STEP = 8;
+    /** Whole-card text and graphics scale inside the vanilla tooltip frame. */
+    public static final float CONTENT_SCALE = 0.75F;
+    /** Headline numbers, relative to the card content. */
+    public static final float LARGE_SCALE = 1.5F;
 
     public enum Icon { NONE, CHIP, STACK }
 
@@ -67,7 +71,7 @@ public final class CraftingTooltipCard extends UIElement {
         segments = List.copyOf(builder.segments);
         rows = List.copyOf(builder.rows);
         int content = Math.max(0,
-            font.width(value) * 2 + font.width(suffix) + gap(status) + font.width(status));
+            (int) Math.ceil(font.width(value) * LARGE_SCALE) + font.width(suffix) + gap(status) + font.width(status));
         int height = BAR_Y + 3;
         int y = ROWS_Y;
         for (Row row : rows) {
@@ -77,7 +81,7 @@ public final class CraftingTooltipCard extends UIElement {
             y += ROW_STEP;
         }
         width = Math.max(MIN_WIDTH, content);
-        int w = width, h = height;
+        int w = (int) Math.ceil(width * CONTENT_SCALE), h = (int) Math.ceil((height) * CONTENT_SCALE);
         layout(layout -> layout.width(w).height(h).paddingAll(0));
     }
 
@@ -96,20 +100,33 @@ public final class CraftingTooltipCard extends UIElement {
 
     @Override
     public void drawBackgroundAdditional(GUIContext context) {
+        var pose = context.graphics.pose();
+        pose.pushPose();
+        try {
+            pose.translate(Math.round(getPositionX()), Math.round(getPositionY()), 0);
+            pose.scale(CONTENT_SCALE, CONTENT_SCALE, 1.0F);
+            drawContent(context);
+        } finally {
+            pose.popPose();
+        }
+    }
+
+    /** Draws the content with its top-left corner at the origin, before content scaling. */
+    private void drawContent(GUIContext context) {
         var graphics = context.graphics;
-        int x = Math.round(getPositionX()), y = Math.round(getPositionY());
+        int x = 0, y = 0;
 
         var pose = graphics.pose();
         pose.pushPose();
         try {
             pose.translate(x, y + VALUE_Y, 0.0F);
-            pose.scale(2.0F, 2.0F, 1.0F);
+            pose.scale(LARGE_SCALE, LARGE_SCALE, 1.0F);
             graphics.drawString(font, value, 0, 0, valueColor, true);
         } finally {
             pose.popPose();
         }
-        int baseline = y + VALUE_Y + font.lineHeight - 1;
-        graphics.drawString(font, suffix, x + font.width(value) * 2 + 1, baseline, MUTED, true);
+        int baseline = y + VALUE_Y + Math.round(font.lineHeight * LARGE_SCALE) - font.lineHeight - 1;
+        graphics.drawString(font, suffix, x + (int) Math.ceil(font.width(value) * LARGE_SCALE) + 1, baseline, MUTED, true);
         right(context, status, x, baseline, statusColor);
 
         drawBar(context, x, y + BAR_Y);
