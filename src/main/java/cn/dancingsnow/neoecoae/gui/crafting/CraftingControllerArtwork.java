@@ -85,8 +85,8 @@ final class CraftingControllerArtwork extends UIElement {
 
         addChild(tooltipRegion(9, 29, 16, 34,
             () -> hostItem.isEmpty() ? List.of() : DrawerHelper.getItemToolTip(hostItem)));
-        addChild(tooltipRegion(64, 79, 51, 45, tooltips::queueTooltip));
-        addChild(tooltipRegion(117, 79, 51, 45, tooltips::parallelTooltip));
+        addChild(cardTooltipRegion(64, 79, 51, 45, tooltips::queueTooltip));
+        addChild(cardTooltipRegion(117, 79, 51, 45, tooltips::parallelTooltip));
         addChild(tooltipRegion(176, 78, 8, 46, tooltips::energyTooltip));
         addChild(tooltipRegion(195, 78, 20, 46, tooltips::coolantTooltip));
         addChild(tooltipRegion(226, 78, 20, 46, tooltips::outputTooltip));
@@ -107,6 +107,14 @@ final class CraftingControllerArtwork extends UIElement {
             .left(x).top(y).width(width).height(height))
             .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
                 lines.get(), null, null, null));
+    }
+
+    private UIElement cardTooltipRegion(int x, int y, int width, int height,
+            Supplier<cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.utils.ModularUITooltipComponent> content) {
+        return new UIElement().layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
+            .left(x).top(y).width(width).height(height))
+            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
+                List.of(), content.get(), null, null));
     }
 
     private void updateWorkerSlots() {

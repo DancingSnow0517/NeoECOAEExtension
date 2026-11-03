@@ -5,6 +5,8 @@ import cn.dancingsnow.neoecoae.platform.JdkCompat;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.util.List;
+import java.util.Locale;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.utils.ModularUITooltipComponent;
 import net.minecraft.network.chat.Component;
 
 /** Tooltip text and shared display calculations over the synchronized view. */
@@ -31,28 +33,67 @@ final class CraftingControllerTooltips {
             : JdkCompat.clamp(Math.round(view.overflowCapacity * 100.0D / view.ftParallelCapacity), 0L, 100L)) + "%";
     }
 
-    List<Component> queueTooltip() {
-        return List.of(Component.translatable("gui.neoecoae.crafting.ui.queue",
-                HostText.usedPart(Long.toString(view.queuedCraftCount), view.queuedCraftCount, view.batchCapacity),
-                HostText.totalPart(formatCapacity(view.batchCapacity))),
-            HostText.usedOfTotal(HostText.usedPart(Long.toString(view.queuedCraftCount), view.queuedCraftCount,
-                view.batchCapacity), " / ", HostText.totalPart(formatCapacity(view.batchCapacity))),
-            Component.translatable("gui.neoecoae.crafting.ui.queue_percent", percent(view.state.queuePermille())));
+    ModularUITooltipComponent queueTooltip() {
+        long count = Math.max(0L, view.queuedCraftCount);
+        int permille = JdkCompat.clamp(view.state.queuePermille(), 0, CraftingControllerPanelState.FULL);
+        boolean unbounded = view.batchCapacity == Long.MAX_VALUE;
+        boolean full = !unbounded && view.batchCapacity > 0L && count >= view.batchCapacity;
+        String state = full ? "full" : count == 0L ? "idle" : "active";
+        int stateColor = full ? CraftingTooltipCard.WARN : count == 0L ? CraftingTooltipCard.MUTED : CraftingTooltipCard.CYAN;
+        return CraftingTooltipCard.builder(CraftingTooltipCard.Icon.STACK,
+                Component.translatable("gui.neoecoae.crafting.ui.queue_heading"))
+            .headerRight(CraftingTooltipCard.upper(Component.translatable("gui.neoecoae.crafting.ui.queue_card." + state)),
+                stateColor)
+            .value(CraftingTooltipCard.group(count),
+                unbounded ? "∞" : CraftingTooltipCard.group(Math.max(0L, view.batchCapacity)))
+            .segment(permille / (double) CraftingControllerPanelState.FULL, CraftingTooltipCard.CYAN, false)
+            .row(Component.translatable("gui.neoecoae.crafting.ui.queue_card.used").withStyle(style -> style.withColor(CraftingTooltipCard.MUTED)),
+                Component.literal(percent(permille)), full ? CraftingTooltipCard.WARN : CraftingTooltipCard.PRIMARY)
+            .build();
     }
 
-    List<Component> parallelTooltip() {
+    ModularUITooltipComponent parallelTooltip() {
+        var card = CraftingTooltipCard.builder(CraftingTooltipCard.Icon.CHIP,
+            Component.translatable("gui.neoecoae.crafting.ui.parallel_heading"));
+        Component runtime = CraftingTooltipCard.label("gui.neoecoae.crafting.ui.parallel_card.runtime",
+            view.executionTicks + " t", CraftingTooltipCard.PRIMARY);
         if (view.virtualMode) {
-            return List.of(Component.translatable("gui.neoecoae.crafting.ui.virtual_crafting"),
-                Component.translatable("gui.neoecoae.crafting.ui.total_parallel", "∞"),
-                Component.translatable("gui.neoecoae.crafting.ui.parallel_limit", "∞"),
-                Component.translatable("gui.neoecoae.crafting.ui.runtime_ticks", view.executionTicks));
+            return card.value("∞", null)
+                .status(Component.translatable("gui.neoecoae.crafting.ui.virtual_crafting"), CraftingTooltipCard.ACCENT)
+                .segment(1.0D, CraftingTooltipCard.ACCENT, false)
+                .row(runtime, Component.empty(), CraftingTooltipCard.PRIMARY)
+                .build();
         }
-        return List.of(Component.translatable("gui.neoecoae.crafting.ui.total_parallel", view.ftParallelCapacity),
-            Component.translatable("gui.neoecoae.crafting.ui.parallel_limit", parallelLimit()),
-            Component.translatable("gui.neoecoae.crafting.ui.parallel_overflow", view.overflowCapacity, overflowPercent()),
-            Component.translatable("gui.neoecoae.crafting.ui.runtime_ticks", view.executionTicks),
-            Component.translatable("gui.neoecoae.crafting.ui.runtime",
-                view.effectiveOverclockTimes, view.theoreticalOverclockTimes));
+        long total = Math.max(0L, view.ftParallelCapacity);
+        long limit = Math.max(0L, parallelLimit());
+        long overflow = Math.max(0L, view.overflowCapacity);
+        boolean over = overflow > 0L;
+        if (limit > 0L) {
+            String multiple = total % limit == 0L ? CraftingTooltipCard.group(total / limit)
+                : String.format(Locale.ROOT, "%.1f", (double) total / limit);
+            card.headerRight(Component.translatable("gui.neoecoae.crafting.ui.parallel_card.multiple", multiple),
+                CraftingTooltipCard.WARN);
+        }
+        card.value(CraftingTooltipCard.group(total), CraftingTooltipCard.group(limit))
+            .status(Component.translatable(over ? "gui.neoecoae.crafting.ui.parallel_card.overflow"
+                : "gui.neoecoae.crafting.ui.parallel_card.within"), over ? CraftingTooltipCard.WARN : CraftingTooltipCard.OK);
+        if (over && total > 0L) {
+            card.segment((total - overflow) / (double) total, CraftingTooltipCard.ACCENT, true)
+                .segment(1.0D, CraftingTooltipCard.WARN, false);
+        } else {
+            card.segment(limit <= 0L ? (total > 0L ? 1.0D : 0.0D) : total / (double) limit,
+                CraftingTooltipCard.ACCENT, false);
+        }
+        String ratio = total <= 0L ? "0.0%"
+            : String.format(Locale.ROOT, "%.1f%%", JdkCompat.clamp(overflow * 100.0D / total, 0.0D, 100.0D));
+        return card
+            .row(CraftingTooltipCard.label("gui.neoecoae.crafting.ui.parallel_card.excess",
+                    "+" + CraftingTooltipCard.group(overflow), over ? CraftingTooltipCard.WARN : CraftingTooltipCard.PRIMARY),
+                Component.literal(ratio), over ? CraftingTooltipCard.WARN : CraftingTooltipCard.PRIMARY)
+            .dividedRow(runtime, CraftingTooltipCard.label("gui.neoecoae.crafting.ui.parallel_card.overclock",
+                    view.effectiveOverclockTimes + " / " + view.theoreticalOverclockTimes, CraftingTooltipCard.PRIMARY),
+                CraftingTooltipCard.PRIMARY)
+            .build();
     }
 
     List<Component> energyTooltip() {
