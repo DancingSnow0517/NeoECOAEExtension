@@ -14,9 +14,9 @@ import net.minecraft.network.chat.contents.TranslatableContents;
 final class ComputationProcessingTooltips {
     private ComputationProcessingTooltips() {}
 
-    /** Machine rows for an item that is actively crafting; empty when nothing is reported. */
+    /** Include admission failures for pending items, even before their first successful dispatch. */
     static List<Row> rows(ComputationCpuItemEntry item) {
-        return item.active().signum() > 0 ? rows(item.processing()) : List.of();
+        return item.active().signum() > 0 || item.waitingForMachine() ? rows(item.processing()) : List.of();
     }
 
     static List<Row> rows(ECOProcessingProgress progress) {

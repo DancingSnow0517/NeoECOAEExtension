@@ -26,7 +26,16 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class ComputationItemActionsTest {
-    @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
+    @BeforeAll static void bootstrap() throws Exception {
+        InventoryTestBootstrap.initialize();
+        try (var mods = mockStatic(net.neoforged.fml.ModList.class)) {
+            var modList = mock(net.neoforged.fml.ModList.class);
+            when(modList.getAllScanData()).thenReturn(List.of());
+            mods.when(net.neoforged.fml.ModList::get).thenReturn(modList);
+            Class.forName(cn.dancingsnow.neoecoae.NeoECOAE.class.getName());
+            com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries.init();
+        }
+    }
 
     private Object previousMissingContentItem;
     @org.junit.jupiter.api.BeforeEach void bindFallbackItem() throws Exception {
@@ -86,6 +95,39 @@ class ComputationItemActionsTest {
             assertEquals("gui.neoecoae.processing.task_changed", fixture.send(1, request).getString("error"));
             providers.verifyNoInteractions();
         }
+    }
+
+    @Test void pendingOverheatedTasksAppearInTheSidebarAndDisappearWhenAdmissionRecovers() throws Exception {
+        var fixture = new Fixture();
+        var key = AEItemKey.of(Items.STONE);
+        var waiting = cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.summarize(List.of(
+            new cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.Machine(
+                net.minecraft.network.chat.Component.literal("Workstation"), "minecraft:overworld [62, -60, -97]",
+                "", 0, 0, 0,
+                cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.State.WAITING,
+                net.minecraft.network.chat.Component.translatable(
+                    "gui.neoecoae.large_integrated_working_station.pause.overheated"))));
+        when(fixture.logic.getProcessingProgress(key)).thenReturn(waiting);
+        var pending = new ComputationCpuItemEntry(key, java.math.BigInteger.ZERO, java.math.BigInteger.ZERO,
+            java.math.BigInteger.TEN, false);
+        var tasks = fixture.state.getClass().getDeclaredMethod("tasks", appeng.api.networking.crafting.ICraftingCPU.class,
+            List.class, java.util.Map.class);
+        tasks.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        var rows = (List<ComputationCpuItemEntry>) tasks.invoke(fixture.state, fixture.cpu, List.of(pending), new java.util.HashMap<>());
+        assertEquals(1, rows.size());
+        assertTrue(rows.getFirst().waitingForMachine());
+        assertEquals(java.math.BigInteger.ZERO, rows.getFirst().active());
+        assertEquals(java.math.BigInteger.TEN, rows.getFirst().pending());
+        assertFalse(rows.getFirst().processing().hasProgress());
+        assertTrue(ComputationProcessingTooltips.rows(rows.getFirst()).toString().contains("pause.overheated"));
+
+        when(fixture.logic.getProcessingProgress(key)).thenReturn(
+            cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.EMPTY);
+        assertTrue(((List<?>) tasks.invoke(fixture.state, fixture.cpu, List.of(pending), new java.util.HashMap<>())).isEmpty());
+        var active = new ComputationCpuItemEntry(key, java.math.BigInteger.ZERO, java.math.BigInteger.ONE,
+            java.math.BigInteger.TEN, false);
+        assertEquals(1, ((List<?>) tasks.invoke(fixture.state, fixture.cpu, List.of(active), new java.util.HashMap<>())).size());
     }
 
     private static final class Fixture {
