@@ -29,6 +29,10 @@
     {
       "count": 8,
       "item": "neoecoae:superconducting_processor"
+    },
+    {
+      "count": 8,
+      "item": "neoecoae:crystal_matrix"
     }
   ],
   "itemOutput": {

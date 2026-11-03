@@ -62,7 +62,8 @@ public class NEIntegratedWorkingStationControllerCalculator
         BlockPos functionalCenter = lowerCenter.relative(back);
         if (!is(level, functionalCenter, NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE)
             || !is(level, functionalCenter.relative(left), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH)
-            || !is(level, functionalCenter.relative(right), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH)) {
+            || !(is(level, functionalCenter.relative(right), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH)
+                || is(level, functionalCenter.relative(right), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_SMART_COOLING_MODULE))) {
             return false;
         }
 

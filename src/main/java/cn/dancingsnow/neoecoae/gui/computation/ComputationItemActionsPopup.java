@@ -19,7 +19,10 @@ import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
-/** Contextual actions with separate choices for pattern holders and actual processing machines. */
+/**
+ * One contextual menu (locate, open machine, open provider, in 1.7.10's order, plus step feeding control) and
+ * separate choosers for several machines or providers; locating a provider also highlights it in the world.
+ */
 final class ComputationItemActionsPopup extends UIElement {
     private static final int PAGE_SIZE = 4;
     private enum Mode { MENU, CHOOSE, CHOOSE_MACHINE, MESSAGE }
@@ -68,9 +71,9 @@ final class ComputationItemActionsPopup extends UIElement {
             int row = row(ui.getLastMouseX(), ui.getLastMouseY());
             if (mode == Mode.MENU && row == 3) event.hoverTooltips = HoverTooltips.empty().append(
                 Component.translatable("gui.neoecoae.processing.stop_hint"));
-            if (mode == Mode.MENU && (row == 0 || row == 1) && loaded && sources.isEmpty()) event.hoverTooltips =
+            if (mode == Mode.MENU && (row == 0 || row == 2) && loaded && sources.isEmpty()) event.hoverTooltips =
                 HoverTooltips.empty().append(Component.translatable("gui.neoecoae.processing.no_pattern"));
-            if (mode == Mode.MENU && row == 2 && loaded && machines.isEmpty()) event.hoverTooltips =
+            if (mode == Mode.MENU && row == 1 && loaded && machines.isEmpty()) event.hoverTooltips =
                 HoverTooltips.empty().append(Component.translatable("gui.neoecoae.processing.no_machine"));
         });
     }
@@ -150,10 +153,10 @@ final class ComputationItemActionsPopup extends UIElement {
         if (mode == Mode.MENU) {
             if (!loaded) return;
             if (row == 0 && !sources.isEmpty()) showLocations();
-            else if (row == 1 && sources.size() == 1) send("open", 0);
-            else if (row == 1 && sources.size() > 1) { mode = Mode.CHOOSE; dialog(); }
-            else if (row == 2 && machines.size() == 1) send("open_machine", 0);
-            else if (row == 2 && machines.size() > 1) { mode = Mode.CHOOSE_MACHINE; dialog(); }
+            else if (row == 1 && machines.size() == 1) send("open_machine", 0);
+            else if (row == 1 && machines.size() > 1) { mode = Mode.CHOOSE_MACHINE; dialog(); }
+            else if (row == 2 && sources.size() == 1) send("open", 0);
+            else if (row == 2 && sources.size() > 1) { mode = Mode.CHOOSE; dialog(); }
             else if (row == 3 && canStop) send(stopped ? "resume" : "stop", -1);
         } else if (row >= 100) {
             if (row == 100) turnPage(-1);
@@ -211,8 +214,8 @@ final class ComputationItemActionsPopup extends UIElement {
         divider(context, 18);
         if (mode == Mode.MENU) {
             row(context, 0, 22, "gui.neoecoae.processing.action.locate", loaded && !sources.isEmpty());
-            row(context, 1, 38, "gui.neoecoae.processing.action.open", loaded && !sources.isEmpty());
-            row(context, 2, 54, "gui.neoecoae.processing.action.open_machine", loaded && !machines.isEmpty());
+            row(context, 1, 38, "gui.neoecoae.processing.action.open_machine", loaded && !machines.isEmpty());
+            row(context, 2, 54, "gui.neoecoae.processing.action.open", loaded && !sources.isEmpty());
             divider(context, 72);
             row(context, 3, 76, stopped ? "gui.neoecoae.processing.action.resume" : "gui.neoecoae.processing.action.stop", loaded && canStop);
         } else {

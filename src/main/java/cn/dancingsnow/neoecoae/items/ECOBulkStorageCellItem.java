@@ -141,10 +141,11 @@ public class ECOBulkStorageCellItem extends ECOStorageCellItem implements IECOBu
         }
     }
 
-    private static boolean hasTooManyMarkers(ItemStack stack, int baseTypeLimit) {
+    private static boolean hasTooManyTypes(ItemStack stack, int baseTypeLimit) {
         List<GenericStack> configured = configuredStacks(stack);
         return configured.stream().filter(java.util.Objects::nonNull).count()
-            > baseTypeLimit;
+            > baseTypeLimit || getCellInventory(stack) instanceof ECOBulkStorageCell bulk
+                && bulk.getStoredItemTypes() > baseTypeLimit;
     }
 
     private static void compactMarkers(ItemStack stack) {
@@ -221,7 +222,7 @@ public class ECOBulkStorageCellItem extends ECOStorageCellItem implements IECOBu
             ItemStack installed = delegate.getStackInSlot(slot);
             return !installed.isEmpty()
                 && isExpansionCard(installed)
-                && hasTooManyMarkers(cellStack, baseTypeLimit);
+                && hasTooManyTypes(cellStack, baseTypeLimit);
         }
 
         @Override

@@ -968,8 +968,8 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         NECraftingNetworkCluster network = formed && cluster != null ? cluster.getNetworkCluster() : null;
         if (network != null) {
             // Jobs run on any member, so the cells list the group's busy workers, not just this host's.
-            List<CraftingOutputDisplay> pooled = mergeOutputs(network.collectCandidateWorkers().stream()
-                .map(ECOCraftingWorkerBlockEntity::getCraftingDisplayOutput).toList());
+            List<CraftingOutputDisplay> pooled = packOutputs(network.collectCandidateWorkers().stream()
+                .map(ECOCraftingWorkerBlockEntity::getCraftingDisplayOutput).toList(), outputs.size());
             for (int slot = 0; slot < Math.min(pooled.size(), outputs.size()); slot++) {
                 outputs.set(CraftingControllerPanelState.cellOf(slot, mirrored), pooled.get(slot));
             }
@@ -982,20 +982,27 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         return outputs;
     }
 
-    /** Idle workers drop out and workers on the same item merge, so a pooled group fits the panel's cells. */
-    static List<CraftingOutputDisplay> mergeOutputs(List<CraftingOutputDisplay> perWorker) {
-        List<CraftingOutputDisplay> merged = new ArrayList<>();
+    /**
+     * Idle workers drop out and each busy worker keeps its own cell, so the panel shows per-worker batch amounts.
+     * Only workers beyond the available cells fold into a cell already showing the same item.
+     */
+    static List<CraftingOutputDisplay> packOutputs(List<CraftingOutputDisplay> perWorker, int cells) {
+        List<CraftingOutputDisplay> packed = new ArrayList<>();
         for (CraftingOutputDisplay output : perWorker) {
             if (output.item().isEmpty()) continue;
-            int index = 0;
-            while (index < merged.size() && !ItemStack.isSameItemSameTags(merged.get(index).item(), output.item())) index++;
-            if (index == merged.size()) {
-                merged.add(output);
-            } else {
-                merged.set(index, new CraftingOutputDisplay(output.item(), merged.get(index).amount().add(output.amount())));
+            if (packed.size() < cells) {
+                packed.add(output);
+                continue;
+            }
+            for (int index = 0; index < packed.size(); index++) {
+                CraftingOutputDisplay shown = packed.get(index);
+                if (ItemStack.isSameItemSameTags(shown.item(), output.item())) {
+                    packed.set(index, new CraftingOutputDisplay(shown.item(), shown.amount().add(output.amount())));
+                    break;
+                }
             }
         }
-        return merged;
+        return packed;
     }
 
     public long getDisplayedQueuedCraftCount() {

@@ -18,7 +18,9 @@ public final class BlockUIMenuType {
     public interface BlockUI {
         ModularUI createUI(BlockUIHolder holder);
         default boolean stillValid(BlockUIHolder holder){return holder.player.level().hasChunkAt(holder.pos)
-            &&holder.player.distanceToSqr(holder.pos.getX()+0.5,holder.pos.getY()+0.5,holder.pos.getZ()+0.5)<=64;}
+            &&(holder.player.distanceToSqr(holder.pos.getX()+0.5,holder.pos.getY()+0.5,holder.pos.getZ()+0.5)<=64
+                // Opened from the crafting status page; the exemption ends with the menu it produced.
+                ||cn.dancingsnow.neoecoae.crafting.display.processing.ECORemoteMachineReach.allows(holder.player,holder.pos));}
     }
     public static final class BlockUIHolder implements IUIHolder {
         public final Player player;

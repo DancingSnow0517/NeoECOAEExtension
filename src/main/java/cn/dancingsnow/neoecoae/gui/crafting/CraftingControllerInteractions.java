@@ -123,8 +123,11 @@ final class CraftingControllerInteractions {
         information.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
             Component value = syncedStatus.getValue();
             event.hoverTooltips = VirtualModeStatusCard.applies(value)
-                ? new HoverTooltips(List.of(), VirtualModeStatusCard.create(value), null, null)
-                : new HoverTooltips(maintenanceTooltipLines(value), null, null, null);
+                ? CraftingListCard.hover(VirtualModeStatusCard.create(value))
+                : ComputationEndgameCard.applies(value)
+                ? CraftingListCard.hover(ComputationEndgameCard.create(value))
+                : new HoverTooltips(
+            maintenanceTooltipLines(value), null, null, null);
         });
         return icon;
     }
