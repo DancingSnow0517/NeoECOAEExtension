@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui.widget;
 import appeng.client.gui.Icon;
 import appeng.client.gui.widgets.TabButton;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -16,6 +17,15 @@ public class UploadTabButton extends TabButton {
     public UploadTabButton(OnPress onPress) {
         super((Icon) null, Component.translatable("neoecoae.tooltip.upload_pattern"), onPress);
         setStyle(Style.HORIZONTAL);
+    }
+
+    /**
+     * A mouse click focuses the button and AE2 would keep drawing the focus tab afterwards; this is a one-shot action,
+     * so only keyboard navigation shows the focus state.
+     */
+    @Override
+    public boolean isFocused() {
+        return super.isFocused() && Minecraft.getInstance().getLastInputType().isKeyboard();
     }
 
     @Override
