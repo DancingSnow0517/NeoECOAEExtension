@@ -133,6 +133,20 @@ class CraftingCapabilitySnapshotTest {
         assertEquals(9, snapshot.theoreticalOverclock());
     }
 
+    @Test
+    void exchangeExecutionFinishesInOneTickWithoutChangingCoolantAdmissionOverclock() {
+        var exchange = calculate(22, 0, 2, 512, 32_768, true, true, false, 2);
+        assertTrue(exchange.exchangeNetwork());
+        assertEquals(2, exchange.effectiveOverclock());
+        assertEquals(9, exchange.executionOverclock());
+        assertEquals(1, CraftingHostPanelUI.formatRecipeTimeTicks(exchange.executionOverclock()));
+
+        var standalone = calculate(11, 0, 0, 512, 16_384, true, true, false, 2);
+        assertFalse(standalone.exchangeNetwork());
+        assertEquals(standalone.effectiveOverclock(), standalone.executionOverclock());
+        assertEquals(4, CraftingHostPanelUI.formatRecipeTimeTicks(standalone.executionOverclock()));
+    }
+
     private static CraftingCapabilitySnapshot calculate(
             int fx, int normal, int highEnergy, long standaloneBatchPerFx, long rawFt,
             boolean overclocked, boolean cooling, boolean virtualEligible, int coolantLimit) {

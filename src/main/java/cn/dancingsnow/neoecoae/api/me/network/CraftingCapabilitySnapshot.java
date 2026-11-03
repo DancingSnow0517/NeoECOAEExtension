@@ -120,6 +120,16 @@ public record CraftingCapabilitySnapshot(
         );
     }
 
+    /** A logical exchange network has at least two switch hosts and a positive multiplier. */
+    public boolean exchangeNetwork() {
+        return (long) normalSwitchHosts + highEnergySwitchHosts >= 2 && networkMultiplier > 0;
+    }
+
+    /** Exchange batches finish in one tick; coolant admission still uses effectiveOverclock. */
+    public int executionOverclock() {
+        return virtualMode || exchangeNetwork() ? MAX_OVERCLOCK : effectiveOverclock;
+    }
+
     /** 与面板 Limit 和普通耗时超频统一使用当前实际批量容量；虚拟模式独立执行。 */
     public long overflowCapacity() {
         return totalBatchCapacity.unlimited() ? 0L

@@ -435,6 +435,10 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         return getCapabilitySnapshot().effectiveOverclock();
     }
 
+    public int getExecutionOverclockTimes() {
+        return getCapabilitySnapshot().executionOverclock();
+    }
+
     public int getDisplayedCoolingMaxOverclock() {
         return cluster != null && cluster.getNetworkCluster() != null
             ? cluster.getNetworkCluster().getCoolantMaxOverclock() : coolingController.getCurrentCoolingMaxOverclock();
@@ -877,7 +881,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             this::getOverlockTimes,
             this::getEffectiveOverclockTimes,
             () -> getCapabilitySnapshot().virtualMode()
-                ? 1 : CraftingHostPanelUI.formatRecipeTimeTicks(getEffectiveOverclockTimes()),
+                ? 1 : CraftingHostPanelUI.formatRecipeTimeTicks(getExecutionOverclockTimes()),
             this::getPerformanceAverageNanos,
             this::getMaxEnergyUsage,
             this::getDisplayedCoolantAmount,
