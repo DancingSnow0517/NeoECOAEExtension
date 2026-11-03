@@ -215,6 +215,55 @@ class ECOStickyDispatchIntegrationTest {
         f.assertRun(128, f.first, 64);
     }
 
+    @Test void busyWorkstationIsObservedBeforeItsFirstPushWithoutMovingInputs() throws Exception {
+        var f = new Fixture(true, 1, 10);
+        var workstation = mock(cn.dancingsnow.neoecoae.blocks.entity.LargeWorkstationPatternProvider.class);
+        var host = mock(cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity.class);
+        var cluster = mock(cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster.class);
+        cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity controller;
+        try (var registrate = mockStatic(cn.dancingsnow.neoecoae.registration.NERegistrate.class)) {
+            registrate.when(() -> cn.dancingsnow.neoecoae.registration.NERegistrate.create("neoecoae"))
+                .thenReturn(mock(cn.dancingsnow.neoecoae.registration.NERegistrate.class));
+            controller = mock(cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity.class);
+        }
+        when(workstation.getWorkstationInterface()).thenReturn(host);
+        when(host.getCluster()).thenReturn(cluster);
+        when(cluster.getController()).thenReturn(controller);
+        when(controller.getLevel()).thenReturn(f.level);
+        when(f.level.dimension()).thenReturn(Level.OVERWORLD);
+        var pos = new net.minecraft.core.BlockPos(62, -60, -97);
+        when(controller.getBlockPos()).thenReturn(pos);
+        when(workstation.isBusy()).thenReturn(true);
+        when(f.service.getProviders(f.patterns[0])).thenReturn(List.of(workstation));
+        when(f.service.getProviders(f.patterns[1])).thenReturn(List.of());
+        assertEquals(0, f.dispatch(64));
+        assertEquals(10, f.logic.getInventory().list.get(f.inputs[0]));
+        assertEquals(0, f.job.waitingFor.list.get(f.outputs[0]));
+        verify(workstation, never()).pushPattern(any(), any());
+        verify(workstation, never()).eco$pushPatternBatch(any(), any(), anyLong(), any());
+
+        var server = mock(net.minecraft.server.MinecraftServer.class);
+        var world = mock(net.minecraft.server.level.ServerLevel.class);
+        when(f.level.getServer()).thenReturn(server);
+        when(server.getLevel(Level.OVERWORLD)).thenReturn(world);
+        when(world.hasChunkAt(pos)).thenReturn(true);
+        when(world.getBlockEntity(pos)).thenReturn(controller);
+        when(controller.getProcessingStatus(f.outputs[0])).thenReturn(
+            new cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.Machine(
+                net.minecraft.network.chat.Component.literal("Workstation"), "minecraft:overworld [62, -60, -97]",
+                "", 0, 0, 0,
+                cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.State.WAITING,
+                net.minecraft.network.chat.Component.translatable(
+                    "gui.neoecoae.large_integrated_working_station.pause.overheated")));
+        var progress = f.logic.getProcessingProgress(f.outputs[0]);
+        assertEquals(1, progress.machineCount());
+        assertEquals(cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.State.WAITING, progress.state());
+        assertFalse(progress.hasProgress());
+        assertEquals(List.of(new cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingTargetProvider.Target(
+            Level.OVERWORLD.location(), pos)), f.logic.getProcessingMonitor().machineTargets(f.outputs[0]));
+        verify(world, never()).getChunk(anyInt(), anyInt());
+    }
+
     interface ParallelProvider extends ICraftingProvider, ECOParallelCraftingProvider {}
 
     private final class Fixture {

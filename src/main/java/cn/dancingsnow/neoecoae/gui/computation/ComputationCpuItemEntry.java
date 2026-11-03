@@ -26,6 +26,10 @@ record ComputationCpuItemEntry(AEKey key, BigInteger stored, BigInteger active, 
         return new ComputationCpuItemEntry(key, stored, active, pending, batched, value, stepStopped);
     }
 
+    boolean waitingForMachine() {
+        return pending.signum() > 0 && processing.state() == ECOProcessingProgress.State.WAITING;
+    }
+
     String amount(BigInteger value, boolean full) {
         int unit = Math.max(1, key.getAmountPerUnit());
         String number = full
