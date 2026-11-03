@@ -63,7 +63,9 @@ public final class CraftingListCard extends UIElement {
         BOOK("##.##..", "#.#.#..", "#.#.#..", "#.#.#..", "#.#.#..", "##.##..", "..#...."),
         THERMOMETER(".#.", "#.#", "#.#", "#.#", "#.#", "###", "###", ".#."),
         PAUSE(".###.", "#####", "#.#.#", "#.#.#", "#####", ".###."),
-        WARNING("...#...", "..#.#..", "..###..", ".##.##.", ".#####.", "##.#.##", "#######");
+        WARNING("...#...", "..#.#..", "..###..", ".##.##.", ".#####.", "##.#.##", "#######"),
+        BATTERY("#########.", "#.......##", "#.##.##.##", "#.##.##.##", "#.......##", "#########."),
+        PUZZLE("..##...","..##...", "######.", "#....##", "#....##", "#.....#", "#######");
 
         private final String[] rows;
 
@@ -265,11 +267,15 @@ public final class CraftingListCard extends UIElement {
         }
     }
 
-    /** Free text with an optional right column; long left text wraps at {@link #WRAP}. */
-    private record Text(Component left, Component right, int color) implements Entry {
+    /** Free text with an optional leading glyph and right column; long left text wraps at {@link #WRAP}. */
+    private record Text(Glyph glyph, Component left, Component right, int color) implements Entry {
+        private int indent() {
+            return glyph == null ? 0 : ICON_SPACE;
+        }
+
         public int width(Font font) {
             int rightWidth = font.width(right);
-            return Math.min(WRAP, font.width(left) + (rightWidth == 0 ? 0 : GAP + rightWidth));
+            return Math.min(WRAP, indent() + font.width(left) + (rightWidth == 0 ? 0 : GAP + rightWidth));
         }
 
         public int height() {
@@ -279,14 +285,15 @@ public final class CraftingListCard extends UIElement {
         private List<FormattedCharSequence> lines(Font font, int width) {
             int rightWidth = Math.min(font.width(right), width / 2);
             List<FormattedCharSequence> lines = font.split(left,
-                Math.max(1, width - (rightWidth == 0 ? 0 : GAP + rightWidth)));
+                Math.max(1, width - indent() - (rightWidth == 0 ? 0 : GAP + rightWidth)));
             return lines == null ? List.of() : lines;
         }
 
         public void draw(GuiGraphics graphics, Font font, int x, int y, int width) {
             var lines = lines(font, width);
+            if (glyph != null) glyph.draw(graphics, x, y, color);
             for (int i = 0; i < lines.size(); i++) {
-                graphics.drawString(font, lines.get(i), x, y + i * (LINE + 2), color, true);
+                graphics.drawString(font, lines.get(i), x + indent(), y + i * (LINE + 2), color, true);
             }
             drawRight(graphics, font, right, x + width, y, color);
         }
@@ -322,10 +329,11 @@ public final class CraftingListCard extends UIElement {
      * A muted label above a double-size headline value, with an optional right column that is either another
      * label/headline pair or a small note on the headline line.
      */
-    private record Metric(Component label, Component value, int valueColor, Component rightLabel, Component rightValue,
-                          int rightColor, boolean rightLarge) implements Entry {
+    private record Metric(Component label, Component value, int valueColor, Component unit, int unitColor,
+                          Component rightLabel, Component rightValue, int rightColor, boolean rightLarge) implements Entry {
         public int width(Font font) {
-            int left = Math.max(font.width(label), scaled(font, value));
+            int unitWidth = font.width(unit);
+            int left = Math.max(font.width(label), scaled(font, value) + (unitWidth == 0 ? 0 : 3 + unitWidth));
             int right = Math.max(font.width(rightLabel), rightLarge ? scaled(font, rightValue) : font.width(rightValue));
             return left + (right == 0 ? 0 : GAP) + right;
         }
@@ -343,6 +351,10 @@ public final class CraftingListCard extends UIElement {
             drawRight(graphics, font, rightLabel, x + width, y, CraftingTooltipCard.MUTED);
             int valueY = y + LINE + 2;
             drawScaled(graphics, font, value, x, valueY, valueColor);
+            if (font.width(unit) > 0) {
+                graphics.drawString(font, unit, x + scaled(font, value) + 3,
+                    valueY + Math.round(LINE * METRIC_SCALE) - LINE, unitColor, true);
+            }
             if (rightLarge) {
                 drawScaled(graphics, font, rightValue, x + width - scaled(font, rightValue), valueY, rightColor);
             } else {
@@ -360,6 +372,60 @@ public final class CraftingListCard extends UIElement {
                 graphics.drawString(font, text, 0, 0, color, true);
             } finally {
                 pose.popPose();
+            }
+        }
+    }
+
+    /** One line of a panel: an optional glyph, a left text and an optional right-aligned value. */
+    public record PanelLine(Glyph glyph, Component left, int leftColor, Component right, int rightColor) {}
+
+    /** Inset box with an optional glyph title and status, followed by compact lines. */
+    private record Panel(Glyph glyph, Component title, Component right, int rightColor, List<PanelLine> lines)
+        implements Entry {
+        private boolean titled() {
+            return !title.getString().isEmpty();
+        }
+
+        private int inner() {
+            return (titled() ? LINE + 3 : 0) + lines.size() * (LINE + 2) - 2;
+        }
+
+        public int width(Font font) {
+            int widest = titled()
+                ? (glyph == null ? 0 : ICON_SPACE) + font.width(title) + gap(font, right) + font.width(right) : 0;
+            for (PanelLine line : lines) {
+                widest = Math.max(widest, (line.glyph() == null ? 0 : ICON_SPACE) + font.width(line.left())
+                    + gap(font, line.right()) + font.width(line.right()));
+            }
+            return widest + BANNER_PAD * 2;
+        }
+
+        public int height() {
+            return inner() + BANNER_PAD * 2 + 3;
+        }
+
+        public void draw(GuiGraphics graphics, Font font, int x, int y, int width) {
+            graphics.fill(x, y, x + width, y + inner() + BANNER_PAD * 2, TILE_BACKGROUND);
+            int left = x + BANNER_PAD, end = x + width - BANNER_PAD, textY = y + BANNER_PAD + 1;
+            if (titled()) {
+                int titleX = left;
+                if (glyph != null) {
+                    glyph.draw(graphics, left, textY, CraftingTooltipCard.WARN);
+                    titleX += ICON_SPACE;
+                }
+                graphics.drawString(font, title, titleX, textY, CraftingTooltipCard.PRIMARY, true);
+                drawRight(graphics, font, right, end, textY, rightColor);
+                textY += LINE + 3;
+            }
+            for (PanelLine line : lines) {
+                int lineX = left;
+                if (line.glyph() != null) {
+                    line.glyph().draw(graphics, left, textY, line.leftColor());
+                    lineX += ICON_SPACE;
+                }
+                graphics.drawString(font, line.left(), lineX, textY, line.leftColor(), true);
+                drawRight(graphics, font, line.right(), end, textY, line.rightColor());
+                textY += LINE + 2;
             }
         }
     }
@@ -576,14 +642,29 @@ public final class CraftingListCard extends UIElement {
 
         /** A muted label over a large value, with a small right-aligned note on the value line. */
         public Builder metric(Component label, Component value, int valueColor, Component note, int noteColor) {
-            entries.add(new Metric(label, value, valueColor, Component.empty(), note, noteColor, false));
+            entries.add(new Metric(label, value, valueColor, Component.empty(), 0, Component.empty(), note, noteColor,
+                false));
             return this;
         }
 
         /** Two label-over-large-value columns, the second right-aligned. */
         public Builder metrics(Component label, Component value, int valueColor,
                                Component rightLabel, Component rightValue, int rightColor) {
-            entries.add(new Metric(label, value, valueColor, rightLabel, rightValue, rightColor, true));
+            entries.add(new Metric(label, value, valueColor, Component.empty(), 0, rightLabel, rightValue, rightColor,
+                true));
+            return this;
+        }
+
+        /** A muted label over a large value followed by a small unit, such as {@code 0.0 AE/t}. */
+        public Builder metricUnit(Component label, Component value, int valueColor, Component unit, int unitColor) {
+            entries.add(new Metric(label, value, valueColor, unit, unitColor, Component.empty(), Component.empty(), 0,
+                false));
+            return this;
+        }
+
+        /** An inset box; an empty {@code title} leaves only the lines. */
+        public Builder panel(Glyph glyph, Component title, Component right, int rightColor, List<PanelLine> lines) {
+            entries.add(new Panel(glyph, title, right, rightColor, List.copyOf(lines)));
             return this;
         }
 
@@ -612,7 +693,13 @@ public final class CraftingListCard extends UIElement {
         }
 
         public Builder text(Component left, Component right, int color) {
-            entries.add(new Text(left, right, color));
+            entries.add(new Text(null, left, right, color));
+            return this;
+        }
+
+        /** Wrapped text behind a leading glyph, used for longer hints and notes. */
+        public Builder wrapped(Glyph glyph, Component text, int color) {
+            entries.add(new Text(glyph, text, Component.empty(), color));
             return this;
         }
 
@@ -656,7 +743,12 @@ public final class CraftingListCard extends UIElement {
                     case Text text -> add(texts, text.left(), text.right());
                     case IconHeader header -> add(texts, header.title(), header.subtitle());
                     case Banner banner -> add(texts, banner.title(), banner.detail());
-                    case Metric metric -> add(texts, metric.label(), metric.value(), metric.rightLabel(), metric.rightValue());
+                    case Metric metric -> add(texts, metric.label(), metric.value(), metric.unit(), metric.rightLabel(),
+                        metric.rightValue());
+                    case Panel panel -> {
+                        add(texts, panel.title(), panel.right());
+                        panel.lines().forEach(line -> add(texts, line.left(), line.right()));
+                    }
                     case Scale scale -> texts.addAll(scale.ticks());
                     case Tiles tiles -> tiles.tiles().forEach(tile -> add(texts, tile.heading(), tile.value(), tile.caption()));
                     default -> {}
