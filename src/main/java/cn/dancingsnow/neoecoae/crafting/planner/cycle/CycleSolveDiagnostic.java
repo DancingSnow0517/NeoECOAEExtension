@@ -7,6 +7,8 @@ public record CycleSolveDiagnostic(Code code, String message) {
         SATISFIED_FROM_STOCK,
         STATE_EQUATION_INFEASIBLE,
         STATE_EQUATION_WITNESS,
+        /** Independent startup-resource groups supplied a legal order for an unchanged firing vector. */
+        FACTORED_STARTUP_WITNESS,
         /** A replayed complete order determines sufficient material deficits, not a startup lower bound. */
         FULL_ORDER_MATERIAL_DEFICIT,
         STATE_EQUATION_BUDGET,

@@ -57,6 +57,8 @@ public final class BoundedCycleSolver implements CycleSolver {
     private static final long MAX_EXPANDED_WITNESS = 100_000L;
     private static final long GROWTH_PROBE_WORK = 100_000L;
     private static final long GROWTH_PROBE_NANOS = 200_000_000L;
+    private static final long STARTUP_PROBE_WORK = 50_000L;
+    private static final long STARTUP_PROBE_NANOS = 100_000_000L;
     private final SinglePatternGrowthCalculator growthCalculator = new SinglePatternGrowthCalculator();
 
     public BoundedCycleSolver() {}
@@ -755,15 +757,43 @@ public final class BoundedCycleSolver implements CycleSolver {
 
     private CycleSolveResult solveEquationWitness(Model model, CycleStateEquation.Result balance,
             ECOCancellation cancellation, CycleMemoryBudget memory, boolean materialReport) throws InterruptedException {
+        long beforeWitness = memory.retainedBytes();
         List<BatchFiring> witness = equationWitness(model, balance.counts(), cancellation, memory, materialReport);
         if (witness == null) return null;
+        long witnessBytes = memory.retainedBytes() - beforeWitness;
         Simulation bare = simulate(model, zeroes(model.keyCount()), witness);
         PlannerAmount[] start = model.stock.clone();
-        bare.lazySeed.forEach((key, amount) -> {
-            int index = model.keys.indexOf(key);
-            start[index] = start[index].max(amount);
-        });
+        for (var entry : bare.lazySeed.entrySet()) {
+            int index = model.keys.indexOf(entry.getKey());
+            start[index] = start[index].max(entry.getValue());
+        }
         var diagnostics = new ArrayList<CycleSolveDiagnostic>();
+        if (!materialReport && !Arrays.equals(start, model.stock)) {
+            // The cheap order is a proposal. Solve startup for the same counts before a shortage forces
+            // general marking search; independent working-material groups need not be searched together.
+            long beforeStartup = memory.retainedBytes();
+            CycleStartupSolver.Result startup = null;
+            try {
+                startup = CycleStartupSolver.solve(model.cons, model.prod, model.suppliable, balance.counts(),
+                    model.stock, searchSlice(cancellation, STARTUP_PROBE_WORK, STARTUP_PROBE_NANOS), memory);
+            } catch (ECOPlanningBudget.Exhausted exhausted) {
+                cancellation.checkpoint(); // Preserve the proposal on a local cutoff, but propagate a shared cutoff.
+            }
+            boolean adopted = false;
+            if (startup != null && startup.status() == CycleStartupSolver.Status.FEASIBLE) {
+                Simulation replayed = simulate(model, model.stock, startup.witness());
+                if (replayed.lazySeed.isEmpty() && satisfied(replayed.marking, model.required)) {
+                    witness = startup.witness();
+                    start = model.stock.clone();
+                    memory.release(witnessBytes);
+                    adopted = true;
+                    diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.FACTORED_STARTUP_WITNESS,
+                        "Reordered the same firing vector from captured stock: components=" + startup.components()
+                            + " orderingKeys=" + startup.orderingKeys() + " states=" + startup.states()));
+                }
+            }
+            if (!adopted) memory.release(memory.retainedBytes() - beforeStartup);
+        }
         diagnostics.add(new CycleSolveDiagnostic(CycleSolveDiagnostic.Code.STATE_EQUATION_WITNESS,
             "Constructed and replayed " + witness.size() + " compact steps from "
                 + (balance.status() == CycleStateEquation.Status.OPTIMAL ? "a minimum" : "a feasible")
@@ -1686,9 +1716,9 @@ public final class BoundedCycleSolver implements CycleSolver {
     // Internal data
     // ---------------------------------------------------------------------------------------------------
 
-    private record BatchFiring(int transition, PlannerAmount exactCount, int repeatWidth, PlannerAmount repetitions) {
-        private BatchFiring(int transition, PlannerAmount count) { this(transition, count, 1, PlannerAmount.ONE); }
-        private BatchFiring {
+    record BatchFiring(int transition, PlannerAmount exactCount, int repeatWidth, PlannerAmount repetitions) {
+        BatchFiring(int transition, PlannerAmount count) { this(transition, count, 1, PlannerAmount.ONE); }
+        BatchFiring {
             if (transition < 0) throw new IllegalArgumentException("Batch transition must not be negative");
             if (exactCount.signum() <= 0) throw new IllegalArgumentException("Batch firing count must be positive");
         }
