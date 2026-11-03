@@ -26,15 +26,15 @@ import org.junit.jupiter.api.Test;
 class ComputationProcessingDisplayTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
-    @Test void barFitsAtTheBottomOfTheExistingCellAndAddsNoText() {
+    @Test void progressFillsTheWholeCellAndAddsNoText() {
         var context = mock(GUIContext.class);
         var graphics = mock(GuiGraphics.class);
         UiTestSupport.set(context, "graphics", graphics);
         var entry = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE), BigInteger.ZERO,
             BigInteger.ONE, BigInteger.ZERO, false, ECOProcessingProgress.summarize(List.of(machine(50, 100, State.RUNNING))));
-        ComputationCpuStatusPanel.drawProcessingProgress(context, entry, 10, 20);
-        verify(graphics).fill(12, 39, 75, 41, 0xFF5B566B);
-        verify(graphics).fill(12, 39, 44, 41, 0xFFC7A6FF);
+        ComputationCpuStatusPanel.drawProcessingProgress(context, entry, 10, 20, 0);
+        verify(graphics).fill(44, 20, 77, 42, 0x30C7A6FF);
+        verify(graphics).fill(10, 20, 44, 42, 0x90C7A6FF);
         verifyNoMoreInteractions(graphics);
     }
 
@@ -43,10 +43,56 @@ class ComputationProcessingDisplayTest {
         UiTestSupport.set(context, "graphics", mock(GuiGraphics.class));
         var entry = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE), BigInteger.ZERO,
             BigInteger.ONE, BigInteger.ZERO, false);
-        ComputationCpuStatusPanel.drawProcessingProgress(context, entry, 10, 20);
+        ComputationCpuStatusPanel.drawProcessingProgress(context, entry, 10, 20, 0);
         verifyNoInteractions(context.graphics);
         assertTrue(ComputationProcessingTooltips.describe(entry).stream()
             .anyMatch(line -> key(line).equals("gui.neoecoae.processing.progress_unavailable")));
+    }
+
+    @Test void fullCellProgressRetainsBlockedPausedAndUserSelectedColors() {
+        for (State state : List.of(State.RUNNING, State.WAITING, State.PAUSED)) {
+            int rgb = state == State.RUNNING ? 0xC7A6FF : state == State.WAITING ? 0xE2AA4F : 0x90909F;
+            for (int overlay : List.of(0, 0x123456)) {
+                var graphics = mock(GuiGraphics.class);
+                var context = new GUIContext(graphics, 0, 0, 0);
+                var entry = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE), BigInteger.ZERO,
+                    BigInteger.ONE, BigInteger.ZERO, false,
+                    ECOProcessingProgress.summarize(List.of(machine(50, 100, state))));
+                assertTrue(ComputationCpuStatusPanel.drawProcessingProgress(context, entry, 10, 20, overlay));
+                int color = overlay == 0 ? rgb : overlay;
+                verify(graphics).fill(44, 20, 77, 42, color | 0x30000000);
+                verify(graphics).fill(10, 20, 44, 42, color | 0x90000000);
+            }
+        }
+    }
+
+    @Test void shortCyclesDoNotChurnSyncPacketsButKeepMachineIdentityAndState() {
+        for (int duration : List.of(1, 5)) {
+            var first = ECOProcessingProgress.summarize(List.of(machine(0, duration, State.RUNNING))).forStatusSync();
+            var next = ECOProcessingProgress.summarize(List.of(machine(1, duration, State.RUNNING))).forStatusSync();
+            assertEquals(first.write(), next.write());
+            assertFalse(next.hasProgress());
+            assertEquals(1, next.machineCount());
+            assertEquals("Machine", next.machines().get(0).name().getString());
+            assertEquals(State.RUNNING, next.state());
+            assertEquals(0, next.machines().get(0).durationTicks());
+            var restored = ECOProcessingProgress.read(next.page(0).write());
+            assertEquals(next, restored);
+        }
+        var longCycle = ECOProcessingProgress.summarize(List.of(machine(3, 6, State.RUNNING)));
+        assertSame(longCycle, longCycle.forStatusSync());
+    }
+
+    @Test void mixedCyclesTrimOnlyShortDetailsAndRespectParallelWeightedDuration() {
+        var shortCycle = new Machine(Component.literal("Fast"), "", "", 1, 5, 1000, State.RUNNING, Component.empty());
+        var longCycle = machine(50, 100, State.WAITING);
+        var mixed = ECOProcessingProgress.summarize(List.of(shortCycle, longCycle)).forStatusSync();
+        assertTrue(mixed.hasProgress());
+        assertEquals(2, mixed.machineCount());
+        assertEquals(0, mixed.machines().get(0).durationTicks());
+        assertEquals(100, mixed.machines().get(1).durationTicks());
+        assertEquals(State.WAITING, mixed.state());
+        assertTrue(mixed.page(-1).machines().isEmpty());
     }
 
     @Test void queuedStepsAndStorageOnlyCellsDoNotDisplayAProgressBar() {
@@ -54,7 +100,7 @@ class ComputationProcessingDisplayTest {
         UiTestSupport.set(context, "graphics", mock(GuiGraphics.class));
         var queued = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE), BigInteger.ZERO,
             BigInteger.ZERO, BigInteger.ONE, false);
-        ComputationCpuStatusPanel.drawProcessingProgress(context, queued, 10, 20);
+        ComputationCpuStatusPanel.drawProcessingProgress(context, queued, 10, 20, 0);
         verifyNoInteractions(context.graphics);
         assertTrue(ComputationProcessingTooltips.describe(queued).stream()
             .anyMatch(line -> key(line).equals("gui.neoecoae.processing.awaiting_dispatch")));
@@ -62,7 +108,7 @@ class ComputationProcessingDisplayTest {
         clearInvocations(context.graphics);
         var stored = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE), BigInteger.ONE,
             BigInteger.ZERO, BigInteger.ZERO, false);
-        ComputationCpuStatusPanel.drawProcessingProgress(context, stored, 10, 20);
+        ComputationCpuStatusPanel.drawProcessingProgress(context, stored, 10, 20, 0);
         verifyNoInteractions(context.graphics);
         assertTrue(ComputationProcessingTooltips.describe(stored).isEmpty());
     }
@@ -72,7 +118,7 @@ class ComputationProcessingDisplayTest {
         UiTestSupport.set(context, "graphics", mock(GuiGraphics.class));
         var queued = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE), BigInteger.ZERO,
             BigInteger.ZERO, BigInteger.ONE, false, ECOProcessingProgress.summarize(List.of(machine(50, 100, State.RUNNING))));
-        ComputationCpuStatusPanel.drawProcessingProgress(context, queued, 10, 20);
+        ComputationCpuStatusPanel.drawProcessingProgress(context, queued, 10, 20, 0);
         verifyNoInteractions(context.graphics);
         assertTrue(ComputationProcessingTooltips.describe(queued).stream()
             .noneMatch(line -> key(line).equals("gui.neoecoae.processing.time")));

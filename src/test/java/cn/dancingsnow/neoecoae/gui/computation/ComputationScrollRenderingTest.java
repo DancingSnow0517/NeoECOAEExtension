@@ -104,8 +104,8 @@ class ComputationScrollRenderingTest {
         // Reopening the same CPU may produce an identical payload and therefore no new S2C update.
         panel.open(1);
         var graphics = assertDrawn(panel, 1);
-        verify(graphics).fill(99, 38, 162, 40, 0xFF5B566B);
-        verify(graphics).fill(99, 38, 131, 40, 0xFFC7A6FF);
+        verify(graphics).fill(131, 19, 164, 41, 0x30C7A6FF);
+        verify(graphics).fill(97, 19, 131, 41, 0x90C7A6FF);
     }
 
     @Test void sidebarKeepsItsPageVisibleUntilTheLatestScrollReply() throws Exception {

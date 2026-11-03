@@ -431,12 +431,12 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
 
     static void drawItem(GUIContext context, Font font, ComputationCpuItemEntry entry, float x, float y,
             boolean colored) {
-        if (colored) {
-            int color = entry.active().signum() > 0
-                ? (entry.batched() ? AEColor.PURPLE : AEColor.GREEN).blackVariant
-                : entry.pending().signum() > 0 ? AEColor.YELLOW.blackVariant : 0;
-            if (color != 0) context.graphics.fill(Math.round(x), Math.round(y), Math.round(x + ITEM_WIDTH),
-                Math.round(y + ITEM_HEIGHT), color | 0x5A000000);
+        int overlay = colored ? entry.active().signum() > 0
+            ? (entry.batched() ? AEColor.PURPLE : AEColor.GREEN).blackVariant
+            : entry.pending().signum() > 0 ? AEColor.YELLOW.blackVariant : 0 : 0;
+        if (!drawProcessingProgress(context, entry, x, y, overlay) && overlay != 0) {
+            context.graphics.fill(Math.round(x), Math.round(y), Math.round(x + ITEM_WIDTH),
+                Math.round(y + ITEM_HEIGHT), overlay | 0x5A000000);
         }
         if (entry.batched()) {
             context.graphics.blit(BATCH_ICON, Math.round(x + BATCH_ICON_LEFT),
@@ -445,21 +445,22 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         }
         key(context, entry.key(), x + ITEM_WIDTH - 19, y + 3, 1.0F);
         drawItemDescription(context, font, itemDescription(entry, false), x, y);
-        drawProcessingProgress(context, entry, x, y);
     }
 
-    static void drawProcessingProgress(GUIContext context, ComputationCpuItemEntry entry, float x, float y) {
-        if (entry.active().signum() <= 0 || !entry.processing().hasProgress()) return;
-        int left = Math.round(x + 2), right = Math.round(x + ITEM_WIDTH - 2);
-        int top = Math.round(y + ITEM_HEIGHT - 3);
-        context.graphics.fill(left, top, right, top + 2, 0xFF5B566B);
-        int color = switch (entry.processing().state()) {
-            case WAITING -> 0xFFE2AA4F;
-            case PAUSED -> 0xFF90909F;
-            default -> 0xFFC7A6FF;
+    static boolean drawProcessingProgress(GUIContext context, ComputationCpuItemEntry entry, float x, float y,
+            int overlay) {
+        if (entry.active().signum() <= 0 || !entry.processing().hasProgress()) return false;
+        int rgb = overlay != 0 ? overlay & 0xFFFFFF : switch (entry.processing().state()) {
+            case WAITING -> 0xE2AA4F;
+            case PAUSED -> 0x90909F;
+            default -> 0xC7A6FF;
         };
+        int left = Math.round(x), top = Math.round(y);
+        int right = Math.round(x + ITEM_WIDTH), bottom = Math.round(y + ITEM_HEIGHT);
         int filled = Math.round((right - left) * entry.processing().progress());
-        if (filled > 0) context.graphics.fill(left, top, left + filled, top + 2, color);
+        if (left + filled < right) context.graphics.fill(left + filled, top, right, bottom, rgb | 0x30000000);
+        if (filled > 0) context.graphics.fill(left, top, left + filled, bottom, rgb | 0x90000000);
+        return true;
     }
 
     static void drawItemDescription(GUIContext context, Font font, List<Component> lines, float x, float y) {
@@ -706,7 +707,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
                     if (progress == null || (progress.machineCount() == 0 && !progress.refreshing())) continue;
                     var entry = new CompoundTag();
                     entry.put("key", item.key().toTagGeneric());
-                    entry.put("progress", progress.page(item.key().equals(processingDetailKey) ? processingDetailPage : -1).write());
+                    entry.put("progress", progress.forStatusSync().page(item.key().equals(processingDetailKey) ? processingDetailPage : -1).write());
                     entries.add(entry);
                 }
             }
