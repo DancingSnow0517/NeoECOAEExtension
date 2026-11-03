@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingListCard;
+import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingMachineActions;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
 
 import appeng.api.client.AEKeyRendering;
@@ -658,12 +659,23 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     }
 
     /**
-     * A running task drawn straight on the list's own row, without a card: name, crafting amount and state, with
-     * 1.7.10's processing bar (light green over dark green) along the bottom when machines report progress.
+     * A running task drawn straight on the list's own row, without a card. As on 1.7.10, the whole row is the
+     * progress bar: the state colour sweeps left to right as the machines progress, and the rest keeps a faint tint
+     * of the same colour so the row still reads as running.
      */
     private void drawTask(GUIContext context, Font font, ComputationCpuItemEntry entry, float x, float y) {
         var processing = entry.processing();
-        key(context, entry.key(), x + ROW_WIDTH - 19, y + 2, 1.0F);
+        int rgb = switch (processing.state()) {
+            case WAITING -> 0xE2AA4F;
+            case PAUSED -> 0x90909F;
+            default -> ComputationCards.PROGRESS_FILL & 0xFFFFFF;
+        };
+        int left = Math.round(x), top = Math.round(y), right = left + ROW_WIDTH, bottom = top + ROW_HEIGHT;
+        float progress = processing.hasProgress() ? opening.value(Math.clamp(processing.progress(), 0, 1)) : 0;
+        int filled = Math.round(ROW_WIDTH * progress);
+        if (filled < ROW_WIDTH) context.graphics.fill(left + filled, top, right, bottom, rgb | 0x30000000);
+        if (filled > 0) context.graphics.fill(left, top, left + filled, bottom, rgb | 0x90000000);
+        key(context, entry.key(), x + ROW_WIDTH - 19, y + 3, 1.0F);
         context.graphics.flush();
         ComputationCpuSelector.fittedText(context, font, entry.key().getDisplayName().getString(),
             x + 3, y + 3, ROW_WIDTH - 23, 0.5F, TEXT_LIGHT);
@@ -672,15 +684,8 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         Component state = processing.hasProgress()
             ? Component.literal(Math.round(processing.progress() * 100) + "%")
             : Component.translatable("gui.neoecoae.processing.state." + processing.state().name().toLowerCase(Locale.ROOT));
-        ComputationCpuSelector.fittedText(context, font, state.getString(), x + 3, y + 15, ROW_WIDTH - 23, 0.5F,
-            processing.state() == ECOProcessingProgress.State.WAITING ? 0xE2AA4F : TEXT_LIGHT);
-        if (!processing.hasProgress()) return;
-        int left = Math.round(x + 1), right = Math.round(x + ROW_WIDTH - 1), top = Math.round(y + ROW_HEIGHT - 2);
-        context.graphics.fill(left, top, right, top + 2, ComputationCards.PROGRESS_TRACK);
-        int filled = Math.round((right - left) * opening.value(Math.clamp(processing.progress(), 0, 1)));
-        if (filled > 0) context.graphics.fill(left, top, left + filled, top + 2, ComputationCards.PROGRESS_FILL);
+        ComputationCpuSelector.fittedText(context, font, state.getString(), x + 3, y + 15, ROW_WIDTH - 23, 0.5F, TEXT_LIGHT);
     }
-
     /** AE2's status cell: green while crafting, yellow while scheduled, amounts beside the stack, no extra marks. */
     static void drawItem(GUIContext context, Font font, ComputationCpuItemEntry entry, float x, float y,
             boolean colored) {
@@ -926,8 +931,9 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             }
             var job = jobId(cpu);
             String action = request.getString("action");
-            if ((!action.equals("inspect") && !action.equals("open")) || job == null
-                || (action.equals("open") && (!request.hasUUID("job") || !job.equals(request.getUUID("job"))))) {
+            boolean opening = action.equals("open") || action.equals("open_machine");
+            if ((!action.equals("inspect") && !opening) || job == null
+                || (opening && (!request.hasUUID("job") || !job.equals(request.getUUID("job"))))) {
                 response.putString("error", "gui.neoecoae.processing.task_changed");
                 return;
             }
@@ -940,6 +946,21 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             var list = new ListTag();
             for (var source : sources) list.add(source.describe(this.source.registries()));
             response.put("sources", list);
+            // Machines come from the processing monitor's scan of this job's destinations; AE2 jobs have none.
+            var monitor = cpu instanceof ECOCraftingCPU eco ? eco.getLogic().getProcessingMonitor() : null;
+            var machines = monitor != null && this.source.player() != null
+                ? ECOProcessingMachineActions.find(this.source.player().getServer(), monitor.machineTargets(key))
+                : List.<ECOProcessingMachineActions.Machine>of();
+            var machineList = new ListTag();
+            for (var machine : machines) machineList.add(machine.describe(this.source.registries()));
+            response.put("machines", machineList);
+            if (action.equals("open_machine")) {
+                var target = machines.stream().filter(machine -> machine.id().equals(request.getString("source"))).findFirst();
+                String error = target.isEmpty() || !(this.source.player() instanceof net.minecraft.server.level.ServerPlayer player)
+                    ? ECOProcessingMachineActions.OPEN_UNAVAILABLE : target.get().open(player);
+                if (error != null) response.putString("error", error);
+                return;
+            }
             if (action.equals("open")) {
                 var target = sources.stream().filter(source -> source.id().equals(request.getString("source"))).findFirst();
                 try {

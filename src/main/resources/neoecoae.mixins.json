@@ -41,7 +41,8 @@
     "ae2.storage.StorageServiceMixin",
     "ae2.storage.StoredEnergyAmountMixin",
     "ldlib.AsyncThreadDataMixin",
-    "minecraft.LightningBoltMixin"
+    "minecraft.LightningBoltMixin",
+    "minecraft.PlayerRemoteMachineReachMixin"
   ],
   "client": [
     "client.jei.RecipeLayoutMixin",

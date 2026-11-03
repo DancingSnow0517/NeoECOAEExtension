@@ -18,7 +18,10 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 
-/** One contextual menu and a provider chooser; locating a provider also highlights it in the world. */
+/**
+ * One contextual menu (locate, open machine, open provider, in 1.7.10's order) and a chooser for several machines or
+ * providers; locating a provider also highlights it in the world.
+ */
 final class ComputationItemActionsPopup extends UIElement {
     private static final int PAGE_SIZE = 4;
     private enum Mode { MENU, CHOOSE, MESSAGE }
@@ -26,6 +29,9 @@ final class ComputationItemActionsPopup extends UIElement {
     private final Consumer<Component> chat;
     private final Consumer<CompoundTag> highlight;
     private final List<CompoundTag> sources = new ArrayList<>();
+    private final List<CompoundTag> machines = new ArrayList<>();
+    private List<CompoundTag> choices = sources;
+    private String chooseAction = "open";
     private ComputationCpuItemEntry item;
     private CompoundTag context = new CompoundTag();
     private long sequence;
@@ -80,8 +86,11 @@ final class ComputationItemActionsPopup extends UIElement {
             var ui = getModularUI();
             if (ui == null) return;
             int row = row(ui.getLastMouseX(), ui.getLastMouseY());
-            if (mode == Mode.MENU && (row == 0 || row == 1) && loaded && sources.isEmpty()) event.hoverTooltips =
+            if (mode != Mode.MENU || !loaded) return;
+            if ((row == 0 || row == 2) && sources.isEmpty()) event.hoverTooltips =
                 HoverTooltips.empty().append(Component.translatable("gui.neoecoae.processing.no_pattern"));
+            else if (row == 1 && machines.isEmpty()) event.hoverTooltips =
+                HoverTooltips.empty().append(Component.translatable("gui.neoecoae.processing.no_machine"));
         });
     }
 
@@ -93,7 +102,9 @@ final class ComputationItemActionsPopup extends UIElement {
         loaded = false;
         page = 0;
         sources.clear();
-        place(x, y, 138, 58);
+        machines.clear();
+        choices = sources;
+        place(x, y, 138, 74);
         setDisplay(true);
         focus();
         var request = new CompoundTag();
@@ -111,6 +122,8 @@ final class ComputationItemActionsPopup extends UIElement {
         loaded = true;
         sources.clear();
         for (var raw : response.getList("sources", Tag.TAG_COMPOUND)) sources.add(((CompoundTag) raw).copy());
+        machines.clear();
+        for (var raw : response.getList("machines", Tag.TAG_COMPOUND)) machines.add(((CompoundTag) raw).copy());
         if (response.contains("error")) {
             message = Component.translatable(response.getString("error"));
             mode = Mode.MESSAGE;
@@ -127,7 +140,7 @@ final class ComputationItemActionsPopup extends UIElement {
     }
 
     private void dialog() {
-        int rows = mode == Mode.MESSAGE ? 1 : Math.min(PAGE_SIZE, Math.max(1, sources.size()));
+        int rows = mode == Mode.MESSAGE ? 1 : Math.min(PAGE_SIZE, Math.max(1, choices.size()));
         place((ComputationCpuStatusPanel.WIDTH - 230) / 2F, 36, 230, 24 + rows * 30 + 22);
     }
 
@@ -135,14 +148,14 @@ final class ComputationItemActionsPopup extends UIElement {
         if (!isMouseOverElement(x, y)) return -1;
         float localY = y - getPositionY();
         if (mode == Mode.MENU) {
-            if (localY >= 22 && localY < 54) return (int) ((localY - 22) / 16);
+            if (localY >= 22 && localY < 70) return (int) ((localY - 22) / 16);
             return -1;
         }
         if (localY >= getSizeHeight() - 20) {
             return 100 + Math.min(2, Math.max(0, (int) ((x - getPositionX()) / (getSizeWidth() / 3))));
         }
         int index = (int) ((localY - 24) / 30);
-        return localY >= 24 && index >= 0 && index < PAGE_SIZE && page * PAGE_SIZE + index < sources.size() ? index : -1;
+        return localY >= 24 && index >= 0 && index < PAGE_SIZE && page * PAGE_SIZE + index < choices.size() ? index : -1;
     }
 
     private void activate(int row) {
@@ -150,17 +163,31 @@ final class ComputationItemActionsPopup extends UIElement {
         if (mode == Mode.MENU) {
             if (!loaded) return;
             if (row == 0 && !sources.isEmpty()) showLocations();
-            else if (row == 1 && sources.size() == 1) send("open", 0);
-            else if (row == 1 && sources.size() > 1) { mode = Mode.CHOOSE; dialog(); }
+            else if (row == 1) choose(machines, "open_machine");
+            else if (row == 2) choose(sources, "open");
         } else if (row >= 100) {
             if (row == 100) turnPage(-1);
             else if (row == 101) turnPage(1);
             else close();
-        } else if (mode == Mode.CHOOSE) send("open", page * PAGE_SIZE + row);
+        } else if (mode == Mode.CHOOSE) send(chooseAction, choices, page * PAGE_SIZE + row);
+    }
+
+    /** One entry opens directly; several open the chooser for that list. */
+    private void choose(List<CompoundTag> list, String action) {
+        if (list.isEmpty()) return;
+        if (list.size() == 1) {
+            send(action, list, 0);
+            return;
+        }
+        choices = list;
+        chooseAction = action;
+        page = 0;
+        mode = Mode.CHOOSE;
+        dialog();
     }
 
     private void turnPage(int change) {
-        page = Math.max(0, Math.min(Math.max(0, (sources.size() - 1) / PAGE_SIZE), page + change));
+        page = Math.max(0, Math.min(Math.max(0, (choices.size() - 1) / PAGE_SIZE), page + change));
     }
 
     private void showLocations() {
@@ -181,13 +208,13 @@ final class ComputationItemActionsPopup extends UIElement {
         close();
     }
 
-    private void send(String action, int source) {
+    private void send(String action, List<CompoundTag> list, int source) {
         var tag = new CompoundTag();
         tag.putString("action", action);
         tag.putLong("sequence", sequence);
         tag.put("key", item.key().toTagGeneric(registries));
         if (context.hasUUID("job")) tag.putUUID("job", context.getUUID("job"));
-        if (source >= 0 && source < sources.size()) tag.putString("source", sources.get(source).getString("id"));
+        if (source >= 0 && source < list.size()) tag.putString("source", list.get(source).getString("id"));
         request.accept(tag);
     }
 
@@ -197,16 +224,17 @@ final class ComputationItemActionsPopup extends UIElement {
         context.drawTexture(NETextures.AE2_CONTEXT_BACKGROUND, x, y, width, getSizeHeight());
         context.graphics.flush();
         Component title = item == null ? Component.empty() : item.key().getDisplayName();
-        if (mode == Mode.CHOOSE) title = title.copy().append(" · " + (page + 1) + "/" + Math.max(1, (sources.size() + PAGE_SIZE - 1) / PAGE_SIZE));
+        if (mode == Mode.CHOOSE) title = title.copy().append(" · " + (page + 1) + "/" + Math.max(1, (choices.size() + PAGE_SIZE - 1) / PAGE_SIZE));
         text(context, title, 7, 6, 0x413F54);
         divider(context, 18);
         if (mode == Mode.MENU) {
             row(context, 0, 22, "gui.neoecoae.processing.action.locate", loaded && !sources.isEmpty());
-            row(context, 1, 38, "gui.neoecoae.processing.action.open", loaded && !sources.isEmpty());
+            row(context, 1, 38, "gui.neoecoae.processing.action.open_machine", loaded && !machines.isEmpty());
+            row(context, 2, 54, "gui.neoecoae.processing.action.open", loaded && !sources.isEmpty());
         } else {
             if (mode == Mode.MESSAGE) text(context, message, 7, 29, 0xA22D37);
-            else for (int index = 0; index < PAGE_SIZE && page * PAGE_SIZE + index < sources.size(); index++) {
-                var source = sources.get(page * PAGE_SIZE + index);
+            else for (int index = 0; index < PAGE_SIZE && page * PAGE_SIZE + index < choices.size(); index++) {
+                var source = choices.get(page * PAGE_SIZE + index);
                 float top = 24 + index * 30;
                 if (mode == Mode.CHOOSE && hovered == index) context.graphics.fill(Math.round(x + 4), Math.round(y + top - 2), Math.round(x + width - 4), Math.round(y + top + 28), 0x807B81B8);
                 Component name = Component.Serializer.fromJson(source.getString("name"), registries);
