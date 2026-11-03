@@ -6,7 +6,6 @@ import appeng.api.implementations.blockentities.PatternContainerGroup;
 import appeng.api.inventories.BaseInternalInventory;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGrid;
-import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
@@ -279,6 +278,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
+        // AE2 mounts this list when the node joins a grid; catalog/disk changes explicitly republish it.
+        // Power and cable reboots do not change the advertised patterns and need no provider refresh.
         refreshAuxiliaryPatterns();
         if (auxiliaryPatternDetails.isEmpty()) {
             return catalog.availablePatterns();
@@ -497,10 +498,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     public cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster getCraftingCluster() {
         return cluster;
-    }
-
-    boolean isServerStoppingForPublisher() {
-        return isServerStopping();
     }
 
     @Override
@@ -838,18 +835,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         notifyPatternInterfaceTopologyChanged(previousGrid);
     }
 
-    @Override
-    public void onMainNodeStateChanged(IGridNodeListener.State reason) {
-        if (isServerStopping()) {
-            return;
-        }
-        super.onMainNodeStateChanged(reason);
-        if (reason == IGridNodeListener.State.POWER || reason == IGridNodeListener.State.GRID_BOOT) {
-            queueCraftingProviderRefresh();
-            notifyPatternInterfaceTopologyChanged();
-        }
-    }
-
     private void updatePatternDetails() {
         catalog.updatePatternDetails();
     }
@@ -924,19 +909,11 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         publisher.notifyPatternInterfaceHosts(slots);
     }
 
-    private void notifyPatternInterfaceTopologyChanged() {
-        publisher.notifyPatternInterfaceTopologyChanged();
-    }
-
     private void notifyPatternInterfaceTopologyChanged(@Nullable IGrid grid) {
         publisher.notifyPatternInterfaceTopologyChanged(grid);
     }
 
-    /** Re-mount the provider after AE2 has completed a power or pathing transition. */
-    private void queueCraftingProviderRefresh() {
-        publisher.queueCraftingProviderRefresh();
-    }
-
+    /** Flushes a coalesced pattern-content update. */
     public void flushScheduledPatternDetails() {
         catalog.flushScheduledPatternDetails();
     }
