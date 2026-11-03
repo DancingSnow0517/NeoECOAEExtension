@@ -23,7 +23,7 @@ final class ComputationCards {
     private ComputationCards() {}
 
     static ModularUITooltipComponent cpu(ComputationCpuEntry entry) {
-        return cpu(entry, Screen.hasShiftDown());
+        return cpu(entry, exactValues());
     }
 
     static ModularUITooltipComponent cpu(ComputationCpuEntry entry, boolean exact) {
@@ -63,7 +63,7 @@ final class ComputationCards {
      * the name, its last line the mod name, anything in between (such as the guide hint) moves to the footer.
      */
     static ModularUITooltipComponent item(List<Component> keyTooltip, ComputationCpuItemEntry item) {
-        return item(keyTooltip, item, Screen.hasShiftDown());
+        return item(keyTooltip, item, exactValues());
     }
 
     static ModularUITooltipComponent item(List<Component> keyTooltip, ComputationCpuItemEntry item, boolean exact) {
@@ -114,6 +114,12 @@ final class ComputationCards {
         card.divider().hint(Glyph.POINTER, Component.translatable(CARD + "context_hint"));
         for (int i = 1; i < keyTooltip.size() - 1; i++) card.hint(Glyph.BOOK, keyTooltip.get(i));
         return card.build();
+    }
+
+    /** Shift shows exact values; tolerant of a missing client window (headless tests). */
+    private static boolean exactValues() {
+        Minecraft client = Minecraft.getInstance();
+        return client != null && client.getWindow() != null && Screen.hasShiftDown();
     }
 
     private static int statusColor(String status) {
