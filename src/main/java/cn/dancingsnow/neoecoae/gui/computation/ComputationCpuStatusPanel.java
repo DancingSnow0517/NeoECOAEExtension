@@ -273,8 +273,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         hitbox.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
             ComputationCpuEntry entry = cpuPage.hit(event.y - getPositionY() - CPU_Y, 0, CPU_STRIDE, CPU_HEIGHT);
             if (entry != null) {
-                event.hoverTooltips = HoverTooltips.empty().append(
-                    ComputationCpuSelector.tooltip(entry).toArray(Component[]::new));
+                event.hoverTooltips = new HoverTooltips(List.of(), ComputationCards.cpu(entry), null, null);
             }
         });
         return hitbox;
@@ -294,13 +293,8 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             ComputationCpuItemEntry item = itemAt(event.x, event.y);
             if (item == null) return;
             if (item.processing().machineCount() > 0 || item.processing().refreshing()) requestProcessingDetails(item, 0);
-            List<Component> lines = new ArrayList<>(AEKeyRendering.getTooltip(item.key()));
-            lines.addAll(itemDescription(item, true));
-            if (item.stepStopped()) lines.add(Component.translatable("gui.neoecoae.processing.step_stopped").withStyle(ChatFormatting.GOLD));
-            if (item.batched()) {
-                lines.add(Component.translatable("gui.neoecoae.crafting.smart_doubling").withStyle(neColor -> neColor.withColor(0xC7A6FF)));
-            }
-            event.hoverTooltips = ComputationProcessingTooltips.create(lines, item);
+            event.hoverTooltips = new HoverTooltips(List.of(),
+                ComputationCards.item(AEKeyRendering.getTooltip(item.key()), item), null, null);
         });
         return hitbox;
     }

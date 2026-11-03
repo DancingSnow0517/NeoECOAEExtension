@@ -18,6 +18,7 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.BindableValue
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.utils.ModularUITooltipComponent;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.util.DrawerHelper;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
 import java.math.BigDecimal;
@@ -88,11 +89,12 @@ final class ComputationControllerArtwork extends UIElement {
         read(initial);
         layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(0).top(0).width(WIDTH).height(HEIGHT));
 
-        addChild(tooltipRegion(78, 99, 54, 43, this::storageTooltip));
+        addChild(cardTooltipRegion(78, 99, 54, 43, () -> ComputationStatCards.storage(usedBytes, totalBytes)));
         addChild(tooltipRegion(178, 176, 16, 16, () -> switchTooltip(0)));
-        addChild(tooltipRegion(135, 99, 54, 43, this::threadTooltip));
+        addChild(cardTooltipRegion(135, 99, 54, 43, () -> ComputationStatCards.threads(usedThreads, totalThreads)));
         addChild(tooltipRegion(202, 176, 16, 16, () -> switchTooltip(1)));
-        addChild(tooltipRegion(192, 99, 54, 43, this::parallelTooltip));
+        addChild(cardTooltipRegion(192, 99, 54, 43,
+            () -> ComputationStatCards.parallel(parallelCount, fullParallelCount, networkMultiplier, totalThreads)));
         addChild(tooltipRegion(226, 176, 16, 16, () -> switchTooltip(2)));
         addChild(tooltipRegion(178, 151, 66, 16, this::connectionTooltip));
         addChild(tooltipRegion(178, 201, 66, 16, this::multiplierTooltip));
@@ -158,41 +160,12 @@ final class ComputationControllerArtwork extends UIElement {
                 lines.get(), null, null, null));
     }
 
-    private List<Component> storageTooltip() {
-        return List.of(
-            Component.translatable("gui.neoecoae.host.computation.cpu_storage").append(": ")
-                .append(HostText.fullByteProgress(usedBytes, totalBytes)),
-            Component.translatable("gui.neoecoae.host.computation.free_memory").append(": ")
-                .append(Component.literal(HostText.expandedNumber(availableBytes) + " B").withStyle(neColor -> neColor.withColor(HostText.VALUE))),
-            Component.translatable("gui.neoecoae.computation.ui.stat.usage").append(": ")
-                .append(Component.literal(percent(permille(usedBytes, totalBytes)))
-                    .withStyle(neColor -> neColor.withColor(HostText.usedValueColor(usedBytes, totalBytes)))));
-    }
-
-    private List<Component> threadTooltip() {
-        return List.of(
-            Component.translatable("gui.neoecoae.host.computation.thread_usage").append(": ")
-                .append(HostText.usedOfTotal(
-                    HostText.usedPart(HostText.expandedNumber(usedThreads), usedThreads, totalThreads), " / ",
-                    HostText.totalPart(HostText.expandedNumber(totalThreads)))),
-            Component.translatable("gui.neoecoae.computation.ui.stat.free")
-                .append(": " + HostText.expandedNumber(Math.max(0, totalThreads - usedThreads))),
-            Component.translatable("gui.neoecoae.computation.ui.stat.usage").append(": ")
-                .append(Component.literal(percent(permille(usedThreads, totalThreads)))
-                    .withStyle(neColor -> neColor.withColor(HostText.usedValueColor(usedThreads, totalThreads)))));
-    }
-
-    private List<Component> parallelTooltip() {
-        return List.of(
-            Component.translatable("gui.neoecoae.host.computation.parallel_count").append(": ")
-                .append(HostText.expandedNumber(parallelCount)),
-            Component.translatable("gui.neoecoae.computation.ui.parallel_full").append(": ")
-                .append(Component.literal(percent(permille(parallelCount, fullParallelCount)))
-                    .withStyle(neColor -> neColor.withColor(HostText.usedValueColor(parallelCount, fullParallelCount)))),
-            Component.translatable("gui.neoecoae.computation.ui.parallel_shared").withStyle(neColor -> neColor.withColor(0xAAAAAA)),
-            Component.translatable("gui.neoecoae.computation.ui.stat.multiplier").append(": x" + networkMultiplier),
-            Component.translatable("gui.neoecoae.computation.ui.stat.threads")
-                .append(": " + HostText.expandedNumber(totalThreads)));
+    private UIElement cardTooltipRegion(int x, int y, int width, int height,
+            Supplier<ModularUITooltipComponent> content) {
+        return new UIElement().layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
+            .left(x).top(y).width(width).height(height))
+            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
+                List.of(), content.get(), null, null));
     }
 
     private List<Component> switchTooltip(int index) {
@@ -450,10 +423,6 @@ final class ComputationControllerArtwork extends UIElement {
         } finally {
             pose.popPose();
         }
-    }
-
-    private static String percent(int permille) {
-        return Math.round(permille / 10F) + "%";
     }
 
     private static String[] counts(long value) {

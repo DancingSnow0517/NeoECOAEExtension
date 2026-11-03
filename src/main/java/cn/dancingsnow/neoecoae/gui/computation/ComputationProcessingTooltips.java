@@ -2,36 +2,20 @@ package cn.dancingsnow.neoecoae.gui.computation;
 
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.State;
-import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib.gui.util.WidgetTooltipComponent;
-import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.util.FormattedCharSequence;
 
 /** Compact machine details in the existing item tooltip. All times are machine ticks. */
 final class ComputationProcessingTooltips {
     private ComputationProcessingTooltips() {}
 
-    static HoverTooltips create(List<Component> prefix, ComputationCpuItemEntry item) {
-        var rows = new ArrayList<Row>();
-        prefix.stream().skip(1).forEach(line -> rows.add(text(line)));
-        if (item.active().signum() > 0 && item.processing().machineCount() > 0) {
-            rows.addAll(rows(item.processing()));
-        } else {
-            describe(item).forEach(line -> rows.add(text(line)));
-        }
-        rows.add(text(Component.translatable("gui.neoecoae.processing.context_hint")
-            .withStyle(ChatFormatting.DARK_GRAY)));
-        return new HoverTooltips(List.of(prefix.isEmpty() ? Component.empty() : prefix.get(0)),
-            new WidgetTooltipComponent(new TooltipWidget(rows)), null, null);
+    /** Machine rows for an item that is actively crafting; empty when nothing is reported. */
+    static List<Row> rows(ComputationCpuItemEntry item) {
+        return item.active().signum() > 0 ? rows(item.processing()) : List.of();
     }
 
     static List<Component> describe(ComputationCpuItemEntry item) {
@@ -54,7 +38,7 @@ final class ComputationProcessingTooltips {
         return lines;
     }
 
-    private static List<Row> rows(ECOProcessingProgress progress) {
+    static List<Row> rows(ECOProcessingProgress progress) {
         if (progress.machineCount() == 0 && !progress.refreshing()) return List.of();
         var rows = new ArrayList<Row>();
         if (progress.machineCount() > 0) {
@@ -113,63 +97,6 @@ final class ComputationProcessingTooltips {
 
     private static Row text(Component left) { return text(left, Component.empty()); }
     private static Row text(Component left, Component right) { return new Row(left, right, Kind.TEXT, 0); }
-    private enum Kind { TEXT, SEPARATOR, PROGRESS }
-    private record Row(Component left, Component right, Kind kind, float progress) {}
-    private record Layout(Row row, List<FormattedCharSequence> left, List<FormattedCharSequence> right, int height) {}
-
-    /** LDLib supplies the normal tooltip background, placement, and component registration. */
-    private static final class TooltipWidget extends Widget {
-        private static final int GAP = 12;
-        private final List<Layout> layout = new ArrayList<>();
-
-        TooltipWidget(List<Row> rows) {
-            super(0, 0, 0, 0);
-            setClientSideWidget();
-            var client = Minecraft.getInstance();
-            Font font = client.font;
-            int maximum = Math.max(80, Math.min(260, client.getWindow().getGuiScaledWidth() - 20));
-            int width = Math.min(180, maximum);
-            for (var row : rows) {
-                int right = font.width(row.right());
-                width = Math.min(maximum, Math.max(width, font.width(row.left()) + (right == 0 ? 0 : GAP + right)));
-            }
-            int height = 0;
-            for (var row : rows) {
-                List<FormattedCharSequence> left = List.of(), right = List.of();
-                int rowHeight = 6;
-                if (row.kind() == Kind.TEXT) {
-                    int rightWidth = Math.min(font.width(row.right()), width / 2);
-                    left = font.split(row.left(), Math.max(1, width - (rightWidth == 0 ? 0 : GAP + rightWidth)));
-                    right = rightWidth == 0 ? List.of() : font.split(row.right(), rightWidth);
-                    rowHeight = Math.max(1, Math.max(left.size(), right.size())) * (font.lineHeight + 2);
-                }
-                layout.add(new Layout(row, left, right, rowHeight));
-                height += rowHeight;
-            }
-            setSize(width, height);
-        }
-
-        @Override public void drawInBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-            Font font = Minecraft.getInstance().font;
-            int x = getPosition().x, y = getPosition().y, width = getSizeWidth();
-            for (var entry : layout) {
-                if (entry.row().kind() == Kind.SEPARATOR) {
-                    graphics.fill(x, y + 2, x + width, y + 3, 0xFF37303F);
-                } else if (entry.row().kind() == Kind.PROGRESS) {
-                    graphics.fill(x, y + 1, x + width, y + 3, 0xFF332E3B);
-                    int filled = Math.round(width * entry.row().progress());
-                    if (filled > 0) graphics.fill(x, y + 1, x + filled, y + 3, 0xFF60CD64);
-                } else {
-                    for (int i = 0; i < entry.left().size(); i++) {
-                        graphics.drawString(font, entry.left().get(i), x, y + i * (font.lineHeight + 2), 0xFFEEEAF2, true);
-                    }
-                    for (int i = 0; i < entry.right().size(); i++) {
-                        var line = entry.right().get(i);
-                        graphics.drawString(font, line, x + width - font.width(line), y + i * (font.lineHeight + 2), 0xFFEEEAF2, true);
-                    }
-                }
-                y += entry.height();
-            }
-        }
-    }
+    enum Kind { TEXT, SEPARATOR, PROGRESS }
+    record Row(Component left, Component right, Kind kind, float progress) {}
 }

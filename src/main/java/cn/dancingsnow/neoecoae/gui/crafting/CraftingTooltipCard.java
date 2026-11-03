@@ -17,13 +17,13 @@ import net.minecraft.util.Mth;
  * Card-style statistic drawn inside the vanilla tooltip frame: header, large value, bar and detail rows.
  * The frame and placement stay vanilla; only the content is custom.
  */
-final class CraftingTooltipCard extends UIElement {
-    static final int ACCENT = 0xFFC9B8FF;
-    static final int WARN = 0xFFF0A848;
-    static final int OK = 0xFF8EE6A0;
-    static final int CYAN = 0xFF5BB8D0;
-    static final int PRIMARY = 0xFFF2EEF8;
-    static final int MUTED = 0xFF9C94AC;
+public final class CraftingTooltipCard extends UIElement {
+    public static final int ACCENT = 0xFFC9B8FF;
+    public static final int WARN = 0xFFF0A848;
+    public static final int OK = 0xFF8EE6A0;
+    public static final int CYAN = 0xFF5BB8D0;
+    public static final int PRIMARY = 0xFFF2EEF8;
+    public static final int MUTED = 0xFF9C94AC;
     private static final int TRACK = 0xFF332E3B;
     private static final int DIVIDER = 0xFF37303F;
     private static final int MIN_WIDTH = 140;
@@ -34,7 +34,7 @@ final class CraftingTooltipCard extends UIElement {
     private static final int ROW_STEP = 10;
     private static final int DIVIDER_STEP = 8;
 
-    enum Icon { CHIP, STACK }
+    public enum Icon { NONE, CHIP, STACK }
 
     record Segment(double fraction, int color, boolean raised) {}
 
@@ -47,6 +47,7 @@ final class CraftingTooltipCard extends UIElement {
     private final int headerRightColor;
     private final Component value;
     private final Component suffix;
+    private final int valueColor;
     private final Component status;
     private final int statusColor;
     private final List<Segment> segments;
@@ -61,11 +62,12 @@ final class CraftingTooltipCard extends UIElement {
         headerRightColor = builder.headerRightColor;
         value = builder.value;
         suffix = builder.suffix;
+        valueColor = builder.valueColor;
         status = builder.status;
         statusColor = builder.statusColor;
         segments = List.copyOf(builder.segments);
         rows = List.copyOf(builder.rows);
-        int content = Math.max(11 + font.width(title) + gap(headerRight) + font.width(headerRight),
+        int content = Math.max(titleX() + font.width(title) + gap(headerRight) + font.width(headerRight),
             font.width(value) * 2 + font.width(suffix) + (font.width(suffix) > 0 ? 1 : 0)
                 + gap(status) + font.width(status));
         int height = BAR_Y + 3;
@@ -81,7 +83,7 @@ final class CraftingTooltipCard extends UIElement {
         layout(layout -> layout.width(w).height(h).paddingAll(0));
     }
 
-    static Builder builder(Icon icon, Component title) {
+    public static Builder builder(Icon icon, Component title) {
         return new Builder(icon, title);
     }
 
@@ -91,7 +93,7 @@ final class CraftingTooltipCard extends UIElement {
         int x = Math.round(getPositionX()), y = Math.round(getPositionY());
 
         drawIcon(context, x, y);
-        graphics.drawString(font, title, x + 11, y, ACCENT, true);
+        graphics.drawString(font, title, x + titleX(), y, ACCENT, true);
         right(context, headerRight, x, y, headerRightColor);
 
         var pose = graphics.pose();
@@ -99,7 +101,7 @@ final class CraftingTooltipCard extends UIElement {
         try {
             pose.translate(x, y + VALUE_Y, 0);
             pose.scale(2.0F, 2.0F, 1.0F);
-            graphics.drawString(font, value, 0, 0, PRIMARY, true);
+            graphics.drawString(font, value, 0, 0, valueColor, true);
         } finally {
             pose.popPose();
         }
@@ -136,7 +138,12 @@ final class CraftingTooltipCard extends UIElement {
         }
     }
 
+    private int titleX() {
+        return icon == Icon.NONE ? 0 : 11;
+    }
+
     private void drawIcon(GUIContext context, int x, int y) {
+        if (icon == Icon.NONE) return;
         var graphics = context.graphics;
         if (icon == Icon.STACK) {
             graphics.fill(x + 1, y + 1, x + 8, y + 3, ACCENT);
@@ -164,25 +171,26 @@ final class CraftingTooltipCard extends UIElement {
         return font.width(right) == 0 ? 0 : GAP;
     }
 
-    static MutableComponent upper(Component text) {
+    public static MutableComponent upper(Component text) {
         return Component.literal(text.getString().toUpperCase(Locale.ROOT));
     }
 
-    static MutableComponent label(String key, String value, int valueColor) {
+    public static MutableComponent label(String key, String value, int valueColor) {
         return Component.translatable(key).withStyle(style -> style.withColor(MUTED)).append(Component.literal(" " + value).withStyle(style -> style.withColor(valueColor)));
     }
 
-    static String group(long value) {
+    public static String group(long value) {
         return String.format(Locale.ROOT, "%,d", value);
     }
 
-    static final class Builder {
+    public static final class Builder {
         private final Icon icon;
         private final Component title;
         private Component headerRight = Component.empty();
         private int headerRightColor = WARN;
         private Component value = Component.empty();
         private Component suffix = Component.empty();
+        private int valueColor = PRIMARY;
         private Component status = Component.empty();
         private int statusColor = WARN;
         private final List<Segment> segments = new ArrayList<>();
@@ -193,40 +201,45 @@ final class CraftingTooltipCard extends UIElement {
             this.title = title;
         }
 
-        Builder headerRight(Component text, int color) {
+        public Builder headerRight(Component text, int color) {
             headerRight = text;
             headerRightColor = color;
             return this;
         }
 
-        Builder value(String main, String total) {
+        public Builder value(String main, String total) {
             value = Component.literal(main);
             suffix = total == null ? Component.empty() : Component.literal(" / " + total);
             return this;
         }
 
-        Builder status(Component text, int color) {
+        public Builder valueColor(int color) {
+            valueColor = color;
+            return this;
+        }
+
+        public Builder status(Component text, int color) {
             status = upper(text);
             statusColor = color;
             return this;
         }
 
-        Builder segment(double fraction, int color, boolean raised) {
+        public Builder segment(double fraction, int color, boolean raised) {
             segments.add(new Segment(fraction, color, raised));
             return this;
         }
 
-        Builder row(Component left, Component right, int rightColor) {
+        public Builder row(Component left, Component right, int rightColor) {
             rows.add(new Row(left, right, rightColor, false));
             return this;
         }
 
-        Builder dividedRow(Component left, Component right, int rightColor) {
+        public Builder dividedRow(Component left, Component right, int rightColor) {
             rows.add(new Row(left, right, rightColor, true));
             return this;
         }
 
-        ModularUITooltipComponent build() {
+        public ModularUITooltipComponent build() {
             return new ModularUITooltipComponent(new CraftingTooltipCard(this, Minecraft.getInstance().font));
         }
     }
