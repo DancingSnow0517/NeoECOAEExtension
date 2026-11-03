@@ -47,6 +47,7 @@ public class NELangGenerator {
         provider.add("tooltip.neoecoae.bulk.moved", "Functionality moved to the Digital Singularity Item Storage Matrix");
         provider.add("tooltip.neoecoae.bulk.compression", "Compression: %s");
         provider.add("tooltip.neoecoae.bulk.compression_enabled", "Enabled");
+        provider.add("tooltip.neoecoae.bulk.compression_requires_marker", "Mark resources to enable");
         provider.add("tooltip.neoecoae.bulk.used_types", "Resource types used: %s / %s");
         provider.add("tooltip.neoecoae.bulk.capacity", "Unlimited quantity; %s / %s marked resource types");
         provider.add("tooltip.neoecoae.bulk.configure", "25 resource types; an ECO Bulk Expansion Card expands this to 50");

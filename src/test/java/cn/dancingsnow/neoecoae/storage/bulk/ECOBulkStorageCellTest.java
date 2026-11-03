@@ -82,6 +82,14 @@ class ECOBulkStorageCellTest {
         return result;
     }
 
+    @Test void unconfiguredLegacyBulkCellsStillRequireMarkers() {
+        var f = fixture();
+        assertEquals(0, f.cell.insert(ingot, 1, Actionable.SIMULATE, null));
+        assertEquals(0, f.cell.insert(ingot, 1, Actionable.MODULATE, null));
+        assertEquals(0, f.cell.getRemainingItemCount());
+        assertTrue(f.cell.getStoredEntries().isEmpty());
+    }
+
     @Test void quantitiesBeyondLongRoundTripAndOnlyTheBoundarySaturates() {
         var f = fixture(ingot);
         assertEquals(Long.MAX_VALUE, f.cell.insert(ingot, Long.MAX_VALUE, Actionable.SIMULATE, null));
