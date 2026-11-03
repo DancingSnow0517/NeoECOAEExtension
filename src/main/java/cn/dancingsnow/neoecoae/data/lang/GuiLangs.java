@@ -516,7 +516,11 @@ public class GuiLangs {
         provider.add("gui.neoecoae.computation.ui.switch.substitutions.desc", "Lets planning use patterns that allow substitutions.");
         provider.add("gui.neoecoae.computation.ui.switch.cycle_planning.desc", "Lets planning solve recipe routes that contain cycles.");
         provider.add("gui.neoecoae.computation.ui.switch.fast_planner.desc", "Handles crafting requests with the ECO fast planner.");
-        provider.add("gui.neoecoae.computation.ui.switch.smart_doubling.desc", "When disabled, each dispatch is limited to actual parallelism, up to 16,384 crafts.");
+        provider.add("gui.neoecoae.computation.ui.switch.smart_doubling.limit", "Per-dispatch cap when disabled");
+        provider.add("gui.neoecoae.computation.ui.switch.smart_doubling.limit_value", "%s crafts");
+        provider.add("gui.neoecoae.computation.ui.switch.smart_doubling.limit_note", "Actual dispatches are still limited by available parallelism.");
+        provider.add("gui.neoecoae.computation.ui.switch.smart_doubling.blocking", "Blocking mode takes priority");
+        provider.add("gui.neoecoae.computation.ui.switch.smart_doubling.blocking_note", "Dispatches that meet blocking conditions are still held by blocking mode.");
         provider.add("gui.neoecoae.computation.ui.parallel_full", "Full build progress");
         provider.add("gui.neoecoae.computation.ui.parallel_shared", "Every thread gets the full parallel count.");
         provider.add("gui.neoecoae.computation.ui.title", "Extensible Computation Subsystem");

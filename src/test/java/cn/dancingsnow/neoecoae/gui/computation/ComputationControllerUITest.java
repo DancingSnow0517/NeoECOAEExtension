@@ -240,6 +240,20 @@ class ComputationControllerUITest {
     }
 
     @Test
+    void smartDoublingCardShowsStateCapAndBlockingPrecedence() {
+        String key = "gui.neoecoae.computation.ui.switch.";
+        var texts = ComputationControllerInteractions.smartDoublingCard(true).texts().stream()
+            .map(text -> ((net.minecraft.network.chat.contents.TranslatableContents) text.getContents()).getKey())
+            .toList();
+        assertEquals(List.of("gui.neoecoae.crafting.smart_doubling", key + "on", key + "smart_doubling.limit",
+            key + "smart_doubling.limit_value", key + "smart_doubling.limit_note", key + "smart_doubling.blocking",
+            key + "smart_doubling.blocking_note"), texts);
+        var off = ComputationControllerInteractions.smartDoublingCard(false).texts();
+        assertEquals(key + "off", ((net.minecraft.network.chat.contents.TranslatableContents) off.get(1).getContents()).getKey());
+        assertEquals("16,384", ((net.minecraft.network.chat.contents.TranslatableContents) off.get(3).getContents()).getArgs()[0]);
+    }
+
+    @Test
     void placedHostArtworkOverridesBadgesMarkersStatusAndSwitchesAndRefreshesWhileOpen() throws Exception {
         try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
