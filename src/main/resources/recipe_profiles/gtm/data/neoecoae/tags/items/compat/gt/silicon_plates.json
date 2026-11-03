@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "ae2:printed_silicon",
+      "required": false
+    },
+    {
+      "id": "gtceu:silicon_plate",
+      "required": false
+    }
+  ]
+}

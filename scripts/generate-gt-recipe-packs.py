@@ -60,7 +60,10 @@ def gt_recipe(row: dict, modern: bool) -> dict:
         return f"gtceu:{name}" if modern else name
 
     def sized(item: dict) -> dict:
-        return {"content": {"type": "gtceu:sized", "count": item["count"], "ingredient": predicate(item)}}
+        content = {"content": {"type": "gtceu:sized", "count": item["count"], "ingredient": predicate(item)}}
+        if item.get("not_consumable", False):
+            content["chance"] = 0
+        return content
 
     result = {
         "type": row["recipe_type"],
@@ -165,7 +168,8 @@ def compile_packs() -> dict[str, dict[str, dict]]:
                 "type": "minecraft:crafting_shapeless", "conditions": dependencies({}, profile),
                 "ingredients": [{"tag": blocks}], "result": {"item": ids["ingot"], "count": 9}}
 
-    for section, directory in (("gt_bootstrap_recipes", "bootstrap"), ("ore_processing_recipes", "ore_processing")):
+    for section, directory in (("gt_bootstrap_recipes", "bootstrap"), ("ore_processing_recipes", "ore_processing"),
+                               ("material_processing_recipes", "material_processing")):
         for row in plan[section]:
             result_name = row["item_output"]["item"].split(":", 1)[1]
             path = recipe_path(f"neoecoae:compat/gt/{directory}/{row['key'].lower()}_{result_name}")

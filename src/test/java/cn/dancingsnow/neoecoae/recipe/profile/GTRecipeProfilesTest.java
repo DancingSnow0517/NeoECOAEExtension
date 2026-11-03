@@ -157,7 +157,7 @@ class GTRecipeProfilesTest {
     @ParameterizedTest @ValueSource(strings = {"legacy", "modern"})
     void gtMachineRecipesKeepRealQuantitiesTickEuAndProcessRequirements(String schema) throws Exception {
         String prefix = schema.equals("modern") ? "gtceu:" : "";
-        assertEquals(20, recipeFiles("gt_" + schema).size());
+        assertEquals(23, recipeFiles("gt_" + schema).size());
         var controller = recipe("gt_" + schema, "compat/gt/bootstrap/b10_integrated_working_station");
         assertEquals("gtceu:assembler", controller.get("type").getAsString());
         assertEquals(600, controller.get("duration").getAsInt());
@@ -300,7 +300,7 @@ class GTRecipeProfilesTest {
         assertEquals(9, recipe(profile, "aluminum_ingot").getAsJsonObject("result").get("count").getAsInt());
         assertEquals(9, recipe(profile, "tungsten_ingot").getAsJsonObject("result").get("count").getAsInt());
         var tags = ROOT.resolve(profile).resolve("data/neoecoae/tags/items/compat/gt");
-        try (var files = Files.list(tags)) { assertEquals(6, files.count()); }
+        try (var files = Files.list(tags)) { assertEquals(7, files.count()); }
         assertFalse(Files.exists(ROOT.resolve(profile).resolve("data/forge")));
         var silicon = read(tags.resolve("silicon.json")).getAsJsonArray("values").asList().stream()
             .map(c -> c.getAsJsonObject().get("id").getAsString()).collect(Collectors.toSet());

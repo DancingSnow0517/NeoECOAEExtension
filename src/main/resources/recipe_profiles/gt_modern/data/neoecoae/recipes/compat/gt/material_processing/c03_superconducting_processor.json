@@ -1,0 +1,84 @@
+{
+  "type": "gtceu:forming_press",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    }
+  ],
+  "duration": 40,
+  "inputs": {
+    "gtceu:item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "neoecoae:superconducting_processor_press"
+          }
+        },
+        "chance": 0
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "ae2:silicon_press"
+          }
+        },
+        "chance": 0
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "neoecoae:energized_superconductive_ingot"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "tag": "neoecoae:compat/gt/silicon_plates"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "neoecoae:crystal_matrix"
+          }
+        }
+      }
+    ]
+  },
+  "outputs": {
+    "gtceu:item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "neoecoae:superconducting_processor"
+          }
+        }
+      }
+    ]
+  },
+  "tickInputs": {
+    "gtceu:eu": [
+      {
+        "content": {
+          "voltage": 1920,
+          "amperage": 1
+        }
+      }
+    ]
+  }
+}

@@ -32,7 +32,7 @@
           "type": "gtceu:sized",
           "count": 4,
           "ingredient": {
-            "item": "ae2:printed_silicon"
+            "tag": "neoecoae:compat/gt/silicon_plates"
           }
         }
       },

@@ -1,0 +1,46 @@
+{
+  "type": "gtceu:macerator",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    }
+  ],
+  "duration": 100,
+  "inputs": {
+    "gtceu:item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "tag": "forge:gems/energized_crystal"
+          }
+        }
+      }
+    ]
+  },
+  "outputs": {
+    "gtceu:item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "neoecoae:energized_crystal_dust"
+          }
+        }
+      }
+    ]
+  },
+  "tickInputs": {
+    "gtceu:eu": [
+      {
+        "content": {
+          "voltage": 30,
+          "amperage": 1
+        }
+      }
+    ]
+  }
+}

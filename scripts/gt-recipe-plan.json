@@ -1991,7 +1991,7 @@
           "count": 4
         },
         {
-          "item": "ae2:printed_silicon",
+          "tag": "neoecoae:compat/gt/silicon_plates",
           "count": 4
         },
         {
@@ -2353,6 +2353,77 @@
       "conditions": []
     }
   ],
+  "material_processing_recipes": [
+    {
+      "key": "C01",
+      "recipe_type": "gtceu:macerator",
+      "item_inputs": [
+        {
+          "tag": "forge:gems/energized_crystal",
+          "count": 1
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:energized_crystal_dust",
+        "count": 1
+      },
+      "eu_per_tick": 30,
+      "ticks": 100,
+      "conditions": []
+    },
+    {
+      "key": "C02",
+      "recipe_type": "gtceu:macerator",
+      "item_inputs": [
+        {
+          "tag": "forge:gems/energized_fluix_crystal",
+          "count": 1
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:energized_fluix_crystal_dust",
+        "count": 1
+      },
+      "eu_per_tick": 30,
+      "ticks": 100,
+      "conditions": []
+    },
+    {
+      "key": "C03",
+      "recipe_type": "gtceu:forming_press",
+      "item_inputs": [
+        {
+          "item": "neoecoae:superconducting_processor_press",
+          "count": 1,
+          "not_consumable": true
+        },
+        {
+          "item": "ae2:silicon_press",
+          "count": 1,
+          "not_consumable": true
+        },
+        {
+          "item": "neoecoae:energized_superconductive_ingot",
+          "count": 1
+        },
+        {
+          "tag": "neoecoae:compat/gt/silicon_plates",
+          "count": 1
+        },
+        {
+          "item": "neoecoae:crystal_matrix",
+          "count": 1
+        }
+      ],
+      "item_output": {
+        "item": "neoecoae:superconducting_processor",
+        "count": 1
+      },
+      "eu_per_tick": 1920,
+      "ticks": 40,
+      "conditions": []
+    }
+  ],
   "module_recipes": [
     {
       "key": "U01",
@@ -2613,6 +2684,12 @@
         "ae2:silicon",
         "gtceu:silicon_dust",
         "gtceu:silicon_ingot"
+      ]
+    },
+    "neoecoae:compat/gt/silicon_plates": {
+      "item_ids": [
+        "ae2:printed_silicon",
+        "gtceu:silicon_plate"
       ]
     },
     "neoecoae:compat/gt/crystal_bases": {
