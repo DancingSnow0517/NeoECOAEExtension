@@ -129,22 +129,22 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         }, true);
         addChild(scrollbar());
         overclock = toggle("overclock", 102, config.toggleOverclocked(), config.togglePreheating(),
-            () -> new HoverTooltips(controlTooltip(this::overclockTooltip), null, null, null));
+            () -> overclockCard(true));
         addChild(overclock);
         cooling = toggle("cooling", 146, config.toggleActiveCooling(), null, () -> coolingCard(true));
         addChild(cooling);
-        addChild(region("module-logo", 6, 6, 15, 15, this::moduleTooltip));
+        addChild(cardRegion("module-logo", 6, 6, 15, 15, this::moduleCard));
         addChild(region("machine-title", 25, 6, 115, 14, () -> List.of(
             Component.translatable("block.neoecoae.large_integrated_working_station").withStyle(ChatFormatting.YELLOW), pauseText())));
-        addChild(region("module-info", 176, 34, 69, 31, this::moduleTooltip));
+        addChild(cardRegion("module-info", 176, 34, 69, 31, this::moduleCard));
         addChild(informationIcon());
         addChild(region("parallel", 99, 35, 64, 32, this::parallelTooltip));
         addChild(cardRegion("temperature", 172, 69, 15, 55, this::temperatureCard));
-        addChild(region("energy", 189, 69, 12, 55, this::energyTooltip));
+        addChild(cardRegion("energy", 189, 69, 12, 55, this::energyCard));
         addChild(cardRegion("temperature-setting", 99, 117, 64, 10, this::temperatureCard));
         addChild(cardRegion("temperature-info", 176, 130, 68, 24, this::temperatureCard));
         addChild(cardRegion("cooling-info", 176, 155, 68, 24, () -> coolingCard(false)));
-        addChild(region("overclock-info", 176, 180, 68, 24, this::overclockTooltip));
+        addChild(cardRegion("overclock-info", 176, 180, 68, 24, () -> overclockCard(false)));
         registerValueListener(this::read);
         read(config.snapshot().apply(0));
         bind(DataBindingBuilder.tagS2C(() -> config.snapshot().apply(serverOffset)).build());
@@ -315,23 +315,37 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             taskScroll.lastVisibleRow(), total);
     }
 
-    private List<Component> moduleTooltip() {
+    private HoverTooltips moduleCard() {
+        return CraftingListCard.hover(moduleCardBuilder(shiftDown()).build());
+    }
+
+    /** Installed upgrade module card; {@code expanded} lists every supported card (held Shift). */
+    CraftingListCard.Builder moduleCardBuilder(boolean expanded) {
         var selected = moduleDescription("moduleId", "module");
-        List<Component> lines = new ArrayList<>();
-        lines.add(title("module_slot"));
-        lines.add(tr("module_current", selected.title()).withColor(selected.color()));
-        lines.add(tr("task_source", moduleDescription("recipeModuleId", "recipeModule").title()));
-        lines.add(hint("module_slot_hint"));
-        lines.add(hint("module_swap_hint"));
-        lines.add(tr("module_cards"));
+        List<Component> cards = new ArrayList<>();
         for (var module : LargeWorkstationModule.values()) {
-            if (module.hasUpgradeCard()) lines.add(Component.translatable("item.neoecoae." + module.upgradeCardId().getPath())
+            if (module.hasUpgradeCard()) cards.add(Component.translatable("item.neoecoae." + module.upgradeCardId().getPath())
                 .withColor(module.color()));
         }
-        for (var custom : ECOWorkstationModules.registered())
-            lines.add(custom.title().copy().withColor(custom.color()));
-        if (state.getBoolean("ignoreUpgradeCards")) lines.add(tr("compat_all_unlocked").withStyle(ChatFormatting.GREEN));
-        return lines;
+        for (var custom : ECOWorkstationModules.registered()) cards.add(custom.title().copy().withColor(custom.color()));
+        var card = CraftingListCard.builder()
+            .header(CraftingListCard.Glyph.PUZZLE, tr("module_slot"), Component.empty(), CraftingTooltipCard.MUTED)
+            .row(null, CraftingTooltipCard.MUTED, card("installed_module"), selected.title(), 0xFF000000 | selected.color())
+            .row(null, CraftingTooltipCard.MUTED, card("recipe_source"),
+                moduleDescription("recipeModuleId", "recipeModule").title(), CraftingTooltipCard.PRIMARY)
+            .panel(CraftingListCard.Glyph.STACK, card("card_slot"), Component.empty(), CraftingTooltipCard.MUTED, List.of(
+                new CraftingListCard.PanelLine(null, card("card_slot_hint"), CraftingTooltipCard.MUTED,
+                    Component.empty(), CraftingTooltipCard.MUTED),
+                new CraftingListCard.PanelLine(CraftingListCard.Glyph.CHECK, card("regular_always"), CraftingTooltipCard.OK,
+                    Component.empty(), CraftingTooltipCard.OK)))
+            .wrapped(CraftingListCard.Glyph.INFO, card("module_swap"), CraftingTooltipCard.MUTED);
+        if (state.getBoolean("ignoreUpgradeCards")) {
+            card.wrapped(CraftingListCard.Glyph.CHECK, tr("compat_all_unlocked"), CraftingTooltipCard.OK);
+        }
+        card.divider().row(null, CraftingTooltipCard.MUTED, card("supported_cards"),
+            card(expanded ? "card_count" : "card_count_shift", cards.size()), CraftingTooltipCard.ACCENT);
+        if (expanded) cards.forEach(name -> card.note(name, CraftingTooltipCard.PRIMARY));
+        return card;
     }
 
     private List<Component> parallelTooltip() {
@@ -339,34 +353,76 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             tr("parallel_capacity", HostText.expandedNumber(state.getLong("parallelCapacity"))), hint("parallel_hint"));
     }
 
-    private List<Component> energyTooltip() {
-        return List.of(title("energy"), tr("energy_value", decimal(state.getDouble("energyUsage"))),
-            tr("fe_value", decimal(state.getDouble("feUsage")), HostText.expandedNumber(state.getLong("feBuffer"))),
-            hint("fe_requirement"),
-            tr("energy_stored", HostText.expandedNumber((long) state.getDouble("energyStored")),
-                HostText.expandedNumber((long) state.getDouble("energyCapacity"))), hint("energy_hint"));
+    private HoverTooltips energyCard() {
+        return CraftingListCard.hover(energyCardBuilder().build());
     }
 
-    private List<Component> overclockTooltip() {
-        List<Component> lines = new ArrayList<>();
-        lines.add(title("overclock"));
-        lines.add(settingState(state.getBoolean("overclocked")));
-        lines.add(tr("parallel_capacity", HostText.expandedNumber(state.getLong("parallelCapacity"))));
-        lines.add(hint(temperatureEnabled() ? "overclock_thermal_hint" : "overclock_coolant_hint"));
-        lines.add(hint("overclock_energy_hint"));
-        if (temperatureEnabled() && !state.getBoolean("smartCooling")) {
-            lines.add(hint("preheat_right_click_hint"));
-            lines.add(tr(state.getBoolean("preheating") ? "preheat_on" : "preheat_off"));
-            lines.add(tr("preheat_energy", HostText.expandedNumber((long) LargeWorkstationThermal.PREHEAT_AE_PER_TICK)));
-            lines.add(hint("preheat_stop_hint"));
+    /** Energy card: last-second usage, Applied Flux FE settlement and the internal AE buffer. */
+    CraftingListCard.Builder energyCardBuilder() {
+        long stored = (long) state.getDouble("energyStored"), capacity = (long) state.getDouble("energyCapacity");
+        double fraction = capacity > 0 ? (double) stored / capacity : 0;
+        return CraftingListCard.builder()
+            .header(CraftingListCard.Glyph.BATTERY, card("energy_monitor"), card("last_second"), CraftingTooltipCard.MUTED)
+            .metricUnit(card("actual_energy"), Component.literal(decimal(state.getDouble("energyUsage"))),
+                CraftingTooltipCard.PRIMARY, Component.literal("AE/t"), CraftingTooltipCard.WARN)
+            .panel(null, Component.empty(), Component.empty(), CraftingTooltipCard.MUTED, List.of(
+                new CraftingListCard.PanelLine(null, card("fe_usage"), CraftingTooltipCard.PRIMARY,
+                    card("fe_rate", decimal(state.getDouble("feUsage"))), CraftingTooltipCard.PRIMARY),
+                new CraftingListCard.PanelLine(null, card("fe_pending"), CraftingTooltipCard.PRIMARY,
+                    card("fe_amount", CraftingTooltipCard.group(state.getLong("feBuffer"))), CraftingTooltipCard.PRIMARY)))
+            .row(null, CraftingTooltipCard.MUTED, card("internal_storage"),
+                card("ae_stored", HostText.ae2Amount(stored), HostText.ae2Amount(capacity)), CraftingTooltipCard.PRIMARY)
+            .bar(fraction, CraftingTooltipCard.WARN)
+            .row(null, CraftingTooltipCard.MUTED, Component.literal(HostText.percent(fraction))
+                    .withColor(CraftingTooltipCard.MUTED),
+                card("ae_amount", CraftingTooltipCard.group(capacity)), CraftingTooltipCard.MUTED)
+            .divider()
+            .wrapped(CraftingListCard.Glyph.INFO, card("energy_footer"), CraftingTooltipCard.MUTED);
+    }
+
+    private HoverTooltips overclockCard(boolean toggle) {
+        return CraftingListCard.hover(overclockCardBuilder(toggle).build());
+    }
+
+    /** Overclock card; {@code toggle} adds the mouse hints shown on the toggle button. */
+    CraftingListCard.Builder overclockCardBuilder(boolean toggle) {
+        boolean enabled = state.getBoolean("overclocked");
+        boolean preheat = temperatureEnabled() && !state.getBoolean("smartCooling");
+        var card = CraftingListCard.builder()
+            .header(CraftingListCard.Glyph.BOLT, tr("overclock"), tr(enabled ? "enabled" : "disabled"),
+                enabled ? CraftingTooltipCard.OK : CraftingTooltipCard.MUTED)
+            .largeValue(card("parallel_limit"), CraftingTooltipCard.group(state.getLong("parallelCapacity")),
+                CraftingTooltipCard.PRIMARY)
+            .row(null, CraftingTooltipCard.MUTED, card("recipe_energy"), Component.literal("×1"), CraftingTooltipCard.OK);
+        if (preheat) {
+            boolean running = state.getBoolean("preheating");
+            card.panel(CraftingListCard.Glyph.THERMOMETER, card("auto_preheat"),
+                card(running ? "preheat_running" : "preheat_off"),
+                running ? CraftingTooltipCard.WARN : CraftingTooltipCard.MUTED, List.of(
+                    new CraftingListCard.PanelLine(null, card("preheat_max_energy"), CraftingTooltipCard.MUTED,
+                        card("ae_rate", CraftingTooltipCard.group((long) LargeWorkstationThermal.PREHEAT_AE_PER_TICK)),
+                        CraftingTooltipCard.WARN),
+                    new CraftingListCard.PanelLine(null, card("preheat_stop"), CraftingTooltipCard.MUTED,
+                        Component.empty(), CraftingTooltipCard.MUTED)));
         }
-        return lines;
+        card.wrapped(CraftingListCard.Glyph.INFO,
+            tr(temperatureEnabled() ? "overclock_thermal_hint" : "overclock_coolant_hint"), CraftingTooltipCard.MUTED);
+        if (toggle) {
+            card.divider().text(mouseHint("mouse_left", "toggle_overclock"),
+                preheat ? mouseHint("mouse_right", "toggle_preheat") : Component.empty(), CraftingTooltipCard.MUTED);
+        }
+        return card;
     }
 
-    private List<Component> controlTooltip(Supplier<List<Component>> description) {
-        List<Component> lines = new ArrayList<>(description.get());
-        lines.add(hint("toggle_hint"));
-        return lines;
+    private static Component mouseHint(String button, String action) {
+        return Component.empty().append(card(button).withStyle(ChatFormatting.BOLD).withColor(CraftingTooltipCard.PRIMARY))
+            .append(" ").append(card(action).withColor(CraftingTooltipCard.MUTED));
+    }
+
+    /** Client-only: whether Shift is held, false when no window exists (tests, early init). */
+    private static boolean shiftDown() {
+        var minecraft = net.minecraft.client.Minecraft.getInstance();
+        return minecraft != null && minecraft.getWindow() != null && net.minecraft.client.gui.screens.Screen.hasShiftDown();
     }
 
     private HoverTooltips temperatureCard() {

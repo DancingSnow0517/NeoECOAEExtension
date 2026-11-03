@@ -92,7 +92,7 @@ public final class CircularCycleLayout implements GraphLayoutEngine {
      * Starts with an actual directed cycle, then inserts any extra SCC nodes beside a connected ring node.
      * Materials and recipes therefore alternate on one circumference instead of forming two unrelated rings.
      */
-    private static List<Integer> ringOrder(ClientCraftingGraph graph, List<Integer> coreIds) {
+    static List<Integer> ringOrder(ClientCraftingGraph graph, List<Integer> coreIds) {
         if (coreIds.size() <= 1) return coreIds;
         Set<Integer> core = new LinkedHashSet<>(coreIds);
         List<Integer> starts = new ArrayList<>(coreIds);
