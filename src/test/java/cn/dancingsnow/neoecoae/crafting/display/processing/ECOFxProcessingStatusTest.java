@@ -33,8 +33,9 @@ class ECOFxProcessingStatusTest {
             snapshot(UUID.randomUUID(), Items.STONE, 100, 1000, false, ""), snapshot(job, Items.DIRT, 100, 1000, false, "")));
         var sample = reader.read(worker, context).sample();
         assertEquals(4, sample.parallel());
-        assertEquals(25, sample.progressTicks());
-        assertEquals(100, sample.durationTicks());
+        // 100 progress units at the base 10 units/tick: a cycle is 10 ticks, one of four lanes done.
+        assertEquals(3, sample.progressTicks());
+        assertEquals(10, sample.durationTicks());
         assertEquals(State.RUNNING, sample.state());
         assertNull(reader.read(worker, new Context(context.output(), UUID.randomUUID())).sample());
     }
@@ -59,7 +60,31 @@ class ECOFxProcessingStatusTest {
         when(worker.getCluster()).thenReturn(null);
         var sample = reader.read(worker, context).sample();
         assertEquals(State.PAUSED, sample.state());
-        assertEquals(30, sample.progressTicks());
+        assertEquals(3, sample.progressTicks());
+        assertEquals(10, sample.durationTicks());
+    }
+
+    @Test void overclockedCycleIsReportedInRealTicks() {
+        var worker = worker();
+        when(worker.getCluster().getController().getExecutionOverclockTimes()).thenReturn(4);
+        when(worker.getThreadSnapshots()).thenReturn(List.of(snapshot(job, Items.STONE, 50, 1, false, "")));
+        var sample = reader.read(worker, context).sample();
+        assertEquals(2, sample.durationTicks());
+        assertEquals(1, sample.progressTicks());
+
+        when(worker.getCluster().getController().getExecutionOverclockTimes()).thenReturn(9);
+        when(worker.getThreadSnapshots()).thenReturn(List.of(snapshot(job, Items.STONE, 0, 1, false, "")));
+        assertEquals(1, reader.read(worker, context).sample().durationTicks());
+    }
+
+    @Test void fullVirtualBatchIsOneTickWithoutOverclock() {
+        var worker = worker();
+        when(worker.getCluster().getController().isFullVirtualCraftingMode()).thenReturn(true);
+        when(worker.getThreadSnapshots()).thenReturn(List.of(new Snapshot(true, 0, 100, 1, 512, true,
+            new ItemStack(Items.STONE), 512, List.of(), false, job, "TEST", "")));
+        var sample = reader.read(worker, context).sample();
+        assertEquals(1, sample.durationTicks());
+        assertEquals(0, sample.progressTicks());
     }
 
     private static ECOCraftingWorkerBlockEntity worker() {
