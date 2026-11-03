@@ -135,6 +135,7 @@ class ComputationScrollRenderingTest {
             panel.setValue(snapshot, false);
             assertDrawn(panel, 1);
 
+            try (var minecraft = cardClient()) {
             var cpuHitbox = panel.hitTest(panel.getPositionX() + 10, panel.getPositionY() + 20).getA();
             assertSame(panel.getChildren().get(5), cpuHitbox);
             set(ui, "lastMouseX", panel.getPositionX() + 10);
@@ -142,7 +143,8 @@ class ComputationScrollRenderingTest {
             set(ui, "lastHoveredElement", cpuHitbox);
             var cpuTooltip = cpuHitbox.collectHoverTooltips();
             assertNotNull(cpuTooltip);
-            assertEquals(ComputationCpuSelector.tooltip(cpu(1)), cpuTooltip.tooltipTexts());
+            assertTrue(cpuTooltip.tooltipTexts().get(0).getString().startsWith("CPU 1"));
+            assertNotNull(cpuTooltip.tooltipComponent());
 
             var itemHitbox = panel.hitTest(panel.getPositionX() + 100, panel.getPositionY() + 20).getA();
             set(ui, "lastMouseX", panel.getPositionX() + 100);
@@ -152,18 +154,28 @@ class ComputationScrollRenderingTest {
                     .thenReturn(List.of(net.minecraft.network.chat.Component.literal("Stone")));
                 var tooltip = itemHitbox.collectHoverTooltips();
                 assertNotNull(tooltip);
-                assertEquals(List.of(net.minecraft.network.chat.Component.literal("Stone"),
-                    appeng.core.localization.GuiText.FromStorage.text(item.amount(item.stored(), true)),
-                    appeng.core.localization.GuiText.Crafting.text(item.amount(item.active(), true)),
-                    appeng.core.localization.GuiText.Scheduled.text(item.amount(item.pending(), true)),
-                    net.minecraft.network.chat.Component.translatable("gui.neoecoae.crafting.smart_doubling").withColor(0xC7A6FF),
-                    net.minecraft.network.chat.Component.translatable("gui.neoecoae.processing.context_hint")
-                        .withStyle(net.minecraft.ChatFormatting.DARK_GRAY)), tooltip.tooltipTexts());
+                assertEquals(List.of(net.minecraft.network.chat.Component.literal("Stone").withStyle(
+                    net.minecraft.ChatFormatting.BOLD)), tooltip.tooltipTexts());
+                assertNotNull(tooltip.tooltipComponent());
                 // The one-pixel separator must stay empty after scrolling stops interpolating rows.
                 set(ui, "lastMouseY", panel.getPositionY() + 19 + 22);
                 assertNull(itemHitbox.collectHoverTooltips());
             }
+            }
         }
+    }
+
+    /** Card tooltips measure text with the client font; the window stays absent so Shift reads as released. */
+    private static org.mockito.MockedStatic<net.minecraft.client.Minecraft> cardClient() throws Exception {
+        var mocked = mockStatic(net.minecraft.client.Minecraft.class);
+        var client = mock(net.minecraft.client.Minecraft.class);
+        var font = mock(net.minecraft.client.gui.Font.class);
+        when(font.width(any(net.minecraft.network.chat.FormattedText.class))).thenReturn(10);
+        var fontField = net.minecraft.client.Minecraft.class.getDeclaredField("font");
+        fontField.setAccessible(true);
+        fontField.set(client, font);
+        mocked.when(net.minecraft.client.Minecraft::getInstance).thenReturn(client);
+        return mocked;
     }
 
     private static ComputationControllerUI.Config config() {

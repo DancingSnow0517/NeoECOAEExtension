@@ -205,8 +205,9 @@ Enable active cooling to further enhance performance and eliminate extra energy 
 
 The crafting system now separates structural overclock capability from coolant quality.
 
-- The structure determines theoretical overflow overclock from parallel-core processing capacity that exceeds FX worker capacity. Every 5% overflow adds one speed level, up to level 9.
-- Overflow overclock shortens task duration only. It neither adds task slots nor participates in the x2/x8 per-slot batch multiplier.
+- Overflow is FT parallel capacity beyond the current FX batch limit (FX count × per-slot batch, including the overclocked batch). Every 5% overflow adds one speed level, up to level 9.
+- In an exchange network the x2/x8 multiplier applies to both FT parallel capacity and the FX batch limit, so the overflow ratio does not change; hosts in an exchange network always finish a batch in 1 tick.
+- Overflow overclock shortens task duration only. It does not add task slots.
 - Active coolant determines the effective overclock that can actually be used
 - If the coolant tier is lower than the structure's capability, the system does not stop refilling coolant; instead, it runs at the lower effective overclock
 - Hover over the parallel capacity region for theoretical and effective overclock

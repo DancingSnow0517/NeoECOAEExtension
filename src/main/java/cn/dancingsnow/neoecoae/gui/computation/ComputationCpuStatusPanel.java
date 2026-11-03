@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.gui.crafting.CraftingListCard;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
 
 import appeng.api.client.AEKeyRendering;
@@ -234,8 +235,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             if (ui == null) return;
             ComputationCpuEntry entry = cpuPage.hit(ui.getLastMouseY() - getPositionY() - CPU_Y, 0, CPU_STRIDE, CPU_HEIGHT);
             if (entry != null) {
-                event.hoverTooltips = HoverTooltips.empty().append(
-                    ComputationCpuSelector.tooltip(entry).toArray(Component[]::new));
+                event.hoverTooltips = CraftingListCard.hover(ComputationCards.cpu(entry));
             }
         });
         return hitbox;
@@ -256,12 +256,8 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             if (ui == null) return;
             ComputationCpuItemEntry item = itemAt(ui.getLastMouseX(), ui.getLastMouseY());
             if (item == null) return;
-            List<Component> lines = new ArrayList<>(AEKeyRendering.getTooltip(item.key()));
-            lines.addAll(itemDescription(item, true));
-            if (item.batched()) {
-                lines.add(Component.translatable("gui.neoecoae.crafting.smart_doubling").withColor(0xC7A6FF));
-            }
-            event.hoverTooltips = ComputationProcessingTooltips.create(lines, item);
+            event.hoverTooltips = CraftingListCard.hover(
+                ComputationCards.item(AEKeyRendering.getTooltip(item.key()), item));
         });
         return hitbox;
     }

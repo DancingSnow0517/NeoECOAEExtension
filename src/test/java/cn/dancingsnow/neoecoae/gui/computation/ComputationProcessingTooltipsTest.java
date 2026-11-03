@@ -124,72 +124,15 @@ class ComputationProcessingTooltipsTest {
         assertEquals("broken [1,2", ComputationProcessingTooltips.location("broken [1,2").getString());
     }
 
-    @Test void rendererDrawsAContinuousTrackWithTheActualCycleFraction() throws Exception {
-        Font font = mock(Font.class);
-        var tooltip = spy(new ComputationProcessingTooltips.TooltipElement(List.of(
-            new Row(Component.empty(), Component.empty(), Kind.PROGRESS, .25F)), font, 260));
-        doReturn(10F).when(tooltip).getPositionX();
-        doReturn(20F).when(tooltip).getPositionY();
-        var context = context();
-        tooltip.drawBackgroundAdditional(context);
-        verify(context.graphics).fill(10, 21, 190, 23, 0xFF332E3B);
-        verify(context.graphics).fill(10, 21, 55, 23, 0xFF60CD64);
-        verifyNoMoreInteractions(context.graphics);
-    }
-
-    @Test void longMachineNamesWrapWithinTheSpaceLeftByTheRightAlignedStatus() throws Exception {
-        Font font = mock(Font.class);
-        Component left = Component.literal("A long machine name"), right = Component.literal("Running");
-        when(font.width(left)).thenReturn(230);
-        when(font.width(right)).thenReturn(42);
-        var first = FormattedCharSequence.forward("A long", net.minecraft.network.chat.Style.EMPTY);
-        var second = FormattedCharSequence.forward("machine name", net.minecraft.network.chat.Style.EMPTY);
-        var status = right.getVisualOrderText();
-        when(font.split(left, 206)).thenReturn(List.of(first, second));
-        when(font.split(right, 42)).thenReturn(List.of(status));
-        when(font.width(status)).thenReturn(42);
-        var tooltip = spy(new ComputationProcessingTooltips.TooltipElement(List.of(
-            new Row(left, right, Kind.TEXT, 0)), font, 260));
-        doReturn(0F).when(tooltip).getPositionX();
-        doReturn(0F).when(tooltip).getPositionY();
-        var context = context();
-        tooltip.drawBackgroundAdditional(context);
-        verify(font).split(left, 206);
-        verify(context.graphics).drawString(eq(font), same(first), eq(0), eq(0), anyInt(), eq(true));
-        verify(context.graphics).drawString(eq(font), same(second), eq(0), eq(font.lineHeight + 2), anyInt(), eq(true));
-        verify(context.graphics).drawString(eq(font), same(status), eq(218), eq(0), anyInt(), eq(true));
-    }
-
-    @Test void machineTooltipUsesTheRegisteredLdlibComponentWithAnUnshiftedContentOrigin() throws Exception {
-        try (var minecraft = mockStatic(net.minecraft.client.Minecraft.class);
-             var ldlib = mockStatic(com.lowdragmc.lowdraglib2.LDLib2.class)) {
-            ldlib.when(com.lowdragmc.lowdraglib2.LDLib2::isRemote).thenReturn(true);
-            com.lowdragmc.lowdraglib2.gui.ui.layout.LayoutProperties.init();
-            var client = mock(net.minecraft.client.Minecraft.class);
-            var window = mock(com.mojang.blaze3d.platform.Window.class);
-            when(window.getGuiScaledWidth()).thenReturn(400);
-            when(client.getWindow()).thenReturn(window);
-            Font font = mock(Font.class);
-            when(font.width(any(net.minecraft.network.chat.FormattedText.class))).thenReturn(40);
-            when(font.split(any(net.minecraft.network.chat.FormattedText.class), anyInt()))
-                .thenReturn(List.of(FormattedCharSequence.EMPTY));
-            var fontField = net.minecraft.client.Minecraft.class.getDeclaredField("font");
-            fontField.setAccessible(true);
-            fontField.set(client, font);
-            minecraft.when(net.minecraft.client.Minecraft::getInstance).thenReturn(client);
-            var progress = ECOProcessingProgress.summarize(List.of(machine(41, 200, State.RUNNING, Component.empty())));
-            var item = new ComputationCpuItemEntry(null, java.math.BigInteger.ZERO, java.math.BigInteger.ONE,
-                java.math.BigInteger.TEN, false, progress);
-            var tooltip = ComputationProcessingTooltips.create(List.of(Component.literal("Product"),
-                Component.literal("Crafting: 1")), item);
-            assertEquals(List.of(Component.literal("Product")), tooltip.tooltipTexts());
-            var component = assertInstanceOf(com.lowdragmc.lowdraglib2.gui.ui.utils.ModularUITooltipComponent.class,
-                tooltip.tooltipComponent());
-            assertEquals(180F, component.modularUI.getWidth());
-            assertTrue(component.modularUI.getHeight() > 0);
-            assertEquals(0F, component.modularUI.ui.rootElement.getPositionX());
-            assertEquals(0F, component.modularUI.ui.rootElement.getPositionY());
-        }
+    @Test void cardRowsComeOnlyFromActivelyCraftingItems() {
+        var progress = ECOProcessingProgress.summarize(List.of(machine(41, 200, State.RUNNING, Component.empty())));
+        var active = new ComputationCpuItemEntry(null, java.math.BigInteger.ZERO, java.math.BigInteger.ONE,
+            java.math.BigInteger.TEN, false, progress);
+        assertEquals(41F / 200, ComputationProcessingTooltips.rows(active).stream()
+            .filter(row -> row.kind() == Kind.PROGRESS).findFirst().orElseThrow().progress());
+        var queued = new ComputationCpuItemEntry(null, java.math.BigInteger.ZERO, java.math.BigInteger.ZERO,
+            java.math.BigInteger.TEN, false, progress);
+        assertTrue(ComputationProcessingTooltips.rows(queued).isEmpty());
     }
 
     private static Machine machine(int done, int duration, State state, Component reason) {

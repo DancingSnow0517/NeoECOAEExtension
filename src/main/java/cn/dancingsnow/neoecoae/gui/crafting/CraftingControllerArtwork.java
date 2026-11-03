@@ -100,11 +100,24 @@ final class CraftingControllerArtwork extends UIElement {
         opening.reset();
     }
 
-    private UIElement tooltipRegion(int x, int y, int width, int height, Supplier<List<Component>> lines) {
+    private UIElement tooltipRegion(int x, int y, int width, int height, Supplier<? extends List<?>> lines) {
         return new UIElement().layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
             .left(x).top(y).width(width).height(height))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-                lines.get(), null, null, null));
+            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = hoverTooltips(lines.get()));
+    }
+
+    /** Text lines go to the vanilla list; a card is passed as the tooltip component inside the same frame. */
+    private static HoverTooltips hoverTooltips(List<?> entries) {
+        var texts = new java.util.ArrayList<Component>();
+        net.minecraft.world.inventory.tooltip.TooltipComponent component = null;
+        for (Object entry : entries) {
+            if (entry instanceof Component text) {
+                texts.add(text);
+            } else if (entry instanceof net.minecraft.world.inventory.tooltip.TooltipComponent tooltip) {
+                component = tooltip;
+            }
+        }
+        return new HoverTooltips(texts, component, null, null);
     }
 
     private void updateWorkerSlots() {

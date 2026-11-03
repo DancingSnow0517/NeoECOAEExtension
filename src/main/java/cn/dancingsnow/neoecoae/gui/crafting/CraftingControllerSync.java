@@ -46,6 +46,7 @@ final class CraftingControllerSync {
         tag.putLong("batchCapacity", config.batchCapacity().getAsLong());
         tag.putLong("ftParallelCapacity", config.ftParallelCapacity().getAsLong());
         tag.putLong("overflowCapacity", config.overflowCapacity().getAsLong());
+        tag.putLong("parallelLimit", config.parallelLimit().getAsLong());
         tag.putInt("coolantAmount", config.coolantAmount().getAsInt());
         tag.putInt("coolantCapacity", config.coolantCapacity().getAsInt());
         tag.putInt("coolantMaxOverclock", config.coolantMaxOverclock().getAsInt());
@@ -108,6 +109,7 @@ final class CraftingControllerSync {
         view.batchCapacity = Math.max(0L, tag.getLong("batchCapacity"));
         view.ftParallelCapacity = Math.max(0L, tag.getLong("ftParallelCapacity"));
         view.overflowCapacity = Math.max(0L, tag.getLong("overflowCapacity"));
+        view.parallelLimit = Math.max(0L, tag.getLong("parallelLimit"));
         view.coolantAmount = Math.max(0, tag.getInt("coolantAmount"));
         view.coolantCapacity = Math.max(0, tag.getInt("coolantCapacity"));
         view.coolantMaxOverclock = tag.getInt("coolantMaxOverclock");

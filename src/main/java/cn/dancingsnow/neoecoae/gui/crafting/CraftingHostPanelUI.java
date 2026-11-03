@@ -41,7 +41,7 @@ public final class CraftingHostPanelUI {
         BooleanSupplier networkConnected, BooleanSupplier overclocked, BooleanSupplier virtualMode, Runnable toggleOverclocked,
         BooleanSupplier activeCooling, Runnable toggleActiveCooling, IntSupplier activeWorkerCores,
         IntSupplier workerCores, IntSupplier singleCoreCapacity, LongSupplier ftParallelCapacity,
-        LongSupplier overflowCapacity, IntSupplier theoreticalOverclockTimes, IntSupplier effectiveOverclockTimes,
+        LongSupplier overflowCapacity, LongSupplier parallelLimit, IntSupplier theoreticalOverclockTimes, IntSupplier effectiveOverclockTimes,
         IntSupplier executionTicks, LongSupplier performanceAverageNanos, LongSupplier energyUsage,
         IntSupplier coolantAmount, IntSupplier coolantCapacity, IntSupplier coolantMaxOverclock,
         Supplier<FluidStack> coolantFluid, Supplier<FluidStack> outputFluid, IntSupplier outputCapacity,

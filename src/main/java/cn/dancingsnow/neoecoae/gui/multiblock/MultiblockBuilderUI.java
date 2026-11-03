@@ -156,7 +156,7 @@ public final class MultiblockBuilderUI {
             lengthButton("-", "gui.neoecoae.multiblock.decrease_length", config.decreaseLength()),
             syncedLabel(() -> Component.translatable("gui.neoecoae.multiblock.length",
                 config.selectedLength().getAsInt()))
-                .textStyle(MultiblockBuilderUI::centeredTextStyle)
+                .textStyle(MultiblockBuilderUI::compactCenteredTextStyle)
                 .layout(layout -> layout.width(32).height(14)),
             lengthButton("+", "gui.neoecoae.multiblock.increase_length", config.increaseLength())
         );
@@ -165,8 +165,8 @@ public final class MultiblockBuilderUI {
                 .alignItems(AlignItems.CENTER).gapAll(1));
         mirror.addChildren(
             new TextElement().setText(Component.translatable("gui.neoecoae.multiblock.mirror"))
-                .textStyle(MultiblockBuilderUI::darkTextStyle)
-                .layout(layout -> layout.width(20).height(14)),
+                .textStyle(MultiblockBuilderUI::compactTextStyle)
+                .layout(layout -> layout.width(24).height(14)),
             new ToggleSwitch(config.mirrored(), config.setMirrored(),
                 "gui.neoecoae.multiblock.mirror.off.tooltip", "gui.neoecoae.multiblock.mirror.on.tooltip")
         );
@@ -227,7 +227,7 @@ public final class MultiblockBuilderUI {
             tooltip[0] = value == null ? Component.empty() : value)
             .bind(DataBindingBuilder.componentS2C(() -> buildResultTooltip(config)).build()));
         Label status = syncedLabel(() -> buildStatusComponent(config));
-        status.textStyle(MultiblockBuilderUI::darkTextStyle);
+        status.textStyle(MultiblockBuilderUI::compactTextStyle);
         status.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
             event.hoverTooltips = tooltipLines(tooltip[0]));
         Button build = new Button().setText("gui.neoecoae.multiblock.build", true)
@@ -379,6 +379,17 @@ public final class MultiblockBuilderUI {
     private static void centeredTextStyle(TextElement.TextStyle style) {
         darkTextStyle(style);
         style.textAlignHorizontal(Horizontal.CENTER);
+    }
+
+    /** Fixed-width control and status labels; size 7 overflows their slots. */
+    private static void compactTextStyle(TextElement.TextStyle style) {
+        darkTextStyle(style);
+        style.fontSize(6);
+    }
+
+    private static void compactCenteredTextStyle(TextElement.TextStyle style) {
+        centeredTextStyle(style);
+        style.fontSize(6);
     }
 
     /** Button text is a non-adaptive child of a row; stretch it so CENTER aligns against the full button. */
