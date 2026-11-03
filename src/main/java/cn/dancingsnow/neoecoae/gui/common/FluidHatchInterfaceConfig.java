@@ -11,10 +11,10 @@ import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 /** Uses the same CONFIG_STACKS/FakeSlot path and fluid units as AE2's InterfaceMenu. */
-final class FluidHatchInterfaceConfig {
+public final class FluidHatchInterfaceConfig {
     private FluidHatchInterfaceConfig() {}
 
-    static @Nullable GenericStack click(@Nullable GenericStack current, ItemStack carried, int button) {
+    public static @Nullable GenericStack click(@Nullable GenericStack current, ItemStack carried, int button) {
         var inventory = ConfigInventory.configStacks(1).supportedType(AEKeyType.fluids())
             .allowOverstacking(true).build();
         inventory.setStack(0, current);

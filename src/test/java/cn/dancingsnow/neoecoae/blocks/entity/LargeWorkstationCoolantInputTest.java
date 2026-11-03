@@ -1,12 +1,18 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
 import appeng.api.networking.IManagedGridNode;
+import appeng.api.networking.IGrid;
+import appeng.api.config.Actionable;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.Registry;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.RecipeHolder;
@@ -33,6 +39,9 @@ import static org.mockito.Mockito.*;
 class LargeWorkstationCoolantInputTest {
     private ECOLargeIntegratedWorkingStationInputHatchBlockEntity hatch;
     private RecipeManager recipes;
+    private MEStorage network;
+    private IManagedGridNode smartNode;
+    private ECOLargeIntegratedWorkingStationBlockEntity controller;
 
     @BeforeAll
     static void bootstrap() {
@@ -120,6 +129,194 @@ class LargeWorkstationCoolantInputTest {
         hatch.setLevel(null);
         assertFalse(hatch.tank.isFluidValid(0, FluidStack.EMPTY));
         assertEquals(0, hatch.tank.fill(new FluidStack(Fluids.WATER, 1000), FluidAction.EXECUTE));
+    }
+
+    @Test
+    void smartModuleRequiresAnExplicitValidMarkAndNeverScansNetworkStock() {
+        var smart = smartHatch();
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        verifyNoInteractions(network);
+        smart.setMarkedCoolant(new FluidStack(Fluids.LAVA, 1000));
+        assertTrue(smart.getMarkedCoolant().isEmpty());
+        var selected = new FluidStack(Fluids.WATER, 1000);
+        smart.setMarkedCoolant(selected);
+        selected.setAmount(0);
+        assertEquals(1, smart.getMarkedCoolant().getAmount());
+        smart.getMarkedCoolant().setAmount(0);
+        assertFalse(smart.getMarkedCoolant().isEmpty());
+        when(smart.getLevel().getGameTime()).thenReturn(200L);
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        assertEquals(16_384_000, smart.tank.getFluidAmount());
+        assertEquals(1_024_000, hatch.tank.getCapacity());
+        verify(network, never()).getAvailableStacks();
+        verify(network).extract(eq(AEFluidKey.of(Fluids.WATER)), eq(16_384_000L), eq(Actionable.MODULATE), any());
+    }
+
+    @Test
+    void smartModuleOnlyRefillsTheDeficitEveryTwoHundredTicks() {
+        var smart = smartHatch();
+        smart.setMarkedCoolant(new FluidStack(Fluids.WATER, 1));
+        when(smart.getLevel().getGameTime()).thenReturn(7L);
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        smart.tank.drain(60_000, FluidAction.EXECUTE);
+        clearInvocations(network);
+        for (long time = 8; time < 207; time++) {
+            when(smart.getLevel().getGameTime()).thenReturn(time);
+            smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        }
+        verifyNoInteractions(network);
+        assertEquals(16_324_000, smart.tank.getFluidAmount());
+        when(smart.getLevel().getGameTime()).thenReturn(207L);
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        assertEquals(16_384_000, smart.tank.getFluidAmount());
+        verify(network).extract(eq(AEFluidKey.of(Fluids.WATER)), eq(60_000L), eq(Actionable.MODULATE), any());
+        clearInvocations(network);
+        when(smart.getLevel().getGameTime()).thenReturn(407L);
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        verifyNoInteractions(network);
+    }
+
+    @Test
+    void changingTheMarkReturnsOldFluidBeforePullingAndPreservesRejectedReturns() {
+        var smart = smartHatch();
+        when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of(cooling(Fluids.WATER), cooling(Fluids.LAVA)));
+        smart.tank.fill(new FluidStack(Fluids.WATER, 90_000), FluidAction.EXECUTE);
+        smart.setMarkedCoolant(new FluidStack(Fluids.LAVA, 1));
+        when(network.insert(any(), anyLong(), any(), any())).thenReturn(4000L);
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        assertEquals(86_000, smart.tank.getFluidAmount());
+        assertEquals(Fluids.WATER, smart.tank.getFluid().getFluid());
+        verify(network, never()).extract(any(), anyLong(), any(), any());
+        when(network.insert(any(), anyLong(), any(), any())).thenReturn(0L);
+        when(smart.getLevel().getGameTime()).thenReturn(200L);
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        assertEquals(86_000, smart.tank.getFluidAmount());
+        when(network.insert(any(), anyLong(), any(), any())).thenAnswer(inv -> inv.getArgument(1));
+        clearInvocations(network);
+        when(smart.getLevel().getGameTime()).thenReturn(400L);
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        var order = inOrder(network);
+        order.verify(network).insert(eq(AEFluidKey.of(Fluids.WATER)), eq(86_000L), eq(Actionable.MODULATE), any());
+        order.verify(network).extract(eq(AEFluidKey.of(Fluids.LAVA)), eq(16_384_000L), eq(Actionable.SIMULATE), any());
+        assertEquals(16_384_000, smart.tank.getFluidAmount());
+        assertEquals(Fluids.LAVA, smart.tank.getFluid().getFluid());
+    }
+
+    @Test
+    void clearingMarkReturnsStockEvenWhenActiveCoolingIsDisabled() {
+        var smart = smartHatch();
+        smart.tank.fill(new FluidStack(Fluids.WATER, 1000), FluidAction.EXECUTE);
+        smart.setMarkedCoolant(new FluidStack(Fluids.WATER, 1));
+        smart.setMarkedCoolant(FluidStack.EMPTY);
+        when(controller.isActiveCooling()).thenReturn(false);
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        assertTrue(smart.tank.isEmpty());
+        verify(network).insert(eq(AEFluidKey.of(Fluids.WATER)), eq(1000L), eq(Actionable.MODULATE), any());
+        verify(network, never()).extract(any(), anyLong(), any(), any());
+    }
+
+    @Test
+    void offlineNetworkAndStoppedCoolingKeepStockWithoutExtracting() {
+        var smart = smartHatch();
+        smart.tank.fill(new FluidStack(Fluids.WATER, 40_000), FluidAction.EXECUTE);
+        smart.setMarkedCoolant(new FluidStack(Fluids.WATER, 1));
+        when(smartNode.isActive()).thenReturn(false);
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        when(smartNode.isActive()).thenReturn(true);
+        when(controller.isActiveCooling()).thenReturn(false);
+        when(smart.getLevel().getGameTime()).thenReturn(200L);
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        assertEquals(40_000, smart.tank.getFluidAmount());
+        verifyNoInteractions(network);
+        when(controller.isActiveCooling()).thenReturn(true);
+        when(smart.getLevel().getGameTime()).thenReturn(400L);
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        assertEquals(16_384_000, smart.tank.getFluidAmount());
+    }
+
+    @Test
+    void overheatNeverOverridesTheMarkAndRecipeReloadRejectsRemovedCoolants() {
+        var smart = smartHatch();
+        smart.setMarkedCoolant(new FluidStack(Fluids.WATER, 1));
+        when(controller.isOverheated()).thenReturn(true);
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        assertEquals(Fluids.WATER, smart.getMarkedCoolant().getFluid());
+        assertEquals(Fluids.WATER, smart.tank.getFluid().getFluid());
+        smart.tank.drain(1000, FluidAction.EXECUTE);
+        when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of());
+        clearInvocations(network);
+        when(smart.getLevel().getGameTime()).thenReturn(200L);
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        verifyNoInteractions(network);
+        assertEquals(16_383_000, smart.tank.getFluidAmount());
+    }
+
+    @Test
+    void partialExtractionAndMissingExtractionPowerNeverCreateFluid() {
+        var smart = smartHatch();
+        smart.setMarkedCoolant(new FluidStack(Fluids.WATER, 1));
+        when(network.extract(any(), anyLong(), any(), any())).thenReturn(12_345L);
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        assertEquals(12_345, smart.tank.getFluidAmount());
+        var energy = smartNode.getGrid().getEnergyService();
+        when(energy.extractAEPower(anyDouble(), any(), any())).thenReturn(0.0);
+        clearInvocations(network);
+        when(smart.getLevel().getGameTime()).thenReturn(200L);
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        assertEquals(12_345, smart.tank.getFluidAmount());
+        verify(network, never()).extract(any(), anyLong(), eq(Actionable.MODULATE), any());
+    }
+
+    @Test
+    void savesMarkAndLargeBufferAndLoadsLegacyStockWithoutInferringAMark() {
+        try (var visuals = mockStatic(appeng.hooks.VisualStateSaving.class)) {
+            var smart = smartHatch();
+            smart.setMarkedCoolant(new FluidStack(Fluids.WATER, 1000));
+            smart.setTargetTemperature(80);
+            smart.tank.fill(new FluidStack(Fluids.WATER, 16_000_000), FluidAction.EXECUTE);
+            var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+            var saved = new CompoundTag();
+            smart.saveAdditional(saved, registries);
+            var restored = smartHatch();
+            restored.loadTag(saved, registries);
+            assertEquals(80, restored.getTargetTemperature());
+            assertEquals(1, restored.getMarkedCoolant().getAmount());
+            assertEquals(Fluids.WATER, restored.getMarkedCoolant().getFluid());
+            assertEquals(16_000_000, restored.tank.getFluidAmount());
+            saved.remove("markedCoolant");
+            restored.loadTag(saved, registries);
+            assertTrue(restored.getMarkedCoolant().isEmpty());
+            assertEquals(16_000_000, restored.tank.getFluidAmount());
+            restored.tick(restored.getLevel(), BlockPos.ZERO, restored.getBlockState());
+            assertTrue(restored.tank.isEmpty());
+            verify(network, never()).extract(any(), anyLong(), any(), any());
+        }
+    }
+
+    private ECOLargeIntegratedWorkingStationInputHatchBlockEntity smartHatch() {
+        var type = mock(BlockEntityType.class);
+        when(type.isValid(any())).thenReturn(true);
+        smartNode = mock(IManagedGridNode.class, RETURNS_SELF);
+        var smart = new ECOLargeIntegratedWorkingStationInputHatchBlockEntity(type, BlockPos.ZERO, Blocks.AIR.defaultBlockState()) {
+            @Override public boolean isSmartCoolingModule() { return true; }
+            @Override protected IManagedGridNode createMainNode() { return smartNode; }
+            @Override public void setChanged() {}
+            @Override public void markForUpdate() {}
+        };
+        smart.setLevel(hatch.getLevel());
+        controller = mock(ECOLargeIntegratedWorkingStationBlockEntity.class);
+        when(controller.isActiveCooling()).thenReturn(true);
+        smart.cluster = mock(cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster.class);
+        when(smart.cluster.getController()).thenReturn(controller);
+        var grid = mock(IGrid.class, RETURNS_DEEP_STUBS);
+        when(smartNode.isActive()).thenReturn(true);
+        when(smartNode.getGrid()).thenReturn(grid);
+        network = mock(MEStorage.class);
+        when(grid.getStorageService().getInventory()).thenReturn(network);
+        when(grid.getEnergyService().extractAEPower(anyDouble(), any(), any())).thenAnswer(inv -> inv.getArgument(0));
+        when(network.extract(any(), anyLong(), any(), any())).thenAnswer(inv -> inv.getArgument(1));
+        when(network.insert(any(), anyLong(), any(), any())).thenAnswer(inv -> inv.getArgument(1));
+        return smart;
     }
 
     private static RecipeHolder<CoolingRecipe> cooling(net.minecraft.world.level.material.Fluid fluid) {

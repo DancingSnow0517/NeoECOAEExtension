@@ -4,10 +4,13 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import appeng.api.orientation.RelativeSide;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.networking.IManagedGridNode;
 import appeng.items.tools.NetworkToolItem;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
+import cn.dancingsnow.neoecoae.gui.common.FluidHatchInterfaceConfig;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
@@ -19,6 +22,7 @@ import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.texture.ColorBorderTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
+import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEmitter;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -54,6 +58,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluids;
@@ -168,8 +173,12 @@ class WorkstationUIInteractionTest {
             FluidSlot coolant = (FluidSlot) root.selectId("coolant").findFirst().orElseThrow();
             assertFalse(coolant.isAllowClickFilled());
             assertTrue(coolant.isAllowClickDrained());
+            FluidSlot filter = (FluidSlot) root.selectId("coolant-filter").findFirst().orElseThrow();
+            assertFalse(filter.isAllowClickFilled());
+            assertFalse(filter.isAllowClickDrained());
+            assertNotSame(coolant, filter);
             TextElement amount = (TextElement) root.selectId("buffer-amount").findFirst().orElseThrow();
-            for (int quantity : List.of(2_000, 1_024_000, 0)) {
+            for (int quantity : List.of(2_000, 16_384_000, 0)) {
                 coolant.setValue(quantity == 0 ? FluidStack.EMPTY : new FluidStack(Fluids.WATER, quantity), false);
                 var contents = assertInstanceOf(TranslatableContents.class, amount.getText().getContents());
                 assertEquals("gui.neoecoae.smart_cooling.buffer_amount", contents.getKey());
@@ -198,12 +207,14 @@ class WorkstationUIInteractionTest {
                     for (String id : SMART_COOLING_TEXTS) {
                         TextElement text = (TextElement) root.selectId(id).findFirst().orElseThrow();
                         if (!(text.getText().getContents() instanceof TranslatableContents contents)) continue;
+                        Object[] args = id.equals("buffer-amount") || id.equals("buffer-target")
+                            ? new Object[] {"16,384,000"} : contents.getArgs();
                         String translated = String.format(java.util.Locale.ROOT,
-                            translations.get(contents.getKey()).getAsString(), "1,024,000");
+                            translations.get(contents.getKey()).getAsString(), args);
                         assertTextFits(splitter, text, translated, locale);
                     }
                     TextElement status = (TextElement) root.selectId("status").findFirst().orElseThrow();
-                    for (String key : List.of("unformed", "disabled", "heating", "cooling", "holding")) {
+                    for (String key : List.of("unformed", "unmarked", "disabled", "heating", "cooling", "holding")) {
                         assertTextFits(splitter, status, translations.get("gui.neoecoae.smart_cooling." + key).getAsString(), locale);
                     }
                     TextElement hint = (TextElement) root.selectId("status-hint").findFirst().orElseThrow();
@@ -214,6 +225,67 @@ class WorkstationUIInteractionTest {
                     }
                 }
             }
+        }
+    }
+
+    @Test
+    void smartCoolingMarkerClicksRequestServerEditsWithoutMovingFluidOrItems() throws Exception {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            var host = smartCoolingHost();
+            var player = mock(Player.class);
+            when(player.level()).thenReturn(mock(Level.class));
+            var root = SmartCoolingModuleUI.createRoot(host, player);
+            FluidSlot filter = (FluidSlot) root.selectId("coolant-filter").findFirst().orElseThrow();
+            var request = mock(RPCEmitter.class);
+            var field = filter.getClass().getDeclaredField("click");
+            field.setAccessible(true);
+            field.set(filter, request);
+            for (int button : List.of(0, 1)) {
+                UIEvent click = UIEvent.create(UIEvents.MOUSE_DOWN);
+                click.target = filter;
+                click.button = button;
+                UIEventDispatcher.dispatchEvent(click, false, false, false);
+                assertTrue(click.hasHandler);
+                verify(request).send(button);
+            }
+            assertTrue(host.tank.isEmpty());
+            assertTrue(host.getMarkedCoolant().isEmpty());
+            new ModularUI(UI.of(root)).init(320, 240);
+            assertInside(filter, filter.getParent());
+            UIElement title = root.selectId("buffer-label").findFirst().orElseThrow();
+            assertTrue(title.getPositionX() + title.getSizeWidth() <= filter.getPositionX());
+            UIElement stock = root.selectId("coolant").findFirst().orElseThrow();
+            assertTrue(filter.getPositionY() + filter.getSizeHeight() <= stock.getPositionY());
+        }
+    }
+
+    @Test
+    void smartCoolingCanMarkFromTheMainHandWithoutAnInventoryAndStillClearWithAnEmptyCursor() {
+        var host = mock(ECOLargeIntegratedWorkingStationInputHatchBlockEntity.class);
+        when(host.getMarkedCoolant()).thenReturn(FluidStack.EMPTY);
+        var player = mock(Player.class);
+        var menu = mock(AbstractContainerMenu.class);
+        player.containerMenu = menu;
+        var bucket = new ItemStack(Items.WATER_BUCKET);
+        when(player.getMainHandItem()).thenReturn(bucket);
+        when(menu.getCarried()).thenReturn(ItemStack.EMPTY);
+        try (var config = mockStatic(FluidHatchInterfaceConfig.class)) {
+            config.when(() -> FluidHatchInterfaceConfig.click(null, bucket, 1))
+                .thenReturn(new GenericStack(AEFluidKey.of(Fluids.WATER), 1000));
+            SmartCoolingModuleUI.markCoolant(host, player, 1);
+            verify(host).setMarkedCoolant(argThat(fluid -> fluid.getAmount() == 1 && fluid.getFluid() == Fluids.WATER));
+            SmartCoolingModuleUI.markCoolant(host, player, 0);
+            config.verify(() -> FluidHatchInterfaceConfig.click(null, ItemStack.EMPTY, 0));
+            verify(host).setMarkedCoolant(FluidStack.EMPTY);
+            // A container already on the cursor takes precedence over the held item.
+            var carried = new ItemStack(Items.LAVA_BUCKET);
+            when(menu.getCarried()).thenReturn(carried);
+            SmartCoolingModuleUI.markCoolant(host, player, 1);
+            config.verify(() -> FluidHatchInterfaceConfig.click(null, carried, 1));
+            verify(menu, never()).setCarried(any());
+            assertEquals(1, bucket.getCount());
+            assertEquals(1, carried.getCount());
         }
     }
 
@@ -230,6 +302,7 @@ class WorkstationUIInteractionTest {
         var type = mock(BlockEntityType.class);
         when(type.isValid(any())).thenReturn(true);
         return new ECOLargeIntegratedWorkingStationInputHatchBlockEntity(type, BlockPos.ZERO, Blocks.AIR.defaultBlockState()) {
+            @Override public boolean isSmartCoolingModule() { return true; }
             @Override protected IManagedGridNode createMainNode() { return mock(IManagedGridNode.class, RETURNS_SELF); }
             @Override public void setChanged() {}
             @Override public void markForUpdate() {}

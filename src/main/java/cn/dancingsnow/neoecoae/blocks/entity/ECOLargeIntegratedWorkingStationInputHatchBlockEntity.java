@@ -4,8 +4,7 @@ import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.storage.StorageHelper;
-import cn.dancingsnow.neoecoae.all.NEBlocks;
-import cn.dancingsnow.neoecoae.all.NEFluids;
+import cn.dancingsnow.neoecoae.blocks.ECOLargeIntegratedWorkingStationSmartCoolingModule;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.gui.common.FluidHatchUI;
 import cn.dancingsnow.neoecoae.gui.workstation.SmartCoolingModuleUI;
@@ -29,10 +28,14 @@ import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
     extends NEBlockEntity<NEIntegratedWorkingStationCluster, ECOLargeIntegratedWorkingStationInputHatchBlockEntity> {
     public static final int CAPACITY = 1_024_000;
+    public static final int SMART_COOLING_CAPACITY = 16_384_000;
+    public static final int SMART_COOLING_PULL_INTERVAL = 200;
     private int targetTemperature = 75;
+    private FluidStack markedCoolant = FluidStack.EMPTY;
+    private long nextCoolantPullTick;
 
     public boolean isSmartCoolingModule() {
-        return getBlockState().is(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_SMART_COOLING_MODULE);
+        return getBlockState().getBlock() instanceof ECOLargeIntegratedWorkingStationSmartCoolingModule;
     }
 
     public int getTargetTemperature() { return targetTemperature; }
@@ -47,7 +50,18 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
         }
     }
 
-    public final FluidTank tank = new FluidTank(CAPACITY, this::isCoolant) {
+    public FluidStack getMarkedCoolant() { return markedCoolant.copy(); }
+
+    public void setMarkedCoolant(FluidStack fluid) {
+        if (!fluid.isEmpty() && !isCoolant(fluid)) return;
+        FluidStack selected = fluid.isEmpty() ? FluidStack.EMPTY : fluid.copyWithAmount(1);
+        if (FluidStack.matches(markedCoolant, selected)) return;
+        markedCoolant = selected;
+        setChanged();
+        markForUpdate();
+    }
+
+    public final FluidTank tank = new FluidTank(isSmartCoolingModule() ? SMART_COOLING_CAPACITY : CAPACITY, this::isCoolant) {
         @Override
         protected void onContentsChanged() {
             setChanged();
@@ -81,7 +95,11 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
     public void tick(Level level, BlockPos pos, BlockState state) {
         if (level.isClientSide) return;
         if (isSmartCoolingModule()) {
-            if (level.getGameTime() % 20 == 0) pullNetworkCoolant();
+            long now = level.getGameTime();
+            if (now >= nextCoolantPullTick) {
+                nextCoolantPullTick = now + SMART_COOLING_PULL_INTERVAL;
+                pullNetworkCoolant();
+            }
             return;
         }
         var cluster = getCluster();
@@ -100,44 +118,25 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
     }
 
     private void pullNetworkCoolant() {
+        if (markedCoolant.isEmpty() && tank.isEmpty()) return;
         var cluster = getCluster();
         if (cluster == null || cluster.getController() == null || !getMainNode().isActive()) return;
         var controller = cluster.getController();
-        // A small buffer covers one second of consumption without draining the network into an idle module.
-        if (!controller.isActiveCooling()) return;
         var grid = getMainNode().getGrid();
         if (grid == null) return;
         var inventory = grid.getStorageService().getInventory();
-        if (controller.isOverheated() && !tank.isEmpty()
-            && tank.getFluid().getFluid() != NEFluids.CRYOTHEUM_SOLUTION.getSource()) {
-            // Recovery requires cryotheum. Preserve any weaker coolant the network cannot take back.
+        if (!tank.isEmpty() && (markedCoolant.isEmpty()
+            || !FluidStack.isSameFluidSameComponents(tank.getFluid(), markedCoolant))) {
+            // Return old stock before changing type, including when the mark was cleared.
+            // A partial or rejected return must remain in the tank for the next attempt.
             long returned = inventory.insert(AEFluidKey.of(tank.getFluid()), tank.getFluidAmount(),
                 Actionable.MODULATE, IActionSource.ofMachine(this));
             if (returned > 0) tank.drain((int) returned, IFluidHandler.FluidAction.EXECUTE);
             if (!tank.isEmpty()) return;
         }
-        int bufferAmount = (int) Math.min(tank.getCapacity(),
-            (long) controller.getCoolantPerTick() * LargeWorkstationThermal.TICKS_PER_SECOND);
-        if (tank.getFluidAmount() >= bufferAmount) return;
-        AEFluidKey selected = tank.isEmpty() ? null : AEFluidKey.of(tank.getFluid());
-        if (selected == null) {
-            int bestTier = 0;
-            for (var entry : inventory.getAvailableStacks()) {
-                if (!(entry.getKey() instanceof AEFluidKey fluid) || entry.getLongValue() <= 0) continue;
-                FluidStack candidate = fluid.toStack(1);
-                if (controller.isOverheated() && candidate.getFluid() != NEFluids.CRYOTHEUM_SOLUTION.getSource()) continue;
-                for (var recipe : level.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get())) {
-                    int tier = recipe.value().maxOverclock();
-                    if (LargeWorkstationOverclock.forCoolingTier(tier) != null
-                        && tier > bestTier && recipe.value().input().ingredient().test(candidate)) {
-                        selected = fluid;
-                        bestTier = tier;
-                    }
-                }
-            }
-        }
-        if (selected == null) return;
-        int space = tank.fill(selected.toStack(bufferAmount - tank.getFluidAmount()), IFluidHandler.FluidAction.SIMULATE);
+        if (markedCoolant.isEmpty() || !controller.isActiveCooling() || tank.getSpace() <= 0) return;
+        AEFluidKey selected = AEFluidKey.of(markedCoolant);
+        int space = tank.fill(selected.toStack(tank.getSpace()), IFluidHandler.FluidAction.SIMULATE);
         if (space <= 0) return;
         long extracted = StorageHelper.poweredExtraction(grid.getEnergyService(), inventory, selected,
             space, IActionSource.ofMachine(this));
@@ -156,6 +155,7 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
         super.saveAdditional(data, registries);
         tank.writeToNBT(registries, data);
         data.putInt("targetTemperature", targetTemperature);
+        data.put("markedCoolant", markedCoolant.saveOptional(registries));
     }
 
     @Override
@@ -163,5 +163,9 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
         super.loadTag(data, registries);
         tank.readFromNBT(registries, data);
         targetTemperature = data.contains("targetTemperature") ? Math.clamp(data.getInt("targetTemperature"), 0, 99) : 75;
+        // Old saves keep their real buffer but require an explicit mark before any new extraction.
+        markedCoolant = FluidStack.parseOptional(registries, data.getCompound("markedCoolant"));
+        if (!markedCoolant.isEmpty()) markedCoolant.setAmount(1);
+        nextCoolantPullTick = 0;
     }
 }

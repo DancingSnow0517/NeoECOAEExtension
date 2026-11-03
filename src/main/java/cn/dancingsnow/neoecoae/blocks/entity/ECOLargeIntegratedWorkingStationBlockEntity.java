@@ -127,8 +127,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     @DescSynced
     private boolean activeCooling;
     private int preheatTargetTier = 2;
-    /** Paid work awaiting the next server thermal tick; never persisted or replayed after loading. */
-    private double pendingThermalLoad;
+    /** A paid overclocked work tick awaiting thermal settlement; never persisted or replayed. */
+    private boolean pendingProcessingHeat;
+    private long lastProcessingHeatTick = Long.MIN_VALUE;
     @Persisted
     @DescSynced
     private boolean preheating;
@@ -971,7 +972,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         temperature = thermal.temperature();
         overheated = thermal.overheated();
         recoveryTicks = thermal.recoveryTicks();
-        pendingThermalLoad = 0;
+        pendingProcessingHeat = false;
+        lastProcessingHeatTick = Long.MIN_VALUE;
         preheatTargetTier = temperature < 20 ? 2 : temperature < 50 ? 6 : 9;
         if (overheated) preheating = false;
         double restoredRefund = data.getDouble("pendingPowerRefund");
@@ -1295,12 +1297,12 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         recordSmartCoolingPayment(operatingPower);
         preheating = false;
 
-        if (thermal && overclocked) {
-            var profile = batch.coolingTier > 0 && !batch.segmented ? LargeWorkstationOverclock.forCoolingTier(batch.coolingTier)
-                : LargeWorkstationOverclock.NORMAL;
-            double load = (double) work * batch.thermalWorkMultiplier / profile.maxParallelism();
-            if (batch.legacyTiming) load /= batch.processingTicks;
-            pendingThermalLoad += load;
+        if (thermal && overclocked && work > 0) {
+            long tick = level.getGameTime();
+            if (lastProcessingHeatTick != tick) {
+                lastProcessingHeatTick = tick;
+                pendingProcessingHeat = true;
+            }
         }
         if (batch.segmented) {
             completedWork += work;
@@ -1347,7 +1349,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         return source;
     }
 
-    /** Fill available parallelism from consecutive, equivalent owned work without replaying paid progress. */
+    /** Fill from ready, equivalent owned work within the same job without replaying paid progress. */
     private void refillPendingBatch(PendingBatch batch) {
         if (batch.segmented) return;
         LargeWorkstationOverclock profile = getCurrentBatchProfile();
@@ -1360,17 +1362,28 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         var iterator = pendingBatches.iterator();
         if (!iterator.hasNext() || iterator.next() != batch) return;
         boolean changed = false;
+        boolean consecutive = true;
         while (iterator.hasNext() && batch.craftCount < profile.maxParallelism()) {
             PendingBatch next = iterator.next();
-            if (next.segmented || next.progress != 0 || next.progressRemainder != 0 || !isCounterEmpty(next.pendingOutput)
-                || next.coolingTier > profile.coolingTier() || next.energyPerCraft != batch.energyPerCraft
+            if (next.segmented || next.progress != 0 || next.progressRemainder != 0 || next.feRemainder != 0
+                || !isCounterEmpty(next.pendingOutput)
+                || !Objects.equals(next.craftingJobId, batch.craftingJobId)) break;
+            // Only pass fully owned, unstarted tasks. Never borrow a later task's missing inputs
+            // ahead of another recipe, or cross a task that may still depend on earlier output.
+            if (!consecutive && !isCounterEmpty(next.missingExtras)) break;
+            if (next.coolingTier > profile.coolingTier() || next.energyPerCraft != batch.energyPerCraft
                 || next.energyMultiplier != batch.energyMultiplier || next.thermalWorkMultiplier != batch.thermalWorkMultiplier
                 || next.processingTicks != batch.processingTicks || next.fePerCraft != batch.fePerCraft
-                || next.legacyTiming != batch.legacyTiming || next.feRemainder != 0
-                || !Objects.equals(next.recipeId, batch.recipeId) || !Objects.equals(next.craftingJobId, batch.craftingJobId)
-                || !Objects.equals(next.unlockStack, batch.unlockStack)) break;
+                || next.legacyTiming != batch.legacyTiming
+                || !Objects.equals(next.recipeId, batch.recipeId)
+                || !Objects.equals(next.unlockStack, batch.unlockStack)) {
+                if (!isCounterEmpty(next.missingExtras)) break;
+                consecutive = false;
+                continue;
+            }
 
             long taken = Math.min(profile.maxParallelism() - batch.craftCount, next.craftCount);
+            if (!consecutive && !canPowerRefilledStep(batch, batch.craftCount + taken)) continue;
             KeyCounter ownedInputs;
             KeyCounter ownedOutputs;
             KeyCounter inputPortion;
@@ -1378,7 +1391,11 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             try {
                 KeyCounter expectedInputs = addCountersExact(next.inputTotal, next.missingExtras);
                 if (!sameCounter(inputsPerCraft, divideCounter(expectedInputs, next.craftCount))
-                    || !sameCounter(outputsPerCraft, divideCounter(next.outputTotal, next.craftCount))) break;
+                    || !sameCounter(outputsPerCraft, divideCounter(next.outputTotal, next.craftCount))) {
+                    if (!isCounterEmpty(next.missingExtras)) break;
+                    consecutive = false;
+                    continue;
+                }
                 inputPortion = scaleCounter(inputsPerCraft, taken);
                 outputPortion = scaleCounter(outputsPerCraft, taken);
                 ownedInputs = addCountersExact(batch.inputTotal, inputPortion);
@@ -1417,6 +1434,31 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             setChanged();
             requestCommunicationProviderUpdate();
         }
+    }
+
+    /** Read-only admission for out-of-order refills: preserve a runnable head when its larger step cannot be paid. */
+    private boolean canPowerRefilledStep(PendingBatch batch, long count) {
+        long paidWork = batch.progress * batch.craftCount + batch.progressRemainder;
+        int progress = (int) (paidWork / count);
+        int advance = Math.min(batch.legacyTiming ? getParallelism() : 1, batch.processingTicks - progress);
+        long work = (long) advance * count - paidWork % count;
+        double required = (double) batch.energyPerCraft * work / batch.processingTicks + smartCoolingOperatingPower();
+        try {
+            long flux = LargeWorkstationProcessing.fluxPayment(batch.fePerCraft, work,
+                batch.processingTicks, batch.feRemainder).amount();
+            long missingFlux = Math.max(0, flux - processingFeBuffer);
+            IGrid grid = getMainNode().getGrid();
+            if (missingFlux > 0 && grid != null && WorkstationFluxEnergy.available()) {
+                long offered = WorkstationFluxEnergy.extract(grid.getStorageService().getInventory(),
+                    missingFlux, Actionable.SIMULATE, IActionSource.ofMachine(this));
+                missingFlux -= Math.clamp(offered, 0, missingFlux);
+            }
+            if (missingFlux > 0) required += WorkstationEnergy.aeEquivalent(missingFlux).doubleValue();
+        } catch (ArithmeticException | IllegalArgumentException invalid) {
+            return false;
+        }
+        return Double.isFinite(required) && processingEnergySource(required)
+            .extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG) + 0.001D >= required;
     }
 
     /** Finish just one portion; remaining inputs, outputs and paid craft steps stay on the same task. */
@@ -1521,8 +1563,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     /** Runs independently of AE2's adaptive processing scheduler, including paused and idle machines. */
     public void tickThermal(Level tickLevel, BlockPos pos, BlockState state) {
         if (tickLevel.isClientSide) return;
-        double processingLoad = pendingThermalLoad;
-        pendingThermalLoad = 0;
+        double processingLoad = pendingProcessingHeat ? 1 : 0;
+        pendingProcessingHeat = false;
         updateSmartCooling();
         if (!isTemperatureEnabled()) {
             uiThermalUsage.clear();

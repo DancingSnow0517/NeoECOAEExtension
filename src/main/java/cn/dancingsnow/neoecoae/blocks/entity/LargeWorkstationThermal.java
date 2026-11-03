@@ -36,7 +36,7 @@ public final class LargeWorkstationThermal {
         return switch (tier) { case 2 -> 0.1; case 6 -> 0.3; case 9 -> 0.6; default -> 0; };
     }
 
-    /** Work is measured against a full batch, including multiplied-pattern base operations. */
+    /** Load represents paid overclocked working time, independent of batch size or parallel capacity. */
     public static State process(State state, double load) {
         if (state.overheated || !Double.isFinite(load) || load <= 0) return state;
         return new State(state.temperature + heatingPerSecond(state.temperature) * load / TICKS_PER_SECOND, false, 0);
