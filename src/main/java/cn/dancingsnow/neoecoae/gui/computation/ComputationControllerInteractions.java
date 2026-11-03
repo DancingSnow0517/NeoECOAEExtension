@@ -5,6 +5,8 @@ import appeng.core.definitions.AEParts;
 import appeng.core.localization.ButtonToolTips;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import cn.dancingsnow.neoecoae.gui.crafting.CraftingListCard;
+import cn.dancingsnow.neoecoae.gui.crafting.CraftingTooltipCard;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
@@ -24,6 +26,8 @@ import net.minecraft.world.item.ItemStack;
 /** CPU selection and network-frequency controls for the computation controller. */
 final class ComputationControllerInteractions {
     private static final int CPU_MODE_BUTTON_SIZE = 18;
+    /** Mirrors the dispatcher's per-submission cap while smart doubling is off. */
+    static final long SMART_DOUBLING_DISABLED_CAP = 16_384L;
     private ComputationControllerInteractions() {}
     public static Button createCpuSelectionButton(ComputationControllerUI.Config config) {
         Button button = HostSideButtonBar.createButton().noText();
@@ -95,16 +99,25 @@ final class ComputationControllerInteractions {
         synced.setDisplay(false);
         button.addChild(synced);
         button.setOnServerClick(event -> config.toggleSmartDoubling().run());
-        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-            boolean on = Boolean.TRUE.equals(synced.getValue());
-            event.hoverTooltips = new HoverTooltips(List.of(
-                Component.translatable("gui.neoecoae.crafting.smart_doubling"),
-                Component.translatable("gui.neoecoae.computation.ui.switch." + (on ? "on" : "off"))
-                    .withColor(on ? 0x55FF55 : 0xAAAAAA),
-                Component.translatable("gui.neoecoae.computation.ui.switch.smart_doubling.desc")
-            ), null, null, null);
-        });
+        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
+            event.hoverTooltips = CraftingListCard.hover(smartDoublingCard(Boolean.TRUE.equals(synced.getValue())).build()));
         return button;
+    }
+
+    /** Smart-doubling card: switch state, the per-dispatch cap while disabled and the blocking-mode precedence. */
+    static CraftingListCard.Builder smartDoublingCard(boolean enabled) {
+        String key = "gui.neoecoae.computation.ui.switch.smart_doubling.";
+        return CraftingListCard.builder()
+            .header(CraftingListCard.Glyph.BOLT, Component.translatable("gui.neoecoae.crafting.smart_doubling"),
+                Component.translatable("gui.neoecoae.computation.ui.switch." + (enabled ? "on" : "off")),
+                enabled ? CraftingTooltipCard.OK : CraftingTooltipCard.MUTED)
+            .row(null, CraftingTooltipCard.MUTED, Component.translatable(key + "limit"),
+                Component.translatable(key + "limit_value", CraftingTooltipCard.group(SMART_DOUBLING_DISABLED_CAP)),
+                CraftingTooltipCard.PRIMARY)
+            .hint(null, Component.translatable(key + "limit_note"))
+            .divider()
+            .banner(CraftingListCard.Glyph.WARNING, Component.translatable(key + "blocking"),
+                Component.translatable(key + "blocking_note"), CraftingTooltipCard.WARN, CraftingListCard.WARN_BACKGROUND);
     }
 
     private static IGuiTexture smartDoublingIcon(boolean enabled) {
