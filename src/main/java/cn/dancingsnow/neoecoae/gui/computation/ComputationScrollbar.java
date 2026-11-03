@@ -69,6 +69,11 @@ final class ComputationScrollbar extends UIElement {
         });
     }
 
+    void resize(int height) {
+        layout(layout -> layout.height(height));
+        scrollbar.setHeight(height);
+    }
+
     void update(int value, int max, int pageSize) {
         this.max = Math.max(0, max);
         scrollbar.setRange(0, this.max, pageSize);

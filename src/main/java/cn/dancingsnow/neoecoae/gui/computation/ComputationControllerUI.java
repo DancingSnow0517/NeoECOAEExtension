@@ -110,10 +110,15 @@ public final class ComputationControllerUI {
             mainOf(rootRef[0]).setDisplay(false);
             status.setDisplay(true);
             status.open(serial);
-            setViewSize(rootRef[0], ComputationCpuStatusPanel.WIDTH, ComputationCpuStatusPanel.HEIGHT);
+            setViewSize(rootRef[0], ComputationCpuStatusPanel.WIDTH, status.currentHeight());
             recenter();
         }, identities);
         selector.setDisplay(false);
+        status.setHeightListener(height -> {
+            if (!status.isDisplayed()) return;
+            setViewSize(rootRef[0], ComputationCpuStatusPanel.WIDTH, height);
+            recenter();
+        });
         status.setBackAction(() -> {
             status.setDisplay(false);
             mainOf(rootRef[0]).setDisplay(true);
