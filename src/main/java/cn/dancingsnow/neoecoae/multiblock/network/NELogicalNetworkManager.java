@@ -99,10 +99,44 @@ public final class NELogicalNetworkManager {
         }
         List<NECluster<?>> pending = new ArrayList<>(state.pendingGridRefresh);
         state.pendingGridRefresh.clear();
+        boolean craftingChanged = false;
+        boolean computationChanged = false;
         for (NECluster<?> cluster : pending) {
-            if (!cluster.isDestroyed() && getLevel(cluster) == level) {
-                refresh(cluster);
+            if (cluster.isDestroyed() || getLevel(cluster) != level) {
+                continue;
             }
+            if (cluster instanceof NECraftingCluster craftingCluster) {
+                if (!cluster.isNetworkMode()) {
+                    craftingChanged |= state.crafting.remove(craftingCluster);
+                    craftingCluster.setNetworkCluster(null);
+                    continue;
+                }
+                boolean added = state.crafting.add(craftingCluster);
+                assignCraftingFrequencyIfNeeded(craftingCluster, state.crafting);
+                craftingChanged |= added
+                    || !craftingNetworkKey(craftingCluster).equals(state.craftingKeys.get(craftingCluster));
+            } else if (cluster instanceof NEComputationCluster computationCluster) {
+                if (!cluster.isNetworkMode()) {
+                    computationChanged |= state.computation.remove(computationCluster);
+                    computationCluster.setNetworkCluster(null);
+                    continue;
+                }
+                boolean added = state.computation.add(computationCluster);
+                assignComputationFrequencyIfNeeded(computationCluster, state.computation);
+                computationChanged |= added
+                    || !computationNetworkKey(computationCluster).equals(state.computationKeys.get(computationCluster));
+            }
+        }
+        // All members receive AE2's boot/power callbacks. Rebuild each affected subsystem once,
+        // and retain the existing association/capacity caches when the settled topology is unchanged.
+        if (craftingChanged) {
+            rebuildCrafting(state);
+        }
+        if (computationChanged) {
+            rebuildComputation(state);
+        }
+        if (state.crafting.isEmpty() && state.computation.isEmpty()) {
+            LEVELS.remove(level);
         }
     }
 
@@ -138,6 +172,8 @@ public final class NELogicalNetworkManager {
         state.pendingGridRefresh.clear();
         state.craftingNetworks.clear();
         state.computationNetworks.clear();
+        state.craftingKeys.clear();
+        state.computationKeys.clear();
         state.crafting.clear();
         state.computation.clear();
     }
@@ -153,6 +189,7 @@ public final class NELogicalNetworkManager {
             clearAssociation(cluster);
             return;
         }
+        state.pendingGridRefresh.remove(cluster);
         if (cluster instanceof NECraftingCluster craftingCluster) {
             if (state.crafting.remove(craftingCluster)) {
                 rebuildCrafting(state);
@@ -170,6 +207,7 @@ public final class NELogicalNetworkManager {
     }
 
     private static void rebuildCrafting(LevelState state) {
+        state.craftingKeys.clear();
         state.crafting.removeIf(cluster -> {
             var controller = cluster.getController();
             boolean stale = cluster.isDestroyed() || controller == null || controller.getCluster() != cluster;
@@ -186,7 +224,9 @@ public final class NELogicalNetworkManager {
         Map<NetworkGroupKey, List<NECraftingCluster>> groups = new HashMap<>();
         for (NECraftingCluster cluster : state.crafting) {
             cluster.setNetworkCluster(null);
-            groups.computeIfAbsent(craftingNetworkKey(cluster), ignored -> new ArrayList<>()).add(cluster);
+            NetworkGroupKey key = craftingNetworkKey(cluster);
+            state.craftingKeys.put(cluster, key);
+            groups.computeIfAbsent(key, ignored -> new ArrayList<>()).add(cluster);
         }
 
         Set<NetworkPartitionKey> activeKeys = new HashSet<>();
@@ -218,6 +258,7 @@ public final class NELogicalNetworkManager {
     }
 
     private static void rebuildComputation(LevelState state) {
+        state.computationKeys.clear();
         state.computation.removeIf(cluster -> {
             var controller = cluster.getController();
             boolean stale = cluster.isDestroyed() || controller == null || controller.getCluster() != cluster;
@@ -234,7 +275,9 @@ public final class NELogicalNetworkManager {
         Map<NetworkGroupKey, List<NEComputationCluster>> groups = new HashMap<>();
         for (NEComputationCluster cluster : state.computation) {
             cluster.setNetworkCluster(null);
-            groups.computeIfAbsent(computationNetworkKey(cluster), ignored -> new ArrayList<>()).add(cluster);
+            NetworkGroupKey key = computationNetworkKey(cluster);
+            state.computationKeys.put(cluster, key);
+            groups.computeIfAbsent(key, ignored -> new ArrayList<>()).add(cluster);
         }
 
         Set<NetworkPartitionKey> activeKeys = new HashSet<>();
@@ -402,6 +445,8 @@ public final class NELogicalNetworkManager {
         private final Set<NEComputationCluster> computation = new HashSet<>();
         private final Map<NetworkPartitionKey, NECraftingNetworkCluster> craftingNetworks = new HashMap<>();
         private final Map<NetworkPartitionKey, NEComputationNetworkCluster> computationNetworks = new HashMap<>();
+        private final Map<NECraftingCluster, NetworkGroupKey> craftingKeys = new IdentityHashMap<>();
+        private final Map<NEComputationCluster, NetworkGroupKey> computationKeys = new IdentityHashMap<>();
         private final ReferenceSet<NECluster<?>> pendingGridRefresh = new ReferenceOpenHashSet<>();
     }
 }
