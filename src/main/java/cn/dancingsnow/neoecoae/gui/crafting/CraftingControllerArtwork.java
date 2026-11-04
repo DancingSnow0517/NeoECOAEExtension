@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 
 import cn.dancingsnow.neoecoae.platform.JdkCompat;
 
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import static cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.UI_HEIGHT;
 import static cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.UI_WIDTH;
 import cn.dancingsnow.neoecoae.api.IECOTier;
@@ -19,8 +20,6 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.util.DrawerHelper;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -55,7 +54,6 @@ final class CraftingControllerArtwork extends UIElement {
     private static final int STAT_COLUMN_WIDTH = 49;
     private static final int PROGRESS_BAR_WIDTH = 44;
     private static final int PROGRESS_BAR_HEIGHT = 7;
-    private static final String[] NUMBER_UNITS = {"", "K", "M", "G", "T", "P", "E"};
     private final Config config;
     private final Supplier<IECOTier> panelTier;
     private final Supplier<HostPanelTextureState> textures;
@@ -370,7 +368,7 @@ final class CraftingControllerArtwork extends UIElement {
         Component text = Component.empty();
         for (int decimalPlaces = 2; decimalPlaces >= 0; decimalPlaces--) {
             for (int i = 0; i < numbers.length; i++) {
-                values[i] = decimalPlaces == 2 ? Long.toString(numbers[i]) : compactNumber(numbers[i], decimalPlaces);
+                values[i] = decimalPlaces == 2 ? DisplayNumbers.grouped(numbers[i]) : DisplayNumbers.compact(Math.max(0L, numbers[i]), decimalPlaces);
             }
             text = formatter.apply(values);
             if (font.width(text) * scale <= width - 1) break;
@@ -392,18 +390,6 @@ final class CraftingControllerArtwork extends UIElement {
         } finally {
             pose.popPose();
         }
-    }
-
-    private String compactNumber(long value, int decimalPlaces) {
-        long safe = Math.max(0L, value);
-        long divisor = 1L;
-        int unit = 0;
-        while (unit < NUMBER_UNITS.length - 1 && safe / divisor >= 1_000L) {
-            divisor *= 1_000L;
-            unit++;
-        }
-        return BigDecimal.valueOf(safe).divide(BigDecimal.valueOf(divisor), decimalPlaces, RoundingMode.DOWN)
-            .stripTrailingZeros().toPlainString() + NUMBER_UNITS[unit];
     }
 
     private void drawFluidGauge(GUIContext context, int x, FluidStack fluid, int amount, int capacity, int tickX) {

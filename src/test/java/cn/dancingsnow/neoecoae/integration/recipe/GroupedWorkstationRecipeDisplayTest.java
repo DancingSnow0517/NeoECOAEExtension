@@ -46,8 +46,8 @@ class GroupedWorkstationRecipeDisplayTest {
         var scienceText = assertInstanceOf(TranslatableContents.class, LargeWorkstationRecipeDisplay.variantCost(first).getContents());
         var lightningText = assertInstanceOf(TranslatableContents.class, LargeWorkstationRecipeDisplay.variantCost(second).getContents());
         assertEquals("57,600 AE", ((Component) scienceText.getArgs()[1]).getString());
-        assertEquals(200, assertInstanceOf(TranslatableContents.class, ((Component) scienceText.getArgs()[2]).getContents()).getArgs()[0]);
-        assertEquals(4, assertInstanceOf(TranslatableContents.class, ((Component) lightningText.getArgs()[2]).getContents()).getArgs()[0]);
+        assertEquals("200", assertInstanceOf(TranslatableContents.class, ((Component) scienceText.getArgs()[2]).getContents()).getArgs()[0]);
+        assertEquals("4", assertInstanceOf(TranslatableContents.class, ((Component) lightningText.getArgs()[2]).getContents()).getArgs()[0]);
         assertTrue(((Component) lightningText.getArgs()[3]).getString().startsWith("36x"));
         try (var flux = mockStatic(WorkstationFluxEnergy.class)) {
             flux.when(WorkstationFluxEnergy::available).thenReturn(true);

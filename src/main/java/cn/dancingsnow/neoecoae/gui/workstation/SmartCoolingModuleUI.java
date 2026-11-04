@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
@@ -431,11 +432,11 @@ public final class SmartCoolingModuleUI {
     }
 
     private static String decimal(double value) {
-        return String.format(Locale.ROOT, "%.2f", Double.isFinite(value) ? value : 0);
+        return DisplayNumbers.decimal(value, 2);
     }
 
     private static String number(long value) {
-        return String.format(Locale.ROOT, "%,d", value);
+        return DisplayNumbers.compact(value);
     }
 
     /** Client-side copy of the synchronized numeric state. */
