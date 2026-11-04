@@ -141,14 +141,14 @@ public final class ECOOmniSequenceDirectDispatch {
                 return provider;
             }
             try {
-                Method m = provider.getClass().getMethod("getLogic");
+                Method m = cn.dancingsnow.neoecoae.compat.processing.ProcessingReflection
+                    .publicNoArgMethod(provider.getClass(), "getLogic");
+                if (m == null) return provider;
                 Object logic = m.invoke(provider);
                 if (logic instanceof ICraftingProvider p
                         && (p instanceof MolecularBatchCraftingProvider || p instanceof OmniBatchCraftingProvider)) {
                     return p;
                 }
-            } catch (NoSuchMethodException absent) {
-                // Not a pattern provider host; the provider itself is the dispatch target.
             } catch (ReflectiveOperationException | RuntimeException failure) {
                 logFailure("provider unwrap", failure);
             }
