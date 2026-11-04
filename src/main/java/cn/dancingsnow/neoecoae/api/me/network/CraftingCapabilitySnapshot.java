@@ -98,7 +98,7 @@ public record CraftingCapabilitySnapshot(
         long energyUsage = virtualMode
             ? NECraftingNetworkCluster.VIRTUAL_CRAFTING_POWER_PER_TICK
             : NEMath.saturatingMultiply(totalCapacity.finiteValue(), 100L);
-        if (input.overclocked() && !input.activeCooling() && !virtualMode) {
+        if (input.overclocked() && !input.activeCooling()) {
             energyUsage = NEMath.saturatingMultiply(energyUsage, Math.max(1L, input.overclockPowerMultiplier()));
         }
         return new CraftingCapabilitySnapshot(
