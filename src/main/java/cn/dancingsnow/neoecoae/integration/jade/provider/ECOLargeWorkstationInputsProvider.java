@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.jade.provider;
 
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.NeoECOAE;
@@ -68,7 +69,7 @@ public enum ECOLargeWorkstationInputsProvider implements IBlockComponentProvider
             GenericStack stack = GenericStack.readTag(accessor.getLevel().registryAccess(), inputs.getCompound(index));
             if (stack == null || stack.amount() <= 0) continue;
             MutableComponent line = stack.what().getDisplayName().copy().withStyle(ChatFormatting.WHITE);
-            line.append(Component.literal(" × " + stack.what().formatAmount(stack.amount(), AmountFormat.SLOT))
+            line.append(Component.literal(" × " + DisplayNumbers.grouped(stack.what().formatAmount(stack.amount(), AmountFormat.SLOT)))
                     .withStyle(ChatFormatting.YELLOW));
             tooltip.add(line);
         }

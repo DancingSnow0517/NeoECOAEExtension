@@ -1,9 +1,9 @@
 package cn.dancingsnow.neoecoae.integration.jade.provider;
 
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.api.me.network.CraftingCapabilitySnapshot;
-import java.util.Locale;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -36,7 +36,7 @@ public enum ECOCraftingSystemProvider implements IBlockComponentProvider, IServe
         }
         if (data.contains("coolant")) {
             iTooltip.add(Component.translatable("jade.neoecoae.coolant",
-                Component.literal(data.getInt("coolant") + " mB").withStyle(ChatFormatting.BLUE)));
+                Component.literal(DisplayNumbers.compact(data.getInt("coolant")) + " mB").withStyle(ChatFormatting.BLUE)));
         }
         if (data.contains("coolingMaxOverclock")) {
             int coolingMaxOverclock = data.getInt("coolingMaxOverclock");
@@ -56,7 +56,7 @@ public enum ECOCraftingSystemProvider implements IBlockComponentProvider, IServe
                 data.getInt("normalSwitchHosts"), normalSwitches,
                 data.getInt("highEnergySwitchHosts"), highEnergySwitches));
             Component total = virtual ? Component.translatable("gui.neoecoae.storage.infinite_value")
-                : Component.literal(String.format(Locale.ROOT, "%,d", data.getLong("totalBatchCapacity")))
+                : Component.literal(DisplayNumbers.compact(data.getLong("totalBatchCapacity")))
                     .withStyle(ChatFormatting.LIGHT_PURPLE);
             iTooltip.add(Component.translatable("jade.neoecoae.total_crafting_capacity", total));
         }
