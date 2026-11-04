@@ -14,6 +14,18 @@ import net.minecraft.network.FriendlyByteBuf;
 /** Test fixtures inspect actual retained runtime state without recreating the removed upstream API. */
 public final class UiTestSupport {
     private UiTestSupport() {}
+    /** Installs the client font required by LDLib text fields and card tooltips in headless UI tests. */
+    public static org.mockito.MockedStatic<net.minecraft.client.Minecraft> mockClient() {
+        var client = org.mockito.Mockito.mock(net.minecraft.client.Minecraft.class);
+        var font = org.mockito.Mockito.mock(net.minecraft.client.gui.Font.class);
+        set(client, "font", font);
+        set(font, "lineHeight", 9);
+        org.mockito.Mockito.when(font.plainSubstrByWidth(org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.anyInt())).thenAnswer(call -> call.getArgument(0));
+        var scope = org.mockito.Mockito.mockStatic(net.minecraft.client.Minecraft.class);
+        scope.when(net.minecraft.client.Minecraft::getInstance).thenReturn(client);
+        return scope;
+    }
     private static Field field(Class<?> type, String name) {
         for (Class<?> cursor = type; cursor != null; cursor = cursor.getSuperclass()) {
             try { Field result=cursor.getDeclaredField(name);result.setAccessible(true);return result; }

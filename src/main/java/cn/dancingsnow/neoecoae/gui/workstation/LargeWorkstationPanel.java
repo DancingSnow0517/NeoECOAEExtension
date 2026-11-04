@@ -498,6 +498,10 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
 
     /** Active cooling card; {@code toggle} adds the left-click hint shown on the toggle button. */
     private HoverTooltips coolingCard(boolean toggle) {
+        return CraftingListCard.hover(coolingCardBuilder(toggle).build());
+    }
+
+    CraftingListCard.Builder coolingCardBuilder(boolean toggle) {
         boolean enabled = state.getBoolean("activeCooling");
         boolean smart = state.getBoolean("smartCooling");
         var card = CraftingListCard.builder()
@@ -545,7 +549,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             hint.append(card("smart_hint"));
         }
         if (!hint.getString().isEmpty()) card.text(hint, Component.empty(), CraftingTooltipCard.MUTED);
-        return CraftingListCard.hover(card.build());
+        return card;
     }
 
     private LargeWorkstationModule module() { return LargeWorkstationModule.byName(state.getString("module")); }

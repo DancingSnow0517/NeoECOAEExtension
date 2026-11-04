@@ -101,16 +101,39 @@ class ECOCraftingControllerWorkerItemsTest {
     }
 
     @Test
-    void pooledGroupOutputsMergeSameItemAndSkipIdleWorkers() {
-        var merged = ECOCraftingSystemBlockEntity.mergeOutputs(List.of(
+    void pooledGroupOutputsKeepEachBusyWorkerInItsOwnCell() {
+        var packed = ECOCraftingSystemBlockEntity.packOutputs(List.of(
             new CraftingOutputDisplay(new ItemStack(Items.DIAMOND), BigInteger.valueOf(512)),
             CraftingOutputDisplay.EMPTY,
             new CraftingOutputDisplay(new ItemStack(Items.EMERALD), BigInteger.valueOf(8)),
-            new CraftingOutputDisplay(new ItemStack(Items.DIAMOND), BigInteger.valueOf(64))));
-        assertEquals(2, merged.size());
-        assertTrue(merged.get(0).item().is(Items.DIAMOND));
-        assertEquals(BigInteger.valueOf(576), merged.get(0).amount());
-        assertTrue(merged.get(1).item().is(Items.EMERALD));
+            new CraftingOutputDisplay(new ItemStack(Items.DIAMOND), BigInteger.valueOf(64))), 11);
+        assertEquals(3, packed.size());
+        assertTrue(packed.get(0).item().is(Items.DIAMOND));
+        assertEquals(BigInteger.valueOf(512), packed.get(0).amount());
+        assertTrue(packed.get(1).item().is(Items.EMERALD));
+        assertTrue(packed.get(2).item().is(Items.DIAMOND));
+        assertEquals(BigInteger.valueOf(64), packed.get(2).amount());
+    }
+
+    @Test
+    void pooledOutputsOnlyMergeMatchingItemsAfterAllCellsAreOccupied() {
+        var packed = ECOCraftingSystemBlockEntity.packOutputs(List.of(
+            new CraftingOutputDisplay(new ItemStack(Items.DIAMOND), BigInteger.valueOf(512)),
+            new CraftingOutputDisplay(new ItemStack(Items.EMERALD), BigInteger.valueOf(8)),
+            new CraftingOutputDisplay(new ItemStack(Items.DIAMOND), BigInteger.valueOf(64))), 2);
+        assertEquals(2, packed.size());
+        assertEquals(BigInteger.valueOf(576), packed.get(0).amount());
+        assertEquals(BigInteger.valueOf(8), packed.get(1).amount());
+    }
+
+    @Test
+    void elevenWorkersProducingTheSameItemKeepElevenSeparateBatchAmounts() {
+        var outputs = java.util.stream.IntStream.range(0, 11)
+            .mapToObj(index -> new CraftingOutputDisplay(new ItemStack(Items.DIAMOND), BigInteger.valueOf(512)))
+            .toList();
+        var packed = ECOCraftingSystemBlockEntity.packOutputs(outputs, 11);
+        assertEquals(11, packed.size());
+        assertTrue(packed.stream().allMatch(output -> output.amount().equals(BigInteger.valueOf(512))));
     }
 
     private static ECOCraftingWorkerBlockEntity worker(int distance, ItemStack output) {

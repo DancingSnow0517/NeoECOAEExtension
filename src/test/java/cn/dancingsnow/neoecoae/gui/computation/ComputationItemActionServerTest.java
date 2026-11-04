@@ -149,6 +149,7 @@ class ComputationItemActionServerTest {
             when(cpu.getSelectionMode()).thenReturn(CpuSelectionMode.ANY);
             var tier = mock(IECOTier.class);
             when(tier.getCPUOverlayTexture()).thenReturn(new ResourceLocation("test", "cpu.png"));
+            when(tier.getPanelTierName()).thenReturn(Component.literal("Test tier"));
             when(cpu.getTier()).thenReturn(tier);
             var view = mock(ECOCraftingProgressView.class);
             when(view.bigOrder()).thenReturn(Optional.empty());
@@ -159,9 +160,10 @@ class ComputationItemActionServerTest {
             when(logic.getProcessingJobId()).thenReturn(job);
             when(logic.canControlProcessingStep(key)).thenReturn(true);
             var type = Class.forName(ComputationCpuStatusPanel.class.getName() + "$ServerState");
-            var constructor = type.getDeclaredConstructor(ComputationControllerUI.Config.class, CpuSelectionState.Identities.class);
+            var constructor = type.getDeclaredConstructor(ComputationCpuStatusPanel.Source.class, CpuSelectionState.Identities.class);
             constructor.setAccessible(true);
-            server = constructor.newInstance(config, new CpuSelectionState.Identities<ECOCraftingCPU>());
+            server = constructor.newInstance(ComputationCpuStatusPanel.Source.of(config),
+                new CpuSelectionState.Identities<appeng.api.networking.crafting.ICraftingCPU>());
             call("snapshot", new Class<?>[0]);
         }
         Object call(String method, Class<?>[] types, Object... arguments) throws Exception {

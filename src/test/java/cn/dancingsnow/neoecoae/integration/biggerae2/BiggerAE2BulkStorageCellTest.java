@@ -54,8 +54,8 @@ class BiggerAE2BulkStorageCellTest {
             var compression = (TranslatableContents) lines.get(1).getContents();
             assertEquals("tooltip.neoecoae.bulk.compression", compression.getKey());
             var enabled = (Component) compression.getArgs()[0];
-            assertEquals("tooltip.neoecoae.bulk.compression_enabled", ((TranslatableContents) enabled.getContents()).getKey());
-            assertEquals(ChatFormatting.GREEN.getColor(), enabled.getStyle().getColor().getValue());
+            assertEquals("tooltip.neoecoae.bulk.compression_requires_marker", ((TranslatableContents) enabled.getContents()).getKey());
+            assertEquals(ChatFormatting.GRAY.getColor(), enabled.getStyle().getColor().getValue());
             assertTrue(item.getTooltipImage(stack).isEmpty());
 
             var aeConfig = mock(AEConfig.class);
@@ -63,6 +63,12 @@ class BiggerAE2BulkStorageCellTest {
             when(aeConfig.getTooltipMaxCellContentShown()).thenReturn(5);
             var key = AEItemKey.of(Items.IRON_INGOT);
             cn.dancingsnow.neoecoae.items.ECOBulkStorageCellItem.writeConfiguredStacks(stack, List.of(new GenericStack(key, 0)));
+            when(cell.getEffectiveConfiguredFilters()).thenReturn(List.of(key));
+            lines.clear();
+            item.appendHoverText(stack, null, lines, TooltipFlag.NORMAL);
+            var marked = (Component) ((TranslatableContents) lines.get(1).getContents()).getArgs()[0];
+            assertEquals("tooltip.neoecoae.bulk.compression_enabled", ((TranslatableContents) marked.getContents()).getKey());
+            assertEquals(ChatFormatting.GREEN.getColor(), marked.getStyle().getColor().getValue());
             var preview = (StorageCellTooltipComponent) item.getTooltipImage(stack).orElseThrow();
             assertEquals(List.of(new GenericStack(key, 0)), preview.content());
             assertTrue(preview.upgrades().isEmpty());
@@ -99,6 +105,7 @@ class BiggerAE2BulkStorageCellTest {
         var stack = stack();
         var item = (BiggerAE2BulkStorageCellItem) stack.getItem();
         BigInteger amount = BigInteger.ONE.shiftLeft(160).add(BigInteger.TEN);
+        cn.dancingsnow.neoecoae.items.ECOBulkStorageCellItem.writeConfiguredStacks(stack, List.of(new GenericStack(ingot, 0)));
         BiggerAE2SingularityContents.write(stack, new BiggerAE2SingularityContents(List.of(
             new BiggerAE2SingularityContents.Entry(ingot, amount),
             new BiggerAE2SingularityContents.Entry(block, BigInteger.valueOf(2)))));

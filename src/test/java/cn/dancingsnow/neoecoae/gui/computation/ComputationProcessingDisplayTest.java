@@ -4,18 +4,23 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import appeng.api.stacks.AEItemKey;
+import appeng.api.client.AEKeyRendering;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.Machine;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.State;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import cn.dancingsnow.neoecoae.util.UiTestSupport;
+import cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation;
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.math.BigInteger;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.stream.IntStream;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.Font;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
@@ -45,11 +50,10 @@ class ComputationProcessingDisplayTest {
         assertTrue(ComputationProcessingTooltips.describe(observed).toString().contains("pause.overheated"));
         assertTrue(ComputationCpuStatusPanel.itemDescription(observed, false).stream()
             .anyMatch(line -> key(line).equals("gui.neoecoae.processing.state.waiting")));
-        var graphics = mock(GuiGraphics.class);
-        var context = mock(GUIContext.class);
-        UiTestSupport.set(context, "graphics", graphics);
-        assertFalse(ComputationCpuStatusPanel.drawProcessingProgress(context, observed, 0, 0, 0));
-        verifyNoInteractions(graphics);
+        var row = drawTask(observed);
+        verify(row.graphics()).fill(10, 20, 77, 42, 0x30E2AA4F);
+        verify(row.graphics(), times(1)).fill(anyInt(), anyInt(), anyInt(), anyInt(), anyInt());
+        assertTrue(row.text().stream().noneMatch(text -> text.endsWith("%")));
 
         UiTestSupport.set(panel, "processingByKey", java.util.Map.of(key, ECOProcessingProgress.EMPTY));
         var recovered = (ComputationCpuItemEntry) bind.invoke(panel, pending);
@@ -59,43 +63,36 @@ class ComputationProcessingDisplayTest {
             .noneMatch(line -> key(line).equals("gui.neoecoae.processing.state.waiting")));
     }
 
-    @Test void progressFillsTheWholeCellAndAddsNoText() {
-        var context = mock(GUIContext.class);
-        var graphics = mock(GuiGraphics.class);
-        UiTestSupport.set(context, "graphics", graphics);
+    @Test void taskProgressFillsTheWholeRowAndShowsItsPercentage() throws Exception {
         var entry = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE), BigInteger.ZERO,
             BigInteger.ONE, BigInteger.ZERO, false, ECOProcessingProgress.summarize(List.of(machine(50, 100, State.RUNNING))));
-        ComputationCpuStatusPanel.drawProcessingProgress(context, entry, 10, 20, 0);
-        verify(graphics).fill(44, 20, 77, 42, 0x30C7A6FF);
-        verify(graphics).fill(10, 20, 44, 42, 0x90C7A6FF);
-        verifyNoMoreInteractions(graphics);
+        var row = drawTask(entry);
+        verify(row.graphics()).fill(44, 20, 77, 42, 0x3060CD64);
+        verify(row.graphics()).fill(10, 20, 44, 42, 0x9060CD64);
+        assertTrue(row.text().contains("50%"));
     }
 
-    @Test void missingMachineDataDoesNotDisplayAProgressTrack() {
-        var context = mock(GUIContext.class);
-        UiTestSupport.set(context, "graphics", mock(GuiGraphics.class));
+    @Test void missingMachineDataOnlyDisplaysTheTaskRowTint() throws Exception {
         var entry = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE), BigInteger.ZERO,
             BigInteger.ONE, BigInteger.ZERO, false);
-        ComputationCpuStatusPanel.drawProcessingProgress(context, entry, 10, 20, 0);
-        verifyNoInteractions(context.graphics);
+        var row = drawTask(entry);
+        verify(row.graphics()).fill(10, 20, 77, 42, 0x3060CD64);
+        verify(row.graphics(), times(1)).fill(anyInt(), anyInt(), anyInt(), anyInt(), anyInt());
+        assertTrue(row.text().stream().noneMatch(text -> text.endsWith("%")));
         assertTrue(ComputationProcessingTooltips.describe(entry).stream()
             .anyMatch(line -> key(line).equals("gui.neoecoae.processing.progress_unavailable")));
     }
 
-    @Test void fullCellProgressRetainsBlockedPausedAndUserSelectedColors() {
+    @Test void taskRowProgressRetainsRunningBlockedAndPausedColors() throws Exception {
         for (State state : List.of(State.RUNNING, State.WAITING, State.PAUSED)) {
-            int rgb = state == State.RUNNING ? 0xC7A6FF : state == State.WAITING ? 0xE2AA4F : 0x90909F;
-            for (int overlay : List.of(0, 0x123456)) {
-                var graphics = mock(GuiGraphics.class);
-                var context = new GUIContext(graphics, 0, 0, 0);
-                var entry = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE), BigInteger.ZERO,
-                    BigInteger.ONE, BigInteger.ZERO, false,
-                    ECOProcessingProgress.summarize(List.of(machine(50, 100, state))));
-                assertTrue(ComputationCpuStatusPanel.drawProcessingProgress(context, entry, 10, 20, overlay));
-                int color = overlay == 0 ? rgb : overlay;
-                verify(graphics).fill(44, 20, 77, 42, color | 0x30000000);
-                verify(graphics).fill(10, 20, 44, 42, color | 0x90000000);
-            }
+            int rgb = state == State.RUNNING ? 0x60CD64 : state == State.WAITING ? 0xE2AA4F : 0x90909F;
+            var entry = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE), BigInteger.ZERO,
+                BigInteger.ONE, BigInteger.ZERO, false,
+                ECOProcessingProgress.summarize(List.of(machine(50, 100, state))));
+            var row = drawTask(entry);
+            verify(row.graphics()).fill(44, 20, 77, 42, rgb | 0x30000000);
+            verify(row.graphics()).fill(10, 20, 44, 42, rgb | 0x90000000);
+            assertEquals(state != State.WAITING, row.text().contains("50%"));
         }
     }
 
@@ -129,30 +126,22 @@ class ComputationProcessingDisplayTest {
     }
 
     @Test void queuedStepsAndStorageOnlyCellsDoNotDisplayAProgressBar() {
-        var context = mock(GUIContext.class);
-        UiTestSupport.set(context, "graphics", mock(GuiGraphics.class));
         var queued = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE), BigInteger.ZERO,
             BigInteger.ZERO, BigInteger.ONE, false);
-        ComputationCpuStatusPanel.drawProcessingProgress(context, queued, 10, 20, 0);
-        verifyNoInteractions(context.graphics);
+        verify(drawItem(queued), never()).fill(anyInt(), anyInt(), anyInt(), anyInt(), anyInt());
         assertTrue(ComputationProcessingTooltips.describe(queued).stream()
             .anyMatch(line -> key(line).equals("gui.neoecoae.processing.awaiting_dispatch")));
 
-        clearInvocations(context.graphics);
         var stored = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE), BigInteger.ONE,
             BigInteger.ZERO, BigInteger.ZERO, false);
-        ComputationCpuStatusPanel.drawProcessingProgress(context, stored, 10, 20, 0);
-        verifyNoInteractions(context.graphics);
+        verify(drawItem(stored), never()).fill(anyInt(), anyInt(), anyInt(), anyInt(), anyInt());
         assertTrue(ComputationProcessingTooltips.describe(stored).isEmpty());
     }
 
     @Test void staleMachineDataCannotDisplayAQueuedStepsProgressBar() {
-        var context = mock(GUIContext.class);
-        UiTestSupport.set(context, "graphics", mock(GuiGraphics.class));
         var queued = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE), BigInteger.ZERO,
             BigInteger.ZERO, BigInteger.ONE, false, ECOProcessingProgress.summarize(List.of(machine(50, 100, State.RUNNING))));
-        ComputationCpuStatusPanel.drawProcessingProgress(context, queued, 10, 20, 0);
-        verifyNoInteractions(context.graphics);
+        verify(drawItem(queued), never()).fill(anyInt(), anyInt(), anyInt(), anyInt(), anyInt());
         assertTrue(ComputationProcessingTooltips.describe(queued).stream()
             .noneMatch(line -> key(line).equals("gui.neoecoae.processing.time")));
     }
@@ -176,6 +165,39 @@ class ComputationProcessingDisplayTest {
         assertTrue(bytes(all.page(100)) < 2048);
         System.out.printf("1000-machine fixture: summary=%d bytes, tooltip page=%d bytes (NBT only)%n",
             bytes(all.page(-1)), bytes(all.page(100)));
+    }
+
+    private record TaskRow(GuiGraphics graphics, List<String> text) {}
+
+    private static TaskRow drawTask(ComputationCpuItemEntry entry) throws Exception {
+        var panel = mock(ComputationCpuStatusPanel.class, CALLS_REAL_METHODS);
+        var animation = mock(HostProgressAnimation.class);
+        when(animation.value(anyDouble())).thenAnswer(call -> ((Double) call.getArgument(0)).floatValue());
+        UiTestSupport.set(panel, "opening", animation);
+        var graphics = mock(GuiGraphics.class);
+        when(graphics.pose()).thenReturn(new PoseStack());
+        var context = new GUIContext(graphics, 0, 0, 0);
+        var text = new ArrayList<String>();
+        try (var keys = mockStatic(AEKeyRendering.class);
+             var rows = mockStatic(ComputationCpuSelector.class)) {
+            rows.when(() -> ComputationCpuSelector.fittedText(any(), any(), anyString(), anyFloat(), anyFloat(),
+                anyInt(), anyFloat(), anyInt())).thenAnswer(call -> { text.add(call.getArgument(2)); return null; });
+            var draw = ComputationCpuStatusPanel.class.getDeclaredMethod("drawTask", GUIContext.class,
+                Font.class, ComputationCpuItemEntry.class, float.class, float.class);
+            draw.setAccessible(true);
+            draw.invoke(panel, context, mock(Font.class), entry, 10F, 20F);
+        }
+        return new TaskRow(graphics, text);
+    }
+
+    private static GuiGraphics drawItem(ComputationCpuItemEntry entry) {
+        var graphics = mock(GuiGraphics.class);
+        when(graphics.pose()).thenReturn(new PoseStack());
+        try (var keys = mockStatic(AEKeyRendering.class)) {
+            ComputationCpuStatusPanel.drawItem(new GUIContext(graphics, 0, 0, 0), mock(Font.class), entry,
+                10, 20, false);
+        }
+        return graphics;
     }
 
     private static int bytes(ECOProcessingProgress progress) throws Exception {

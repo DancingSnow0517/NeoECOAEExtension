@@ -102,14 +102,16 @@ class WorkstationArtworkTest {
             for (String facing : new String[] {"north", "east", "south", "west"}) {
                 for (boolean formed : new boolean[] {false, true}) {
                     for (boolean working : new boolean[] {false, true}) {
-                        for (LargeWorkstationModule module : LargeWorkstationModule.values()) {
-                            String key = "facing=" + facing + ",formed=" + formed + ",module="
-                                + module.getSerializedName() + ",working=" + working;
-                            assertTrue(variants.has(key), "Missing external-model variant: " + key);
-                            String model = variants.getAsJsonObject(key).get("model").getAsString();
-                            assertEquals("neoecoae:" + (formed ? module.modelPath(working)
-                                : "block/integrated_working_station" + (working ? "_on" : "")), model);
-                            assertNotNull(getClass().getResource("/assets/neoecoae/models/" + model.substring(9) + ".json"));
+                        for (boolean smart : new boolean[] {false, true}) {
+                            for (LargeWorkstationModule module : LargeWorkstationModule.values()) {
+                                String key = "facing=" + facing + ",formed=" + formed + ",module="
+                                    + module.getSerializedName() + ",smart_cooling=" + smart + ",working=" + working;
+                                assertTrue(variants.has(key), "Missing external-model variant: " + key);
+                                String model = variants.getAsJsonObject(key).get("model").getAsString();
+                                assertEquals("neoecoae:" + (formed ? module.modelPath(working, smart)
+                                    : "block/integrated_working_station" + (working ? "_on" : "")), model);
+                                assertNotNull(getClass().getResource("/assets/neoecoae/models/" + model.substring(9) + ".json"));
+                            }
                         }
                     }
                 }
