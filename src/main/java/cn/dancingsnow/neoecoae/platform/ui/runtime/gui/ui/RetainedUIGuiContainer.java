@@ -16,13 +16,26 @@ public final class RetainedUIGuiContainer extends ModularUIGuiContainer {
 
     @Override public void init(){
         var root=(UIElement)modularUI.mainGroup;
+        // Apply page switches and terminal row changes before LDLib calculates the origin.
+        root.arrange();
+        int contentWidth=Math.round(root.getSizeWidth());
+        int contentHeight=Math.round(root.getSizeHeight());
+        if(modularUI.getWidth()!=contentWidth||modularUI.getHeight()!=contentHeight){
+            // LDLib calls init again after updating its cached dimensions.
+            modularUI.setSize(contentWidth,contentHeight);
+            return;
+        }
         float[] bounds={0,0,root.getSizeWidth(),root.getSizeHeight()};
         includeVisibleBounds(root,root.getPositionX(),root.getPositionY(),bounds);
         float requiredWidth=root.getSizeWidth()+2*Math.max(-bounds[0],bounds[2]-root.getSizeWidth());
         float requiredHeight=root.getSizeHeight()+2*Math.max(-bounds[1],bounds[3]-root.getSizeHeight());
-        renderScale=scaleToFit(width,height,requiredWidth,requiredHeight);
-        width=(int)Math.ceil(width/renderScale);
-        height=(int)Math.ceil(height/renderScale);
+        // A deferred resize may pass our already-scaled logical dimensions back in.
+        var window=minecraft.getWindow();
+        int viewportWidth=window.getGuiScaledWidth();
+        int viewportHeight=window.getGuiScaledHeight();
+        renderScale=scaleToFit(viewportWidth,viewportHeight,requiredWidth,requiredHeight);
+        width=(int)Math.ceil(viewportWidth/renderScale);
+        height=(int)Math.ceil(viewportHeight/renderScale);
         super.init();
     }
 
