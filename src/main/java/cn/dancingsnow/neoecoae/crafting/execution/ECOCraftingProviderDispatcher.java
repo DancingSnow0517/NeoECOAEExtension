@@ -54,6 +54,13 @@ final class ECOCraftingProviderDispatcher {
         processing.reset();
     }
 
+    private long dispatchLimit() {
+        if (owner == null) return Long.MAX_VALUE;
+        var settings = cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings.of(owner.cpu.getGrid());
+        return settings == null || settings.neoecoae$isSmartDoublingEnabled()
+            ? Long.MAX_VALUE : Math.min(16_384L, Math.max(1L, owner.cpu.getCoProcessors()));
+    }
+
     boolean isEligible(ICraftingProvider provider, IPatternDetails pattern, ECOCraftingDispatchBudget budget) {
         if (ECOExternalProviderBlocking.isEnabled(provider)) return budget.canAttemptOrdinary();
         return budget.canAttemptOrdinary()
@@ -67,16 +74,23 @@ final class ECOCraftingProviderDispatcher {
         if (owner != null) owner.getProcessingMonitor().considered(job.link.getCraftingID(), pattern, provider);
     }
 
-    Result dispatchCandidate(ECOCraftingDispatchRequest request, List<ICraftingProvider> providers,
+    Result dispatchCandidate(ECOCraftingDispatchRequest originalRequest, List<ICraftingProvider> providers,
             ECOCraftingDispatchBudget budget, IEnergyService energyService,
             ECODispatchStallDiagnostics diagnostics, Consumer<ICraftingProvider> markProviderAttempt,
             Runnable markNormalResume, ECOCraftingNormalPush normalPush) {
+        long limit = dispatchLimit();
+        var request = originalRequest.allowedCrafts() <= limit ? originalRequest
+            : new ECOCraftingDispatchRequest(originalRequest.job(), originalRequest.candidate(), originalRequest.pattern(),
+                originalRequest.inputs(), originalRequest.outputs(), originalRequest.remainders(), limit,
+                originalRequest.inventory(), originalRequest.level());
         double singlePower = CraftingCpuHelper.calculatePatternPower(request.inputs());
 
         for (var provider : providers) {
             boolean blocking = ECOExternalProviderBlocking.isEnabled(provider);
             if (!blocking && request.job().exactOrder) {
-                var exact = fastPath.tryExactDispatch(request, provider, singlePower, energyService, markProviderAttempt);
+                var exact = limit == Long.MAX_VALUE
+                    ? fastPath.tryExactDispatch(request, provider, singlePower, energyService, markProviderAttempt)
+                    : fastPath.tryExactDispatch(request, provider, singlePower, energyService, markProviderAttempt, limit);
                 if (exact != null) return Result.accepted(
                     cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan.bounded(exact), true);
                 if (request.job().suspended) return Result.none();

@@ -29,6 +29,14 @@ public interface ECOCraftingNetworkSettings {
 
     void neoecoae$setCyclePlanningEnabled(boolean enabled);
 
+    /** Whether ECO may dispatch beyond the host's ordinary parallelism. */
+    default boolean neoecoae$isSmartDoublingEnabled() {
+        return true;
+    }
+
+    default void neoecoae$setSmartDoublingEnabled(boolean enabled) {
+    }
+
     /** @deprecated Logging is controlled by the global Calculating debug configuration now. */
     @Deprecated
     default boolean neoecoae$isPlanningLogEnabled() {

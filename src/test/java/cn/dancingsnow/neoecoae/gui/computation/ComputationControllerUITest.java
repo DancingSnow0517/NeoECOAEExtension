@@ -74,6 +74,7 @@ class ComputationControllerUITest {
             assertNotNull(find(root, "computation_cpu_selector"));
             assertNotNull(find(root, "computation-info"));
             assertNotNull(find(root, "computation-cpu-list-toggle"));
+            assertNotNull(find(root, "computation-smart-doubling"));
             assertNotNull(find(root, "computation_status"));
         }
     }
@@ -258,6 +259,11 @@ class ComputationControllerUITest {
 
     private static ComputationControllerUI.Config config(Runnable toggleSubstitutions, Runnable toggleCycle,
                                                          Runnable toggleFast) {
+        return config(toggleSubstitutions, toggleCycle, toggleFast, () -> true, () -> {});
+    }
+
+    private static ComputationControllerUI.Config config(Runnable toggleSubstitutions, Runnable toggleCycle,
+            Runnable toggleFast, java.util.function.BooleanSupplier smartDoubling, Runnable toggleSmartDoubling) {
         return new ComputationControllerUI.Config(
             () -> true, () -> 1, () -> 0, () -> 0,
             () -> 0L, () -> 1024L, () -> 1024L,
@@ -270,7 +276,7 @@ class ComputationControllerUITest {
             () -> ItemStack.EMPTY, List::of, List::of, null,
             (position, expected, toInventory) -> false, (position, expected) -> false,
             () -> 0L, () -> true, List::of, cpu -> {}, cpu -> {},
-            () -> Component.empty());
+            () -> Component.empty(), smartDoubling, toggleSmartDoubling);
     }
 
     @Test
@@ -345,6 +351,36 @@ class ComputationControllerUITest {
             assertEquals(new net.minecraft.resources.ResourceLocation("addon:computation-widgets_atlas.png"),
                 cn.dancingsnow.neoecoae.gui.theme.PanelAtlasTestSupport.image(button.getButtonStyle().baseTexture()));
             verify(block, never()).defaultBlockState();
+        }
+    }
+
+    @Test
+    void smartDoublingCardShowsStateCapAndBlockingPrecedence() {
+        String key = "gui.neoecoae.computation.ui.switch.";
+        var texts = ComputationControllerInteractions.smartDoublingCard(true).texts().stream()
+            .map(text -> ((net.minecraft.network.chat.contents.TranslatableContents) text.getContents()).getKey())
+            .toList();
+        assertEquals(List.of("gui.neoecoae.crafting.smart_doubling", key + "on", key + "smart_doubling.limit",
+            key + "smart_doubling.limit_value", key + "smart_doubling.limit_note", key + "smart_doubling.blocking",
+            key + "smart_doubling.blocking_note"), texts);
+        var off = ComputationControllerInteractions.smartDoublingCard(false).texts();
+        assertEquals(key + "off", ((net.minecraft.network.chat.contents.TranslatableContents) off.get(1).getContents()).getKey());
+        assertEquals("16,384", ((net.minecraft.network.chat.contents.TranslatableContents) off.get(3).getContents()).getArgs()[0]);
+    }
+
+    @Test
+    void smartDoublingButtonTogglesTheServerSetting() {
+        try (var ldlib = mockStatic(LDLib.class);
+             var minecraft = cn.dancingsnow.neoecoae.util.UiTestSupport.mockClient()) {
+            ldlib.when(LDLib::isRemote).thenReturn(true);
+            var enabled = new java.util.concurrent.atomic.AtomicBoolean(true);
+            var config = config(() -> {}, () -> {}, () -> {}, enabled::get,
+                () -> enabled.set(!enabled.get()));
+            var button = ComputationControllerInteractions.createSmartDoublingButton(config);
+            serverClick(button, 0);
+            assertFalse(enabled.get());
+            serverClick(button, 0);
+            assertTrue(enabled.get());
         }
     }
 

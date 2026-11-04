@@ -1583,5 +1583,10 @@
   "tooltip.neoecoae.storage_dirve.1": "The drivable storage matrix tier depends on the storage subsystem host controller",
   "tooltip.neoecoae.storage_system": "The core of the storage subsystem",
   "upgrade.neoecoae.aluminum_alloy_upgrade": "Aluminum Alloy Upgrade",
-  "upgrade.neoecoae.black_tungsten_alloy_upgrade": "Black Tungsten Alloy Upgrade"
+  "upgrade.neoecoae.black_tungsten_alloy_upgrade": "Black Tungsten Alloy Upgrade",
+  "gui.neoecoae.computation.ui.switch.smart_doubling.blocking": "Blocking mode takes priority",
+  "gui.neoecoae.computation.ui.switch.smart_doubling.blocking_note": "Dispatches that meet blocking conditions are still held by blocking mode.",
+  "gui.neoecoae.computation.ui.switch.smart_doubling.limit": "Per-dispatch cap when disabled",
+  "gui.neoecoae.computation.ui.switch.smart_doubling.limit_note": "Actual dispatches are still limited by available parallelism.",
+  "gui.neoecoae.computation.ui.switch.smart_doubling.limit_value": "%s crafts"
 }

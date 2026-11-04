@@ -1619,5 +1619,10 @@
   "gui.neoecoae.smart_cooling.unformed_hint": "結構成型後自動運行",
   "gui.neoecoae.smart_cooling.unmarked": "請先標記冷卻液",
   "item.neoecoae.phase_change_air_cooler": "相變型空冷散熱器",
-  "tooltip.neoecoae.bulk.compression_requires_marker": "標記資源後開啟"
+  "tooltip.neoecoae.bulk.compression_requires_marker": "標記資源後開啟",
+  "gui.neoecoae.computation.ui.switch.smart_doubling.limit": "關閉時單次提交上限",
+  "gui.neoecoae.computation.ui.switch.smart_doubling.limit_value": "%s 份",
+  "gui.neoecoae.computation.ui.switch.smart_doubling.limit_note": "實際提交量仍受目前可用並行數限制。",
+  "gui.neoecoae.computation.ui.switch.smart_doubling.blocking": "阻擋模式優先",
+  "gui.neoecoae.computation.ui.switch.smart_doubling.blocking_note": "符合阻擋條件的任務提交，仍會被阻擋模式攔截。"
 }
