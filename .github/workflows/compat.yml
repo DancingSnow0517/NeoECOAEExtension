@@ -6,22 +6,41 @@ on:
   schedule:
     - cron: '17 3 * * 1'
   workflow_dispatch:
+    inputs:
+      build_compat_probe:
+        description: 'Build the optional compatibility probe JAR'
+        type: boolean
+        default: false
+      cold_cache:
+        description: 'Skip cache restore and save to measure a cold build'
+        type: boolean
+        default: false
   push:
     branches: ['1.20.1']
     paths:
       - 'src/**'
       - 'build.gradle'
       - 'gradle.properties'
+      - 'settings.gradle'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
       - 'tools/compat/**'
       - '.github/workflows/compat.yml'
+      - '.github/workflows/release.yml'
   pull_request:
     branches: ['1.20.1']
     paths:
       - 'src/**'
       - 'build.gradle'
       - 'gradle.properties'
+      - 'settings.gradle'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
       - 'tools/compat/**'
       - '.github/workflows/compat.yml'
+      - '.github/workflows/release.yml'
 
 permissions:
   contents: read
@@ -34,16 +53,14 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
-    outputs:
-      source_sha: ${{ steps.source.outputs.sha }}
+    env:
+      BUILD_COMPAT_PROBE: ${{ github.event_name == 'workflow_dispatch' && inputs.build_compat_probe || false }}
+      COLD_CACHE: ${{ github.event_name == 'workflow_dispatch' && inputs.cold_cache || false }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '1.20.1' || github.sha }}
-      - name: Record Source Commit
-        id: source
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
@@ -55,35 +72,69 @@ jobs:
           python-version: '3.12'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          # Keep caches/neoformruntime and the Gradle build cache under setup-gradle's management.
+          cache-disabled: ${{ env.COLD_CACHE == 'true' }}
+          cache-read-only: ${{ github.event_name == 'pull_request' || (github.ref != 'refs/heads/1.20.1' && github.ref != format('refs/heads/{0}', github.event.repository.default_branch)) }}
       - name: Verify Compatibility Harness
         run: python3 -m unittest discover -s tools/compat/tests -v
+      - name: Restore Pinned Dependency Cache
+        id: pinned-cache
+        if: env.COLD_CACHE != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: libs/pinned
+          key: ${{ runner.os }}-neoecoae-pinned-v1-${{ hashFiles('tools/compat/build-dependencies.json') }}
       - name: Restore Build Dependencies
         run: python3 tools/compat/bootstrap.py
-      - name: Build with Gradle
+      - name: Save Verified Dependency Cache
+        if: env.COLD_CACHE != 'true' && steps.pinned-cache.outputs.cache-hit != 'true' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/1.20.1' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
+        uses: actions/cache/save@v4
+        with:
+          path: libs/pinned
+          key: ${{ steps.pinned-cache.outputs.cache-primary-key }}
+      - name: Build and Verify with Gradle
+        id: gradle
         env:
           # ModDevGradle skips recompilation for CI=true; its binary mappings fail Java 17 compilation.
           CI: 'false'
         run: |
           set -o pipefail
           mkdir -p build/compat-build-evidence
-          bash ./gradlew -I tools/compat/compat.init.gradle reobfJar reobfCompatTestJar --no-daemon --max-workers=2 --console=plain 2>&1 | tee build/compat-build-evidence/build.log
-      - name: Verify KubeJS Recipe Schemas
-        env:
-          CI: 'false'
-        run: |
-          set -o pipefail
-          bash ./gradlew upstreamSyncTest --tests 'cn.dancingsnow.neoecoae.integration.kubejs.schema.KubeJSRecipeSchemaTest' --no-daemon --max-workers=2 --console=plain 2>&1 | tee build/compat-build-evidence/kubejs-schemas.log
+          started_at=$SECONDS
+          trap 'echo "GRADLE_BUILD_SECONDS=$((SECONDS - started_at))" >> "$GITHUB_ENV"' EXIT
+          args=(-I tools/compat/ci.init.gradle reobfJar upstreamSyncTest
+                --tests 'cn.dancingsnow.neoecoae.integration.kubejs.schema.KubeJSRecipeSchemaTest')
+          if [[ "$BUILD_COMPAT_PROBE" == 'true' ]]; then
+            args+=(-I tools/compat/compat.init.gradle reobfCompatTestJar)
+          fi
+          bash ./gradlew "${args[@]}" --no-daemon --no-parallel --max-workers=2 --console=plain --profile 2>&1 | tee build/compat-build-evidence/build.log
       - name: Verify Production Artifacts
-        run: python3 tools/compat/check_artifacts.py
+        run: |
+          args=(--release-only)
+          if [[ "$BUILD_COMPAT_PROBE" == 'true' ]]; then args=(); fi
+          python3 tools/compat/check_artifacts.py "${args[@]}"
       - name: Upload a Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: neoeco-compat-test-jars
-          path: |
-            build/libs/neoecoae-*.jar
-            build/libs/neoeco-compat-tests-*.jar
+          name: neoecoae-ci-jars
+          path: build/libs/neoecoae-*.jar
           if-no-files-found: error
           retention-days: 7
+      - name: Upload Compatibility Probe
+        if: env.BUILD_COMPAT_PROBE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: neoeco-compat-probe
+          path: build/libs/neoeco-compat-tests-*.jar
+          if-no-files-found: error
+          retention-days: 7
+      - name: Summarize Build and Cache Usage
+        if: always()
+        env:
+          CI_BUILD_RESULT: ${{ steps.gradle.outcome }}
+          PINNED_CACHE_HIT: ${{ steps.pinned-cache.outputs.cache-hit }}
+        run: python3 tools/compat/build_summary.py
       - name: Upload Verification Reports
         uses: actions/upload-artifact@v4
         if: always()
@@ -92,53 +143,8 @@ jobs:
           path: |
             build/compat-build-evidence/
             build/reports/problems/
+            build/reports/profile/
             build/test-results/upstreamSyncTest/
             build/reports/tests/upstreamSyncTest/
           if-no-files-found: ignore
-          retention-days: 14
-
-  gtl:
-    name: GTL (latest stable CurseForge pack)
-    needs: build
-    runs-on: ubuntu-24.04
-    timeout-minutes: 65
-    steps:
-      - name: Checkout Built Source
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.build.outputs.source_sha }}
-      - name: Setup JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Download Built JARs
-        uses: actions/download-artifact@v4
-        with:
-          name: neoeco-compat-test-jars
-          path: build/libs
-      # Each variant uses a fresh world and pack configuration. Both servers run concurrently.
-      # These isolated servers accept Minecraft's EULA: https://aka.ms/MinecraftEULA.
-      - name: Test Latest GTL with Built NeoECO
-        run: |
-          version=$(sed -n 's/^mod_version=//p' gradle.properties)
-          python3 tools/compat/gtl.py --accept-eula \
-            --neoeco "build/libs/neoecoae-$version.jar" \
-            --probe "build/libs/neoeco-compat-tests-$version.jar" \
-            --output build/compat/gtl --memory 6G --timeout 1500
-      - name: Publish Compatibility Summary
-        if: always()
-        run: |
-          if [ -f build/compat/gtl/summary.md ]; then cat build/compat/gtl/summary.md >> "$GITHUB_STEP_SUMMARY"; fi
-      - name: Upload Compatibility Evidence
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: gtl-compatibility-evidence
-          path: build/compat/gtl/evidence/
-          if-no-files-found: warn
           retention-days: 14

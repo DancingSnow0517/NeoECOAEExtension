@@ -33,6 +33,9 @@ jobs:
           python-version: '3.12'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          # Release tags have their own cache scope; retain it for retries of this release.
+          cache-read-only: false
       - name: Read Properties
         id: release
         env:
@@ -52,16 +55,34 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write(f'version={version}\nnotes={notes.as_posix()}\n')
           PY
+      - name: Restore Pinned Dependency Cache
+        id: pinned-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: libs/pinned
+          key: ${{ runner.os }}-neoecoae-pinned-v1-${{ hashFiles('tools/compat/build-dependencies.json') }}
       - name: Restore Build Dependencies
         run: python3 tools/compat/bootstrap.py
+      - name: Save Verified Dependency Cache
+        if: steps.pinned-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: libs/pinned
+          key: ${{ steps.pinned-cache.outputs.cache-primary-key }}
       - name: Build with Gradle
+        id: gradle
         env:
           # ModDevGradle must compile the Java 17 Minecraft artifacts on CI too.
           CI: 'false'
-        run: >-
-          bash ./gradlew build
-          --no-daemon --no-parallel --max-workers=2 --console=plain
-          '-Dorg.gradle.jvmargs=-Xmx4G -Dfile.encoding=UTF-8'
+        run: |
+          set -o pipefail
+          mkdir -p build/compat-build-evidence
+          started_at=$SECONDS
+          trap 'echo "GRADLE_BUILD_SECONDS=$((SECONDS - started_at))" >> "$GITHUB_ENV"' EXIT
+          bash ./gradlew -I tools/compat/ci.init.gradle build \
+            --no-daemon --no-parallel --max-workers=2 --console=plain --profile \
+            '-Dorg.gradle.jvmargs=-Xmx4G -Dfile.encoding=UTF-8' \
+            2>&1 | tee build/compat-build-evidence/build.log
       - name: Verify Release Jar
         run: python3 tools/compat/check_artifacts.py --release-only
       - name: Upload a Build Artifact
@@ -72,6 +93,12 @@ jobs:
             build/libs/neoecoae-${{ steps.release.outputs.version }}.jar
             build/libs/neoecoae-${{ steps.release.outputs.version }}-sources.jar
           if-no-files-found: error
+      - name: Summarize Build and Cache Usage
+        if: always()
+        env:
+          CI_BUILD_RESULT: ${{ steps.gradle.outcome }}
+          PINNED_CACHE_HIT: ${{ steps.pinned-cache.outputs.cache-hit }}
+        run: python3 tools/compat/build_summary.py
       - name: Upload Verification Reports
         uses: actions/upload-artifact@v4
         if: always()
@@ -81,6 +108,8 @@ jobs:
             build/reports/tests/test/
             build/test-results/test/
             build/compat-build-evidence/
+            build/reports/profile/
+            build/reports/problems/
           if-no-files-found: ignore
       - name: Publish Mod
         uses: Kir-Antipov/mc-publish@v3.3.1
