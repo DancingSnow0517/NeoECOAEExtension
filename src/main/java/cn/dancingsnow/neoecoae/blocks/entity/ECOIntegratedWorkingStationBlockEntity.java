@@ -574,9 +574,13 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
                 FluidStack outFluid = this.getOutputTank().getFluid();
                 GenericStack fluid = GenericStack.fromFluidStack(outFluid);
                 if (fluid != null && fluid.what() != null) {
-                    var extracted = this.getOutputTank().drain(outFluid, IFluidHandler.FluidAction.EXECUTE).getAmount();
-                    var inserted = target.insert(fluid.what(), extracted, Actionable.MODULATE, source);
-                    this.getOutputTank().fill(cn.dancingsnow.neoecoae.platform.nbt.NEStacks.withAmount(outFluid, (int) (extracted - inserted)), IFluidHandler.FluidAction.EXECUTE);
+                    // Draining mutates outFluid in place; only the returned stack retains its fluid and tag.
+                    var extracted = this.getOutputTank().drain(outFluid, IFluidHandler.FluidAction.EXECUTE);
+                    var inserted = target.insert(fluid.what(), extracted.getAmount(), Actionable.MODULATE, source);
+                    extracted.shrink((int) inserted);
+                    if (!extracted.isEmpty()) {
+                        this.getOutputTank().fill(extracted, IFluidHandler.FluidAction.EXECUTE);
+                    }
 
                     if (this.getOutputTank().getFluidAmount() == 0) clearFluidOut();
 
