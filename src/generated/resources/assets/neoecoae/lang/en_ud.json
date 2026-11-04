@@ -1583,5 +1583,10 @@
   "tooltip.neoecoae.storage_dirve.1": "ɹǝןןoɹʇuoɔ ʇsoɥ ɯǝʇsʎsqns ǝbɐɹoʇs ǝɥʇ uo spuǝdǝp ɹǝıʇ xıɹʇɐɯ ǝbɐɹoʇs ǝןqɐʌıɹp ǝɥ⟘",
   "tooltip.neoecoae.storage_system": "ɯǝʇsʎsqns ǝbɐɹoʇs ǝɥʇ ɟo ǝɹoɔ ǝɥ⟘",
   "upgrade.neoecoae.aluminum_alloy_upgrade": "ǝpɐɹbd∩ ʎoןןⱯ ɯnuıɯnןⱯ",
-  "upgrade.neoecoae.black_tungsten_alloy_upgrade": "ǝpɐɹbd∩ ʎoןןⱯ uǝʇsbun⟘ ʞɔɐןᗺ"
+  "upgrade.neoecoae.black_tungsten_alloy_upgrade": "ǝpɐɹbd∩ ʎoןןⱯ uǝʇsbun⟘ ʞɔɐןᗺ",
+  "gui.neoecoae.computation.ui.switch.smart_doubling.blocking": "ʎʇıɹoıɹd sǝʞɐʇ ǝpoɯ buıʞɔoןᗺ",
+  "gui.neoecoae.computation.ui.switch.smart_doubling.blocking_note": "˙ǝpoɯ buıʞɔoןq ʎq pןǝɥ ןןıʇs ǝɹɐ suoıʇıpuoɔ buıʞɔoןq ʇǝǝɯ ʇɐɥʇ sǝɥɔʇɐdsıᗡ",
+  "gui.neoecoae.computation.ui.switch.smart_doubling.limit": "pǝןqɐsıp uǝɥʍ dɐɔ ɥɔʇɐdsıp-ɹǝԀ",
+  "gui.neoecoae.computation.ui.switch.smart_doubling.limit_note": "˙ɯsıןǝןןɐɹɐd ǝןqɐןıɐʌɐ ʎq pǝʇıɯıן ןןıʇs ǝɹɐ sǝɥɔʇɐdsıp ןɐnʇɔⱯ",
+  "gui.neoecoae.computation.ui.switch.smart_doubling.limit_value": "sʇɟɐɹɔ %1$s"
 }
