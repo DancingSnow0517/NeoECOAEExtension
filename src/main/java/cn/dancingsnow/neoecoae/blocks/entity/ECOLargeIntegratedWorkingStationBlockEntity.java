@@ -30,7 +30,6 @@ import appeng.api.storage.MEStorage;
 import appeng.me.cluster.IAEMultiBlock;
 import appeng.util.ReadableNumberConverter;
 import appeng.util.inv.AppEngInternalInventory;
-import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.achievement.ECOAdvancementService;
@@ -284,6 +283,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     @Override
+    @Nullable
     public NEIntegratedWorkingStationCluster getCluster() {
         return cluster;
     }
@@ -488,6 +488,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     public double getTemperature() { return temperature; }
 
+    /** @deprecated Legacy display formatter retained for addon binaries; read {@link #getCoolingTierText()} instead. */
+    @Deprecated(since = "21.2.15", forRemoval = false)
     public Component getSelectedTierText() {
         if (!isTemperatureEnabled()) return coolantModeText();
         int tier = LargeWorkstationOverclock.forTemperature(true, temperature).coolingTier();
@@ -502,6 +504,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             : "gui.neoecoae.large_integrated_working_station.preheat.off");
     }
 
+    /** @deprecated Legacy display formatter; use {@link #getTemperature()} and thermal status for new panels. */
+    @Deprecated(since = "21.2.15", forRemoval = false)
     public Component getTemperatureText() {
         if (!isTemperatureEnabled()) return coolantModeText();
         String heat = String.format(java.util.Locale.ROOT, "%.2f", temperature);
@@ -997,6 +1001,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         setProcessingTime(first == null ? 0 : first.progress);
     }
 
+    /** @deprecated Legacy display formatter; use {@link #getAECurrentPower()} and {@link #getAEMaxPower()}. */
+    @Deprecated(since = "21.2.15", forRemoval = false)
     public Component getEnergyText() {
         return Component.translatable("gui.neoecoae.large_integrated_working_station.energy",
             ReadableNumberConverter.format(getAECurrentPower(), 5),
@@ -1011,6 +1017,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 task.hasItemOutput() ? task.itemOutput().getHoverName() : task.fluidOutput().getHoverName());
     }
 
+    /** @deprecated Legacy single-task formatter; read {@link #getTask()} for the corresponding recipe data. */
+    @Deprecated(since = "21.2.15", forRemoval = false)
     public Component getRecipeText() {
         IntegratedWorkingStationRecipe task = getTask();
         if (task == null) return Component.translatable("gui.neoecoae.large_integrated_working_station.recipe_empty");
@@ -2142,7 +2150,12 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             () -> Component.translatable("gui.neoecoae.large_integrated_working_station.auto_build"));
     }
 
-    /** Returns inputs still owned by incomplete batches to the ME network. */
+    /**
+     * Returns inputs still owned by incomplete batches to the ME network.
+     * @deprecated Legacy bulk recovery entry retained for addon binaries. It has no general replacement;
+     * invoke only on the owning server thread, and preserve partially returned batches for retry.
+     */
+    @Deprecated(since = "21.2.15", forRemoval = false)
     public void returnStoredInputs() {
         if (level == null || level.isClientSide) return;
         var batches = new ArrayList<>(pendingBatches);

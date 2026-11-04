@@ -25,12 +25,14 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.RecipeManager;
 import net.neoforged.neoforge.common.crafting.SizedIngredient;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 public class IntegrationWorkingStationCategory implements IRecipeCategory<RecipeHolder<IntegratedWorkingStationRecipe>> {
     private final IDrawable icon;
@@ -138,9 +140,16 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Recipe
     }
 
     public static void registerRecipes(IRecipeRegistration registration) {
+        // JEI's startup requires this level; an out-of-lifecycle caller must not publish an empty recipe set.
+        var level = Objects.requireNonNull(Minecraft.getInstance().level,
+            "JEI recipe registration requires an active client level");
+        registerRecipes(registration, level.getRecipeManager());
+    }
+
+    public static void registerRecipes(IRecipeRegistration registration, RecipeManager recipes) {
         registration.addRecipes(
             NeoECOAEJeiPlugin.INTEGRATED_WORKING_STATION_TYPE,
-            Minecraft.getInstance().getConnection().getRecipeManager().getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get())
+            recipes.getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get())
         );
     }
 

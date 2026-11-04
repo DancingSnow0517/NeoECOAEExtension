@@ -1,14 +1,11 @@
 package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
 import appeng.api.stacks.AEKey;
-import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget;
-import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledNetwork;
-import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.crafting.planner.component.CycleComponent;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveRequest;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveResult;
@@ -19,10 +16,8 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Chooses which firing vector of one cyclic component is handed to the external supply check: the solved vector first,
@@ -49,7 +44,7 @@ final class CycleCandidateSearch {
     private final Map<AEKey, PlannerAmount> exactRequiredOutputs;
     private final Map<AEKey, Long> stock;
     private final Map<AEKey, Long> solveStock;
-    private final Map<AEKey, Long> stockReservations;
+    private final Map<AEKey, PlannerAmount> stockReservations;
     private final Map<AEKey, Long> plannedCycleInputs;
     private final KeyCounter inventory;
     private final SolveState base;
@@ -63,7 +58,7 @@ final class CycleCandidateSearch {
 
     CycleCandidateSearch(CompiledNetwork network, CondensationGraph condensation, Map<AEKey, Integer> choices,
             CycleComponent cycle, Map<AEKey, PlannerAmount> exactRequiredOutputs, Map<AEKey, Long> stock,
-            Map<AEKey, Long> solveStock, Map<AEKey, Long> stockReservations, Map<AEKey, Long> plannedCycleInputs,
+            Map<AEKey, Long> solveStock, Map<AEKey, PlannerAmount> stockReservations, Map<AEKey, Long> plannedCycleInputs,
             KeyCounter inventory, SolveState base, boolean ignorePatternSubstitutions, CycleFailureCache failures,
             ExternalDemandPlanner externalDemandPlanner, ECOCancellation cancellation) {
         this.network = network;
