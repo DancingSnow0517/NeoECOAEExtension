@@ -16,6 +16,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -111,6 +113,67 @@ class CycleStartupRecoveryTest {
         assertEquals(5L, stock.get(raw));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"cancelled", "failure", "arithmetic"})
+    void failedStartupVerificationLeavesInventoryUsableByTheNextPlan(String failureKind) throws Exception {
+        var inventory = new KeyCounter(); inventory.add(raw, 1); inventory.add(fuel, 10);
+        var calls = new AtomicInteger();
+        CycleSolver solver = (request, cancellation) -> {
+            int call = calls.getAndIncrement();
+            if (call == 0 || call == 2) {
+                return result(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, Map.of(), Map.of(), Map.of(seed, 1L));
+            }
+            if (call == 1) {
+                if (failureKind.equals("cancelled")) throw new InterruptedException("cancelled during startup verification");
+                if (failureKind.equals("arithmetic")) throw new ArithmeticException("unexpected verifier arithmetic failure");
+                throw new IllegalStateException("startup verifier failed");
+            }
+            return success();
+        };
+        var planner = new ComponentPlanner(new AcyclicCraftingSolver(), solver);
+        if (failureKind.equals("cancelled")) assertThrows(InterruptedException.class, () -> plan(planner, inventory));
+        else if (failureKind.equals("arithmetic")) assertThrows(ArithmeticException.class, () -> plan(planner, inventory));
+        else assertThrows(IllegalStateException.class, () -> plan(planner, inventory));
+        assertEquals(2, calls.get(), "Failure must occur after a seed was supplied speculatively");
+        assertEquals(1L, inventory.get(raw));
+        assertEquals(10L, inventory.get(fuel));
+
+        var retry = plan(planner, inventory);
+        assertEquals(4, calls.get());
+        assertEquals(PlanningStatus.SUCCESS, retry.status(), retry.trace().diagnostics().toString());
+        assertEquals(Map.of(growth.details(), 10L, bootstrap.details(), 1L), retry.state().patternTimes());
+        assertEquals(1L, retry.state().usedItems().get(raw));
+        assertEquals(10L, retry.state().usedItems().get(fuel));
+        assertEquals(1L, inventory.get(raw));
+        assertEquals(10L, inventory.get(fuel));
+    }
+
+    @Test
+    void accumulatedStartupPrefixBeyondLongIsARepresentabilityResult() throws Exception {
+        var inventory = new KeyCounter(); inventory.add(raw, Long.MAX_VALUE);
+        var calls = new AtomicInteger();
+        CycleSolver solver = (request, cancellation) -> {
+            if (calls.getAndIncrement() == 0) {
+                return new CycleSolveResult(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT,
+                    Map.of(), Map.of(), Map.of(seed, Long.MAX_VALUE), Map.of(seed, Long.MAX_VALUE),
+                    Map.of(), Map.of(), List.of(), List.of(), CycleSolveMetrics.NONE);
+            }
+            return new CycleSolveResult(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT,
+                Map.of(), Map.of(), Map.of(seed, Long.MAX_VALUE), Map.of(seed, 1L), Map.of(), Map.of(),
+                List.of(), List.of(), List.of(new CycleSolveDiagnostic(
+                    CycleSolveDiagnostic.Code.FULL_ORDER_MATERIAL_DEFICIT, "One additional seed is required")),
+                CycleSolveMetrics.NONE);
+        };
+        var outcome = plan(new ComponentPlanner(new AcyclicCraftingSolver(), solver), inventory);
+        assertEquals(PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE, outcome.status());
+        assertTrue(outcome.trace().diagnostics().stream()
+            .anyMatch(diagnostic -> diagnostic.message().contains("9223372036854775808")));
+        assertTrue(outcome.state().patternTimes().isEmpty());
+        assertTrue(outcome.state().usedItems().isEmpty());
+        assertEquals(Long.MAX_VALUE, inventory.get(raw));
+        assertEquals(2, calls.get());
+    }
+
     private static CompiledPattern fastPattern(int id, AEKey output, long amount, GenericStack... inputs) {
         var source = pattern(id, output, amount, inputs);
         return new CompiledPattern(id, source.details(), output, source.outputPerPattern(),
@@ -119,20 +182,23 @@ class CycleStartupRecoveryTest {
     }
 
     private ComponentPlanner.Outcome plan(CycleSolveResult recovered, long fuelStock) throws Exception {
-        var network = new CompiledNetwork(seed, Map.of(seed, List.of(growth, bootstrap), raw, List.of(), fuel, List.of()),
-            Set.of(), 2, 3);
-        var selection = new ActiveRouteSelector().select(new CraftingGraphBuilder().build(network, ECOCancellation.NONE),
-            false, ECOCancellation.NONE);
         var inventory = new KeyCounter();
         inventory.add(raw, 1);
         inventory.add(fuel, fuelStock);
         var calls = new AtomicInteger();
         CycleSolver solver = (request, cancellation) -> calls.getAndIncrement() == 0
             ? result(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, Map.of(), Map.of(), Map.of(seed, 1L)) : recovered;
-        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), solver)
-            .plan(network, selection, inventory, 10, true, ECOCancellation.NONE);
+        var outcome = plan(new ComponentPlanner(new AcyclicCraftingSolver(), solver), inventory);
         assertEquals(2, calls.get());
         return outcome;
+    }
+
+    private ComponentPlanner.Outcome plan(ComponentPlanner planner, KeyCounter inventory) throws Exception {
+        var network = new CompiledNetwork(seed, Map.of(seed, List.of(growth, bootstrap), raw, List.of(), fuel, List.of()),
+            Set.of(), 2, 3);
+        var selection = new ActiveRouteSelector().select(new CraftingGraphBuilder().build(network, ECOCancellation.NONE),
+            false, ECOCancellation.NONE);
+        return planner.plan(network, selection, inventory, 10, true, ECOCancellation.NONE);
     }
 
     private CycleSolveResult success() {
