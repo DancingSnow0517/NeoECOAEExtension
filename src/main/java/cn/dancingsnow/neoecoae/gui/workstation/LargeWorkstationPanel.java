@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
 import cn.dancingsnow.neoecoae.platform.JdkCompat;
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEFluidKey;
@@ -26,7 +27,6 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 import java.util.function.Supplier;
 import net.minecraft.ChatFormatting;
@@ -301,7 +301,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         lines.add(Component.translatable(task.status()).withStyle(style -> style.withColor(task.statusColor() & 0xFFFFFF)));
         if (!task.detail().isEmpty()) lines.add(Component.translatable(task.detail()));
         lines.add(tr("progress", JdkCompat.clamp(task.progress(), 0, 200) / 2));
-        if (task.processingTicks() > 0) lines.add(tr("task_duration", task.elapsedTicks(), task.processingTicks()));
+        if (task.processingTicks() > 0) lines.add(tr("task_duration", DisplayNumbers.grouped(task.elapsedTicks()), DisplayNumbers.grouped(task.processingTicks())));
         if (task.returnable()) lines.add(hint("task_return_hint"));
         return lines;
     }
@@ -367,13 +367,13 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         double fraction = capacity > 0 ? (double) stored / capacity : 0;
         return CraftingListCard.builder()
             .header(CraftingListCard.Glyph.BATTERY, card("energy_monitor"), card("last_second"), CraftingTooltipCard.MUTED)
-            .metricUnit(card("actual_energy"), Component.literal(decimal(state.getDouble("energyUsage"))),
+            .metricUnit(card("actual_energy"), Component.literal(DisplayNumbers.compact(state.getDouble("energyUsage"))),
                 CraftingTooltipCard.PRIMARY, Component.literal("AE/t"), CraftingTooltipCard.WARN)
             .panel(null, Component.empty(), Component.empty(), CraftingTooltipCard.MUTED, List.of(
                 new CraftingListCard.PanelLine(null, card("fe_usage"), CraftingTooltipCard.PRIMARY,
-                    card("fe_rate", decimal(state.getDouble("feUsage"))), CraftingTooltipCard.PRIMARY),
+                    card("fe_rate", DisplayNumbers.compact(state.getDouble("feUsage"))), CraftingTooltipCard.PRIMARY),
                 new CraftingListCard.PanelLine(null, card("fe_pending"), CraftingTooltipCard.PRIMARY,
-                    card("fe_amount", CraftingTooltipCard.group(state.getLong("feBuffer"))), CraftingTooltipCard.PRIMARY)))
+                    card("fe_amount", DisplayNumbers.compact(state.getLong("feBuffer"))), CraftingTooltipCard.PRIMARY)))
             .row(null, CraftingTooltipCard.MUTED, card("internal_storage"),
                 card("ae_stored", HostText.ae2Amount(stored), HostText.ae2Amount(capacity)), CraftingTooltipCard.PRIMARY)
             .bar(fraction, CraftingTooltipCard.WARN)
@@ -769,18 +769,13 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     private static Component settingState(boolean enabled) {
         return tr(enabled ? "enabled" : "disabled").withStyle(enabled ? ChatFormatting.GREEN : ChatFormatting.GRAY);
     }
-    private static String decimal(double value) { return String.format(Locale.ROOT, "%.1f", Double.isFinite(value) ? value : 0); }
-    private static String precise(double value) { return String.format(Locale.ROOT, "%.2f", Double.isFinite(value) ? value : 0); }
+    private static String decimal(double value) { return DisplayNumbers.decimal(value, 1); }
+    private static String precise(double value) { return DisplayNumbers.decimal(value, 2); }
     private static String signedRate(double value) {
-        return String.format(Locale.ROOT, "%+.2f", Double.isFinite(value) && Math.abs(value) >= 0.005 ? value : 0);
+        return DisplayNumbers.signedDecimal(value, 2);
     }
-    private static String number(double value) {
-        if (!Double.isFinite(value) || value <= 0) return "0";
-        if (value < 1_000) return Long.toString((long) value);
-        String[] units = {"", "k", "M", "G", "T", "P", "E"};
-        int unit = 0;
-        while (value >= 1_000 && unit < units.length - 1) { value /= 1_000; unit++; }
-        return (value >= 100 ? Long.toString(Math.round(value)) : decimal(value).replaceFirst("\\.0$", "")) + units[unit];
+    private static String number(long value) {
+        return DisplayNumbers.compact(Math.max(0L, value));
     }
 
     private record Task(UUID id, ItemStack item, FluidStack fluid, long amount, int progress, String status, String detail,

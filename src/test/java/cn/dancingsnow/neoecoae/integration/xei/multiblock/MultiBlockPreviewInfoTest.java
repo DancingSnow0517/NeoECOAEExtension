@@ -27,9 +27,9 @@ class MultiBlockPreviewInfoTest {
     @Test void computationCapacityAndThreadsFollowThePreviewLength() {
         var one = MultiBlockPreviewInfo.computation(ECOTier.L9, 1152, 2, 64);
         var full = MultiBlockPreviewInfo.computation(ECOTier.L9, 12672, 22, 704);
-        assertEquals("1,152", one.get(0).value().getString());
+        assertEquals("1.15K", one.get(0).value().getString());
         assertEquals("2 GB", one.get(1).value().getString());
-        assertEquals("12,672", full.get(0).value().getString());
+        assertEquals("12.6K", full.get(0).value().getString());
         assertEquals("22 GB", full.get(1).value().getString());
         assertEquals("704", full.get(2).value().getString());
     }

@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.blocks.entity;
 import cn.dancingsnow.neoecoae.platform.JdkCompat;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.Machine;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.State;
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 
 import appeng.api.config.Actionable;
 import cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy;
@@ -28,7 +29,6 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.me.cluster.IAEMultiBlock;
-import appeng.util.ReadableNumberConverter;
 import appeng.util.inv.AppEngInternalInventory;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
@@ -504,9 +504,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     public Component getTemperatureText() {
         if (!isTemperatureEnabled()) return coolantModeText();
-        String heat = String.format(java.util.Locale.ROOT, "%.2f", temperature);
+        String heat = DisplayNumbers.decimal(temperature, 2);
         return overheated ? Component.translatable("gui.neoecoae.large_integrated_working_station.recovery",
-            heat, String.format(java.util.Locale.ROOT, "%.1f", recoveryTicks / 20.0))
+            heat, DisplayNumbers.decimal(recoveryTicks / 20.0, 1))
             : Component.translatable("gui.neoecoae.large_integrated_working_station.temperature", heat);
     }
 
@@ -982,8 +982,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     public Component getEnergyText() {
         return Component.translatable("gui.neoecoae.large_integrated_working_station.energy",
-            ReadableNumberConverter.format(getAECurrentPower(), 5),
-            ReadableNumberConverter.format(getAEMaxPower(), 5));
+            DisplayNumbers.compact(getAECurrentPower()),
+            DisplayNumbers.compact(getAEMaxPower()));
     }
 
     public Component getTaskText() {

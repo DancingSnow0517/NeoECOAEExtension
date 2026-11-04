@@ -2,8 +2,6 @@ package cn.dancingsnow.neoecoae.crafting.display.format;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.NumberFormat;
-import java.util.Locale;
 
 /** Formats CPU storage without relying on AE2's four-entry byte unit table. */
 public final class NEByteFormatter {
@@ -16,7 +14,6 @@ public final class NEByteFormatter {
 
     private static final long[] UNIT_SIZES = {1L, KIB, MIB, GIB, TIB, PIB, EIB};
     private static final String[] UNIT_NAMES = {"B", "KB", "MB", "GB", "TB", "PB", "EB"};
-    private static final String[] DECIMAL_UNIT_NAMES = {"", "k", "M", "G", "T", "P", "E"};
 
     private NEByteFormatter() {
     }
@@ -50,21 +47,6 @@ public final class NEByteFormatter {
      * potentially very large raw integer in the confirmation screen.
      */
     public static String formatCpuCoProcessors(long coProcessors) {
-        long safeCoProcessors = Math.max(0L, coProcessors);
-        if (safeCoProcessors < 1_000L) {
-            return NumberFormat.getIntegerInstance(Locale.ROOT).format(safeCoProcessors);
-        }
-
-        int unitIndex = 0;
-        long unitSize = 1L;
-        while (unitIndex + 1 < DECIMAL_UNIT_NAMES.length && safeCoProcessors / unitSize >= 1_000L) {
-            unitIndex++;
-            unitSize *= 1_000L;
-        }
-
-        BigDecimal scaled = BigDecimal.valueOf(safeCoProcessors)
-                .divide(BigDecimal.valueOf(unitSize), 3, RoundingMode.HALF_UP)
-                .stripTrailingZeros();
-        return DisplayNumbers.grouped(scaled.toPlainString()) + DECIMAL_UNIT_NAMES[unitIndex];
+        return DisplayNumbers.compact(Math.max(0L, coProcessors));
     }
 }

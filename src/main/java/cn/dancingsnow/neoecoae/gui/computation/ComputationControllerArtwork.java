@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import static cn.dancingsnow.neoecoae.gui.computation.ComputationControllerTextures.HEIGHT;
 import static cn.dancingsnow.neoecoae.gui.computation.ComputationControllerTextures.WIDTH;
 import cn.dancingsnow.neoecoae.api.IECOTier;
@@ -426,7 +427,7 @@ final class ComputationControllerArtwork extends UIElement {
     }
 
     private static String[] counts(long value) {
-        return new String[] {Long.toString(value), HostText.ae2Amount(value)};
+        return new String[] {DisplayNumbers.grouped(value), HostText.ae2Amount(value)};
     }
 
     private static String[] byteCandidates(long bytes) {

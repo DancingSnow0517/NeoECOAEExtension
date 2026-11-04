@@ -2,10 +2,10 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 
 import cn.dancingsnow.neoecoae.platform.JdkCompat;
 
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.util.List;
-import java.util.Locale;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.utils.ModularUITooltipComponent;
 import net.minecraft.network.chat.Component;
 
@@ -21,7 +21,7 @@ final class CraftingControllerTooltips {
     }
 
     String formatCapacity(long value) {
-        return value == Long.MAX_VALUE ? "∞" : Long.toString(Math.max(0L, value));
+        return value == Long.MAX_VALUE ? "∞" : DisplayNumbers.compact(Math.max(0L, value));
     }
 
     long parallelLimit() {
@@ -56,7 +56,7 @@ final class CraftingControllerTooltips {
         var card = CraftingTooltipCard.builder(CraftingTooltipCard.Icon.CHIP,
             Component.translatable("gui.neoecoae.crafting.ui.parallel_heading"));
         Component runtime = CraftingTooltipCard.label("gui.neoecoae.crafting.ui.parallel_card.runtime",
-            view.executionTicks + " t", CraftingTooltipCard.PRIMARY);
+            DisplayNumbers.compact(view.executionTicks) + " t", CraftingTooltipCard.PRIMARY);
         if (view.virtualMode) {
             return card.value("∞", null)
                 .status(Component.translatable("gui.neoecoae.crafting.ui.virtual_crafting"), CraftingTooltipCard.ACCENT)
@@ -70,7 +70,7 @@ final class CraftingControllerTooltips {
         boolean over = overflow > 0L;
         if (limit > 0L) {
             String multiple = total % limit == 0L ? CraftingTooltipCard.group(total / limit)
-                : String.format(Locale.ROOT, "%.1f", (double) total / limit);
+                : DisplayNumbers.decimal((double) total / limit, 1);
             card.headerRight(Component.translatable("gui.neoecoae.crafting.ui.parallel_card.multiple", multiple),
                 CraftingTooltipCard.WARN);
         }
@@ -85,7 +85,7 @@ final class CraftingControllerTooltips {
                 CraftingTooltipCard.ACCENT, false);
         }
         String ratio = total <= 0L ? "0.0%"
-            : String.format(Locale.ROOT, "%.1f%%", JdkCompat.clamp(overflow * 100.0D / total, 0.0D, 100.0D));
+            : DisplayNumbers.decimal(JdkCompat.clamp(overflow * 100.0D / total, 0.0D, 100.0D), 1) + "%";
         return card
             .row(CraftingTooltipCard.label("gui.neoecoae.crafting.ui.parallel_card.excess",
                     "+" + CraftingTooltipCard.group(overflow), over ? CraftingTooltipCard.WARN : CraftingTooltipCard.PRIMARY),
@@ -98,7 +98,7 @@ final class CraftingControllerTooltips {
 
     List<Component> energyTooltip() {
         return List.of(Component.translatable("gui.neoecoae.crafting.ui.energy_usage"),
-            Tooltips.ofNumber(view.energyUsage).append(" AE/t"),
+            Component.literal(DisplayNumbers.compact(view.energyUsage) + " AE/t"),
             Tooltips.ofPercent(view.state.energyPermille() / (double) CraftingControllerPanelState.FULL));
     }
 

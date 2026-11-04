@@ -1,17 +1,13 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.data.TextWrap;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.TextElement;
-
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
-import java.util.Locale;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 public final class HostPanelElements {
-    private static final ThreadLocal<DecimalFormat> PERFORMANCE_MS_FORMAT = ThreadLocal.withInitial(() ->
-        new DecimalFormat("#,##0.###", DecimalFormatSymbols.getInstance(Locale.US)));
-
     private HostPanelElements() {
     }
 
@@ -33,15 +29,15 @@ public final class HostPanelElements {
         long safeNanos = Math.max(0L, averageNanos);
         long micros = Math.round(safeNanos / 1_000.0D);
         if (micros < 1_000L) {
-            return micros + " us";
+            return DisplayNumbers.grouped(micros) + " us";
         }
-        return PERFORMANCE_MS_FORMAT.get().format(safeNanos / 1_000_000.0D) + " ms";
+        return DisplayNumbers.grouped(BigDecimal.valueOf(safeNanos, 6).setScale(3, RoundingMode.HALF_UP)) + " ms";
     }
 
     public static String formatPerformanceValue(long averageNanos) {
         long safeNanos = Math.max(0L, averageNanos);
         long micros = Math.round(safeNanos / 1_000.0D);
-        String millis = PERFORMANCE_MS_FORMAT.get().format(safeNanos / 1_000_000.0D);
+        String millis = DisplayNumbers.grouped(BigDecimal.valueOf(safeNanos, 6).setScale(3, RoundingMode.HALF_UP));
         return HostText.expandedNumber(micros) + " us/" + millis + " ms";
     }
 }

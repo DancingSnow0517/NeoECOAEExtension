@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.utils.ModularUITooltipComponent;
@@ -197,7 +198,7 @@ public final class CraftingTooltipCard extends UIElement {
     }
 
     public static String group(long value) {
-        return String.format(Locale.ROOT, "%,d", value);
+        return DisplayNumbers.grouped(value);
     }
 
     public static final class Builder {
