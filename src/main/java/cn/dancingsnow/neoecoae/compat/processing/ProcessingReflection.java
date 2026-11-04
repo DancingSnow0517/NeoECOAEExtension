@@ -5,6 +5,7 @@ import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jetbrains.annotations.Nullable;
 
 /** Cached optional-mod boundary. Only explicitly named, read-only members are accessed. */
 public final class ProcessingReflection {
@@ -20,6 +21,25 @@ public final class ProcessingReflection {
         if (value == null) return false;
         for (Class<?> c = value.getClass(); c != null; c = c.getSuperclass()) if (c.getName().equals(type)) return true;
         return false;
+    }
+
+    /**
+     * Resolves an external host's public, zero-argument contract once per class, including absence.
+     * Unlike {@link #call}, this does not broaden access to private members. Callers still invoke the
+     * accessor on the current instance and apply their own policy to invocation failures.
+     */
+    @Nullable
+    public static Method publicNoArgMethod(Class<?> type, String name) {
+        // Java method names cannot contain parentheses, so these keys are distinct from call's keys.
+        var methods = METHODS.get(type);
+        var resolved = methods.get(name);
+        if (resolved == null) {
+            resolved = methods.computeIfAbsent(name, ignored -> {
+                try { return Optional.of(type.getMethod(name)); }
+                catch (NoSuchMethodException missing) { return Optional.empty(); }
+            });
+        }
+        return resolved.orElse(null);
     }
 
     public static Object field(Object value, String name) {
