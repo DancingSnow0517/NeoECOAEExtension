@@ -23,6 +23,32 @@ class ECOExternalProviderBlockingTest {
         IConfigManager getConfigManager();
     }
 
+    interface BlockingProvider extends ICraftingProvider {
+        boolean isBlocking();
+    }
+
+    @Test
+    void cachedAccessorDoesNotKeepAReplacedHostLogic() {
+        var provider = mock(LogicHost.class);
+        var first = mock(PatternProviderLogic.class);
+        var second = mock(PatternProviderLogic.class);
+        when(provider.getLogic()).thenReturn(first);
+        assertFalse(ECOExternalProviderBlocking.isEnabled(provider));
+        when(second.isBlocking()).thenReturn(true);
+        when(provider.getLogic()).thenReturn(second);
+        assertTrue(ECOExternalProviderBlocking.isEnabled(provider));
+    }
+
+    @Test
+    void invocationFailureFailsClosedButDoesNotPoisonTheAccessor() {
+        var provider = mock(BlockingProvider.class);
+        when(provider.isBlocking()).thenThrow(new IllegalStateException("temporary read failure"))
+            .thenReturn(false).thenReturn(true);
+        assertTrue(ECOExternalProviderBlocking.isEnabled(provider));
+        assertFalse(ECOExternalProviderBlocking.isEnabled(provider));
+        assertTrue(ECOExternalProviderBlocking.isEnabled(provider));
+    }
+
     @Test
     void readsLiveBlockingModeThroughProviderLogic() {
         var provider = mock(LogicHost.class);
