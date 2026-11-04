@@ -703,23 +703,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             && prepared.matches(prepared.stack());
     }
 
-    /**
-     * Purely a function of the recipe encoded in the pattern - never cached and never written back onto the
-     * pattern's ItemStack, so it can't go stale and can't affect pattern identity (dedup, AEItemKey, ...).
-     */
-    private static boolean isDurabilityPattern(IPatternDetails details) {
-        for (var input : details.getInputs()) {
-            if (input == null) continue;
-            for (var possible : input.getPossibleInputs()) {
-                if (possible != null && possible.what() instanceof AEItemKey itemKey
-                    && itemKey.toStack(1).isDamageableItem()) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
     @Override
     public boolean checksLogicalDomainForDuplicates() {
         return true;
@@ -833,10 +816,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         PatternBusUpdateScheduler.remove(this);
         super.setRemoved();
         notifyPatternInterfaceTopologyChanged(previousGrid);
-    }
-
-    private void updatePatternDetails() {
-        catalog.updatePatternDetails();
     }
 
     /**

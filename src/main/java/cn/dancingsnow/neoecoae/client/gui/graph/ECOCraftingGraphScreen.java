@@ -471,28 +471,6 @@ public final class ECOCraftingGraphScreen extends Screen {
         rebuildGraph(false);
     }
 
-    private void toggleCollapse() { collapseSelected(); }
-
-    private void expandToFour() {
-        depth = CompactTreeProjection.DEFAULT_DEPTH;
-        expandedTreePaths.clear();
-        fullyExpandedTreePaths.clear();
-        collapsedTreePaths.clear();
-        collapsed.clear();
-        rebuildGraph(true);
-        refreshControls();
-    }
-
-    private void foldToFour() {
-        depth = CompactTreeProjection.DEFAULT_DEPTH;
-        expandedTreePaths.clear();
-        fullyExpandedTreePaths.clear();
-        collapsedTreePaths.clear();
-        collapsed.clear();
-        rebuildGraph(true);
-        refreshControls();
-    }
-
     private void cycleDepth() {
         depth = depth == 99 ? 2 : depth == 2 ? 4 : depth == 4 ? 8 : 99;
         refreshControls();
@@ -504,29 +482,6 @@ public final class ECOCraftingGraphScreen extends Screen {
         fullyExpandedTreePaths.clear();
         collapsedTreePaths.clear();
         rebuildGraph(true);
-        refreshControls();
-    }
-
-    private void cycleLayoutMode() {
-        layoutMode = switch (layoutMode) {
-            case COMPACT_TREE -> GraphLayout.Mode.LEGACY;
-            case LEGACY -> GraphLayout.Mode.COMPACT_TREE;
-        };
-        layoutCache = new GraphLayoutCache(layoutMode);
-        rebuildGraph(true);
-        refreshControls();
-    }
-
-    private void toggleAdvanced() {
-        advanced = !advanced;
-        AEKey focusedMaterial = graph.focusedMaterialId() == null ? null
-            : graph.nodes().get(graph.focusedMaterialId()) == null ? null
-                : graph.nodes().get(graph.focusedMaterialId()).key();
-        baseGraph = switch (graph.view()) {
-            case CYCLE_FOCUS -> ClientCraftingGraph.cycle(snapshot, graph.focusedCycleId(), advanced, focusedMaterial);
-            case CYCLE_CLUSTER -> ClientCraftingGraph.cluster(snapshot, graph.focusedCluster(), advanced);
-            case MAIN -> ClientCraftingGraph.main(snapshot, advanced);
-        };
         refreshControls();
     }
 
@@ -686,8 +641,6 @@ public final class ECOCraftingGraphScreen extends Screen {
     }
 
     private Component depthLabel() { return tr(depth == 99 ? "toolbar.depth_all" : "toolbar.depth", depth); }
-    private Component viewLabel() { return tr(layoutMode == GraphLayout.Mode.COMPACT_TREE
-        ? "toolbar.view_tree" : "toolbar.view_graph"); }
     private static Component compact(String exact) {
         return Component.literal(HostText.ae2Amount(exact));
     }

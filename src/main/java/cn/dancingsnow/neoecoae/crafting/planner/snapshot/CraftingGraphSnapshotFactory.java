@@ -15,6 +15,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot.M
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot.PatternAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot.PatternNode;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot.Relationship;
+import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceNode;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternContractReader;
@@ -28,14 +29,41 @@ import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.jetbrains.annotations.Nullable;
 
 /** Converts planner-owned explanation data into the stable UI contract. */
 public final class CraftingGraphSnapshotFactory {
     private CraftingGraphSnapshotFactory() {}
 
     public static CraftingGraphSnapshot create(ECOPlanningResult result) {
-        var trace = result.trace();
         LinkedHashMap<AEKey, MutableMaterial> materials = new LinkedHashMap<>();
+        AEKey rootKey = collectMaterials(result, materials);
+        Map<AEKey, Integer> nodeIds = new LinkedHashMap<>();
+        List<MaterialNode> nodes = new ArrayList<>(materials.size());
+        for (MutableMaterial material : materials.values()) {
+            int id = nodes.size();
+            nodeIds.put(material.key, id);
+            nodes.add(material.freeze(id));
+        }
+
+        List<PatternNode> patterns = new ArrayList<>();
+        List<Edge> edges = new ArrayList<>();
+        Map<IPatternDetails, Integer> patternIds = new IdentityHashMap<>();
+        appendTracedPatterns(result.trace(), nodeIds, patterns, edges, patternIds);
+        List<CraftingGraphSnapshot.CycleGroup> cycles = appendCycles(result, nodeIds, patterns, edges, patternIds);
+
+        Integer rootId = rootKey == null ? null : nodeIds.get(rootKey);
+        int rootNodeId = rootId == null ? (rootKey == null && !nodes.isEmpty() ? 0 : -1) : rootId;
+        var summary = new CraftingGraphSnapshot.Summary(result.status().name(), nodes.size(), patterns.size(),
+            edges.size(), cycles.size(), result.calculationNanos());
+        List<net.minecraft.resources.ResourceLocation> fuzzyPlanningItemIds = result.fuzzyPlanningItemIds().stream()
+            .sorted(Comparator.comparing(net.minecraft.resources.ResourceLocation::toString)).toList();
+        return new CraftingGraphSnapshot(rootNodeId, nodes, patterns, edges, cycles, fuzzyPlanningItemIds, summary);
+    }
+
+    private static @Nullable AEKey collectMaterials(ECOPlanningResult result,
+            Map<AEKey, MutableMaterial> materials) {
+        var trace = result.trace();
         AEKey rootKey = null;
         // Early unsupported exits may contain no goal trace at all. Keep the requested item visible.
         if (result.plan() != null) {
@@ -81,30 +109,14 @@ public final class CraftingGraphSnapshotFactory {
             }
         }
 
-        // Boundary shortages are discovered after the DAG trace was created.
-        if (result.plan() != null) {
-            for (var entry : result.plan().missingItems()) {
-                var material = materials.computeIfAbsent(entry.getKey(), MutableMaterial::new);
-                material.exactMissing = material.exactMissing.max(PlannerAmount.of(entry.getLongValue()));
-                material.missing = material.exactMissing.fitsLong()
-                    ? material.exactMissing.longValueExact() : Long.MAX_VALUE;
-            }
-        }
-
+        collectMissingMaterials(result, materials);
         collectTaskMaterialFlow(result, materials);
         collectReservedInventory(result, materials);
+        return rootKey;
+    }
 
-        Map<AEKey, Integer> nodeIds = new LinkedHashMap<>();
-        List<MaterialNode> nodes = new ArrayList<>(materials.size());
-        for (MutableMaterial material : materials.values()) {
-            int id = nodes.size();
-            nodeIds.put(material.key, id);
-            nodes.add(material.freeze(id));
-        }
-
-        List<PatternNode> patterns = new ArrayList<>();
-        List<Edge> edges = new ArrayList<>();
-        Map<IPatternDetails, Integer> patternIds = new IdentityHashMap<>();
+    private static void appendTracedPatterns(ECOPlanTrace trace, Map<AEKey, Integer> nodeIds,
+            List<PatternNode> patterns, List<Edge> edges, Map<IPatternDetails, Integer> patternIds) {
         ReferenceSet<IPatternDetails> cyclePatterns = new ReferenceOpenHashSet<>();
         for (var cycle : trace.cycles()) {
             for (var edge : cycle.internalEdges()) cyclePatterns.add(edge.pattern().details());
@@ -144,7 +156,12 @@ public final class CraftingGraphSnapshotFactory {
                     selected));
             }
         }
+    }
 
+    private static List<CraftingGraphSnapshot.CycleGroup> appendCycles(ECOPlanningResult result,
+            Map<AEKey, Integer> nodeIds, List<PatternNode> patterns, List<Edge> edges,
+            Map<IPatternDetails, Integer> patternIds) {
+        var trace = result.trace();
         List<CraftingGraphSnapshot.CycleGroup> cycles = new ArrayList<>();
         for (int cycleIndex = 0; cycleIndex < trace.cycles().size(); cycleIndex++) {
             var cycle = trace.cycles().get(cycleIndex);
@@ -235,14 +252,21 @@ public final class CraftingGraphSnapshotFactory {
                 diagnostic == null ? cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus.NOT_IMPLEMENTED
                     : diagnostic.solveStatus()));
         }
+        return cycles;
+    }
 
-        Integer rootId = rootKey == null ? null : nodeIds.get(rootKey);
-        int rootNodeId = rootId == null ? (rootKey == null && !nodes.isEmpty() ? 0 : -1) : rootId;
-        var summary = new CraftingGraphSnapshot.Summary(result.status().name(), nodes.size(), patterns.size(),
-            edges.size(), cycles.size(), result.calculationNanos());
-        List<net.minecraft.resources.ResourceLocation> fuzzyPlanningItemIds = result.fuzzyPlanningItemIds().stream()
-            .sorted(Comparator.comparing(net.minecraft.resources.ResourceLocation::toString)).toList();
-        return new CraftingGraphSnapshot(rootNodeId, nodes, patterns, edges, cycles, fuzzyPlanningItemIds, summary);
+    /** Boundary shortages can arrive after tracing, including beyond the AE2 compatibility shell's range. */
+    private static void collectMissingMaterials(ECOPlanningResult result,
+            Map<AEKey, MutableMaterial> materials) {
+        if (result.plan() != null) {
+            for (var entry : result.plan().missingItems()) {
+                materials.computeIfAbsent(entry.getKey(), MutableMaterial::new)
+                    .mergeMissing(PlannerAmount.of(entry.getLongValue()));
+            }
+        }
+        result.exactMissingItems().forEach((key, amount) -> {
+            if (amount.signum() > 0) materials.computeIfAbsent(key, MutableMaterial::new).mergeMissing(amount);
+        });
     }
 
     /** Pattern visual IDs never collide with material IDs and survive packet serialization. */
@@ -393,6 +417,12 @@ public final class CraftingGraphSnapshotFactory {
             toCraft = exactToCraft.fitsLong() ? exactToCraft.longValueExact() : Long.MAX_VALUE;
             missing = exactMissing.fitsLong() ? exactMissing.longValueExact() : Long.MAX_VALUE;
             unsupported |= node.selection() == PlanTraceNode.Selection.UNSUPPORTED;
+        }
+
+        private void mergeMissing(PlannerAmount amount) {
+            // Trace, the compatibility shell and exact counters describe one deficit, not separate demands.
+            exactMissing = exactMissing.max(amount);
+            missing = exactMissing.fitsLong() ? exactMissing.longValueExact() : Long.MAX_VALUE;
         }
 
         private void mergeInventory(PlannerAmount amount) {

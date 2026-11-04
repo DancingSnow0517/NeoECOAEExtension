@@ -12,8 +12,22 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.Optional;
 
-public final class MultiBlockRecipeTransferHandler
+public class MultiBlockRecipeTransferHandler
     implements IRecipeTransferHandler<PatternEncodingTermMenu, MultiBlockInfoWrapper> {
+
+    /** Keep newer JEI types out of the legacy handler's descriptors and class initialization. */
+    public static MultiBlockRecipeTransferHandler create() {
+        try {
+            var context = Class.forName("mezz.jei.api.recipe.transfer.IRecipeTransferContext", false,
+                MultiBlockRecipeTransferHandler.class.getClassLoader());
+            var result = Class.forName("mezz.jei.api.recipe.transfer.RecipeTransferResult", false,
+                MultiBlockRecipeTransferHandler.class.getClassLoader());
+            context.getMethod("completeRecipeTransfer", result);
+        } catch (ClassNotFoundException | NoSuchMethodException | LinkageError unavailable) {
+            return new MultiBlockRecipeTransferHandler();
+        }
+        return ContextApi.create();
+    }
 
     @Override
     public Class<? extends PatternEncodingTermMenu> getContainerClass() {
@@ -30,6 +44,9 @@ public final class MultiBlockRecipeTransferHandler
         return cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin.MULTIBLOCK_TYPE;
     }
 
+    // Keep the pre-19.52 signature for older JEI and already compiled integrations.
+    // The context adapter below reuses the same synchronous encoding implementation.
+    @SuppressWarnings("removal")
     @Override
     public @Nullable IRecipeTransferError transferRecipe(
         PatternEncodingTermMenu menu,
@@ -56,5 +73,31 @@ public final class MultiBlockRecipeTransferHandler
             );
         }
         return null;
+    }
+
+    private static final class ContextApi {
+        // Returning the legacy type prevents verification of create() from eagerly resolving ContextAware.
+        private static MultiBlockRecipeTransferHandler create() { return new ContextAware(); }
+    }
+
+    private static final class ContextAware extends MultiBlockRecipeTransferHandler {
+        @Override
+        public @Nullable IRecipeTransferError transferRecipe(
+            mezz.jei.api.recipe.transfer.IRecipeTransferContext<MultiBlockInfoWrapper, PatternEncodingTermMenu> context,
+            boolean doTransfer
+        ) {
+            IRecipeTransferError error;
+            try {
+                error = super.transferRecipe(context.getContainer(), context.getRecipe(), context.getRecipeSlots(),
+                    context.getPlayer(), context.isMaxTransfer(), doTransfer);
+            } catch (RuntimeException failure) {
+                if (doTransfer) context.completeRecipeTransfer(mezz.jei.api.recipe.transfer.RecipeTransferResult.REJECTED);
+                throw failure;
+            }
+            if (doTransfer) context.completeRecipeTransfer(error == null
+                ? mezz.jei.api.recipe.transfer.RecipeTransferResult.SUCCESS
+                : mezz.jei.api.recipe.transfer.RecipeTransferResult.REJECTED);
+            return error;
+        }
     }
 }

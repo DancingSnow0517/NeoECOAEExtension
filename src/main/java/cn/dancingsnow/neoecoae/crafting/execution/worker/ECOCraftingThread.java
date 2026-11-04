@@ -7,7 +7,6 @@ import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.TickRateModulation;
-import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -32,12 +31,9 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEnti
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import lombok.Getter;
 import net.minecraft.core.HolderLookup;
@@ -532,17 +528,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         List<ItemStack> copy = new ArrayList<>();
         copyStacks(source, copy);
         return copy;
-    }
-
-    private List<ItemStack> snapshotCraftingInputs() {
-        List<ItemStack> inputs = new ArrayList<>();
-        for (int slot = 0; slot < craftingInv.getContainerSize(); slot++) {
-            ItemStack stack = craftingInv.getItem(slot);
-            if (!stack.isEmpty()) {
-                inputs.add(stack.copy());
-            }
-        }
-        return inputs;
     }
 
     private int userPower(
