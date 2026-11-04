@@ -1,9 +1,9 @@
 package cn.dancingsnow.neoecoae.integration.jade.provider;
 
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.api.me.network.CraftingCapabilitySnapshot;
-import java.util.Locale;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -33,15 +33,15 @@ public enum ECOCraftingWorkerProvider implements IBlockComponentProvider, IServe
                 normalHosts, normalSwitches, highEnergyHosts, highEnergySwitches));
             Component batchCapacity = infinite
                 ? Component.translatable("gui.neoecoae.storage.infinite_value").withStyle(ChatFormatting.LIGHT_PURPLE)
-                : Component.literal(String.format(Locale.ROOT, "%,d", max))
+                : Component.literal(DisplayNumbers.compact(max))
                     .withStyle(ChatFormatting.LIGHT_PURPLE);
             iTooltip.add(Component.translatable("jade.neoecoae.crafting_capacity", batchCapacity));
             if ((normalHosts > 0 || highEnergyHosts > 0) && blockAccessor.getPlayer().isShiftKeyDown()) {
                 long base = data.getLong("baseCapacity");
                 String terms = normalHosts > 0 && highEnergyHosts > 0
-                    ? normalHosts + " x 2 + " + highEnergyHosts + " x 8"
-                    : normalHosts > 0 ? normalHosts + " x 2" : highEnergyHosts + " x 8";
-                String formula = base + " x (" + terms + ") = " + (infinite ? "∞" : max);
+                    ? DisplayNumbers.grouped(normalHosts) + " x 2 + " + DisplayNumbers.grouped(highEnergyHosts) + " x 8"
+                    : normalHosts > 0 ? DisplayNumbers.grouped(normalHosts) + " x 2" : DisplayNumbers.grouped(highEnergyHosts) + " x 8";
+                String formula = DisplayNumbers.grouped(base) + " x (" + terms + ") = " + (infinite ? "∞" : DisplayNumbers.grouped(max));
                 iTooltip.add(Component.translatable("jade.neoecoae.worker_capacity_formula", formula)
                     .withStyle(ChatFormatting.GRAY));
             }
