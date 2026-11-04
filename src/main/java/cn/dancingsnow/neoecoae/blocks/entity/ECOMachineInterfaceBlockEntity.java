@@ -52,7 +52,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -74,7 +73,6 @@ import java.util.List;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -311,7 +309,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     public void startNetworkPatternTransfer() {
-        if (patternTransferTask != null || patternOrganizeTask != null || !(level instanceof ServerLevel serverLevel)) {
+        if (patternTransferTask != null || patternOrganizeTask != null || !(level instanceof ServerLevel)) {
             return;
         }
         PatternTransferTask task = createPatternTransferTask();
@@ -991,13 +989,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         return ref.slot() < inventory.size() ? inventory.getStackInSlot(ref.slot()) : ItemStack.EMPTY;
     }
 
-    private void setPatternStack(int slot, ItemStack stack) {
-        if (slot < 0 || slot >= patternSlotRefs.size()) {
-            return;
-        }
-        setPatternStack(patternSlotRefs.get(slot), stack);
-    }
-
     private void setPatternStack(PatternSlotRef ref, ItemStack stack) {
         InternalInventory inventory = ref.bus().getPatternSlotInventory();
         if (ref.slot() < inventory.size()) {
@@ -1034,15 +1025,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             }
         }
         return false;
-    }
-
-    private ItemStack insertPatternSlot(int slot, ItemStack stack, boolean simulate) {
-        if (slot < 0 || slot >= patternSlotRefs.size()) {
-            return stack;
-        }
-        PatternSlotRef ref = patternSlotRefs.get(slot);
-        InternalInventory inventory = ref.bus().getPatternSlotInventory();
-        return ref.slot() < inventory.size() ? inventory.insertItem(ref.slot(), stack, simulate) : stack;
     }
 
     private record PatternSlotRef(ECOCraftingPatternBusBlockEntity bus, int slot) {

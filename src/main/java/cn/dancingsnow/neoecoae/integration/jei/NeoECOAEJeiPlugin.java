@@ -25,9 +25,12 @@ import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
+import org.jetbrains.annotations.Nullable;
+import java.util.Objects;
 
 @JeiPlugin
 public class NeoECOAEJeiPlugin implements IModPlugin {
+    @Nullable
     private static volatile IJeiRuntime runtime;
     public static final RecipeType<RecipeHolder<CoolingRecipe>> COOLING_TYPE = createRecipeHolderType("cooling");
     public static final RecipeType<RecipeHolder<IntegratedWorkingStationRecipe>> INTEGRATED_WORKING_STATION_TYPE = createRecipeHolderType("integrated_working_station");
@@ -55,11 +58,14 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
 
     @Override
     public void registerRecipes(IRecipeRegistration registration) {
-        CoolingCategory.registerRecipes(registration);
+        // JEI guards startup with a client level. Bind this whole registration to that one world and recipe set.
+        var level = Objects.requireNonNull(Minecraft.getInstance().level,
+            "JEI recipe registration requires an active client level");
+        var recipes = level.getRecipeManager();
+        CoolingCategory.registerRecipes(registration, recipes);
         MultiBlockInfoCategory.registerRecipes(registration);
-        IntegrationWorkingStationCategory.registerRecipes(registration);
-        var level = Minecraft.getInstance().level;
-        if (level != null) registration.addRecipes(LARGE_WORKING_STATION_TYPE, LargeWorkstationRecipes.getAll(level));
+        IntegrationWorkingStationCategory.registerRecipes(registration, recipes);
+        registration.addRecipes(LARGE_WORKING_STATION_TYPE, LargeWorkstationRecipes.getAll(level));
     }
 
     @Override
@@ -76,7 +82,7 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
         NeoECOAEJeiPlugin.runtime = runtime;
     }
 
-    public static IJeiRuntime runtime() { return runtime; }
+    public static @Nullable IJeiRuntime runtime() { return runtime; }
 
     @Override
     public void onRuntimeUnavailable() {
@@ -85,7 +91,7 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
 
     @Override
     public void registerRecipeTransferHandlers(IRecipeTransferRegistration registration) {
-        registration.addRecipeTransferHandler(new MultiBlockRecipeTransferHandler(), MULTIBLOCK_TYPE);
+        registration.addRecipeTransferHandler(MultiBlockRecipeTransferHandler.create(), MULTIBLOCK_TYPE);
     }
 
     public static <R extends Recipe<?>> RecipeType<RecipeHolder<R>> createRecipeHolderType(String name) {

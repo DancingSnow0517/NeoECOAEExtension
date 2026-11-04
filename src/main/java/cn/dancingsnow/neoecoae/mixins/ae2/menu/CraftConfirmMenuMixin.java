@@ -349,9 +349,14 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$cyclePlanningEnabled = settings != null && settings.neoecoae$isCyclePlanningEnabled();
     }
 
+    @Inject(method = "planJob", at = @At("HEAD"), require = 1)
+    private void resetPlannerDiagnostics(CallbackInfoReturnable<Boolean> cir) {
+        neoecoae$resetPlannerDiagnostics();
+    }
+
+    // These methods are merged by optional mods. Their absence must not weaken the required vanilla hook above.
     @Inject(
         method = {
-            "planJob",
             "data_energistics$planJob",
             "molecularmanipulator$planLong",
             "appliedenhancements$planLong",
@@ -361,7 +366,12 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         at = @At("HEAD"),
         require = 0
     )
-    private void resetPlannerDiagnostics(CallbackInfoReturnable<Boolean> cir) {
+    private void resetExtendedPlannerDiagnostics(CallbackInfoReturnable<Boolean> cir) {
+        neoecoae$resetPlannerDiagnostics();
+    }
+
+    @Unique
+    private void neoecoae$resetPlannerDiagnostics() {
         neoecoae$closePlanImprovements();
         neoecoae$planningDiagnostic = "";
         neoecoae$showFastPlannerReport = false;

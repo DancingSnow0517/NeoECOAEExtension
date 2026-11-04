@@ -69,6 +69,41 @@ class ExactMaterialFlowTest {
         assertEquals(BigInteger.ZERO, node.toCraftBigInteger());
     }
 
+    @Test void exactShortagesWithoutTraceSurviveAnEmptyCompatibilityShell() {
+        AEKey iron = AEItemKey.of(Items.IRON_INGOT);
+        var amount = BigInteger.TEN.pow(25);
+        var plan = new CraftingPlan(new GenericStack(AEItemKey.of(Items.IRON_BLOCK), 1), 0, true, false,
+            new KeyCounter(), new KeyCounter(), new KeyCounter(), Map.of());
+        var result = new ECOPlanningResult(PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE,
+            plan, new ECOPlanTrace(), List.of(), 0);
+        result.setExactMaterials(Map.of(), Map.of(), Map.of(iron, PlannerAmount.of(amount)));
+
+        var node = CraftingGraphSnapshotFactory.create(result).nodes().stream()
+            .filter(material -> material.key().equals(iron)).findFirst().orElseThrow();
+        assertEquals(amount, node.missingBigInteger());
+        assertEquals(Long.MAX_VALUE, node.missing());
+        assertEquals(CraftingGraphSnapshot.MaterialStatus.MISSING, node.status());
+    }
+
+    @Test void tracePlanAndExactShortagesDescribeTheSameDeficit() {
+        AEKey iron = AEItemKey.of(Items.IRON_INGOT);
+        var trace = new ECOPlanTrace();
+        trace.addNode(new cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceNode(
+            cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceNode.Kind.MATERIAL,
+            iron, null, 5, 0, 0, 3, 0,
+            cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceNode.Selection.NOT_APPLICABLE, null));
+        var missing = new KeyCounter(); missing.add(iron, 4);
+        var plan = new CraftingPlan(new GenericStack(AEItemKey.of(Items.IRON_BLOCK), 1), 0, true, false,
+            new KeyCounter(), new KeyCounter(), missing, Map.of());
+        var result = new ECOPlanningResult(PlanningStatus.MISSING_ITEMS, plan, trace, List.of(), 0);
+        result.setExactMaterials(Map.of(), Map.of(), Map.of(iron, PlannerAmount.of(5)));
+
+        var node = CraftingGraphSnapshotFactory.create(result).nodes().stream()
+            .filter(material -> material.key().equals(iron)).findFirst().orElseThrow();
+        assertEquals(BigInteger.valueOf(5), node.missingBigInteger());
+        assertEquals(5, node.missing());
+    }
+
     private static void verifyFlow(BigInteger count, boolean shell) {
         AEKey seed = AEItemKey.of(Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE);
         AEKey diamond = AEItemKey.of(Items.DIAMOND);
