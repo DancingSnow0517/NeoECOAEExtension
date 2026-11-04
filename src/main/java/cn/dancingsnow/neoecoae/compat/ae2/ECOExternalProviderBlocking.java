@@ -7,6 +7,7 @@ import appeng.api.util.IConfigManager;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import cn.dancingsnow.neoecoae.blocks.entity.LargeWorkstationPatternProvider;
 import cn.dancingsnow.neoecoae.compat.advanced_ae.ECOAdvancedAEPatternScaling;
+import cn.dancingsnow.neoecoae.compat.processing.ProcessingReflection;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
@@ -19,9 +20,8 @@ public final class ECOExternalProviderBlocking {
         Object logic = provider;
         if (!(logic instanceof PatternProviderLogic) && !ECOAdvancedAEPatternScaling.isProvider(logic)) {
             try {
-                logic = provider.getClass().getMethod("getLogic").invoke(provider);
-            } catch (NoSuchMethodException absent) {
-                // Some external providers expose their blocking setting directly.
+                Method accessor = ProcessingReflection.publicNoArgMethod(provider.getClass(), "getLogic");
+                if (accessor != null) logic = accessor.invoke(provider);
             } catch (ReflectiveOperationException | RuntimeException unavailable) {
                 return true;
             }
@@ -33,22 +33,20 @@ public final class ECOExternalProviderBlocking {
             if (ECOAdvancedAEPatternScaling.isProvider(logic)) {
                 return ECOAdvancedAEPatternScaling.isBlocking(logic);
             }
-            Method isBlocking = logic.getClass().getMethod("isBlocking");
-            if (isBlocking.getReturnType() == boolean.class || isBlocking.getReturnType() == Boolean.class) {
+            Method isBlocking = ProcessingReflection.publicNoArgMethod(logic.getClass(), "isBlocking");
+            if (isBlocking != null && (isBlocking.getReturnType() == boolean.class || isBlocking.getReturnType() == Boolean.class)) {
                 return Boolean.TRUE.equals(isBlocking.invoke(logic));
             }
-        } catch (NoSuchMethodException absent) {
-            // Fall back to the standard AE2 configuration setting.
         } catch (InvocationTargetException | IllegalAccessException | RuntimeException unavailable) {
             return true;
         }
         try {
-            Object config = logic.getClass().getMethod("getConfigManager").invoke(logic);
+            Method accessor = ProcessingReflection.publicNoArgMethod(logic.getClass(), "getConfigManager");
+            if (accessor == null) return false;
+            Object config = accessor.invoke(logic);
             if (config instanceof IConfigManager manager && manager.getSettings().contains(Settings.BLOCKING_MODE)) {
                 return manager.getSetting(Settings.BLOCKING_MODE) == YesNo.YES;
             }
-        } catch (NoSuchMethodException absent) {
-            // Providers without a blocking setting can still use ECO batching.
         } catch (ReflectiveOperationException | RuntimeException unavailable) {
             return true;
         }

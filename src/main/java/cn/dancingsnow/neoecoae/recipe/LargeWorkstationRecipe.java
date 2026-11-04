@@ -97,50 +97,31 @@ public record LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStati
     }
 
     public boolean matches(KeyCounter inputs, KeyCounter outputs) {
-        return matchesOutputs(outputs) && matchesInputs(inputs);
+        var prepared = prepare();
+        return prepared.matchesOutputs(outputs) && prepared.matchesInputs(inputs, 1);
     }
 
     public boolean matchesOutputs(KeyCounter outputs) {
-        KeyCounter expected = outputAmounts();
-        expected.removeAll(outputs);
-        for (var entry : expected) if (entry.getLongValue() != 0) return false;
-        return true;
+        return prepare().matchesOutputs(outputs);
     }
 
     /** Returns the common positive integer scale of the complete pattern contract, or zero if it differs. */
     public long matchingMultiplier(KeyCounter inputs, KeyCounter outputs) {
-        KeyCounter expected = outputAmounts();
-        long multiplier = 0;
-        for (var entry : expected) {
-            long amount = entry.getLongValue();
-            long supplied = outputs.get(entry.getKey());
-            if (amount <= 0 || supplied < amount || supplied % amount != 0) return 0;
-            long scale = supplied / amount;
-            if (multiplier != 0 && multiplier != scale) return 0;
-            multiplier = scale;
-        }
-        for (var entry : outputs) {
-            if (entry.getLongValue() != 0 && expected.get(entry.getKey()) == 0) return 0;
-        }
+        var prepared = prepare();
+        long multiplier = prepared.outputMultiplier(outputs);
         if (multiplier == 0) return 0;
         try {
-            return matchesInputs(inputs, multiplier) ? multiplier : 0;
+            return prepared.matchesInputs(inputs, multiplier) ? multiplier : 0;
         } catch (ArithmeticException overflow) {
             return 0;
         }
     }
 
-    private KeyCounter outputAmounts() {
-        KeyCounter expected = new KeyCounter();
-        for (var output : outputs()) expected.add(output.what(), output.amount());
-        return expected;
-    }
-
     public boolean matchesInputs(KeyCounter inputs) {
-        return matchesInputs(inputs, 1);
+        return matchesInputs(inputs, 1, inputFluids());
     }
 
-    private boolean matchesInputs(KeyCounter inputs, long multiplier) {
+    private boolean matchesInputs(KeyCounter inputs, long multiplier, List<SizedFluidIngredient> requiredFluids) {
         KeyCounter remaining = new KeyCounter();
         remaining.addAll(inputs);
         for (var extra : extraInputs) {
@@ -162,7 +143,6 @@ public record LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStati
                 fluids.add(new GenericStack(entry.getKey(), amount));
             } else return false;
         }
-        var requiredFluids = inputFluids();
         long[] fluidSupplied = fluids.stream().mapToLong(GenericStack::amount).toArray();
         long[] fluidNeeded = requiredFluids.stream().mapToLong(r -> Math.multiplyExact((long) r.amount(), multiplier)).toArray();
         boolean[][] fluidAccepts = new boolean[fluids.size()][requiredFluids.size()];
@@ -185,6 +165,65 @@ public record LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStati
             for (int j = 0; j < required.size(); j++) accepts[i][j] = required.get(j).ingredient().test(stack);
         }
         return matchesQuantities(supplied, needed, accepts);
+    }
+
+    /** The recipe-manager cache owns these derived contracts, so reloads release them together. */
+    Prepared prepare() {
+        return new Prepared(this);
+    }
+
+    static final class Prepared {
+        final LargeWorkstationRecipe recipe;
+        final KeyCounter outputs = new KeyCounter();
+        private final List<SizedFluidIngredient> fluidInputs;
+        final boolean memoizable;
+
+        private Prepared(LargeWorkstationRecipe recipe) {
+            this.recipe = recipe;
+            for (var output : recipe.outputs()) outputs.add(output.what(), output.amount());
+            fluidInputs = recipe.inputFluids();
+            boolean stable = true;
+            for (var input : recipe.display.inputItems()) {
+                var ingredient = input.ingredient();
+                if (!(ingredient.isSimple() && ingredient.getItems().length > 0)) stable = false;
+            }
+            for (var input : fluidInputs) {
+                var ingredient = input.ingredient();
+                if (!(ingredient.isSimple() && ingredient.getStacks().length > 0)) stable = false;
+            }
+            // Unknown/custom predicates still use the index, but their input tests stay live.
+            memoizable = stable;
+        }
+
+        boolean matchesOutputs(KeyCounter supplied) {
+            for (var entry : outputs) {
+                if (supplied.get(entry.getKey()) != entry.getLongValue()) return false;
+            }
+            for (var entry : supplied) {
+                if (outputs.get(entry.getKey()) != entry.getLongValue()) return false;
+            }
+            return true;
+        }
+
+        long outputMultiplier(KeyCounter supplied) {
+            long multiplier = 0;
+            for (var entry : outputs) {
+                long amount = entry.getLongValue();
+                long offered = supplied.get(entry.getKey());
+                if (amount <= 0 || offered < amount || offered % amount != 0) return 0;
+                long scale = offered / amount;
+                if (multiplier != 0 && multiplier != scale) return 0;
+                multiplier = scale;
+            }
+            for (var entry : supplied) {
+                if (entry.getLongValue() != 0 && outputs.get(entry.getKey()) == 0) return 0;
+            }
+            return multiplier;
+        }
+
+        boolean matchesInputs(KeyCounter inputs, long multiplier) {
+            return recipe.matchesInputs(inputs, multiplier, fluidInputs);
+        }
     }
 
     static boolean matchesQuantities(long[] supplied, long[] needed, boolean[][] accepts) {

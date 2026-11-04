@@ -5,6 +5,7 @@ import appeng.api.networking.IManagedGridNode;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission;
+import cn.dancingsnow.neoecoae.compat.processing.ProcessingReflection;
 import java.lang.reflect.*;
 import java.util.*;
 import net.minecraft.core.Direction;
@@ -39,7 +40,9 @@ public final class ECOAe2LtDirectDispatch {
             if (type.getName().equals(LOGIC)) return provider;
         }
         try {
-            Object value = provider.getClass().getMethod("getLogic").invoke(provider);
+            Method accessor = ProcessingReflection.publicNoArgMethod(provider.getClass(), "getLogic");
+            if (accessor == null) return null;
+            Object value = accessor.invoke(provider);
             return logic(value, visited);
         } catch (ReflectiveOperationException | RuntimeException unavailable) { return null; }
     }
@@ -247,8 +250,10 @@ public final class ECOAe2LtDirectDispatch {
     private static boolean directional(IPatternDetails pattern) {
         pattern = cn.dancingsnow.neoecoae.compat.ae2.ECOProviderPatternIntrospection.unwrap(pattern);
         if (pattern == null) return false;
-        try { return (boolean) pattern.getClass().getMethod("directionalInputsSet").invoke(pattern); }
-        catch (NoSuchMethodException absent) { return false; }
+        try {
+            Method accessor = ProcessingReflection.publicNoArgMethod(pattern.getClass(), "directionalInputsSet");
+            return accessor != null && (boolean) accessor.invoke(pattern);
+        }
         catch (ReflectiveOperationException failure) { throw new IllegalStateException(failure); }
     }
     private static KeyCounter[] copy(KeyCounter[] inputs) {

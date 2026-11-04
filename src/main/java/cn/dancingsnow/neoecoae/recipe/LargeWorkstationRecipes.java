@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -94,7 +95,8 @@ public final class LargeWorkstationRecipes {
         for (var entry : groups) for (var variant : entry.variants()) byGroup.put(variant.recipe().id(), entry);
         CACHE.put(manager, new Cache(sourceMap, List.copyOf(sources), recipes, Map.copyOf(byId),
             new EnumMap<>(LargeWorkstationModule.class), groups, Map.copyOf(byGroup), List.copyOf(variants),
-            variants.stream().map(LargeWorkstationRecipeGroup.Variant::recipe).toList()));
+            variants.stream().map(LargeWorkstationRecipeGroup.Variant::recipe).toList(),
+            new IdentityHashMap<>(), new IdentityHashMap<>()));
         return recipes;
     }
 
@@ -242,38 +244,33 @@ public final class LargeWorkstationRecipes {
 
     private static boolean isLightning(GenericStack stack) { return stack.what().getType().getId().getNamespace().equals("ae2lt"); }
     @Nullable public static LargeWorkstationRecipe find(Level level, KeyCounter inputs, KeyCounter outputs) {
-        var match = findScaled(level, inputs, outputs); return match == null || match.multiplier() != 1 ? null : match.recipe();
+        var match = index(level, null).find(inputs, outputs, false);
+        return match == null ? null : match.recipe();
     }
     @Nullable public static PatternMatch findScaled(Level level, KeyCounter inputs, KeyCounter outputs) {
-        getAll(level);
-        return findScaled(CACHE.get(level.getRecipeManager()).variants.stream().map(LargeWorkstationRecipeGroup.Variant::recipe).toList(), inputs, outputs);
+        return index(level, null).find(inputs, outputs, true);
     }
     @Nullable public static PatternMatch findScaled(Level level, KeyCounter inputs, KeyCounter outputs, LargeWorkstationModule module) {
-        return findScaled(getAvailable(level, module), inputs, outputs);
+        return index(level, module).find(inputs, outputs, true);
     }
 
     static PatternMatch findScaled(List<LargeWorkstationRecipe> recipes, KeyCounter inputs, KeyCounter outputs) {
-        PatternMatch best = null;
-        for (var recipe : recipes) {
-            long multiplier = recipe.matchingMultiplier(inputs, outputs);
-            if (multiplier == 0) continue;
-            try {
-                Math.multiplyExact(recipe.energy(), multiplier);
-                Math.multiplyExact(recipe.feEnergy(), multiplier);
-                Math.toIntExact(Math.multiplyExact((long) recipe.processingTicks(), multiplier));
-                for (var extra : recipe.extraInputs()) Math.multiplyExact(extra.amount(), multiplier);
-            } catch (ArithmeticException overflow) {
-                // An unpayable preferred route must not hide another legal variant of this pattern.
-                continue;
-            }
-            var match = new PatternMatch(recipe, multiplier);
-            if (best == null) best = match;
-            else {
-                int costs = compareCosts(recipe, multiplier, best.recipe(), best.multiplier());
-                if (costs < 0 || costs == 0 && recipe.id().toString().compareTo(best.recipe().id().toString()) < 0) best = match;
-            }
-        }
-        return best;
+        return new LargeWorkstationRecipeIndex(recipes).find(inputs, outputs, true);
+    }
+
+    private static synchronized LargeWorkstationRecipeIndex index(Level level, @Nullable LargeWorkstationModule module) {
+        var available = module == null ? getAll(level) : getAvailable(level, module);
+        var cache = CACHE.get(level.getRecipeManager());
+        // Independent lists have no recipe-manager generation to own a persistent cache.
+        if (cache == null) return new LargeWorkstationRecipeIndex(available);
+        var recipes = module == null ? cache.executionRecipes : available;
+        return cache.indexes.computeIfAbsent(recipes,
+            entries -> new LargeWorkstationRecipeIndex(entries, cache.prepared));
+    }
+
+    static int compareMatches(PatternMatch first, PatternMatch second) {
+        int costs = compareCosts(first.recipe(), first.multiplier(), second.recipe(), second.multiplier());
+        return costs != 0 ? costs : first.recipe().id().toString().compareTo(second.recipe().id().toString());
     }
 
     public record PatternMatch(LargeWorkstationRecipe recipe, long multiplier) {}
@@ -287,5 +284,7 @@ public final class LargeWorkstationRecipes {
     private record Cache(Object generation, Collection<Recipe<?>> sources, List<LargeWorkstationRecipe> recipes,
         Map<ResourceLocation, LargeWorkstationRecipe> recipesById, Map<LargeWorkstationModule, List<LargeWorkstationRecipe>> moduleRecipes,
         List<LargeWorkstationRecipeGroup> groups, Map<ResourceLocation, LargeWorkstationRecipeGroup> groupsById,
-        List<LargeWorkstationRecipeGroup.Variant> variants, List<LargeWorkstationRecipe> executionRecipes) {}
+        List<LargeWorkstationRecipeGroup.Variant> variants, List<LargeWorkstationRecipe> executionRecipes,
+        Map<LargeWorkstationRecipe, LargeWorkstationRecipe.Prepared> prepared,
+        Map<List<LargeWorkstationRecipe>, LargeWorkstationRecipeIndex> indexes) {}
 }
