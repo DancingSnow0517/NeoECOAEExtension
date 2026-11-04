@@ -1,0 +1,15 @@
+// Use the hash-verified EMI release on CI without configuring the optional probe.
+gradle.projectsEvaluated {
+    def project = rootProject
+    if (project.extensions.extraProperties.has('neoecoaeCiDependenciesConfigured')) return
+    project.extensions.extraProperties.set('neoecoaeCiDependenciesConfigured', true)
+    def lock = new groovy.json.JsonSlurper().parse(project.file('tools/compat/build-dependencies.json'))
+    def emi = lock.artifacts.find { it.mod_id == 'emi' }
+    def artifact = emi.filename.substring(0, emi.filename.length() - '.jar'.length())
+    project.configurations.configureEach {
+        resolutionStrategy.dependencySubstitution {
+            substitute(module("dev.emi:emi-forge:${emi.version}"))
+                .using(module("porting.pinned:${artifact}:${emi.version}"))
+        }
+    }
+}
