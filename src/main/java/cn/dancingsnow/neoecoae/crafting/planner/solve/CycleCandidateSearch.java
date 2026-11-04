@@ -49,7 +49,7 @@ final class CycleCandidateSearch {
     private final Map<AEKey, PlannerAmount> exactRequiredOutputs;
     private final Map<AEKey, Long> stock;
     private final Map<AEKey, Long> solveStock;
-    private final Map<AEKey, Long> stockReservations;
+    private final Map<AEKey, PlannerAmount> stockReservations;
     private final Map<AEKey, Long> plannedCycleInputs;
     private final KeyCounter inventory;
     private final SolveState base;
@@ -63,7 +63,7 @@ final class CycleCandidateSearch {
 
     CycleCandidateSearch(CompiledNetwork network, CondensationGraph condensation, Map<AEKey, Integer> choices,
             CycleComponent cycle, Map<AEKey, PlannerAmount> exactRequiredOutputs, Map<AEKey, Long> stock,
-            Map<AEKey, Long> solveStock, Map<AEKey, Long> stockReservations, Map<AEKey, Long> plannedCycleInputs,
+            Map<AEKey, Long> solveStock, Map<AEKey, PlannerAmount> stockReservations, Map<AEKey, Long> plannedCycleInputs,
             KeyCounter inventory, SolveState base, boolean ignorePatternSubstitutions, CycleFailureCache failures,
             ExternalDemandPlanner externalDemandPlanner, ECOCancellation cancellation) {
         this.network = network;
