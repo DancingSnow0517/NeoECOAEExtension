@@ -24,9 +24,12 @@ import mezz.jei.api.registration.IRecipeTransferRegistration;
 import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.Recipe;
+import org.jetbrains.annotations.Nullable;
+import java.util.Objects;
 
 @JeiPlugin
 public class NeoECOAEJeiPlugin implements IModPlugin {
+    @Nullable
     private static volatile IJeiRuntime runtime;
     public static final RecipeType<CoolingRecipe> COOLING_TYPE = new RecipeType<>(NeoECOAE.id("cooling"), CoolingRecipe.class);
     public static final RecipeType<IntegratedWorkingStationRecipe> INTEGRATED_WORKING_STATION_TYPE = new RecipeType<>(NeoECOAE.id("integrated_working_station"), IntegratedWorkingStationRecipe.class);
@@ -54,11 +57,14 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
 
     @Override
     public void registerRecipes(IRecipeRegistration registration) {
-        CoolingCategory.registerRecipes(registration);
+        // JEI guards startup with a client level. Bind this whole registration to that one world and recipe set.
+        var level = Objects.requireNonNull(Minecraft.getInstance().level,
+            "JEI recipe registration requires an active client level");
+        var recipes = level.getRecipeManager();
+        CoolingCategory.registerRecipes(registration, recipes);
         MultiBlockInfoCategory.registerRecipes(registration);
-        IntegrationWorkingStationCategory.registerRecipes(registration);
-        var level = Minecraft.getInstance().level;
-        if (level != null) registration.addRecipes(LARGE_WORKING_STATION_TYPE, LargeWorkstationRecipes.getAll(level));
+        IntegrationWorkingStationCategory.registerRecipes(registration, recipes);
+        registration.addRecipes(LARGE_WORKING_STATION_TYPE, LargeWorkstationRecipes.getAll(level));
     }
 
     @Override
@@ -78,7 +84,7 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
             .forEach(category -> HiddenJeiRecipes.hide(manager, category.getRecipeType()));
     }
 
-    public static IJeiRuntime runtime() { return runtime; }
+    public static @Nullable IJeiRuntime runtime() { return runtime; }
 
     @Override
     public void onRuntimeUnavailable() {
