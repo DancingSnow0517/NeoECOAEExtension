@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.api.me.menu;
 
+import cn.dancingsnow.neoecoae.api.ECOCpuTierGlyph;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import java.util.List;
@@ -11,8 +12,12 @@ public interface ECOCraftConfirmMenuMode {
     /** Whether the currently selected CPU belongs to ECO, independent of planner and tier. */
     default boolean neoecoae$isSelectedCpuEco() { return false; }
 
-    /** CPU tier glyph for the ECO crafting report header: 4, 6, 9, or 0 when unavailable. */
-    default int neoecoae$getSelectedCpuTier() { return 0; }
+    /** Synchronized ECO tier registry ID, or -1 when no ECO CPU tier is available. */
+    default int neoecoae$getSelectedCpuTier() { return -1; }
+
+    /** Optional artwork supplied by the synchronized CPU tier. */
+    @Nullable
+    default ECOCpuTierGlyph neoecoae$getSelectedCpuTierGlyph() { return null; }
 
     default boolean neoecoae$bigOrderCpuAvailable() { return false; }
     default void neoecoae$startBigOrder(boolean forced) {}

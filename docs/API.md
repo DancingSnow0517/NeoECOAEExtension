@@ -329,6 +329,8 @@ Register custom tiers and cell types with matching IDs on both sides in synchron
 
 `IECOTier.getPanelTierName()` supplies names, `getHostMarkerTexture()` supplies markers and `getPanelAtlas(String)` replaces full atlases for that tier. Null preserves defaults. Resolution is tier atlas, global LDLib2 `ui-eco` provider, then original image. Preserve atlas dimensions and crop layout.
 
+`IECOTier.getCraftConfirmCpuTierGlyph()` supplies a separate 13×18 CPU tier glyph for the terminal's crafting confirmation header. Its default returns null and draws nothing, so existing addons need no new implementation. For a standalone image, return `new ECOCpuTierGlyph(ResourceLocation.parse("addon:textures/gui/tier/l1.png"))`. For an atlas, use the five-argument constructor `(texture, u, v, textureWidth, textureHeight)`; the crop is always 13×18. Built-in L4/L6/L9 retain the digits at `(0,0)/(13,0)/(26,0)` in `crafting_widgets.png`. This API is independent of the 10×10 pattern returned by `getCPUOverlayTexture()` and does not fall back to the tier name. The menu synchronizes the `ECO_TIER` registry ID, with -1 meaning no ECO CPU; an addon with `getTier() == 0` can also supply its own glyph.
+
 | atlas argument, without `ui-eco:` | Default under `assets/neoecoae/textures/guis/` |
 | --- | --- |
 | `Computation-BACKGROUND_ATLAS` | `eco_cpu_controller.png` |

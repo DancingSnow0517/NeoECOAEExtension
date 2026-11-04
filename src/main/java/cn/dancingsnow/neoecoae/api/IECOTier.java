@@ -104,6 +104,15 @@ public interface IECOTier {
 
     ResourceLocation getCPUOverlayTexture();
 
+    /**
+     * Optional 13x18 glyph drawn over the crafting confirmation header's final letter.
+     * Null preserves the header without drawing a glyph. This is separate from the 10x10 CPU overlay.
+     */
+    @Nullable
+    default ECOCpuTierGlyph getCraftConfirmCpuTierGlyph() {
+        return null;
+    }
+
     default int compareTo(IECOTier tier) {
         return Integer.compare(this.getTier(), tier.getTier());
     }

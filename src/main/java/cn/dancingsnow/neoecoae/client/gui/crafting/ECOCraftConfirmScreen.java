@@ -12,6 +12,7 @@ import appeng.core.localization.GuiText;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import appeng.menu.me.crafting.CraftingPlanSummary;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.api.ECOCpuTierGlyph;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.client.gui.graph.ECOCraftingGraphScreen;
@@ -37,13 +38,8 @@ import org.lwjgl.glfw.GLFW;
 /** ECO-owned crafting report. Server menu and job execution remain AE2-native. */
 public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> {
     private static final int AE2_TEXT_DARK = 0x20212B;
-    private static final ResourceLocation CRAFTING_WIDGETS_TEXTURE =
-        NeoECOAE.id("textures/guis/crafting_widgets.png");
     private static final int CPU_TIER_TARGET_X = 38;
     private static final int CPU_TIER_TARGET_Y = 5;
-    private static final int CPU_TIER_GLYPH_WIDTH = 13;
-    private static final int CPU_TIER_GLYPH_HEIGHT = 18;
-    private static final int CPU_TIER_GLYPH_V = 0;
     private static final int CYCLE_STATUS_X = 237;
     private static final int CYCLE_STATUS_Y = 7;
     private static final long LARGE_CYCLE_INDICATOR_DELAY_NANOS = 500_000_000L;
@@ -273,18 +269,13 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
     private void drawCpuTierGlyph(GuiGraphics graphics) {
         if (!((Object) menu instanceof ECOCraftConfirmMenuMode mode)) return;
-        int sourceX = switch (mode.neoecoae$getSelectedCpuTier()) {
-            case 4 -> 0;
-            case 6 -> 13;
-            case 9 -> 26;
-            default -> -1;
-        };
-        if (sourceX < 0) return;
-        graphics.blit(CRAFTING_WIDGETS_TEXTURE,
+        ECOCpuTierGlyph glyph = mode.neoecoae$getSelectedCpuTierGlyph();
+        if (glyph == null) return;
+        graphics.blit(glyph.texture(),
             CPU_TIER_TARGET_X, CPU_TIER_TARGET_Y, 0,
-            sourceX, CPU_TIER_GLYPH_V,
-            CPU_TIER_GLYPH_WIDTH, CPU_TIER_GLYPH_HEIGHT,
-            288, 256);
+            glyph.u(), glyph.v(),
+            ECOCpuTierGlyph.WIDTH, ECOCpuTierGlyph.HEIGHT,
+            glyph.textureWidth(), glyph.textureHeight());
     }
 
     private boolean showLargeCycleIndicator() {

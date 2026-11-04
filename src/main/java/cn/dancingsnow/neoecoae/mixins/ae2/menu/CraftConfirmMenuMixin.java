@@ -18,6 +18,8 @@ import appeng.menu.guisync.GuiSync;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import appeng.menu.me.crafting.CraftingPlanSummary;
 import appeng.menu.me.crafting.CraftingPlanSummaryEntry;
+import cn.dancingsnow.neoecoae.all.NERegistries;
+import cn.dancingsnow.neoecoae.api.ECOCpuTierGlyph;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
@@ -106,7 +108,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Unique private ECOPlannerOptions neoecoae$originalOptions;
     @Unique @GuiSync(108) private boolean neoecoae$bigOrderCpu;
     @Unique @GuiSync(109) private String neoecoae$planningDiagnostic = "";
-    @Unique @GuiSync(111) private int neoecoae$selectedCpuTier;
+    @Unique @GuiSync(111) private int neoecoae$selectedCpuTier = -1;
     @Unique @GuiSync(112) private boolean neoecoae$selectedCpuEco;
 
     @Unique @GuiSync(110) private long neoecoae$diagnosticsVersion;
@@ -153,6 +155,11 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
 
     @Override public int neoecoae$getSelectedCpuTier() { return neoecoae$selectedCpuTier; }
 
+    @Override public @Nullable ECOCpuTierGlyph neoecoae$getSelectedCpuTierGlyph() {
+        var tier = neoecoae$selectedCpuTier < 0 ? null : NERegistries.ECO_TIER.byId(neoecoae$selectedCpuTier);
+        return tier == null ? null : tier.getCraftConfirmCpuTierGlyph();
+    }
+
     @Override public boolean neoecoae$isSelectedCpuEco() { return neoecoae$selectedCpuEco; }
 
     @Inject(method = "onCPUSelectionChanged", at = @At("TAIL"))
@@ -173,13 +180,8 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         if (cpu == null) {
             cpu = neoecoae$resolveBigOrderCpu();
         }
-        if (!(cpu instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU eco)) return 0;
-        return switch (eco.getTier().getTier()) {
-            case 1 -> 4;
-            case 2 -> 6;
-            case 3 -> 9;
-            default -> 0;
-        };
+        if (!(cpu instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU eco)) return -1;
+        return NERegistries.ECO_TIER.getId(eco.getTier());
     }
 
     @Unique
