@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
-import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.security.IActionSource;
@@ -11,6 +10,7 @@ import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 import cn.dancingsnow.neoecoae.storage.bulk.ECOBulkConversionPattern;
 import cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell;
+import org.jetbrains.annotations.Nullable;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -56,7 +56,7 @@ final class ECOBulkCraftingProvider implements ICraftingProvider, ECOFastPathDis
     @Override public List<IPatternDetails> getAvailablePatterns() { return patterns(); }
     @Override public int getPatternPriority() { return host.getStoragePriority(); }
     @Override public boolean isBusy() { return !active(); }
-    private ECOBulkStorageCell target(ECOBulkConversionPattern pattern) {
+    private @Nullable ECOBulkStorageCell target(ECOBulkConversionPattern pattern) {
         for (var cell : cells()) if (cell.getConversionPatterns().contains(pattern)) return cell;
         return null;
     }
@@ -68,7 +68,7 @@ final class ECOBulkCraftingProvider implements ICraftingProvider, ECOFastPathDis
         inputs[0].clear();
         return true;
     }
-    @Override public Preparation eco$prepareFastPath(ECOBatchDispatchContext context) {
+    @Override public @Nullable Preparation eco$prepareFastPath(ECOBatchDispatchContext context) {
         if (!(context.pattern() instanceof ECOBulkConversionPattern pattern) || target(pattern) == null
                 || !context.containerItems().isEmpty() || !pattern.matchesInputs(context.inputCounters())
                 || !context.outputs().equals(List.of(new GenericStack(pattern.outputKey(), pattern.outputCount())))) return null;
@@ -84,7 +84,7 @@ final class ECOBulkCraftingProvider implements ICraftingProvider, ECOFastPathDis
             return true;
         });
     }
-    @Override public ExactPreparation eco$prepareExactFastPath(ECOBatchDispatchContext context, BigInteger requested) {
+    @Override public @Nullable ExactPreparation eco$prepareExactFastPath(ECOBatchDispatchContext context, BigInteger requested) {
         if (requested.signum() <= 0 || eco$prepareFastPath(context) == null) return null;
         var pattern = (ECOBulkConversionPattern) context.pattern();
         return new ExactPreparation(requested, () -> {

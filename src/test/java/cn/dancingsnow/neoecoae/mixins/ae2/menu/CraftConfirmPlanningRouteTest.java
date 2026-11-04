@@ -22,6 +22,33 @@ class CraftConfirmPlanningRouteTest {
     static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
     @Test
+    void nativePlanningResetIsRequiredAndOptionalEntriesRemainOptional() throws Exception {
+        var nativeMethod = CraftConfirmMenuMixin.class.getDeclaredMethod("neoecoae$resetNativePlannerDiagnostics",
+            org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable.class);
+        var nativeHook = nativeMethod.getAnnotation(org.spongepowered.asm.mixin.injection.Inject.class);
+        assertArrayEquals(new String[]{"planJob"}, nativeHook.method());
+        assertEquals(1, nativeHook.require());
+        assertEquals("HEAD", nativeHook.at()[0].value());
+        assertTrue(java.util.Arrays.stream(appeng.menu.me.crafting.CraftConfirmMenu.class.getDeclaredMethods())
+            .anyMatch(method -> method.getName().equals("planJob") && method.getReturnType() == boolean.class));
+        var optional = CraftConfirmMenuMixin.class.getDeclaredMethod("neoecoae$resetExtendedPlannerDiagnostics",
+            org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable.class)
+            .getAnnotation(org.spongepowered.asm.mixin.injection.Inject.class);
+        assertEquals(0, optional.require());
+        assertFalse(java.util.Arrays.asList(optional.method()).contains("planJob"));
+
+        var menu = new CraftConfirmMenuMixin();
+        var diagnostic = CraftConfirmMenuMixin.class.getDeclaredField("neoecoae$planningDiagnostic");
+        diagnostic.setAccessible(true);
+        diagnostic.set(menu, "previous attempt");
+        nativeMethod.setAccessible(true);
+        nativeMethod.invoke(menu, new org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Boolean>(
+            "planJob", true));
+        assertEquals("", menu.neoecoae$getPlanningDiagnostic());
+        assertNull(menu.neoecoae$getPlanningStatus());
+    }
+
+    @Test
     void serviceWithoutEcoSettingsKeepsTheOriginalLongAmountAndFuture() {
         verifyOriginalRequest(mock(ICraftingService.class));
     }
