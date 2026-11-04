@@ -80,6 +80,9 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     @Persisted
     @DescSynced
     private boolean cyclePlanningEnabled = true;
+    @Persisted
+    @DescSynced
+    private boolean smartDoublingEnabled = true;
     @DescSynced
     private boolean buildInProgress;
     @Getter
@@ -175,7 +178,9 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
                 cpu -> {
                     if (canPlayerInteract(player)) cpu.cancelJob();
                 },
-                this::getEndgameStatusTooltip
+                this::getEndgameStatusTooltip,
+                this::isSmartDoublingEnabled,
+                () -> toggleSmartDoubling(player)
         );
     }
 
@@ -293,6 +298,32 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
 
     public boolean isLocallyCyclePlanningEnabled() {
         return cyclePlanningEnabled;
+    }
+
+    public boolean isLocallySmartDoublingEnabled() {
+        return smartDoublingEnabled;
+    }
+
+    public void applyNetworkSmartDoublingEnabled(boolean enabled) {
+        if (smartDoublingEnabled == enabled) return;
+        smartDoublingEnabled = enabled;
+        setChanged();
+        markForUpdate();
+    }
+
+    public boolean isSmartDoublingEnabled() {
+        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
+        return settings != null ? settings.neoecoae$isSmartDoublingEnabled() : smartDoublingEnabled;
+    }
+
+    private void toggleSmartDoubling(Player player) {
+        if (!canPlayerInteract(player)) return;
+        ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
+        if (settings != null) {
+            settings.neoecoae$setSmartDoublingEnabled(!settings.neoecoae$isSmartDoublingEnabled());
+        } else {
+            applyNetworkSmartDoublingEnabled(!smartDoublingEnabled);
+        }
     }
 
     public void applyNetworkCyclePlanningEnabled(boolean enabled) {
