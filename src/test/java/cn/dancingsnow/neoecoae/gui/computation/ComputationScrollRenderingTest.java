@@ -57,8 +57,8 @@ class ComputationScrollRenderingTest {
         assertDrawn(panel, 1);
 
         panel.setValue(snapshot(6, 6, 7, 2, 2), false);
-        assertEquals(6, field(panel, "cpuPageOffset"));
-        assertEquals(6, field(panel, "itemPageOffset"));
+        assertEquals(6, field(panel, "cpuOffset"));
+        assertEquals(6, field(panel, "itemOffset"));
         assertDrawn(panel, 7);
     }
 
@@ -86,7 +86,12 @@ class ComputationScrollRenderingTest {
         var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
         var counts = snapshot(0, 0, 1);
         counts.getList("items", 10).getCompound(0).putByteArray("active", BigInteger.ONE.toByteArray());
+        counts.put("tasks", counts.getList("items", 10).copy());
+        counts.putInt("taskTotal", 1);
         panel.setValue(counts, false);
+        var animation = mock(cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation.class);
+        when(animation.value(anyDouble())).thenAnswer(call -> ((Double) call.getArgument(0)).floatValue());
+        set(panel, "opening", animation);
         var progress = ECOProcessingProgress.summarize(List.of(new ECOProcessingProgress.Machine(
             Component.literal("Machine"), "overworld [0,64,0]", "test:recipe", 50, 100, 1,
             ECOProcessingProgress.State.RUNNING, Component.empty())));
@@ -104,8 +109,8 @@ class ComputationScrollRenderingTest {
         // Reopening the same CPU may produce an identical payload and therefore no new S2C update.
         panel.open(1);
         var graphics = assertDrawn(panel, 1);
-        verify(graphics).fill(131, 19, 164, 41, 0x30C7A6FF);
-        verify(graphics).fill(97, 19, 131, 41, 0x90C7A6FF);
+        verify(graphics).fill(367, 27, 400, 49, 0x3060CD64);
+        verify(graphics).fill(333, 27, 367, 49, 0x9060CD64);
     }
 
     @Test void sidebarKeepsItsPageVisibleUntilTheLatestScrollReply() throws Exception {
@@ -159,9 +164,11 @@ class ComputationScrollRenderingTest {
         var snapshot = new CompoundTag();
         snapshot.putInt("total", 30);
         snapshot.putInt("cpuOffset", cpuOffset);
+        snapshot.putInt("cpuPageStart", cpuOffset);
         snapshot.putInt("selectedSerial", serial);
         snapshot.putInt("itemTotal", 60);
         snapshot.putInt("itemOffset", itemOffset);
+        snapshot.putInt("itemPageStart", itemOffset);
         snapshot.putLong("cpuScrollSequence", cpuSequence);
         snapshot.putLong("itemScrollSequence", itemSequence);
         var cpus = new ListTag();
@@ -210,7 +217,7 @@ class ComputationScrollRenderingTest {
             element.drawBackgroundAdditional(context);
             assertEquals(List.of(serial), drawn, "a pending page must keep drawing the last complete CPU rows");
             if (element instanceof ComputationCpuStatusPanel) {
-                keys.verify(() -> AEKeyRendering.drawInGui(client, graphics, 0, 0, AEItemKey.of(Items.STONE)));
+                keys.verify(() -> AEKeyRendering.drawInGui(client, graphics, 0, 0, AEItemKey.of(Items.STONE)), atLeastOnce());
             }
         }
         return graphics;

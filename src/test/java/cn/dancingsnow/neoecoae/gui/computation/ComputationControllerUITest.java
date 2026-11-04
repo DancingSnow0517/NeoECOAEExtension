@@ -56,7 +56,8 @@ class ComputationControllerUITest {
 
     @Test
     void loadsLayoutWithArtworkSwitchesInventoryAndToolbar() {
-        try (var ldlib = mockStatic(LDLib.class)) {
+        try (var ldlib = mockStatic(LDLib.class);
+             var minecraft = cn.dancingsnow.neoecoae.util.UiTestSupport.mockClient()) {
             ldlib.when(LDLib::isRemote).thenReturn(true);
             UIElement root = ComputationControllerUI.create(
                 config(mock(Runnable.class), mock(Runnable.class), mock(Runnable.class)),
@@ -79,9 +80,9 @@ class ComputationControllerUITest {
 
     @Test
     void selectedCpuOpensVisibleDetailsAndBackRestoresControllerAcrossRepeatedVisits() {
-        try (var ldlib = mockStatic(LDLib.class); var minecraft = mockStatic(Minecraft.class)) {
+        try (var ldlib = mockStatic(LDLib.class);
+             var minecraft = cn.dancingsnow.neoecoae.util.UiTestSupport.mockClient()) {
             ldlib.when(LDLib::isRemote).thenReturn(true);
-            minecraft.when(Minecraft::getInstance).thenReturn(mock(Minecraft.class));
             var config = config(() -> {}, () -> {}, () -> {});
             UIElement root = ComputationControllerUI.create(config,
                 () -> ComputationControllerPanelState.UNFORMED, new UIElement());
@@ -111,10 +112,10 @@ class ComputationControllerUITest {
                 assertFalse(main.isDisplayed());
                 assertTrue(details.isDisplayed());
                 assertTrue(details.isVisible());
-                assertEquals(326, root.getSizeWidth());
-                assertEquals(254, root.getSizeHeight());
-                assertEquals(326, details.getSizeWidth());
-                assertEquals(254, details.getSizeHeight());
+                assertEquals(ComputationCpuStatusPanel.WIDTH, root.getSizeWidth());
+                assertEquals(ComputationCpuStatusPanel.HEIGHT, root.getSizeHeight());
+                assertEquals(ComputationCpuStatusPanel.WIDTH, details.getSizeWidth());
+                assertEquals(ComputationCpuStatusPanel.HEIGHT, details.getSizeHeight());
                 assertTrue(find(root, "computation-status-back").effectivelyVisible());
 
                 click(find(root, "computation-status-back"));
@@ -137,7 +138,8 @@ class ComputationControllerUITest {
 
     @Test
     void driveGridHasOneSlotPerDriveWithoutDrives() {
-        try (var ldlib = mockStatic(LDLib.class)) {
+        try (var ldlib = mockStatic(LDLib.class);
+             var minecraft = cn.dancingsnow.neoecoae.util.UiTestSupport.mockClient()) {
             ldlib.when(LDLib::isRemote).thenReturn(true);
             UIElement root = ComputationControllerUI.create(
                 config(mock(Runnable.class), mock(Runnable.class), mock(Runnable.class)),
@@ -152,7 +154,8 @@ class ComputationControllerUITest {
 
     @Test
     void switchesRunTheirServerActions() {
-        try (var ldlib = mockStatic(LDLib.class)) {
+        try (var ldlib = mockStatic(LDLib.class);
+             var minecraft = cn.dancingsnow.neoecoae.util.UiTestSupport.mockClient()) {
             ldlib.when(LDLib::isRemote).thenReturn(true);
             Runnable substitutions = mock(Runnable.class);
             Runnable cyclePlanning = mock(Runnable.class);
@@ -176,7 +179,8 @@ class ComputationControllerUITest {
 
     @Test
     void switchTooltipListsNameStateDescriptionAndCount() {
-        try (var ldlib = mockStatic(LDLib.class)) {
+        try (var ldlib = mockStatic(LDLib.class);
+             var minecraft = cn.dancingsnow.neoecoae.util.UiTestSupport.mockClient()) {
             ldlib.when(LDLib::isRemote).thenReturn(true);
             UIElement root = ComputationControllerUI.create(
                 config(mock(Runnable.class), mock(Runnable.class), mock(Runnable.class)),

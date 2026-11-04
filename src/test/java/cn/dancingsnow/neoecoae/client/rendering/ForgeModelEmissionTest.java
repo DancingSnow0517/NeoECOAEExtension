@@ -44,8 +44,8 @@ class ForgeModelEmissionTest {
                 }
             }
         }
-        assertEquals(167, models);
-        assertEquals(831, faces, "Cover the 819 migrated faces and 12 existing Forge emissive faces");
+        assertEquals(170, models);
+        assertEquals(855, faces, "Cover the 831 existing faces and 24 smart cooling module faces");
     }
 
     private static int verify(JsonObject json, TextureAtlasSprite sprite, String path) {

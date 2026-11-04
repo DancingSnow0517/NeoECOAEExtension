@@ -115,6 +115,7 @@ class LargeWorkstationThermalControllerTest {
         field(host, "level", level);
         field(host, "formed", true);
         field(host, "overclocked", true);
+        field(host, "lastProcessingHeatTick", Long.MIN_VALUE);
         field(host, "pendingBatches", new ArrayDeque<>());
         field(host, "coolingOutput", new LargeWorkstationCoolingOutput());
         field(host, "uiEnergyUsage", new LargeWorkstationEnergyUsage());
@@ -1115,7 +1116,7 @@ class LargeWorkstationThermalControllerTest {
         doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
         host.tickingRequest(mock(IGridNode.class), 1);
         tick();
-        double expected = enabled ? 10 + 3.3635 * 100 / 256 / 20 : 9.995;
+        double expected = enabled ? 10 + 3.3635 / 20 : 9.995;
         assertEquals(expected, host.getTemperature(), 1e-10);
         tick();
         assertEquals(expected - 0.005, host.getTemperature(), 1e-10, "Paid work is never heated twice");
@@ -1139,7 +1140,7 @@ class LargeWorkstationThermalControllerTest {
         double before = host.getTemperature();
         host.tickingRequest(mock(IGridNode.class), 1);
         tick();
-        assertEquals(before + LargeWorkstationThermal.heatingPerSecond(before) * 100 / 256 / 20, host.getTemperature(), 1e-10);
+        assertEquals(before + LargeWorkstationThermal.heatingPerSecond(before) / 20, host.getTemperature(), 1e-10);
         assertEquals(200, value(batch, "progress"));
     }
 
@@ -1153,7 +1154,7 @@ class LargeWorkstationThermalControllerTest {
         assertFalse((boolean) value(host, "preheating"));
         clearInvocations(host);
         tick();
-        assertEquals(10 + 3.3635 * 100 / 256 / 20, host.getTemperature(), 1e-10);
+        assertEquals(10 + 3.3635 / 20, host.getTemperature(), 1e-10);
         verify(host, never()).extractAEPower(anyDouble(), any(), any());
     }
 
@@ -1244,7 +1245,9 @@ class LargeWorkstationThermalControllerTest {
         verify(host).extractAEPower(eq(100_000.0), eq(Actionable.MODULATE), any());
         assertEquals(15, recipe.maxOverclock(), "The shared recipe keeps its modpack-defined capability");
         assertEquals(25_000, recipe.coolant());
-        if (thermal) assertTrue(host.getTemperature() < 90, "Mapped tier 9 must actually dissipate heat");
+        if (thermal) assertEquals(90 + (LargeWorkstationThermal.heatingPerSecond(90)
+            - LargeWorkstationThermal.coolingPerSecond(9)) / 20, host.getTemperature(), 1e-10,
+            "A paid work tick generates heat while mapped tier 9 removes its designed cooling amount");
         else assertEquals(90, host.getTemperature(), "Coolant mode keeps thermal state frozen");
 
         var snapshot = ECOLargeIntegratedWorkingStationBlockEntity.class.getDeclaredMethod("getUiSnapshot", int.class);
