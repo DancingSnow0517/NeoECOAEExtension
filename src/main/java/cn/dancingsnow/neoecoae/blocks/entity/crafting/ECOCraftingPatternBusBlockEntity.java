@@ -8,7 +8,6 @@ import appeng.api.implementations.blockentities.PatternContainerGroup;
 import appeng.api.inventories.BaseInternalInventory;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGrid;
-import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
@@ -338,10 +337,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return cluster;
     }
 
-    boolean isServerStoppingForPublisher() {
-        return isServerStopping();
-    }
-
     @Override
     public @Nullable IGrid getGrid() {
         var node = getGridNode();
@@ -487,23 +482,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             && prepared.matches(prepared.stack());
     }
 
-    /**
-     * Purely a function of the recipe encoded in the pattern - never cached and never written back onto the
-     * pattern's ItemStack, so it can't go stale and can't affect pattern identity (dedup, AEItemKey, ...).
-     */
-    private static boolean isDurabilityPattern(IPatternDetails details) {
-        for (var input : details.getInputs()) {
-            if (input == null) continue;
-            for (var possible : input.getPossibleInputs()) {
-                if (possible != null && possible.what() instanceof AEItemKey itemKey
-                    && itemKey.toStack(1).isDamageableItem()) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
     @Override
     public boolean checksLogicalDomainForDuplicates() {
         return true;
@@ -618,22 +596,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         notifyPatternInterfaceTopologyChanged(previousGrid);
     }
 
-    @Override
-    public void onMainNodeStateChanged(IGridNodeListener.State reason) {
-        if (isServerStopping()) {
-            return;
-        }
-        super.onMainNodeStateChanged(reason);
-        if (reason == IGridNodeListener.State.POWER || reason == IGridNodeListener.State.GRID_BOOT) {
-            queueCraftingProviderRefresh();
-            notifyPatternInterfaceTopologyChanged();
-        }
-    }
-
-    private void updatePatternDetails() {
-        catalog.updatePatternDetails();
-    }
-
     /**
      * Republishes this provider's pattern list to AE2.
      *
@@ -704,19 +666,11 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         publisher.notifyPatternInterfaceHosts(slots);
     }
 
-    private void notifyPatternInterfaceTopologyChanged() {
-        publisher.notifyPatternInterfaceTopologyChanged();
-    }
-
     private void notifyPatternInterfaceTopologyChanged(@Nullable IGrid grid) {
         publisher.notifyPatternInterfaceTopologyChanged(grid);
     }
 
-    /** Re-mount the provider after AE2 has completed a power or pathing transition. */
-    private void queueCraftingProviderRefresh() {
-        publisher.queueCraftingProviderRefresh();
-    }
-
+    /** Flushes a coalesced pattern-content update. */
     public void flushScheduledPatternDetails() {
         catalog.flushScheduledPatternDetails();
     }
@@ -768,7 +722,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
                 for (int slot = 0; slot < restored.size(); slot++) if (!restored.get(slot).isEmpty())
                     setPatternDirect(slot, restored.get(slot));
             } finally { endPatternBatch(); }
-            updatePatternDetails();
+            catalog.updatePatternDetails();
         } catch (RuntimeException failure) {
             legacyPatternData = original;
             LOGGER.error("Cannot import 20.4.2 patterns at {}; original inventory retained and bus locked", worldPosition, failure);
