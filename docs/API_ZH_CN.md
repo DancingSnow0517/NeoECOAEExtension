@@ -329,6 +329,8 @@ ServerEvents.recipes(event => {
 
 `IECOTier.getPanelTierName()` 提供名称，`getHostMarkerTexture()` 提供标记，`getPanelAtlas(String)` 为当前档位替换完整图集。返回 null 使用默认外观。图集优先级：档位 → 全局 LDLib2 `ui-eco` provider → 原图。替换图保持原尺寸与裁剪布局。
 
+`IECOTier.getCraftConfirmCpuTierGlyph()` 为终端合成确认页提供独立的 13×18 CPU 档位角标，默认返回 null，不绘制角标，旧附属无需新增实现。独立图片可返回 `new ECOCpuTierGlyph(ResourceLocation.parse("addon:textures/gui/tier/l1.png"))`；图集使用五参数构造器 `(texture, u, v, textureWidth, textureHeight)`，裁剪固定为 13×18。内置 L4/L6/L9 沿用 `crafting_widgets.png` 中 `(0,0)/(13,0)/(26,0)` 的数字。此接口与 `getCPUOverlayTexture()` 的 10×10 花纹独立，不自动使用档位名称兜底。菜单同步 `ECO_TIER` 注册表 ID，-1 表示无 ECO CPU；附属的 `getTier() == 0` 也可正常显示自己的角标。
+
 | atlas 参数（不带 `ui-eco:`） | 默认文件（`assets/neoecoae/textures/guis/`） |
 | --- | --- |
 | `Computation-BACKGROUND_ATLAS` | `eco_cpu_controller.png` |
