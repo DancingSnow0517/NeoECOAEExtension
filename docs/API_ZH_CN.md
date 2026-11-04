@@ -56,6 +56,8 @@ side = "BOTH"
 
 ## 线程、注册与资源所有权
 
+JEI 多方块转移兼容桥使用 `MultiBlockRecipeTransferHandler.create()` 选择可用 API；仅在客户端且 JEI 存在时加载该类。具备 19.52 上下文接口时，实际样板编码完成或失败后回传转移结果，预检不发送完成通知。旧构造器及六参数 `transferRecipe` 保留给旧版 JEI 和已有二进制；新版接入使用工厂方法，避免遗漏上下文完成通知。
+
 规划入口先读取库存快照，因此在所属服务器线程调用。提交、供应器接收、存储变更和产物认领也在服务器线程执行。调用方在开始计算和提交前检查玩家/机器的网络访问权限；底层接口不代替鉴权。
 
 规划返回 `Future`：后续 tick 检查 `isDone()`，完成后才 `get()`，消费前清除持有的请求引用，确保只提交一次。菜单关闭、机器移除或网络失效时取消请求。处理取消、`ExecutionException`、中断与执行器队列满时的 `RejectedExecutionException`；不要在 tick 中阻塞等待。
@@ -291,6 +293,8 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 可编译的附属注册骨架见 [AddonApiExample.java](../src/test/java/cn/dancingsnow/neoecoae/api/extension/AddonApiExample.java)；其中 ID、方块、实体与配方适配器均须替换为附属实际注册对象。
 
 ### 工作站配方与模块
+
+`ECOLargeIntegratedWorkingStationBlockEntity.getCluster()` 在结构拆除或断开时返回 `null`，附属调用必须保留判空。旧公开方法 `getSelectedTierText/getTemperatureText/getEnergyText/getRecipeText/returnStoredInputs` 自 21.2.15 标记为弃用，仍保留原签名和行为，未计划移除。新面板使用 `getCoolingTierText/getTemperature/getAECurrentPower/getAEMaxPower/getTask` 等对应数据入口；`returnStoredInputs` 暂无通用替代，仅供所属服务器线程恢复旧批次，拒收后仍须保留未退回资源。
 
 `ECOWorkstationRecipeAdapters.register(id, priority, sourceRecipeType, adapter)` 转换外部配方，保留源 ID/类型、输入输出、加工时间、AE/FE 与额外资源。不能准确表达时使该配方停用，不丢弃成本。`LargeWorkstationRecipe.processing(ticks, feEnergy, feAlternative)` 明确时间/FE 合同；`energy()` 是 AE 预算，两项非零且非 alternative 时同时支付，alternative 时二选一，FE-only 的 AE 设零。
 

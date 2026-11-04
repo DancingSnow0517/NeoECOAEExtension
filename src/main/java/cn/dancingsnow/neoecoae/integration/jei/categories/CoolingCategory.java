@@ -21,9 +21,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.RecipeManager;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
+import java.util.Objects;
 
 public class CoolingCategory implements IRecipeCategory<RecipeHolder<CoolingRecipe>> {
     private final IDrawable icon;
@@ -114,9 +116,17 @@ public class CoolingCategory implements IRecipeCategory<RecipeHolder<CoolingReci
     }
 
     public static void registerRecipes(IRecipeRegistration registration) {
+        // JEI starts on the client thread after recipe sync and requires a client level before calling plugins.
+        // Read that level's manager rather than dereferencing Minecraft's nullable current connection again.
+        var level = Objects.requireNonNull(Minecraft.getInstance().level,
+            "JEI recipe registration requires an active client level");
+        registerRecipes(registration, level.getRecipeManager());
+    }
+
+    public static void registerRecipes(IRecipeRegistration registration, RecipeManager recipes) {
         registration.addRecipes(
             NeoECOAEJeiPlugin.COOLING_TYPE,
-            Minecraft.getInstance().getConnection().getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get())
+            recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())
         );
     }
 

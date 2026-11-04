@@ -99,8 +99,10 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
      * <p>Returned methods all go through {@link PatternDiskSupport}, which answers "no disks" when the mod
      * that provides them is absent or has not installed its backend yet.</p>
      */
+    @Nullable
     private AuxiliaryPatternHolder diskHolder;
 
+    @Nullable
     private AuxiliaryPatternHolder diskHolder() {
         AuxiliaryPatternHolder current = diskHolder;
         if (current == null && PatternDiskSupport.available()) {

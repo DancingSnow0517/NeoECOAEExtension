@@ -56,6 +56,8 @@ Handler operations and quantity reads follow the server-thread, simulation/execu
 
 ## Threads, registration and ownership
 
+The JEI multiblock transfer bridge selects the available API through `MultiBlockRecipeTransferHandler.create()`; load this class only on the client when JEI is present. With the 19.52 context API, actual pattern encoding reports completion or failure; preview checks do not send completion notifications. The old constructor and six-argument `transferRecipe` remain available for older JEI and existing binaries. New integrations should use the factory so context completion notifications are preserved.
+
 Begin planning on the owning server thread: it captures grid inventory before handing work to the executor. Submission, provider acceptance, storage mutations and output claims also run on that thread. The caller checks player/machine access before calculation and again before submission; these low-level APIs do not authenticate callers.
 
 Poll `Future.isDone()` from a later tick before calling `get()`. Clear the stored request reference before consuming it so a plan can be submitted only once. Cancel requests when their menu, machine or grid disappears. Handle cancellation, `ExecutionException`, interruption and executor `RejectedExecutionException`. Never block a server tick waiting for a result.
@@ -291,6 +293,8 @@ Roles provide classification/ordering, not execution backends; cores and drives 
 [AddonApiExample.java](../src/test/java/cn/dancingsnow/neoecoae/api/extension/AddonApiExample.java) provides a compilable registration skeleton; replace IDs, blocks, entities and recipe adapters with registered addon objects.
 
 ### Workstation recipes and modules
+
+`ECOLargeIntegratedWorkingStationBlockEntity.getCluster()` returns `null` when the structure is dismantled or disconnected; addon callers must retain their null checks. The legacy public methods `getSelectedTierText/getTemperatureText/getEnergyText/getRecipeText/returnStoredInputs` are deprecated since 21.2.15, with their signatures and behavior retained and no removal planned. New panels should use the corresponding data from `getCoolingTierText/getTemperature/getAECurrentPower/getAEMaxPower/getTask`. There is no general replacement for `returnStoredInputs`: legacy callers must run it on the owning server thread and retain any resources the network rejects for a later recovery attempt.
 
 `ECOWorkstationRecipeAdapters.register(id, priority, sourceRecipeType, adapter)` preserves source ID/type, inputs, outputs, time, AE/FE costs and extra resources. Disable recipes that cannot be represented accurately instead of omitting costs. `LargeWorkstationRecipe.processing(ticks, feEnergy, feAlternative)` specifies time/FE; `energy()` is the AE budget. Nonzero AE and FE with alternative false require both; true makes them alternatives. FE-only recipes set AE to zero.
 

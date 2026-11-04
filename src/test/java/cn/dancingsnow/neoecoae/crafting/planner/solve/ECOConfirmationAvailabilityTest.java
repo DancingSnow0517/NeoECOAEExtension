@@ -49,7 +49,7 @@ class ECOConfirmationAvailabilityTest {
     @Test
     void confirmMenuInterceptsModdedLongPlanningEntryPoints() throws Exception {
         var resetMethod = CraftConfirmMenuMixin.class.getDeclaredMethod(
-            "resetPlannerDiagnostics",
+            "resetExtendedPlannerDiagnostics",
             org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable.class
         );
         var inject = resetMethod.getAnnotation(org.spongepowered.asm.mixin.injection.Inject.class);
