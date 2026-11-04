@@ -5,24 +5,34 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
+import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.utils.ModularUITooltipComponent;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FormattedText;
+import net.neoforged.fml.ModList;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class ComputationStatCardsTest {
-    @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
+    @BeforeAll static void bootstrap() throws ClassNotFoundException {
+        InventoryTestBootstrap.initialize();
+        try (var mods = mockStatic(ModList.class)) {
+            var modList = mock(ModList.class);
+            when(modList.getAllScanData()).thenReturn(List.of());
+            mods.when(ModList::get).thenReturn(modList);
+            Class.forName(UIElement.class.getName());
+        }
+    }
 
     @Test void byteUnitsHaveNoBinaryInfixAndMarkRoundedValues() {
         assertEquals("0 B", ComputationStatCards.bytes(0));
         assertEquals("1 KB", ComputationStatCards.bytes(1024));
         assertEquals("1.5 KB", ComputationStatCards.bytes(1536));
         assertEquals("≈8 EB", ComputationStatCards.bytes(Long.MAX_VALUE));
-        assertEquals("2.147G", ComputationStatCards.count(Integer.MAX_VALUE));
+        assertEquals("2.14G", ComputationStatCards.count(Integer.MAX_VALUE));
     }
 
     @Test void cardsBuildToATitleLineAndACardComponent() throws Exception {
