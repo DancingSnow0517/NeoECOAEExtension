@@ -331,6 +331,8 @@ ServerEvents.recipes(event => {
 
 `IECOTier.getCraftConfirmCpuTierGlyph()` 为终端合成确认页提供独立的 13×18 CPU 档位角标，默认返回 null，不绘制角标，旧附属无需新增实现。独立图片可返回 `new ECOCpuTierGlyph(ResourceLocation.parse("addon:textures/gui/tier/l1.png"))`；图集使用五参数构造器 `(texture, u, v, textureWidth, textureHeight)`，裁剪固定为 13×18。内置 L4/L6/L9 沿用 `crafting_widgets.png` 中 `(0,0)/(13,0)/(26,0)` 的数字。此接口与 `getCPUOverlayTexture()` 的 10×10 花纹独立，不自动使用档位名称兜底。菜单同步 `ECO_TIER` 注册表 ID，-1 表示无 ECO CPU；附属的 `getTier() == 0` 也可正常显示自己的角标。
 
+`StorageHostActionUI.Config` 保留 21.2.13/21.2.14 的 13 参数构造器，旧附属 JAR 可继续链接。该重载的 `definition` 默认 supplier 返回 null，保留建造操作与材料预览；要提供结构场景预览，使用 14 参数构造器，在 `previewPlan` 后传入 `Supplier<MultiBlockDefinition>`。
+
 | atlas 参数（不带 `ui-eco:`） | 默认文件（`assets/neoecoae/textures/guis/`） |
 | --- | --- |
 | `Computation-BACKGROUND_ATLAS` | `eco_cpu_controller.png` |

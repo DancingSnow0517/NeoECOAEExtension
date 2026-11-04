@@ -36,6 +36,25 @@ public final class StorageHostActionUI {
         IntConsumer setPriority,
         IntConsumer changePriority
     ) {
+        /** Retains the constructor used by addons compiled against 21.2.13 and 21.2.14. */
+        public Config(
+            Player player,
+            IntSupplier selectedLength,
+            BooleanSupplier mirrored,
+            Consumer<Boolean> setMirrored,
+            Runnable decreaseLength,
+            Runnable increaseLength,
+            Runnable build,
+            BooleanSupplier formed,
+            BooleanSupplier buildInProgress,
+            Supplier<MultiBlockPlacementPlan> previewPlan,
+            IntSupplier priority,
+            IntConsumer setPriority,
+            IntConsumer changePriority
+        ) {
+            this(player, selectedLength, mirrored, setMirrored, decreaseLength, increaseLength, build,
+                formed, buildInProgress, previewPlan, () -> null, priority, setPriority, changePriority);
+        }
     }
 
     public record Elements(
