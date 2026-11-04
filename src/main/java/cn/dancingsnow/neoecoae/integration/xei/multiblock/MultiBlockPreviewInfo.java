@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.xei.multiblock;
 
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.network.CraftingCapabilitySnapshot;
@@ -22,7 +23,6 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.level.block.Block;
 
 import java.util.List;
-import java.util.Locale;
 
 /** Describes one physical preview. It does not create block entities or inspect a live world. */
 final class MultiBlockPreviewInfo {
@@ -121,12 +121,9 @@ final class MultiBlockPreviewInfo {
         return new Row(Component.translatable(PREFIX + label), value, Component.translatable(PREFIX + help));
     }
 
-    private static String number(long value) { return String.format(Locale.ROOT, "%,d", value); }
+    private static String number(long value) { return DisplayNumbers.compact(value); }
 
     private static String compact(double value) {
-        String[] units = {"", "k", "M", "G", "T", "P", "E"};
-        int unit = 0;
-        while (value >= 1000 && unit < units.length - 1) { value /= 1000; unit++; }
-        return String.format(Locale.ROOT, value == Math.floor(value) ? "%.0f%s" : "%.1f%s", value, units[unit]);
+        return DisplayNumbers.compact(value);
     }
 }

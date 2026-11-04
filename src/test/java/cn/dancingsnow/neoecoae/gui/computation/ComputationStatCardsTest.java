@@ -30,6 +30,7 @@ class ComputationStatCardsTest {
         assertEquals("1.5 KB", ComputationStatCards.bytes(1536));
         assertEquals("≈8 EB", ComputationStatCards.bytes(Long.MAX_VALUE));
         assertFalse(ComputationStatCards.bytes(Long.MAX_VALUE).contains("i"));
+        assertEquals("2.14G", ComputationStatCards.count(Integer.MAX_VALUE));
     }
 
     @Test void storageThreadAndParallelCardsShowTheirValues() {
@@ -42,12 +43,12 @@ class ComputationStatCardsTest {
 
             var threads = draw(ComputationStatCards.threads(0, Integer.MAX_VALUE), font);
             assertTrue(threads.contains("0"));
-            assertTrue(threads.contains(" / 2.147G"));
+            assertTrue(threads.contains(" / 2.14G"));
             assertTrue(threads.contains((CARD + "idle").toUpperCase(java.util.Locale.ROOT)));
-            assertTrue(threads.stream().anyMatch(text -> text.equals("2.147G")));
+            assertTrue(threads.stream().anyMatch(text -> text.equals("2.14G")));
 
             var parallel = draw(ComputationStatCards.parallel(Integer.MAX_VALUE, Integer.MAX_VALUE, 8, Integer.MAX_VALUE), font);
-            assertTrue(parallel.contains("2.147G"));
+            assertTrue(parallel.contains("2.14G"));
             assertTrue(parallel.contains("×8"));
             assertTrue(parallel.contains(CARD + "full_per_thread"));
             assertTrue(parallel.contains((CARD + "built").toUpperCase(java.util.Locale.ROOT)));
@@ -63,7 +64,7 @@ class ComputationStatCardsTest {
             assertTrue(compact.contains("CPU #1"));
             assertTrue(compact.contains("GUI.NEOECOAE.CPU.STATUS.IDLE"));
             assertTrue(compact.contains("≈8 EB"));
-            assertTrue(compact.contains("2.147G"));
+            assertTrue(compact.contains("2.14G"));
             assertTrue(compact.contains(CARD + "hold_shift"));
             var exact = draw(ComputationCards.cpu(entry, true), font);
             assertTrue(exact.contains("9,223,372,036,854,775,807 B"));
