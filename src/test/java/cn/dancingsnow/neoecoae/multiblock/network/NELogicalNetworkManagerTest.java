@@ -15,8 +15,10 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -163,6 +165,168 @@ class NELogicalNetworkManagerTest {
             assertNull(cluster.getNetworkCluster());
             assertSame(cluster, cluster.getPatternDomain());
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {8, 16, 17})
+    void unchangedGridCallbacksPreserveExistingPartitionsWithoutRebuilding(int hosts) {
+        ServerLevel level = level();
+        IManagedGridNode node = node();
+        when(node.isOnline()).thenReturn(true);
+        var clusters = craftingHosts(level, node, hosts);
+        var original = clusters.stream().map(NECraftingCluster::getNetworkCluster).toList();
+        for (var reason : IGridNodeListener.State.values()) {
+            clusters.forEach(cluster -> cluster.getController().onMainNodeStateChanged(reason));
+        }
+        NELogicalNetworkManager.tick(level);
+
+        for (int i = 0; i < clusters.size(); i++) {
+            var cluster = clusters.get(i);
+            assertSame(original.get(i), cluster.getNetworkCluster());
+            verify(cluster, never()).setNetworkCluster(any());
+            verify(cluster.getController(), never()).applyNetworkOverclocked(anyBoolean());
+            verify(cluster.getController(), never()).applyNetworkActiveCooling(anyBoolean());
+        }
+    }
+
+    @Test
+    void eightMembersMovingToAnotherGridCauseOneSharedRebuild() {
+        ServerLevel level = level();
+        IManagedGridNode node = node();
+        when(node.isOnline()).thenReturn(true);
+        var clusters = craftingHosts(level, node, 8);
+        var previous = clusters.get(0).getNetworkCluster();
+        when(node.getGrid()).thenReturn(mock(IGrid.class));
+        for (int pass = 0; pass < 2; pass++) {
+            clusters.forEach(cluster -> cluster.getController().onMainNodeStateChanged(IGridNodeListener.State.GRID_BOOT));
+        }
+        NELogicalNetworkManager.tick(level);
+
+        var current = clusters.get(0).getNetworkCluster();
+        assertNotNull(current);
+        assertNotSame(previous, current);
+        assertEquals(8, current.getMembers().size());
+        for (var cluster : clusters) {
+            assertSame(current, cluster.getNetworkCluster());
+            verify(cluster, times(1)).setNetworkCluster(null);
+            verify(cluster, times(1)).setNetworkCluster(current);
+            verify(cluster.getController(), times(1)).applyNetworkOverclocked(false);
+            verify(cluster.getController(), times(1)).applyNetworkActiveCooling(false);
+        }
+    }
+
+    @Test
+    void craftingHostsLeaveAndRecoverAfterPowerLoss() {
+        ServerLevel level = level();
+        IManagedGridNode node = node();
+        when(node.isOnline()).thenReturn(true);
+        var clusters = craftingHosts(level, node, 8);
+        when(node.isOnline()).thenReturn(false);
+        clusters.forEach(cluster -> cluster.getController().onMainNodeStateChanged(IGridNodeListener.State.POWER));
+        NELogicalNetworkManager.tick(level);
+        clusters.forEach(cluster -> assertNull(cluster.getNetworkCluster()));
+
+        when(node.isOnline()).thenReturn(true);
+        clusters.forEach(cluster -> cluster.getController().onMainNodeStateChanged(IGridNodeListener.State.POWER));
+        NELogicalNetworkManager.tick(level);
+        var current = clusters.get(0).getNetworkCluster();
+        assertNotNull(current);
+        assertEquals(8, current.getMembers().size());
+        clusters.forEach(cluster -> assertSame(current, cluster.getNetworkCluster()));
+    }
+
+    @Test
+    void manualFrequencyChangeStillSplitsAndRejoinsImmediately() {
+        ServerLevel level = level();
+        IManagedGridNode node = node();
+        when(node.isOnline()).thenReturn(true);
+        var clusters = craftingHosts(level, node, 8);
+        var changed = clusters.get(0);
+        when(changed.getController().getNetworkFrequency()).thenReturn(8);
+        NELogicalNetworkManager.refresh(changed);
+        assertNull(changed.getNetworkCluster());
+        assertEquals(7, clusters.get(clusters.size() - 1).getNetworkCluster().getMembers().size());
+
+        when(changed.getController().getNetworkFrequency()).thenReturn(7);
+        NELogicalNetworkManager.refresh(changed);
+        assertEquals(8, changed.getNetworkCluster().getMembers().size());
+        assertSame(changed.getNetworkCluster(), clusters.get(clusters.size() - 1).getNetworkCluster());
+    }
+
+    @Test
+    void detachedHostCannotRejoinFromAnOlderQueuedNotification() {
+        ServerLevel level = level();
+        IManagedGridNode node = node();
+        when(node.isOnline()).thenReturn(true);
+        var clusters = craftingHosts(level, node, 8);
+        var removed = clusters.get(0);
+        removed.getController().onMainNodeStateChanged(IGridNodeListener.State.GRID_BOOT);
+        NELogicalNetworkManager.detachBeforeDestroy(removed);
+        NELogicalNetworkManager.tick(level);
+        assertNull(removed.getNetworkCluster());
+        assertEquals(7, clusters.get(clusters.size() - 1).getNetworkCluster().getMembers().size());
+    }
+
+    @Test
+    void computationCallbacksAlsoRetainUnchangedGroupsAndBatchActualMoves() {
+        ServerLevel level = level();
+        IManagedGridNode node = node();
+        when(node.isOnline()).thenReturn(true);
+        List<NEComputationCluster> clusters = new ArrayList<>();
+        for (int i = 0; i < 8; i++) {
+            var controller = controller(ECOComputationSystemBlockEntity.class, level, node, i);
+            when(controller.hasNetworkSwitch()).thenReturn(true);
+            when(controller.hasNetworkFrequency()).thenReturn(true);
+            when(controller.getNetworkFrequency()).thenReturn(7);
+            var cluster = spy(new NEComputationCluster(BlockPos.ZERO, BlockPos.ZERO));
+            doCallRealMethod().when(controller).updateCluster(cluster);
+            controller.updateCluster(cluster);
+            cluster.addBlockEntity(controller);
+            NELogicalNetworkManager.attach(cluster);
+            clusters.add(cluster);
+        }
+        NELogicalNetworkManager.tick(level);
+        clearInvocations(clusters.toArray());
+        var original = clusters.get(0).getNetworkCluster();
+        clusters.forEach(cluster -> cluster.getController().onMainNodeStateChanged(IGridNodeListener.State.GRID_BOOT));
+        NELogicalNetworkManager.tick(level);
+        for (var cluster : clusters) {
+            assertSame(original, cluster.getNetworkCluster());
+            verify(cluster, never()).setNetworkCluster(any());
+        }
+
+        when(node.getGrid()).thenReturn(mock(IGrid.class));
+        clusters.forEach(cluster -> cluster.getController().onMainNodeStateChanged(IGridNodeListener.State.GRID_BOOT));
+        NELogicalNetworkManager.tick(level);
+        var current = clusters.get(0).getNetworkCluster();
+        assertNotNull(current);
+        assertNotSame(original, current);
+        for (var cluster : clusters) {
+            assertSame(current, cluster.getNetworkCluster());
+            verify(cluster, times(1)).setNetworkCluster(null);
+            verify(cluster, times(1)).setNetworkCluster(current);
+        }
+    }
+
+    private static List<NECraftingCluster> craftingHosts(ServerLevel level, IManagedGridNode node, int count) {
+        List<NECraftingCluster> clusters = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            var controller = controller(ECOCraftingSystemBlockEntity.class, level, node, i);
+            when(controller.hasNetworkSwitch()).thenReturn(true);
+            when(controller.hasNetworkFrequency()).thenReturn(true);
+            when(controller.getNetworkFrequency()).thenReturn(7);
+            var cluster = spy(new NECraftingCluster(BlockPos.ZERO, BlockPos.ZERO));
+            doCallRealMethod().when(controller).updateCluster(cluster);
+            controller.updateCluster(cluster);
+            cluster.addBlockEntity(controller);
+            NELogicalNetworkManager.attach(cluster);
+            clusters.add(cluster);
+        }
+        NELogicalNetworkManager.tick(level);
+        for (var cluster : clusters) {
+            clearInvocations(cluster, cluster.getController());
+        }
+        return clusters;
     }
 
     private static ServerLevel level() {
