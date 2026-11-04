@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.client.gui.crafting;
 
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
@@ -30,11 +31,11 @@ final class ECOCraftConfirmTableRenderer extends AbstractTableRenderer<CraftingP
     @Override protected List<Component> getEntryDescription(CraftingPlanSummaryEntry entry) {
         List<Component> lines = new ArrayList<>(3);
         if (entry.getStoredAmount() > 0) lines.add(GuiText.FromStorage.text(
-            entry.getWhat().formatAmount(entry.getStoredAmount(), AmountFormat.SLOT)));
+            DisplayNumbers.grouped(entry.getWhat().formatAmount(entry.getStoredAmount(), AmountFormat.SLOT))));
         if (entry.getMissingAmount() > 0) lines.add(GuiText.Missing.text(
-            entry.getWhat().formatAmount(entry.getMissingAmount(), AmountFormat.SLOT)));
+            DisplayNumbers.grouped(entry.getWhat().formatAmount(entry.getMissingAmount(), AmountFormat.SLOT))));
         if (entry.getCraftAmount() > 0) lines.add(GuiText.ToCraft.text(
-            entry.getWhat().formatAmount(entry.getCraftAmount(), AmountFormat.SLOT)));
+            DisplayNumbers.grouped(entry.getWhat().formatAmount(entry.getCraftAmount(), AmountFormat.SLOT))));
         return lines;
     }
 
@@ -43,11 +44,11 @@ final class ECOCraftConfirmTableRenderer extends AbstractTableRenderer<CraftingP
     @Override protected List<Component> getEntryTooltip(CraftingPlanSummaryEntry entry) {
         List<Component> lines = AEKeyRendering.getTooltip(entry.getWhat());
         if (entry.getStoredAmount() > 0) lines.add(GuiText.FromStorage.text(
-            entry.getWhat().formatAmount(entry.getStoredAmount(), AmountFormat.FULL)));
+            DisplayNumbers.grouped(entry.getWhat().formatAmount(entry.getStoredAmount(), AmountFormat.FULL))));
         if (entry.getMissingAmount() > 0) lines.add(GuiText.Missing.text(
-            entry.getWhat().formatAmount(entry.getMissingAmount(), AmountFormat.FULL)));
+            DisplayNumbers.grouped(entry.getWhat().formatAmount(entry.getMissingAmount(), AmountFormat.FULL))));
         if (entry.getCraftAmount() > 0) lines.add(GuiText.ToCraft.text(
-            entry.getWhat().formatAmount(entry.getCraftAmount(), AmountFormat.FULL)));
+            DisplayNumbers.grouped(entry.getWhat().formatAmount(entry.getCraftAmount(), AmountFormat.FULL))));
         return lines;
     }
 

@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.AmountFormat;
@@ -204,7 +205,7 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
         var mc = Minecraft.getInstance();
         AEKeyRendering.drawInGui(mc, context.graphics, Math.round(x), Math.round(y), key);
         if (amount > 0) StackSizeRenderer.renderSizeLabel(context.graphics, mc.font, x, y,
-            key.formatAmount(amount, AmountFormat.SLOT), false);
+            DisplayNumbers.grouped(key.formatAmount(amount, AmountFormat.SLOT)), false);
     }
 
     private static List<Component> interfaceTooltip(FluidStack fluid, long amount) {
@@ -212,7 +213,7 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
         if (!fluid.isEmpty()) {
             var key = AEFluidKey.of(fluid);
             lines.add(key.getDisplayName());
-            lines.add(Component.literal(key.formatAmount(amount, AmountFormat.FULL)).withStyle(ChatFormatting.GRAY));
+            lines.add(Component.literal(DisplayNumbers.grouped(key.formatAmount(amount, AmountFormat.FULL))).withStyle(ChatFormatting.GRAY));
         }
         return lines;
     }
