@@ -115,6 +115,10 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     private final LargeWorkstationModuleInventory moduleInventory = new LargeWorkstationModuleInventory(this::moduleChanged);
     /** Accepted ordinary-path batches, bounded by MAX_PENDING_BATCHES backpressure. */
     private final Deque<PendingBatch> pendingBatches = new ArrayDeque<>();
+    private boolean pendingOutputCountValid;
+    private long pendingOutputStackCount;
+    private int communicationUpdateDepth;
+    private boolean communicationUpdatePending;
     @Nullable
     private NEIntegratedWorkingStationCluster cluster;
     @DescSynced
@@ -762,6 +766,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             ECOCraftingJobLifecycle.finish(level, selected.craftingJobId, false);
         }
         notifyPatternAborted(selected.unlockStack);
+        pendingOutputCountValid = false;
         pendingBatches.remove(selected);
         PendingBatch first = pendingBatches.peekFirst();
         setProcessingTime(first == null ? 0 : first.progress);
@@ -987,6 +992,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         double restoredRefund = data.getDouble("pendingPowerRefund");
         pendingPowerRefund = Double.isFinite(restoredRefund) && restoredRefund > 0.0D ? restoredRefund : 0.0D;
         coolingOutput.load(data, registries);
+        pendingOutputCountValid = false;
         pendingBatches.clear();
         ListTag batches = data.getList("pendingBatches", Tag.TAG_COMPOUND);
         setPauseReason(PauseReason.NONE);
@@ -1037,15 +1043,22 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
         retryPendingPowerRefund();
         if (!formed) return super.tickingRequest(node, ticksSinceLastCall);
-        refreshModuleAppearance();
-        transferStoredFluid(inputTank, getInputTank());
-        transferStoredFluid(outputTank, getOutputTank());
-        flushOutputs();
-        if (!getMainNode().isActive()) {
-            setWorking(false);
-            return TickRateModulation.SLOWER;
+        communicationUpdateDepth++;
+        try {
+            refreshModuleAppearance();
+            transferStoredFluid(inputTank, getInputTank());
+            transferStoredFluid(outputTank, getOutputTank());
+            flushOutputs();
+            if (!getMainNode().isActive()) {
+                setWorking(false);
+                return TickRateModulation.SLOWER;
+            }
+            return tickPendingBatch();
+        } finally {
+            // A tick can move coolant, finish portions and dequeue batches. Publish one final
+            // provider update even when one of those operations exits exceptionally.
+            finishCommunicationUpdates();
         }
-        return tickPendingBatch();
     }
 
     public boolean canAcceptPattern() {
@@ -1057,16 +1070,27 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     private long getPendingOutputStackCount() {
+        if (pendingOutputCountValid) return pendingOutputStackCount;
         long count = 0L;
+        counting:
         for (PendingBatch batch : pendingBatches) {
             for (var entry : batch.pendingOutput) {
-                if (entry.getLongValue() > 0L) {
-                    if (count >= MAX_PENDING_OUTPUT_STACKS) return MAX_PENDING_OUTPUT_STACKS;
-                    count++;
-                }
+                if (entry.getLongValue() > 0L && ++count >= MAX_PENDING_OUTPUT_STACKS) break counting;
             }
         }
+        pendingOutputStackCount = count;
+        pendingOutputCountValid = true;
         return count;
+    }
+
+    private void addBatchOutputs(PendingBatch batch, KeyCounter outputs) {
+        pendingOutputCountValid = false;
+        batch.pendingOutput.addAll(outputs);
+    }
+
+    private void removeBatchOutput(PendingBatch batch, AEKey key, long amount) {
+        pendingOutputCountValid = false;
+        batch.pendingOutput.remove(key, amount);
     }
 
     /** Applies AE2 pattern-provider blocking semantics to the controller's owned, pending input ledger. */
@@ -1116,6 +1140,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     private void enqueueBatch(PendingBatch batch, @Nullable KeyCounter[] consumedInputs) {
         boolean wasEmpty = pendingBatches.isEmpty();
+        pendingOutputCountValid = false;
         pendingBatches.addLast(batch);
         if (consumedInputs != null) {
             for (KeyCounter counter : consumedInputs) {
@@ -1205,7 +1230,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (advance <= 0) {
             batch.progress = batch.processingTicks;
             batch.inputTotal.clear();
-            batch.pendingOutput.addAll(batch.outputTotal);
+            addBatchOutputs(batch, batch.outputTotal);
             boolean delivered = deliverBatchOutputs(batch);
             if (delivered) removeFirstBatch(batch);
             if (delivered) setPauseReason(PauseReason.NONE);
@@ -1340,7 +1365,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             // Inputs are already owned by this controller. Once the batch reaches completion, only the output
             // ledger remains recoverable and the original input total must never be replayed.
             batch.inputTotal.clear();
-            batch.pendingOutput.addAll(batch.outputTotal);
+            addBatchOutputs(batch, batch.outputTotal);
             if (deliverBatchOutputs(batch)) removeFirstBatch(batch);
         } else {
             setWorking(true);
@@ -1479,14 +1504,14 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             batch.progress = batch.processingTicks;
             batch.progressRemainder = 0;
             batch.inputTotal.clear();
-            batch.pendingOutput.addAll(batch.outputTotal);
+            addBatchOutputs(batch, batch.outputTotal);
             return;
         }
         KeyCounter inputs = counterPortion(addCountersExact(batch.inputTotal, batch.missingExtras), count, batch.craftCount);
         KeyCounter outputs = counterPortion(batch.outputTotal, count, batch.craftCount);
         for (var entry : inputs) batch.inputTotal.remove(entry.getKey(), entry.getLongValue());
         for (var entry : outputs) batch.outputTotal.remove(entry.getKey(), entry.getLongValue());
-        batch.pendingOutput.addAll(outputs);
+        addBatchOutputs(batch, outputs);
         batch.craftCount -= count;
         batch.progress = (int) (remainingPaidWork / batch.craftCount);
         batch.progressRemainder = remainingPaidWork % batch.craftCount;
@@ -1781,6 +1806,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     private void removeFirstBatch(PendingBatch batch) {
         if (pendingBatches.peekFirst() != batch) return;
+        pendingOutputCountValid = false;
         pendingBatches.removeFirst();
         PendingBatch next = pendingBatches.peekFirst();
         setProcessingTime(next == null ? 0 : next.progress);
@@ -1814,7 +1840,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                     throw new IllegalStateException(
                         "Invalid large workstation output insertion amount: " + inserted + " for " + requested);
                 }
-                if (inserted > 0L) batch.pendingOutput.remove(stack.what(), inserted);
+                if (inserted > 0L) removeBatchOutput(batch, stack.what(), inserted);
                 requested -= inserted;
                 if (requested == 0L) continue;
                 // An external CPU can finish while accepting the final output. Its remaining
@@ -1829,7 +1855,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 throw new IllegalStateException(
                     "Invalid large workstation output insertion amount: " + inserted + " for " + requested);
             }
-            if (inserted > 0L) batch.pendingOutput.remove(stack.what(), inserted);
+            if (inserted > 0L) removeBatchOutput(batch, stack.what(), inserted);
             if (inserted < requested) {
                 setOutputBlockedReason(OutputBlockedReason.NETWORK_INSERT);
                 return false;
@@ -1855,8 +1881,19 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     private void requestCommunicationProviderUpdate() {
+        if (communicationUpdateDepth > 0) {
+            communicationUpdatePending = true;
+            return;
+        }
         if (cluster != null && cluster.getCommunication() instanceof ECOLargeIntegratedWorkingStationInterfaceBlockEntity communication) {
             ICraftingProvider.requestUpdate(communication.getMainNode());
+        }
+    }
+
+    private void finishCommunicationUpdates() {
+        if (--communicationUpdateDepth == 0 && communicationUpdatePending) {
+            communicationUpdatePending = false;
+            requestCommunicationProviderUpdate();
         }
     }
 
@@ -2174,6 +2211,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 ECOCraftingJobLifecycle.finish(level, batch.craftingJobId, false);
             }
             notifyPatternAborted(batch.unlockStack);
+            pendingOutputCountValid = false;
             pendingBatches.remove(batch);
         }
         PendingBatch first = pendingBatches.peekFirst();
@@ -2220,6 +2258,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 }
             }
         }
+        pendingOutputCountValid = false;
         pendingBatches.clear();
     }
 
@@ -2230,6 +2269,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 ECOCraftingJobLifecycle.finish(level, batch.craftingJobId, false);
             }
         }
+        pendingOutputCountValid = false;
         pendingBatches.clear();
         super.clearContent();
         moduleInventory.setStackInSlot(0, ItemStack.EMPTY);
