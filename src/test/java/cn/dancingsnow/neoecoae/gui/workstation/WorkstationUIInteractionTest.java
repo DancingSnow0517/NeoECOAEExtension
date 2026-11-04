@@ -182,7 +182,12 @@ class WorkstationUIInteractionTest {
                 coolant.setValue(quantity == 0 ? FluidStack.EMPTY : new FluidStack(Fluids.WATER, quantity), false);
                 var contents = assertInstanceOf(TranslatableContents.class, amount.getText().getContents());
                 assertEquals("gui.neoecoae.smart_cooling.buffer_amount", contents.getKey());
-                assertArrayEquals(new Object[] {String.format(java.util.Locale.ROOT, "%,d", quantity)}, contents.getArgs());
+                String expected = switch (quantity) {
+                    case 2_000 -> "2K";
+                    case 16_384_000 -> "16.3M";
+                    default -> "0";
+                };
+                assertArrayEquals(new Object[] {expected}, contents.getArgs());
             }
             assertEquals(SmartCoolingModuleUI.Phase.OFFLINE, SmartCoolingModuleUI.phase(host));
             assertEquals("gui.neoecoae.smart_cooling.unformed",
@@ -800,6 +805,16 @@ class WorkstationUIInteractionTest {
             assertTrue(energy.stream().anyMatch(text -> "12.5".equals(text.getString())));
             String quarter = cn.dancingsnow.neoecoae.gui.common.HostText.percent(0.25);
             assertTrue(energy.stream().anyMatch(text -> quarter.equals(text.getString())), "Bar caption: " + energy);
+
+            snapshot.putDouble("energyUsage", 1_234_567.5);
+            snapshot.putDouble("feUsage", 138_936_320_000D);
+            snapshot.putLong("feBuffer", Long.MAX_VALUE);
+            panel.setValue(snapshot.copy());
+            var largeEnergy = panel.energyCardBuilder().texts();
+            assertTrue(largeEnergy.stream().anyMatch(text -> "1.23M".equals(text.getString())));
+            assertEquals("138G", translatable(largeEnergy, "gui.neoecoae.workstation.card.fe_rate").getArgs()[0]);
+            assertEquals("9.22E", translatable(largeEnergy, "gui.neoecoae.workstation.card.fe_amount").getArgs()[0]);
+            assertEquals("16,000,000", translatable(largeEnergy, "gui.neoecoae.workstation.card.ae_amount").getArgs()[0]);
 
             var collapsed = translatable(panel.moduleCardBuilder(false).texts(), "gui.neoecoae.workstation.card.card_count_shift");
             int cards = (Integer) collapsed.getArgs()[0];
