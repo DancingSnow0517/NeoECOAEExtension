@@ -1,4 +1,9 @@
 {
+  "item.neoecoae.dev_resource_generator": "試用隨機物資生器 / 儲盤",
+  "neoecoae.configuration.keyReuse": "AE 物資鍵複用",
+  "neoecoae.configuration.keyReuse.tooltip": "本機緩存之設。值等之義與舊存檔之制皆如故。",
+  "neoecoae.configuration.keyReuse.enabled": "複用無附加資料之鍵",
+  "neoecoae.configuration.keyReuse.enabled.tooltip": "無附加組件或 NBT 者，複用其不變之鍵；有附加資料者，仍循原法建立。",
   "gui.neoecoae.large_integrated_working_station.recipe_energy_label": "耗能",
   "gui.neoecoae.large_integrated_working_station.extra_required_label": "另需",
   "gui.neoecoae.large_integrated_working_station.lightning_cost": "另需：%sx%s",

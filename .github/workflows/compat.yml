@@ -104,7 +104,9 @@ jobs:
           started_at=$SECONDS
           trap 'echo "GRADLE_BUILD_SECONDS=$((SECONDS - started_at))" >> "$GITHUB_ENV"' EXIT
           args=(-I tools/compat/ci.init.gradle reobfJar upstreamSyncTest
-                --tests 'cn.dancingsnow.neoecoae.integration.kubejs.schema.KubeJSRecipeSchemaTest')
+                --tests 'cn.dancingsnow.neoecoae.integration.kubejs.schema.KubeJSRecipeSchemaTest'
+                --tests 'cn.dancingsnow.neoecoae.data.lang.LanguageResourcesTest'
+                --tests 'cn.dancingsnow.neoecoae.integration.emi.EmiBookmarkAccessTest')
           if [[ "$BUILD_COMPAT_PROBE" == 'true' ]]; then
             args+=(-I tools/compat/compat.init.gradle reobfCompatTestJar)
           fi
