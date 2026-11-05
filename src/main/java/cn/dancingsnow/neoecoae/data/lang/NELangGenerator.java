@@ -4,6 +4,30 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("item.neoecoae.dev_resource_generator", "Development Resource Generator");
+        provider.add("neoecoae.configuration.devTools", "Development tools");
+        provider.add("neoecoae.configuration.devTools.tooltip", "Development workloads for test networks.");
+        provider.add("neoecoae.configuration.devTools.enabled", "Enable development tools");
+        provider.add("neoecoae.configuration.devTools.enabled.tooltip", "Show the development generator and enable its commands and workloads. Restart the client after changing visibility. Multiplayer servers must enable it separately.");
+        provider.add("neoecoae.configuration.devTools.button", "Development tools");
+        provider.add("neoecoae.configuration.devTools.button.tooltip", "Configure development workloads.");
+        provider.add("tooltip.neoecoae.dev.resource_mode", "Development tool - Resource generation");
+        provider.add("tooltip.neoecoae.dev.fe_mode", "Development tool - FE workload");
+        provider.add("tooltip.neoecoae.dev.mount", "Place and cable, or install in an ME Drive.");
+        provider.add("tooltip.neoecoae.dev.disabled", "Disabled in the development-tools config");
+        provider.add("tooltip.neoecoae.dev.types", "Resource types: %s");
+        provider.add("tooltip.neoecoae.dev.range", "Per type per cycle: %s to %s");
+        provider.add("tooltip.neoecoae.dev.interval", "Generation interval: %s ticks");
+        provider.add("tooltip.neoecoae.dev.fe_types", "Resource: %s type (FE)");
+        provider.add("tooltip.neoecoae.dev.producers", "Generation endpoints: %s");
+        provider.add("tooltip.neoecoae.dev.produce_range", "Per generation endpoint: %s to %s FE/t");
+        provider.add("tooltip.neoecoae.dev.consumers", "Consumption endpoints: %s");
+        provider.add("tooltip.neoecoae.dev.consume_range", "Per consumption endpoint: %s to %s FE/t");
+        provider.add("tooltip.neoecoae.dev.fe_enabled", "Workload enabled - every tick");
+        provider.add("tooltip.neoecoae.dev.fe_paused", "Workload paused");
+        provider.add("tooltip.neoecoae.dev.fe_consumes", "Consumes actual FE stored in the network.");
+        provider.add("tooltip.neoecoae.dev.help", "Commands and examples: /neodev help");
+
         provider.add("neoecoae.configuration.keyReuse", "AE key reuse");
         provider.add("neoecoae.configuration.keyReuse.tooltip", "Local cache settings. Value equality and saved inventories remain compatible.");
         provider.add("neoecoae.configuration.keyReuse.enabled", "Reuse keys without extra data");

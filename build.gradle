@@ -335,6 +335,7 @@ neoForge {
     runs {
         client {
             client()
+            systemProperty 'neoecoae.devGenerator', 'true'
             if (project.hasProperty('quickPlay')) {
                 programArguments.addAll '--quickPlaySingleplayer', project.property('quickPlay').toString()
             }
