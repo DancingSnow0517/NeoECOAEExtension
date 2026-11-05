@@ -3,38 +3,23 @@ package cn.dancingsnow.neoecoae.storage.infinite;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
-import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
-import appeng.api.storage.StorageCells;
-import appeng.me.cells.BasicCellInventory;
-import appeng.items.storage.BasicStorageCell;
-import cn.dancingsnow.neoecoae.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.storage.StorageListingDelta;
-import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
-import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
 import java.math.BigInteger;
 import java.util.function.BooleanSupplier;
 import net.minecraft.network.chat.Component;
 import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.CombinedExactAmountSource;
-import it.unimi.dsi.fastutil.objects.Object2ByteLinkedOpenHashMap;
+import cn.dancingsnow.neoecoae.crafting.display.terminal.SparseExactAmountSource;
 
 public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountSource, ECOBigIntegerStorage,
-        StorageListingDelta {
-    private static final int ADMISSION_CACHE_LIMIT = 512;
+        StorageListingDelta, SparseExactAmountSource {
     private static final BigInteger MAX_LONG = BigInteger.valueOf(Long.MAX_VALUE);
     private final ECOInfiniteStorageEngine engine;
     private final Component description;
     private final BooleanSupplier allowInsert;
-    // Only stack-owned built-in inventories and keys with no registered handler are stable.
-    // UUID-backed or third-party handlers are probed on every insertion.
-    private final Object2ByteLinkedOpenHashMap<AEKey> admission = new Object2ByteLinkedOpenHashMap<>();
-    // Known component-backed cells: independent of the ordinary-item window above, only a safety bound.
-    private static final int CELL_ADMISSION_CACHE_LIMIT = 65_536;
-    private final it.unimi.dsi.fastutil.objects.Object2ByteOpenHashMap<AEKey> cellAdmission =
-            new it.unimi.dsi.fastutil.objects.Object2ByteOpenHashMap<>();
 
     public ECOInfiniteStorage(ECOInfiniteStorageEngine engine, Component description, BooleanSupplier allowInsert) {
         this.engine = engine;
@@ -44,46 +29,20 @@ public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountS
 
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
-        if (what == null || amount <= 0 || !allowInsert.getAsBoolean() || !canStoreForInsert(what)) {
+        if (what == null || amount <= 0 || !allowInsert.getAsBoolean()) {
             return 0L;
         }
+        // A world-owned domain stores opaque keys, not a portable cell's nested inventory.
+        // Opening third-party cell inventories here can perform I/O or mutate the key's stack.
         return engine.insert(what, amount, mode);
     }
 
     @Override
     public BigInteger insertBigInteger(AEKey what, BigInteger amount, Actionable mode, IActionSource source) {
-        if (what == null || amount == null || amount.signum() <= 0 || !allowInsert.getAsBoolean()
-                || !canStoreForInsert(what)) {
+        if (what == null || amount == null || amount.signum() <= 0 || !allowInsert.getAsBoolean()) {
             return BigInteger.ZERO;
         }
         return engine.insert(what, amount, mode);
-    }
-
-    private boolean canStoreForInsert(AEKey key) {
-        if (!(key instanceof AEItemKey itemKey)) return true;
-        if (itemKey.getItem() instanceof IBasicECOCellItem && engine.contains(key)) {
-            // A key already admitted by this domain does not need another nested-cell probe.
-            return true;
-        }
-        byte cached = cellAdmission.getByte(key);
-        if (cached == 0) cached = admission.getByte(key);
-        if (cached != 0) return cached > 0;
-        var stack = itemKey.getReadOnlyStack();
-        var inventory = StorageCells.getCellInventory(stack, null);
-        boolean accepted = inventory == null || inventory.canFitInsideCell();
-        byte result = (byte) (accepted ? 1 : -1);
-        if (inventory != null && (inventory.getClass() == BasicCellInventory.class
-                && stack.getItem().getClass() == BasicStorageCell.class
-                || inventory.getClass() == ECOStorageCell.class
-                && stack.getItem().getClass() == ECOStorageCellItem.class)) {
-            // Contents and seal live in the key's own components, so the answer can never change for this key.
-            if (cellAdmission.size() >= CELL_ADMISSION_CACHE_LIMIT) cellAdmission.clear();
-            cellAdmission.put(key, result);
-        } else if (inventory == null && StorageCells.getHandler(stack) == null) {
-            if (admission.size() == ADMISSION_CACHE_LIMIT) admission.removeFirstByte();
-            admission.put(key, result);
-        }
-        return accepted;
     }
 
     @Override
@@ -147,5 +106,49 @@ public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountS
             else SavedDataInfiniteStorageEngine.addVisible(out, key, visible);
             visitor.accept(key, ExactAmount.finite(amount));
         });
+    }
+
+    @Override
+    public void neoecoae$listWithExactAmounts(KeyCounter out, java.util.function.ObjLongConsumer<AEKey> ordinary,
+            java.util.function.BiConsumer<AEKey, ExactAmount> exact) {
+        if (!(engine instanceof SavedDataInfiniteStorageEngine saved)) {
+            neoecoae$listWithExactAmounts(out, exact);
+            return;
+        }
+        if (!allowInsert.getAsBoolean()) return;
+        boolean empty = out.isEmpty();
+        saved.visitAmounts((key, amount) -> {
+            if (empty) out.set(key, amount);
+            else SavedDataInfiniteStorageEngine.addVisible(out, key, amount);
+            ordinary.accept(key, amount);
+        }, (key, amount) -> {
+            if (empty) out.set(key, Long.MAX_VALUE);
+            else SavedDataInfiniteStorageEngine.addVisible(out, key, Long.MAX_VALUE);
+            exact.accept(key, ExactAmount.finite(amount));
+        });
+    }
+
+    @Override
+    public boolean neoecoae$hasSparseExactAmounts() { return engine instanceof SavedDataInfiniteStorageEngine; }
+
+    @Override
+    public boolean neoecoae$mayHaveExceptionalAmounts() { return allowInsert.getAsBoolean() && engine.hasHugeStacks(); }
+
+    @Override
+    public void neoecoae$visitExceptionalAmounts(java.util.function.BiConsumer<AEKey, ExactAmount> visitor) {
+        if (!allowInsert.getAsBoolean()) return;
+        if (engine instanceof SavedDataInfiniteStorageEngine saved) {
+            saved.visitOverflowAmounts((key, amount) -> visitor.accept(key, ExactAmount.finite(amount)));
+        } else neoecoae$visitExactAmounts(visitor);
+    }
+
+    @Override
+    public ExactAmount neoecoae$exceptionalAmount(AEKey key) {
+        if (!allowInsert.getAsBoolean()) return null;
+        if (engine instanceof SavedDataInfiniteStorageEngine saved) {
+            BigInteger amount = saved.overflowAmount(key);
+            return amount == null ? null : ExactAmount.finite(amount);
+        }
+        return null;
     }
 }

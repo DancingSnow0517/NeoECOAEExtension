@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.compat.ae2.keyreuse;
 
+import appeng.api.stacks.AEKeyType;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,12 +40,26 @@ public final class KeyReuse {
 
     /** A generation owns its tables; no fields or caches are installed on Minecraft/addon resources. */
     private static final class Generation {
+        final OwnerSlots items = new OwnerSlots();
+        final OwnerSlots fluids = new OwnerSlots();
         final java.util.concurrent.ConcurrentMap<Object, OwnerSlots> tables =
             new java.util.concurrent.ConcurrentHashMap<>();
     }
 
+    static KeyReuseSlot itemSlot(Object generation, Object owner) {
+        return generation instanceof Generation active && generation == epoch && owner != null
+                ? active.items.get(owner) : null;
+    }
+
+    static KeyReuseSlot fluidSlot(Object generation, Object owner) {
+        return generation instanceof Generation active && generation == epoch && owner != null
+                ? active.fluids.get(owner) : null;
+    }
+
     static KeyReuseSlot slot(Object generation, Object type, Object owner) {
         if (!(generation instanceof Generation active) || generation != epoch || owner == null) return null;
+        if (type == AEKeyType.items()) return active.items.get(owner);
+        if (type == AEKeyType.fluids()) return active.fluids.get(owner);
         OwnerSlots table = active.tables.get(type);
         if (table == null) table = active.tables.computeIfAbsent(type, ignored -> new OwnerSlots());
         return table.get(owner);

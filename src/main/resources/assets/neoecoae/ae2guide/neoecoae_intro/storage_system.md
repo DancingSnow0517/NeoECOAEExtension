@@ -165,3 +165,5 @@ The communication IO port defaults to Storage mode, exposing local matrices to t
 Ignore Creative Storage Input defaults to on and affects Input only. Exclude Storage Bus Containers defaults to on and affects both directions. Check these switches, filters and destination capacity if nothing moves. Capacity utilization and resource distribution describe space usage and inventory composition separately; hover for exact amounts.
 
 An L9 host can migrate from Storage mode with at least 12 eligible L9 matrices in that host and 64 Infinite Storage Components in its component slot. Missing original members pause domain access. Component removal requires restoring all stock to compatible normal matrices with enough capacity and type slots. Bigger AE2 Digital Singularity cells do not participate in finite-cell migration.
+
+The infinite domain accepts nonempty storage cells as items, preserving their components without opening or expanding their inventories. Normal portable matrices retain their existing cell nesting restrictions. Before leaving infinite mode, extract any nonempty storage cells that the normal matrices cannot accept.

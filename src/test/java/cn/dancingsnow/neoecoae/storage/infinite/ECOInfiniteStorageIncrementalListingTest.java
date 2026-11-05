@@ -185,7 +185,7 @@ class ECOInfiniteStorageIncrementalListingTest {
             } else if (op < 90) {
                 access[0] = !access[0];
             } else if (op < 91) {
-                // Overflow the change log between two refreshes of the slower readers.
+                // Repeated interleaved changes must coalesce for slower readers.
                 for (int i = 0; i < InfiniteStorageAmounts.CHANGE_LOG_CAPACITY + 10; i++) {
                     engine.insert(keys.get(i % 2), 1, Actionable.MODULATE);
                 }
@@ -222,9 +222,38 @@ class ECOInfiniteStorageIncrementalListingTest {
         for (int i = 0; i < InfiniteStorageAmounts.CHANGE_LOG_CAPACITY + 1; i++) {
             amounts.add(i % 2 == 0 ? stone : dirt, 1);
         }
-        assertFalse(amounts.visitChangesSince(afterTouch, amounts.changes(), seen::add), "evicted changes");
+        seen.clear();
+        assertTrue(amounts.visitChangesSince(afterTouch, amounts.changes(), seen::add), "interleaved keys coalesce");
+        assertEquals(Set.of(stone, dirt), Set.copyOf(seen));
         seen.clear();
         assertTrue(amounts.visitChangesSince(amounts.changes() - 2, amounts.changes(), seen::add));
         assertEquals(2, seen.size());
+    }
+
+    @Test void distinctChangesEvictOldReadersButKeepRecentDeletionAndReinsertion() {
+        var amounts = new InfiniteStorageAmounts();
+        var stone = AEItemKey.of(Items.STONE);
+        amounts.add(stone, 3);
+        long initial = amounts.changes();
+        amounts.subtract(stone, 3);
+        // Component variants provide more distinct resources than the vanilla registry alone.
+        for (int i = 0; i < InfiniteStorageAmounts.CHANGE_LOG_CAPACITY + 1; i++) {
+            var stack = Items.PAPER.getDefaultInstance();
+            stack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, Component.literal("change-" + i));
+            amounts.add(AEItemKey.of(stack), 1);
+        }
+        assertFalse(amounts.visitChangesSince(initial, amounts.changes(), ignored -> {}));
+        assertEquals(0, amounts.visible(stone));
+        long recent = amounts.changes();
+        var equivalent = AEItemKey.of(Items.STONE);
+        amounts.add(equivalent, 7);
+        amounts.subtract(stone, 7);
+        amounts.add(equivalent, 9);
+        List<AEKey> changed = new ArrayList<>();
+        assertTrue(amounts.visitChangesSince(recent, amounts.changes(), changed::add));
+        assertEquals(List.of(stone), changed);
+        assertEquals(9, amounts.visible(stone));
+        amounts.touch();
+        assertEquals(9, amounts.visible(equivalent));
     }
 }

@@ -27,6 +27,7 @@ final class GeneratorState {
     FeWorkload fe;
     boolean feRunning;
     String feFailure;
+    NetworkTrafficRecorder recording;
 
     void reroll() {
         if (fe != null) throw new IllegalArgumentException("FE uses one energy type; use set to return to resource generation");
@@ -50,10 +51,12 @@ final class GeneratorState {
     }
 
     void tick(IGrid grid, IActionSource source, Runnable save) {
+        if (recording != null) recording.tick();
         if (fe != null) {
             if (!feRunning) return;
             try {
-                fe.tick(FeNetworkAccess.create(grid.getStorageService().getInventory(), source));
+                var access = FeNetworkAccess.create(grid.getStorageService().getInventory(), source);
+                fe.tick(recording == null ? access : recording.wrap(access));
             } catch (RuntimeException | LinkageError error) {
                 feRunning = false;
                 feFailure = error.toString();
@@ -70,7 +73,10 @@ final class GeneratorState {
         }
         accepted = 0;
         for (AEKey key : selected) {
-            long inserted = grid.getStorageService().getInventory().insert(key, settings.nextAmount(random), Actionable.MODULATE, source);
+            long amount = settings.nextAmount(random);
+            var inventory = grid.getStorageService().getInventory();
+            long inserted = recording == null ? inventory.insert(key, amount, Actionable.MODULATE, source)
+                : recording.insert(inventory, key, amount, Actionable.MODULATE, source);
             accepted = inserted > Long.MAX_VALUE - accepted ? Long.MAX_VALUE : accepted + inserted;
         }
         // Rejected output is discarded. There is no virtual stock, retry backlog or refund.

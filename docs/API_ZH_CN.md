@@ -247,6 +247,8 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 
 ## 存储盘与精确数量
 
+终端精确数量源可以实现 `crafting.display.terminal.SparseExactAmountSource`，只报告普通 long 列表无法准确表达的资源；`neoecoae$exceptionalAmount(key)` 返回 `null` 表示普通列表已准确表达该资源，或资源当前不可见。稀疏查询与普通列表必须使用相同的过滤、访问和恢复锁规则。结合 `StorageListingDelta` 时，版本必须覆盖精确数量变化，即使 long 投影保持不变。已有 `ExactAmountSource` 与 `CombinedExactAmountSource` 实现继续有效；后者新增的三参数枚举重载允许可信的普通数量使用原始 long 回调，默认仍调用原有精确回调。
+
 `ECOStorageCells.register(IECOCellHandler)` 注册盘处理器；`getCellInventory(stack, saveProvider)` 可能返回 null。宿主更换盘或卸载时调用 `releaseCellInventory`，处理器按实际所有权保存并释放状态。[IECOStorageCell](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStorageCell.java) 为库存契约，[IECOStorageCellItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStorageCellItem.java) / [IBasicECOCellItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IBasicECOCellItem.java) 提供物品能力。
 
 `ICellHost` 的安装参数为恰好一张有效盘，移除参数为 null；`ItemStack.EMPTY` 不是移除请求。先查询 `isItemValid/canExtractCell`，调用 void 的 `setCellStack` 后重读槽位确认，再转移源/旧盘。不要直接修改 `getCellStack()` 返回的活栈。[IECOStoragePriorityHost.setStoragePriority](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStoragePriorityHost.java) 在服务端保存并刷新挂载。

@@ -87,6 +87,8 @@ public final class DevResourceGenerator {
             event.registerBlockEntity(AECapabilities.IN_WORLD_GRID_NODE_HOST, ENTITY.get(), (be, side) -> be));
         NeoForge.EVENT_BUS.addListener(DevResourceGenerator::commands);
         NeoForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> GeneratorPool.clear());
+        DevKeyBenchmark.register();
+        DevNetworkProfiler.register();
     }
 
     static CompoundTag readItem(ItemStack stack) {
@@ -104,7 +106,11 @@ public final class DevResourceGenerator {
                 var source = context.getSource();
                 for (String line : List.of("/neodev give", "/neodev set <types> <min> <max> <ticks> [x y z] [slot]",
                         "/neodev fe <P> <Pmin> <Pmax> <C> <Cmin> <Cmax> <seed> <probe> [x y z] [slot]",
-                        "/neodev info | reroll | fe_stop | fe_start | fe_reset | fe_report [x y z] [slot]")) {
+                        "/neodev info | reroll | fe_stop | fe_start | fe_reset | fe_report [x y z] [slot]",
+                        "/neodev keybench [item|fluid|both] [calls] [ticks per round] (hold generator; no network needed)",
+                        "/neodev keybench_status | keybench_stop | keybench_report",
+                        "/neodev start <seconds> [x y z] [slot] (look at the drive; real network profile)",
+                        "/neodev status | stop")) {
                     source.sendSuccess(() -> Component.literal(line).withStyle(net.minecraft.ChatFormatting.AQUA), false);
                 }
                 source.sendSuccess(() -> Component.translatable("tooltip.neoecoae.dev.fe_consumes").withStyle(net.minecraft.ChatFormatting.GOLD), false);
@@ -129,6 +135,8 @@ public final class DevResourceGenerator {
         for (String action : List.of("fe_stop", "fe_start", "fe_reset", "fe_report")) {
             root.then(literal(action).executes(context -> modify(context, action, null)).then(positioned(action)));
         }
+        DevKeyBenchmark.commands(root);
+        DevNetworkProfiler.commands(root);
         event.getDispatcher().register(root);
     }
 
