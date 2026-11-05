@@ -1,4 +1,5 @@
 {
+  "item.neoecoae.dev_resource_generator": "开发随机资源发生器 / 存储盘",
   "neoecoae.configuration.keyReuse": "AE 资源 key 复用",
   "neoecoae.configuration.keyReuse.tooltip": "本地缓存选项。保留值相等语义与旧存档格式。",
   "neoecoae.configuration.keyReuse.enabled": "复用无额外数据的 key",
