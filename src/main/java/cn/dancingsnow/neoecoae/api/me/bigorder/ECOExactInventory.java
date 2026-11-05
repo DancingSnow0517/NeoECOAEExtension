@@ -58,7 +58,9 @@ public final class ECOExactInventory extends ListCraftingInventory {
         if (!enabled) { super.insert(key, amount, mode); return; }
         if (amount < 0) throw new IllegalArgumentException("Negative inventory insertion");
         if (mode == Actionable.MODULATE && amount > 0) {
-            set(key, amount(key).add(BigInteger.valueOf(amount)));
+            long current = Math.max(0L, list.get(key));
+            if (!excess.containsKey(key) && amount <= Long.MAX_VALUE - current) list.set(key, current + amount);
+            else set(key, amount(key).add(BigInteger.valueOf(amount)));
             listener.onChange(key);
         }
     }
@@ -66,12 +68,24 @@ public final class ECOExactInventory extends ListCraftingInventory {
     @Override public long extract(AEKey key, long requested, Actionable mode) {
         if (!enabled) return super.extract(key, requested, mode);
         if (requested < 0) throw new IllegalArgumentException("Negative inventory extraction");
-        long extracted = amount(key).min(BigInteger.valueOf(requested)).longValueExact();
+        long current = Math.max(0L, list.get(key));
+        long extracted = Math.min(current, requested);
         if (mode == Actionable.MODULATE && extracted > 0) {
-            set(key, amount(key).subtract(BigInteger.valueOf(extracted)));
+            if (excess.containsKey(key)) set(key, amount(key).subtract(BigInteger.valueOf(extracted)));
+            else if (extracted == current) list.remove(key);
+            else list.set(key, current - extracted);
             listener.onChange(key);
         }
         return extracted;
+    }
+
+    /** Debits an acknowledged external transfer. A failing observer must never refund already delivered resources. */
+    public void debitTransferred(AEKey key, BigInteger accepted) {
+        if (accepted == null || accepted.signum() <= 0) throw new IllegalArgumentException("Invalid transfer debit");
+        BigInteger current = amount(key);
+        if (current.compareTo(accepted) < 0) throw new IllegalStateException("Transfer exceeds retained inventory");
+        set(key, current.subtract(accepted));
+        listener.onChange(key);
     }
 
     /** Validate all keys first, then change all keys before publishing notifications. */

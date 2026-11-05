@@ -78,7 +78,7 @@ public class ECOCraftingCPU extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCP
 
     @Override
     public boolean isBusy() {
-        return logic.hasJob();
+        return logic.hasJob() || logic.hasOwnedItems() || logic.getPermanentExecutionError() != null;
     }
 
     @Override
