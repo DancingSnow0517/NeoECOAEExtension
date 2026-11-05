@@ -157,8 +157,9 @@ class ECOCraftingPlanUpdaterTest {
         cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry.register(f.candidate.plan(), f.candidate);
         f.host.setJobFromLifecycle(null);
         f.host.getInventory().list.clear();
-        try (var helpers = mockStatic(CraftingCpuHelper.class, CALLS_REAL_METHODS)) {
-            helpers.when(() -> CraftingCpuHelper.tryExtractInitialItems(any(), any(), any(), any())).thenReturn(null);
+        when(grid.getStorageService().getInventory().extract(any(), anyLong(), any(), any()))
+                .thenAnswer(call -> call.getArgument(1));
+        {
             assertTrue(f.host.trySubmitJob(grid, f.candidate.plan(),
                     appeng.api.networking.security.IActionSource.empty(), null).successful());
             assertSame(f.context, f.host.getJob().improvements);

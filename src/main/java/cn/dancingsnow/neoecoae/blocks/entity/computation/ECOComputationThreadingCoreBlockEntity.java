@@ -152,8 +152,13 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
     public void prepareForPermanentRemoval() {
         if (level == null || level.isClientSide()) return;
         for (int i = 0; i < cpus.length; i++) {
+            // Ownership already moved to the core drop; later drop/clear callbacks must not transfer it again.
+            if (packedExactInventories.get(i)) continue;
             ECOCraftingCPU cpu = cpus[i];
-            if (cpu != null) cpu.getLogic().cancel();
+            if (cpu != null) {
+                cpu.getLogic().cancel();
+                if (!cpu.getLogic().hasJob()) cpu.getLogic().storeItemsForRemoval();
+            }
             if (deferredInit[i] != null) {
                 ECOCraftingJobLifecycle.cancelPersistedJob(level, deferredInit[i]);
             }

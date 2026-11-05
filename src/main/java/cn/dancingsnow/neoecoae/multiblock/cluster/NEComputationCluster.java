@@ -379,24 +379,47 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         IActionSource src,
         ICraftingRequester requestingMachine
     ) {
+        if (activeCpus.containsKey(job)) return CraftingSubmitResult.CPU_BUSY;
         ICraftingSubmitResult lastResult = null;
         for (ECOComputationThreadingCoreBlockEntity threadingCore : threadingCores) {
             ECOCraftingCPU cpu = threadingCore.spawn(job);
             if (cpu == null) continue;
-            ICraftingSubmitResult result = cpu.getLogic().trySubmitJob(grid, job, src, requestingMachine);
+            ICraftingSubmitResult result;
+            try {
+                result = cpu.getLogic().trySubmitJob(grid, job, src, requestingMachine);
+            } catch (RuntimeException failure) {
+                if (cpu.getLogic().hasJob()) {
+                    try { cpu.getLogic().cancel(); }
+                    catch (RuntimeException cleanup) { failure.addSuppressed(cleanup); cpu.getLogic().setJobSuspended(true); }
+                }
+                retainRejectedCpu(job, cpu, threadingCore);
+                throw failure;
+            }
             if (result.successful()) {
                 if (this.registerActiveJob(job, cpu)) {
                     return result;
                 }
                 return CraftingSubmitResult.CPU_TOO_SMALL;
             }
-            threadingCore.deactivate(cpu);
+            retainRejectedCpu(job, cpu, threadingCore);
             // Every local CPU sees the same grid inventory. Retrying a confirmed material deficit only repeats the
             // complete extraction/rollback transaction and can multiply external-inventory persistence work.
             if (result.errorCode() == CraftingSubmitErrorCode.MISSING_INGREDIENT) return result;
             lastResult = result;
         }
         return lastResult;
+    }
+
+    private void retainRejectedCpu(ICraftingPlan plan, ECOCraftingCPU cpu,
+            ECOComputationThreadingCoreBlockEntity owner) {
+        if (cpu.hasRemainingItems() || cpu.getLogic().hasJob() || cpu.getLogic().getPermanentExecutionError() != null) {
+            // Failed submission may still own rejected rollback stock. Keep its physical slot, ticking and NBT.
+            cpu.getLogic().markForDeletion();
+            activeCpus.put(plan, cpu);
+            cpu.markDirty();
+            recalculateRemainingStorage();
+            updateGridForChangedCpu();
+        } else owner.deactivate(cpu);
     }
 
     boolean registerActiveJob(ICraftingPlan job, ECOCraftingCPU cpu) {
