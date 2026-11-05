@@ -141,6 +141,8 @@ configurations {
 }
 
 dependencies {
+    compileOnly("maven.modrinth:applied-replicatics:nQ4pLTkV") { transitive = false }
+    compileOnly("maven.modrinth:replication:XfQXDcjc") { transitive = false }
     // Optional integration target, kept out of the published runtime dependencies and bundled JAR.
     biggerAe2DevMod("github.biggerae2:bigger_ae2:21.2.3") { transitive = false }
     testRuntimeOnly("github.biggerae2:bigger_ae2:21.2.3") { transitive = false }

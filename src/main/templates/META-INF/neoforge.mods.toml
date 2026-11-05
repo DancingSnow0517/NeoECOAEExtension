@@ -50,6 +50,9 @@ description='''${mod_description}'''
 [[mixins]]
 config="${mod_id}.mixins.json"
 
+[[mixins]]
+config="${mod_id}.key_reuse.mixins.json"
+
 # Optional display-only extension. It never participates in storage interactions and is intentionally
 # non-required so AE2 UI changes degrade to the standard long amount display.
 [[mixins]]
