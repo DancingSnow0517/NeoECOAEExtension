@@ -16,8 +16,8 @@ public final class ECOFluxKeys {
         return getOrCreate(type, FluxKey::of);
     }
 
-    /** Shared by ECO callers and Applied Flux's constructor redirect. The constructor is used only on a miss. */
-    public static FluxKey getOrCreate(EnergyType type, java.util.function.Function<EnergyType, FluxKey> factory) {
+    /** Only ECO callers use this cache; the addon factory and its callers retain their native behavior. */
+    static FluxKey getOrCreate(EnergyType type, java.util.function.Function<EnergyType, FluxKey> factory) {
         if (type == null) return null;
         Object epoch = KeyReuse.epoch();
         if (epoch == null) return factory.apply(type);
