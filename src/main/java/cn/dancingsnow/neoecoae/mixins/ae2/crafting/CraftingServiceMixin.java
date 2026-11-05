@@ -37,7 +37,6 @@ import com.google.common.collect.ImmutableSet;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.sugar.Local;
-import com.llamalad7.mixinextras.sugar.ref.LocalLongRef;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
@@ -492,20 +491,17 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
 
     @Override
     @Unique
-    public void neoecoae$earlyInsertIntoCpus(
-            AEKey what,
-            long amount,
-            Actionable type,
-            CallbackInfoReturnable<Long> cir,
-            LocalLongRef inserted
-    ) {
+    public long neoecoae$earlyInsertIntoCpus(long inserted, AEKey what, long amount, Actionable type) {
+        if (this.neoecoae$computationClusters.isEmpty() || inserted >= amount) return inserted;
         for (NEComputationCluster cluster : this.neoecoae$computationClusters) {
             if (cluster != null) {
                 for (var cpu : cluster.getActiveCPUs()) {
-                    inserted.set(inserted.get() + cpu.getLogic().insert(what, amount - inserted.get(), type));
+                    inserted += cpu.getLogic().insert(what, amount - inserted, type);
+                    if (inserted >= amount) return inserted;
                 }
             }
         }
+        return inserted;
     }
 
     /**

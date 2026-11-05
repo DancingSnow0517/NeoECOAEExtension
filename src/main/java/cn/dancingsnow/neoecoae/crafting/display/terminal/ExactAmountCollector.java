@@ -44,7 +44,7 @@ public final class ExactAmountCollector {
     public static boolean collectCombined(MEStorage storage, KeyCounter contribution) {
         State state = ACTIVE.get();
         if (state == null || !(storage instanceof CombinedExactAmountSource source)) return false;
-        source.neoecoae$listWithExactAmounts(contribution, state::addExact);
+        source.neoecoae$listWithExactAmounts(contribution, state::addLong, state::addExact);
         return true;
     }
 
@@ -109,7 +109,9 @@ public final class ExactAmountCollector {
         ExactAmountSource source = findExactSource(storage);
         if (source == null) return Map.of();
         Map<AEKey, ExactAmount> amounts = new HashMap<>();
-        source.neoecoae$visitExactAmounts(amounts::put);
+        if (source instanceof SparseExactAmountSource sparse && sparse.neoecoae$hasSparseExactAmounts()) {
+            sparse.neoecoae$visitExceptionalAmounts(amounts::put);
+        } else source.neoecoae$visitExactAmounts(amounts::put);
         return amounts;
     }
 

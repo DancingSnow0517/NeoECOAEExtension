@@ -6,9 +6,9 @@ import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.storage.MEStorage;
 import appeng.me.storage.NetworkStorage;
-import cn.dancingsnow.neoecoae.storage.transfer.StorageBusTransferFilter;
 import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.StorageListingAccumulator;
+import cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot;
 import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -28,12 +28,16 @@ import java.util.function.Consumer;
 
 /** Prevents storage totals from disappearing when an unbounded stack is combined with another inventory. */
 @Mixin(value = NetworkStorage.class, remap = false)
-public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, NetworkInventoryCache.Mounts {
+public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, NetworkInventoryCache.Mounts,
+        TerminalInventorySnapshot.Source {
     private static final BigInteger MAX_LONG = BigInteger.valueOf(Long.MAX_VALUE);
 
     @Unique private final StorageListingAccumulator neoecoae$listing = new StorageListingAccumulator();
-    @Unique private final List<MEStorage> neoecoae$mounted = new ArrayList<>();
+    @Unique private List<MEStorage> neoecoae$mounted = List.of();
     @Unique private long neoecoae$mountGeneration;
+    @Unique private long neoecoae$listedMountGeneration = Long.MIN_VALUE;
+    @Unique private boolean neoecoae$distinctMounts;
+    @Unique private TerminalInventorySnapshot.Cache neoecoae$terminalCache;
 
     @Shadow private boolean mountsInUse;
     @Shadow @Final private NavigableMap<Integer, List<MEStorage>> priorityInventory;
@@ -53,15 +57,31 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, Netwo
     }
 
     @Override
+    public boolean neoecoae$distinctMountsGuaranteed() { return neoecoae$distinctMounts; }
+
+    @Override
+    public TerminalInventorySnapshot.Cache neoecoae$terminalCache() {
+        if (neoecoae$terminalCache == null) neoecoae$terminalCache = new TerminalInventorySnapshot.Cache();
+        return neoecoae$terminalCache;
+    }
+
+    @Override
     public boolean neoecoae$withMounts(Consumer<List<MEStorage>> action) {
         // Same lock as getAvailableStacks: blocks recursive listing and defers mount changes.
         if (mountsInUse) return false;
         mountsInUse = true;
         try {
-            for (var inventories : priorityInventory.values()) neoecoae$mounted.addAll(inventories);
+            if (neoecoae$listedMountGeneration != neoecoae$mountGeneration) {
+                var mounted = new ArrayList<MEStorage>();
+                for (var inventories : priorityInventory.values()) mounted.addAll(inventories);
+                var identities = new it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet<MEStorage>();
+                neoecoae$distinctMounts = true;
+                for (MEStorage inventory : mounted) neoecoae$distinctMounts &= identities.add(inventory);
+                neoecoae$mounted = List.copyOf(mounted);
+                neoecoae$listedMountGeneration = neoecoae$mountGeneration;
+            }
             action.accept(neoecoae$mounted);
         } finally {
-            neoecoae$mounted.clear();
             mountsInUse = false;
         }
         return true;
@@ -130,24 +150,13 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, Netwo
     }
 
     @WrapOperation(
-        method = "insert",
-        at = @At(value = "INVOKE", target = "Lappeng/api/storage/MEStorage;insert(Lappeng/api/stacks/AEKey;JLappeng/api/config/Actionable;Lappeng/api/networking/security/IActionSource;)J")
-    )
-    private long neoecoae$excludeStorageBusOutput(MEStorage storage, AEKey key, long amount,
-            Actionable mode, IActionSource source, Operation<Long> original) {
-        if (StorageBusTransferFilter.excludes(storage)) return 0L;
-        return original.call(storage, key, amount, mode, source);
-    }
-
-    @WrapOperation(
         method = "extract",
         at = @At(value = "INVOKE", target = "Lappeng/api/storage/MEStorage;extract(Lappeng/api/stacks/AEKey;JLappeng/api/config/Actionable;Lappeng/api/networking/security/IActionSource;)J")
     )
     private long neoecoae$filterCreativeInput(MEStorage storage, appeng.api.stacks.AEKey key, long amount,
             appeng.api.config.Actionable mode, appeng.api.networking.security.IActionSource source,
             Operation<Long> original) {
-        if (StorageBusTransferFilter.excludes(storage)
-                || cn.dancingsnow.neoecoae.storage.transfer.StorageExtractionExclusions.contains(storage)) {
+        if (cn.dancingsnow.neoecoae.storage.transfer.StorageExtractionExclusions.contains(storage)) {
             return 0L;
         }
         return cn.dancingsnow.neoecoae.storage.transfer.ECOCreativeExtractionFilter.extractSource(
@@ -164,7 +173,6 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, Netwo
     private void neoecoae$getAvailableStacksSaturated(
         MEStorage storage, KeyCounter output, Operation<Void> original
     ) {
-        if (StorageBusTransferFilter.excludes(storage)) return;
         // Reuse an isolated counter for sources without a saturating listing. This keeps
         // Long.MAX_VALUE + ordinary stock safe in either mount order, while trusted ECO
         // sources can append directly without copying their entire inventory.

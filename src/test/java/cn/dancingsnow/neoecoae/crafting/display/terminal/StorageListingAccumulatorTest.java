@@ -36,7 +36,9 @@ class StorageListingAccumulatorTest {
             });
         }
         assertEquals(6_400, output.get(key));
-        assertTrue(counters.stream().allMatch(counter -> counter == JdkCompat.first(counters)));
+        assertSame(output, counters.get(0), "the first mount needs no intermediate counter");
+        assertTrue(counters.subList(1, counters.size()).stream().allMatch(counter -> counter == counters.get(1)));
+        assertNotSame(output, counters.get(1));
         verify((ExactAmountSource) source, times(100)).neoecoae$hasSaturatingListing();
         verify((ExactAmountSource) source, never()).neoecoae$visitExactAmounts(any());
         verify((CombinedExactAmountSource) source, never()).neoecoae$listWithExactAmounts(any(), any());
@@ -81,6 +83,7 @@ class StorageListingAccumulatorTest {
 
     @Test void terminalCollectionKeepsExactOverflowAndUsesCombinedSourceOnce() {
         var source = mock(MEStorage.class, withSettings().extraInterfaces(CombinedExactAmountSource.class));
+        doCallRealMethod().when((CombinedExactAmountSource) source).neoecoae$listWithExactAmounts(any(), any(), any());
         var huge = ExactAmount.finite(BigInteger.TEN.pow(30));
         doAnswer(call -> {
             KeyCounter output = call.getArgument(0);
@@ -100,13 +103,51 @@ class StorageListingAccumulatorTest {
     }
 
     @Test void failedListingDoesNotLeaveStockInTheNextContribution() {
-        assertThrows(IllegalStateException.class, () -> accumulator.append(ordinary, new KeyCounter(), counter -> {
+        var failed = new KeyCounter();
+        assertThrows(IllegalStateException.class, () -> accumulator.append(ordinary, failed, counter -> {
             counter.add(key, 123);
             throw new IllegalStateException("failed listing");
         }));
+        assertTrue(failed.isEmpty(), "a partial first-mount listing must leave the prior empty output intact");
         var output = new KeyCounter();
         accumulator.append(ordinary, output, counter -> assertTrue(counter.isEmpty()));
         assertTrue(output.isEmpty());
+    }
+
+    @Test void directFirstMountSanitizesMalformedProjectionsAndDoesNotAliasLaterScratch() {
+        var output = new KeyCounter();
+        AEKey negative = key(), zero = key(), next = key();
+        accumulator.append(ordinary, output, counter -> {
+            assertSame(output, counter);
+            counter.set(key, Long.MAX_VALUE);
+            counter.set(negative, -1);
+            counter.set(zero, 0);
+        });
+        assertEquals(1, output.size());
+        accumulator.append(ordinary, output, counter -> counter.set(key, 64));
+        assertEquals(Long.MAX_VALUE, output.get(key));
+        var other = new KeyCounter();
+        accumulator.append(ordinary, other, counter -> counter.set(next, 7));
+        assertEquals(1, output.size());
+        assertEquals(Long.MAX_VALUE, output.get(key));
+        assertEquals(7, other.get(next));
+    }
+
+    @Test void exactFirstMountAndLaterFilteredSourcesAreCountedOnlyOnce() {
+        var source = mock(MEStorage.class, withSettings().extraInterfaces(ExactAmountSource.class));
+        var huge = ExactAmount.finite(BigInteger.TEN.pow(30));
+        doAnswer(call -> {
+            BiConsumer<AEKey, ExactAmount> visitor = call.getArgument(0);
+            visitor.accept(key, huge);
+            return null;
+        }).when((ExactAmountSource) source).neoecoae$visitExactAmounts(any());
+        ExactAmountCollector.begin();
+        var output = new KeyCounter();
+        accumulator.append(source, output, counter -> counter.set(key, Long.MIN_VALUE));
+        accumulator.append(ordinary, output, counter -> counter.set(key, 64));
+        assertEquals(Long.MAX_VALUE, output.get(key));
+        assertEquals(Map.of(key, huge.add(64)), ExactAmountCollector.finish());
+        verify((ExactAmountSource) source, times(1)).neoecoae$visitExactAmounts(any());
     }
 
     private static AEKey key() {

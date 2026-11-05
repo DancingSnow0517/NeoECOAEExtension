@@ -15,6 +15,7 @@ import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.function.ObjLongConsumer;
 
 /**
@@ -36,12 +37,24 @@ public final class NetworkInventoryCache {
 
         /** Passes the mounted inventories in AE2's listing order while they are locked; false if already in use. */
         boolean neoecoae$withMounts(Consumer<List<MEStorage>> action);
+
+        /** True only when the current locked mount list has already been checked for duplicate identities. */
+        default boolean neoecoae$distinctMountsGuaranteed() { return false; }
     }
 
     private static final class Mount {
         private KeyCounter content = new KeyCounter();
+        private final StorageListingVersion versioned;
+        private final StorageListingDelta delta;
         private long version;
         private int epoch;
+
+        Mount(MEStorage inventory) {
+            versioned = inventory instanceof StorageListingVersion value ? value : null;
+            delta = inventory instanceof StorageListingDelta value ? value : null;
+        }
+
+        long currentVersion() { return versioned == null ? StorageListingVersion.UNKNOWN : versioned.neoecoae$listingVersion(); }
     }
 
     private final Reference2ObjectOpenHashMap<MEStorage, Mount> mounts = new Reference2ObjectOpenHashMap<>();
@@ -58,6 +71,12 @@ public final class NetworkInventoryCache {
     private long generation;
     private int epoch;
     private int refreshes;
+    private final boolean repairPublished;
+
+    public NetworkInventoryCache() { this(true); }
+
+    /** Private working counters are never exposed to other callers and do not need periodic repair. */
+    public NetworkInventoryCache(boolean repairPublished) { this.repairPublished = repairPublished; }
 
     /** Forgets all per-mount state; the next refresh rebuilds everything. */
     public void invalidate() {
@@ -70,6 +89,12 @@ public final class NetworkInventoryCache {
      */
     public boolean refresh(Mounts storage, KeyCounter published, Object2LongMap<AEKey> amounts,
             ObjLongConsumer<AEKey> changes) {
+        return refresh(storage, published, amounts, changes, null);
+    }
+
+    /** An optional listing callback can collect exact values during the same required full traversal. */
+    public boolean refresh(Mounts storage, KeyCounter published, Object2LongMap<AEKey> amounts,
+            ObjLongConsumer<AEKey> changes, BiConsumer<MEStorage, KeyCounter> fullListing) {
         // Both scopes change what a listing returns for the current caller only.
         if (ExactAmountCollector.isActive() || StorageBusTransferFilter.isActive()) {
             valid = false;
@@ -77,15 +102,15 @@ public final class NetworkInventoryCache {
         }
         refreshed = false;
         boolean locked = storage.neoecoae$withMounts(inventories -> {
-            if (!distinct(inventories)) return;
+            if (!storage.neoecoae$distinctMountsGuaranteed() && !distinct(inventories)) return;
             long mountGeneration = storage.neoecoae$mountGeneration();
-            if (!valid || ++refreshes >= FULL_REBUILD_INTERVAL) {
+            if (!valid || repairPublished && ++refreshes >= FULL_REBUILD_INTERVAL) {
                 valid = false;
                 refreshes = 0;
-                rebuild(inventories, published, amounts, changes);
+                rebuild(inventories, published, amounts, changes, fullListing);
             } else {
                 try {
-                    update(inventories, mountGeneration != generation, amounts);
+                    update(inventories, mountGeneration != generation, amounts, fullListing);
                 } catch (RuntimeException | Error failure) {
                     revert(amounts);
                     valid = false;
@@ -114,17 +139,17 @@ public final class NetworkInventoryCache {
     }
 
     private void rebuild(List<MEStorage> inventories, KeyCounter published, Object2LongMap<AEKey> amounts,
-            ObjLongConsumer<AEKey> changes) {
+            ObjLongConsumer<AEKey> changes, BiConsumer<MEStorage, KeyCounter> fullListing) {
         mounts.clear();
         oversized.clear();
         previous.clear();
         published.clear();
         int current = ++epoch;
         for (MEStorage inventory : inventories) {
-            Mount mount = new Mount();
-            mount.version = versionOf(inventory);
+            Mount mount = new Mount(inventory);
+            mount.version = mount.currentVersion();
             mount.epoch = current;
-            list(inventory, mount.content);
+            list(inventory, mount.content, fullListing);
             mounts.put(inventory, mount);
             for (var entry : mount.content) {
                 AEKey key = entry.getKey();
@@ -146,25 +171,28 @@ public final class NetworkInventoryCache {
         for (var entry : published) amounts.put(entry.getKey(), entry.getLongValue());
     }
 
-    private void update(List<MEStorage> inventories, boolean remounted, Object2LongMap<AEKey> amounts) {
+    private void update(List<MEStorage> inventories, boolean remounted, Object2LongMap<AEKey> amounts,
+            BiConsumer<MEStorage, KeyCounter> fullListing) {
         int current = ++epoch;
         for (MEStorage inventory : inventories) {
-            long version = versionOf(inventory);
             Mount mount = mounts.get(inventory);
-            if (mount == null) {
-                mount = new Mount();
-                list(inventory, mount.content);
+            boolean added = mount == null;
+            if (added) mount = new Mount(inventory);
+            long version = mount.currentVersion();
+            if (added) {
+                list(inventory, mount.content, fullListing);
                 mounts.put(inventory, mount);
                 for (var entry : mount.content) adjust(amounts, entry.getKey(), entry.getLongValue());
             } else if (remounted || version == StorageListingVersion.UNKNOWN || version != mount.version) {
-                if (!remounted && applyChanges(inventory, mount, version, amounts)) {
+                if (!remounted && mount.delta != null
+                        && applyChanges(mount.delta, mount, version, amounts)) {
                     mount.version = version;
                     mount.epoch = current;
                     continue;
                 }
                 KeyCounter fresh = scratch;
                 fresh.clear();
-                list(inventory, fresh);
+                list(inventory, fresh, fullListing);
                 KeyCounter old = mount.content;
                 // Contents never hold zeros, so a missing key reads as 0 on either side.
                 for (var entry : old) {
@@ -192,8 +220,8 @@ public final class NetworkInventoryCache {
     }
 
     /** Applies a mount's reported key changes; false when it must be listed in full instead. */
-    private boolean applyChanges(MEStorage inventory, Mount mount, long version, Object2LongMap<AEKey> amounts) {
-        if (!(inventory instanceof StorageListingDelta delta) || version < 0L || mount.version < 0L
+    private boolean applyChanges(StorageListingDelta delta, Mount mount, long version, Object2LongMap<AEKey> amounts) {
+        if (version < 0L || mount.version < 0L
                 || version < mount.version) {
             return false;
         }
@@ -261,13 +289,28 @@ public final class NetworkInventoryCache {
         return Long.MAX_VALUE;
     }
 
-    private void list(MEStorage inventory, KeyCounter out) {
-        listing.append(inventory, out, inventory::getAvailableStacks);
+    private void list(MEStorage inventory, KeyCounter out, BiConsumer<MEStorage, KeyCounter> fullListing) {
+        if (fullListing == null) listing.append(inventory, out, inventory::getAvailableStacks);
+        else fullListing.accept(inventory, out);
         out.removeZeros();
     }
 
-    private static long versionOf(MEStorage inventory) {
-        return inventory instanceof StorageListingVersion versioned
-            ? versioned.neoecoae$listingVersion() : StorageListingVersion.UNKNOWN;
+    public long mountedVersion(MEStorage inventory) {
+        Mount mount = mounts.get(inventory);
+        return mount == null ? StorageListingVersion.UNKNOWN : mount.version;
+    }
+
+    public long mountedAmount(MEStorage inventory, AEKey key) {
+        Mount mount = mounts.get(inventory);
+        return mount == null ? 0 : mount.content.get(key);
+    }
+
+    public BigInteger listedTotal(AEKey key, long projection) {
+        BigInteger total = oversized.get(key);
+        return total == null ? BigInteger.valueOf(projection) : total;
+    }
+
+    public void visitOversizedTotals(BiConsumer<AEKey, BigInteger> visitor) {
+        oversized.forEach(visitor);
     }
 }
