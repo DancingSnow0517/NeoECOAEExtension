@@ -5,7 +5,7 @@ import java.util.function.Consumer;
 
 /**
  * Optional incremental listing for a {@link StorageListingVersion} inventory whose listing changes in place, so a
- * network cache can update only the keys that changed instead of listing the whole inventory again.
+ * private or network cache can update only the keys that changed instead of listing the whole inventory again.
  * Several readers may hold different versions at once.
  */
 public interface StorageListingDelta extends StorageListingVersion {
