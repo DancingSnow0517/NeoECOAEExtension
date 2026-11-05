@@ -91,6 +91,10 @@ public final class StorageHostUI {
                 () -> 0, Component::empty, cellActions);
         }
 
+        /**
+         * Compatibility constructor: installs {@link CellActions#NONE}, disabling all five cell actions.
+         * Supply actions explicitly or call {@link #withCellActions(CellActions)} to enable them.
+         */
         public Config(Supplier<Component> title, IntSupplier tier, BooleanSupplier formed,
             LongSupplier storedEnergy, LongSupplier maxEnergy, LongSupplier energyConsumePerTick,
             Supplier<String> totalUsedBytesText, Supplier<List<CellEntry>> cellEntries, List<StorageTypeLine> storageTypes,
@@ -144,6 +148,14 @@ public final class StorageHostUI {
         HolderLookup.Provider registries() {
             return player == null ? RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY)
                 : player.registryAccess();
+        }
+
+        /** Copies this configuration with explicit cell actions, preserving all other settings. */
+        public Config withCellActions(CellActions actions) {
+            return new Config(title, tier, formed, storedEnergy, maxEnergy, energyConsumePerTick,
+                totalUsedBytesText, cellEntries, storageTypes, infiniteStorage, migratingToInfinite,
+                canExtractInfiniteComponents, domainId, missingMembers, infiniteComponentInventory,
+                player, cellExtractor, cellInserter, hostItem, migrationProgress, migrationBlocked, actions);
         }
     }
 

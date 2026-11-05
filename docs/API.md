@@ -261,6 +261,21 @@ Register handlers with `ECOStorageCells.register(IECOCellHandler)`. `getCellInve
 
 For `ICellHost`, install exactly one valid cell; null requests removal, while `ItemStack.EMPTY` does not. Check `isItemValid/canExtractCell`, call void `setCellStack`, then re-read the slot before transferring source/old-cell ownership. Do not mutate its returned live stack. [IECOStoragePriorityHost.setStoragePriority](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStoragePriorityHost.java) saves and refreshes mounts on the server.
 
+Addon drives can implement [IECOConfigurableCellDrive](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOConfigurableCellDrive.java) without inheriting ECO block entities. `getCellInteractionId()` identifies one installation: regenerate it on cell replacement or reload and synchronize it through `StorageHostUI.CellEntry.atDrive(position, stack, reason, interactionId)`. `setConfiguredCellPriority` must persist and synchronize settings and refresh affected AE2 mounts. Use `StoragePriority.mountPriority(hostPriority, cellPriority)` for signed, saturating int addition when mounting.
+
+Keep one [ECOStorageCellPriorities](../src/main/java/cn/dancingsnow/neoecoae/api/storage/ECOStorageCellPriorities.java) per host, supplying its current drives and an authorization predicate that checks level identity, formation, distance and player/network permissions. Every read/write rechecks membership, position, installation UUID, removal, extractability and migration/infinite-membership locks. Server operations run on the owning server thread. Built-in hosts expose the interface through `getConfigurableCellDrives()`; the existing `getStorageDrivesForIntegration()` signature remains available.
+
+Create a [StorageCellPriorityUI](../src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageCellPriorityUI.java) for each menu. It handles the client target, per-player server selection and menu RPC:
+
+```java
+var priority = new StorageCellPriorityUI(player, cellPriorities);
+var config = baseConfig.withCellActions(priority.withActions(baseConfig.cellActions()));
+var root = StorageHostUI.create(config, this::getTier, this::getBlockState);
+root.addChild(priority.window()); // Add at the same location on client and server.
+```
+
+`withActions` preserves the other four cell actions and replaces only `openPriority`. The 19-argument compatibility constructor of `StorageHostUI.Config` supplies `CellActions.NONE`, leaving all five actions empty; use `withCellActions` to enable them explicitly. Custom menus/packets can reuse `ECOStorageCellPriorities.select/getSelectedPriority/setPriority/changePriority` and call `clear(player)` when a selection is no longer needed.
+
 `ECOBigIntegerStorage.insert(storage, key, amount, mode, source)` returns the **inserted amount**, not the remainder. Within long it uses normal AE2 insertion. Beyond long it prefers exact storage; otherwise it attempts one `Long.MAX_VALUE` segment without looping. Exact implementations must return an amount between zero and the offered total.
 
 | Optional capability | Requirement |

@@ -10,6 +10,7 @@ import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.api.storage.IECOConfigurableCellDrive;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
@@ -41,7 +42,8 @@ import java.util.List;
 import java.util.UUID;
 
 public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster, ECODriveBlockEntity>
-    implements ISyncPersistRPCBlockEntity, IStorageProvider, ICellHost, ISaveProvider, DeferredCellPersistence {
+    implements ISyncPersistRPCBlockEntity, IStorageProvider, ICellHost, ISaveProvider, DeferredCellPersistence,
+        IECOConfigurableCellDrive {
     private static final String RESTORE_RECEIPTS_TAG = "neoecoae_restore_receipts";
 
     @Getter
@@ -348,10 +350,12 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         return cluster instanceof NEStorageCluster storageCluster ? storageCluster.getController() : null;
     }
 
+    @Override
     public int getConfiguredCellPriority() {
         return cellStack == null ? 0 : cn.dancingsnow.neoecoae.storage.ECOStorageCellSettings.priority(cellStack);
     }
 
+    @Override
     public void setConfiguredCellPriority(int priority) {
         if (cellStack == null || !cn.dancingsnow.neoecoae.storage.ECOStorageCellSettings.canConfigure(cellStack)) return;
         if (getCellInventory() instanceof cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell bulk) {

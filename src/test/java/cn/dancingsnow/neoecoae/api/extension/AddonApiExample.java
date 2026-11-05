@@ -8,6 +8,9 @@ import cn.dancingsnow.neoecoae.api.multiblock.*;
 import cn.dancingsnow.neoecoae.api.power.ECOPowerProfiles;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageChannelDisplays;
 import cn.dancingsnow.neoecoae.api.storage.INativeMEStorageRestrictedItem;
+import cn.dancingsnow.neoecoae.api.storage.ECOStorageCellPriorities;
+import cn.dancingsnow.neoecoae.gui.storage.StorageCellPriorityUI;
+import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationRecipeAdapters;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
@@ -23,6 +26,18 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 @SuppressWarnings("unused")
 public final class AddonApiExample {
     private AddonApiExample() {}
+
+    /** The host owns priorities; construct this panel separately for every opened menu on both sides. */
+    public static com.lowdragmc.lowdraglib2.gui.ui.UIElement storagePanel(StorageHostUI.Config baseConfig,
+        ECOStorageCellPriorities priorities, net.minecraft.world.entity.player.Player player,
+        java.util.function.Supplier<IECOTier> tier,
+        java.util.function.Supplier<net.minecraft.world.level.block.state.BlockState> state) {
+        var priority = new StorageCellPriorityUI(player, priorities);
+        var config = baseConfig.withCellActions(priority.withActions(baseConfig.cellActions()));
+        var root = StorageHostUI.create(config, tier, state);
+        root.addChild(priority.window());
+        return root;
+    }
 
     public static void commonSetup(BlockEntityType<?> hostType, Block drive, IECOTier tier, MultiBlockDefinition definition,
                                     Block originalCasing, Block addonCasing, ECOWorkstationRecipeAdapters.Adapter recipeAdapter) {
