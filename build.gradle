@@ -24,6 +24,14 @@ base {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
+def keyReuseAcceptance = providers.gradleProperty('keyReuseAcceptance').map { it.toBoolean() }.getOrElse(false)
+if (keyReuseAcceptance) {
+    sourceSets.create('keyReuseAcceptance') {
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+
 repositories {
     exclusiveContent {
         forRepository {
@@ -326,6 +334,9 @@ neoForge {
     runs {
         client {
             client()
+            if (project.hasProperty('quickPlay')) {
+                programArguments.addAll '--quickPlaySingleplayer', project.property('quickPlay').toString()
+            }
         }
 
         aeGuide {
@@ -347,6 +358,10 @@ neoForge {
         }
 
         configureEach {
+            if (keyReuseAcceptance) {
+                systemProperty 'neoecoae.keyReuseAcceptance', 'true'
+                systemProperty 'mixin.debug.export', 'true'
+            }
             systemProperty 'forge.logging.markers', 'REGISTRIES'
             jvmArgument '-XX:+IgnoreUnrecognizedVMOptions'
             jvmArgument '-XX:+AllowEnhancedClassRedefinition'
@@ -357,6 +372,7 @@ neoForge {
     mods {
         "${mod_id}" {
             sourceSet(sourceSets.main)
+            if (keyReuseAcceptance) sourceSet(sourceSets.keyReuseAcceptance)
         }
     }
 }
@@ -440,6 +456,10 @@ def installCuriosDevMod = tasks.register("installCuriosDevMod", Copy) {
 
 tasks.named("runClient").configure {
     dependsOn(installCuriosDevMod)
+}
+
+if (keyReuseAcceptance) {
+    tasks.named('runServer').configure { dependsOn(installCuriosDevMod) }
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
