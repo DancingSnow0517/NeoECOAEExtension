@@ -66,6 +66,10 @@ requiredMods=["advanced_ae"]
 config="${mod_id}.compat.extendedae.mixins.json"
 
 [[mixins]]
+config="${mod_id}.compat.merequester.mixins.json"
+requiredMods=["merequester"]
+
+[[mixins]]
 config="${mod_id}.compat.ae2omnicells.mixins.json"
 
 [[mixins]]

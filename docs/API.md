@@ -135,6 +135,8 @@ Consume a completed Future from a server tick, call `submit` once, then check `I
 
 `ECOPlanningService.begin` bypasses AE2's calculation service entry. To keep the normal service chain, wrap an `ICraftingSimulationRequester` with `new ECOPlannerRequester(originalRequester, options)` and call `beginCraftingCalculation`. ECO does not cancel or replace a Future returned earlier by another planner. Enabling the grid switch alone does not redirect every unmarked third-party request.
 
+Built-in bridges explicitly select ECO planning for AE2 crafting cards (including addons using `MultiCraftingTracker`) and ME Requester automatic orders. The request node must be online, fast planning must be enabled, and an ECO computation host must accept the action source. Cycle, substitution and fuzzy options are captured from the grid when ordering; otherwise the original calculation entry remains in use.
+
 | Option | Contract |
 | --- | --- |
 | `cyclePlanningEnabled` | Allow unavoidable cyclic components into the solver |
@@ -205,6 +207,10 @@ External CPUs call `ECOFastPathFacade.prepare(...)` and single-use `PreparedBatc
 [ECOCraftingOutputClaimSink.claimCraftingOutput](../src/main/java/cn/dancingsnow/neoecoae/api/me/output/ECOCraftingOutputClaimSink.java) accepts `ECOCraftingOutputClaimRequest(jobId, expected, actual, amount, mode)`, combining job identity, expected demand, actual output routing and accounting. Expected and actual keys may differ.
 
 Remove only the returned `claimedAmount()` from the producer's physical buffer. Keep unclaimed resources. Inspect `deliveredToRequester()`, `deliveredToNetwork()` and `storedInCpu()`; never deliver an already claimed amount through another path. `SIMULATE` transfers nothing.
+
+Final output is offered to the requester first. Explicitly rejected remainders are offered to ME storage; anything storage also rejects remains in the CPU for retry. Only actual delivery advances final-output progress, and completion waits for pending recipes and physical returns to clear. A requester or storage exception suspends the job with the persisted `FINAL_OUTPUT_DELIVERY_UNCERTAIN` diagnostic and stops automatic delivery to avoid replaying output with unknown acceptance.
+
+Output claims also retain same-key cycle feedback and deliver at most the remaining requested final amount. Surplus stays in the CPU for ordinary inventory return after completion; substituted-output delivery markers do not keep an overproducing job busy indefinitely.
 
 | Entry point | Responsibility |
 | --- | --- |

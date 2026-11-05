@@ -135,6 +135,8 @@ public final class EcoApiExample {
 
 直接调用 `ECOPlanningService.begin` 不经过 AE2 的服务入口。若要保留 AE2 服务链，使用 `new ECOPlannerRequester(originalRequester, options)` 包装 `ICraftingSimulationRequester`，再调用 `beginCraftingCalculation`。其他规划器提前返回的 Future 不会被 ECO 取消或替换；未标记的第三方请求不会仅因网络开关开启就全部改用 ECO。
 
+内置兼容入口为 AE2 合成卡（包括复用 `MultiCraftingTracker` 的附属）和 ME Requester 自动订单显式选择 ECO 规划：请求节点须在线、启用快速规划，且存在接受该动作来源的 ECO 运算主机。循环、替代和模糊选项使用下单时的网络设置；不满足条件时保留原计算入口。
+
 | 选项 | 约定 |
 | --- | --- |
 | `cyclePlanningEnabled` | 允许不可避开的循环组件进入求解 |
@@ -205,6 +207,10 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 [ECOCraftingOutputClaimSink.claimCraftingOutput](../src/main/java/cn/dancingsnow/neoecoae/api/me/output/ECOCraftingOutputClaimSink.java) 接收 `ECOCraftingOutputClaimRequest(jobId, expected, actual, amount, mode)`，统一完成任务身份、预期需求、实际产物路由与记账。预期 Key 和实际 Key 可以不同。
 
 生产者只从物理缓存移除返回的 `claimedAmount()`，未认领部分保留。查看 `deliveredToRequester()`、`deliveredToNetwork()`、`storedInCpu()` 区分去向；已认领部分不能再从另一条路径交付。`SIMULATE` 不交付物资。
+
+最终产物先交付请求方；明确拒收的余量尝试退回 ME 网络，网络也拒收的部分保留在 CPU 重试。只有实际交付的数量推进最终产物进度；剩余配方与等待回收的产物清空后才通知任务完成。请求方或网络抛出异常时，以 `FINAL_OUTPUT_DELIVERY_UNCERTAIN` 暂停任务并持久化诊断，停止自动交付，避免重复发送接收量不明的产物。
+
+产物认领也遵守同键循环回流预留，只交付尚欠的最终产物数量。超产部分保留在 CPU，任务结束后按普通库存返还；替代产物的交付标记不会因超产而永久阻止任务结束。
 
 | 入口 | 责任 |
 | --- | --- |
