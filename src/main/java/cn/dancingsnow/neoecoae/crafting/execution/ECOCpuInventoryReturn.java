@@ -21,6 +21,11 @@ final class ECOCpuInventoryReturn {
     ECOCpuInventoryReturn(ECOCraftingCPULogic host) { this.host = host; }
     String failure() { return failure; }
 
+    void stop(String reason) {
+        failure = reason;
+        host.markCpuDirty();
+    }
+
     void read(CompoundTag data) {
         keys.clear();
         cursor = used = 0;

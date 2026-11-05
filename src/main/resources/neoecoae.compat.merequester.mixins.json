@@ -1,0 +1,9 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "cn.dancingsnow.neoecoae.mixins.compat.merequester",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": ["RequesterPlanningMixin"],
+  "injectors": {"defaultRequire": 1},
+  "mixinextras": {"minVersion": "0.5.3"}
+}

@@ -18,6 +18,7 @@
     "ae2.crafting.Ae2CraftingCpuFastPathMixin",
     "ae2.crafting.CraftingPlanMixin",
     "ae2.crafting.CraftingServiceMixin",
+    "ae2.crafting.MultiCraftingTrackerMixin",
     "ae2.crafting.CraftingTreeNodeMixin",
     "ae2.crafting.PatternProviderDiagnosticsMixin",
     "ae2.crafting.PatternProviderProcessingTargetMixin",
