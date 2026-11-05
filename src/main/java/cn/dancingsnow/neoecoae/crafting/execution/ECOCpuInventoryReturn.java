@@ -46,7 +46,7 @@ final class ECOCpuInventoryReturn {
         long now = level == null ? tick + 1 : level.getServer() == null ? level.getGameTime() : level.getServer().getTickCount();
         if (now != tick) { tick = now; used = 0; }
         if (!completePass && used >= KEYS_PER_TICK) return;
-        var shared = !completePass && grid.getStorageService() instanceof StorageReturnBudget.Source source ? source.neoecoae$returnBudget() : null;
+        var shared = completePass ? null : StorageReturnBudget.forGrid(grid);
         if (shared != null && !shared.available(now)) return;
         if (completePass) cursor = keys.size();
         if (cursor == keys.size()) {
