@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution.worker;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
@@ -177,7 +179,7 @@ final class ECOCraftingFastPathVerifier {
             ItemStack stack = slots.get(index);
             result.append("\n  {index=").append(index);
             if (stack == null || stack.isEmpty()) result.append(", AEKey=null, amount=0, state=EMPTY}");
-            else result.append(", AEKey=").append(AEItemKey.of(stack)).append(", amount=")
+            else result.append(", AEKey=").append(ECOKeyFactory.item(stack)).append(", amount=")
                     .append(stack.getCount()).append(", nbt=").append(stack.getTag())
                     .append(", damage=").append(stack.getDamageValue()).append('}');
         }

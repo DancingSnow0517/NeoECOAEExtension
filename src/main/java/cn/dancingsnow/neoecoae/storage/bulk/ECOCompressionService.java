@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.storage.bulk;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEItemKey;
 import cn.dancingsnow.neoecoae.network.ECOCompressionSyncS2CPacket;
 import appeng.menu.AutoCraftingMenu;
@@ -114,7 +116,7 @@ public final class ECOCompressionService {
         var output = recipe.getResultItem(registries);
         if (output.isEmpty()) return List.of();
         Set<AEItemKey> possible = new HashSet<>();
-        for (ItemStack stack : nonempty.get(0).getItems()) if (!stack.isEmpty()) possible.add(AEItemKey.of(stack));
+        for (ItemStack stack : nonempty.get(0).getItems()) if (!stack.isEmpty()) possible.add(ECOKeyFactory.item(stack));
         List<RecipeCandidate> result = new ArrayList<>();
         for (AEItemKey key : possible) {
             if (nonempty.stream().anyMatch(ingredient -> !ingredient.test(key.toStack()))) continue;
@@ -128,7 +130,7 @@ public final class ECOCompressionService {
             var actual = recipe.assemble(input, registries);
             if (!ItemStack.isSameItemSameTags(actual, output) || actual.getCount() != output.getCount()
                     || recipe.getRemainingItems(input).stream().anyMatch(stack -> !stack.isEmpty())) continue;
-            result.add(new RecipeCandidate(key, nonempty.size(), AEItemKey.of(output), output.getCount()));
+            result.add(new RecipeCandidate(key, nonempty.size(), ECOKeyFactory.item(output), output.getCount()));
         }
         return result;
     }
@@ -194,7 +196,7 @@ public final class ECOCompressionService {
                 ? CraftingHelper.getItemStack(GsonHelper.parse("{\"item\":" + value + "}"), false)
                 : CraftingHelper.getItemStack(value.getAsJsonObject(), true);
             if (stack.isEmpty() || stack.getCount() != 1) throw new IllegalArgumentException("Compression rule keys require count 1");
-            return AEItemKey.of(stack);
+            return ECOKeyFactory.item(stack);
         }
     }
 }

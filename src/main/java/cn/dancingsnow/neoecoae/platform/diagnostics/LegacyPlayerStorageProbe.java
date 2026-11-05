@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.platform.diagnostics;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
@@ -97,11 +99,11 @@ final class LegacyPlayerStorageProbe {
             check(cell.storageData().amounts().size() == expected.getList("entries", Tag.TAG_COMPOUND).size(), "Player disk resource types changed");
             for (Tag value : expected.getList("entries", Tag.TAG_COMPOUND)) {
                 CompoundTag resource = (CompoundTag) value;
-                AEKey key = AEKey.fromTagGeneric(resource.getCompound("key"));
+                AEKey key = ECOKeyFactory.fromTagGeneric(resource.getCompound("key"));
                 check(key != null && cell.storageData().amounts().get(key).toBigInteger().equals(BigInteger.valueOf(resource.getLong("amount"))), "Player resource key/NBT/amount changed");
             }
             if (cell.storageData().amounts().isEmpty()) {
-                AEKey key = AEItemKey.of(Items.DIAMOND);
+                AEKey key = ECOKeyFactory.item(Items.DIAMOND);
                 check(cell.insert(key, 7, Actionable.MODULATE, IActionSource.empty()) == 7, "Recovered empty disk cannot store items");
                 check(cell.extract(key, 7, Actionable.MODULATE, IActionSource.empty()) == 7, "Recovered disk cannot return stored items");
             }

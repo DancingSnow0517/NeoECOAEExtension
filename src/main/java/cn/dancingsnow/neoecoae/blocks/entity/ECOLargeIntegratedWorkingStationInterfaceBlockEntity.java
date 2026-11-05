@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.implementations.blockentities.PatternContainerGroup;
@@ -343,7 +345,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
             };
             icon.getOrCreateTag().putInt("CustomModelData", modelData);
         }
-        return AEItemKey.of(icon);
+        return ECOKeyFactory.item(icon);
     }
 
     @Override

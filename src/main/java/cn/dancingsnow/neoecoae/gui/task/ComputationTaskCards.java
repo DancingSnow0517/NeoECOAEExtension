@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.task;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.core.localization.ButtonToolTips;
@@ -181,7 +183,7 @@ public final class ComputationTaskCards {
         if (entry.output().isEmpty()) {
             return null;
         }
-        AEItemKey itemKey = AEItemKey.of(entry.output());
+        AEItemKey itemKey = ECOKeyFactory.item(entry.output());
         if (itemKey == null) {
             return null;
         }

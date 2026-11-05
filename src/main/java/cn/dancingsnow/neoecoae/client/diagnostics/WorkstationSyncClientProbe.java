@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.client.diagnostics;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.core.definitions.AEItems;
 import appeng.menu.SlotSemantics;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
@@ -310,9 +312,9 @@ final class WorkstationSyncClientProbe {
                 tag.putInt("progress", index == 0 ? 40 : 0);
                 tag.putLong("progressRemainder", index == 0 ? 123 : 0);
                 tag.put("inputTotal", cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOFastPathStacks.writeGenericStacks(
-                    java.util.List.of(new appeng.api.stacks.GenericStack(appeng.api.stacks.AEItemKey.of(net.minecraft.world.item.Items.STONE), 256))));
+                    java.util.List.of(new appeng.api.stacks.GenericStack(ECOKeyFactory.item(net.minecraft.world.item.Items.STONE), 256))));
                 tag.put("outputTotal", cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOFastPathStacks.writeGenericStacks(
-                    java.util.List.of(new appeng.api.stacks.GenericStack(appeng.api.stacks.AEItemKey.of(net.minecraft.world.item.Items.DIAMOND), 256))));
+                    java.util.List.of(new appeng.api.stacks.GenericStack(ECOKeyFactory.item(net.minecraft.world.item.Items.DIAMOND), 256))));
                 Object batch = load.invoke(null, tag, host.getLevel().getGameTime());
                 require(batch != null, "Persisted task fixture was rejected");
                 queue.addLast(batch);

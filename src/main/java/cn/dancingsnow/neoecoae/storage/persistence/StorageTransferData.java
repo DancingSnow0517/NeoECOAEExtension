@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.storage.persistence;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
@@ -29,7 +31,7 @@ public final class StorageTransferData extends StorageSavedData {
         this.transaction = transaction; this.domain = domain; this.sourceSnapshot = source.snapshot();
         if (!compatibility.isEmpty()) for (var raw : sourceSnapshot.getList("entries", Tag.TAG_COMPOUND)) {
             CompoundTag entry = (CompoundTag) raw;
-            var ids = compatibility.get(appeng.api.stacks.AEKey.fromTagGeneric(entry.getCompound("key")));
+            var ids = compatibility.get(ECOKeyFactory.fromTagGeneric(entry.getCompound("key")));
             if (ids != null) {
                 var list = new net.minecraft.nbt.ListTag(); ids.forEach(id -> list.add(net.minecraft.nbt.NbtUtils.createUUID(id)));
                 entry.put("compatibilityReceipts", list);
@@ -57,7 +59,7 @@ public final class StorageTransferData extends StorageSavedData {
                 throw new IllegalStateException("Invalid legacy receipt identities");
             var list = entry.getList("compatibilityReceipts", Tag.TAG_INT_ARRAY);
             for (var id : list) ids.add(net.minecraft.nbt.NbtUtils.loadUUID(id));
-            var key = appeng.api.stacks.AEKey.fromTagGeneric(entry.getCompound("key"));
+            var key = ECOKeyFactory.fromTagGeneric(entry.getCompound("key"));
             if (key == null) throw new IllegalStateException("Unresolved compatibility receipt key");
             result.put(key, java.util.Set.copyOf(ids));
         }

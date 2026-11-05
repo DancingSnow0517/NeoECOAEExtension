@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderProgress;
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderRequest;
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderState;
@@ -333,7 +335,7 @@ final class ECOBigOrderController {
             throw new IllegalArgumentException("Parent amount mismatch");
         if (current == null || !current.link.getCraftingID().equals(restored.id()))
             throw new IllegalArgumentException("Parent link mismatch");
-        var target = GenericStack.readTag(tag.getCompound("goal"));
+        var target = ECOKeyFactory.readTag(tag.getCompound("goal"));
         if (target == null || current.finalOutput == null || !target.what().equals(current.finalOutput.what())
                 || restored.state() == ECOBigOrderState.RUNNING_CHILD
                 && restored.childTarget() != current.finalOutput.amount())
@@ -350,7 +352,7 @@ final class ECOBigOrderController {
         var amounts = new java.util.HashMap<AEKey, java.math.BigInteger>();
         for (int i = 0; i < forecast.size(); i++) {
             var entry = forecast.getCompound(i);
-            var stack = GenericStack.readTag(entry.getCompound("key"));
+            var stack = ECOKeyFactory.readTag(entry.getCompound("key"));
             if (stack != null) amounts.put(stack.what(), ECOBigCraftingOrder.decode(entry.getString("amount")));
         }
         pendingPreview = amounts;

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
@@ -81,9 +83,9 @@ final class StorageResourceFilterGrid extends UIElement {
         if (generic != null) return generic.what();
         if (!asItem) {
             var fluid = FluidUtil.getFluidContained(stack).orElse(null);
-            if (fluid != null && !fluid.isEmpty()) return AEFluidKey.of(fluid);
+            if (fluid != null && !fluid.isEmpty()) return ECOKeyFactory.fluid(fluid);
         }
-        return AEItemKey.of(stack);
+        return ECOKeyFactory.item(stack);
     }
 
     private final class FilterSlot extends ItemSlot {

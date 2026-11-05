@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.display.processing;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEItemKey;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingStatusReader;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
@@ -24,7 +26,7 @@ public final class ECOFxProcessingStatus implements ECOProcessingStatusReader {
             : ECOCraftingThread.calculateProgressPerTick(controller.getExecutionOverclockTimes());
         for (var thread : worker.getThreadSnapshots()) {
             if (!thread.busy() || !Objects.equals(context.jobId(), thread.craftingJobId())
-                    || thread.outputItem().isEmpty() || !context.output().equals(AEItemKey.of(thread.outputItem()))) continue;
+                    || thread.outputItem().isEmpty() || !context.output().equals(ECOKeyFactory.item(thread.outputItem()))) continue;
             String blocked = thread.pauseReason();
             boolean paused = !available || !blocked.isEmpty();
             State state = thread.outputsReady() ? State.WAITING : paused ? State.PAUSED : State.RUNNING;

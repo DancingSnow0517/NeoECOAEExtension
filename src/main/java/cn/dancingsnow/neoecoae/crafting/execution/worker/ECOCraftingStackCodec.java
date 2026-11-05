@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution.worker;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -17,7 +19,7 @@ public final class ECOCraftingStackCodec {
     public static KeyCounter collect(List<ItemStack> stacks) {
         KeyCounter result = new KeyCounter();
         for (ItemStack stack : stacks) {
-            if (!stack.isEmpty()) result.add(AEItemKey.of(stack), stack.getCount());
+            if (!stack.isEmpty()) result.add(ECOKeyFactory.item(stack), stack.getCount());
         }
         return result;
     }

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.storage.bulk;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEItemKey;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
@@ -26,6 +28,6 @@ public final class BulkItemKeys {
         if (item == null) return null;
         ItemStack restored = new ItemStack(item);
         if (tag.contains(TAG, Tag.TAG_COMPOUND)) restored.setTag(tag.getCompound(TAG).copy());
-        return AEItemKey.of(restored);
+        return ECOKeyFactory.item(restored);
     }
 }

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.compat.gregtech;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
@@ -229,7 +231,7 @@ public final class ECOGregTechMachineStatus {
         }
         if (output instanceof AEFluidKey fluid && value(content, "getFluid") instanceof Fluid actual) {
             Object tag = value(content, "getTag");
-            return fluid.equals(AEFluidKey.of(actual, tag instanceof CompoundTag nbt ? nbt : null));
+            return fluid.equals(ECOKeyFactory.fluid(actual, tag instanceof CompoundTag nbt ? nbt : null));
         }
         Object nested = value(content, "getContent", "content", "getStacks");
         return nested != content && matches(nested, output, depth + 1);

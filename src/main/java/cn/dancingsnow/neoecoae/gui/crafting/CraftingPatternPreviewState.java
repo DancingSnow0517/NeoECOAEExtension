@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.platform.JdkCompat;
 
 import appeng.api.crafting.PatternDetailsHelper;
@@ -327,7 +329,7 @@ final class CraftingPatternPreviewState {
         var fallback = new PatternSearchKeywords.Directions(inputs, output);
         if (stack.isEmpty()) return fallback;
         // Translate on the viewer's client, once per distinct pattern, not in each frame/search keystroke.
-        var localized = localKeywords.computeIfAbsent(AEItemKey.of(stack), key -> {
+        var localized = localKeywords.computeIfAbsent(ECOKeyFactory.item(stack), key -> {
             try {
                 return PatternSearchKeywords.directions(PatternDetailsHelper.decodePattern(stack, player.level()));
             } catch (RuntimeException ignored) {

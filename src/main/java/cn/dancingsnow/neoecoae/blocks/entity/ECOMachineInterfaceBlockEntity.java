@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.platform.JdkCompat;
 
 import appeng.api.orientation.BlockOrientation;
@@ -974,7 +976,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     private boolean hasDuplicatePattern(PatternSlotRef target, ItemStack candidate) {
-        AEItemKey candidateKey = AEItemKey.of(candidate);
+        AEItemKey candidateKey = ECOKeyFactory.item(candidate);
         if (candidateKey == null) {
             return false;
         }
@@ -989,7 +991,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             if (ref.equals(target)) {
                 continue;
             }
-            if (candidateKey.equals(AEItemKey.of(getPatternStack(ref)))) {
+            if (candidateKey.equals(ECOKeyFactory.item(getPatternStack(ref)))) {
                 return true;
             }
         }
@@ -1333,7 +1335,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (storage == null) {
             return false;
         }
-        AEItemKey key = AEItemKey.of(replacement);
+        AEItemKey key = ECOKeyFactory.item(replacement);
         if (key == null) {
             return false;
         }
@@ -1355,7 +1357,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (storage == null) {
             return false;
         }
-        AEItemKey key = AEItemKey.of(blank);
+        AEItemKey key = ECOKeyFactory.item(blank);
         if (key == null) {
             return false;
         }
@@ -1417,7 +1419,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 continue;
             }
 
-            ECOPreparedPattern prepared = new ECOPreparedPattern(stack, details, AEItemKey.of(stack));
+            ECOPreparedPattern prepared = new ECOPreparedPattern(stack, details, ECOKeyFactory.item(stack));
             cn.dancingsnow.neoecoae.api.ECOPatternInsertion insertion =
                     task.catalog().insertPreparedPatternReporting(task.domain(), prepared);
             switch (insertion.result()) {

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.biggerae2;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.platform.nbt.NEItemData;
 import net.minecraft.nbt.CompoundTag;
@@ -38,7 +40,7 @@ record BiggerAE2SingularityContents(List<Entry> entries) {
         List<Entry> entries = new ArrayList<>(raw.size());
         for (int index = 0; index < raw.size(); index++) {
             CompoundTag entry = raw.getCompound(index);
-            AEKey key = AEKey.fromTagGeneric(entry.getCompound("key"));
+            AEKey key = ECOKeyFactory.fromTagGeneric(entry.getCompound("key"));
             entries.add(new Entry(key, new BigInteger(entry.getString("amount"))));
         }
         return new BiggerAE2SingularityContents(entries);

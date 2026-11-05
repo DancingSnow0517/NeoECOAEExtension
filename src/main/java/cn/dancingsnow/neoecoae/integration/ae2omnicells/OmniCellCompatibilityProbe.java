@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.ae2omnicells;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
@@ -90,13 +92,13 @@ public final class OmniCellCompatibilityProbe {
             var sourceData = NbtIo.readCompressed(source.resolve("data/ae_universal_cell_data/" + id + ".dat").toFile());
             for (Tag raw : sourceData.getCompound("data").getCompound("inventory").getList("entries", Tag.TAG_COMPOUND)) {
                 CompoundTag entry = (CompoundTag) raw;
-                var key = AEKey.fromTagGeneric(entry.getCompound("key"));
+                var key = ECOKeyFactory.fromTagGeneric(entry.getCompound("key"));
                 check(key != null, "Actual player key could not be decoded");
                 expected.add(key, entry.getLong("amount"));
                 types++; total += entry.getLong("amount");
             }
             assertContents(cell, expected);
-            var key = AEItemKey.of(Items.STONE);
+            var key = ECOKeyFactory.item(Items.STONE);
             long existing = cell.extract(key, Long.MAX_VALUE, Actionable.SIMULATE, IActionSource.empty());
             check(cell.insert(key, 13, Actionable.MODULATE, IActionSource.empty()) == 13, "Restored disk rejected an insert");
             check(cell.extract(key, 13, Actionable.MODULATE, IActionSource.empty()) == 13, "Restored disk rejected extraction");
@@ -137,8 +139,8 @@ public final class OmniCellCompatibilityProbe {
 
     private static void verifyLongCapacity() {
         var cell = ECOUniversalCellHandler.INSTANCE.getCellInventory(NEOmniItems.ECO_QUANTUM_OMNI_CELL_256M.asStack(), null);
-        long amount = (1L << 32) * AEItemKey.of(Items.STONE).getType().getAmountPerByte();
-        var key = AEItemKey.of(Items.STONE);
+        long amount = (1L << 32) * ECOKeyFactory.item(Items.STONE).getType().getAmountPerByte();
+        var key = ECOKeyFactory.item(Items.STONE);
         check(cell.insert(key, amount, Actionable.MODULATE, IActionSource.empty()) == amount, "Capacity truncated above Integer.MAX_VALUE");
         check(cell.getStatus() == CellState.FULL, "Long-capacity full state is wrong");
         check(cell.insert(key, 1, Actionable.SIMULATE, IActionSource.empty()) == 0, "Long-capacity disk exceeded its bound");

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.storage.bulk;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.IPatternDetailsDecoder;
 import appeng.api.stacks.AEItemKey;
@@ -33,7 +35,7 @@ public final class ECOBulkConversionPattern implements IPatternDetails {
         if (definition == null) {
             var stack = new ItemStack(NEItems.ECO_BULK_PATTERN.get());
             NEItemData.write(stack, encode());
-            definition = AEItemKey.of(stack);
+            definition = ECOKeyFactory.item(stack);
         }
         return definition;
     }
@@ -82,7 +84,7 @@ public final class ECOBulkConversionPattern implements IPatternDetails {
             } catch (RuntimeException invalid) { return null; }
         }
         @Override public @Nullable IPatternDetails decodePattern(ItemStack stack, Level level, boolean tryRecovery) {
-            return stack == null || stack.isEmpty() ? null : decodePattern(AEItemKey.of(stack), level);
+            return stack == null || stack.isEmpty() ? null : decodePattern(ECOKeyFactory.item(stack), level);
         }
     };
 }

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.recipe;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
@@ -84,8 +86,8 @@ public record LargeWorkstationRecipe(ResourceLocation id, IntegratedWorkingStati
 
     public List<GenericStack> outputs() {
         var outputs = new ArrayList<GenericStack>();
-        if (display.hasItemOutput()) outputs.add(GenericStack.fromItemStack(display.itemOutput()));
-        if (display.hasFluidOutput()) outputs.add(GenericStack.fromFluidStack(display.fluidOutput()));
+        if (display.hasItemOutput()) outputs.add(ECOKeyFactory.fromItemStack(display.itemOutput()));
+        if (display.hasFluidOutput()) outputs.add(ECOKeyFactory.fromFluidStack(display.fluidOutput()));
         outputs.addAll(additionalOutputs);
         return List.copyOf(outputs);
     }

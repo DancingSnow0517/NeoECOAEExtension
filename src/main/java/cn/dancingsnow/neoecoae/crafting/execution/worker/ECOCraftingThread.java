@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution.worker;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.platform.JdkCompat;
 
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputRouter;
@@ -276,7 +278,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             }
             return null;
         }
-        if (!outputItems.isEmpty()) return AEItemKey.of(cn.dancingsnow.neoecoae.platform.JdkCompat.first(outputItems));
+        if (!outputItems.isEmpty()) return ECOKeyFactory.item(cn.dancingsnow.neoecoae.platform.JdkCompat.first(outputItems));
         for (var stack : batchOutputItems) {
             if (stack.what() instanceof AEItemKey key) return key;
         }
@@ -295,7 +297,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
         java.math.BigInteger amount = java.math.BigInteger.ZERO;
         for (ItemStack output : outputItems) {
-            if (!output.isEmpty() && key.equals(AEItemKey.of(output))) {
+            if (!output.isEmpty() && key.equals(ECOKeyFactory.item(output))) {
                 amount = amount.add(java.math.BigInteger.valueOf(output.getCount()));
             }
         }
@@ -772,7 +774,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     private static void addStack(KeyCounter counter, ItemStack stack) {
         if (stack != null && !stack.isEmpty()) {
-            GenericStack genericStack = GenericStack.fromItemStack(stack);
+            GenericStack genericStack = ECOKeyFactory.fromItemStack(stack);
             if (genericStack != null && genericStack.amount() > 0L) {
                 counter.add(genericStack.what(), genericStack.amount());
             }

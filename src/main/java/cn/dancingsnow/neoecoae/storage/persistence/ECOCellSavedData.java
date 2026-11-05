@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.storage.persistence;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.storage.infinite.HugeAmount;
@@ -89,7 +91,7 @@ public final class ECOCellSavedData extends StorageSavedData {
                     amount = HugeAmount.read(encodedAmount);
                 }
                 if (amount.isZero()) throw new IllegalArgumentException("Stored amounts must be positive");
-                AEKey key = AEKey.fromTagGeneric(entry.getCompound("key"));
+                AEKey key = ECOKeyFactory.fromTagGeneric(entry.getCompound("key"));
                 if (!Legacy2042Storage.resolved(key) || data.amounts.visible(key) != 0) throw new IllegalArgumentException("Unknown or duplicate key");
                 data.amounts.set(key, amount);
                 data.encodedKeys.put(key, entry.getCompound("key").copy());

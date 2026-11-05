@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.emi;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -40,9 +42,9 @@ public final class EmiBookmarkAccess {
         if (stack.getKey() instanceof Fluid fluid) {
             var fluidStack = new FluidStack(fluid, 1);
             if (stack.getNbt() != null) fluidStack.setTag(stack.getNbt().copy());
-            return AEFluidKey.of(fluidStack);
+            return ECOKeyFactory.fluid(fluidStack);
         }
         var item = stack.getItemStack();
-        return item.isEmpty() ? null : AEItemKey.of(item);
+        return item.isEmpty() ? null : ECOKeyFactory.item(item);
     }
 }

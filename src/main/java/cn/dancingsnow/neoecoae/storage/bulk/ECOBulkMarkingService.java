@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.storage.bulk;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.config.Actionable;
 import appeng.api.storage.MEStorage;
 import appeng.api.networking.security.IActionSource;
@@ -77,13 +79,13 @@ public final class ECOBulkMarkingService {
     }
 
     public static ItemStack normalizeMarker(ItemStack stack) {
-        AEItemKey key = stack == null || stack.isEmpty() ? null : AEItemKey.of(stack);
+        AEItemKey key = stack == null || stack.isEmpty() ? null : ECOKeyFactory.item(stack);
         return key != null ? stack.copyWithCount(1) : ItemStack.EMPTY;
     }
 
     public static boolean isSameMarkerChain(ItemStack left, ItemStack right) {
-        AEItemKey leftKey = left == null || left.isEmpty() ? null : AEItemKey.of(left);
-        AEItemKey rightKey = right == null || right.isEmpty() ? null : AEItemKey.of(right);
+        AEItemKey leftKey = left == null || left.isEmpty() ? null : ECOKeyFactory.item(left);
+        AEItemKey rightKey = right == null || right.isEmpty() ? null : ECOKeyFactory.item(right);
         if (leftKey == null || rightKey == null) {
             return false;
         }

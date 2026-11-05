@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.storage;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEKey;
 import java.util.HashSet;
 import java.util.Set;
@@ -38,7 +40,7 @@ public final class StorageInterfaceFilter implements Predicate<AEKey> {
     /** Use each registered channel's codec without replacing invalid keys with AE2 missing-content items. */
     public static @Nullable AEKey decode(CompoundTag tag) {
         try {
-            return AEKey.fromTagGeneric(tag);
+            return ECOKeyFactory.fromTagGeneric(tag);
         } catch (RuntimeException invalid) {
             return null;
         }

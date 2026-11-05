@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.storage.infinite;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.platform.nbt.NEAtomicNbtFile;
 
@@ -154,7 +156,7 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.storag
                         : !amountTag.contains("long", Tag.TAG_LONG))
                     throw new IllegalArgumentException("Invalid amount");
                 HugeAmount amount = HugeAmount.read(amountTag);
-                AEKey key = codec == null ? AEKey.fromTagGeneric(entry.getCompound("key"))
+                AEKey key = codec == null ? ECOKeyFactory.fromTagGeneric(entry.getCompound("key"))
                         : codec.decode(entry.getCompound("key"));
                 if (!cn.dancingsnow.neoecoae.storage.persistence.Legacy2042Storage.resolved(key))
                     throw new IllegalArgumentException("Unknown key");
@@ -462,7 +464,7 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.storag
                     throw new IOException("Non-contiguous infinite-domain journal sequence " + sequence);
                 }
                 AEKey key = data.codec == null
-                        ? AEKey.fromTagGeneric(record.getCompound("key"))
+                        ? ECOKeyFactory.fromTagGeneric(record.getCompound("key"))
                         : data.codec.decode(record.getCompound("key"));
                 long amount = record.getLong("amount");
                 if (key == null || amount <= 0L) throw new IOException("Invalid infinite-domain journal change");
