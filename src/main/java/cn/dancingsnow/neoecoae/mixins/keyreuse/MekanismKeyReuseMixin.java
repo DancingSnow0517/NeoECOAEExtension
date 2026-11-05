@@ -1,10 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.keyreuse;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse;
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuseSlot;
 import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.SharedChemicalKey;
-import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import me.ramidzkh.mekae2.ae2.MekanismKey;
 import mekanism.api.chemical.ChemicalStack;
 import org.spongepowered.asm.mixin.Final;
@@ -27,39 +23,6 @@ public abstract class MekanismKeyReuseMixin implements SharedChemicalKey {
     public final void neoecoae$markShared() {
         neoecoae$hash = 31 + stack.getChemical().hashCode();
         neoecoae$shared = true;
-    }
-
-    @Inject(method = "of", at = @At("HEAD"), cancellable = true)
-    private static void neoecoae$reuse(ChemicalStack stack, CallbackInfoReturnable<MekanismKey> cir) {
-        if (KeyReuse.epoch() != null && !stack.isEmpty()) {
-            MekanismKey key = (MekanismKey) KeyReuse.peek(stack.getChemical());
-            if (key != null) cir.setReturnValue(key);
-        }
-    }
-
-    @Inject(method = "lambda$static$1", at = @At("HEAD"), cancellable = true)
-    private static void neoecoae$reuseDecoded(net.minecraft.core.Holder<mekanism.api.chemical.Chemical> chemical,
-            CallbackInfoReturnable<MekanismKey> cir) {
-        MekanismKey key = (MekanismKey) KeyReuse.peek(chemical.value());
-        if (key != null) cir.setReturnValue(key);
-    }
-
-    @WrapOperation(method = "*", at = @At(value = "NEW",
-        target = "(Lmekanism/api/chemical/ChemicalStack;)Lme/ramidzkh/mekae2/ae2/MekanismKey;"))
-    private static MekanismKey neoecoae$publish(ChemicalStack stack, Operation<MekanismKey> original) {
-        Object epoch = KeyReuse.epoch();
-        KeyReuseSlot slot;
-        if (epoch == null || stack.isEmpty() || (slot = KeyReuse.slot(stack.getChemical())) == null)
-            return original.call(stack);
-        synchronized (slot) {
-            MekanismKey existing = (MekanismKey) slot.get(epoch);
-            if (existing != null) return existing;
-            stack.setAmount(1);
-            MekanismKey key = original.call(stack);
-            ((SharedChemicalKey) (Object) key).neoecoae$markShared();
-            slot.set(epoch, key);
-            return key;
-        }
     }
 
     @Inject(method = "getStack", at = @At("HEAD"), cancellable = true)
