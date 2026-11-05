@@ -82,6 +82,7 @@ public class NeoECOAE {
         NEBlocks.register();
         NEFluids.register();
         NEBlockEntities.register();
+        cn.dancingsnow.neoecoae.dev.DevResourceGenerator.register(modBus);
         NEDataGen.configureDataGen();
         NEGridServices.register();
         NEEcoTiers.register();
@@ -111,6 +112,8 @@ public class NeoECOAE {
         modContainer.registerConfig(ModConfig.Type.SERVER, NEConfig.SPEC);
         modContainer.registerConfig(ModConfig.Type.COMMON,
             cn.dancingsnow.neoecoae.config.KeyReuseConfig.SPEC, "neoecoae-key-reuse.toml");
+        modContainer.registerConfig(ModConfig.Type.COMMON,
+            cn.dancingsnow.neoecoae.config.DevToolsConfig.SPEC, "neoecoae-dev-tools.toml");
 
         modBus.addListener(NeoECOAE::registerCapabilities);
         modBus.addListener(NeoECOAE::initUpgrades);
