@@ -113,6 +113,8 @@ public class NeoECOAE {
         // previews/tooltips. SERVER configs are synchronized to joining clients by Forge.
         ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, NEConfig.SPEC);
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON,
+            cn.dancingsnow.neoecoae.config.KeyReuseConfig.SPEC, "neoecoae-key-reuse.toml");
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON,
             cn.dancingsnow.neoecoae.config.RecipeProfileConfig.SPEC, "neoecoae-recipes-common.toml");
 
         modBus.addListener(NeoECOAE::registerCapabilities);
@@ -255,6 +257,7 @@ public class NeoECOAE {
     }
 
     private static void onTagsUpdated(TagsUpdatedEvent event) {
+        cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse.invalidate();
         cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes.invalidate();
         AE2PatternIntrospection.onRecipeReloadOrServerReload();
     }

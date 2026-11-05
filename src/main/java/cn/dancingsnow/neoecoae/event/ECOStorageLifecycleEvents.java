@@ -30,6 +30,7 @@ public final class ECOStorageLifecycleEvents {
     }
 
     public static void onServerStopped(ServerStoppedEvent event) {
+        cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse.invalidate();
         MinecraftServer server = event.getServer();
         PatternBusUpdateScheduler.clear(server);
         NELogicalNetworkManager.clearAll();
