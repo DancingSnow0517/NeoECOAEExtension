@@ -10,6 +10,14 @@ base.archivesName = mod_id
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 java.withSourcesJar()
 
+def keyReuseAcceptance = providers.gradleProperty('keyReuseAcceptance').map { it.toBoolean() }.getOrElse(false)
+if (keyReuseAcceptance) {
+    sourceSets.create('keyReuseAcceptance') {
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+
 def runtimeProfiles = [
         base          : [],
         extended      : ['expatternprovider', 'glodium'],
@@ -27,6 +35,9 @@ runtimeProfiles.storageAll = runtimeProfiles.storage + [
         'bigger_ae2', 'appliedpneumatics', 'pneumaticcraft', 'arseng', 'ars_nouveau', 'geckolib',
         'ae2lt', 'thunderbolt'
 ]
+// Applied Botanics 1.5.2 links a client renderer in its dedicated-server constructor.
+// Keep full client coverage; the key-reuse server harness exercises the allocating channels separately.
+runtimeProfiles.keyReuse = runtimeProfiles.storageAll - ['appbot', 'botania']
 def portingProfile = providers.gradleProperty('portingProfile').getOrElse('base')
 def jeiVersion = providers.gradleProperty('jeiVersion').getOrElse('15.48.0.177')
 if (!runtimeProfiles.containsKey(portingProfile)) {
@@ -148,7 +159,12 @@ legacyForge {
     version = "${minecraft_version}-${forge_version}"
     validateAccessTransformers = true
     runs {
-        client { client() }
+        client {
+            client()
+            if (project.hasProperty('quickPlay')) {
+                programArguments.addAll '--quickPlaySingleplayer', project.property('quickPlay').toString()
+            }
+        }
         server {
             server()
             programArgument '--nogui'
@@ -163,6 +179,10 @@ legacyForge {
                     '--existing', file('src/main/resources').absolutePath
         }
         configureEach {
+            if (keyReuseAcceptance) {
+                systemProperty 'neoecoae.keyReuseAcceptance', 'true'
+                systemProperty 'mixin.debug.export', 'true'
+            }
             gameDirectory = project.file(providers.gradleProperty('multiblockAlignmentSmoke').isPresent()
                     ? "run/multiblock-alignment/${portingProfile}/${name}" : "run/${portingProfile}/${name}")
             logLevel = org.slf4j.event.Level.INFO
@@ -180,7 +200,10 @@ legacyForge {
         }
     }
     mods {
-        neoecoae { sourceSet sourceSets.main }
+        neoecoae {
+            sourceSet sourceSets.main
+            if (keyReuseAcceptance) sourceSet sourceSets.keyReuseAcceptance
+        }
     }
 }
 
