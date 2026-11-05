@@ -2,8 +2,8 @@ package cn.dancingsnow.neoecoae.client.gui.crafting;
 
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.extendedae_plus.client.ModKeybindings;
-import com.extendedae_plus.compat.EmiHelper;
-import com.extendedae_plus.compat.JeiRuntimeCompat;
+import com.extendedae_plus.compat.emi.EmiHelper;
+import com.extendedae_plus.compat.jei.JeiRuntimeCompat;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;

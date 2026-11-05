@@ -54,6 +54,7 @@ repositories {
                 url = "https://github.com/ModularMCLib/DataEnergistics/releases/download"
                 patternLayout {
                     artifact "v[revision]-1.21/data_energistics-1.21.1-[revision].[ext]"
+                    artifact "latest-1.21/data_energistics-1.21.1-[revision].[ext]"
                 }
                 metadataSources { artifact() }
             }
@@ -94,9 +95,14 @@ repositories {
     maven { // Registrate
         url "https://maven.gegy.dev/releases"
     }
-    maven {// Ldlib
-        name "firstdarkdev"
-        url "https://maven.firstdarkdev.xyz/snapshots"
+    exclusiveContent {
+        forRepository {
+            maven {
+                name "firstdarkdev"
+                url "https://maven.firstdarkdev.xyz/snapshots"
+            }
+        }
+        filter { includeGroup "com.lowdragmc.ldlib2" }
     }
     maven {
         // location of the maven that hosts JEI files since January 2023, botania
@@ -170,16 +176,17 @@ dependencies {
     devMods("curse.maven:jade-324717:8591319") { transitive = false }
     devMods("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}") { transitive = false }
     devMods("curse.maven:ae2-jei-integration-1074338:7727898") { transitive = false }
-    devMods("curse.maven:extendedae-plus-1337639:8755074") { transitive = false }
+    devMods("curse.maven:extendedae-plus-1337639:9343779") { transitive = false } // 1.6.4.1, JEI 19.70 compatible
     // All storage-cell integrations share the same development client.
     devMods("maven.modrinth:applied-replicatics:nQ4pLTkV") { transitive = false } // 21.1-1.2.1
     devMods("maven.modrinth:replication:XfQXDcjc") { transitive = false } // 1.21.1-1.2.7
     devMods("maven.modrinth:kotlin-for-forge:uhJhCT7X") { transitive = false } // 5.12.0
     devMods("maven.modrinth:applied-create:2bWngfNH") { transitive = false } // 1.1.7
     createDevMod("maven.modrinth:create:UjX6dr61") { transitive = false } // 6.0.10, embeds Flywheel/Ponder
-    devMods("github.dataenergistics:data-energistics:3.3.5@jar") { transitive = false }
+    // Official development build containing the EAEP 1.6.4 API compatibility fix (upstream #417).
+    devMods("github.dataenergistics:data-energistics:3.4.0-SNAPSHOT+20261104-135757-cb74a30@jar") { transitive = false }
     // Exercise optional workstation adapters against the released key and recipe codecs.
-    testRuntimeOnly("github.dataenergistics:data-energistics:3.3.5@jar") { transitive = false }
+    testRuntimeOnly("github.dataenergistics:data-energistics:3.4.0-SNAPSHOT+20261104-135757-cb74a30@jar") { transitive = false }
     testRuntimeOnly("maven.modrinth:applied-generators:InEKowoU") { transitive = false } // 0.3.0+1.21.1
     testRuntimeOnly("maven.modrinth:ae2-crystal-science:taIhgdOA") { transitive = false } // 1.21.1-1.2.1
     // AdvancedAE embeds this library; plain JVM recipe tests do not unpack nested mod JARs.
@@ -196,7 +203,7 @@ dependencies {
     testRuntimeOnly("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}") { transitive = false }
     // Exercise the optional search bridges against released upstream APIs; neither mod is bundled.
     testRuntimeOnly("curse.maven:just-enough-characters-250702:8771217") { transitive = false }
-    testImplementation("curse.maven:extendedae-plus-1337639:8755074") { transitive = false }
+    testImplementation("curse.maven:extendedae-plus-1337639:9343779") { transitive = false }
     // KeyMapping/EditBox tests need GLFW's native entry points, but never create a game window.
     def nativeOs = System.getProperty('os.name').toLowerCase(Locale.ROOT)
     def nativeClassifier = nativeOs.contains('win') ? 'natives-windows'
@@ -455,6 +462,15 @@ def installCuriosDevMod = tasks.register("installCuriosDevMod", Copy) {
     from(prepareCreateDevMod.flatMap { it.preparedJar })
     from(prepareBiggerAE2DevMod.flatMap { it.preparedJar })
     into(layout.projectDirectory.dir("run/mods"))
+    doFirst {
+        // Copy leaves previous dependency versions behind, causing duplicate mod IDs after upgrades.
+        def installedNames = source.files.collect { it.name }.toSet()
+        destinationDir.listFiles()?.findAll {
+            (it.name.startsWith('extendedae-plus-1337639-') || it.name.startsWith('data-energistics-') ||
+                it.name.startsWith('data_energistics-1.21.1-')) &&
+                it.name.endsWith('.jar') && !installedNames.contains(it.name)
+        }?.each { java.nio.file.Files.delete(it.toPath()) }
+    }
 }
 
 tasks.named("runClient").configure {
