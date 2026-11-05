@@ -110,6 +110,18 @@ class ECOKeyFactoryTest {
         assertNotSame(external, AEItemKey.of(new ItemStack(Items.IRON_INGOT)));
     }
 
+    @Test void disabledFluidFactoryDelegatesTheOriginalStackOverload() {
+        KeyReuse.configure(false);
+        FluidStack source = new FluidStack(Fluids.WATER, 1000);
+        AEFluidKey expected = AEFluidKey.of(source);
+        try (var factory = org.mockito.Mockito.mockStatic(AEFluidKey.class)) {
+            factory.when(() -> AEFluidKey.of(source)).thenReturn(expected);
+            assertSame(expected, ECOKeyFactory.fluid(source));
+            factory.verify(() -> AEFluidKey.of(source));
+            factory.verify(() -> AEFluidKey.of(Fluids.WATER), org.mockito.Mockito.never());
+        }
+    }
+
     private static final class EqualOwner {
         @Override public boolean equals(Object other) { return other instanceof EqualOwner; }
         @Override public int hashCode() { return 1; }

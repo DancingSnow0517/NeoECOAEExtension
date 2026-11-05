@@ -23,8 +23,8 @@ public final class ECOKeyFactory {
         GenericStack.CODEC.xmap(ECOKeyFactory::canonicalize, java.util.function.Function.identity());
 
     public static AEItemKey item(ItemStack stack) {
-        if (stack.isEmpty() || !plain(stack)) return AEItemKey.of(stack);
         Object epoch = KeyReuse.epoch();
+        if (epoch == null || stack.isEmpty() || !plain(stack)) return AEItemKey.of(stack);
         KeyReuseSlot slot = KeyReuse.slot(epoch, AEKeyType.items(), stack.getItem());
         if (slot == null) return AEItemKey.of(stack);
         AEItemKey key = (AEItemKey) slot.get(epoch);
@@ -49,7 +49,7 @@ public final class ECOKeyFactory {
     private static boolean plain(FluidStack stack) { return stack.isComponentsPatchEmpty(); }
 
     public static AEFluidKey fluid(FluidStack stack) {
-        if (stack.isEmpty() || !plain(stack)) return AEFluidKey.of(stack);
+        if (KeyReuse.epoch() == null || stack.isEmpty() || !plain(stack)) return AEFluidKey.of(stack);
         return fluid(stack.getFluid());
     }
 

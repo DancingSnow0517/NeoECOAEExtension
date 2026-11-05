@@ -8,6 +8,7 @@ import com.glodblock.github.appflux.common.me.key.type.EnergyType;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import net.neoforged.fml.ModList;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -15,6 +16,7 @@ import static org.mockito.Mockito.*;
 
 class FeNetworkAccessTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
+    @AfterEach void stopReuse() { cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse.configure(false); }
 
     @Test void everyNetworkCallInvokesTheRealFluxFactoryPath() {
         var inventory = mock(MEStorage.class);
@@ -46,6 +48,27 @@ class FeNetworkAccessTest {
             var state = new GeneratorState();
             assertThrows(IllegalArgumentException.class, () -> state.configureFe(new FeWorkloadSettings(1, 1, 1, 1, 1, 1, 0, true)));
             assertNull(state.fe);
+        }
+    }
+
+    @Test void ecoReuseSharesItsOwnFluxKeyAcrossNetworkCalls() {
+        var inventory = mock(MEStorage.class);
+        var source = mock(IActionSource.class);
+        var mods = mock(ModList.class);
+        when(mods.isLoaded("appflux")).thenReturn(true);
+        var key = FluxKey.of(EnergyType.FE);
+        cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse.configure(true);
+        try (var loading = mockStatic(ModList.class); var factory = mockStatic(FluxKey.class)) {
+            loading.when(ModList::get).thenReturn(mods);
+            factory.when(() -> FluxKey.of(EnergyType.FE)).thenReturn(key);
+            var access = FeNetworkAccess.create(inventory, source);
+            access.insert(100, true);
+            access.insert(100, false);
+            access.extract(100, true);
+            access.extract(100, false);
+            factory.verify(() -> FluxKey.of(EnergyType.FE), times(1));
+            verify(inventory).insert(key, 100, Actionable.SIMULATE, source);
+            verify(inventory).extract(key, 100, Actionable.MODULATE, source);
         }
     }
 }

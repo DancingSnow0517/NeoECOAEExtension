@@ -21,6 +21,8 @@ public final class ECOChemicalKeys {
                 key = MekanismKey.of(stack);
                 // Without the optional instance-view adapter it is unsafe to share mutable addon stacks.
                 if ((Object) key instanceof SharedChemicalKey shared) {
+                    // This fresh upstream key owns its copy; never normalize the caller's mutable stack.
+                    key.getStack().setAmount(1);
                     shared.neoecoae$markShared();
                     slot.set(epoch, key);
                 }
