@@ -1,4 +1,9 @@
 {
+  "neoecoae.configuration.keyReuse": "AE 资源 key 复用",
+  "neoecoae.configuration.keyReuse.tooltip": "本地缓存选项。保留值相等语义与旧存档格式。",
+  "neoecoae.configuration.keyReuse.enabled": "复用无额外数据的 key",
+  "neoecoae.configuration.keyReuse.enabled.tooltip": "复用无额外组件或 NBT 的不可变 key；带额外数据的资源保留原有创建行为。",
+
   "gui.neoecoae.smart_cooling.target": "目标温度（0–99%）",
   "gui.neoecoae.smart_cooling.control": "智能温控，目标 %s%%；右键智能冷却模块修改设置",
   "gui.neoecoae.smart_cooling.status": "当前温度：%s%% | %s",

@@ -290,12 +290,12 @@ public class NEConfig {
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent.Loading event) {
-        applyConfig();
+        if (event.getConfig().getSpec() == SPEC) applyConfig();
     }
 
     @SubscribeEvent
     public static void onReload(ModConfigEvent.Reloading event) {
-        applyConfig();
+        if (event.getConfig().getSpec() == SPEC) applyConfig();
     }
 
     private static void applyConfig() {
