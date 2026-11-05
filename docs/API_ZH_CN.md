@@ -261,6 +261,21 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 
 `ICellHost` 的安装参数为恰好一张有效盘，移除参数为 null；`ItemStack.EMPTY` 不是移除请求。先查询 `isItemValid/canExtractCell`，调用 void 的 `setCellStack` 后重读槽位确认，再转移源/旧盘。不要直接修改 `getCellStack()` 返回的活栈。[IECOStoragePriorityHost.setStoragePriority](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStoragePriorityHost.java) 在服务端保存并刷新挂载。
 
+附属驱动器可实现 [IECOConfigurableCellDrive](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOConfigurableCellDrive.java)，无需继承 ECO 方块实体。`getCellInteractionId()` 标识一次安装，换盘或重新加载时更新，并同步到 `StorageHostUI.CellEntry.atDrive(position, stack, reason, interactionId)`。`setConfiguredCellPriority` 必须保存、同步设置并刷新受影响的 AE2 挂载；有效挂载优先级使用 `StoragePriority.mountPriority(hostPriority, cellPriority)`，按有符号 int 饱和相加。
+
+每台主机保存一个 [ECOStorageCellPriorities](../src/main/java/cn/dancingsnow/neoecoae/api/storage/ECOStorageCellPriorities.java)，传入当前所属驱动器的 supplier 和权限 predicate；predicate 应检查同一世界、结构形成、距离及玩家/网络权限。每次读写都会重新检查归属、位置、安装 UUID、移除状态、可取出性和盘的迁移/无限成员锁定。服务端操作在所属服务器线程执行。内置主机的 `getConfigurableCellDrives()` 同样返回此接口，原 `getStorageDrivesForIntegration()` 签名保留。
+
+在每次创建菜单时建立 [StorageCellPriorityUI](../src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageCellPriorityUI.java)，它封装客户端目标、服务端按玩家选择和菜单 RPC，无需附属复制这些逻辑：
+
+```java
+var priority = new StorageCellPriorityUI(player, cellPriorities);
+var config = baseConfig.withCellActions(priority.withActions(baseConfig.cellActions()));
+var root = StorageHostUI.create(config, this::getTier, this::getBlockState);
+root.addChild(priority.window()); // 客户端和服务端都添加到同一位置
+```
+
+`withActions` 保留其余四个仓格动作，只替换 `openPriority`。`StorageHostUI.Config` 的 19 参数兼容构造器使用 `CellActions.NONE`，五个动作均为空；可用 `withCellActions` 显式启用。自定义网络/菜单也可复用 `ECOStorageCellPriorities` 的 `select/getSelectedPriority/setPriority/changePriority`，菜单结束后可用 `clear(player)` 清除选择。
+
 `ECOBigIntegerStorage.insert(storage, key, amount, mode, source)` 返回**已插入数量**，剩余量为提供量减去返回值。long 范围使用普通 AE2 插入；超 long 时优先精确库存，否则仅尝试一段 `Long.MAX_VALUE`，不会自动循环搬完。精确实现返回值必须在 0 与提供量之间。
 
 | 可选能力 | 条件 |
