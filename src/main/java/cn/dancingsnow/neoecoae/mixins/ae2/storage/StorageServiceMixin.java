@@ -5,6 +5,10 @@ import appeng.api.stacks.KeyCounter;
 import appeng.me.service.StorageService;
 import appeng.me.storage.NetworkStorage;
 import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
+import cn.dancingsnow.neoecoae.storage.StorageThresholdCache;
+import cn.dancingsnow.neoecoae.storage.StorageWatcherScope;
+import appeng.api.networking.storage.IStorageWatcherNode;
+import com.llamalad7.mixinextras.injector.WrapWithCondition;
 import com.google.common.math.StatsAccumulator;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import net.minecraft.server.MinecraftServer;
@@ -22,8 +26,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * mounts that may have changed and notify watchers for changed keys only.
  */
 @Mixin(StorageService.class)
-public abstract class StorageServiceMixin {
+public abstract class StorageServiceMixin implements StorageThresholdCache.Source {
     @Unique private final NetworkInventoryCache neoecoae$inventoryCache = new NetworkInventoryCache();
+    @Unique private final StorageThresholdCache neoecoae$thresholds = new StorageThresholdCache();
+
+    @Override public StorageThresholdCache neoecoae$thresholdCache() { return neoecoae$thresholds; }
+
+    @WrapWithCondition(method = "postWatcherUpdate", at = @At(value = "INVOKE", target =
+            "Lappeng/api/networking/storage/IStorageWatcherNode;onStackChange(Lappeng/api/stacks/AEKey;J)V", ordinal = 1))
+    private boolean neoecoae$onlyRelevantGlobalWatchers(IStorageWatcherNode watcher, AEKey key, long amount) {
+        return !(watcher instanceof StorageWatcherScope scope) || scope.neoecoae$observes(key);
+    }
 
     @Shadow @Final private NetworkStorage storage;
     @Shadow @Final private KeyCounter cachedAvailableStacks;
@@ -35,6 +48,7 @@ public abstract class StorageServiceMixin {
 
     @Inject(method = "updateCachedStacks", at = @At("HEAD"), cancellable = true)
     private void neoecoae$updateChangedMounts(CallbackInfo ci) {
+        neoecoae$thresholds.invalidate();
         // Crafting calculations may read the cached inventory from a worker thread; keep AE2's path there.
         MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
         if (server == null || !server.isSameThread()) {
