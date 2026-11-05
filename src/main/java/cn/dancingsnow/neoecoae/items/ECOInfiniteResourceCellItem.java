@@ -7,8 +7,6 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.storage.cells.ISaveProvider;
-import appeng.api.upgrades.UpgradeInventories;
-import appeng.api.upgrades.IUpgradeInventory;
 import appeng.util.ConfigInventory;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
@@ -47,12 +45,6 @@ public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
     private final List<AEKey> suppliedKeys;
     private final Set<AEKeyType> suppliedKeyTypes;
     private final String tooltipGroup;
-
-    /**
-     * Installed upgrade slots. Cards are inert here (nothing is stored, so fuzzy/void/inverter have
-     * nothing to act on) but the slots are accepted for parity with the other ECO matrices.
-     */
-    private static final int UPGRADE_SLOTS = 4;
 
     public ECOInfiniteResourceCellItem(Properties properties, IECOTier tier, Supplier<ECOCellType> cellType) {
         this(properties, tier, cellType, LOCKED_KEYS, "tooltip.neoecoae.infinite_resource");
@@ -110,11 +102,6 @@ public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
     @Override
     public ConfigInventory getConfigInventory(ItemStack is) {
         return ConfigInventory.configTypes(this::suppliesKey, suppliedKeys.size(), null);
-    }
-
-    @Override
-    public IUpgradeInventory getUpgrades(ItemStack stack) {
-        return UpgradeInventories.forItem(stack, UPGRADE_SLOTS);
     }
 
     @Override

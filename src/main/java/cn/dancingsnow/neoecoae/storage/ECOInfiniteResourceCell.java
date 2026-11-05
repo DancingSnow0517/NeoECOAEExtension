@@ -32,7 +32,7 @@ public class ECOInfiniteResourceCell extends ECOStorageCell implements ExactAmou
     private static final long OFFERED_AMOUNT = Long.MAX_VALUE;
 
     public ECOInfiniteResourceCell(ItemStack cellStack, @Nullable ISaveProvider container) {
-        super(cellStack, container);
+        super(cellStack, container, false);
     }
 
     private boolean isLockedKey(AEKey what) {

@@ -103,13 +103,19 @@ public class ECOStorageCell implements IECOStorageMigrationCell,
     private final IECOTier tier;
 
     public ECOStorageCell(ItemStack cellStack, @Nullable ISaveProvider container) {
+        this(cellStack, container, true);
+    }
+
+    /** Stateless resource supplies need empty bookkeeping without opening or tagging a persisted disk. */
+    protected ECOStorageCell(ItemStack cellStack, @Nullable ISaveProvider container, boolean persistContents) {
         this.container = container;
         this.cellStack = cellStack;
 
         if (cellStack.getItem() instanceof IBasicECOCellItem c) {
             keyType = c.getKeyType();
             maxItemTypes = c.getTotalTypes();
-            this.storageAccess = ECOStorageRepository.open(cellStack, container);
+            this.storageAccess = persistContents ? ECOStorageRepository.open(cellStack, container)
+                : new ECOStorageRepository.Access(new ECOCellSavedData(new java.util.UUID(0, 0)), null, container, false);
             this.cellType = c;
             this.tier = c.getTier();
 
