@@ -367,6 +367,8 @@ ServerEvents.recipes(event => {
 
 自行创建 [StorageHostUI](../src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageHostUI.java) 等面板时，使用接收 `Supplier<IECOTier>` 和 `Supplier<BlockState>` 的重载；服务器捕获放置态纹理并同步到客户端。旧工厂签名保留。
 
+`FluidHatchUI.createInputHatchUI(holder, host)` 使用实际放置方块的 `getDescriptionId()` 作为标题翻译键，附属的输入仓子类会显示自己的方块名称；网络拉取与普通模式使用同一标题。旧 `createFluidHatchUI` 的显式标题参数保持可用。
+
 `ECOCellModels.register`、`ECOComputationModels.registerCellModel/registerCableModel` 在客户端注册模型。线缆支持 `(tier, hostBlock)` 专用条目；动态模型提供器返回的额外模型须在烘焙前用 `registerAdditionalModel` 声明。面板 provider 只更换图片，不改变按钮或业务语义。
 
 ## 接入诊断

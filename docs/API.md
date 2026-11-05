@@ -367,6 +367,8 @@ Status indices 0–5 represent connection, substitutions, cycles, fast planning,
 
 When constructing panels such as [StorageHostUI](../src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageHostUI.java), use overloads accepting `Supplier<IECOTier>` and `Supplier<BlockState>`. The server captures placed-state texture IDs for synchronization; old factory signatures remain available.
 
+`FluidHatchUI.createInputHatchUI(holder, host)` uses the placed block's `getDescriptionId()` as its title translation key, so addon input-hatch subclasses display their own block name in both normal and network-pull modes. The explicit title parameter of the older `createFluidHatchUI` remains available.
+
 Register `ECOCellModels.register` and `ECOComputationModels.registerCellModel/registerCableModel` on the client. Cables support `(tier, hostBlock)` entries. Additional models returned by dynamic providers require `registerAdditionalModel` before baking. Panel providers change images, not button semantics.
 
 ## Integration diagnostics
