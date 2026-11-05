@@ -13,7 +13,7 @@ public final class StorageBusTransferFilter {
     public interface StorageBusInventory {}
 
     public static boolean excludes(MEStorage storage) {
-        return isActive() && storage instanceof StorageBusInventory;
+        return storage instanceof StorageBusInventory && isActive();
     }
 
     public static boolean isActive() {

@@ -20,6 +20,22 @@ public final class StorageListingAccumulator {
             listing.accept(output);
             return;
         }
+        if (output.isEmpty()) {
+            // The first nonempty mount has nothing to merge with. Listing into an isolated
+            // counter and rebuilding every submap in output doubles work for a one-mount network.
+            try {
+                if (ExactAmountCollector.isActive()) ExactAmountCollector.collect(storage, output, listing);
+                else {
+                    listing.accept(output);
+                    sanitize(storage, output);
+                }
+            } catch (RuntimeException | Error failure) {
+                // Preserve the previous empty output if a third-party listing only partly completed.
+                output.clear();
+                throw failure;
+            }
+            return;
+        }
         contribution.clear();
         // KeyCounter.addAll can clone a source submap efficiently when the destination
         // has no submap. Keeping an empty variant map instead forces entry-by-entry
@@ -45,5 +61,21 @@ public final class StorageListingAccumulator {
             }
             if (amount != 0) SaturatingStackAccumulator.add(output, entry.getKey(), amount);
         }
+    }
+
+    private static void sanitize(MEStorage storage, KeyCounter output) {
+        Map<AEKey, ExactAmount> exactAmounts = null;
+        boolean removeZeros = false;
+        for (var entry : output) {
+            long amount = entry.getLongValue();
+            if (amount < 0) {
+                if (exactAmounts == null) exactAmounts = ExactAmountCollector.sourceAmounts(storage);
+                ExactAmount exact = exactAmounts.get(entry.getKey());
+                long repaired = exact == null ? 0 : exact.infinite() ? Long.MAX_VALUE : exact.value().min(MAX_LONG).longValueExact();
+                output.set(entry.getKey(), repaired);
+                removeZeros |= repaired == 0;
+            } else removeZeros |= amount == 0;
+        }
+        if (removeZeros) output.removeZeros();
     }
 }

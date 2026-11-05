@@ -11,6 +11,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.me.storage.NetworkStorage;
 import cn.dancingsnow.neoecoae.mixins.ae2.storage.NetworkStorageMixin;
+import cn.dancingsnow.neoecoae.mixins.ae2.storage.StorageBusInventoryMixin;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import java.lang.reflect.Method;
@@ -168,13 +169,14 @@ class StorageBusTransferTest {
     private static final class MountedNetwork implements MEStorage {
         final List<? extends MEStorage> mounts;
         final NetworkStorageMixin hooks = new NetworkStorageMixin() {};
-        MountedNetwork(List<? extends MEStorage> mounts) { this.mounts = mounts; }
+        MountedNetwork(List<? extends MEStorage> mounts) {
+            this.mounts = mounts.stream().map(storage -> storage instanceof BusStock
+                    ? new StorageBusInventoryMixin(storage) {} : storage).toList();
+        }
         @Override public long insert(AEKey key, long amount, Actionable mode, IActionSource source) {
             long remaining = amount;
             for (MEStorage mount : mounts) {
-                remaining -= call("neoecoae$excludeStorageBusOutput", mount, key, remaining, mode, source,
-                    (Operation<Long>) args -> ((MEStorage) args[0]).insert((AEKey) args[1], (long) args[2],
-                        (Actionable) args[3], (IActionSource) args[4]));
+                remaining -= mount.insert(key, remaining, mode, source);
                 if (remaining == 0) break;
             }
             return amount - remaining;

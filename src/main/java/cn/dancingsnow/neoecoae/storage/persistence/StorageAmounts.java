@@ -1,178 +1,415 @@
 package cn.dancingsnow.neoecoae.storage.persistence;
 
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
 import cn.dancingsnow.neoecoae.storage.infinite.HugeAmount;
-import it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.AbstractObject2LongMap;
+import it.unimi.dsi.fastutil.objects.AbstractObjectSet;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMaps;
-import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectSet;
+import it.unimi.dsi.fastutil.objects.ObjectIterator;
 import java.math.BigInteger;
-import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.function.BiConsumer;
 
-/** Server-thread quantity table shared by finite cells and infinite domains. */
+/** Shared cell/domain quantity table. Existing transfers locate an entry once and mutate its primitive quantity. */
 public class StorageAmounts {
-    private final Object2LongOpenHashMap<AEKey> amounts = new Object2LongOpenHashMap<>();
-    private final Object2LongMap<AEKey> view = Object2LongMaps.unmodifiable(amounts);
-    private final Object2ObjectOpenHashMap<AEKey, OverflowAmount> overflow = new Object2ObjectOpenHashMap<>();
-    private final StorageTotal total = new StorageTotal();
-    private long contentRevision;
-    private long structureRevision;
-    // Optional bounded change log: key -> content revision of its latest change, oldest change first.
-    private Object2LongLinkedOpenHashMap<AEKey> changeLog;
+    private final Object2ObjectOpenHashMap<AEKey, Entry> entries = new Object2ObjectOpenHashMap<>();
+    private AEKey lastKey;
+    private Entry lastEntry;
+    private int size;
+    private int oversized;
+    private long changes;
+    public static final int CHANGE_LOG_CAPACITY = 4096;
     private int changeLogCapacity;
-    // Changes at or before this revision may be missing from the log.
-    private long changeLogFloor;
+    private long structureRevision;
+    private final StorageTotal total = new StorageTotal();
+    private final Object2LongMap<AEKey> view = Object2LongMaps.unmodifiable(new VisibleAmounts());
+    private Entry oldest;
+    private Entry newest;
+    private int logSize;
+    private long logFloor;
 
-    public long visible(AEKey key) { return amounts.getLong(key); }
-    public Object2LongMap<AEKey> visibleAmounts() { return view; }
-    public int size() { return amounts.size(); }
+    public long changes() { return changes; }
+    public long contentRevision() { return changes; }
+    public long structureRevision() { return structureRevision; }
+    public int size() { return size; }
     public long totalVisible() { return total.visible(); }
     public BigInteger totalExact() { return total.snapshot().toBigInteger(); }
-    public boolean sameContents(StorageAmounts other) { return amounts.equals(other.amounts) && overflow.equals(other.overflow); }
-    public boolean isBig(AEKey key) { return overflow.containsKey(key); }
-    public long contentRevision() { return contentRevision; }
-    public long structureRevision() { return structureRevision; }
+    public Object2LongMap<AEKey> visibleAmounts() { return view; }
+    public boolean isBig(AEKey key) { Entry entry = find(key, false); return entry != null && entry.wide != null; }
 
-    /**
-     * Starts recording which keys change, keeping at most {@code capacity} distinct keys. Earlier changes are unknown,
-     * so only readers that listed at or after the current revision can use {@link #visitChangedSince}.
-     */
-    public void enableChangeLog(int capacity) {
-        changeLog = new Object2LongLinkedOpenHashMap<>();
-        changeLogCapacity = Math.max(1, capacity);
-        changeLogFloor = contentRevision;
-    }
-
-    /**
-     * Visits every key whose amount may have changed after content revision {@code since}, newest first. Returns
-     * false, visiting nothing, when those changes are no longer (or were never) recorded.
-     */
-    public boolean visitChangedSince(long since, java.util.function.Consumer<AEKey> visitor) {
-        if (changeLog == null || since < changeLogFloor || since > contentRevision) return false;
-        if (since == contentRevision || changeLog.isEmpty()) return true;
-        var iterator = changeLog.keySet().iterator(changeLog.lastKey());
-        // The iterator starts after the newest key; walk back until changes are older than the reader.
-        while (iterator.hasPrevious()) {
-            AEKey key = iterator.previous();
-            if (changeLog.getLong(key) <= since) break;
-            visitor.accept(key);
+    public boolean sameContents(StorageAmounts other) {
+        if (size != other.size) return false;
+        for (Entry entry : entries.values()) {
+            if (entry.amount != 0 && !entry.snapshot().equals(other.get(entry.key))) return false;
         }
         return true;
     }
 
-    private void changed(AEKey key) {
-        contentRevision++;
-        if (changeLog == null) return;
-        changeLog.putAndMoveToLast(key, contentRevision);
-        if (changeLog.size() > changeLogCapacity) {
-            changeLogFloor = Math.max(changeLogFloor, changeLog.removeFirstLong());
+    public void enableChangeLog(int capacity) {
+        clearLog();
+        changeLogCapacity = Math.max(1, capacity);
+    }
+
+    public boolean visitChangedSince(long since, java.util.function.Consumer<AEKey> visitor) {
+        return changeLogCapacity != 0 && visitChangesSince(since, changes, visitor);
+    }
+
+    public void clear() {
+        if (size == 0) return;
+        entries.clear();
+        entries.trim();
+        lastKey = null;
+        lastEntry = null;
+        size = oversized = 0;
+        total.clear();
+        oldest = newest = null;
+        logSize = 0;
+        logFloor = ++changes;
+        structureRevision++;
+    }
+
+    public void setLong(AEKey key, long amount) {
+        if (key == null || amount < 0) throw new IllegalArgumentException("Invalid storage key or amount");
+        Entry entry = find(key, false);
+        long previous = entry == null ? 0 : entry.amount;
+        if (entry != null && entry.wide != null) { set(key, HugeAmount.of(amount)); return; }
+        if (previous == amount) return;
+        if (entry == null) entry = find(key, true);
+        entry.amount = amount;
+        total.subtract(previous);
+        total.add(amount);
+        if ((previous == 0) != (amount == 0)) { size += previous == 0 ? 1 : -1; structureRevision++; }
+        changed(entry);
+    }
+
+    // Keep the existing public descriptors used by cell implementations and optional integrations.
+    public void add(AEKey key, long amount) { if (amount > 0) addAndGetPrevious(key, amount); }
+    public void add(AEKey key, long current, long amount) { add(key, amount); }
+    public void subtract(AEKey key, long amount) { subtractAndGetRemaining(key, amount); }
+    public long subtract(AEKey key, long current, long amount) { return subtractAndGetRemaining(key, amount); }
+    /** Structural visibility changes cannot be reconstructed from quantity changes. */
+    public void touch() {
+        changes++;
+        clearLog();
+    }
+
+    private void clearLog() {
+        logFloor = changes;
+        for (Entry entry = oldest; entry != null;) {
+            Entry next = entry.next;
+            entry.previous = entry.next = null;
+            entry.sequence = 0;
+            discardEmpty(entry);
+            entry = next;
         }
+        oldest = newest = null;
+        logSize = 0;
+    }
+
+    private Entry find(AEKey key, boolean create) {
+        Entry entry = key == lastKey ? lastEntry : entries.get(key);
+        if (entry == null && create) {
+            // Canonicalization belongs to admission, never an existing lookup or a simulation.
+            entry = new Entry(ECOKeyFactory.canonicalize(key));
+            entries.put(entry.key, entry);
+        }
+        lastKey = key;
+        lastEntry = entry;
+        return entry;
+    }
+
+    private void changed(Entry entry) {
+        entry.snapshot = null;
+        entry.exact = null;
+        long sequence = ++changes;
+        if (changeLogCapacity == 0) { discardEmpty(entry); return; }
+        if (entry == newest) {
+            entry.sequence = sequence;
+            return;
+        }
+        if (entry.sequence != 0) {
+            unlink(entry);
+        } else if (logSize == changeLogCapacity) {
+            Entry evicted = oldest;
+            logFloor = Math.max(logFloor, evicted.sequence);
+            unlink(evicted);
+            evicted.sequence = 0;
+            discardEmpty(evicted);
+            logSize--;
+        }
+        if (entry.sequence == 0) logSize++;
+        entry.sequence = sequence;
+        entry.previous = newest;
+        if (newest == null) oldest = entry;
+        else newest.next = entry;
+        newest = entry;
+    }
+
+    private void unlink(Entry entry) {
+        if (entry.previous == null) oldest = entry.next;
+        else entry.previous.next = entry.next;
+        if (entry.next == null) newest = entry.previous;
+        else entry.next.previous = entry.previous;
+        entry.previous = entry.next = null;
+    }
+
+    /** Deleted entries remain bounded tombstones until every covered reader can observe their removal. */
+    private void discardEmpty(Entry entry) {
+        if (entry.amount != 0) return;
+        entries.remove(entry.key);
+        if (lastEntry == entry) {
+            lastKey = null;
+            lastEntry = null;
+        }
+    }
+
+    public boolean visitChangesSince(long since, long current, java.util.function.Consumer<AEKey> visitor) {
+        if (current != changes || since > current || since < logFloor) return false;
+        for (Entry entry = newest; entry != null && entry.sequence > since; entry = entry.previous) {
+            visitor.accept(entry.key);
+        }
+        return true;
+    }
+
+    public long visible(AEKey key) {
+        Entry entry = find(key, false);
+        return entry == null ? 0 : entry.amount;
     }
 
     public HugeAmount get(AEKey key) {
-        long value = visible(key);
-        OverflowAmount big = value == Long.MAX_VALUE ? overflow.get(key) : null;
-        return big == null ? HugeAmount.of(value) : big.snapshot();
-    }
-    public void setLong(AEKey key, long value) {
-        if (key == null || value < 0) throw new IllegalArgumentException("Invalid storage key or amount");
-        long before = visible(key);
-        if (before == Long.MAX_VALUE && overflow.containsKey(key)) { set(key, HugeAmount.of(value)); return; }
-        if (before == value) return;
-        if (value == 0) amounts.removeLong(key); else amounts.put(key, value);
-        total.subtract(before); total.add(value);
-        changed(key);
-        if ((before == 0) != (value == 0)) structureRevision++;
-    }
-    public void set(AEKey key, HugeAmount value) {
-        if (key == null || value == null) throw new IllegalArgumentException("Missing storage key or amount");
-        if (!value.isBig() && !overflow.containsKey(key)) { setLong(key, value.toLongSaturated()); return; }
-        HugeAmount before = get(key);
-        if (before.equals(value)) return;
-        if (value.isZero()) amounts.removeLong(key); else amounts.put(key, value.toLongSaturated());
-        if (value.isBig()) overflow.put(key, new OverflowAmount(value)); else overflow.remove(key);
-        total.subtract(before); total.add(value);
-        changed(key);
-        if (before.isZero() != value.isZero()) structureRevision++;
-    }
-    public void add(AEKey key, long amount) { add(key, visible(key), amount); }
-    public void add(AEKey key, long current, long amount) {
-        if (amount <= 0) return;
-        OverflowAmount big = current == Long.MAX_VALUE ? overflow.get(key) : null;
-        if (big != null) { big.add(amount); total.add(amount); changed(key); return; }
-        if (amount <= Long.MAX_VALUE - current) setLong(key, current + amount);
-        else set(key, get(key).add(amount));
-    }
-    public void add(AEKey key, BigInteger amount) {
-        if (amount.signum() > 0) set(key, get(key).add(HugeAmount.of(amount)));
-    }
-    public void subtract(AEKey key, long amount) { subtract(key, visible(key), amount); }
-    public long subtract(AEKey key, long current, long amount) {
-        if (amount < 0 || amount > current) throw new IllegalArgumentException("Invalid extraction");
-        OverflowAmount big = current == Long.MAX_VALUE ? overflow.get(key) : null;
-        if (big == null) setLong(key, current - amount);
-        else {
-            long remaining = big.subtract(amount);
-            total.subtract(amount); changed(key);
-            if (remaining < Long.MAX_VALUE || !big.isBig()) {
-                overflow.remove(key);
-                if (remaining == 0) { amounts.removeLong(key); structureRevision++; }
-                else amounts.put(key, remaining);
-            }
-        }
-        return visible(key);
-    }
-    public void clear() {
-        if (amounts.isEmpty()) return;
-        amounts.clear(); overflow.clear(); amounts.trim(); overflow.trim(); total.clear();
-        contentRevision++; structureRevision++;
-        if (changeLog != null) { changeLog.clear(); changeLogFloor = contentRevision; }
-    }
-    public boolean isEmpty() { return amounts.isEmpty(); }
-    public boolean hasOverflow() { return !overflow.isEmpty(); }
-    public void forEach(BiConsumer<AEKey, HugeAmount> action) {
-        var iterator = amounts.object2LongEntrySet().fastIterator();
-        while (iterator.hasNext()) { var entry = iterator.next(); action.accept(entry.getKey(), get(entry.getKey())); }
-    }
-    public void visitExact(BiConsumer<AEKey, BigInteger> action) {
-        var iterator = amounts.object2LongEntrySet().fastIterator();
-        while (iterator.hasNext()) {
-            var entry = iterator.next();
-            OverflowAmount big = entry.getLongValue() == Long.MAX_VALUE ? overflow.get(entry.getKey()) : null;
-            action.accept(entry.getKey(), big == null ? BigInteger.valueOf(entry.getLongValue()) : big.snapshot().toBigInteger());
-        }
-    }
-    public void visitVisible(java.util.function.ObjLongConsumer<AEKey> action) {
-        var iterator = amounts.object2LongEntrySet().fastIterator();
-        while (iterator.hasNext()) { var entry = iterator.next(); action.accept(entry.getKey(), entry.getLongValue()); }
+        Entry entry = find(key, false);
+        return entry == null ? HugeAmount.ZERO : entry.snapshot();
     }
 
-    /** Small transfers into an enormous stack accumulate in a primitive delta until an exact read or boundary. */
-    private static final class OverflowAmount {
-        private final StorageTotal value = new StorageTotal();
-        private long untilLong;
-        private boolean big = true;
-        OverflowAmount(HugeAmount amount) { value.add(amount); updateThreshold(amount); }
-        private void updateThreshold(HugeAmount amount) {
-            big = amount.isBig();
-            untilLong = big ? amount.subtract(Long.MAX_VALUE).toLongSaturated() : 0;
+    public void set(AEKey key, HugeAmount amount) {
+        if (key == null || amount == null) throw new IllegalArgumentException("Missing storage key or amount");
+        Entry entry = find(key, false);
+        if (entry == null && amount.isZero()) return;
+        if (!amount.isBig() && (entry == null || entry.wide == null)) { setLong(key, amount.toLongSaturated()); return; }
+        HugeAmount before = entry == null ? HugeAmount.ZERO : entry.snapshot();
+        if (before.equals(amount)) return;
+        if (entry == null) entry = find(key, true);
+        total.subtract(before);
+        total.add(amount);
+        if (before.isZero() != amount.isZero()) structureRevision++;
+        boolean wasEmpty = entry.amount == 0;
+        boolean wasWide = entry.wide != null;
+        entry.amount = amount.toLongSaturated();
+        if (amount.isBig()) {
+            if (entry.wide == null) entry.wide = new WideAmount();
+            entry.wide.set(amount.toBigInteger());
+        } else entry.wide = null;
+        size += (wasEmpty ? 1 : 0) - (entry.amount == 0 ? 1 : 0);
+        oversized += (entry.wide != null ? 1 : 0) - (wasWide ? 1 : 0);
+        changed(entry);
+        entry.snapshot = amount;
+    }
+
+    /** Returns the previous long projection, allowing the caller to update type counts without another lookup. */
+    public long addAndGetPrevious(AEKey key, long amount) {
+        if (key == null) throw new IllegalArgumentException("Missing storage key");
+        if (amount < 0) throw new IllegalArgumentException("Amount must not be negative");
+        if (amount == 0) return visible(key);
+        Entry entry = find(key, true);
+        long previous = entry.amount;
+        if (entry.wide == null && amount <= Long.MAX_VALUE - previous) {
+            entry.amount = previous + amount;
+        } else {
+            if (entry.wide == null) {
+                entry.wide = new WideAmount();
+                entry.wide.low = previous;
+                oversized++;
+            }
+            entry.wide.add(amount);
+            entry.amount = Long.MAX_VALUE;
         }
-        void add(long amount) {
-            value.add(amount);
-            untilLong = amount > Long.MAX_VALUE - untilLong ? Long.MAX_VALUE : untilLong + amount;
+        if (previous == 0) { size++; structureRevision++; }
+        total.add(amount);
+        changed(entry);
+        return previous;
+    }
+
+    public void add(AEKey key, BigInteger amount) {
+        if (amount.signum() <= 0) return;
+        if (amount.bitLength() < Long.SIZE) {
+            add(key, amount.longValueExact());
+        } else {
+            set(key, get(key).add(HugeAmount.of(amount)));
         }
-        long subtract(long amount) {
-            value.subtract(amount);
-            if (amount < untilLong) { untilLong -= amount; return Long.MAX_VALUE; }
-            HugeAmount exact = value.snapshot(); updateThreshold(exact); return exact.toLongSaturated();
+    }
+
+    /** Returns the new long projection. The preceding visible() lookup is reused by identity. */
+    public long subtractAndGetRemaining(AEKey key, long amount) {
+        if (key == null) throw new IllegalArgumentException("Missing storage key");
+        Entry entry = find(key, false);
+        long previous = entry == null ? 0 : entry.amount;
+        if (amount < 0 || amount > previous) throw new IllegalArgumentException("Invalid amount subtraction");
+        if (amount == 0) return previous;
+        if (entry.wide == null) {
+            entry.amount -= amount;
+        } else {
+            entry.wide.subtract(amount);
+            if (entry.wide.fitsLong()) {
+                entry.amount = entry.wide.low;
+                entry.wide = null;
+                oversized--;
+            }
         }
-        boolean isBig() { return big; }
-        HugeAmount snapshot() { return value.snapshot(); }
-        @Override public boolean equals(Object other) {
-            return other instanceof OverflowAmount amount && snapshot().equals(amount.snapshot());
+        if (entry.amount == 0) { size--; structureRevision++; }
+        total.subtract(amount);
+        changed(entry);
+        return entry.amount;
+    }
+
+    public boolean isEmpty() { return size == 0; }
+    public boolean hasOverflow() { return oversized != 0; }
+
+    public void forEach(BiConsumer<AEKey, HugeAmount> action) {
+        if (size == 0) return;
+        for (Entry entry : entries.values()) {
+            if (entry.amount != 0) action.accept(entry.key, entry.snapshot());
         }
-        @Override public int hashCode() { return snapshot().hashCode(); }
+    }
+
+    public void visitExact(BiConsumer<AEKey, BigInteger> action) {
+        if (size == 0) return;
+        for (Entry entry : entries.values()) {
+            if (entry.amount != 0) action.accept(entry.key, entry.exact());
+        }
+    }
+
+    public void visitVisible(java.util.function.ObjLongConsumer<AEKey> action) {
+        if (size == 0) return;
+        for (Entry entry : entries.values()) {
+            if (entry.amount != 0) action.accept(entry.key, entry.amount);
+        }
+    }
+
+    public void visitAmounts(java.util.function.ObjLongConsumer<AEKey> ordinary, BiConsumer<AEKey, BigInteger> wide) {
+        if (size == 0) return;
+        for (Entry entry : entries.values()) {
+            if (entry.wide != null) wide.accept(entry.key, entry.exact());
+            else if (entry.amount != 0) ordinary.accept(entry.key, entry.amount);
+        }
+    }
+
+    public BigInteger overflowAmount(AEKey key) {
+        Entry entry = find(key, false);
+        return entry == null || entry.wide == null ? null : entry.exact();
+    }
+
+    /** Visits only quantities whose long projection is lossy. */
+    public void visitOverflow(BiConsumer<AEKey, BigInteger> action) {
+        if (oversized == 0) return;
+        for (Entry entry : entries.values()) {
+            if (entry.wide != null) action.accept(entry.key, entry.exact());
+        }
+    }
+
+    /** A live read-only projection; quantities remain owned exclusively by their entries. */
+    private final class VisibleAmounts extends AbstractObject2LongMap<AEKey> {
+        @Override public int size() { return StorageAmounts.this.size; }
+        @Override public long getLong(Object key) {
+            return key instanceof AEKey resource ? visible(resource) : 0;
+        }
+        @Override public boolean containsKey(Object key) { return getLong(key) != 0; }
+        @Override public ObjectSet<Object2LongMap.Entry<AEKey>> object2LongEntrySet() {
+            return new AbstractObjectSet<>() {
+                @Override public int size() { return StorageAmounts.this.size; }
+                @Override public ObjectIterator<Object2LongMap.Entry<AEKey>> iterator() {
+                    var source = entries.values().iterator();
+                    return new ObjectIterator<>() {
+                        private StorageAmounts.Entry next;
+                        @Override public boolean hasNext() {
+                            while (next == null && source.hasNext()) {
+                                StorageAmounts.Entry candidate = source.next();
+                                if (candidate.amount != 0) next = candidate;
+                            }
+                            return next != null;
+                        }
+                        @Override public Object2LongMap.Entry<AEKey> next() {
+                            if (!hasNext()) throw new NoSuchElementException();
+                            StorageAmounts.Entry entry = next;
+                            next = null;
+                            return new BasicEntry<>(entry.key, entry.amount);
+                        }
+                    };
+                }
+            };
+        }
+    }
+
+    private static final class Entry {
+        final AEKey key;
+        long amount;
+        WideAmount wide;
+        HugeAmount snapshot;
+        BigInteger exact;
+        Entry previous;
+        Entry next;
+        long sequence;
+
+        Entry(AEKey key) { this.key = key; }
+
+        HugeAmount snapshot() {
+            if (snapshot == null) snapshot = wide == null ? HugeAmount.of(amount) : HugeAmount.of(exact());
+            return snapshot;
+        }
+
+        BigInteger exact() {
+            if (exact == null) exact = wide == null ? BigInteger.valueOf(amount) : wide.exact();
+            return exact;
+        }
+    }
+
+    /** Allocated once on promotion. The two words are mutable only inside the server-owned ledger. */
+    private static final class WideAmount {
+        private static final long HIGH_LIMIT = 1L << 62;
+        long high;
+        long low;
+        BigInteger big;
+
+        void set(BigInteger value) {
+            big = value.bitLength() > 126 ? value : null;
+            high = big == null ? value.shiftRight(64).longValue() : 0;
+            low = big == null ? value.longValue() : 0;
+        }
+
+        void add(long value) {
+            if (big != null) {
+                big = big.add(BigInteger.valueOf(value));
+                return;
+            }
+            long next = low + value;
+            long carry = Long.compareUnsigned(next, low) < 0 ? 1 : 0;
+            if (high + carry == HIGH_LIMIT) {
+                big = exact().add(BigInteger.valueOf(value));
+            } else {
+                high += carry;
+                low = next;
+            }
+        }
+
+        void subtract(long value) {
+            if (big != null) {
+                set(big.subtract(BigInteger.valueOf(value)));
+                return;
+            }
+            high -= Long.compareUnsigned(low, value) < 0 ? 1 : 0;
+            low -= value;
+        }
+
+        boolean fitsLong() { return big == null && high == 0 && low >= 0; }
+
+        BigInteger exact() {
+            if (big != null) return big;
+            BigInteger lower = BigInteger.valueOf(low & Long.MAX_VALUE);
+            if (low < 0) lower = lower.setBit(63);
+            return high == 0 ? lower : BigInteger.valueOf(high).shiftLeft(64).or(lower);
+        }
     }
 }
