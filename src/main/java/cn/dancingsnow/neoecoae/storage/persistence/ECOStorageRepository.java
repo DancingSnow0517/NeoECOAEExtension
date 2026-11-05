@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.storage.persistence;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.platform.nbt.NECellNbt;
 import cn.dancingsnow.neoecoae.platform.nbt.NEItemData;
@@ -42,7 +44,7 @@ public final class ECOStorageRepository {
             else {
                 var preview = NEItemData.read(stack).getCompound(ECOCellReference.TAG).getList("preview", 10);
                 for (var raw : preview) {
-                    var value = appeng.api.stacks.GenericStack.readTag((net.minecraft.nbt.CompoundTag) raw);
+                    var value = ECOKeyFactory.readTag((net.minecraft.nbt.CompoundTag) raw);
                     if (value != null && value.amount() > 0) data.amounts().add(value.what(), value.amount());
                 }
             }

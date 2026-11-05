@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEFluidKey;
@@ -128,13 +130,13 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
             || !tank.getFluid().isFluidEqual(markedCoolant))) {
             // Return old stock before changing type, including when the mark was cleared.
             // A partial or rejected return must remain in the tank for the next attempt.
-            long returned = inventory.insert(AEFluidKey.of(tank.getFluid()), tank.getFluidAmount(),
+            long returned = inventory.insert(ECOKeyFactory.fluid(tank.getFluid()), tank.getFluidAmount(),
                 Actionable.MODULATE, IActionSource.ofMachine(this));
             if (returned > 0) tank.drain((int) returned, IFluidHandler.FluidAction.EXECUTE);
             if (!tank.isEmpty()) return;
         }
         if (markedCoolant.isEmpty() || !controller.isActiveCooling() || tank.getSpace() <= 0) return;
-        AEFluidKey selected = AEFluidKey.of(markedCoolant);
+        AEFluidKey selected = ECOKeyFactory.fluid(markedCoolant);
         int space = tank.fill(selected.toStack(tank.getSpace()), IFluidHandler.FluidAction.SIMULATE);
         if (space <= 0) return;
         long extracted = StorageHelper.poweredExtraction(grid.getEnergyService(), inventory, selected,

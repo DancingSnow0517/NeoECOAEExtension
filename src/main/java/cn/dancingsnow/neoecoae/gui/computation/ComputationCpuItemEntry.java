@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
@@ -54,7 +56,7 @@ record ComputationCpuItemEntry(AEKey key, BigInteger stored, BigInteger active, 
 
     static ComputationCpuItemEntry read(CompoundTag tag, HolderLookup.Provider registries) {
         return new ComputationCpuItemEntry(
-            AEKey.fromTagGeneric(tag.getCompound("key")),
+            ECOKeyFactory.fromTagGeneric(tag.getCompound("key")),
             new BigInteger(tag.getByteArray("stored")),
             new BigInteger(tag.getByteArray("active")),
             new BigInteger(tag.getByteArray("pending")),

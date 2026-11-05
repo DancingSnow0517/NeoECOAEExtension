@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.platform.JdkCompat;
 
 import appeng.api.config.CpuSelectionMode;
@@ -101,7 +103,7 @@ record ComputationCpuEntry(int serial, String name, @Nullable AEKey output,
 
     static ComputationCpuEntry read(CompoundTag tag, HolderLookup.Provider registries) {
         return new ComputationCpuEntry(tag.getInt("serial"), tag.getString("name"),
-            tag.contains("output") ? AEKey.fromTagGeneric(tag.getCompound("output")) : null,
+            tag.contains("output") ? ECOKeyFactory.fromTagGeneric(tag.getCompound("output")) : null,
             new BigInteger(tag.getByteArray("requested")), new BigInteger(tag.getByteArray("remaining")),
             tag.getFloat("progress"), tag.getLong("elapsed"), tag.getLong("storage"), tag.getInt("parallel"),
             CpuSelectionMode.values()[JdkCompat.clamp(tag.getInt("mode"), 0, CpuSelectionMode.values().length - 1)],

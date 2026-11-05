@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me.menu;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEKey;
 import appeng.menu.guisync.PacketWritable;
 import java.math.BigInteger;
@@ -14,7 +16,7 @@ public record ECOExactPending(Map<AEKey, BigInteger> amounts) implements PacketW
         int size = buf.readVarInt();
         if (size < 0 || size > 100000) throw new IllegalArgumentException("Invalid preview size");
         var result = new java.util.HashMap<AEKey, BigInteger>();
-        for (int i = 0; i < size; i++) result.put(AEKey.readKey(buf),
+        for (int i = 0; i < size; i++) result.put(ECOKeyFactory.readKey(buf),
             new BigInteger(buf.readByteArray(4096)));
         return result;
     }

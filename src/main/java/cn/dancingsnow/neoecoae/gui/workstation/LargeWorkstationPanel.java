@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.platform.JdkCompat;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 
@@ -677,7 +679,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             context.graphics.flush();
             context.pose.pushPose();
             context.pose.translate(getPositionX() + 13, getPositionY() + y + 3, 0);
-            AEKeyRendering.drawInGui(Minecraft.getInstance(), context.graphics, 0, 0, AEFluidKey.of(task.fluid()));
+            AEKeyRendering.drawInGui(Minecraft.getInstance(), context.graphics, 0, 0, ECOKeyFactory.fluid(task.fluid()));
             context.pose.popPose();
         }
         wrappedText(context, task.title(), 33, y + 1, 43, 0.6f, 2, TEXT);

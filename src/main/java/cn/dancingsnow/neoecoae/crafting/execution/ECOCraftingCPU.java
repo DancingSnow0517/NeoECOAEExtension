@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
@@ -190,7 +192,7 @@ public class ECOCraftingCPU extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCP
      */
     @Nullable
     private CraftingPlan readCraftingPlanFromNBT(CompoundTag tag) {
-        GenericStack output = GenericStack.readTag(tag.getCompound("output"));
+        GenericStack output = ECOKeyFactory.readTag(tag.getCompound("output"));
         if (output == null) {
             // The final output no longer decodes (removed item/fluid, corrupt tag). A plan without an
             // output cannot drive a job, so refuse it instead of handing out a half-valid plan.

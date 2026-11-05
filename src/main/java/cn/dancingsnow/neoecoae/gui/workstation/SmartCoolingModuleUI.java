@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
@@ -264,7 +266,7 @@ public final class SmartCoolingModuleUI {
                 var lines = new java.util.ArrayList<Component>();
                 lines.add(tr("marked_coolant").withStyle(ChatFormatting.YELLOW));
                 FluidStack value = value();
-                if (!value.isEmpty()) lines.add(AEFluidKey.of(value).getDisplayName());
+                if (!value.isEmpty()) lines.add(ECOKeyFactory.fluid(value).getDisplayName());
                 lines.add(tr("mark_hint").withStyle(ChatFormatting.GRAY));
                 event.hoverTooltips = new HoverTooltips(lines, null, null, null);
             });
@@ -283,14 +285,14 @@ public final class SmartCoolingModuleUI {
                 context.drawTexture(AETextures.icon(ECOIcon.FLUID_CELL), x, y, 16, 16);
             } else {
                 appeng.api.client.AEKeyRendering.drawInGui(net.minecraft.client.Minecraft.getInstance(),
-                    context.graphics, x, y, AEFluidKey.of(value));
+                    context.graphics, x, y, ECOKeyFactory.fluid(value));
             }
         }
     }
 
     static void markCoolant(ECOLargeIntegratedWorkingStationInputHatchBlockEntity host, Player player, int button) {
         FluidStack marked = host.getMarkedCoolant();
-        GenericStack current = marked.isEmpty() ? null : new GenericStack(AEFluidKey.of(marked), 1);
+        GenericStack current = marked.isEmpty() ? null : new GenericStack(ECOKeyFactory.fluid(marked), 1);
         ItemStack carried = player.containerMenu.getCarried();
         // This compact panel has no player inventory: a held container must also be usable.
         if (carried.isEmpty() && button == 1) carried = player.getMainHandItem();

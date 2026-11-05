@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.compat.processing;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import static cn.dancingsnow.neoecoae.compat.processing.ProcessingReflection.*;
 
 import appeng.api.stacks.AEFluidKey;
@@ -80,8 +82,8 @@ public final class MekanismProcessingStatus implements ECOProcessingStatusReader
 
     private static boolean matchesOutput(Object value, AEKey output, int depth) {
         if (value == null || depth > 4) return false;
-        if (value instanceof ItemStack stack) return !stack.isEmpty() && output.equals(AEItemKey.of(stack));
-        if (value instanceof FluidStack stack) return !stack.isEmpty() && output.equals(AEFluidKey.of(stack));
+        if (value instanceof ItemStack stack) return !stack.isEmpty() && output.equals(ECOKeyFactory.item(stack));
+        if (value instanceof FluidStack stack) return !stack.isEmpty() && output.equals(ECOKeyFactory.fluid(stack));
         if (is(value, "mekanism.api.chemical.ChemicalStack")) {
             return !Boolean.TRUE.equals(call(value, "isEmpty")) && output.getPrimaryKey().equals(call(value, "getChemical"));
         }

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.network;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.menu.implementations.CellWorkbenchMenu;
@@ -24,7 +26,7 @@ public record ECOImportJeiBookmarksC2SPacket(int containerId, List<AEKey> keys) 
             int count = buf.readVarInt();
             if (count < 0 || count > 256) throw new IllegalArgumentException("Invalid bookmark count");
             var keys = new java.util.ArrayList<AEKey>(count);
-            for (int i = 0; i < count; i++) keys.add(AEKey.readKey(buf));
+            for (int i = 0; i < count; i++) keys.add(ECOKeyFactory.readKey(buf));
             return new ECOImportJeiBookmarksC2SPacket(containerId, keys);
         });
 

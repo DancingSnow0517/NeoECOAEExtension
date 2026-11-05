@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.platform.diagnostics;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.config.Actionable;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.networking.security.IActionSource;
@@ -66,7 +68,7 @@ public final class Legacy2042ServerProbe {
 
     private static AEKey key() {
         ItemStack diamond = new ItemStack(Items.DIAMOND); diamond.getOrCreateTag().putInt("legacy_grade", 7);
-        return AEItemKey.of(diamond);
+        return ECOKeyFactory.item(diamond);
     }
     private static BigInteger huge() { return BigInteger.TEN.pow(180).add(BigInteger.valueOf(42)); }
     private static void check(boolean value, String message) { if (!value) throw new IllegalStateException(message); }

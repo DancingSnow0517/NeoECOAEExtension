@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.platform.JdkCompat;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.Machine;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.State;
@@ -936,8 +938,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     private static boolean recipeOutputMatches(IntegratedWorkingStationRecipe recipe, GenericStack expected) {
         GenericStack output = recipe.hasItemOutput()
-            ? GenericStack.fromItemStack(recipe.itemOutput())
-            : recipe.hasFluidOutput() ? GenericStack.fromFluidStack(recipe.fluidOutput()) : null;
+            ? ECOKeyFactory.fromItemStack(recipe.itemOutput())
+            : recipe.hasFluidOutput() ? ECOKeyFactory.fromFluidStack(recipe.fluidOutput()) : null;
         return output != null && output.what().equals(expected.what()) && output.amount() == expected.amount();
     }
 
@@ -2135,7 +2137,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (!getMainNode().isActive()) return;
         getMainNode().ifPresent((grid, node) -> {
             MEStorage storage = grid.getStorageService().getInventory();
-            GenericStack item = GenericStack.fromItemStack(outputInv.getStackInSlot(0));
+            GenericStack item = ECOKeyFactory.fromItemStack(outputInv.getStackInSlot(0));
             if (item != null) {
                 long inserted = storage.insert(item.what(), item.amount(), Actionable.MODULATE, IActionSource.ofMachine(this));
                 if (inserted > 0) outputInv.extractItem(0, (int) inserted, false);
@@ -2417,7 +2419,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             ResourceLocation recipeId = tag.contains("recipeId", Tag.TAG_STRING)
                 ? ResourceLocation.tryParse(tag.getString("recipeId")) : null;
             GenericStack unlockStack = tag.contains("unlockStack", Tag.TAG_COMPOUND)
-                ? GenericStack.readTag(tag.getCompound("unlockStack")) : null;
+                ? ECOKeyFactory.readTag(tag.getCompound("unlockStack")) : null;
             long createdTick = tag.contains("createdTick", Tag.TAG_LONG)
                 ? tag.getLong("createdTick") : currentTick;
             PendingBatch batch = new PendingBatch(
@@ -2457,7 +2459,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             try {
                 KeyCounter result = new KeyCounter();
                 for (int i = 0; i < entries.size(); i++) {
-                    GenericStack stack = GenericStack.readTag(entries.getCompound(i));
+                    GenericStack stack = ECOKeyFactory.readTag(entries.getCompound(i));
                     if (stack == null || stack.amount() <= 0
                         || stack.amount() > ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT) return null;
                     long total = result.get(stack.what());

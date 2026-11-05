@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.menu;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.config.Actionable;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.networking.IGrid;
@@ -77,7 +79,7 @@ public class PatternEncodingTermMenuMixin extends MEStorageMenu implements Patte
         if (details == null) return;
 
         ECOPatternInsertion insertion = service.insertPreparedPatternReporting(
-                new ECOPreparedPattern(itemStack.copy(), details, AEItemKey.of(itemStack)));
+                new ECOPreparedPattern(itemStack.copy(), details, ECOKeyFactory.item(itemStack)));
         if (insertion.result() == ECOPatternInsertionResult.INSERTED) {
             if (!insertion.consumedSource()) {
                 // A bus slot stores the encoded pattern item, so this is a move and owes no blank pattern.
@@ -102,7 +104,7 @@ public class PatternEncodingTermMenuMixin extends MEStorageMenu implements Patte
     private boolean neoecoae$returnReplacement(IGrid grid, ItemStack replacement) {
         if (grid == null || replacement.isEmpty()) return false;
         var inventory = grid.getStorageService().getInventory();
-        AEItemKey key = AEItemKey.of(replacement);
+        AEItemKey key = ECOKeyFactory.item(replacement);
         if (key == null) return false;
         IActionSource source = IActionSource.ofPlayer(getPlayer());
         long accepted = inventory.insert(key, replacement.getCount(), Actionable.SIMULATE, source);

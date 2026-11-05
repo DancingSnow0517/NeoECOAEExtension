@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
@@ -431,7 +433,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     protected boolean readFromStream(FriendlyByteBuf data) {
         boolean changed = super.readFromStream(data);
         GenericStack previousDisplayedJob = displayedJob;
-        displayedJob = GenericStack.readBuffer(data);
+        displayedJob = ECOKeyFactory.readBuffer(data);
         return changed || !java.util.Objects.equals(previousDisplayedJob, displayedJob);
     }
 

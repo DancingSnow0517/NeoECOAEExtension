@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingListCard;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingMachineActions;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
@@ -140,7 +142,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             processingByKey.clear();
             for (var raw : value.getList("items", Tag.TAG_COMPOUND)) {
                 var tag = (CompoundTag) raw;
-                AEKey key = AEKey.fromTagGeneric(tag.getCompound("key"));
+                AEKey key = ECOKeyFactory.fromTagGeneric(tag.getCompound("key"));
                 if (key != null) processingByKey.put(key, ECOProcessingProgress.read(tag.getCompound("progress")));
             }
             return this;
@@ -997,7 +999,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
                 return;
             }
             if (serial != selection.selectedSerial() || selection.selected() == null) return;
-            AEKey key = AEKey.fromTagGeneric(request.getCompound("key"));
+            AEKey key = ECOKeyFactory.fromTagGeneric(request.getCompound("key"));
             if (key == null || !(selection.selected() instanceof ECOCraftingCPU eco)
                 || (eco.getLogic().getWaitingFor(key) <= 0 && eco.getLogic().getPendingOutputs(key) <= 0)) return;
             viewing = true;
@@ -1014,7 +1016,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             response.put("key", request.getCompound("key").copy());
             itemActionResponse = response;
             var cpu = selection.selected();
-            AEKey key = AEKey.fromTagGeneric(request.getCompound("key"));
+            AEKey key = ECOKeyFactory.fromTagGeneric(request.getCompound("key"));
             if (cpu == null || serial != selection.selectedSerial() || key == null) {
                 response.putString("error", "gui.neoecoae.processing.task_changed");
                 return;
