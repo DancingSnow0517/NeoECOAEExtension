@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.network;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import java.math.BigInteger;
@@ -31,12 +33,12 @@ public final class ExactMapSync {
         Map<AEKey, ExactAmount> updates = new HashMap<>();
         int size = readCount(buf);
         for (int i = 0; i < size; i++) {
-            AEKey key = AEKey.readKey(buf);
+            AEKey key = ECOKeyFactory.readKey(buf);
             updates.put(key, buf.readBoolean() ? ExactAmount.unbounded() : ExactAmount.finite(readInteger(buf)));
         }
         var removed = new HashSet<AEKey>();
         size = readCount(buf);
-        for (int i = 0; i < size; i++) removed.add(AEKey.readKey(buf));
+        for (int i = 0; i < size; i++) removed.add(ECOKeyFactory.readKey(buf));
         return new MapDelta<>(updates, removed);
     }
 

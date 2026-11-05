@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.stacks.AEItemKey;
@@ -114,7 +116,7 @@ public final class ECOExecutionPlanNbtCodec {
             CompoundTag taskTag = taskTags.getCompound(i);
             int id = taskTag.getInt("id");
             if (id != i) throw new IllegalArgumentException("Persisted execution task ids are not dense");
-            AEItemKey definition = AEItemKey.fromTag(registries, taskTag.getCompound("pattern"));
+            AEItemKey definition = ECOKeyFactory.itemFromTag(registries, taskTag.getCompound("pattern"));
             IPatternDetails pattern = PatternDetailsHelper.decodePattern(definition, cpu.cpu.getLevel());
             if (pattern == null) throw new IllegalArgumentException("Persisted execution pattern cannot be decoded");
             PlanIdentity.PatternIdentity identity = PlanIdentity.patternIdentityFor(pattern);
@@ -129,7 +131,7 @@ public final class ECOExecutionPlanNbtCodec {
                 ListTag runTags = allocationTag.getList("runs", Tag.TAG_COMPOUND);
                 for (int runIndex = 0; runIndex < runTags.size(); runIndex++) {
                     CompoundTag runTag = runTags.getCompound(runIndex);
-                    GenericStack stack = GenericStack.readTag(registries, runTag);
+                    GenericStack stack = ECOKeyFactory.readTag(registries, runTag);
                     long crafts = runTag.getLong("crafts");
                     if (stack == null) throw new IllegalArgumentException("Invalid persisted input allocation");
                     runs.add(new PlannedInputAllocation.Run(stack.what(), stack.amount(), crafts));
@@ -172,7 +174,7 @@ public final class ECOExecutionPlanNbtCodec {
             Map<AEKey, Long> seed = new LinkedHashMap<>();
             ListTag seedTags = phaseTag.getList("initialSeed", Tag.TAG_COMPOUND);
             for (int seedIndex = 0; seedIndex < seedTags.size(); seedIndex++) {
-                GenericStack stack = GenericStack.readTag(registries, seedTags.getCompound(seedIndex));
+                GenericStack stack = ECOKeyFactory.readTag(registries, seedTags.getCompound(seedIndex));
                 if (stack == null || stack.amount() <= 0L) {
                     throw new IllegalArgumentException("Invalid persisted seed");
                 }

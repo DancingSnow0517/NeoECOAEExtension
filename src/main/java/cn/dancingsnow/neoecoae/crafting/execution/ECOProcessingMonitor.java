@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEKey;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
@@ -194,7 +196,7 @@ public final class ECOProcessingMonitor implements ECOCraftingJobAttachment {
         var entries = tag.getList("entries", Tag.TAG_COMPOUND);
         for (int i = 0; i < entries.size(); i++) {
             var entry = entries.getCompound(i);
-            AEKey key = AEKey.fromTagGeneric(registries, entry.getCompound("key"));
+            AEKey key = ECOKeyFactory.fromTagGeneric(registries, entry.getCompound("key"));
             if (key == null) continue;
             var list = entry.getList("targets", Tag.TAG_COMPOUND);
             for (int j = 0; j < list.size(); j++) {

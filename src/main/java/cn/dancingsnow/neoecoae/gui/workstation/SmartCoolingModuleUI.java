@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
@@ -259,7 +261,7 @@ public final class SmartCoolingModuleUI {
         public List<Component> getFullTooltipTexts(boolean withFluidName) {
             var lines = new java.util.ArrayList<Component>();
             lines.add(tr("marked_coolant").withStyle(ChatFormatting.YELLOW));
-            if (!getValue().isEmpty()) lines.add(AEFluidKey.of(getValue()).getDisplayName());
+            if (!getValue().isEmpty()) lines.add(ECOKeyFactory.fluid(getValue()).getDisplayName());
             lines.add(tr("mark_hint").withStyle(ChatFormatting.GRAY));
             return lines;
         }
@@ -274,7 +276,7 @@ public final class SmartCoolingModuleUI {
 
     static void markCoolant(ECOLargeIntegratedWorkingStationInputHatchBlockEntity host, Player player, int button) {
         FluidStack marked = host.getMarkedCoolant();
-        GenericStack current = marked.isEmpty() ? null : new GenericStack(AEFluidKey.of(marked), 1);
+        GenericStack current = marked.isEmpty() ? null : new GenericStack(ECOKeyFactory.fluid(marked), 1);
         ItemStack carried = player.containerMenu.getCarried();
         // This compact panel has no player inventory: a held container must also be usable.
         if (carried.isEmpty() && button == 1) carried = player.getMainHandItem();

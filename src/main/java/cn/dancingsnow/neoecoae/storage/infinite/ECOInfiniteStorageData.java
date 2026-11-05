@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.storage.infinite;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEKey;
 
 import java.io.File;
@@ -123,7 +125,7 @@ public final class ECOInfiniteStorageData extends SavedData {
                         : !amountTag.contains("long", Tag.TAG_LONG))
                     throw new IllegalArgumentException("Invalid amount");
                 HugeAmount amount = HugeAmount.read(amountTag);
-                AEKey key = codec == null ? AEKey.fromTagGeneric(registries, entry.getCompound("key"))
+                AEKey key = codec == null ? ECOKeyFactory.fromTagGeneric(registries, entry.getCompound("key"))
                         : codec.decode(entry.getCompound("key"));
                 if (key == null) throw new IllegalArgumentException("Unknown key");
                 Restore restore = null;
@@ -419,7 +421,7 @@ public final class ECOInfiniteStorageData extends SavedData {
                     throw new IOException("Non-contiguous infinite-domain journal sequence " + sequence);
                 }
                 AEKey key = data.codec == null
-                        ? AEKey.fromTagGeneric(registries, record.getCompound("key"))
+                        ? ECOKeyFactory.fromTagGeneric(registries, record.getCompound("key"))
                         : data.codec.decode(record.getCompound("key"));
                 long amount = record.getLong("amount");
                 if (key == null || amount <= 0L) throw new IOException("Invalid infinite-domain journal change");

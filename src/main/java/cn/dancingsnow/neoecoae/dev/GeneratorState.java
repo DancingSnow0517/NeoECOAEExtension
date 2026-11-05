@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.dev;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.security.IActionSource;
@@ -111,7 +113,7 @@ final class GeneratorState {
             state.feRunning = energy.getBoolean("running");
         }
         for (Tag entry : tag.getList("keys", Tag.TAG_COMPOUND)) {
-            AEKey key = AEKey.fromTagGeneric(registries, (CompoundTag) entry);
+            AEKey key = ECOKeyFactory.fromTagGeneric(registries, (CompoundTag) entry);
             if (key == null) throw new IllegalStateException("Dev generator resource is no longer registered: " + entry);
             state.selected.add(key);
         }

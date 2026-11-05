@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me.menu;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEKey;
 import appeng.menu.guisync.PacketWritable;
 import java.util.ArrayList;
@@ -26,7 +28,7 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
         if (size < 0 || size > 100_000) throw new IllegalArgumentException("Invalid cycle item count");
         List<Entry> items = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
-            items.add(new Entry(AEKey.readKey(data), readBigInteger(data), readBigInteger(data),
+            items.add(new Entry(ECOKeyFactory.readKey(data), readBigInteger(data), readBigInteger(data),
                 readBigInteger(data), readBigInteger(data), readBigInteger(data),
                 data.readEnum(ExecutionCountKnowledge.class), data.readEnum(CycleSolveStatus.class), data.readVarInt(), data.readLong()));
         }

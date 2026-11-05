@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingListCard;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingMachineActions;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
@@ -927,7 +929,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             itemActionResponse = response;
             refresh();
             var cpu = selection.selected();
-            AEKey key = AEKey.fromTagGeneric(source.registries(), request.getCompound("key"));
+            AEKey key = ECOKeyFactory.fromTagGeneric(source.registries(), request.getCompound("key"));
             if (cpu == null || serial != selection.selectedSerial() || key == null) {
                 response.putString("error", "gui.neoecoae.processing.task_changed");
                 return;

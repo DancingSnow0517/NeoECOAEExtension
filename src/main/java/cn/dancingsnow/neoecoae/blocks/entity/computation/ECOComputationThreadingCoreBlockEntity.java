@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -252,7 +254,7 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
             return;
         }
         try {
-            GenericStack finalOutput = GenericStack.readTag(registries, jobTag.getCompound("finalOutput"));
+            GenericStack finalOutput = ECOKeyFactory.readTag(registries, jobTag.getCompound("finalOutput"));
             if (finalOutput != null) {
                 out.add(finalOutput.what(), buffered);
             }

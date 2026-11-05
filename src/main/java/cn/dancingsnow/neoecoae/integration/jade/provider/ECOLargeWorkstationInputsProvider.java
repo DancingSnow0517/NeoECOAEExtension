@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.jade.provider;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
@@ -66,7 +68,7 @@ public enum ECOLargeWorkstationInputsProvider implements IBlockComponentProvider
         }
 
         for (int index = 0; index < inputs.size(); index++) {
-            GenericStack stack = GenericStack.readTag(accessor.getLevel().registryAccess(), inputs.getCompound(index));
+            GenericStack stack = ECOKeyFactory.readTag(accessor.getLevel().registryAccess(), inputs.getCompound(index));
             if (stack == null || stack.amount() <= 0) continue;
             MutableComponent line = stack.what().getDisplayName().copy().withStyle(ChatFormatting.WHITE);
             line.append(Component.literal(" × " + DisplayNumbers.grouped(stack.what().formatAmount(stack.amount(), AmountFormat.SLOT)))

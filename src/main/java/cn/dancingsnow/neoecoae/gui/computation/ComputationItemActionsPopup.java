@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -116,7 +118,7 @@ final class ComputationItemActionsPopup extends UIElement {
 
     void accept(CompoundTag response) {
         if (!isDisplayed() || item == null || response.getLong("sequence") != sequence) return;
-        AEKey key = AEKey.fromTagGeneric(registries, response.getCompound("key"));
+        AEKey key = ECOKeyFactory.fromTagGeneric(registries, response.getCompound("key"));
         if (!item.key().equals(key)) return;
         context = response.copy();
         loaded = true;

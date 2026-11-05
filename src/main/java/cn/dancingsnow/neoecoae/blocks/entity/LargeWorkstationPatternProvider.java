@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.config.LockCraftingMode;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
@@ -191,7 +193,7 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
 
     public boolean advertises(net.minecraft.world.item.ItemStack stack) {
         getAvailablePatterns();
-        AEItemKey key = AEItemKey.of(stack);
+        AEItemKey key = ECOKeyFactory.item(stack);
         return key != null && advertisedKeys.contains(key);
     }
 

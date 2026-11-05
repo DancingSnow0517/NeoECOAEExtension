@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.behaviors.ExternalStorageStrategy;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
@@ -535,7 +537,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             if (target != null) {
                 var source = IActionSource.ofMachine(this);
                 var movedStacks = false;
-                var genStack = GenericStack.fromItemStack(this.outputInv.getStackInSlot(0));
+                var genStack = ECOKeyFactory.fromItemStack(this.outputInv.getStackInSlot(0));
                 if (genStack != null && genStack.what() != null) {
                     var extractedStack = this.outputInv.extractItem(0, 64, false);
                     var inserted = target.insert(genStack.what(), extractedStack.getCount(), Actionable.MODULATE, source);
@@ -545,7 +547,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                 }
 
                 FluidStack outFluid = this.getOutputTank().getFluid();
-                GenericStack fluid = GenericStack.fromFluidStack(outFluid);
+                GenericStack fluid = ECOKeyFactory.fromFluidStack(outFluid);
                 if (fluid != null && fluid.what() != null) {
                     var extracted = this.getOutputTank().drain(outFluid, IFluidHandler.FluidAction.EXECUTE).getAmount();
                     var inserted = target.insert(fluid.what(), extracted, Actionable.MODULATE, source);

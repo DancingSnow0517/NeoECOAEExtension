@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.planner.snapshot;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEKey;
 import appeng.menu.guisync.PacketWritable;
 import io.netty.buffer.Unpooled;
@@ -159,7 +161,7 @@ public record CraftingGraphSnapshot(
         public BigInteger consumedBigInteger() { return new BigInteger(exactConsumed); }
         public BigInteger producedBigInteger() { return new BigInteger(exactProduced); }
         private static MaterialNode read(RegistryFriendlyByteBuf data) {
-            return new MaterialNode(data.readVarInt(), AEKey.readKey(data), data.readVarLong(), data.readVarLong(),
+            return new MaterialNode(data.readVarInt(), ECOKeyFactory.readKey(data), data.readVarLong(), data.readVarLong(),
                 data.readVarLong(), data.readVarLong(), data.readEnum(MaterialStatus.class), data.readUtf(),
                 data.readUtf(), data.readUtf(), data.readUtf(), data.readUtf(), data.readUtf());
         }
@@ -236,7 +238,7 @@ public record CraftingGraphSnapshot(
 
     public record KeyAmount(AEKey key, long amount) {
         private static KeyAmount read(RegistryFriendlyByteBuf data) {
-            return new KeyAmount(AEKey.readKey(data), data.readVarLong());
+            return new KeyAmount(ECOKeyFactory.readKey(data), data.readVarLong());
         }
 
         private void write(RegistryFriendlyByteBuf data) {

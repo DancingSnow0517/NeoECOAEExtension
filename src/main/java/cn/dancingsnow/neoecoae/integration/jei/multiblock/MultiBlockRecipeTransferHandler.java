@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.jei.multiblock;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.GenericStack;
 import appeng.menu.me.items.PatternEncodingTermMenu;
 import cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapper;
@@ -59,11 +61,11 @@ public class MultiBlockRecipeTransferHandler
         if (doTransfer) {
             var inputs = recipe.getRequiredItems().stream()
                 .filter(requiredItem -> !requiredItem.isEmpty())
-                .map(requiredItem -> GenericStack.fromItemStack(requiredItem.stackWithCount()))
+                .map(requiredItem -> ECOKeyFactory.fromItemStack(requiredItem.stackWithCount()))
                 .filter(stack -> stack != null)
                 .map(List::of)
                 .toList();
-            var output = GenericStack.fromItemStack(
+            var output = ECOKeyFactory.fromItemStack(
                 recipe.getDefinition().getOwner().value().asItem().getDefaultInstance()
             );
             appeng.integration.modules.itemlists.EncodingHelper.encodeProcessingRecipe(

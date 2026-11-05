@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution.fastpath;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -94,7 +96,7 @@ public final class ECOFastPathStacks {
         if (stack.isEmpty()) {
             return Optional.empty();
         }
-        GenericStack genericStack = GenericStack.fromItemStack(stack);
+        GenericStack genericStack = ECOKeyFactory.fromItemStack(stack);
         if (genericStack == null || genericStack.amount() <= 0) {
             return Optional.empty();
         }
@@ -107,7 +109,7 @@ public final class ECOFastPathStacks {
             if (stack.isEmpty()) {
                 continue;
             }
-            GenericStack genericStack = GenericStack.fromItemStack(stack);
+            GenericStack genericStack = ECOKeyFactory.fromItemStack(stack);
             if (genericStack == null || genericStack.amount() <= 0) {
                 return Optional.empty();
             }
@@ -286,7 +288,7 @@ public final class ECOFastPathStacks {
         try {
             List<GenericStack> stacks = new ArrayList<>(tag.size());
             for (int i = 0; i < tag.size(); i++) {
-                GenericStack stack = GenericStack.readTag(registries, tag.getCompound(i));
+                GenericStack stack = ECOKeyFactory.readTag(registries, tag.getCompound(i));
                 if (stack == null) {
                     return Optional.empty();
                 }
