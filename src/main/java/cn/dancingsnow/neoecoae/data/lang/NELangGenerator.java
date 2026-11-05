@@ -4,6 +4,11 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("neoecoae.configuration.keyReuse", "AE key reuse");
+        provider.add("neoecoae.configuration.keyReuse.tooltip", "Local cache settings. Value equality and saved inventories remain compatible.");
+        provider.add("neoecoae.configuration.keyReuse.enabled", "Reuse keys without extra data");
+        provider.add("neoecoae.configuration.keyReuse.enabled.tooltip", "Reuse immutable keys for resources without extra components or NBT. Resources with additional data keep their original factory behavior.");
+
         provider.add("gui.neoecoae.smart_cooling.target", "Target temperature (0-99%)");
         provider.add("gui.neoecoae.smart_cooling.control", "Automatic temperature control, target %s%%; configure by right-clicking the module");
         provider.add("gui.neoecoae.smart_cooling.status", "Temperature: %s%% | %s");

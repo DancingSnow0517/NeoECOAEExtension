@@ -1,0 +1,24 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "cn.dancingsnow.neoecoae.mixins.keyreuse",
+  "plugin": "cn.dancingsnow.neoecoae.mixins.keyreuse.KeyReuseMixinPlugin",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+    "ResourceKeyOwnerMixin",
+    "AEItemKeyReuseMixin",
+    "InternedTagDataMixin",
+    "AEFluidKeyReuseMixin",
+    "ChemicalKeyOwnerMixin",
+    "MekanismKeyReuseMixin",
+    "EnergyKeyOwnerMixin",
+    "FluxKeyReuseMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "mixinextras": {
+    "minVersion": "0.5.3"
+  },
+  "refmap": "neoecoae.refmap.json"
+}
