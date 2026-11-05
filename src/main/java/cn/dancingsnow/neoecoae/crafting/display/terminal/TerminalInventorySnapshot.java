@@ -155,9 +155,7 @@ public record TerminalInventorySnapshot(KeyCounter inventory, Map<AEKey, ExactAm
         }
 
         private void publish() {
-            // addAll clones native submaps in bulk. A fresh counter keeps previous viewers' baselines immutable.
-            KeyCounter next = new KeyCounter();
-            next.addAll(working);
+            KeyCounter next = KeyCounterSnapshots.copy(working, published, changed);
             long from = version++;
             if (changed.size() > MAX_HISTORY_KEYS) {
                 history.clear();
