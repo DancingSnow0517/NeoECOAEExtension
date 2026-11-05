@@ -64,6 +64,8 @@ public class NETags {
     }
 
     public static final class Blocks {
+        public static final TagKey<Block> BUDDING = common("budding");
+
         public static final TagKey<Block> ALUMINUM_ORE = common("ores/aluminum");
         public static final TagKey<Block> RAW_ALUMINUM_STORAGE_BLOCK = common("storage_blocks/raw_aluminum");
         public static final TagKey<Block> ALUMINUM_STORAGE_BLOCK = common("storage_blocks/aluminum");

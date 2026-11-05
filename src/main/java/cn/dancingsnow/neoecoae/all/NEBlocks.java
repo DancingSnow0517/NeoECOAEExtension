@@ -405,7 +405,7 @@ public class NEBlocks {
         .loot((prov, block) -> {
             prov.add(block, prov.createSingleItemTable(NEBlocks.FLAWED_BUDDING_ENERGIZED_CRYSTAL));
         })
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_BLOCKS)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.BUDDING, cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_BLOCKS)
         .item()
         .tag(cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_ITEMS)
         .build()
@@ -429,7 +429,7 @@ public class NEBlocks {
                 Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL)
             );
         })
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_BLOCKS)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.BUDDING, cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_BLOCKS)
         .item()
         .tag(cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_ITEMS)
         .build()
@@ -453,7 +453,7 @@ public class NEBlocks {
                 Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL)
             );
         })
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_BLOCKS)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.BUDDING, cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_BLOCKS)
         .item()
         .tag(cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_ITEMS)
         .build()
@@ -477,7 +477,7 @@ public class NEBlocks {
                 Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL)
             );
         })
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_BLOCKS)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.BUDDING, cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_BLOCKS)
         .item()
         .tag(cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_ITEMS)
         .build()
