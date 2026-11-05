@@ -34,17 +34,19 @@ public final class KeyReuse {
             slot.clear();
             return false;
         });
-        if (enabled) epoch = new Object();
+        if (enabled) epoch = new Generation();
     }
 
-    public static KeyReuseSlot slot(Object owner) {
-        return owner instanceof KeyReuseOwner ? ((KeyReuseOwner) owner).neoecoae$keyReuseSlot() : null;
+    /** A generation owns its tables; no fields or caches are installed on Minecraft/addon resources. */
+    private static final class Generation {
+        final java.util.concurrent.ConcurrentMap<Object, OwnerSlots> tables =
+            new java.util.concurrent.ConcurrentHashMap<>();
     }
 
-    public static Object peek(Object owner) {
-        Object current = epoch;
-        if (current == null) return null;
-        KeyReuseSlot slot = slot(owner);
-        return slot == null ? null : slot.get(current);
+    static KeyReuseSlot slot(Object generation, Object type, Object owner) {
+        if (!(generation instanceof Generation active) || generation != epoch || owner == null) return null;
+        OwnerSlots table = active.tables.get(type);
+        if (table == null) table = active.tables.computeIfAbsent(type, ignored -> new OwnerSlots());
+        return table.get(owner);
     }
 }

@@ -5,14 +5,7 @@
   "plugin": "cn.dancingsnow.neoecoae.mixins.keyreuse.KeyReuseMixinPlugin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
-    "ResourceKeyOwnerMixin",
-    "AEItemKeyReuseMixin",
-    "InternedTagDataMixin",
-    "AEFluidKeyReuseMixin",
-    "ChemicalKeyOwnerMixin",
-    "MekanismKeyReuseMixin",
-    "EnergyKeyOwnerMixin",
-    "FluxKeyReuseMixin"
+    "MekanismKeyReuseMixin"
   ],
   "injectors": {
     "defaultRequire": 1
