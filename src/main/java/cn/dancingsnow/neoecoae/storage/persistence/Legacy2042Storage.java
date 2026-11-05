@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.storage.persistence;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.storage.infinite.HugeAmount;
 import cn.dancingsnow.neoecoae.platform.nbt.NEAtomicNbtFile;
@@ -69,7 +71,7 @@ public final class Legacy2042Storage {
         for (Tag raw : compounds(source, "entries")) {
             CompoundTag old = (CompoundTag) raw;
             requireKey(old, seen);
-            AEKey key = AEKey.fromTagGeneric(old.getCompound("key"));
+            AEKey key = ECOKeyFactory.fromTagGeneric(old.getCompound("key"));
             if (resolved(key) && !decoded.add(key)) throw new IllegalArgumentException("Duplicate decoded 20.4.2 domain key");
             boolean narrow = old.contains("amount_long", Tag.TAG_LONG);
             boolean wide = old.contains("amount_wide", Tag.TAG_BYTE_ARRAY);

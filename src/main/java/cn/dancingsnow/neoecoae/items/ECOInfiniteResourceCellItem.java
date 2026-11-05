@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.items;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -37,9 +39,9 @@ public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
 
     /** The only keys this cell accepts or supplies. */
     private static final List<AEKey> LOCKED_KEYS = List.of(
-        AEFluidKey.of(Fluids.WATER),
-        AEItemKey.of(Items.COBBLESTONE),
-        AEFluidKey.of(Fluids.LAVA)
+        ECOKeyFactory.fluid(Fluids.WATER),
+        ECOKeyFactory.item(Items.COBBLESTONE),
+        ECOKeyFactory.fluid(Fluids.LAVA)
     );
 
     private final List<AEKey> suppliedKeys;

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me.bigorder;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -138,7 +140,7 @@ public final class ECOExactInventory extends ListCraftingInventory {
         boolean hasExact = false;
         for (int i = 0; i < data.size(); i++) {
             var tag = data.getCompound(i);
-            var key = AEKey.fromTagGeneric(tag);
+            var key = ECOKeyFactory.fromTagGeneric(tag);
             boolean exact = tag.contains("ecoExactAmount", Tag.TAG_STRING);
             if (key == null) {
                 if (exact) throw new IllegalArgumentException("Unknown key in exact inventory");

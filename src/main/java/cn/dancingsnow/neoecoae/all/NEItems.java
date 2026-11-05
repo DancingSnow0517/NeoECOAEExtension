@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.all;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.ids.AETags;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.upgrades.Upgrades;
@@ -1037,7 +1039,7 @@ public class NEItems {
     public static final ItemEntry<ECOInfiniteResourceCellItem> ECO_INFINITE_SAND_CELL = REGISTRATE
         .item("eco_infinite_sand_cell", p -> new ECOInfiniteResourceCellItem(
             p.stacksTo(1).rarity(Rarity.EPIC), ECOTier.L9, NECellTypes.ITEM,
-            List.of(appeng.api.stacks.AEItemKey.of(Items.SAND)), "tooltip.neoecoae.infinite_sand"))
+            List.of(ECOKeyFactory.item(Items.SAND)), "tooltip.neoecoae.infinite_sand"))
         .lang("ECO Infinite Sand Resource Storage Matrix")
         .model(ItemModelUtil.infiniteCellModel("infinite_resource_cell"))
         .register();

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.recipe;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
@@ -39,7 +41,7 @@ final class CrystalScienceWorkstationRecipes {
         var result = invoke(recipe, "result", ItemStack.class);
         int energy = invoke(recipe, "energyCost", Integer.class);
         if (items.isEmpty() || result.isEmpty()) throw new IllegalArgumentException("Empty AE2CS recipe");
-        return wrap(recipe.getId(), items, noFluid(), List.of(GenericStack.fromItemStack(result)), energy, new ResourceLocation(type));
+        return wrap(recipe.getId(), items, noFluid(), List.of(ECOKeyFactory.fromItemStack(result)), energy, new ResourceLocation(type));
     }
 
     private static <T> T invoke(Object value, String method, Class<T> result) {
@@ -68,12 +70,12 @@ final class CrystalScienceWorkstationRecipes {
         var fluidInput = fluid == Fluids.EMPTY ? noFluid() : SizedFluidIngredient.of(new FluidStack(fluid, 1000));
         var outputs = new ArrayList<GenericStack>();
         if (recipe.getOutputBlock() != null && recipe.getOutputBlock().asItem() != Items.AIR) {
-            outputs.add(new GenericStack(AEItemKey.of(recipe.getOutputBlock().asItem()), 1));
+            outputs.add(new GenericStack(ECOKeyFactory.item(recipe.getOutputBlock().asItem()), 1));
         }
         if (recipe.getOutputFluid() != null && recipe.getOutputFluid() != Fluids.EMPTY) {
-            outputs.add(new GenericStack(AEFluidKey.of(recipe.getOutputFluid()), 1000));
+            outputs.add(new GenericStack(ECOKeyFactory.fluid(recipe.getOutputFluid()), 1000));
         }
-        for (var drop : recipe.getDrops()) if (!drop.isEmpty()) outputs.add(GenericStack.fromItemStack(drop));
+        for (var drop : recipe.getDrops()) if (!drop.isEmpty()) outputs.add(ECOKeyFactory.fromItemStack(drop));
         if ((items.isEmpty() && fluidInput.ingredient().isEmpty()) || outputs.isEmpty()) return null;
         return wrap(id, items, fluidInput, outputs, 1600, ENTROPY);
     }

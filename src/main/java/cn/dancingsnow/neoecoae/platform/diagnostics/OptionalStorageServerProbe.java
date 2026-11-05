@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.platform.diagnostics;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEFluidKey;
@@ -193,7 +195,7 @@ public final class OptionalStorageServerProbe {
                 CompoundTag entry = (CompoundTag) raw;
                 ItemStack stack = ItemStack.of(entry.getCompound("stack"));
                 check(!stack.isEmpty(), "Cold-load item ID is missing");
-                AEKey resource = AEKey.fromTagGeneric(entry.getCompound("key"));
+                AEKey resource = ECOKeyFactory.fromTagGeneric(entry.getCompound("key"));
                 check(resource != null, "Cold-load resource key is missing");
                 ISaveProvider owner = () -> {};
                 IECOStorageCell cell = ECOStorageCells.getCellInventory(stack, owner);
@@ -232,8 +234,8 @@ public final class OptionalStorageServerProbe {
 
     private static AEKey sample(String channel) throws Exception {
         return switch (channel) {
-            case "item" -> AEItemKey.of(Items.STONE);
-            case "fluid" -> AEFluidKey.of(Fluids.WATER);
+            case "item" -> ECOKeyFactory.item(Items.STONE);
+            case "fluid" -> ECOKeyFactory.fluid(Fluids.WATER);
             case "mana" -> constant("appbot.ae2.ManaKey", "KEY");
             case "source" -> constant("gripe._90.arseng.me.key.SourceKey", "KEY");
             case "air" -> constant("com.wintercogs.appliedpneumatics.common.me.keys.AirKey", "INSTANCE");

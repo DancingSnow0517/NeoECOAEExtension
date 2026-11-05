@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.platform.nbt;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.config.FuzzyMode;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.storage.persistence.Legacy2042Storage;
@@ -23,7 +25,7 @@ public final class NECellNbt {
             List<GenericStack> result = new ArrayList<>();
             var seen = new java.util.HashSet<appeng.api.stacks.AEKey>();
             for (Tag raw : Legacy2042Storage.compounds(root, Legacy2042Storage.CONTENTS)) {
-                GenericStack value = GenericStack.readTag((CompoundTag) raw);
+                GenericStack value = ECOKeyFactory.readTag((CompoundTag) raw);
                 if (value == null || !Legacy2042Storage.resolved(value.what()) || value.amount() <= 0 || !seen.add(value.what()))
                     throw new IllegalStateException("Invalid 20.4.2 item inventory; original contents retained");
                 result.add(value);
@@ -43,7 +45,7 @@ public final class NECellNbt {
         }
         List<GenericStack> stacks = new ArrayList<>(entries.size());
         for (int i = 0; i < entries.size(); i++) {
-            GenericStack stack = GenericStack.readTag(entries.getCompound(i));
+            GenericStack stack = ECOKeyFactory.readTag(entries.getCompound(i));
             if (stack == null || stack.amount() <= 0) {
                 throw new IllegalStateException("Unknown or invalid ECO storage key at " + i + "; contents preserved");
             }

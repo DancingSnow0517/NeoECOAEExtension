@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.dev;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -28,13 +30,13 @@ final class GeneratorPool {
         var keys = new LinkedHashSet<AEKey>();
         for (var item : BuiltInRegistries.ITEM) {
             if (item != Items.AIR && !BuiltInRegistries.ITEM.getKey(item).toString().equals("neoecoae:dev_resource_generator")) {
-                AEKey key = AEItemKey.of(item);
+                AEKey key = ECOKeyFactory.item(item);
                 if (key != null && key.equals(key.dropSecondary())) keys.add(key);
             }
         }
         for (var fluid : BuiltInRegistries.FLUID) {
             if (fluid != Fluids.EMPTY && (!(fluid instanceof FlowingFluid flowing) || flowing.getSource() == fluid)) {
-                AEKey key = AEFluidKey.of(fluid);
+                AEKey key = ECOKeyFactory.fluid(fluid);
                 if (key != null) keys.add(key);
             }
         }

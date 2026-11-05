@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.platform.diagnostics;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
@@ -55,7 +57,7 @@ public final class StorageSavedDataServerProbe {
         var world = server.overworld();
         var root = server.getWorldPath(LevelResource.ROOT);
         var fixturePath = root.resolve("saveddata-acceptance-fixture.dat");
-        AEKey diamond = AEItemKey.of(Items.DIAMOND), iron = AEItemKey.of(Items.IRON_INGOT);
+        AEKey diamond = ECOKeyFactory.item(Items.DIAMOND), iron = ECOKeyFactory.item(Items.IRON_INGOT);
         IActionSource action = IActionSource.empty();
         ISaveProvider owner = () -> {};
         JsonObject report = new JsonObject(); report.addProperty("phase", phase);
