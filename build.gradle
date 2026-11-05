@@ -185,10 +185,10 @@ dependencies {
     devMods("maven.modrinth:kotlin-for-forge:uhJhCT7X") { transitive = false } // 5.12.0
     devMods("maven.modrinth:applied-create:2bWngfNH") { transitive = false } // 1.1.7
     createDevMod("maven.modrinth:create:UjX6dr61") { transitive = false } // 6.0.10, embeds Flywheel/Ponder
-    // Official development build containing the EAEP 1.6.4 API compatibility fix (upstream #417).
-    devMods("github.dataenergistics:data-energistics:3.4.0-SNAPSHOT+20261104-135757-cb74a30@jar") { transitive = false }
+    // Stable release containing the EAEP 1.6.4 API compatibility fix (upstream #417).
+    devMods("github.dataenergistics:data-energistics:3.4.0@jar") { transitive = false }
     // Exercise optional workstation adapters against the released key and recipe codecs.
-    testRuntimeOnly("github.dataenergistics:data-energistics:3.4.0-SNAPSHOT+20261104-135757-cb74a30@jar") { transitive = false }
+    testRuntimeOnly("github.dataenergistics:data-energistics:3.4.0@jar") { transitive = false }
     testRuntimeOnly("maven.modrinth:applied-generators:InEKowoU") { transitive = false } // 0.3.0+1.21.1
     testRuntimeOnly("maven.modrinth:ae2-crystal-science:taIhgdOA") { transitive = false } // 1.21.1-1.2.1
     // AdvancedAE embeds this library; plain JVM recipe tests do not unpack nested mod JARs.
