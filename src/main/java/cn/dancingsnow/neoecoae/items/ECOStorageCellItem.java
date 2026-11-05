@@ -272,7 +272,15 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Override
     public IUpgradeInventory getUpgrades(ItemStack stack) {
-        return UpgradeInventories.forItem(stack, 4);
+        boolean hadTag = stack.getTag() != null;
+        var upgrades = UpgradeInventories.forItem(stack, 4);
+        // AE2 15 creates an empty root while loading upgrades. Display/configuration reads must
+        // preserve the original item key, including the distinction between no tag and {}.
+        // Keep the live item inventory so later card edits still write through to this stack.
+        if (!hadTag && stack.getTag() != null && stack.getTag().isEmpty()) {
+            stack.setTag(null);
+        }
+        return upgrades;
     }
 
     @Override
