@@ -1,5 +1,11 @@
 package cn.dancingsnow.neoecoae.compat.ae2.keyreuse;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOFluxKeys;
+
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOChemicalKeys;
+
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.*;
@@ -71,9 +77,11 @@ public final class KeyReuseAcceptance {
         check(KeyReuse.epoch() != null, "local config enabled reuse before acceptance overrides");
         ItemStack input = new ItemStack(Items.IRON_INGOT, 64);
         FluidStack fluid = new FluidStack(Fluids.WATER, 1000);
+        check(AEItemKey.of(input) != AEItemKey.of(input), "upstream item factory remains independent with ECO reuse enabled");
+        check(AEFluidKey.of(fluid) != AEFluidKey.of(fluid), "upstream fluid factory remains independent with ECO reuse enabled");
         KeyReuse.configure(false);
-        AEItemKey oldItem = AEItemKey.of(input);
-        AEFluidKey oldFluid = AEFluidKey.of(fluid);
+        AEItemKey oldItem = ECOKeyFactory.item(input);
+        AEFluidKey oldFluid = ECOKeyFactory.fluid(fluid);
         CompoundTag oldItemTag = oldItem.toTagGeneric();
         CompoundTag oldFluidTag = oldFluid.toTagGeneric();
         ItemStack cellStack = new ItemStack(NEItems.ECO_ITEM_CELL_16M.get());
@@ -92,66 +100,66 @@ public final class KeyReuseAcceptance {
         NbtIo.writeCompressed(oldSnapshot, snapshot.toFile());
 
         KeyReuse.configure(true);
-        AEItemKey item = AEItemKey.of(input);
-        AEFluidKey water = AEFluidKey.of(fluid);
+        AEItemKey item = ECOKeyFactory.item(input);
+        AEFluidKey water = ECOKeyFactory.fluid(fluid);
         check(item != oldItem && item.equals(oldItem) && item.hashCode() == oldItem.hashCode(), "old and reused items retain equals/hashCode");
         check(water != oldFluid && water.equals(oldFluid), "old and reused fluids retain equals");
-        check(item == AEItemKey.of(input) && item == AEItemKey.of(input.copyWithCount(3)), "item factories reuse before copying");
-        check(water == AEFluidKey.of(fluid) && water == AEFluidKey.of(Fluids.WATER), "fluid factories reuse");
+        check(item == ECOKeyFactory.item(input) && item == ECOKeyFactory.item(input.copyWithCount(3)), "item factories reuse before copying");
+        check(water == ECOKeyFactory.fluid(fluid) && water == ECOKeyFactory.fluid(Fluids.WATER), "fluid factories reuse");
         check(item.getReadOnlyStack().getCount() == 1 && input.getCount() == 64, "representative count is one and source is untouched");
         check(item.toTagGeneric().equals(oldItemTag) && water.toTagGeneric().equals(oldFluidTag), "encoded key fields are unchanged");
-        check(AEKey.fromTagGeneric( oldItemTag) == item && AEKey.fromTagGeneric( oldFluidTag) == water, "old generic key codecs reuse");
-        check(GenericStack.readTag(GenericStack.writeTag( new GenericStack(oldItem, 987))).what() == item, "direct GenericStack map codec reuses");
+        check(ECOKeyFactory.fromTagGeneric( oldItemTag) == item && ECOKeyFactory.fromTagGeneric( oldFluidTag) == water, "old generic key codecs reuse");
+        check(ECOKeyFactory.readTag(GenericStack.writeTag( new GenericStack(oldItem, 987))).what() == item, "direct GenericStack map codec reuses");
         FriendlyByteBuf packet = new FriendlyByteBuf(Unpooled.buffer());
         try {
             oldItem.writeToPacket(packet);
-            check(AEItemKey.fromPacket(packet) == item, "item packet decoder reuses");
+            check(ECOKeyFactory.canonicalize(AEItemKey.fromPacket(packet)) == item, "item packet decoder reuses");
             packet.clear();
             oldFluid.writeToPacket(packet);
-            check(AEFluidKey.fromPacket(packet) == water, "fluid packet decoder reuses");
+            check(ECOKeyFactory.canonicalize(AEFluidKey.fromPacket(packet)) == water, "fluid packet decoder reuses");
         } finally { packet.release(); }
         ItemStack named = input.copy();
         named.setHoverName(Component.literal("variant"));
-        check(AEItemKey.of(named) != AEItemKey.of(named) && !item.equals(AEItemKey.of(named)), "component variants retain the upstream path");
+        check(ECOKeyFactory.item(named) != ECOKeyFactory.item(named) && !item.equals(ECOKeyFactory.item(named)), "component variants retain the upstream path");
         ItemStack emptyTag = input.copy();
         emptyTag.setTag(new CompoundTag());
-        check(!item.equals(AEItemKey.of(emptyTag)) && AEItemKey.of(emptyTag) != AEItemKey.of(emptyTag), "null and empty NBT remain distinct and empty compounds are not pooled");
-        check(AEItemKey.of(ItemStack.EMPTY) == null && AEFluidKey.of(FluidStack.EMPTY) == null, "empty factories retain null semantics");
+        check(!item.equals(ECOKeyFactory.item(emptyTag)) && ECOKeyFactory.item(emptyTag) != ECOKeyFactory.item(emptyTag), "null and empty NBT remain distinct and empty compounds are not pooled");
+        check(ECOKeyFactory.item(ItemStack.EMPTY) == null && ECOKeyFactory.fluid(FluidStack.EMPTY) == null, "empty factories retain null semantics");
         KeyReuse.invalidate();
         var executor = Executors.newFixedThreadPool(8);
         try {
             var calls = new ArrayList<java.util.concurrent.Callable<AEItemKey>>();
-            for (int i = 0; i < 64; i++) calls.add(() -> AEItemKey.of(input));
+            for (int i = 0; i < 64; i++) calls.add(() -> ECOKeyFactory.item(input));
             var values = executor.invokeAll(calls);
             Object shared = values.get(0).get();
             for (var value : values) check(value.get() == shared, "concurrent cold item publication");
         }
         finally { executor.shutdownNow(); }
-        AEItemKey refreshed = AEItemKey.of(input);
+        AEItemKey refreshed = ECOKeyFactory.item(input);
         check(item != refreshed && item.equals(refreshed), "invalidation preserves old key equality");
         ECOStorageCell reloadedCell = new ECOStorageCell(ItemStack.of(serializedCell), null);
         check(reloadedCell.extract(refreshed, 4096, Actionable.MODULATE, IActionSource.empty()) == 4096, "old finite inventory reload and extraction conserve resources");
         ECOInfiniteStorageData loaded = ECOInfiniteStorageData.load(NbtIo.readCompressed(snapshot.toFile()));
         SavedDataInfiniteStorageEngine engine = new SavedDataInfiniteStorageEngine(loaded);
         check(engine.getAmount(refreshed).toBigInteger().equals(huge.add(BigInteger.valueOf(17))), "old 10^40 item quantity survives real key codec and disk reload");
-        check(engine.getAmount(AEFluidKey.of(fluid)).toBigInteger().equals(BigInteger.ONE.shiftLeft(100)), "old U126 fluid quantity survives reload");
+        check(engine.getAmount(ECOKeyFactory.fluid(fluid)).toBigInteger().equals(BigInteger.ONE.shiftLeft(100)), "old U126 fluid quantity survives reload");
         check(engine.insertOnce(receipt, refreshed, 17) == 17
             && engine.getAmount(refreshed).toBigInteger().equals(huge.add(BigInteger.valueOf(17))),
             "migration receipt prevents duplicate import after reload");
         check(engine.extract(refreshed, 31, Actionable.MODULATE) == 31 && engine.getAmount(oldItem).toBigInteger().equals(huge.subtract(BigInteger.valueOf(14))), "old and new key extraction shares one exact ledger");
         KeyReuse.configure(false);
-        AEItemKey disabled = AEItemKey.of(input);
-        check(disabled != AEItemKey.of(input) && disabled.equals(refreshed), "disabled mode restores factory behavior and old access");
+        AEItemKey disabled = ECOKeyFactory.item(input);
+        check(disabled != ECOKeyFactory.item(input) && disabled.equals(refreshed), "disabled mode restores factory behavior and old access");
         KeyReuse.configure(true);
-        check(AEItemKey.of(input) != refreshed && AEItemKey.of(input).equals(disabled), "config reenable creates a fresh valid generation");
+        check(ECOKeyFactory.item(input) != refreshed && ECOKeyFactory.item(input).equals(disabled), "config reenable creates a fresh valid generation");
         checkOptionalChannels(registries);
         ItemStack capable = new ItemStack(capabilityItem);
         var energy = capable.getCapability(net.minecraftforge.common.capabilities.ForgeCapabilities.ENERGY).orElseThrow(AssertionError::new);
-        AEItemKey before = AEItemKey.of(capable);
+        AEItemKey before = ECOKeyFactory.item(capable);
         energy.receiveEnergy(23, false);
-        AEItemKey after = AEItemKey.of(capable);
+        AEItemKey after = ECOKeyFactory.item(capable);
         check(!before.equals(after), "Forge capability contents remain part of key identity");
-        check(after != AEItemKey.of(capable) && after.equals(AEItemKey.of(capable)), "capability-bearing stacks retain the uncached path");
+        check(after != ECOKeyFactory.item(capable) && after.equals(ECOKeyFactory.item(capable)), "capability-bearing stacks retain the uncached path");
     }
 
     private static final class CapabilityItem extends net.minecraft.world.item.Item {
@@ -179,19 +187,23 @@ public final class KeyReuseAcceptance {
 
     private static void checkOptionalChannels(net.minecraft.core.RegistryAccess registries) {
         var type = com.glodblock.github.appflux.common.me.key.type.EnergyType.values()[0];
-        var flux = com.glodblock.github.appflux.common.me.key.FluxKey.of(type);
-        check(flux == com.glodblock.github.appflux.common.me.key.FluxKey.of(type), "energy factory reuses");
-        check(AEKey.fromTagGeneric( flux.toTagGeneric()) == flux, "energy codec reuses constructor-reference path");
+        var flux = ECOFluxKeys.of(type);
+        check(com.glodblock.github.appflux.common.me.key.FluxKey.of(type)
+            != com.glodblock.github.appflux.common.me.key.FluxKey.of(type), "upstream Flux factory remains independent");
+        check(flux == ECOFluxKeys.of(type), "energy factory reuses");
+        check(ECOKeyFactory.fromTagGeneric( flux.toTagGeneric()) == flux, "energy codec reuses constructor-reference path");
         var chemical = mekanism.common.registries.MekanismGases.OXYGEN.getStack(123);
-        var key = me.ramidzkh.mekae2.ae2.MekanismKey.of(chemical);
-        check(key == me.ramidzkh.mekae2.ae2.MekanismKey.of(chemical), "chemical factory reuses");
+        var key = ECOChemicalKeys.of(chemical);
+        check(me.ramidzkh.mekae2.ae2.MekanismKey.of(chemical)
+            != me.ramidzkh.mekae2.ae2.MekanismKey.of(chemical), "upstream Chemical factory remains independent");
+        check(key == ECOChemicalKeys.of(chemical), "chemical factory reuses");
         key.getStack().setAmount(88);
         check(key.getStack().getAmount() == 1 && chemical.getAmount() == 123, "shared chemical stack is defensively copied");
-        check(AEKey.fromTagGeneric( key.toTagGeneric()) == key, "chemical codec reuses");
+        check(ECOKeyFactory.fromTagGeneric( key.toTagGeneric()) == key, "chemical codec reuses");
         FriendlyByteBuf packet = new FriendlyByteBuf(Unpooled.buffer());
         try {
             AEKey.writeKey(packet, key);
-            check(AEKey.readKey(packet) == key, "chemical packet reuses");
+            check(ECOKeyFactory.readKey(packet) == key, "chemical packet reuses");
         } finally { packet.release(); }
     }
 }
