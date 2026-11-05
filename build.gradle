@@ -11,11 +11,12 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 java.withSourcesJar()
 
 def keyReuseAcceptance = providers.gradleProperty('keyReuseAcceptance').map { it.toBoolean() }.getOrElse(false)
-if (keyReuseAcceptance) {
-    sourceSets.create('keyReuseAcceptance') {
-        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
-        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
-    }
+def acceptanceEnabled = providers.gradleProperty('acceptance').map { it.toBoolean() }.getOrElse(false) || keyReuseAcceptance
+
+// In-game acceptance harnesses share one source set and never ship in the published mod JAR.
+sourceSets.create('acceptance') {
+    compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+    runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
 }
 
 def runtimeProfiles = [
@@ -202,7 +203,7 @@ legacyForge {
     mods {
         neoecoae {
             sourceSet sourceSets.main
-            if (keyReuseAcceptance) sourceSet sourceSets.keyReuseAcceptance
+            if (acceptanceEnabled) sourceSet sourceSets.acceptance
         }
     }
 }
