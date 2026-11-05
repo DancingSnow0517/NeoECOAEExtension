@@ -25,11 +25,12 @@ base {
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 def keyReuseAcceptance = providers.gradleProperty('keyReuseAcceptance').map { it.toBoolean() }.getOrElse(false)
-if (keyReuseAcceptance) {
-    sourceSets.create('keyReuseAcceptance') {
-        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
-        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
-    }
+def acceptanceEnabled = providers.gradleProperty('acceptance').map { it.toBoolean() }.getOrElse(false) || keyReuseAcceptance
+
+// In-game acceptance harnesses share one source set and never ship in the published mod JAR.
+sourceSets.create('acceptance') {
+    compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+    runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
 }
 
 repositories {
@@ -372,7 +373,7 @@ neoForge {
     mods {
         "${mod_id}" {
             sourceSet(sourceSets.main)
-            if (keyReuseAcceptance) sourceSet(sourceSets.keyReuseAcceptance)
+            if (acceptanceEnabled) sourceSet(sourceSets.acceptance)
         }
     }
 }
@@ -458,7 +459,7 @@ tasks.named("runClient").configure {
     dependsOn(installCuriosDevMod)
 }
 
-if (keyReuseAcceptance) {
+if (acceptanceEnabled) {
     tasks.named('runServer').configure { dependsOn(installCuriosDevMod) }
 }
 
