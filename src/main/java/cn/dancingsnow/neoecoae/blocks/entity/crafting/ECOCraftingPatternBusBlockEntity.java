@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.implementations.blockentities.PatternContainerGroup;
@@ -605,14 +607,14 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             var block = cluster.getController().getBlockState().getBlock();
             if (block != Blocks.AIR) {
                 return new PatternContainerGroup(
-                    AEItemKey.of(block.asItem()),
+                    ECOKeyFactory.item(block.asItem()),
                     block.getName(),
                     List.of()
                 );
             }
         }
         return new PatternContainerGroup(
-            AEItemKey.of(NEBlocks.CRAFTING_PATTERN_BUS.asStack()),
+            ECOKeyFactory.item(NEBlocks.CRAFTING_PATTERN_BUS.asStack()),
             NEBlocks.CRAFTING_PATTERN_BUS.get().getName(),
             List.of()
         );
@@ -656,7 +658,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         if (shouldValidateNetGrowthPatterns()) {
             NetGrowthPatternValidationRegistry.validateAndRegisterFromSmartPatternBus(details);
         }
-        return new ECOPreparedPattern(itemStack, details, AEItemKey.of(itemStack));
+        return new ECOPreparedPattern(itemStack, details, ECOKeyFactory.item(itemStack));
     }
 
     @Override

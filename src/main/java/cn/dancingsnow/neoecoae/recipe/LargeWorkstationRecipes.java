@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.recipe;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationRecipeAdapters;
 
@@ -511,7 +513,7 @@ public final class LargeWorkstationRecipes {
                     if (!ingredient.isEmpty() && amount > 0) fluid = new SizedFluidIngredient(ingredient, amount);
                 }
                 if (type.equals("advanced_ae:reaction")) {
-                    var output = parse(GenericStack.CODEC, ops, data.get("output"));
+                    var output = parse(ECOKeyFactory.STACK_CODEC, ops, data.get("output"));
                     int count = Math.toIntExact(output.amount());
                     if (output.what() instanceof AEItemKey item) result = item.toStack(count);
                     else if (output.what() instanceof AEFluidKey key) fluidResult = key.toStack(count);

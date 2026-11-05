@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution.fastpath;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
@@ -98,7 +100,7 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
         Transition transition = transitions.getFirst();
 
         KeyCounter consumedPerCraft = toCounter(ordinaryInputs);
-        AEItemKey resolvedTool = AEItemKey.of(transition.initialStack());
+        AEItemKey resolvedTool = ECOKeyFactory.item(transition.initialStack());
         if (resolvedTool == null || !removeOne(consumedPerCraft, resolvedTool)) return null;
         List<GenericStack> ordinaryConsumed = ECOFastPathStacks.copyCounter(consumedPerCraft);
         long crafts = ECOBatchCraftingHelper.maxCraftsFromInventory(
@@ -122,7 +124,7 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
         }
         KeyCounter totalRemainders = toCounter(ordinaryRemainders);
         if (!transition.observedResult().isEmpty()) {
-            AEItemKey observed = AEItemKey.of(transition.observedResult());
+            AEItemKey observed = ECOKeyFactory.item(transition.observedResult());
             if (observed == null || !removeOne(totalRemainders, observed)) return null;
         }
         totalRemainders = multiplyCounter(totalRemainders, crafts);
@@ -145,7 +147,7 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
                     Math.multiplyExact((long) transition.damageDelta(), partialUses));
                 if (finalDamage >= transition.maxDamage() || finalDamage > Integer.MAX_VALUE) return null;
                 remainder.setDamageValue((int) finalDamage);
-                GenericStack generic = GenericStack.fromItemStack(remainder);
+                GenericStack generic = ECOKeyFactory.fromItemStack(remainder);
                 if (generic == null || generic.amount() <= 0L) return null;
                 totalRemainders.add(generic.what(), 1L);
             }
@@ -211,7 +213,7 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
             }
         }
         for (Transition transition : transitions) {
-            GenericStack initial = GenericStack.fromItemStack(transition.initialStack());
+            GenericStack initial = ECOKeyFactory.fromItemStack(transition.initialStack());
             counter.add(initial.what(), 1L);
         }
         return ECOFastPathStacks.copyCounter(counter);
@@ -228,7 +230,7 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
         for (Transition transition : transitions) {
             ItemStack finalStack = transition.apply(crafts);
             if (!finalStack.isEmpty()) {
-                GenericStack result = GenericStack.fromItemStack(finalStack);
+                GenericStack result = ECOKeyFactory.fromItemStack(finalStack);
                 counter.add(result.what(), result.amount());
             }
         }
@@ -273,12 +275,12 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
         List<Transition> rebased = new ArrayList<>(transitions.size());
 
         for (Transition transition : transitions) {
-            AEItemKey sourceInitialKey = AEItemKey.of(transition.initialStack());
+            AEItemKey sourceInitialKey = ECOKeyFactory.item(transition.initialStack());
             if (sourceInitialKey == null || !removeOne(sourceInputCounter, sourceInitialKey)) {
                 return Optional.empty();
             }
             if (!transition.observedResult().isEmpty()) {
-                AEItemKey sourceObservedKey = AEItemKey.of(transition.observedResult());
+                AEItemKey sourceObservedKey = ECOKeyFactory.item(transition.observedResult());
                 if (sourceObservedKey == null || !removeOne(sourceRemainderCounter, sourceObservedKey)) {
                     return Optional.empty();
                 }
@@ -304,7 +306,7 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
                 if (finalDamage < 0L || finalDamage > Integer.MAX_VALUE) return Optional.empty();
                 currentObserved = currentInitial.copyWithCount(1);
                 currentObserved.setDamageValue((int) finalDamage);
-                AEItemKey currentObservedKey = AEItemKey.of(currentObserved);
+                AEItemKey currentObservedKey = ECOKeyFactory.item(currentObserved);
                 if (currentObservedKey == null || !removeOne(currentRemainderCounter, currentObservedKey)) {
                     return Optional.empty();
                 }
@@ -377,12 +379,12 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
 
     private boolean matchesInitial(AEKey key) {
         return transitions.stream().anyMatch(transition ->
-            GenericStack.fromItemStack(transition.initialStack()).what().equals(key));
+            ECOKeyFactory.fromItemStack(transition.initialStack()).what().equals(key));
     }
 
     private boolean matchesObservedResult(AEKey key) {
         return transitions.stream().anyMatch(transition -> !transition.observedResult().isEmpty()
-            && GenericStack.fromItemStack(transition.observedResult()).what().equals(key));
+            && ECOKeyFactory.fromItemStack(transition.observedResult()).what().equals(key));
     }
 
     List<Transition> transitions() {

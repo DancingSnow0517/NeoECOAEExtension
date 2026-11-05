@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
@@ -638,7 +640,7 @@ public final class ECOExecutionRuntime {
         Map<AEKey, Long> legacySeeds = new LinkedHashMap<>();
         for (int i = 0; i < seeds.size(); i++) {
             CompoundTag seed = seeds.getCompound(i);
-            GenericStack stack = GenericStack.readTag(registries, seed);
+            GenericStack stack = ECOKeyFactory.readTag(registries, seed);
             if (stack != null && stack.amount() > 0L) {
                 if (seed.contains("phase", Tag.TAG_INT)) {
                     int phaseIndex = seed.getInt("phase");

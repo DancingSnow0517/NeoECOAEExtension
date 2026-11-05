@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
 
 import appeng.api.crafting.IPatternDetails;
@@ -498,7 +500,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
         var module = terminalModuleDescription();
         if (module.custom()) {
             var card = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(module.upgradeCard());
-            if (card != net.minecraft.world.item.Items.AIR) return AEItemKey.of(new ItemStack(card));
+            if (card != net.minecraft.world.item.Items.AIR) return ECOKeyFactory.item(new ItemStack(card));
         }
         return terminalIcon(terminalModule());
     }
@@ -531,7 +533,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
             // Presentation-only stacks use the existing formed-controller models; the real block item stays unchanged.
             icon.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(module.ordinal()));
         }
-        return AEItemKey.of(icon);
+        return ECOKeyFactory.item(icon);
     }
 
     @Override

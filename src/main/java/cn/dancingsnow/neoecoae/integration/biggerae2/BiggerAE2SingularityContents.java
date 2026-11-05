@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.biggerae2;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEKey;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
@@ -27,7 +29,7 @@ record BiggerAE2SingularityContents(List<Entry> entries) {
         }
     }, BigInteger::toString);
     private static final Codec<Entry> ENTRY_CODEC = RecordCodecBuilder.create(builder -> builder.group(
-        AEKey.CODEC.fieldOf("key").forGetter(Entry::key),
+        ECOKeyFactory.KEY_CODEC.fieldOf("key").forGetter(Entry::key),
         POSITIVE_AMOUNT.fieldOf("amount").forGetter(Entry::amount)
     ).apply(builder, Entry::new));
     static final Codec<BiggerAE2SingularityContents> CODEC = ENTRY_CODEC.listOf()

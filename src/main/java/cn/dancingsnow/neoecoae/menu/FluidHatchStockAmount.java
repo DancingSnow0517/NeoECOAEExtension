@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.menu;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
@@ -20,7 +22,7 @@ public final class FluidHatchStockAmount {
     private FluidHatchStockAmount() {}
 
     public static void open(ECOFluidInputHatchBlockEntity host, ServerPlayer player) {
-        var key = AEFluidKey.of(host.getMarkedFluid());
+        var key = ECOKeyFactory.fluid(host.getMarkedFluid());
         if (!host.hasNetworkPullCard() || key == null || !host.canPlayerUse(player)) return;
         SetStockAmountMenu.open(player, MenuLocators.forBlockEntity(host), 0, key,
             (int) Math.min(Integer.MAX_VALUE, host.getTargetAmount()));
@@ -40,7 +42,7 @@ public final class FluidHatchStockAmount {
         return new GenericStackInv(Set.of(AEKeyType.fluids()), null, GenericStackInv.Mode.CONFIG_STACKS, 1) {
             @Override public @Nullable GenericStack getStack(int slot) {
                 Objects.checkIndex(slot, size());
-                var key = AEFluidKey.of(host.getMarkedFluid());
+                var key = ECOKeyFactory.fluid(host.getMarkedFluid());
                 return key == null ? null : new GenericStack(key, host.getTargetAmount());
             }
 

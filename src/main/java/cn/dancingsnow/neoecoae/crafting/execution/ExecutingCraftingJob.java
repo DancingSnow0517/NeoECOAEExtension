@@ -18,6 +18,8 @@
 
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.ArrayDeque;
@@ -186,7 +188,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
             CraftingDifferenceListener postCraftingDifference, ECOCraftingCPULogic cpu) {
         this.link = new CraftingLink(data.getCompound(NBT_LINK), cpu.cpu);
 
-        this.finalOutput = GenericStack.readTag(registries, data.getCompound(NBT_FINAL_OUTPUT));
+        this.finalOutput = ECOKeyFactory.readTag(registries, data.getCompound(NBT_FINAL_OUTPUT));
         this.reservedBytes = data.getLong("optimizationReservedBytes");
         this.remainingAmount = Math.max(0L, data.getLong(NBT_REMAINING_AMOUNT));
         this.exactOrder = data.getBoolean("exactOrder");
@@ -199,7 +201,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         this.waitingFor = createWaitingInventory(exactOrder, postCraftingDifference);
         this.waitingFor.readFromNBT(data.getList(NBT_WAITING_FOR, Tag.TAG_COMPOUND), registries);
         for (var tag : data.getList(NBT_BATCHED_OUTPUTS, Tag.TAG_COMPOUND)) {
-            var key = AEKey.fromTagGeneric(registries, (CompoundTag) tag);
+            var key = ECOKeyFactory.fromTagGeneric(registries, (CompoundTag) tag);
             if (key != null) batchedOutputs.add(key);
         }
         this.timeTracker = new ElapsedTimeTracker(data.getCompound(NBT_TIME_TRACKER));
@@ -213,7 +215,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         boolean taskDefinitionLost = false;
         for (int i = 0; i < tasksTag.size(); ++i) {
             final CompoundTag item = tasksTag.getCompound(i);
-            var pattern = AEItemKey.fromTag(registries, item);
+            var pattern = ECOKeyFactory.itemFromTag(registries, item);
             var details = PatternDetailsHelper.decodePattern(pattern, cpu.cpu.getLevel());
             if (details != null) {
                 final TaskProgress tp = new TaskProgress();
@@ -252,7 +254,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         this.executionRuntime = restoredRuntime;
         if (restoredPlan != null) restoredPlan.phases().forEach(phase -> seedKeys.addAll(phase.initialSeed().keySet()));
         for (var tag : data.getList("optimizationSeedKeys", Tag.TAG_COMPOUND)) {
-            var key = AEKey.fromTagGeneric(registries, (CompoundTag) tag);
+            var key = ECOKeyFactory.fromTagGeneric(registries, (CompoundTag) tag);
             if (key != null) seedKeys.add(key);
         }
         this.suspended = data.getBoolean(NBT_SUSPENDED) || executionMetadataLost;
@@ -469,7 +471,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         var list = data.getList(name, Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
             var entry = list.getCompound(i);
-            var key = GenericStack.readTag(registries, entry.getCompound("key"));
+            var key = ECOKeyFactory.readTag(registries, entry.getCompound("key"));
             var amount = new java.math.BigInteger(entry.getString("amount"));
             if (key == null || amount.signum() <= 0) throw new IllegalArgumentException("Invalid deferred material");
             amounts.put(key.what(), amount);

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGrid;
@@ -398,7 +400,7 @@ final class ECOCraftingOutputDelivery {
         ListTag entries = jobData.getList("pendingFinalOutputs", Tag.TAG_COMPOUND);
         for (int index = 0; index < entries.size(); index++) {
             try {
-                GenericStack stack = GenericStack.readTag(registries, entries.getCompound(index));
+                GenericStack stack = ECOKeyFactory.readTag(registries, entries.getCompound(index));
                 if (stack != null && stack.amount() > 0L) {
                     pendingFinalOutputs.mergeLong(stack.what(), stack.amount(), NEMath::saturatingAdd);
                 }

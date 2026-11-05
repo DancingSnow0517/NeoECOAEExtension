@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.network;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEItemKey;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.storage.bulk.BulkUnits;
@@ -45,7 +47,7 @@ public record ECOCompressionSyncS2CPacket(int total, int offset, List<BulkUnits>
                 int variants = size(buf.readVarInt());
                 List<AEItemKey> keys = new ArrayList<>(); List<BigInteger> factors = new ArrayList<>();
                 for (int j = 0; j < variants; j++) {
-                    keys.add(AEItemKey.of(ItemStack.STREAM_CODEC.decode(buf))); factors.add(new BigInteger(buf.readUtf()));
+                    keys.add(ECOKeyFactory.item(ItemStack.STREAM_CODEC.decode(buf))); factors.add(new BigInteger(buf.readUtf()));
                 }
                 chains.add(new BulkUnits(keys, factors));
             }

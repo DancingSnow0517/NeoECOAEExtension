@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.storage.bulk;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEItemKey;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -24,6 +26,6 @@ public final class BulkItemKeys {
         var item = id == null ? null : BuiltInRegistries.ITEM.getHolder(id).orElse(null);
         if (item == null) return null;
         var patch = DataComponentPatch.CODEC.parse(NbtOps.INSTANCE, tag.getCompound("components")).result().orElse(null);
-        return patch == null ? null : AEItemKey.of(new ItemStack(item, 1, patch));
+        return patch == null ? null : ECOKeyFactory.item(new ItemStack(item, 1, patch));
     }
 }

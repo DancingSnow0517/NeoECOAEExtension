@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
 
 import appeng.api.stacks.AEKey;
@@ -50,7 +52,7 @@ record ComputationCpuItemEntry(AEKey key, BigInteger stored, BigInteger active, 
 
     static ComputationCpuItemEntry read(CompoundTag tag, HolderLookup.Provider registries) {
         return new ComputationCpuItemEntry(
-            AEKey.fromTagGeneric(registries, tag.getCompound("key")),
+            ECOKeyFactory.fromTagGeneric(registries, tag.getCompound("key")),
             new BigInteger(tag.getByteArray("stored")),
             new BigInteger(tag.getByteArray("active")),
             new BigInteger(tag.getByteArray("pending")),

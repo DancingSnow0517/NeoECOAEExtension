@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.jei;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -74,12 +76,12 @@ final class JeiBookmarkAccessImpl {
     static AEKey ingredientKey(ITypedIngredient<?> ingredient) {
         var item = ingredient.getIngredient(VanillaTypes.ITEM_STACK);
         if (item.isPresent()) {
-            var stack = GenericStack.fromItemStack(item.get());
+            var stack = ECOKeyFactory.fromItemStack(item.get());
             return stack == null ? null : stack.what();
         }
         var fluid = ingredient.getIngredient(NeoForgeTypes.FLUID_STACK);
         if (fluid.isPresent()) {
-            var stack = GenericStack.fromFluidStack(fluid.get());
+            var stack = ECOKeyFactory.fromFluidStack(fluid.get());
             return stack == null ? null : stack.what();
         }
 

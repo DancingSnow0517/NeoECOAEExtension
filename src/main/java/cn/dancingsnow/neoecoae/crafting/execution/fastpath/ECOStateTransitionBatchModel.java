@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution.fastpath;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
@@ -67,7 +69,7 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
             if (!matchesInitial(stack.what())) counter.add(stack.what(), Math.multiplyExact(stack.amount(), crafts));
         }
         for (Transition transition : transitions) {
-            GenericStack initial = GenericStack.fromItemStack(transition.initial.copyWithCount(1));
+            GenericStack initial = ECOKeyFactory.fromItemStack(transition.initial.copyWithCount(1));
             counter.add(initial.what(), transition.initial.getCount());
         }
         return ECOFastPathStacks.copyCounter(counter);
@@ -86,7 +88,7 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
                 Math.multiplyExact(transition.countDelta, crafts));
             if (finalCount > 0L) {
                 ItemStack finalStack = transition.apply(crafts);
-                GenericStack result = GenericStack.fromItemStack(finalStack.copyWithCount(1));
+                GenericStack result = ECOKeyFactory.fromItemStack(finalStack.copyWithCount(1));
                 counter.add(result.what(), finalCount);
             }
         }
@@ -135,12 +137,12 @@ public final class ECOStateTransitionBatchModel implements ECOReusableStateModel
 
     private boolean matchesInitial(AEKey key) {
         return transitions.stream().anyMatch(transition ->
-            GenericStack.fromItemStack(transition.initial.copyWithCount(1)).what().equals(key));
+            ECOKeyFactory.fromItemStack(transition.initial.copyWithCount(1)).what().equals(key));
     }
 
     private boolean matchesObservedResult(AEKey key) {
         return transitions.stream().anyMatch(transition ->
-            GenericStack.fromItemStack(transition.observedResult.copyWithCount(1)).what().equals(key));
+            ECOKeyFactory.fromItemStack(transition.observedResult.copyWithCount(1)).what().equals(key));
     }
 
     ItemStack applyTransition(int index, long crafts) {
