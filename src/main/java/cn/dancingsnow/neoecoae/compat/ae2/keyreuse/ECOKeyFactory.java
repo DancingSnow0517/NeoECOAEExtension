@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.compat.ae2.keyreuse;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
-import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -25,7 +24,7 @@ public final class ECOKeyFactory {
     public static AEItemKey item(ItemStack stack) {
         Object epoch = KeyReuse.epoch();
         if (epoch == null || stack.isEmpty() || !plain(stack)) return AEItemKey.of(stack);
-        KeyReuseSlot slot = KeyReuse.slot(epoch, AEKeyType.items(), stack.getItem());
+        KeyReuseSlot slot = KeyReuse.itemSlot(epoch, stack.getItem());
         if (slot == null) return AEItemKey.of(stack);
         AEItemKey key = (AEItemKey) slot.get(epoch);
         if (key != null) return key;
@@ -55,7 +54,7 @@ public final class ECOKeyFactory {
 
     public static AEFluidKey fluid(Fluid fluid) {
         Object epoch = KeyReuse.epoch();
-        KeyReuseSlot slot = KeyReuse.slot(epoch, AEKeyType.fluids(), fluid);
+        KeyReuseSlot slot = KeyReuse.fluidSlot(epoch, fluid);
         if (slot == null) return AEFluidKey.of(fluid);
         AEFluidKey key = (AEFluidKey) slot.get(epoch);
         if (key != null) return key;
@@ -75,7 +74,8 @@ public final class ECOKeyFactory {
         AEKey owned;
         if (key instanceof AEItemKey || key instanceof AEFluidKey) {
             Object epoch = KeyReuse.epoch();
-            KeyReuseSlot slot = KeyReuse.slot(epoch, key.getType(), key.getPrimaryKey());
+            KeyReuseSlot slot = key instanceof AEItemKey
+                    ? KeyReuse.itemSlot(epoch, key.getPrimaryKey()) : KeyReuse.fluidSlot(epoch, key.getPrimaryKey());
             if (slot == null) return key;
             AEKey cached = (AEKey) slot.get(epoch);
             if (cached != null) return key.equals(cached) ? cached : key;

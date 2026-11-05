@@ -318,7 +318,7 @@ public final class ECOInfiniteStorageData extends SavedData {
     }
 
     public boolean canRead(AEKey key) {
-        return canRead() && !restores.containsKey(key);
+        return canRead() && (restores.isEmpty() || !restores.containsKey(key));
     }
 
     public boolean canWrite() {
@@ -326,7 +326,7 @@ public final class ECOInfiniteStorageData extends SavedData {
     }
 
     public boolean canWrite(AEKey key) {
-        return canWrite() && !restores.containsKey(key);
+        return canWrite() && (restores.isEmpty() || !restores.containsKey(key));
     }
 
     public boolean canExitOrRestore() {

@@ -20,6 +20,12 @@ import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -120,7 +126,9 @@ class ECOInfiniteStorageHotPathTest {
         try {
             out = new KeyCounter();
             assertTrue(ExactAmountCollector.collectCombined(storage, out));
-            assertEquals(exact, ExactAmountCollector.finish());
+            assertEquals(Map.of(stone, exact.get(stone)), ExactAmountCollector.finish(),
+                    "faithful ordinary long stock does not require an exact side-channel value");
+            assertEquals(7, out.get(dirt));
         } finally { ExactAmountCollector.abort(); }
         assertFalse(ExactAmountCollector.collectCombined(storage, new KeyCounter()));
     }
@@ -180,24 +188,83 @@ class ECOInfiniteStorageHotPathTest {
         }
     }
 
-    @Test void stableAdmissionIsCachedButExternalInventoryStateIsRechecked() {
+    @Test void worldOwnedDomainDoesNotOpenExternalCellInventoriesForSimulationOrInsertion() {
         AEItemKey key = AEItemKey.of(Items.STONE);
         var source = IActionSource.empty();
         var engine = new SavedDataInfiniteStorageEngine(ECOInfiniteStorageData.createNew());
         var storage = new ECOInfiniteStorage(engine, Component.empty(), () -> true);
-        try (var cells = mockStatic(StorageCells.class)) {
-            assertEquals(1, storage.insert(key, 1, Actionable.SIMULATE, source));
-            assertEquals(1, storage.insert(key, 1, Actionable.MODULATE, source));
-            cells.verify(() -> StorageCells.getCellInventory(key.getReadOnlyStack(), null), times(1));
-        }
-        storage = new ECOInfiniteStorage(engine, Component.empty(), () -> true);
         var dynamic = mock(StorageCell.class);
-        when(dynamic.canFitInsideCell()).thenReturn(true, false);
+        when(dynamic.canFitInsideCell()).thenReturn(false);
         try (var cells = mockStatic(StorageCells.class)) {
             cells.when(() -> StorageCells.getCellInventory(key.getReadOnlyStack(), null)).thenReturn(dynamic);
-            assertEquals(1, storage.insert(key, 1, Actionable.MODULATE, source));
-            assertEquals(0, storage.insert(key, 1, Actionable.MODULATE, source));
-            cells.verify(() -> StorageCells.getCellInventory(key.getReadOnlyStack(), null), times(2));
+            assertEquals(1, storage.insert(key, 1, Actionable.SIMULATE, source));
+            assertTrue(engine.isEmpty());
+            for (int i = 0; i < 2; i++) assertEquals(1, storage.insert(key, 1, Actionable.MODULATE, source));
+            BigInteger huge = MAX.add(BigInteger.TEN);
+            assertEquals(huge, storage.insertBigInteger(key, huge, Actionable.SIMULATE, source));
+            assertEquals(HugeAmount.of(2), engine.getAmount(key));
+            assertEquals(huge, storage.insertBigInteger(key, huge, Actionable.MODULATE, source));
+            assertEquals(huge.add(BigInteger.TWO), engine.getAmount(key).toBigInteger());
+            cells.verifyNoInteractions();
+            verifyNoInteractions(dynamic);
         }
+    }
+
+    @Test void opaqueCellDataAndExactQuantitiesSurviveReloadAndExtraction() {
+        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+        var codec = new ECOInfiniteStorageData.KeyCodec() {
+            @Override public CompoundTag encode(AEKey key) {
+                return (CompoundTag) ((AEItemKey) key).getReadOnlyStack().save(registries);
+            }
+            @Override public AEKey decode(CompoundTag tag) {
+                return AEItemKey.of(ItemStack.parseOptional(registries, tag));
+            }
+        };
+        var state = ECOInfiniteStorageData.load(ECOInfiniteStorageData.createNew().save(new CompoundTag(), registries), registries, codec);
+        var engine = new SavedDataInfiniteStorageEngine(state);
+        var storage = new ECOInfiniteStorage(engine, Component.empty(), () -> true);
+        var payload = new CompoundTag();
+        payload.putUUID("external_cell_id", UUID.randomUUID());
+        payload.putLong("stored_amount", 123456789L);
+        var stack = new ItemStack(Items.PAPER);
+        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(payload));
+        AEItemKey key = AEItemKey.of(stack);
+        var original = key.getReadOnlyStack().copy();
+        BigInteger amount = MAX.add(BigInteger.TEN);
+        try (var cells = mockStatic(StorageCells.class)) {
+            assertEquals(amount, storage.insertBigInteger(key, amount, Actionable.MODULATE, IActionSource.empty()));
+            var reloaded = ECOInfiniteStorageData.load(state.save(new CompoundTag(), registries), registries, codec);
+            var again = new SavedDataInfiniteStorageEngine(reloaded);
+            var view = new ECOInfiniteStorage(again, Component.empty(), () -> true);
+            assertEquals(amount, again.getAmount(key).toBigInteger());
+            var listing = new KeyCounter();
+            view.getAvailableStacks(listing);
+            var restoredKey = (AEItemKey) listing.iterator().next().getKey();
+            assertTrue(ItemStack.isSameItemSameComponents(original, restoredKey.getReadOnlyStack()));
+            assertEquals(Long.MAX_VALUE, view.extract(restoredKey, Long.MAX_VALUE, Actionable.MODULATE, IActionSource.empty()));
+            assertEquals(10, view.extract(restoredKey, Long.MAX_VALUE, Actionable.MODULATE, IActionSource.empty()));
+            assertTrue(again.isEmpty());
+            assertTrue(ItemStack.isSameItemSameComponents(original, key.getReadOnlyStack()));
+            cells.verifyNoInteractions();
+        }
+    }
+
+    @Test void removingCellProbesKeepsAccessAndRecoveryWriteGuards() {
+        var state = ECOInfiniteStorageData.createNew();
+        var engine = new SavedDataInfiniteStorageEngine(state);
+        var disabled = new ECOInfiniteStorage(engine, Component.empty(), () -> false);
+        var enabled = new ECOInfiniteStorage(engine, Component.empty(), () -> true);
+        var key = AEItemKey.of(Items.STONE);
+        var source = IActionSource.empty();
+        assertEquals(0, disabled.insert(key, 1, Actionable.MODULATE, source));
+        assertEquals(BigInteger.ZERO, disabled.insertBigInteger(key, MAX, Actionable.MODULATE, source));
+        assertEquals(0, enabled.insert(null, 1, Actionable.MODULATE, source));
+        assertEquals(0, enabled.insert(key, -1, Actionable.MODULATE, source));
+        assertEquals(BigInteger.ZERO, enabled.insertBigInteger(key, null, Actionable.MODULATE, source));
+        assertEquals(3, enabled.insert(key, 3, Actionable.MODULATE, source));
+        state.markIncompleteLegacy(java.util.List.of("fixture"));
+        assertEquals(0, enabled.insert(key, 1, Actionable.MODULATE, source));
+        assertEquals(BigInteger.ZERO, enabled.insertBigInteger(key, MAX, Actionable.MODULATE, source));
+        assertEquals(HugeAmount.of(3), engine.getAmount(key));
     }
 }

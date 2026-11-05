@@ -1,7 +1,5 @@
 package cn.dancingsnow.neoecoae.storage.infinite;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
-
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
@@ -40,18 +38,17 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
 
     @Override
     public long insert(AEKey key, long amount, Actionable mode) {
-        key = ECOKeyFactory.canonicalize(key);
         if (key == null || amount <= 0 || !data.canWrite(key)) return 0;
-        if (mode == Actionable.MODULATE) insertAmount(key, data.amounts.visible(key), amount);
+        if (mode == Actionable.MODULATE) insertAmount(key, amount);
         return amount;
     }
 
     @Override
     public BigInteger insert(AEKey key, BigInteger amount, Actionable mode) {
-        key = ECOKeyFactory.canonicalize(key);
         if (key == null || amount == null || amount.signum() <= 0 || !data.canWrite(key)) return BigInteger.ZERO;
         if (amount.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) <= 0) {
-            return BigInteger.valueOf(insert(key, amount.longValueExact(), mode));
+            if (mode == Actionable.MODULATE) insertAmount(key, amount.longValueExact());
+            return amount;
         }
         if (mode == Actionable.MODULATE) change(key, amount);
         return amount;
@@ -59,12 +56,11 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
 
     @Override
     public long insertOnce(UUID transaction, AEKey key, long amount) {
-        key = ECOKeyFactory.canonicalize(key);
         if (key == null || amount <= 0 || !data.canMigrate()) return 0;
         if (transaction == null) return insert(key, amount, Actionable.MODULATE);
         if (data.hasMigrationReceipt(transaction)) return amount;
         if (!data.canWrite(key)) return 0;
-        insertAmount(key, data.amounts.visible(key), amount);
+        insertAmount(key, amount);
         // Quantity and receipt share an atomic snapshot; a sealed source can safely retry after a restart.
         data.addMigrationReceipt(transaction);
         return amount;
@@ -72,19 +68,17 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
 
     @Override
     public long insertOnce(Set<UUID> transactions, AEKey key, long amount) {
-        key = ECOKeyFactory.canonicalize(key);
         if (key == null || amount <= 0 || !data.canMigrate()) return 0;
         if (transactions == null || transactions.isEmpty()) return insert(key, amount, Actionable.MODULATE);
         if (transactions.stream().anyMatch(data::hasMigrationReceipt)) return amount;
         if (!data.canWrite(key)) return 0;
-        insertAmount(key, data.amounts.visible(key), amount);
+        insertAmount(key, amount);
         data.addMigrationReceipts(transactions);
         return amount;
     }
 
     @Override
     public long extract(AEKey key, long amount, Actionable mode) {
-        key = ECOKeyFactory.canonicalize(key);
         if (key == null || amount <= 0 || !data.canRead(key)) return 0;
         long current = data.amounts.visible(key);
         long extracted = Math.min(amount, current);
@@ -92,7 +86,7 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         // canRead(key) already checked the restore lock; only the global write state remains.
         if (!data.canWrite()) return 0;
         MutableTypeStats stats = statsFor(key.getType());
-        long remaining = data.amounts.subtract(key, current, extracted);
+        long remaining = data.amounts.subtract(key, extracted);
         stats.total.subtract(extracted);
         if (remaining == 0) {
             if (--stats.types == 0) removeStats(key.getType());
@@ -115,9 +109,9 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         if (lastType == type) lastStats = null;
     }
 
-    private void insertAmount(AEKey key, long current, long amount) {
+    private void insertAmount(AEKey key, long amount) {
         MutableTypeStats stats = statsFor(key.getType());
-        data.amounts.add(key, current, amount);
+        long current = data.amounts.add(key, amount);
         stats.total.add(amount);
         if (current == 0) {
             stats.types++;
@@ -140,13 +134,11 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
 
     @Override
     public HugeAmount getAmount(AEKey key) {
-        key = ECOKeyFactory.canonicalize(key);
         return data.canRead(key) ? data.getAmount(key) : HugeAmount.ZERO;
     }
 
     @Override
     public boolean contains(AEKey key) {
-        key = ECOKeyFactory.canonicalize(key);
         return key != null && data.canRead(key) && data.amounts.visible(key) > 0;
     }
 
@@ -160,6 +152,29 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         else data.amounts.visitExact((key, amount) -> {
             if (data.canRead(key)) visitor.accept(key, amount);
         });
+    }
+
+    void visitAmounts(java.util.function.ObjLongConsumer<AEKey> ordinary,
+            java.util.function.BiConsumer<AEKey, BigInteger> wide) {
+        if (!data.canRead()) return;
+        if (!data.hasPendingRestore()) data.amounts.visitAmounts(ordinary, wide);
+        else data.amounts.visitAmounts((key, amount) -> {
+            if (data.canRead(key)) ordinary.accept(key, amount);
+        }, (key, amount) -> {
+            if (data.canRead(key)) wide.accept(key, amount);
+        });
+    }
+
+    void visitOverflowAmounts(java.util.function.BiConsumer<AEKey, BigInteger> visitor) {
+        if (!data.canRead()) return;
+        if (!data.hasPendingRestore()) data.amounts.visitOverflow(visitor);
+        else data.amounts.visitOverflow((key, amount) -> {
+            if (data.canRead(key)) visitor.accept(key, amount);
+        });
+    }
+
+    BigInteger overflowAmount(AEKey key) {
+        return key != null && data.canRead(key) ? data.amounts.overflowAmount(key) : null;
     }
 
     @Override
