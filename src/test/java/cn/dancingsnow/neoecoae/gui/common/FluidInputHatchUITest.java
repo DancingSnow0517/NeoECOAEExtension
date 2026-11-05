@@ -42,6 +42,26 @@ import static org.mockito.Mockito.*;
 
 class FluidInputHatchUITest {
     @Test
+    void inputHatchTitleUsesThePlacedBlocksTranslationKeyInBothModes() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            for (boolean networkPull : new boolean[] {false, true}) {
+                var host = host();
+                var block = mock(net.minecraft.world.level.block.Block.class);
+                var state = mock(net.minecraft.world.level.block.state.BlockState.class);
+                when(host.getBlockState()).thenReturn(state);
+                when(state.getBlock()).thenReturn(block);
+                when(block.getDescriptionId()).thenReturn("block.example_addon.fluid_input_hatch");
+                when(host.hasNetworkPullCard()).thenReturn(networkPull);
+                var root = FluidInputHatchUI.createRoot(host, player());
+                var title = (com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement)
+                    root.getChildren().getFirst().getChildren().getFirst();
+                assertEquals("block.example_addon.fluid_input_hatch", title.getText().getString());
+            }
+        }
+    }
+
+    @Test
     void chineseResourcesContainReadableTextAndTheCardKeepsTheSuppliedPng() throws Exception {
         for (String locale : List.of("zh_cn", "zh_tw", "zh_hk", "lzh")) {
             String path = "assets/neoecoae/lang/" + locale + ".json";
@@ -225,6 +245,7 @@ class FluidInputHatchUITest {
 
     private static ECOFluidInputHatchBlockEntity host() {
         var host = mock(ECOFluidInputHatchBlockEntity.class);
+        when(host.getBlockState()).thenReturn(net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
         host.tank = new LongFluidTank();
         when(host.getFluidTankHandler()).thenCallRealMethod();
         when(host.getStoredFluidAmount()).thenCallRealMethod();
