@@ -22,6 +22,25 @@ class NetworkInventoryCacheTest {
     private final Map<AEKey, Long> notified = new LinkedHashMap<>();
     private final AEKey a = key(), b = key(), c = key();
 
+    @Test void observersSeeAllChangedQuantitiesBeforeTheFirstNotification() {
+        var source = network.add(new Versioned());
+        source.stock.put(a, 10L);
+        source.stock.put(b, 20L);
+        refresh();
+        source.stock.put(a, 30L);
+        source.stock.remove(b);
+        source.stock.put(c, 40L);
+        source.version++;
+        var callbacks = new java.util.concurrent.atomic.AtomicInteger();
+        assertTrue(cache.refresh(network, published, amounts, (key, amount) -> {
+            assertEquals(30, published.get(a));
+            assertEquals(0, published.get(b));
+            assertEquals(40, published.get(c));
+            callbacks.incrementAndGet();
+        }));
+        assertEquals(3, callbacks.get());
+    }
+
     @Test void unchangedVersionedMountsAreNotListedAgain() {
         var versioned = network.add(new Versioned());
         var external = network.add(new Fake());

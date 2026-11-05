@@ -256,7 +256,11 @@ public final class NetworkInventoryCache {
             } else {
                 published.set(key, next);
             }
-            if (next != entry.getLongValue()) changes.accept(key, next);
+        }
+        // Observers may query another changed key. Publish the entire inventory before any callback runs.
+        for (var entry : Object2LongMaps.fastIterable(previous)) {
+            long next = amounts.getLong(entry.getKey());
+            if (next != entry.getLongValue()) changes.accept(entry.getKey(), next);
         }
         previous.clear();
         // A cleared open-hash table keeps its capacity, and iterating it would cost that much every tick.
