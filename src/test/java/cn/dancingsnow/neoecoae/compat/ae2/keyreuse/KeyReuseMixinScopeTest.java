@@ -17,7 +17,6 @@ class KeyReuseMixinScopeTest {
             var config = JsonParser.parseReader(new InputStreamReader(resource, StandardCharsets.UTF_8)).getAsJsonObject();
             for (var entry : config.getAsJsonArray("mixins")) {
                 String name = entry.getAsString();
-                if (name.equals("FluxKeyReuseMixin") || name.equals("FluxKeyConstructorInvoker")) continue;
                 assertTrue(name.equals("MekanismKeyReuseMixin") || name.equals("MatterKeyReuseMixin"));
                 String path = "cn/dancingsnow/neoecoae/mixins/keyreuse/" + name + ".class";
                 try (var bytecode = loader.getResourceAsStream(path)) {

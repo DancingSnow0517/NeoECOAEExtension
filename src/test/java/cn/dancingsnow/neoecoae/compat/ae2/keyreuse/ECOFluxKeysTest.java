@@ -14,6 +14,18 @@ class ECOFluxKeysTest {
     @BeforeAll static void bootstrap() { cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize(); }
     @AfterEach void stop() { KeyReuse.configure(false); }
 
+    @Test void reuseIsConfinedToEcoAndLeavesTheAddonFactoryUnchanged() {
+        KeyReuse.configure(true);
+        FluxKey eco = ECOFluxKeys.of(EnergyType.FE);
+        assertSame(eco, ECOFluxKeys.of(EnergyType.FE));
+        FluxKey nativeFirst = FluxKey.of(EnergyType.FE);
+        FluxKey nativeSecond = FluxKey.of(EnergyType.FE);
+        assertNotSame(nativeFirst, nativeSecond);
+        assertNotSame(eco, nativeFirst);
+        assertEquals(eco, nativeFirst);
+        assertEquals(nativeFirst, nativeSecond);
+    }
+
     @Test void factoryAllocatesOncePerGenerationAndPreservesTheDisabledAndNullPaths() {
         var allocations = new AtomicInteger();
         java.util.function.Function<EnergyType, FluxKey> constructor = type -> {
