@@ -6,10 +6,10 @@ gradle.projectsEvaluated {
     def lock = new groovy.json.JsonSlurper().parse(project.file('tools/compat/build-dependencies.json'))
     def emi = lock.artifacts.find { it.mod_id == 'emi' }
     def artifact = emi.filename.substring(0, emi.filename.length() - '.jar'.length())
-    project.configurations.configureEach {
-        resolutionStrategy.dependencySubstitution {
-            substitute(module("dev.emi:emi-forge:${emi.version}"))
-                .using(module("porting.pinned:${artifact}:${emi.version}"))
-        }
-    }
+    // Replace the declaration before ModDevGradle creates its named-mapping constraint.
+    // Resolution-time substitution leaves that constraint on the original coordinates,
+    // allowing the pinned SRG jar to reach plain JVM tests without remapping.
+    def modCompileOnly = project.configurations.getByName('modCompileOnly')
+    modCompileOnly.dependencies.removeAll { it.group == 'dev.emi' && it.name == 'emi-forge' }
+    project.dependencies.add('modCompileOnly', "porting.pinned:${artifact}:${emi.version}")
 }

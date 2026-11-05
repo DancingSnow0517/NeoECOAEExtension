@@ -1,4 +1,9 @@
 {
+  "item.neoecoae.dev_resource_generator": "開發用隨機資源產生器 / 儲存元件",
+  "neoecoae.configuration.keyReuse": "AE 資源 key 重用",
+  "neoecoae.configuration.keyReuse.tooltip": "本機快取選項。保留值相等語義與舊存檔格式。",
+  "neoecoae.configuration.keyReuse.enabled": "重用無額外資料的 key",
+  "neoecoae.configuration.keyReuse.enabled.tooltip": "重用無額外元件或 NBT 的不可變 key；帶額外資料的資源保留原有建立行為。",
   "gui.neoecoae.large_integrated_working_station.recipe_energy_label": "耗能",
   "gui.neoecoae.large_integrated_working_station.extra_required_label": "額外需要",
   "gui.neoecoae.large_integrated_working_station.lightning_cost": "額外需要：%sx%s",

@@ -4,6 +4,7 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("item.neoecoae.dev_resource_generator", "Dev Random Resource Generator / Cell");
         provider.add("neoecoae.configuration.keyReuse", "AE key reuse");
         provider.add("neoecoae.configuration.keyReuse.tooltip", "Local cache settings. Value equality and saved inventories remain compatible.");
         provider.add("neoecoae.configuration.keyReuse.enabled", "Reuse keys without extra data");
