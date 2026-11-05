@@ -79,7 +79,7 @@ final class FeWorkload {
 
     Map<String, Object> report() {
         var report = new LinkedHashMap<String, Object>();
-        report.put("path", "FluxKey.of(FE) + ME network storage; logical endpoints, not physical machine topology");
+        report.put("path", "ECOFluxKeys.of(FE) + ME network storage; logical endpoints, not physical machine topology");
         report.put("producers", settings.producers());
         report.put("produceMin", settings.produceMin());
         report.put("produceMax", settings.produceMax());
