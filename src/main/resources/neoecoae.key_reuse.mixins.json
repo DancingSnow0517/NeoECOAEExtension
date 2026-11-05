@@ -5,6 +5,8 @@
   "plugin": "cn.dancingsnow.neoecoae.mixins.keyreuse.KeyReuseMixinPlugin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "FluxKeyConstructorInvoker",
+    "FluxKeyReuseMixin",
     "MekanismKeyReuseMixin",
     "MatterKeyReuseMixin"
   ],
