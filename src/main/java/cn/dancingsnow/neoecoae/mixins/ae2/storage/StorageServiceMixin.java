@@ -7,7 +7,6 @@ import appeng.me.storage.NetworkStorage;
 import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
 import cn.dancingsnow.neoecoae.storage.StorageThresholdCache;
 import cn.dancingsnow.neoecoae.storage.StorageWatcherScope;
-import cn.dancingsnow.neoecoae.storage.StorageReturnBudget;
 import appeng.api.networking.storage.IStorageWatcherNode;
 import com.llamalad7.mixinextras.injector.WrapWithCondition;
 import com.google.common.math.StatsAccumulator;
@@ -27,13 +26,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * mounts that may have changed and notify watchers for changed keys only.
  */
 @Mixin(StorageService.class)
-public abstract class StorageServiceMixin implements StorageThresholdCache.Source, StorageReturnBudget.Source {
+public abstract class StorageServiceMixin implements StorageThresholdCache.Source {
     @Unique private final NetworkInventoryCache neoecoae$inventoryCache = new NetworkInventoryCache();
     @Unique private final StorageThresholdCache neoecoae$thresholds = new StorageThresholdCache();
-    @Unique private final StorageReturnBudget neoecoae$returns = new StorageReturnBudget();
 
     @Override public StorageThresholdCache neoecoae$thresholdCache() { return neoecoae$thresholds; }
-    @Override public StorageReturnBudget neoecoae$returnBudget() { return neoecoae$returns; }
 
     @WrapWithCondition(method = "postWatcherUpdate", at = @At(value = "INVOKE", target =
             "Lappeng/api/networking/storage/IStorageWatcherNode;onStackChange(Lappeng/api/stacks/AEKey;J)V", ordinal = 1))

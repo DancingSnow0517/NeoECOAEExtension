@@ -1,9 +1,14 @@
 package cn.dancingsnow.neoecoae.storage;
 
+import appeng.api.networking.IGrid;
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.function.LongSupplier;
 
 /** Shared by CPUs returning to one grid, so cancelling many orders does not multiply their per-CPU budget. */
 public final class StorageReturnBudget {
+    // Created only when an ECO CPU returns resources. Values never retain the weak grid key.
+    private static final Map<IGrid, StorageReturnBudget> GRIDS = new WeakHashMap<>();
     private static final int OPERATIONS = 2048;
     private static final long NANOS = 2_000_000L;
     private final LongSupplier clock;
@@ -11,8 +16,8 @@ public final class StorageReturnBudget {
     private long started;
     private int used;
 
-    public interface Source {
-        StorageReturnBudget neoecoae$returnBudget();
+    public static synchronized StorageReturnBudget forGrid(IGrid grid) {
+        return GRIDS.computeIfAbsent(java.util.Objects.requireNonNull(grid), ignored -> new StorageReturnBudget());
     }
 
     public StorageReturnBudget() { this(System::nanoTime); }

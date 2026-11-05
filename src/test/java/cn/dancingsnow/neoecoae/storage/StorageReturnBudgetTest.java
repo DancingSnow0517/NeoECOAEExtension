@@ -5,6 +5,15 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class StorageReturnBudgetTest {
+    @Test void onlyEcoCallersCreateBudgetsAndSeparateGridsDoNotShareThem() {
+        var firstGrid = org.mockito.Mockito.mock(appeng.api.networking.IGrid.class);
+        var secondGrid = org.mockito.Mockito.mock(appeng.api.networking.IGrid.class);
+        var first = StorageReturnBudget.forGrid(firstGrid);
+        assertSame(first, StorageReturnBudget.forGrid(firstGrid));
+        assertNotSame(first, StorageReturnBudget.forGrid(secondGrid));
+        org.mockito.Mockito.verifyNoInteractions(firstGrid, secondGrid);
+    }
+
     @Test void allCallersShareOneOperationLimitAndTheNextTickResumes() {
         var time = new AtomicLong();
         var budget = new StorageReturnBudget(time::get);
