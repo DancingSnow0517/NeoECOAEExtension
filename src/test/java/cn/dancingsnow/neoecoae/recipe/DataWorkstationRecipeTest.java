@@ -90,7 +90,7 @@ class DataWorkstationRecipeTest {
             default -> "chargepress.DataChargePressRecipeSerializer";
         };
         var serializer = (RecipeSerializer<?>) Class.forName(
-            "com.fish_dan_.data_energistics.recipe." + serializerName).getConstructor().newInstance();
+            "com.fish_dan_.data_energistics.api.recipe." + serializerName).getConstructor().newInstance();
         var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
         var ops = registries.createSerializationContext(JsonOps.INSTANCE);
         Recipe<?> source = spy(serializer.codec().codec().parse(ops, fixture(name)).getOrThrow());
