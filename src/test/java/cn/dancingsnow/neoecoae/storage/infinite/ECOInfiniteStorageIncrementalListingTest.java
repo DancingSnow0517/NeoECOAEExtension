@@ -7,11 +7,10 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
-import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
 import cn.dancingsnow.neoecoae.storage.SaturatingStackAccumulator;
-import cn.dancingsnow.neoecoae.storage.StorageListingDelta;
-import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
+import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
+import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -20,6 +19,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -30,62 +30,66 @@ import org.junit.jupiter.api.Test;
 class ECOInfiniteStorageIncrementalListingTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
-    /** Counts full listings of the wrapped domain view; every other call is delegated unchanged. */
-    private static final class Counting implements MEStorage, StorageListingDelta {
+    /** Measures raw domain scans behind the real ECO view; reference scans bypass its private cache. */
+    private static final class Counting implements MEStorage {
         final ECOInfiniteStorage delegate;
+        final SavedDataInfiniteStorageEngine engine;
+        final BooleanSupplier access;
         int listings;
 
-        Counting(ECOInfiniteStorage delegate) { this.delegate = delegate; }
-
-        @Override public void getAvailableStacks(KeyCounter out) { listings++; delegate.getAvailableStacks(out); }
-        @Override public Component getDescription() { return Component.empty(); }
-        @Override public long neoecoae$listingVersion() { return delegate.neoecoae$listingVersion(); }
-        @Override public boolean neoecoae$visitListingChanges(long since, long current, Consumer<AEKey> changed) {
-            return delegate.neoecoae$visitListingChanges(since, current, changed);
+        Counting(SavedDataInfiniteStorageEngine engine, BooleanSupplier access) {
+            this.engine = engine;
+            this.access = access;
+            var counted = org.mockito.Mockito.spy(engine);
+            org.mockito.Mockito.doAnswer(call -> {
+                listings++;
+                engine.getAvailableStacks(call.getArgument(0));
+                return null;
+            }).when(counted).getAvailableStacks(org.mockito.ArgumentMatchers.any());
+            delegate = new ECOInfiniteStorage(counted, Component.empty(), access);
         }
-        @Override public long neoecoae$listedAmount(AEKey key) { return delegate.neoecoae$listedAmount(key); }
+
+        @Override public void getAvailableStacks(KeyCounter out) { delegate.getAvailableStacks(out); }
+        @Override public Component getDescription() { return Component.empty(); }
+        void reference(KeyCounter out) { if (access.getAsBoolean()) engine.getAvailableStacks(out); }
     }
 
     /** Ordinary storage without a version, sharing keys with the domain. */
     private static final class Plain implements MEStorage {
         final Map<AEKey, Long> stock = new HashMap<>();
-        @Override public void getAvailableStacks(KeyCounter out) { stock.forEach(out::add); }
+        int listings;
+        @Override public void getAvailableStacks(KeyCounter out) { listings++; stock.forEach(out::add); }
         @Override public Component getDescription() { return Component.empty(); }
     }
 
-    private static final class Network implements NetworkInventoryCache.Mounts {
+    private static final class Network {
         final List<MEStorage> list = new ArrayList<>();
-        @Override public long neoecoae$mountGeneration() { return 0; }
-        @Override public boolean neoecoae$withMounts(Consumer<List<MEStorage>> action) { action.accept(list); return true; }
     }
 
     private static final class Reader {
-        final NetworkInventoryCache cache = new NetworkInventoryCache();
         final KeyCounter published = new KeyCounter();
-        final Object2LongOpenHashMap<AEKey> amounts = new Object2LongOpenHashMap<>();
-        final Map<AEKey, Long> notified = new HashMap<>();
 
         void refresh(Network network) {
-            assertTrue(cache.refresh(network, published, amounts, notified::put));
+            published.clear();
+            for (MEStorage storage : network.list) {
+                var contribution = storage.getAvailableStacks();
+                SaturatingStackAccumulator.addAll(published, contribution);
+            }
         }
 
         void assertMatches(Network network, String context) {
             var expected = new KeyCounter();
             for (MEStorage storage : network.list) {
                 var contribution = new KeyCounter();
-                // The reference listing must not count as a cache listing.
-                (storage instanceof Counting counting ? counting.delegate : storage).getAvailableStacks(contribution);
+                if (storage instanceof Counting counting) counting.reference(contribution);
+                else ((Plain) storage).stock.forEach(contribution::add);
                 for (var entry : contribution) SaturatingStackAccumulator.add(expected, entry.getKey(), entry.getLongValue());
             }
             expected.removeZeros();
             assertEquals(expected.size(), published.size(), context);
-            assertEquals(expected.size(), amounts.size(), context);
             for (var entry : expected) {
                 assertEquals(entry.getLongValue(), published.get(entry.getKey()), context + " " + entry.getKey());
-                assertEquals(entry.getLongValue(), amounts.getLong(entry.getKey()), context + " " + entry.getKey());
-                assertEquals(entry.getLongValue(), notified.getOrDefault(entry.getKey(), 0L), context);
             }
-            notified.forEach((key, value) -> assertEquals(expected.get(key), value.longValue(), context + " notified " + key));
         }
     }
 
@@ -99,10 +103,56 @@ class ECOInfiniteStorageIncrementalListingTest {
         return keys;
     }
 
+    @Test void networkAndPrivateCachesComposeAcrossChangesAndDisabledViews() {
+        var engine = new SavedDataInfiniteStorageEngine(ECOInfiniteStorageData.createNew());
+        boolean[] access = {true};
+        var domain = new Counting(engine, () -> access[0]);
+        var plain = new Plain();
+        var stone = AEItemKey.of(Items.STONE);
+        engine.insert(stone, 10, Actionable.MODULATE);
+        plain.stock.put(stone, 3L);
+        var mounts = new NetworkInventoryCache.Mounts() {
+            @Override public long neoecoae$mountGeneration() { return 0; }
+            @Override public boolean neoecoae$withMounts(Consumer<List<MEStorage>> action) {
+                action.accept(List.of(domain.delegate, plain));
+                return true;
+            }
+        };
+        var cache = new NetworkInventoryCache();
+        var published = new KeyCounter();
+        var amounts = new Object2LongOpenHashMap<AEKey>();
+        assertTrue(cache.refresh(mounts, published, amounts, (key, value) -> {}));
+        for (int i = 1; i <= 40; i++) {
+            engine.insert(stone, 1, Actionable.MODULATE);
+            assertTrue(cache.refresh(mounts, published, amounts, (key, value) -> {}));
+            assertEquals(13 + i, published.get(stone));
+            if (i % 5 == 0) {
+                var direct = domain.delegate.getAvailableStacks();
+                assertEquals(10 + i, direct.get(stone));
+                direct.clear();
+            }
+        }
+        assertEquals(1, domain.listings, "both caches consume ECO's deltas without re-listing the ledger");
+        assertEquals(41, plain.listings, "unversioned addon inventories still refresh each time");
+        access[0] = false;
+        assertTrue(cache.refresh(mounts, published, amounts, (key, value) -> {}));
+        assertEquals(3, published.get(stone));
+        engine.insert(stone, 7, Actionable.MODULATE);
+        assertTrue(cache.refresh(mounts, published, amounts, (key, value) -> {}));
+        assertEquals(3, published.get(stone));
+        access[0] = true;
+        assertTrue(cache.refresh(mounts, published, amounts, (key, value) -> {}));
+        assertEquals(60, published.get(stone));
+        assertEquals(57, domain.delegate.getAvailableStacks().get(stone));
+        cache.invalidate();
+        assertTrue(cache.refresh(mounts, published, amounts, (key, value) -> {}));
+        assertEquals(60, published.get(stone));
+    }
+
     @Test void quantityChangesAreAppliedWithoutListingTheDomain() {
         var data = ECOInfiniteStorageData.createNew();
         var engine = new SavedDataInfiniteStorageEngine(data);
-        var domain = new Counting(new ECOInfiniteStorage(engine, Component.empty(), () -> true));
+        var domain = new Counting(engine, () -> true);
         var network = new Network();
         network.list.add(domain);
         var stone = AEItemKey.of(Items.STONE);
@@ -139,7 +189,7 @@ class ECOInfiniteStorageIncrementalListingTest {
         var data = ECOInfiniteStorageData.createNew();
         var engine = new SavedDataInfiniteStorageEngine(data);
         boolean[] access = {true};
-        var domain = new Counting(new ECOInfiniteStorage(engine, Component.empty(), () -> access[0]));
+        var domain = new Counting(engine, () -> access[0]);
         var plain = new Plain();
         var network = new Network();
         network.list.add(domain);
@@ -202,6 +252,8 @@ class ECOInfiniteStorageIncrementalListingTest {
             }
         }
         assertTrue(domain.listings < 2_000, "most refreshes are incremental: " + domain.listings);
+        assertEquals(6_000 + (5_999 / 7 + 1) + (5_999 / 97 + 1), plain.listings,
+            "every reader still lists the non-ECO inventory on every refresh");
     }
 
     @Test void changeLogServesOnlyCoveredVersions() {

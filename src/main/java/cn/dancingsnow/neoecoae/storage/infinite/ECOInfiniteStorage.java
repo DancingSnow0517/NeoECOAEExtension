@@ -6,6 +6,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.storage.StorageListingDelta;
+import cn.dancingsnow.neoecoae.storage.ECOStorageListingCache;
 import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
 import java.math.BigInteger;
 import java.util.function.BooleanSupplier;
@@ -20,6 +21,7 @@ public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountS
     private final ECOInfiniteStorageEngine engine;
     private final Component description;
     private final BooleanSupplier allowInsert;
+    private final ECOStorageListingCache listing = new ECOStorageListingCache();
 
     public ECOInfiniteStorage(ECOInfiniteStorageEngine engine, Component description, BooleanSupplier allowInsert) {
         this.engine = engine;
@@ -54,7 +56,7 @@ public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountS
     @Override
     public void getAvailableStacks(KeyCounter out) {
         if (!allowInsert.getAsBoolean()) return;
-        engine.getAvailableStacks(out);
+        listing.append(this, out, engine::getAvailableStacks);
     }
 
     @Override

@@ -62,6 +62,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingV
     private long storedItemCount;
     private Object2LongMap<AEKey> storedAmounts;
     private long contentRevision;
+    private final ECOStorageListingCache listing = new ECOStorageListingCache();
 
     public long contentRevision() { return contentRevision; }
 
@@ -527,7 +528,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingV
     @Override
     public void getAvailableStacks(KeyCounter out) {
         if (cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return;
-        getMigrationStacks(out);
+        listing.append(this, out, this::getMigrationStacks);
     }
 
     @Override
