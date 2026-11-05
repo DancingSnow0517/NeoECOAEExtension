@@ -19,12 +19,12 @@ final class FeNetworkAccess {
 
     private record Access(MEStorage inventory, IActionSource source) implements FeWorkload.Access {
         @Override public long insert(long amount, boolean simulate) {
-            return inventory.insert(cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOFluxKeys.of(
+            return inventory.insert(com.glodblock.github.appflux.common.me.key.FluxKey.of(
                 com.glodblock.github.appflux.common.me.key.type.EnergyType.FE), amount,
                 simulate ? Actionable.SIMULATE : Actionable.MODULATE, source);
         }
         @Override public long extract(long amount, boolean simulate) {
-            return inventory.extract(cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOFluxKeys.of(
+            return inventory.extract(com.glodblock.github.appflux.common.me.key.FluxKey.of(
                 com.glodblock.github.appflux.common.me.key.type.EnergyType.FE), amount,
                 simulate ? Actionable.SIMULATE : Actionable.MODULATE, source);
         }

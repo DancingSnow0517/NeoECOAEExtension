@@ -51,7 +51,7 @@ class FeNetworkAccessTest {
         }
     }
 
-    @Test void ecoReuseSharesItsOwnFluxKeyAcrossNetworkCalls() {
+    @Test void enabledReuseIsStillMeasuredThroughTheAddonsFactory() {
         var inventory = mock(MEStorage.class);
         var source = mock(IActionSource.class);
         var mods = mock(ModList.class);
@@ -66,7 +66,7 @@ class FeNetworkAccessTest {
             access.insert(100, false);
             access.extract(100, true);
             access.extract(100, false);
-            factory.verify(() -> FluxKey.of(EnergyType.FE), times(1));
+            factory.verify(() -> FluxKey.of(EnergyType.FE), times(4));
             verify(inventory).insert(key, 100, Actionable.SIMULATE, source);
             verify(inventory).extract(key, 100, Actionable.MODULATE, source);
         }
