@@ -170,6 +170,7 @@ dependencies {
     devMods("curse.maven:jade-324717:8591319") { transitive = false }
     devMods("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}") { transitive = false }
     devMods("curse.maven:ae2-jei-integration-1074338:7727898") { transitive = false }
+    devMods("curse.maven:extendedae-plus-1337639:8755074") { transitive = false }
     // All storage-cell integrations share the same development client.
     devMods("maven.modrinth:applied-replicatics:nQ4pLTkV") { transitive = false } // 21.1-1.2.1
     devMods("maven.modrinth:replication:XfQXDcjc") { transitive = false } // 1.21.1-1.2.7
