@@ -82,6 +82,10 @@ public class NeoECOAE {
         NEBlocks.register();
         NEFluids.register();
         NEBlockEntities.register();
+        if (!net.minecraftforge.fml.loading.FMLEnvironment.production
+                && Boolean.getBoolean("neoecoae.devGenerator")) {
+            cn.dancingsnow.neoecoae.dev.DevResourceGenerator.register(modBus);
+        }
         NEDataGen.configureDataGen();
         NEGridServices.register();
         NEEcoTiers.register();
