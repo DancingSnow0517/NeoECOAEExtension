@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
 import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtCpuStatus;
 
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingListCard;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingMachineActions;
@@ -1095,7 +1096,8 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
                 var link = cluster.craftingLogic.getLastLink();
                 return link == null ? null : link.getCraftingID();
             }
-            return null;
+            var summary = ECOAe2LtCpuStatus.summary(cpu);
+            return summary == null ? null : summary.jobId();
         }
 
         private Comparator<ComputationCpuItemEntry> order() {
@@ -1106,7 +1108,12 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         private List<ComputationCpuItemEntry> selectedItems(@Nullable ICraftingCPU cpu) {
             if (cpu instanceof ECOCraftingCPU eco) return selectedItems(eco);
             // Native AE2 CPUs: the same per-key amounts AE2's CraftingStatus packet reports.
-            if (!(cpu instanceof CraftingCPUCluster cluster)) return List.of();
+            if (!(cpu instanceof CraftingCPUCluster cluster)) {
+                return ECOAe2LtCpuStatus.items(cpu).stream().map(item -> new ComputationCpuItemEntry(
+                        item.key(), item.stored(), item.active(), item.pending(), false))
+                    .filter(item -> item.stored().signum() > 0 || item.active().signum() > 0 || item.pending().signum() > 0)
+                    .sorted(order()).toList();
+            }
             var logic = cluster.craftingLogic;
             Set<AEKey> keys = new HashSet<>();
             appeng.api.stacks.KeyCounter all = new appeng.api.stacks.KeyCounter();
