@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
 import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtCpuStatus;
 
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.crafting.ICraftingCPU;
@@ -54,6 +55,12 @@ record ComputationCpuEntry(int serial, String name, @Nullable AEKey output,
             status = "returning";
         } else {
             status = cpu.isBusy() || job != null ? "running" : "idle";
+        }
+        var summary = ECOAe2LtCpuStatus.summary(cpu);
+        if (summary != null) {
+            requested = summary.requested();
+            remaining = summary.remaining();
+            status = summary.state();
         }
         return new ComputationCpuEntry(serial, cpu.getName() == null ? "" : cpu.getName().getString(),
             output == null ? null : output.what(), requested, remaining, progress,

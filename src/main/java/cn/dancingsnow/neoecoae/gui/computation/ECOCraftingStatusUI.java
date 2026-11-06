@@ -10,6 +10,7 @@ import appeng.menu.ISubMenu;
 import appeng.menu.locator.MenuHostLocator;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtCpuStatus;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
 import com.lowdragmc.lowdraglib2.gui.factory.PlayerUIMenuType;
@@ -75,6 +76,8 @@ public final class ECOCraftingStatusUI {
             eco.getLogic().setJobSuspended(!eco.getLogic().isJobSuspended());
         } else if (cpu instanceof CraftingCPUCluster cluster) {
             cluster.craftingLogic.setJobSuspended(!cluster.craftingLogic.isJobSuspended());
+        } else {
+            ECOAe2LtCpuStatus.toggleSuspended(cpu);
         }
     }
 
