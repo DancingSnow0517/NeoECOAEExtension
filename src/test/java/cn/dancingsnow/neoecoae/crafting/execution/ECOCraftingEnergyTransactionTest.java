@@ -87,6 +87,50 @@ class ECOCraftingEnergyTransactionTest {
         assertEquals(0, new BigDecimal(0x1.0p64).add(BigDecimal.ONE).compareTo(credit(ledger)));
     }
 
+    @Test void multiplierRoundTripCanPassPlanningAndCommitWithoutPhantomCredit() {
+        double power = 59.144;
+        when(service.extractAEPower(anyDouble(), any(Actionable.class), eq(PowerMultiplier.CONFIG)))
+            .thenAnswer(call -> ((double) call.getArgument(0) * 10.0) / 10.0);
+        long count = cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper.maxAffordableCrafts(
+            power, 1L, amount -> service.extractAEPower(amount, Actionable.SIMULATE, PowerMultiplier.CONFIG));
+        assertEquals(1L, count);
+        var reservation = ledger.reserve(service, power, count);
+        assertNotNull(reservation);
+        reservation.commit();
+        verify(service).extractAEPower(power, Actionable.MODULATE, PowerMultiplier.CONFIG);
+        verify(service, never()).injectPower(anyDouble(), any());
+        assertEquals(0, credit(ledger).signum());
+    }
+
+    @Test void roundedDebitRefundsOnlyTheEnergyActuallyReceived() {
+        double power = 59.144;
+        double charged = (power * 10.0) / 10.0;
+        when(service.extractAEPower(power, Actionable.MODULATE, PowerMultiplier.CONFIG)).thenReturn(charged);
+        var reservation = ledger.reserve(service, power);
+        assertNotNull(reservation);
+        reservation.refund();
+        reservation.refund();
+        verify(service, times(1)).injectPower(charged, Actionable.MODULATE);
+        assertEquals(0, credit(ledger).signum());
+    }
+
+    @Test void realShortfallAndOverchargeRemainRejectedAndRefunded() {
+        for (double charged : new double[]{58.644, 59.644}) {
+            when(service.extractAEPower(59.144, Actionable.MODULATE, PowerMultiplier.CONFIG)).thenReturn(charged);
+            assertNull(ledger.reserve(service, 59.144));
+            verify(service).injectPower(charged, Actionable.MODULATE);
+        }
+    }
+
+    @Test void tinyPositiveCostStillRequiresAPositiveFiniteDebit() {
+        for (double charged : new double[]{0, -0.001, Double.NaN, Double.POSITIVE_INFINITY}) {
+            when(service.extractAEPower(anyDouble(), eq(Actionable.MODULATE), eq(PowerMultiplier.CONFIG)))
+                .thenReturn(charged);
+            assertNull(ledger.reserve(service, 0.001));
+        }
+        verify(service, never()).injectPower(anyDouble(), any());
+    }
+
     @Test void legacyCreditMigratesAndInvalidPowerIsRejected() {
         var tag = new CompoundTag();
         tag.putDouble("prepaidEnergyCredit", 1.5);

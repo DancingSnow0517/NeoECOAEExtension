@@ -31,7 +31,7 @@ class ECOCraftConfirmScreenStyleTest {
         ScreenStyle style = loadStyle();
         var screen = mock(AEBaseScreen.class);
         when(screen.getStyle()).thenReturn(style);
-        assertDoesNotThrow(() -> new ECOCycleItemListRenderer(screen, 237, 27));
+        assertDoesNotThrow(() -> new ECOCycleItemListRenderer(screen, 237, 27, key -> false));
         for (String image : List.of("cycleItem", "cycleItemHovered")) assertNotNull(style.getImage(image));
         for (String widget : List.of("verticalToolbar", "scrollbar", "cycleScrollbar", "selectCpu",
                 "start", "cancel", "bookmarkMissing")) assertNotNull(style.getWidget(widget));

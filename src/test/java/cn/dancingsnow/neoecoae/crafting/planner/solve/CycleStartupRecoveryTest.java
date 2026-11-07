@@ -45,6 +45,9 @@ class CycleStartupRecoveryTest {
         assertTrue(outcome.state().usedItems().isEmpty());
         assertEquals(CycleExternalDemandStatus.MISSING, outcome.components().stream()
             .filter(c -> c.type() == ComponentPlanningResult.Type.CYCLIC).findFirst().orElseThrow().externalDemandStatus());
+        var cycle = outcome.trace().cycles().get(0).solveResult();
+        assertEquals(CycleSolveStatus.SUCCESS, cycle.status());
+        assertTrue(cycle.exactSeedShortfall().isEmpty(), "An externally craftable seed must not remain missing");
     }
 
     @Test
@@ -188,7 +191,7 @@ class CycleStartupRecoveryTest {
         CycleSolver solver = (request, cancellation) -> calls.getAndIncrement() == 0
             ? result(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, Map.of(), Map.of(), Map.of(seed, 1L)) : recovered;
         var outcome = plan(new ComponentPlanner(new AcyclicCraftingSolver(), solver), inventory);
-        assertEquals(2, calls.get());
+        assertTrue(calls.get() >= 2, "The supplied startup seed must be verified before boundary planning");
         return outcome;
     }
 
