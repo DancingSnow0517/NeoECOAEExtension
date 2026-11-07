@@ -129,7 +129,7 @@ public final class GraphRenderer implements AutoCloseable {
             var area = viewport(cameraX, cameraY, zoom, screenWidth, screenHeight);
             for (var region : layout.recursionRegions()) {
                 if (region.bounds().padded(180).intersects(area)) {
-                    RecursiveCycleRenderer.drawRegion(graphics, layout, region, cameraX, cameraY, zoom);
+                    RecursiveCycleRenderer.drawRegion(graphics, region, cameraX, cameraY, zoom);
                 }
             }
         }
@@ -262,7 +262,7 @@ public final class GraphRenderer implements AutoCloseable {
             int work = 0;
             do {
                 if (regionCursor < regions.size()) {
-                    RecursiveCycleRenderer.drawRegion(graphics, layout, regions.get(regionCursor++), 0, 0, 1);
+                    RecursiveCycleRenderer.drawRegion(graphics, regions.get(regionCursor++), 0, 0, 1);
                 } else if (linkCursor < links.size()) {
                     var link = links.get(linkCursor++);
                     drawCachedLink(graphics, graph, layout, link, pixelsPerUnit,
@@ -853,7 +853,7 @@ public final class GraphRenderer implements AutoCloseable {
     }
 
     /** Draws a tangent-aligned triangle so curved cycle arrows do not snap to four directions. */
-    private static void drawArrowHead(GuiGraphics graphics, List<GraphLayoutSnapshot.Point> route, int color,
+    static void drawArrowHead(GuiGraphics graphics, List<GraphLayoutSnapshot.Point> route, int color,
             float cameraX, float cameraY, float zoom) {
         drawArrowHead(graphics, route, color, cameraX, cameraY, zoom, 1);
     }

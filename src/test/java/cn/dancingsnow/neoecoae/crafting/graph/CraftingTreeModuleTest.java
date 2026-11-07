@@ -42,13 +42,15 @@ class CraftingTreeModuleTest {
         assertEquals(List.of(PlannerAmount.of(2), PlannerAmount.of(4), PlannerAmount.of(8)), stock);
         assertEquals(PlannerAmount.of(7), graph.nodes().get(graph.rootId()).recursion().amount());
         assertEquals(Role.OUTPUT, graph.nodes().get(graph.rootId()).recursion().role());
+        assertTrue(graph.nodes().values().stream().filter(node -> node.key() == null)
+            .allMatch(node -> node.recursion().role() == Role.STEP), "There is no separate delivery control or hit target");
         assertTrue(graph.nodes().values().stream().anyMatch(node -> node.recursion().role() == Role.RETAINED
             && node.key().equals(seed.key()) && node.recursion().amount().equals(PlannerAmount.ONE)));
         assertEquals(49L, graph.nodes().values().stream().filter(node -> node.recursion().role() == Role.INPUT)
             .mapToLong(node -> node.recursion().amount().longValueExact()).sum());
         var layout = new GraphLayout(GraphLayout.Mode.COMPACT_TREE).layout(graph, 1);
         assertEquals(graph.nodes().keySet(), layout.boxes().keySet(),
-            "Execution icons and delivery must be visible and inspectable too");
+            "Execution icons and result materials must be visible and inspectable too");
         for (var box : layout.boxes().values()) {
             if (graph.nodes().get(box.nodeId()).key() != null) {
                 assertEquals(GraphLayoutSnapshot.COMPACT_MATERIAL_WIDTH, box.width());
@@ -61,33 +63,45 @@ class CraftingTreeModuleTest {
         }
         var firstStock = graph.nodes().values().stream().filter(node -> node.recursion().role() == Role.STOCK
             && node.key().equals(seed.key())).findFirst().orElseThrow();
-        assertTrue(layout.box(firstStock.id()).y() + layout.box(firstStock.id()).height() < layout.box(seed.id()).y());
-        assertEquals(layout.box(seed.id()).x(), layout.box(firstStock.id()).x(), "A material stays in its column");
+        assertTrue(layout.box(firstStock.id()).x() > layout.box(seed.id()).x() + layout.box(seed.id()).width());
+        assertEquals(layout.box(seed.id()).y(), layout.box(firstStock.id()).y(), "A material stays in its horizontal lane");
+        assertTrue(layout.box(firstStock.id()).x() - layout.box(seed.id()).x() < 100,
+            "A layer with one external input must not reserve a wide empty column");
+        assertTrue(layout.bounds().width() > layout.bounds().height(), "Recursion progresses in a horizontal strip");
         assertSame(snapshot.cycleGroups().get(0).recursion().layers().get(0), firstStock.recursion().layer(),
             "Cards and the execution icon share the same layer data");
         assertEquals(Set.of(Role.SEED, Role.STOCK, Role.INPUT, Role.OUTPUT, Role.RETAINED),
             layout.recursionRegions().stream().map(GraphLayoutSnapshot.RecursionRegion::role)
                 .collect(java.util.stream.Collectors.toSet()));
-        float stockLeft = layout.boxes().values().stream().filter(box -> graph.nodes().get(box.nodeId()).key() != null
-            && graph.nodes().get(box.nodeId()).recursion().role() != Role.INPUT)
-            .map(box -> box.x()).min(Float::compare).orElseThrow();
+        float stockTop = layout.boxes().values().stream().filter(box -> graph.nodes().get(box.nodeId()).key() != null
+            && graph.nodes().get(box.nodeId()).recursion().role() != Role.INPUT
+            && graph.nodes().get(box.nodeId()).recursion().role() != Role.OUTPUT)
+            .map(box -> box.y()).min(Float::compare).orElseThrow();
         for (var node : graph.nodes().values()) if (node.recursion().role() == Role.INPUT) {
-            assertTrue(layout.box(node.id()).x() + layout.box(node.id()).width() < stockLeft,
-                "External material cards belong to the left lane");
+            assertTrue(layout.box(node.id()).y() + layout.box(node.id()).height() < stockTop,
+                "External material cards belong above their execution step");
         }
-        float remainingRight = layout.boxes().values().stream().filter(box -> graph.nodes().get(box.nodeId()).recursion().role() == Role.RETAINED)
-            .map(box -> box.x() + box.width()).max(Float::compare).orElseThrow();
-        assertTrue(layout.box(graph.rootId()).x() > remainingRight, "Delivery has its own right-hand zone");
+        assertTrue(layout.box(graph.rootId()).y() + layout.box(graph.rootId()).height() < stockTop,
+            "Requested outputs occupy their own row above the final remainder");
+        var finalStock = graph.nodes().values().stream().filter(node -> node.key() != null && node.key().equals(seed.key())
+            && node.recursion().role() == Role.STOCK).max(java.util.Comparator.comparingInt(node -> node.recursion().level())).orElseThrow();
+        var resultLinks = graph.links().stream().filter(link -> link.fromId() == finalStock.id()).toList();
+        assertEquals(Set.of(Role.OUTPUT, Role.RETAINED), resultLinks.stream()
+            .map(link -> graph.nodes().get(link.toId()).recursion().role()).collect(java.util.stream.Collectors.toSet()));
+        assertEquals(PlannerAmount.of(8), resultLinks.stream().map(ClientCraftingGraph.Link::plannerAmount)
+            .reduce(PlannerAmount.ZERO, PlannerAmount::add), "Direct result links divide the final stock exactly once");
+        for (var link : resultLinks) assertEquals(graph.nodes().get(link.toId()).recursion().amount(), link.plannerAmount());
         for (var link : graph.links()) {
             assertTrue(graph.nodes().get(link.fromId()).recursion().level()
                 < graph.nodes().get(link.toId()).recursion().level(), "Every edge advances to a later layer");
             var route = layout.edgePoints(link);
             assertTrue(route.size() >= 2);
-            assertTrue(route.get(0).y() > route.get(route.size() - 1).y(),
-                "Every material or junction link must point upward");
+            boolean external = graph.nodes().get(link.fromId()).recursion().role() == Role.INPUT;
+            if (external) assertTrue(route.get(0).y() < route.get(route.size() - 1).y(), "External inputs drop into their step");
+            else assertTrue(route.get(0).x() < route.get(route.size() - 1).x(), "Every main flow link must advance to the right");
             for (int i = 1; i < route.size(); i++) {
                 assertTrue(route.get(i - 1).x() == route.get(i).x() || route.get(i - 1).y() == route.get(i).y());
-                assertTrue(route.get(i - 1).y() >= route.get(i).y());
+                if (!external) assertTrue(route.get(i - 1).x() <= route.get(i).x());
             }
         }
         for (var a : layout.boxes().values()) for (var b : layout.boxes().values()) {
@@ -102,7 +116,7 @@ class CraftingTreeModuleTest {
         assertTrue(graph.isRecursiveCycle());
         assertTrue(graph.nodes().values().stream().anyMatch(node -> node.recursion().role() == Role.UNKNOWN));
         assertFalse(graph.nodes().values().stream().anyMatch(node -> node.recursion().role() == Role.STEP
-            || node.recursion().role() == Role.DELIVERY || node.recursion().role() == Role.RETAINED));
+            || node.recursion().role() == Role.RETAINED));
         assertTrue(graph.links().stream().noneMatch(ClientCraftingGraph.Link::selected));
         assertEquals(PlannerAmount.of(7), graph.nodes().get(graph.rootId()).recursion().amount());
         var layout = new GraphLayout().layout(graph, 1);
@@ -146,6 +160,10 @@ class CraftingTreeModuleTest {
             assertEquals(inputBoxes.get(0).y(), inputBoxes.get(i).y(), "All external additions for a layer share one row");
             assertTrue(inputBoxes.get(i - 1).x() + inputBoxes.get(i - 1).width() < inputBoxes.get(i).x());
         }
+        for (var region : layout.recursionRegions()) if (region.role() == Role.INPUT) {
+            assertTrue(region.bounds().height() < GraphLayoutSnapshot.COMPACT_MATERIAL_HEIGHT * 2,
+                "Each external input group has a compact frame instead of spanning all layers");
+        }
         for (var link : graph.links()) {
             var route = layout.edgePoints(link);
             for (var box : layout.boxes().values()) {
@@ -183,6 +201,16 @@ class CraftingTreeModuleTest {
         var a = layout.box(nodes.get(0).id()); var b = layout.box(nodes.get(1).id());
         assertFalse(a.intersects(b.x(), b.y(), b.x() + b.width(), b.y() + b.height()));
         assertEquals(PlannerAmount.of(14), RecursiveCycleLedger.summarize(cycle).get(0).remaining());
+        for (var node : graph.nodes().values()) {
+            assertNotNull(node.key(), "A plan covered by initial stock needs no delivery control");
+            if (node.recursion().role() == Role.OUTPUT || node.recursion().role() == Role.RETAINED) {
+                assertEquals(node.recursion().amount(), graph.links().stream().filter(link -> link.toId() == node.id())
+                    .map(ClientCraftingGraph.Link::plannerAmount).reduce(PlannerAmount.ZERO, PlannerAmount::add));
+            } else {
+                assertEquals(node.recursion().amount(), graph.links().stream().filter(link -> link.fromId() == node.id())
+                    .map(ClientCraftingGraph.Link::plannerAmount).reduce(PlannerAmount.ZERO, PlannerAmount::add));
+            }
+        }
     }
 
     @Test
