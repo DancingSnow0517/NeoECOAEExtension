@@ -280,6 +280,35 @@ class CreativeSupplyPlanningTest {
         }
     }
 
+    @Test void gtlFastCellExactStockIsAvailableToPlanningWithoutBecomingCreative() throws Exception {
+        AEKey input = AEFluidKey.of(Fluids.WATER);
+        // The same Int128 range as the user's saved fluorine stock: its native listing saturates at long.
+        BigInteger exactStock = new BigInteger("28023915457604541470");
+        var cell = mock(cn.dancingsnow.neoecoae.mixins.compat.gregtech.GTLInfinityCellInventoryMixin.class,
+            CALLS_REAL_METHODS);
+        doAnswer(call -> {
+            ((KeyCounter) call.getArgument(0)).set(input, Long.MAX_VALUE);
+            return null;
+        }).when(cell).getAvailableStacks(any(KeyCounter.class));
+        when(cell.getExactStoredAmount(input)).thenReturn(exactStock);
+        var grid = mock(IGrid.class, RETURNS_DEEP_STUBS);
+        when(grid.getMachines(ECODriveBlockEntity.class)).thenReturn(Set.of());
+        when(grid.getStorageService().getInventory().getAvailableStacks()).thenAnswer(call -> {
+            var out = new KeyCounter();
+            new cn.dancingsnow.neoecoae.crafting.display.terminal.StorageListingAccumulator()
+                .append(cell, out, cell::getAvailableStacks);
+            return out;
+        });
+        var captured = ECOPlannerInventory.capture(grid);
+        assertEquals(exactStock, captured.amountOf(input).toBigInteger());
+        assertEquals(Long.MAX_VALUE, captured.toKeyCounter().get(input));
+        assertFalse(captured.isUnbounded(input));
+        var result = solve(Long.MAX_VALUE, captured, input);
+        assertTrue(result.state().missingAmounts().isEmpty());
+        assertEquals(PlannerAmount.of(Long.MAX_VALUE).multiply(2), result.state().usedAmounts().get(input));
+        verify(cell, never()).extract(any(), anyLong(), any(), any());
+    }
+
     @Test void extendedAeFluidCellPreservesUnlimitedUnitConversion() throws Exception {
         AEKey input = AEFluidKey.of(Fluids.WATER);
         var cell = extendedAeCell(input);
