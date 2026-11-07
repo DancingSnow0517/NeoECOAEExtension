@@ -34,6 +34,12 @@ public record TerminalInventorySnapshot(KeyCounter inventory, Map<AEKey, ExactAm
 
     public static TerminalInventorySnapshot sample(Object storage, long tick, boolean exact,
             Supplier<KeyCounter> listing) {
+        return sample(storage, tick, exact, false, listing);
+    }
+
+    /** Planning freezes ordinary and exact stock in the same sampling pass. */
+    public static TerminalInventorySnapshot sample(Object storage, long tick, boolean exact, boolean refreshExact,
+            Supplier<KeyCounter> listing) {
         // Scoped callers must neither consume an unfiltered cached result nor publish their
         // filtered result to ordinary viewers, even when both calls occur in the same tick.
         if (ExactAmountCollector.isActive()) return new TerminalInventorySnapshot(listing.get(), Map.of());
@@ -41,7 +47,7 @@ public record TerminalInventorySnapshot(KeyCounter inventory, Map<AEKey, ExactAm
         Cache cached = storage instanceof Source source ? source.neoecoae$terminalCache()
                 : CACHE.computeIfAbsent(storage, ignored -> new Cache());
         if (cached.generation != generation || tick < cached.tick) cached.reset();
-        boolean collect = exact && (cached.exactTick == Long.MIN_VALUE
+        boolean collect = exact && (refreshExact || cached.exactTick == Long.MIN_VALUE
                 || tick - cached.exactTick >= MenuDataTransport.UPDATE_INTERVAL);
         if (cached.snapshot == null || cached.tick != tick || collect) {
             TerminalInventorySnapshot next = null;

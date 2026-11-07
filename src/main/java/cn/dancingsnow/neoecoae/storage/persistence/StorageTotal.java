@@ -6,7 +6,7 @@ import java.math.BigInteger;
 
 /**
  * Server-thread statistic; large totals accumulate small transfers without allocating on every operation.
- * Past Long.MAX_VALUE the exact base is a {@link HugeAmount}: U126 below 2^126, BigInteger only beyond.
+ * Past Long.MAX_VALUE the exact base is a {@link HugeAmount}: U128 below 2^128, BigInteger only beyond.
  */
 final class StorageTotal {
     /** The whole total while {@link #base} is null; otherwise a pending signed delta on top of it. */

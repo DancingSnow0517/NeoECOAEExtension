@@ -19,7 +19,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.ChatFormatting;
 import org.jetbrains.annotations.Nullable;
 
-import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -77,15 +78,15 @@ final class BiggerAE2BulkStorageCellItem extends ECOBulkStorageCellItem {
     protected ECOStorageCell createCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
         var legacy = BiggerAE2SingularityContents.read(stack);
         if (!legacy.entries().isEmpty()) {
-            Map<AEItemKey, BigInteger> contents = new LinkedHashMap<>();
+            Map<AEItemKey, PlannerAmount> contents = new LinkedHashMap<>();
             for (var entry : legacy.entries()) {
                 if (!(entry.key() instanceof AEItemKey key)) {
                     throw new IllegalStateException("Non-item contents in an item Digital Singularity");
                 }
-                contents.merge(key, entry.amount(), BigInteger::add);
+                contents.merge(key, PlannerAmount.of(entry.amount()), PlannerAmount::add);
             }
             // Persist the exact replacement before removing the old NBT or notifying the host.
-            new ECOBulkStorageCell(stack, null, contents, true).persist();
+            new ECOBulkStorageCell(stack, null, ECOExactInventory.toBigIntegers(contents), true).persist();
             BiggerAE2SingularityContents.write(stack, BiggerAE2SingularityContents.EMPTY);
             if (host != null) host.saveChanges();
         }

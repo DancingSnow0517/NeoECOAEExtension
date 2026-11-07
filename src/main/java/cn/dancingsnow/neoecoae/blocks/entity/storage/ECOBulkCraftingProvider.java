@@ -8,6 +8,7 @@ import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.storage.bulk.ECOBulkConversionPattern;
 import cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell;
 import org.jetbrains.annotations.Nullable;
@@ -64,7 +65,7 @@ final class ECOBulkCraftingProvider implements ICraftingProvider, ECOFastPathDis
         if (!(details instanceof ECOBulkConversionPattern pattern) || !pattern.matchesInputs(inputs)) return false;
         ECOBulkStorageCell cell = target(pattern);
         if (cell == null) return false;
-        enqueue(cell, pattern, BigInteger.ONE);
+        enqueue(cell, pattern, PlannerAmount.ONE);
         inputs[0].clear();
         return true;
     }
@@ -80,7 +81,7 @@ final class ECOBulkCraftingProvider implements ICraftingProvider, ECOFastPathDis
                     || !batch.exactInputTotal().isEmpty()
                     || !batch.inputTotal().equals(List.of(new GenericStack(pattern.inputKey(), Math.multiplyExact(pattern.inputCount(), copies))))
                     || !batch.outputTotal().equals(List.of(new GenericStack(pattern.outputKey(), Math.multiplyExact(pattern.outputCount(), copies))))) return false;
-            enqueue(cell, pattern, BigInteger.valueOf(copies));
+            enqueue(cell, pattern, PlannerAmount.of(copies));
             return true;
         });
     }
@@ -90,12 +91,12 @@ final class ECOBulkCraftingProvider implements ICraftingProvider, ECOFastPathDis
         return new ExactPreparation(requested, () -> {
             ECOBulkStorageCell cell = target(pattern);
             if (cell == null) return false;
-            enqueue(cell, pattern, requested);
+            enqueue(cell, pattern, PlannerAmount.of(requested));
             return true;
         });
     }
-    private void enqueue(ECOBulkStorageCell cell, ECOBulkConversionPattern pattern, BigInteger copies) {
-        try { cell.enqueueOutput(pattern.outputKey(), BigInteger.valueOf(pattern.outputCount()).multiply(copies)); }
+    private void enqueue(ECOBulkStorageCell cell, ECOBulkConversionPattern pattern, PlannerAmount copies) {
+        try { cell.enqueueOutputQuantity(pattern.outputKey(), copies.multiply(pattern.outputCount())); }
         catch (RuntimeException failure) { throw new ECOIndeterminateBatchException("ECO bulk conversion may already be saved on disk", failure); }
     }
 }

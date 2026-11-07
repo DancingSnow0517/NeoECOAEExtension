@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.storage.bulk;
 
 import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 
 import appeng.api.stacks.AEItemKey;
 import cn.dancingsnow.neoecoae.network.ECOCompressionSyncS2CPacket;
@@ -161,12 +162,12 @@ public final class ECOCompressionService {
             List<AEItemKey> roots = component.stream().filter(key -> !previous.containsKey(key)).toList();
             if (!valid || roots.size() != 1) continue;
             List<AEItemKey> items = new ArrayList<>(); List<BigInteger> factors = new ArrayList<>();
-            AEItemKey key = roots.get(0); BigInteger factor = BigInteger.ONE;
+            AEItemKey key = roots.get(0); PlannerAmount factor = PlannerAmount.ONE;
             while (key != null && !items.contains(key)) {
-                items.add(key); factors.add(factor);
+                items.add(key); factors.add(factor.toBigInteger());
                 Edge edge = next.get(key);
                 if (edge == null) key = null;
-                else { factor = factor.multiply(BigInteger.valueOf(edge.ratio())); key = edge.higher(); }
+                else { factor = factor.multiply(edge.ratio()); key = edge.higher(); }
             }
             if (items.size() == component.size() && key == null) chains.add(new BulkUnits(items, factors));
         }

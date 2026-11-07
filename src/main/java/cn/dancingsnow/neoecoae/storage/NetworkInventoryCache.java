@@ -13,6 +13,7 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.BiConsumer;
@@ -59,7 +60,7 @@ public final class NetworkInventoryCache {
 
     private final Reference2ObjectOpenHashMap<MEStorage, Mount> mounts = new Reference2ObjectOpenHashMap<>();
     /** Exact network totals for keys whose sum exceeds {@code long}; their published amount saturates. */
-    private final Object2ObjectOpenHashMap<AEKey, BigInteger> oversized = new Object2ObjectOpenHashMap<>();
+    private final Object2ObjectOpenHashMap<AEKey, PlannerAmount> oversized = new Object2ObjectOpenHashMap<>();
     /** Published amount before the current refresh, for every key it touched. */
     private final Object2LongOpenHashMap<AEKey> previous = new Object2LongOpenHashMap<>();
     private final ReferenceOpenHashSet<MEStorage> seen = new ReferenceOpenHashSet<>();
@@ -274,14 +275,14 @@ public final class NetworkInventoryCache {
 
     /** Adds a mount's contribution to a nonnegative total, saturating the published value like a full listing. */
     private long combine(AEKey key, long current, long delta) {
-        BigInteger exact = oversized.isEmpty() ? null : oversized.get(key);
+        PlannerAmount exact = oversized.isEmpty() ? null : oversized.get(key);
         if (exact == null) {
             long next = current + delta;
             if (((current ^ next) & (delta ^ next)) >= 0) return next;
-            exact = BigInteger.valueOf(current);
+            exact = PlannerAmount.of(current);
         }
-        exact = exact.add(BigInteger.valueOf(delta));
-        if (exact.bitLength() < Long.SIZE) {
+        exact = exact.add(delta);
+        if (exact.fitsLong()) {
             oversized.remove(key);
             return exact.longValue();
         }
@@ -306,11 +307,11 @@ public final class NetworkInventoryCache {
     }
 
     public BigInteger listedTotal(AEKey key, long projection) {
-        BigInteger total = oversized.get(key);
-        return total == null ? BigInteger.valueOf(projection) : total;
+        PlannerAmount total = oversized.get(key);
+        return total == null ? BigInteger.valueOf(projection) : total.toBigInteger();
     }
 
     public void visitOversizedTotals(BiConsumer<AEKey, BigInteger> visitor) {
-        oversized.forEach(visitor);
+        oversized.forEach((key, amount) -> visitor.accept(key, amount.toBigInteger()));
     }
 }
