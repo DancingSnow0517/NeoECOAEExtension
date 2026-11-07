@@ -40,7 +40,7 @@ public final class GraphLayout implements GraphLayoutEngine {
     }
 
     public GraphLayout(Mode mode) {
-        this(mode, new LayeredGraphLayout(), new CycleStripLayout(), new CycleClusterLayout(),
+        this(mode, new LayeredGraphLayout(), new RecursiveCycleLayout(), new LayeredGraphLayout(),
             new CompactTreeLayout());
     }
 

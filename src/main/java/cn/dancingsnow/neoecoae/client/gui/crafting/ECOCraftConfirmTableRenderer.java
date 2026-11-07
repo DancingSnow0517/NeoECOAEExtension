@@ -29,13 +29,17 @@ final class ECOCraftConfirmTableRenderer extends AbstractTableRenderer<CraftingP
     }
 
     @Override protected List<Component> getEntryDescription(CraftingPlanSummaryEntry entry) {
+        return describe(entry, AmountFormat.SLOT);
+    }
+
+    List<Component> describe(CraftingPlanSummaryEntry entry, AmountFormat format) {
         List<Component> lines = new ArrayList<>(3);
         if (entry.getStoredAmount() > 0) lines.add(GuiText.FromStorage.text(
-            DisplayNumbers.grouped(entry.getWhat().formatAmount(entry.getStoredAmount(), AmountFormat.SLOT))));
+            DisplayNumbers.grouped(entry.getWhat().formatAmount(entry.getStoredAmount(), format))));
         if (entry.getMissingAmount() > 0) lines.add(GuiText.Missing.text(
-            DisplayNumbers.grouped(entry.getWhat().formatAmount(entry.getMissingAmount(), AmountFormat.SLOT))));
+            DisplayNumbers.grouped(entry.getWhat().formatAmount(entry.getMissingAmount(), format))));
         if (entry.getCraftAmount() > 0) lines.add(GuiText.ToCraft.text(
-            DisplayNumbers.grouped(entry.getWhat().formatAmount(entry.getCraftAmount(), AmountFormat.SLOT))));
+            DisplayNumbers.grouped(entry.getWhat().formatAmount(entry.getCraftAmount(), format))));
         return lines;
     }
 

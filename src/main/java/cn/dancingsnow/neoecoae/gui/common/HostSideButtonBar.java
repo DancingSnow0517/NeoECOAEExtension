@@ -201,7 +201,7 @@ public final class HostSideButtonBar {
                     : ECOIcon.TOOLBAR_BUTTON_BACKGROUND;
                 case HOVERED, PRESSED -> ECOIcon.TOOLBAR_BUTTON_BACKGROUND_HOVER;
             };
-            // Match ECOCraftConfirmScreen.CraftingGraphButton's native atlas rendering.
+            // Use the bundled AE2 toolbar atlas at the icon's depth.
             // drawContents applies the shared hover offset to the background and icon.
             guiContext.graphics.flush();
             background.blit(guiContext.graphics, Math.round(getPositionX()) - 1,

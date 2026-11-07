@@ -22,6 +22,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapters
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -81,8 +82,10 @@ public final class CraftingGraphSnapshotFactory {
             materials.computeIfAbsent(edge.from(), MutableMaterial::new);
             materials.computeIfAbsent(edge.to(), MutableMaterial::new);
         }
+        var collectedPatterns = java.util.Collections.newSetFromMap(new IdentityHashMap<IPatternDetails, Boolean>());
         for (PlanTraceNode node : trace.nodes()) {
             if (node.kind() != PlanTraceNode.Kind.PATTERN || node.pattern() == null) continue;
+            if (!collectedPatterns.add(node.pattern())) continue;
             try {
                 for (GenericStack output : node.pattern().getOutputs()) {
                     if (output != null && output.what() != null) materials.computeIfAbsent(output.what(), MutableMaterial::new);
@@ -120,6 +123,19 @@ public final class CraftingGraphSnapshotFactory {
 
     private static void appendTracedPatterns(ECOPlanTrace trace, Map<AEKey, Integer> nodeIds,
             List<PatternNode> patterns, List<Edge> edges, Map<IPatternDetails, Integer> patternIds) {
+        // A shared ingredient can have many traced candidates. Resolve its relationships and component once,
+        // instead of rescanning the entire trace for every occurrence in a large order.
+        Map<AEKey, List<Relationship>> inputsByOutput = new HashMap<>();
+        for (var edge : trace.edges()) {
+            Integer inputId = nodeIds.get(edge.to());
+            if (inputId != null) inputsByOutput.computeIfAbsent(edge.from(), ignored -> new ArrayList<>())
+                .add(new Relationship(inputId, PlannerAmount.of(edge.exactAmount())));
+        }
+        inputsByOutput.replaceAll((key, inputs) -> List.copyOf(inputs));
+        Map<AEKey, Integer> componentIds = new HashMap<>();
+        for (var component : trace.components()) {
+            for (AEKey key : component.members()) componentIds.putIfAbsent(key, component.componentId());
+        }
         var cyclePatterns = java.util.Collections.newSetFromMap(new IdentityHashMap<IPatternDetails, Boolean>());
         for (var cycle : trace.cycles()) {
             for (var edge : cycle.internalEdges()) cyclePatterns.add(edge.pattern().details());
@@ -133,7 +149,7 @@ public final class CraftingGraphSnapshotFactory {
             if (outputId == null) continue;
             int patternNodeId = patternNodeId(patterns.size());
             patternIds.put(node.pattern(), patternNodeId);
-            List<Relationship> inputs = selectedInputs(node.key(), trace.edges(), nodeIds);
+            List<Relationship> inputs = inputsByOutput.getOrDefault(node.key(), List.of());
             if (inputs.isEmpty()) inputs = inputs(node.pattern(), nodeIds);
             List<Relationship> outputs = outputs(node.pattern(), nodeIds);
             if (outputs.stream().noneMatch(output -> output.materialNodeId() == outputId)) {
@@ -145,7 +161,7 @@ public final class CraftingGraphSnapshotFactory {
                 case REJECTED -> CandidateStatus.REJECTED;
                 default -> CandidateStatus.UNSUPPORTED;
             };
-            int componentId = componentFor(node.key(), trace.components());
+            int componentId = componentIds.getOrDefault(node.key(), -1);
             PatternNode pattern = new PatternNode(patternNodeId, displayIdentity(node.pattern()), inputs, outputs,
                 PlannerAmount.of(node.exactFiringCount()), status, node.reason(), componentId);
             patterns.add(pattern);
@@ -179,7 +195,7 @@ public final class CraftingGraphSnapshotFactory {
                         return inputId == null ? null : new Relationship(inputId, input.amountPerPattern());
                     })
                     .filter(java.util.Objects::nonNull).toList();
-                List<Relationship> outputs = internalEdge.pattern().outputs().stream()
+                List<Relationship> outputs = internalEdge.pattern().grossOutputs().stream()
                     .filter(output -> nodeIds.containsKey(output.what()))
                     .map(output -> new Relationship(nodeIds.get(output.what()), output.amount())).toList();
                 PlannerAmount firingCount = cycle.solveResult() == null ? PlannerAmount.ZERO
@@ -223,10 +239,11 @@ public final class CraftingGraphSnapshotFactory {
             if (solve != null) exactExternalInputs.putAll(solve.exactExternalDemand());
             List<KeyAmount> externalInputs = plannerKeyAmounts(exactExternalInputs);
             CycleDiagnostic diagnostic = cycleIndex < result.cycles().size() ? result.cycles().get(cycleIndex) : null;
-            cycles.add(new CraftingGraphSnapshot.CycleGroup(cycle.componentId(), memberIds, internal,
-                cycle.status().name(), result.components().stream().filter(component -> component.componentId() == cycle.componentId())
+            List<KeyAmount> requiredOutputs = result.components().stream().filter(component -> component.componentId() == cycle.componentId())
                     .findFirst().map(component -> plannerKeyAmounts(component.plannerRequiredOutputs()))
-                    .orElseGet(() -> keyAmounts(cycle.requiredOutputs())),
+                    .orElseGet(() -> keyAmounts(cycle.requiredOutputs()));
+            cycles.add(new CraftingGraphSnapshot.CycleGroup(cycle.componentId(), memberIds, internal,
+                cycle.status().name(), requiredOutputs,
                 externalInputs,
                 solve == null ? List.of() : plannerKeyAmounts(solve.exactRequiredSeed()),
                 solve == null ? List.of() : solve.exactPatternTimes().entrySet().stream()
@@ -244,7 +261,10 @@ public final class CraftingGraphSnapshotFactory {
                     ? cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge.UNKNOWN
                     : diagnostic.executionCountKnowledge(),
                 diagnostic == null ? cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus.NOT_IMPLEMENTED
-                    : diagnostic.solveStatus()));
+                    : diagnostic.solveStatus(), cycle.status()
+                        == cn.dancingsnow.neoecoae.crafting.planner.result.CyclePlanningStatus.NOT_REQUIRED
+                            ? new CraftingGraphSnapshot.Recursion(List.of(), List.of(), true)
+                            : CycleRecursionPreview.create(solve, requiredOutputs, patternIds)));
         }
         return cycles;
     }
@@ -273,20 +293,9 @@ public final class CraftingGraphSnapshotFactory {
         for (var input : pattern.inputs()) {
             if (input.key() != null) materials.computeIfAbsent(input.key(), MutableMaterial::new);
         }
-        for (GenericStack output : pattern.outputs()) {
+        for (GenericStack output : pattern.grossOutputs()) {
             if (output != null && output.what() != null) materials.computeIfAbsent(output.what(), MutableMaterial::new);
         }
-    }
-
-    private static List<Relationship> selectedInputs(AEKey output, List<cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceEdge> edges,
-            Map<AEKey, Integer> nodeIds) {
-        List<Relationship> result = new ArrayList<>();
-        for (var edge : edges) {
-            if (edge.from().equals(output) && nodeIds.containsKey(edge.to())) {
-                result.add(new Relationship(nodeIds.get(edge.to()), PlannerAmount.of(edge.exactAmount())));
-            }
-        }
-        return result;
     }
 
     private static List<Relationship> outputs(IPatternDetails pattern, Map<AEKey, Integer> nodeIds) {
@@ -316,11 +325,6 @@ public final class CraftingGraphSnapshotFactory {
             // A malformed/rejected candidate is still represented, but without unsafe relationship data.
         }
         return result;
-    }
-
-    private static int componentFor(AEKey key, List<cn.dancingsnow.neoecoae.crafting.planner.trace.ComponentTrace> components) {
-        for (var component : components) if (component.members().contains(key)) return component.componentId();
-        return -1;
     }
 
     private static String displayIdentity(IPatternDetails pattern) {

@@ -36,9 +36,14 @@ final class ECOCraftReportHeaderRenderer {
     record Summary(Component elapsed, Component bytes, List<Component> tooltip) {}
 
     static boolean hasCompleteByteEstimate(CraftingGraphSnapshot snapshot) {
+        boolean materialShortage = snapshot.summary().planningStatus().equals("MISSING_ITEMS")
+            || snapshot.summary().planningStatus().equals("PLANNED_BUT_AMOUNT_UNREPRESENTABLE");
         return ECOExactMaterialTableRenderer.hasMaterialDetails(snapshot)
             && snapshot.cycleGroups().stream().allMatch(cycle ->
-                cycle.status().equals("SOLVED") || cycle.status().equals("NOT_REQUIRED"));
+                cycle.status().equals("SOLVED") || cycle.status().equals("NOT_REQUIRED")
+                    || materialShortage && cycle.status().equals("INSUFFICIENT_EXTERNAL_INPUT")
+                        && cycle.executionCountKnowledge()
+                            == cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge.EXACT);
     }
 
     static Summary pending(Component status) {

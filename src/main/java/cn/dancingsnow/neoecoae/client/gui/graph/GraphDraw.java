@@ -36,6 +36,16 @@ final class GraphDraw {
         quad(graphics, ax, ay, bx, by, cx, cy, cx, cy, color);
     }
 
+    static void dashedLine(GuiGraphics graphics, float x1, float y1, float x2, float y2, int color, float halfWidth) {
+        float length = (float) Math.hypot(x2 - x1, y2 - y1);
+        if (length < 0.001f) return;
+        float dx = (x2 - x1) / length, dy = (y2 - y1) / length;
+        for (float start = 0; start < length; start += 9) {
+            float end = Math.min(length, start + 5);
+            line(graphics, x1 + dx * start, y1 + dy * start, x1 + dx * end, y1 + dy * end, color, halfWidth);
+        }
+    }
+
     private static void quad(GuiGraphics graphics, float ax, float ay, float bx, float by,
             float cx, float cy, float dx, float dy, int color) {
         var matrix = graphics.pose().last().pose();

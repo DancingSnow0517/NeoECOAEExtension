@@ -1266,9 +1266,23 @@ public final class BoundedCycleSolver implements CycleSolver {
     }
 
     /** Exact prefix inventory for AE's concrete input keys and normalized container/catalyst returns. */
-    private record CircuitSummary(PlannerAmount[] required, PlannerAmount[] delta,
+    public record CircuitSummary(PlannerAmount[] required, PlannerAmount[] delta,
             PlannerAmount[] produced, PlannerAmount[] counts) {
-        CircuitSummary then(CircuitSummary next) {
+        /** Shared with the report projection: summarize a fixed run, without searching or changing its order. */
+        public static CircuitSummary run(PlannerAmount[] consumed, PlannerAmount[] produced,
+                int transitions, int transition, PlannerAmount count) {
+            CircuitSummary result = new CircuitSummary(zeroes(consumed.length), zeroes(consumed.length),
+                zeroes(consumed.length), zeroes(transitions));
+            for (int key = 0; key < consumed.length; key++) {
+                result.required[key] = batchDeficit(PlannerAmount.ZERO, consumed[key], produced[key], count);
+                result.delta[key] = produced[key].subtract(consumed[key]).multiply(count);
+                result.produced[key] = produced[key].multiply(count);
+            }
+            result.counts[transition] = count;
+            return result;
+        }
+
+        public CircuitSummary then(CircuitSummary next) {
             PlannerAmount[] r = required.clone(), d = delta.clone(), p = produced.clone(), c = counts.clone();
             for (int i = 0; i < r.length; i++) {
                 r[i] = r[i].max(next.required[i].subtract(d[i]));
@@ -1279,7 +1293,7 @@ public final class BoundedCycleSolver implements CycleSolver {
             return new CircuitSummary(r, d, p, c);
         }
 
-        CircuitSummary repeated(PlannerAmount times) {
+        public CircuitSummary repeated(PlannerAmount times) {
             if (times.signum() <= 0) throw new IllegalArgumentException("Circuit repetitions must be positive");
             PlannerAmount[] r = required.clone(), d = delta.clone(), p = produced.clone(), c = counts.clone();
             for (int i = 0; i < r.length; i++) {
@@ -1352,16 +1366,9 @@ public final class BoundedCycleSolver implements CycleSolver {
         CircuitSummary summary = emptySummary(model);
         for (int index = start; index < end; index++) {
             BatchFiring firing = witness.get(index);
-            CircuitSummary run = emptySummary(model);
             int t = firing.transition();
-            for (int key = 0; key < model.keyCount(); key++) {
-                run.required[key] = batchDeficit(PlannerAmount.ZERO, model.cons[t][key], model.prod[t][key], firing.exactCount());
-                run.delta[key] = model.prod[t][key].subtract(model.cons[t][key])
-                    .multiply(firing.exactCount());
-                run.produced[key] = model.prod[t][key].multiply(firing.exactCount());
-            }
-            run.counts[t] = firing.exactCount();
-            summary = summary.then(run);
+            summary = summary.then(CircuitSummary.run(model.cons[t], model.prod[t], model.transitionCount(), t,
+                firing.exactCount()));
         }
         return summary;
     }

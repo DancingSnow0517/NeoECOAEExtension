@@ -6,15 +6,22 @@ import appeng.api.stacks.AmountFormat;
 import appeng.client.gui.AEBaseScreen;
 import appeng.client.gui.me.crafting.AbstractTableRenderer;
 import appeng.core.localization.GuiText;
+import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Predicate;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 
 /**
  * AE2-style 3x7 material table backed by the planner's exact amounts.
@@ -23,6 +30,66 @@ import net.minecraft.network.chat.Component;
  * same layout and interaction for an explanatory plan whose amounts are represented by BigInteger.
  */
 final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<CraftingGraphSnapshot.MaterialNode> {
+    /** Prepared once per synchronized report, shared by rendering, scrolling and recipe-viewer lookups. */
+    static final class MaterialData {
+        private CraftingGraphSnapshot snapshot;
+        private List<ECOCycleItemList.Entry> cycles;
+        private List<CraftingGraphSnapshot.MaterialNode> sorted = List.of();
+        private List<AEKey> missing = List.of();
+        private Set<AEKey> participants = Set.of();
+        private Set<AEKey> missingSeeds = Set.of();
+        private Set<AEKey> estimatedSeeds = Set.of();
+        private Set<Integer> componentIds = Set.of();
+        private Set<ResourceLocation> fuzzyItems = Set.of();
+        private boolean materialDetails;
+        private boolean completeByteEstimate;
+
+        void update(CraftingGraphSnapshot snapshot, List<ECOCycleItemList.Entry> cycles) {
+            // Network diagnostics replace both DTOs. Never hash/compare their full contents in a frame.
+            if (this.snapshot == snapshot && this.cycles == cycles) return;
+            this.snapshot = snapshot;
+            this.cycles = cycles;
+            Map<Integer, Set<AEKey>> requiredSeeds = new HashMap<>();
+            for (var cycle : snapshot.cycleGroups()) {
+                Set<AEKey> seeds = new HashSet<>();
+                cycle.requiredSeed().forEach(seed -> seeds.add(seed.key()));
+                requiredSeeds.put(cycle.componentId(), seeds);
+            }
+            participants = new HashSet<>();
+            missingSeeds = new HashSet<>();
+            estimatedSeeds = new HashSet<>();
+            componentIds = new HashSet<>();
+            for (var entry : cycles) {
+                participants.add(entry.what());
+                componentIds.add(entry.componentId());
+                if (entry.seedShortfallIsEstimate()) estimatedSeeds.add(entry.what());
+                if (entry.exactMissing().signum() > 0
+                        && entry.solveStatus() == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT
+                        && entry.exactTotalNetOutput().signum() >= 0
+                        && requiredSeeds.getOrDefault(entry.componentId(), Set.of()).contains(entry.what())) {
+                    missingSeeds.add(entry.what());
+                }
+            }
+            fuzzyItems = new HashSet<>(snapshot.fuzzyPlanningItemIds());
+            sorted = sortMaterials(snapshot.nodes(), missingSeeds::contains);
+            missing = sorted.stream().filter(node -> node.missingBigInteger().signum() > 0)
+                .map(CraftingGraphSnapshot.MaterialNode::key).toList();
+            materialDetails = ECOExactMaterialTableRenderer.hasMaterialDetails(snapshot);
+            completeByteEstimate = ECOCraftReportHeaderRenderer.hasCompleteByteEstimate(snapshot);
+        }
+
+        List<CraftingGraphSnapshot.MaterialNode> sorted() { return sorted; }
+        List<AEKey> missing() { return missing; }
+        boolean isCycleParticipant(AEKey key) { return participants.contains(key); }
+        boolean isMissingStartupSeed(AEKey key) { return missingSeeds.contains(key); }
+        boolean isEstimatedStartupSeed(AEKey key) { return estimatedSeeds.contains(key); }
+        boolean hasEstimatedStartupSeed() { return !estimatedSeeds.isEmpty(); }
+        boolean containsComponent(int componentId) { return componentIds.contains(componentId); }
+        boolean isFuzzyItem(ResourceLocation itemId) { return fuzzyItems.contains(itemId); }
+        boolean hasMaterialDetails() { return materialDetails; }
+        boolean hasCompleteByteEstimate() { return completeByteEstimate; }
+    }
+
     /** Only empty simulation shells may replace the native fallback's material table. */
     static boolean isDiagnosticShell(
             cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus status,
@@ -69,22 +136,26 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
 
     @Override
     protected List<Component> getEntryDescription(CraftingGraphSnapshot.MaterialNode entry) {
+        return describe(entry, AmountFormat.SLOT);
+    }
+
+    List<Component> describe(CraftingGraphSnapshot.MaterialNode entry, AmountFormat format) {
         List<Component> lines = new ArrayList<>(3);
         BigInteger stored = entry.fromInventoryBigInteger();
         BigInteger missing = entry.missingBigInteger();
         BigInteger craft = entry.toCraftBigInteger();
         if (stored.signum() > 0) {
-            lines.add(GuiText.FromStorage.text(formatAmount(entry.key(), stored, AmountFormat.SLOT)));
+            lines.add(GuiText.FromStorage.text(formatAmount(entry.key(), stored, format)));
         }
         if (missing.signum() > 0) {
-            lines.add(missingDescription(entry.key(), missing, AmountFormat.SLOT));
+            lines.add(missingDescription(entry.key(), missing, format));
         }
         if (craft.signum() > 0) {
-            lines.add(GuiText.ToCraft.text(formatAmount(entry.key(), craft, AmountFormat.SLOT)));
+            lines.add(GuiText.ToCraft.text(formatAmount(entry.key(), craft, format)));
         }
         if (craft.signum() == 0 && entry.requestedBigInteger().compareTo(stored.add(missing)) > 0) {
             lines.add(Component.translatable("gui.neoecoae.crafting_graph.details.requested",
-                formatAmount(entry.key(), entry.requestedBigInteger(), AmountFormat.SLOT)));
+                formatAmount(entry.key(), entry.requestedBigInteger(), format)));
         }
         if (lines.isEmpty()) {
             lines.add(Component.translatable("gui.neoecoae.crafting_report.quantity_unknown"));
@@ -131,23 +202,21 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
     static List<CraftingGraphSnapshot.MaterialNode> sortMaterials(List<CraftingGraphSnapshot.MaterialNode> nodes,
             Predicate<AEKey> missingStartupSeed) {
         return nodes.stream()
-            .filter(ECOExactMaterialTableRenderer::hasAmount)
-            .sorted(Comparator.comparing((CraftingGraphSnapshot.MaterialNode node) ->
-                    missingStartupSeed.test(node.key())).reversed()
-                .thenComparing(CraftingGraphSnapshot.MaterialNode::missingBigInteger, Comparator.reverseOrder())
-                .thenComparing(CraftingGraphSnapshot.MaterialNode::toCraftBigInteger, Comparator.reverseOrder())
-                .thenComparing(CraftingGraphSnapshot.MaterialNode::fromInventoryBigInteger,
-                    Comparator.reverseOrder())
-                .thenComparing(node -> node.key().toString()))
+            .map(node -> new MaterialOrder(node, missingStartupSeed.test(node.key()),
+                node.missingBigInteger(), node.toCraftBigInteger(), node.fromInventoryBigInteger()))
+            .filter(order -> order.missing().signum() > 0 || order.craft().signum() > 0
+                || order.stored().signum() > 0 || order.node().requestedBigInteger().signum() > 0)
+            .sorted(Comparator.comparing(MaterialOrder::startupSeed).reversed()
+                .thenComparing(MaterialOrder::missing, Comparator.reverseOrder())
+                .thenComparing(MaterialOrder::craft, Comparator.reverseOrder())
+                .thenComparing(MaterialOrder::stored, Comparator.reverseOrder())
+                .thenComparing(order -> order.node().key().toString()))
+            .map(MaterialOrder::node)
             .toList();
     }
 
-    private static boolean hasAmount(CraftingGraphSnapshot.MaterialNode node) {
-        return node.requestedBigInteger().signum() > 0
-            || node.fromInventoryBigInteger().signum() > 0
-            || node.toCraftBigInteger().signum() > 0
-            || node.missingBigInteger().signum() > 0;
-    }
+    private record MaterialOrder(CraftingGraphSnapshot.MaterialNode node, boolean startupSeed,
+            BigInteger missing, BigInteger craft, BigInteger stored) {}
 
     private boolean isMissingStartupSeed(AEKey key) {
         return missingStartupSeed != null && missingStartupSeed.test(key);

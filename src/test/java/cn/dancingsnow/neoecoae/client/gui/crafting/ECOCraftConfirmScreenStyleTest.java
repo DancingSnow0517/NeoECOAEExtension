@@ -40,6 +40,11 @@ class ECOCraftConfirmScreenStyleTest {
         assertEquals(330, style.getBackground().getSrcWidth());
         assertEquals(260, style.getBackground().getSrcHeight());
         var bounds = new Rect2i(0, 0, 330, 260);
+        var nativeToolbar = StyleManager.loadStyleDoc("/screens/craft_confirm.json")
+            .getWidget("verticalToolbar").resolve(bounds);
+        var toolbar = style.getWidget("verticalToolbar").resolve(bounds);
+        assertEquals(nativeToolbar.getX(), toolbar.getX());
+        assertEquals(nativeToolbar.getY(), toolbar.getY());
         assertEquals(312, style.getWidget("cycleScrollbar").resolve(bounds).getX());
         assertEquals(160, style.getWidget("cycleScrollbar").getHeight());
         assertDoesNotThrow(style::validate);

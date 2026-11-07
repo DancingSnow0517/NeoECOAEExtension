@@ -15,6 +15,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ExactCycleAmount;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
@@ -54,6 +55,16 @@ public record CraftingGraphSnapshot(
             decoded.fuzzyPlanningItemIds, decoded.summary);
     }
 
+    /** Exact confirmation rows can arrive before the much larger recipe graph of the same plan revision. */
+    public CraftingGraphSnapshot materialReport() {
+        return new CraftingGraphSnapshot(rootNodeId, nodes, List.of(), List.of(), cycleGroups.stream()
+            .map(cycle -> new CycleGroup(cycle.componentId(), cycle.memberNodeIds(), List.of(), cycle.status(),
+                cycle.requiredOutputs(), cycle.externalInputs(), cycle.requiredSeed(), List.of(), List.of(),
+                cycle.singleNetOutputs(), cycle.totalNetOutputs(), cycle.availableAmounts(),
+                cycle.exactSingleNetOutputs(), cycle.exactTotalNetOutputs(), cycle.executionCountKnowledge(),
+                cycle.solveStatus(), Recursion.EMPTY)).toList(), fuzzyPlanningItemIds, summary);
+    }
+
     @Override
     public void writeToPacket(FriendlyByteBuf data) {
         var raw = new FriendlyByteBuf(Unpooled.buffer(256, MAX_UNCOMPRESSED_BYTES));
@@ -66,6 +77,72 @@ public record CraftingGraphSnapshot(
             data.writeByteArray(compressed);
         } finally {
             raw.release();
+        }
+    }
+
+    /** Each page is compressed independently and fits the existing queued menu transport. */
+    public void writeToPages(PacketWritable trailer, Consumer<Page> output) {
+        var raw = new FriendlyByteBuf(Unpooled.buffer(256, MAX_UNCOMPRESSED_BYTES));
+        try {
+            writeRaw(raw);
+            trailer.writeToPacket(raw);
+            int offset = 0;
+            while (raw.isReadable()) {
+                byte[] bytes = new byte[Math.min(Page.MAX_BYTES, raw.readableBytes())];
+                raw.readBytes(bytes);
+                output.accept(new Page(offset, !raw.isReadable(), bytes));
+                offset += bytes.length;
+            }
+        } finally {
+            raw.release();
+        }
+    }
+
+    /** Reads a fully reassembled report, leaving its cycle-item trailer for the caller. */
+    public static CraftingGraphSnapshot readUncompressed(FriendlyByteBuf raw) {
+        return new CraftingGraphSnapshot(readRaw(raw));
+    }
+
+    private static Decoded readRaw(FriendlyByteBuf raw) {
+        return new Decoded(raw.readVarInt(), readList(raw, MaterialNode::read),
+            readList(raw, PatternNode::read), readList(raw, Edge::read), readList(raw, CycleGroup::read),
+            readList(raw, FriendlyByteBuf::readResourceLocation), Summary.read(raw));
+    }
+
+    public record Page(int offset, boolean last, byte[] bytes) implements PacketWritable {
+        public static final int MAX_BYTES = 1024 * 1024;
+
+        public Page {
+            if (offset < 0 || bytes.length < 1 || bytes.length > MAX_BYTES
+                    || (!last && bytes.length != MAX_BYTES)
+                    || offset > MAX_UNCOMPRESSED_BYTES - bytes.length) {
+                throw new IllegalArgumentException("Invalid crafting report page bounds");
+            }
+        }
+
+        public Page(FriendlyByteBuf data) {
+            this(data.readVarInt(), data.readBoolean(), readBytes(data));
+        }
+
+        private static byte[] readBytes(FriendlyByteBuf data) {
+            int length = data.readVarInt();
+            if (length < 1 || length > MAX_BYTES) {
+                throw new IllegalArgumentException("Invalid crafting report page size: " + length);
+            }
+            return decompress(data.readByteArray(MAX_BYTES * 2), length);
+        }
+
+        @Override
+        public void writeToPacket(FriendlyByteBuf data) {
+            var raw = new FriendlyByteBuf(Unpooled.wrappedBuffer(bytes));
+            try {
+                data.writeVarInt(offset);
+                data.writeBoolean(last);
+                data.writeVarInt(bytes.length);
+                data.writeByteArray(compress(raw));
+            } finally {
+                raw.release();
+            }
         }
     }
 
@@ -88,9 +165,7 @@ public record CraftingGraphSnapshot(
         byte[] uncompressed = decompress(compressed, expectedSize);
         var raw = new FriendlyByteBuf(Unpooled.wrappedBuffer(uncompressed));
         try {
-            Decoded result = new Decoded(raw.readVarInt(), readList(raw, MaterialNode::read),
-                readList(raw, PatternNode::read), readList(raw, Edge::read), readList(raw, CycleGroup::read),
-                readList(raw, FriendlyByteBuf::readResourceLocation), Summary.read(raw));
+            Decoded result = readRaw(raw);
             if (raw.isReadable()) throw new IllegalArgumentException("Trailing bytes in crafting graph snapshot");
             return result;
         } finally {
@@ -277,7 +352,17 @@ public record CraftingGraphSnapshot(
             List<PatternAmount> patternTimes, List<Integer> executionWitness, List<KeyAmount> singleNetOutputs,
             List<KeyAmount> totalNetOutputs, List<KeyAmount> availableAmounts,
             List<ExactKeyAmount> exactSingleNetOutputs, List<ExactKeyAmount> exactTotalNetOutputs,
-            ExecutionCountKnowledge executionCountKnowledge, CycleSolveStatus solveStatus) {
+            ExecutionCountKnowledge executionCountKnowledge, CycleSolveStatus solveStatus, Recursion recursion) {
+        public CycleGroup(int componentId, List<Integer> memberNodeIds, List<Edge> internalEdges, String status,
+                List<KeyAmount> requiredOutputs, List<KeyAmount> externalInputs, List<KeyAmount> requiredSeed,
+                List<PatternAmount> patternTimes, List<Integer> executionWitness, List<KeyAmount> singleNetOutputs,
+                List<KeyAmount> totalNetOutputs, List<KeyAmount> availableAmounts,
+                List<ExactKeyAmount> exactSingleNetOutputs, List<ExactKeyAmount> exactTotalNetOutputs,
+                ExecutionCountKnowledge executionCountKnowledge, CycleSolveStatus solveStatus) {
+            this(componentId, memberNodeIds, internalEdges, status, requiredOutputs, externalInputs, requiredSeed,
+                patternTimes, executionWitness, singleNetOutputs, totalNetOutputs, availableAmounts,
+                exactSingleNetOutputs, exactTotalNetOutputs, executionCountKnowledge, solveStatus, Recursion.EMPTY);
+        }
         /** Compatibility constructor for snapshots written before cycle net-output metadata was added. */
         public CycleGroup(int componentId, List<Integer> memberNodeIds, List<Edge> internalEdges, String status,
                 List<KeyAmount> requiredOutputs, List<KeyAmount> externalInputs, List<KeyAmount> requiredSeed,
@@ -319,7 +404,7 @@ public record CraftingGraphSnapshot(
                 readList(data, PatternAmount::read), readIntList(data), readList(data, KeyAmount::read),
                 readList(data, KeyAmount::read), readList(data, KeyAmount::read),
                 readList(data, ExactKeyAmount::read), readList(data, ExactKeyAmount::read),
-                data.readEnum(ExecutionCountKnowledge.class), data.readEnum(CycleSolveStatus.class));
+                data.readEnum(ExecutionCountKnowledge.class), data.readEnum(CycleSolveStatus.class), Recursion.read(data));
         }
 
         private void write(FriendlyByteBuf data) {
@@ -339,11 +424,39 @@ public record CraftingGraphSnapshot(
             writeList(data, exactTotalNetOutputs, ExactKeyAmount::write);
             data.writeEnum(executionCountKnowledge);
             data.writeEnum(solveStatus);
+            recursion.write(data);
         }
 
         private static List<ExactKeyAmount> exact(List<KeyAmount> values) {
             return values.stream().map(value -> new ExactKeyAmount(value.key(), ExactCycleAmount.of(value.plannerAmount())))
                 .toList();
+        }
+    }
+
+    /** Bounded, exact checkpoints of the selected recipe order, including a conditional material-shortage plan. */
+    public record Recursion(List<KeyAmount> initialInventory, List<RecursionLayer> layers, boolean complete) {
+        public static final Recursion EMPTY = new Recursion(List.of(), List.of(), false);
+        private static Recursion read(FriendlyByteBuf data) {
+            return new Recursion(readList(data, KeyAmount::read), readList(data, RecursionLayer::read), data.readBoolean());
+        }
+        private void write(FriendlyByteBuf data) {
+            writeList(data, initialInventory, KeyAmount::write);
+            writeList(data, layers, RecursionLayer::write);
+            data.writeBoolean(complete);
+        }
+    }
+
+    public record RecursionLayer(List<KeyAmount> addedInputs, List<KeyAmount> inventory,
+            List<PatternAmount> patternTimes, boolean folded) {
+        private static RecursionLayer read(FriendlyByteBuf data) {
+            return new RecursionLayer(readList(data, KeyAmount::read), readList(data, KeyAmount::read),
+                readList(data, PatternAmount::read), data.readBoolean());
+        }
+        private void write(FriendlyByteBuf data) {
+            writeList(data, addedInputs, KeyAmount::write);
+            writeList(data, inventory, KeyAmount::write);
+            writeList(data, patternTimes, PatternAmount::write);
+            data.writeBoolean(folded);
         }
     }
 
@@ -386,6 +499,7 @@ public record CraftingGraphSnapshot(
     }
 
     private static <T> void writeList(FriendlyByteBuf data, List<T> values, Writer<T> writer) {
+        if (values.size() > 1_000_000) throw new IllegalArgumentException("Invalid graph list size: " + values.size());
         data.writeVarInt(values.size());
         for (T value : values) writer.write(value, data);
     }
@@ -399,6 +513,7 @@ public record CraftingGraphSnapshot(
     }
 
     private static void writeIntList(FriendlyByteBuf data, List<Integer> values) {
+        if (values.size() > 1_000_000) throw new IllegalArgumentException("Invalid graph integer list size");
         data.writeVarInt(values.size());
         for (int value : values) data.writeVarInt(value);
     }

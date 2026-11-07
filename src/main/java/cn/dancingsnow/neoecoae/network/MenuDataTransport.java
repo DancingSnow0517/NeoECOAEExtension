@@ -123,6 +123,7 @@ public final class MenuDataTransport {
 
     public static void retainClientMenu(AbstractContainerMenu menu) {
         INCOMING.keySet().removeIf(previous -> previous != menu);
+        CraftingReportStream.retainClientMenu(menu);
     }
 
     private static long peakPlayerTickBytes;
@@ -138,6 +139,8 @@ public final class MenuDataTransport {
 
     public static void stopped(ServerStoppedEvent event) {
         OUTGOING.clear();
+        INCOMING.clear();
+        CraftingReportStream.clear();
         STATS.clear();
         ExactCpuSnapshot.clear();
         cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot.clear();

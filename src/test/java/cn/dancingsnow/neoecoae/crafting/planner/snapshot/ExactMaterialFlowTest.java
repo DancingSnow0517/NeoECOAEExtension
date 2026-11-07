@@ -8,6 +8,13 @@ import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus;
+import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveResult;
+import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveMetrics;
+import cn.dancingsnow.neoecoae.crafting.planner.cycle.PatternRun;
+import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
+import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledInput;
+import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
+import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot.KeyAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
@@ -26,6 +33,75 @@ import static org.mockito.Mockito.*;
 
 class ExactMaterialFlowTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
+
+    @Test
+    void hugeRepeatedCircuitShowsGrowthWithoutMultiplyingReturnedCatalystsOrLosingTheSuffix() {
+        var seed = AEItemKey.of(Items.IRON_INGOT);
+        var carrier = AEItemKey.of(Items.IRON_BLOCK);
+        var fuel = AEItemKey.of(Items.COAL);
+        var catalyst = AEItemKey.of(Items.STICK);
+        var prepare = compiled(0, carrier, 1, List.of(new GenericStack(seed, 1), new GenericStack(fuel, 3),
+            new GenericStack(catalyst, 1)), List.of(new GenericStack(catalyst, 1)));
+        var finish = compiled(1, seed, 2, List.of(new GenericStack(carrier, 1)), List.of());
+        PlannerAmount count = PlannerAmount.of(BigInteger.TEN.pow(25));
+        var runs = List.of(new PatternRun(prepare, 1), new PatternRun(finish, PlannerAmount.ONE, 2, count));
+        var patternIds = Map.of(prepare.details(), -2, finish.details(), -3);
+        for (boolean missingSeed : List.of(false, true)) {
+            var solved = new CycleSolveResult(missingSeed ? CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT : CycleSolveStatus.SUCCESS,
+                ExecutionCountKnowledge.EXACT, Map.of(prepare.details(), count, finish.details(), count),
+                Map.of(fuel, count.multiply(3)), Map.of(seed, PlannerAmount.ONE, catalyst, PlannerAmount.ONE),
+                missingSeed ? Map.of(seed, PlannerAmount.ONE) : Map.of(), Map.of(),
+                Map.of(seed, count.add(PlannerAmount.ONE)), List.of(), runs, List.of(), CycleSolveMetrics.NONE, List.of());
+            var preview = CycleRecursionPreview.create(solved, List.of(new KeyAmount(seed, count)), patternIds);
+            assertTrue(preview.complete(), "A verified missing-seed witness is a complete conditional preview");
+            assertTrue(preview.layers().size() <= 64, "The report must not expand one node per firing");
+            assertEquals(PlannerAmount.of(2), amount(preview.layers().get(0).inventory(), seed));
+            assertEquals(PlannerAmount.of(4), amount(preview.layers().get(1).inventory(), seed));
+            assertEquals(PlannerAmount.of(3), amount(preview.layers().get(0).addedInputs(), fuel));
+            PlannerAmount imported = PlannerAmount.ZERO;
+            Map<Integer, PlannerAmount> firings = new java.util.HashMap<>();
+            for (var layer : preview.layers()) {
+                imported = imported.add(amount(layer.addedInputs(), fuel));
+                assertEquals(PlannerAmount.ONE, amount(layer.inventory(), catalyst));
+                assertEquals(PlannerAmount.ZERO, amount(layer.addedInputs(), catalyst));
+                layer.patternTimes().forEach(value -> firings.merge(value.patternNodeId(), value.plannerAmount(), PlannerAmount::add));
+            }
+            var last = preview.layers().get(preview.layers().size() - 1);
+            assertTrue(last.folded());
+            assertEquals(count.add(PlannerAmount.ONE), amount(last.inventory(), seed));
+            assertEquals(count.multiply(3), imported);
+            assertEquals(Map.of(-2, count, -3, count), firings);
+        }
+    }
+
+    @Test
+    void exactFiringTotalsWithoutAnOrderedWitnessDoNotInventRecursionLayers() {
+        var seed = AEItemKey.of(Items.IRON_INGOT);
+        var pattern = compiled(0, seed, 2, List.of(new GenericStack(seed, 1)), List.of());
+        var solved = new CycleSolveResult(CycleSolveStatus.SUCCESS, ExecutionCountKnowledge.EXACT,
+            Map.of(pattern.details(), PlannerAmount.of(7)), Map.of(), Map.of(seed, PlannerAmount.ONE),
+            Map.of(), Map.of(), Map.of(seed, PlannerAmount.of(8)), List.of(), List.of(), List.of(),
+            CycleSolveMetrics.NONE, List.of());
+        assertFalse(CycleRecursionPreview.create(solved, List.of(new KeyAmount(seed, 7)),
+            Map.of(pattern.details(), -2)).complete());
+    }
+
+    private static PlannerAmount amount(List<KeyAmount> values, AEKey key) {
+        return values.stream().filter(value -> value.key().equals(key)).map(KeyAmount::plannerAmount)
+            .findFirst().orElse(PlannerAmount.ZERO);
+    }
+
+    private static CompiledPattern compiled(int id, AEKey output, long outputAmount, List<GenericStack> inputs,
+            List<GenericStack> returned) {
+        IPatternDetails details = mock(IPatternDetails.class);
+        var outputs = List.of(new GenericStack(output, outputAmount));
+        when(details.getOutputs()).thenReturn(outputs.toArray(GenericStack[]::new));
+        var semantics = new PatternSemantics(details, null, List.of(), outputs, returned, List.of(),
+            PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE, true, true, null);
+        return new CompiledPattern(id, details, output, PlannerAmount.of(outputAmount), inputs.stream()
+            .map(input -> new CompiledInput(null, input.what(), input.amount(), true, null)).toList(), outputs,
+            true, null, false, semantics);
+    }
 
     @Test void cycleTotalsUseExactFiringsEvenWhenAe2ShellIsEmpty() {
         verifyFlow(BigInteger.TEN.pow(25), true);
