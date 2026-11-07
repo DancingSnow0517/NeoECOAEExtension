@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
-import java.util.LinkedHashMap;
+import static cn.dancingsnow.neoecoae.gui.crafting.CraftingControllerInteractions.statusIntArg;
+import static cn.dancingsnow.neoecoae.gui.crafting.CraftingControllerInteractions.statusReasons;
+
 import java.util.List;
 import java.util.Map;
 import net.minecraft.network.chat.Component;
@@ -28,11 +30,11 @@ final class ComputationEndgameCard {
     }
 
     static List<Object> create(Component status) {
-        Map<String, Object[]> reasons = reasons(status);
+        Map<String, Object[]> reasons = statusReasons(status, REASON_PREFIX);
         int unmet = reasons.size();
         Object[] hostArgs = reasons.get("host_count");
-        int hosts = hostArgs == null ? HOST_LIMIT : intArg(hostArgs, 0, 0);
-        int limit = hostArgs == null ? HOST_LIMIT : Math.max(1, intArg(hostArgs, 1, HOST_LIMIT));
+        int hosts = hostArgs == null ? HOST_LIMIT : statusIntArg(hostArgs, 0, 0);
+        int limit = hostArgs == null ? HOST_LIMIT : Math.max(1, statusIntArg(hostArgs, 1, HOST_LIMIT));
 
         var card = CraftingListCard.builder()
             .header(CraftingListCard.Glyph.DOTS, Component.translatable(SHARED + "title"),
@@ -53,26 +55,4 @@ final class ComputationEndgameCard {
         if (!ok) card.note(Component.translatable(key + ".missing"), CraftingListCard.DANGER);
     }
 
-    private static Map<String, Object[]> reasons(Component status) {
-        Map<String, Object[]> reasons = new LinkedHashMap<>();
-        for (Component sibling : status.getSiblings()) {
-            if (sibling.getContents() instanceof TranslatableContents contents
-                && contents.getKey().startsWith(REASON_PREFIX)) {
-                reasons.put(contents.getKey().substring(REASON_PREFIX.length()), contents.getArgs());
-            }
-        }
-        return reasons;
-    }
-
-    private static int intArg(Object[] args, int index, int fallback) {
-        if (index >= args.length) return fallback;
-        Object arg = args[index];
-        if (arg instanceof Number number) return number.intValue();
-        String text = arg instanceof Component component ? component.getString() : String.valueOf(arg);
-        try {
-            return Integer.parseInt(text.trim());
-        } catch (NumberFormatException ignored) {
-            return fallback;
-        }
-    }
 }

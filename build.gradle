@@ -27,12 +27,6 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 def keyReuseAcceptance = providers.gradleProperty('keyReuseAcceptance').map { it.toBoolean() }.getOrElse(false)
 def acceptanceEnabled = providers.gradleProperty('acceptance').map { it.toBoolean() }.getOrElse(false) || keyReuseAcceptance
 
-// In-game acceptance harnesses share one source set and never ship in the published mod JAR.
-sourceSets.create('acceptance') {
-    compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
-    runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
-}
-
 repositories {
     exclusiveContent {
         forRepository {
@@ -384,7 +378,6 @@ neoForge {
     mods {
         "${mod_id}" {
             sourceSet(sourceSets.main)
-            if (acceptanceEnabled) sourceSet(sourceSets.acceptance)
         }
     }
 }
@@ -522,6 +515,12 @@ publishing {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+}
+
+// Acceptance harnesses compile with main and run only when explicitly enabled.
+// Keep their classes and sources out of every published JAR.
+tasks.withType(Jar).configureEach {
+    exclude 'cn/dancingsnow/neoecoae/dev/acceptance/**'
 }
 
 tasks.register('copyGuidebook', Copy) {

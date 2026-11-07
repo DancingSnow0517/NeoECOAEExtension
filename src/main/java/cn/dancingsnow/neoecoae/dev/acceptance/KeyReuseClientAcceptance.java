@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.compat.ae2.keyreuse;
+package cn.dancingsnow.neoecoae.dev.acceptance;
 
 import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
 

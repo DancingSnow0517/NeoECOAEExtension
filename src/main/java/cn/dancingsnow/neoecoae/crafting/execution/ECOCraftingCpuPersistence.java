@@ -19,7 +19,6 @@ final class ECOCraftingCpuPersistence {
         host.inventoryReturnForPersistence().read(data);
         cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge.clear(host);
         host.taskSchedulerForPersistence().reset();
-        host.dispatchStrategyForPersistence().reset();
         host.jobAttachmentsForPersistence().reset();
         host.outputDeliveryForPersistence().clearPendingFinalOutputs();
         host.energyTransactionForPersistence().readFromNBT(data);

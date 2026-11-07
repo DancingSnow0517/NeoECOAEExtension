@@ -526,10 +526,11 @@ public final class CraftingListCard extends UIElement {
     private final int width;
     private final int[] heights;
 
-    private CraftingListCard(List<Entry> entries, Font font) {
+    private CraftingListCard(List<Entry> entries, Font font, Component title) {
         this.font = font;
         this.entries = List.copyOf(entries);
-        int content = MIN_WIDTH;
+        // The vanilla header is unscaled, so the scaled body must still span its full width.
+        int content = Math.max(MIN_WIDTH, (int) Math.ceil(font.width(title) / CraftingTooltipCard.CONTENT_SCALE));
         for (Entry entry : this.entries) content = Math.max(content, entry.width(font));
         width = content;
         heights = new int[this.entries.size()];
@@ -776,7 +777,7 @@ public final class CraftingListCard extends UIElement {
                 title = header.title();
                 body.set(0, new IconHeader(header.icon(), header.subtitle(), Component.empty()));
             }
-            return List.of(title, new ModularUITooltipComponent(new CraftingListCard(body, font)));
+            return List.of(title, new ModularUITooltipComponent(new CraftingListCard(body, font, title)));
         }
     }
 

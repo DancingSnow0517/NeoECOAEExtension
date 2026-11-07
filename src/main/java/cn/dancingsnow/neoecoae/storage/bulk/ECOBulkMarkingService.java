@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.storage.bulk;
 
+import static cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingAdd;
+
 import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.config.Actionable;
@@ -529,10 +531,6 @@ public final class ECOBulkMarkingService {
             return requested;
         }
         return ack;
-    }
-
-    private static long saturatingAdd(long left, long right) {
-        return Long.MAX_VALUE - left < right ? Long.MAX_VALUE : left + right;
     }
 
     private static boolean sameChain(BulkUnits first, BulkUnits second) {

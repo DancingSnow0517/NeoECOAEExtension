@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.common.HostProgressTestSupport;
 import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
-import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.lowdragmc.lowdraglib2.LDLib2;
@@ -19,7 +18,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
 import net.minecraft.client.Minecraft;
 import net.minecraft.Util;
 import net.minecraft.client.gui.Font;
@@ -33,7 +31,6 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -53,16 +50,7 @@ import static org.mockito.Mockito.*;
 class CraftingHostPanelRenderingTest {
     @BeforeAll
     static void bootstrap() throws ClassNotFoundException {
-        InventoryTestBootstrap.initialize();
-        try (var mods = mockStatic(ModList.class); var registrate = mockStatic(NERegistrate.class)) {
-            ModList modList = mock(ModList.class);
-            when(modList.getAllScanData()).thenReturn(List.of());
-            mods.when(ModList::get).thenReturn(modList);
-            registrate.when(() -> NERegistrate.create("neoecoae")).thenReturn(mock(NERegistrate.class));
-            Class.forName(UIElement.class.getName());
-            Class.forName(NETextures.class.getName());
-            AccessorRegistries.init();
-        }
+        InventoryTestBootstrap.initializeUi();
     }
 
     @Test

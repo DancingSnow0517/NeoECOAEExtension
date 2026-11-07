@@ -13,6 +13,8 @@ import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
+import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.integration.xei.emi.LDLibEMIPlugin;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -29,9 +31,11 @@ import net.minecraft.world.item.crafting.RecipeHolder;
 import net.neoforged.neoforge.common.crafting.SizedIngredient;
 import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Supplier;
 
 @EmiEntrypoint
 public class NeoECOAEEmiPlugin implements EmiPlugin {
@@ -47,9 +51,9 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
         // ECO's planner/report and graph screens draw AE keys directly on a canvas rather than in
         // vanilla slots. Expose those custom hit regions so EMI's recipe and usage actions work there.
         registry.addStackProvider(ECOCraftConfirmScreen.class,
-            (screen, x, y) -> interaction(screen.getECOStackAt(x, y)));
+            (screen, x, y) -> Ingredients.interaction(screen.getECOStackAt(x, y)));
         registry.addStackProvider(ECOCraftingGraphScreen.class,
-            (screen, x, y) -> interaction(screen.getECOStackAt(x, y)));
+            (screen, x, y) -> Ingredients.interaction(screen.getECOStackAt(x, y)));
 
         // multiblock
         registry.addCategory(MULTIBLOCK);
@@ -104,15 +108,23 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
         return EmiIngredient.of(list, ingredient.amount());
     }
 
-    private static EmiStackInteraction interaction(AEKey key) {
-        if (key instanceof AEItemKey item) {
-            return new EmiStackInteraction(EmiStack.of(item.toStack()), null, false);
+    /** Hover conversion can load independently of the recipe categories and their registered blocks. */
+    public static final class Ingredients {
+        private Ingredients() {}
+
+        public static void bind(UIElement element, Supplier<@Nullable AEKey> keySupplier) {
+            LDLibEMIPlugin.stackProvider(element, () -> interaction(keySupplier.get()));
         }
-        if (key instanceof AEFluidKey fluid) {
-            return new EmiStackInteraction(NeoForgeEmiStack.of(fluid.toStack(1)), null, false);
+
+        private static EmiStackInteraction interaction(@Nullable AEKey key) {
+            if (key instanceof AEItemKey item) {
+                return new EmiStackInteraction(EmiStack.of(item.toStack()), null, false);
+            }
+            if (key instanceof AEFluidKey fluid) {
+                return new EmiStackInteraction(NeoForgeEmiStack.of(fluid.toStack(1)), null, false);
+            }
+            // Optional AE key types retain their native tooltip when EMI cannot represent them.
+            return EmiStackInteraction.EMPTY;
         }
-        // EMI has no generic representation for AE2's optional/custom key types (energy, chemicals,
-        // etc.). Leave those untouched so the screen's native tooltip remains authoritative.
-        return EmiStackInteraction.EMPTY;
     }
 }

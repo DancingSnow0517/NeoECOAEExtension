@@ -197,13 +197,11 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         }
 
         if (!ECOCraftingDispatchPolicyRegistry.mayTick(createCpuContext(currentTick))) {
-            dispatchStrategy.finishTick(0);
             taskScheduler.finishResolveTick();
             return;
         }
 
-        int operationLimit = dispatchStrategy.beginTick(cpu.getCoProcessors(), NEConfig.ecoCpuPushTickLimit);
-        int acceptedNormalPushes = 0;
+        int operationLimit = dispatchStrategy.beginTick(NEConfig.ecoCpuPushTickLimit);
         // Thunderbolt 会包装此处的 executeCrafting 调用；快速路径的批量操作不消耗此慢速路径额度。
         taskScheduler.beginSharedProbeBudget(operationLimit);
         try {
@@ -212,15 +210,12 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
                 var pass = taskScheduler.lastPass();
                 taskScheduler.consumeSharedProbeBudget(pass.normalProbes());
                 operationLimit = Math.max(0, operationLimit - pass.acceptedNormalPushes());
-                acceptedNormalPushes += pass.acceptedNormalPushes();
                 if (pushed == 0) break;
             }
         } finally {
             taskScheduler.endSharedProbeBudget();
             taskScheduler.finishResolveTick();
         }
-        // 只有普通推送计入滚动操作窗口。
-        dispatchStrategy.finishTick(acceptedNormalPushes);
         if (job != null) {
             taskScheduler.check(job);
         }
@@ -525,10 +520,6 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
     ECOCraftingTaskScheduler taskSchedulerForLifecycle() {
         return taskScheduler;
-    }
-
-    ECOCraftingDispatchStrategy dispatchStrategyForPersistence() {
-        return dispatchStrategy;
     }
 
     ECOCraftingJobAttachments jobAttachmentsForPersistence() {

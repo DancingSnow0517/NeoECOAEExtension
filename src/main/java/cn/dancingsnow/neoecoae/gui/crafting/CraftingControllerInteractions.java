@@ -22,10 +22,13 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
 
 /** Controller buttons and hover interactions; machine actions are supplied by the host. */
 final class CraftingControllerInteractions {
@@ -130,6 +133,29 @@ final class CraftingControllerInteractions {
             maintenanceTooltipLines(value), null, null, null);
         });
         return icon;
+    }
+
+    static Map<String, Object[]> statusReasons(Component status, String reasonPrefix) {
+        Map<String, Object[]> reasons = new LinkedHashMap<>();
+        for (Component sibling : status.getSiblings()) {
+            if (sibling.getContents() instanceof TranslatableContents contents
+                && contents.getKey().startsWith(reasonPrefix)) {
+                reasons.put(contents.getKey().substring(reasonPrefix.length()), contents.getArgs());
+            }
+        }
+        return reasons;
+    }
+
+    static int statusIntArg(Object[] args, int index, int fallback) {
+        if (index >= args.length) return fallback;
+        Object arg = args[index];
+        if (arg instanceof Number number) return number.intValue();
+        String text = arg instanceof Component component ? component.getString() : String.valueOf(arg);
+        try {
+            return Integer.parseInt(text.trim());
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
     }
 
     static List<Component> maintenanceTooltipLines(Component status) {

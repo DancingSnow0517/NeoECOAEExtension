@@ -28,6 +28,7 @@ import cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import com.lowdragmc.lowdraglib2.LDLib2;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.SyncStrategy;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEventBuilder;
@@ -128,7 +129,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     }
 
     private final Source source;
-    private final BindableValue<Integer> selectionRequest = new BindableValue<>(-1);
+    private final BindableValue<CompoundTag> selectionRequest = new BindableValue<>(new CompoundTag());
     private final BindableValue<CompoundTag> cpuScrollRequest = new BindableValue<>(new CompoundTag());
     private final BindableValue<CompoundTag> itemScrollRequest = new BindableValue<>(new CompoundTag());
     private final BindableValue<CompoundTag> taskScrollRequest = new BindableValue<>(new CompoundTag());
@@ -155,6 +156,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private Component tierName = Component.empty();
     private boolean cpuScrollPending, itemScrollPending, taskScrollPending;
     private long cpuScrollSequence, itemScrollSequence, taskScrollSequence;
+    private long selectionSequence;
     private Runnable backAction = () -> {};
     // Visible list rows; AE2's terminal style stretches the page downwards like the 1.7.10 status page.
     private int rows = ROWS;
@@ -182,7 +184,8 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         itemActionsPopup = new ComputationItemActionsPopup(source.registries(), request -> itemAction.send(selectedSerial, request));
         bind(DataBindingBuilder.create(server::snapshot, ignored -> {})
             .syncType(CompoundTag.class).c2sStrategy(SyncStrategy.NONE).build());
-        selectionRequest.bind(DataBindingBuilder.intValC2S(server::select).build());
+        selectionRequest.bind(DataBindingBuilder.<CompoundTag>create(CompoundTag::new, server::select)
+            .syncType(CompoundTag.class).s2cStrategy(SyncStrategy.NONE).build());
         cpuScrollRequest.bind(DataBindingBuilder.<CompoundTag>create(CompoundTag::new, server::scrollCpu)
             .syncType(CompoundTag.class).s2cStrategy(SyncStrategy.NONE).build());
         itemScrollRequest.bind(DataBindingBuilder.<CompoundTag>create(CompoundTag::new, server::scrollItems)
@@ -358,11 +361,24 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     }
 
     void open(int serial) {
+        if (serial == selectedSerial) return;
         itemScrollPending = false;
         taskScrollPending = false;
         itemActionsPopup.close();
         selectedSerial = serial;
-        selectionRequest.setValue(serial);
+        // Highlight the click immediately, but never expose another CPU's details/actions under it.
+        selected = null;
+        itemTotal = taskTotal = itemOffset = taskOffset = 0;
+        itemPage.reset();
+        taskPage.reset();
+        itemScrollbar.update(0, 0, 1);
+        taskScrollbar.update(0, 0, 1);
+        pauseButton.setActive(false);
+        cancelButton.setActive(false);
+        var request = new CompoundTag();
+        request.putInt("serial", serial);
+        request.putLong("sequence", ++selectionSequence);
+        selectionRequest.setValue(request);
     }
 
     private TextField searchField(ServerState server) {
@@ -388,6 +404,10 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
 
     @Override
     public ComputationCpuStatusPanel setValue(CompoundTag value, boolean notify) {
+        // Serial alone cannot distinguish A -> B -> A. Do not let an in-flight snapshot
+        // replace the latest click (including the C2S value that has not been sent yet).
+        if (value != null && value.contains("total")
+            && value.getLong("selectionSequence") != selectionSequence) return this;
         super.setValue(value, notify);
         if (value == null || !value.contains("total")) return this;
         total = value.getInt("total");
@@ -423,7 +443,6 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         }
         selected = value.contains("selected")
             ? ComputationCpuEntry.read(value.getCompound("selected"), registries) : null;
-        selectionRequest.setValue(selectedSerial, false);
         cpuScrollbar.update(cpuOffset, total - rows, rows / 3);
         itemScrollbar.update(itemOffset / ITEM_COLS, maxItemRows(itemTotal, rows), 1);
         taskScrollbar.update(taskOffset, taskTotal - rows, 1);
@@ -473,6 +492,21 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     }
 
     private void itemEvents(UIElement hitbox, ItemLookup lookup) {
+        if (LDLib2.isClient() && !LDLib2.isServer()) {
+            Supplier<@Nullable AEKey> hoveredKey = () -> {
+                var ui = getModularUI();
+                if (ui == null || !isDisplayed() || itemActionsPopup.isDisplayed()
+                    || ui.getFocusedElement() instanceof TextField) return null;
+                var item = lookup.at(ui.getLastMouseX(), ui.getLastMouseY());
+                return item == null ? null : item.key();
+            };
+            if (LDLib2.isJeiLoaded()) {
+                cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin.bindIngredient(hitbox, hoveredKey);
+            }
+            if (LDLib2.isEmiLoaded()) {
+                cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin.Ingredients.bind(hitbox, hoveredKey);
+            }
+        }
         hitbox.addEventListener(UIEvents.MOUSE_DOWN, event -> {
             if (event.button != 1) return;
             var item = lookup.at(event.x, event.y);
@@ -833,6 +867,9 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         private long sampledTick = Long.MIN_VALUE;
         private int itemOffset, taskOffset;
         private long cpuScrollSequence, itemScrollSequence, taskScrollSequence;
+        private long selectionSequence;
+        private int requestedSerial;
+        private boolean selectionPending;
         private CompoundTag itemActionResponse = new CompoundTag();
         private String query = "";
         private boolean focusPending;
@@ -861,16 +898,14 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             cached = null;
         }
 
-        private void select(int serial) {
+        private void select(CompoundTag request) {
             if (!source.canInteract().getAsBoolean()) return;
-            refresh();
-            if (serial != selection.selectedSerial()) {
-                itemOffset = 0;
-                taskOffset = 0;
-                focusPending = !query.isEmpty();
-            }
-            selection.select(serial);
-            cached = null;
+            if (!request.contains("serial") || request.getLong("sequence") <= selectionSequence) return;
+            // C2S values already coalesce between client ticks. Also coalesce packets received
+            // before the next server snapshot, without rescanning/sorting CPUs for each click.
+            selectionSequence = request.getLong("sequence");
+            requestedSerial = request.getInt("serial");
+            selectionPending = true;
         }
 
         private void scrollCpu(CompoundTag request) {
@@ -980,9 +1015,18 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
 
         private CompoundTag snapshot() {
             long tick = source.gameTime().getAsLong();
-            if (cached != null && tick >= sampledTick && tick - sampledTick < 3) return cached;
+            if (cached != null && !selectionPending && tick >= sampledTick && tick - sampledTick < 3) return cached;
             sampledTick = tick;
             refresh();
+            if (selectionPending) {
+                selectionPending = false;
+                int previousSerial = selection.selectedSerial();
+                if (selection.select(requestedSerial) && previousSerial != selection.selectedSerial()) {
+                    itemOffset = 0;
+                    taskOffset = 0;
+                    focusPending = !query.isEmpty();
+                }
+            }
             CompoundTag tag = new CompoundTag();
             tag.putInt("total", selection.size());
             tag.putInt("cpuOffset", selection.offset());
@@ -990,6 +1034,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             tag.putLong("itemScrollSequence", itemScrollSequence);
             tag.putLong("taskScrollSequence", taskScrollSequence);
             tag.putInt("selectedSerial", selection.selectedSerial());
+            tag.putLong("selectionSequence", selectionSequence);
             var registries = source.registries();
             ListTag cpuPage = new ListTag();
             tag.putInt("cpuPageStart", Math.max(0, selection.offset() - rows));

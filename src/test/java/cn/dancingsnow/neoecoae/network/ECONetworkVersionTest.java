@@ -39,10 +39,12 @@ class ECONetworkVersionTest {
     }
 
     @Test
-    void previousFullCpuListProtocolIsRejectedEvenForTheSameRelease() {
+    void previousCpuListAndSelectionProtocolsAreRejectedEvenForTheSameRelease() {
         String current = ECONetwork.protocolVersion("21.2.0-beta6");
         assertRejected(current, "3/21.2.0-beta6");
         assertRejected("3/21.2.0-beta6", current);
+        assertRejected(current, "4/21.2.0-beta6");
+        assertRejected("4/21.2.0-beta6", current);
     }
 
     private static void assertRejected(String serverVersion, String clientVersion) {

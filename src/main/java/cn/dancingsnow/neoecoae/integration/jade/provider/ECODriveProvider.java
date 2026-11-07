@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.jade.provider;
 
+import static cn.dancingsnow.neoecoae.items.ECOStorageCellItem.bytesUsedLine;
+
 import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.NeoECOAE;
@@ -66,22 +68,6 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
                 iTooltip.add(Tooltips.typesUsed(storedItemTypes, serverData.getLong("totalItemTypes")));
             }
         }
-    }
-
-    private static Component bytesUsedLine(long used, long total) {
-        if (total != Long.MAX_VALUE) {
-            return Tooltips.bytesUsed(used, total);
-        }
-        return Tooltips.of(
-            GuiText.BytesUsed,
-            Tooltips.of(
-                Tooltips.ofUnformattedNumberWithRatioColor(used, 0.0, false),
-                Tooltips.of(" "),
-                Tooltips.of(GuiText.Of),
-                Tooltips.of(" "),
-                Component.literal("∞").withStyle(Tooltips.NUMBER_TEXT)
-            )
-        );
     }
 
     @Override
