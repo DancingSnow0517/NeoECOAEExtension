@@ -7,12 +7,30 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-/** Per-key amounts and the table total cross long, U126 and BigInteger and must stay exact. */
+/** Per-key amounts and the table total cross long, U128 and BigInteger and must stay exact. */
 class StorageAmountsTierTest {
     private static final BigInteger LONG_MAX = BigInteger.valueOf(Long.MAX_VALUE);
+
+    @ParameterizedTest
+    @ValueSource(ints = {127, 128, 129})
+    void mutableWordCarryBorrowAndSnapshotsStayExact(int bits) {
+        var amounts = new StorageAmounts();
+        AEKey key = mock(AEKey.class);
+        BigInteger boundary = BigInteger.ONE.shiftLeft(bits);
+        amounts.set(key, HugeAmount.of(boundary.subtract(BigInteger.ONE)));
+        amounts.add(key, 2L);
+        assertEquals(boundary.add(BigInteger.ONE), amounts.get(key).toBigInteger());
+        assertEquals(boundary.add(BigInteger.ONE), amounts.totalExact());
+        amounts.subtract(key, 2L);
+        assertEquals(boundary.subtract(BigInteger.ONE), amounts.get(key).toBigInteger());
+        assertEquals(boundary.subtract(BigInteger.ONE), amounts.totalExact());
+        assertEquals(bits <= 128, amounts.get(key).toU128() != null);
+    }
 
     @Test void amountsAndTotalMatchBigIntegerReference() {
         Random random = new Random(1260);
