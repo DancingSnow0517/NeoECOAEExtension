@@ -25,6 +25,7 @@ import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.integration.xei.RecipeViewerBookmarkAccess;
 import cn.dancingsnow.neoecoae.network.ECOForceCraftStartFlagC2SPacket;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -81,7 +82,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         Component.translatable("gui.neoecoae.crafting_report.calculating"));
 
     private record ReportSummaryState(@Nullable CraftingPlanSummary plan, boolean loadingDetails,
-            long nanos, BigInteger bytes, boolean unknownBytes, Language language,
+            long nanos, BigInteger bytes, boolean unknownBytes,
+            @Nullable CraftingGraphSnapshot.Summary graphSummary, Language language,
             net.minecraft.client.gui.Font font) {}
 
     public ECOCraftConfirmScreen(CraftConfirmMenu menu, Inventory playerInventory, Component title,
@@ -283,14 +285,17 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         boolean loadingDetails = false;
         BigInteger usedBytes = BigInteger.valueOf(plan == null ? 0L : Math.max(0L, plan.getUsedBytes()));
         long nanos = 0L;
+        CraftingGraphSnapshot.Summary graphSummary = null;
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {
             loadingDetails = !mode.neoecoae$diagnosticsReady();
             nanos = mode.neoecoae$getCalculationNanos();
+            var snapshot = mode.neoecoae$getCraftingGraphSnapshot();
+            if (!snapshot.summary().planningStatus().equals("EMPTY")) graphSummary = snapshot.summary();
             BigInteger theoreticalBytes = mode.neoecoae$getTheoreticalBytes();
             if (theoreticalBytes.signum() > 0) usedBytes = theoreticalBytes;
         }
         var state = new ReportSummaryState(plan, loadingDetails, nanos, usedBytes, unknownBytes,
-            Language.getInstance(), font);
+            graphSummary, Language.getInstance(), font);
         if (state.equals(reportSummaryState)) return;
         reportSummaryState = state;
         if (loadingDetails) {
@@ -302,6 +307,15 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         } else {
             reportSummary = ECOCraftReportHeaderRenderer.completed(nanos, unknownBytes ? null : usedBytes,
                 text -> font.width(text));
+            if (graphSummary != null) {
+                var tooltip = new ArrayList<>(reportSummary.tooltip());
+                tooltip.add(Component.translatable("gui.neoecoae.crafting_report.total_patterns",
+                    cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers.grouped(graphSummary.patternNodes())));
+                tooltip.add(Component.translatable("gui.neoecoae.crafting_report.total_cycles",
+                    cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers.grouped(graphSummary.cycleGroups())));
+                reportSummary = new ECOCraftReportHeaderRenderer.Summary(
+                    reportSummary.elapsed(), reportSummary.bytes(), List.copyOf(tooltip));
+            }
         }
     }
 

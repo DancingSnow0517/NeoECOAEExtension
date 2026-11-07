@@ -726,6 +726,8 @@
   "gui.neoecoae.crafting_report.bytes": " - 字節：%s",
   "gui.neoecoae.crafting_report.bytes_only": "字節：%s",
   "gui.neoecoae.crafting_report.elapsed": "耗時：%s ms",
+  "gui.neoecoae.crafting_report.total_patterns": "樣板總數：%s",
+  "gui.neoecoae.crafting_report.total_cycles": "循環總數：%s",
   "gui.neoecoae.crafting_report.bytes_pending": "字節：待計",
   "gui.neoecoae.crafting_report.bytes_unknown": "字節：未定",
   "gui.neoecoae.crafting_report.total_net_output_unknown": "總變化：未知",

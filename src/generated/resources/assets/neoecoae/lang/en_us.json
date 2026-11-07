@@ -632,6 +632,8 @@
   "gui.neoecoae.crafting_report.cycle_planning_enabled": "Cycle found",
   "gui.neoecoae.crafting_report.cycle_unsupported": "A cyclic recipe cannot be handled by the current solver.",
   "gui.neoecoae.crafting_report.elapsed": "Time: %s ms",
+  "gui.neoecoae.crafting_report.total_patterns": "Total patterns: %s",
+  "gui.neoecoae.crafting_report.total_cycles": "Total cycles: %s",
   "gui.neoecoae.crafting_report.loading_details": "Loading crafting details…",
   "gui.neoecoae.crafting_report.material_sync_failed": "Could not load the material report; see the game log",
   "gui.neoecoae.crafting_report.graph_sync_failed": "Could not load the recipe graph; the material report remains available",

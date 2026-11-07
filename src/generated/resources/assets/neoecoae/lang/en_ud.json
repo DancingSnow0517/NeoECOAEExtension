@@ -549,6 +549,8 @@
   "gui.neoecoae.crafting_report.cycle_planning_enabled": "punoɟ ǝןɔʎƆ",
   "gui.neoecoae.crafting_report.cycle_unsupported": "˙ɹǝʌןos ʇuǝɹɹnɔ ǝɥʇ ʎq pǝןpuɐɥ ǝq ʇouuɐɔ ǝdıɔǝɹ ɔıןɔʎɔ Ɐ",
   "gui.neoecoae.crafting_report.elapsed": "sɯ %s :ǝɯı⟘",
+  "gui.neoecoae.crafting_report.total_patterns": "%s :suɹǝʇʇɐd lɐʇo⟘",
+  "gui.neoecoae.crafting_report.total_cycles": "%s :sǝlɔʎɔ lɐʇo⟘",
   "gui.neoecoae.crafting_report.loading_details": "…sןıɐʇǝp buıʇɟɐɹɔ buıpɐoꞀ",
   "gui.neoecoae.crafting_report.material_sync_failed": "Could not load the material report; see the game log",
   "gui.neoecoae.crafting_report.graph_sync_failed": "Could not load the recipe graph; the material report remains available",
