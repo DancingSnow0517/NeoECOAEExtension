@@ -2,9 +2,7 @@ package cn.dancingsnow.neoecoae.mixins.client.ae2;
 
 import appeng.client.gui.Icon;
 import appeng.client.gui.widgets.IconButton;
-import cn.dancingsnow.neoecoae.client.gui.crafting.ECOCraftConfirmScreen;
 import cn.dancingsnow.neoecoae.client.gui.workstation.WorkstationInterfaceArtwork;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
@@ -27,9 +25,7 @@ public abstract class WorkstationInterfaceIconButtonMixin extends Button {
     @Inject(method = "renderWidget", at = @At("HEAD"), cancellable = true, remap = true)
     private void neoecoae$drawModernWorkstationButton(GuiGraphics graphics, int mouseX, int mouseY,
         float partialTick, CallbackInfo callback) {
-        boolean craftingHelp = Minecraft.getInstance().screen instanceof ECOCraftConfirmScreen
-            && getIcon() == Icon.HELP;
-        if (!WorkstationInterfaceArtwork.active() && !craftingHelp) return;
+        if (!WorkstationInterfaceArtwork.active()) return;
         var button = (IconButton) (Object) this;
         if (button.isHalfSize()) { width = 8; height = 8; }
         WorkstationInterfaceArtwork.renderButton(button, getIcon(), getItemOverlay(), graphics, mouseX, mouseY);

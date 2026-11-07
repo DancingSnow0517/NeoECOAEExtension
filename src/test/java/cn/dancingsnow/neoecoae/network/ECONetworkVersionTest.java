@@ -29,7 +29,7 @@ class ECONetworkVersionTest {
 
     @Test void sameEcoReleasePassesBothForgeChannelChecks() {
         var checks = register("20.6.0-dev");
-        assertEquals("5/20.6.0-dev", checks.version().get());
+        assertEquals("8/20.6.0-dev", checks.version().get());
         assertTrue(checks.client().test(checks.version().get()));
         assertTrue(checks.server().test(checks.version().get()));
     }
@@ -43,7 +43,7 @@ class ECONetworkVersionTest {
 
     @Test void legacyAndMissingChannelsAreRejectedInBothDirections() {
         var checks = register("20.6.0-dev");
-        for (String version : new String[] {"3", "3/20.6.0-dev", NetworkRegistry.ABSENT.version(), NetworkRegistry.ACCEPTVANILLA}) {
+        for (String version : new String[] {"3", "3/20.6.0-dev", "5/20.6.0-dev", "6/20.6.0-dev", "7/20.6.0-dev", NetworkRegistry.ABSENT.version(), NetworkRegistry.ACCEPTVANILLA}) {
             assertFalse(checks.client().test(version));
             assertFalse(checks.server().test(version));
         }

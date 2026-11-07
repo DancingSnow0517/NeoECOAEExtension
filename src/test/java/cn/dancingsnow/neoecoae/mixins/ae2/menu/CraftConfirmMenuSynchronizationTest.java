@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import appeng.menu.guisync.DataSynchronization;
 import appeng.menu.guisync.GuiSync;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
+import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
+import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import io.netty.buffer.Unpooled;
 import net.minecraft.network.FriendlyByteBuf;
 import org.junit.jupiter.api.BeforeAll;
@@ -23,6 +25,7 @@ public class CraftConfirmMenuSynchronizationTest {
         setEco(server, "neoecoae$optimizationState", 1);
         setEco(server, "neoecoae$exactPlanReady", true);
         setEco(server, "neoecoae$provenInfeasible", false);
+        setEco(server, "neoecoae$reportSyncFailure", 2);
         server.customProgress = 987654321L;
         server.customDiagnostic = "another addon diagnostic";
         server.customHighId = "another independently assigned range";
@@ -36,6 +39,7 @@ public class CraftConfirmMenuSynchronizationTest {
             assertEquals(7, getEco(client, "neoecoae$planningStatusCode"));
             assertEquals(1, getEco(client, "neoecoae$optimizationState"));
             assertEquals(true, getEco(client, "neoecoae$exactPlanReady"));
+            assertEquals(2, client.neoecoae$getReportSyncFailure());
             assertEquals(server.customProgress, client.customProgress);
             assertEquals(server.customDiagnostic, client.customDiagnostic);
             assertEquals(server.customHighId, client.customHighId);
@@ -62,6 +66,46 @@ public class CraftConfirmMenuSynchronizationTest {
         var error = assertThrows(IllegalStateException.class,
             () -> new DataSynchronization(new ConflictingAddonFields()));
         assertTrue(error.getMessage().contains("same sync id twice: 100"));
+    }
+
+    @Test void materialRowsPublishThePlanRevisionBeforeGraphAndRejectStaleGraphCompletions() throws Exception {
+        var client = new OtherAddonFields();
+        var full = CraftingGraphSnapshot.EMPTY;
+        var firstReport = full.materialReport();
+        client.neoecoae$setMaterialReport(1, firstReport, ECOCycleItemList.EMPTY);
+        assertSame(firstReport, client.neoecoae$craftingGraph);
+        assertEquals(1L, client.neoecoae$getDisplayedPlanRevision());
+        assertEquals(-1L, getEco(client, "neoecoae$receivedGraphVersion"));
+
+        var nextReport = full.materialReport();
+        client.neoecoae$setMaterialReport(2, nextReport, ECOCycleItemList.EMPTY);
+        client.neoecoae$setDiagnostics(1, full, ECOCycleItemList.EMPTY);
+        assertSame(nextReport, client.neoecoae$craftingGraph);
+        assertEquals(2L, client.neoecoae$getDisplayedPlanRevision());
+        assertEquals(-1L, getEco(client, "neoecoae$receivedGraphVersion"));
+
+        client.neoecoae$setDiagnostics(2, full, ECOCycleItemList.EMPTY);
+        assertEquals(2L, getEco(client, "neoecoae$receivedGraphVersion"));
+        client.neoecoae$setMaterialReport(2, nextReport, ECOCycleItemList.EMPTY);
+        assertSame(full, client.neoecoae$craftingGraph, "A late table packet cannot replace a full graph");
+    }
+
+    @Test void reportEncodingFailureIsContainedAndLeavesNoPendingStream() throws Exception {
+        var server = new OtherAddonFields();
+        var player = org.mockito.Mockito.mock(net.minecraft.server.level.ServerPlayer.class);
+        player.containerMenu = org.mockito.Mockito.mock(net.minecraft.world.inventory.AbstractContainerMenu.class);
+        var invalid = new CraftingGraphSnapshot(-1, java.util.List.of(), java.util.List.of(), java.util.List.of(),
+            java.util.List.of(), java.util.List.of(),
+            new CraftingGraphSnapshot.Summary("x".repeat(32768), 0, 0, 0, 0, 0));
+        var send = CraftConfirmMenuMixin.class.getDeclaredMethod("neoecoae$sendReport",
+            net.minecraft.server.level.ServerPlayer.class, CraftingGraphSnapshot.class, boolean.class);
+        send.setAccessible(true);
+        for (boolean fullGraph : java.util.List.of(false, true)) {
+            assertEquals(false, send.invoke(server, player, invalid, fullGraph));
+            assertEquals(fullGraph ? 2 : 1, server.neoecoae$getReportSyncFailure());
+            assertFalse(cn.dancingsnow.neoecoae.network.MenuDataTransport.busy(player,
+                cn.dancingsnow.neoecoae.network.MenuDataTransport.Channel.GRAPH));
+        }
     }
 
     private static void setEco(Object menu, String name, Object value) throws Exception {
