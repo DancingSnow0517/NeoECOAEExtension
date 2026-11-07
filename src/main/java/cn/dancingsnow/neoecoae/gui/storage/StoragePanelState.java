@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.platform.JdkCompat;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI.CellEntry;
@@ -125,31 +126,33 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
     }
 
     static double usage(List<CellEntry> cells) {
-        BigInteger used = BigInteger.ZERO, total = BigInteger.ZERO;
+        PlannerAmount used = PlannerAmount.ZERO, total = PlannerAmount.ZERO;
         for (CellEntry cell : cells) {
             if (cell.infinite() || cell.totalBytes() < 0) return 1;
             // Special cells report Long.MAX_VALUE instead of a comparable finite byte capacity.
             if (cell.totalBytes() == Long.MAX_VALUE) continue;
-            used = used.add(BigInteger.valueOf(Math.max(0, cell.usedBytes())));
-            total = total.add(BigInteger.valueOf(Math.max(0, cell.totalBytes())));
+            used = used.add(Math.max(0, cell.usedBytes()));
+            total = total.add(Math.max(0, cell.totalBytes()));
         }
         if (total.signum() == 0) return 0;
-        return JdkCompat.clamp(new BigDecimal(used).divide(new BigDecimal(total), MathContext.DECIMAL64).doubleValue(), 0, 1);
+        return JdkCompat.clamp(new BigDecimal(used.toBigInteger())
+            .divide(new BigDecimal(total.toBigInteger()), MathContext.DECIMAL64).doubleValue(), 0, 1);
     }
 
     private static BigInteger totalCapacity(List<CellEntry> cells) {
         return cells.stream().filter(cell -> cell.totalBytes() != Long.MAX_VALUE)
-            .map(cell -> BigInteger.valueOf(Math.max(0, cell.totalBytes())))
-            .reduce(BigInteger.ZERO, BigInteger::add);
+            .map(cell -> PlannerAmount.of(Math.max(0, cell.totalBytes())))
+            .reduce(PlannerAmount.ZERO, PlannerAmount::add).toBigInteger();
     }
 
     private static BigInteger totalUsedBytes(List<CellEntry> cells, List<TypeLine> types, boolean unbounded) {
         if (unbounded) {
-            return types.stream().map(TypeLine::exactUsedBytes).reduce(BigInteger.ZERO, BigInteger::add);
+            return types.stream().map(type -> PlannerAmount.of(type.exactUsedBytes()))
+                .reduce(PlannerAmount.ZERO, PlannerAmount::add).toBigInteger();
         }
         // Use the same finite cells as totalCapacity and usage, before selecting the visible page.
         return cells.stream().filter(cell -> cell.totalBytes() != Long.MAX_VALUE)
-            .map(CellEntry::exactUsedBytes).reduce(BigInteger.ZERO, BigInteger::add);
+            .map(cell -> PlannerAmount.of(cell.exactUsedBytes())).reduce(PlannerAmount.ZERO, PlannerAmount::add).toBigInteger();
     }
 
     TypeLine type(int id) {

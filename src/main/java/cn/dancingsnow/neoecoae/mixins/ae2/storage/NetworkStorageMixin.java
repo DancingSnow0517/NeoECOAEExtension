@@ -20,6 +20,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NavigableMap;
@@ -105,7 +106,8 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, Netwo
         // Let ordinary ME storage handle one standard-sized window, using AE2's original priority routing.
         BigInteger accepted = checked(MAX_LONG, BigInteger.valueOf(((MEStorage) (Object) this)
                 .insert(what, Long.MAX_VALUE, mode, source)));
-        BigInteger remaining = amount.subtract(accepted);
+        PlannerAmount requested = PlannerAmount.of(amount);
+        PlannerAmount remaining = requested.subtract(PlannerAmount.of(accepted));
         if (remaining.signum() == 0) return accepted;
 
         // Only storage that explicitly implements the exact side-channel receives the amount beyond that window.
@@ -134,12 +136,13 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, Netwo
             mountsInUse = false;
         }
         flushQueuedOperations();
-        return amount.subtract(remaining);
+        return requested.subtract(remaining).toBigInteger();
     }
 
-    private static BigInteger insertExact(ECOBigIntegerStorage inventory, AEKey what, BigInteger amount,
+    private static PlannerAmount insertExact(ECOBigIntegerStorage inventory, AEKey what, PlannerAmount amount,
             Actionable mode, IActionSource source) {
-        return checked(amount, inventory.insertBigInteger(what, amount, mode, source));
+        BigInteger offered = amount.toBigInteger();
+        return PlannerAmount.of(checked(offered, inventory.insertBigInteger(what, offered, mode, source)));
     }
 
     private static BigInteger checked(BigInteger offered, BigInteger inserted) {

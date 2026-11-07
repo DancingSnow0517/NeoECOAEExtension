@@ -545,9 +545,9 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.storag
                                             Map<UUID, ECOInfiniteStorageEngine.RestoreTargetAmounts> plan) {
         if (plan.isEmpty()) return true; // v1/v2 reservation, upgraded before the next target mutation
         if (!targets.containsAll(plan.keySet())) return false;
-        java.math.BigInteger allocated = java.math.BigInteger.ZERO;
-        for (var target : plan.values()) allocated = allocated.add(target.transferredExact());
-        return allocated.equals(amount.toBigInteger());
+        HugeAmount allocated = HugeAmount.ZERO;
+        for (var target : plan.values()) allocated = allocated.add(HugeAmount.of(target.transferredExact()));
+        return allocated.equals(amount);
     }
 
     public Set<UUID> restoreTargetIds(AEKey key) {
@@ -580,9 +580,9 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.storag
     public boolean finishRestore(AEKey key, UUID transaction) {
         if (!canFinishRestore(key, transaction)) return false;
         Restore restore = restores.get(key);
-        BigInteger transferred = BigInteger.ZERO;
-        for (var target : restore.plan().values()) transferred = transferred.add(target.transferredExact());
-        HugeAmount remaining = HugeAmount.of(amounts.get(key).toBigInteger().subtract(transferred));
+        HugeAmount transferred = HugeAmount.ZERO;
+        for (var target : restore.plan().values()) transferred = transferred.add(HugeAmount.of(target.transferredExact()));
+        HugeAmount remaining = amounts.get(key).subtract(transferred);
         amounts.set(key, remaining);
         restores.remove(key);
         setDirty();
