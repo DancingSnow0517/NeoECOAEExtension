@@ -12,7 +12,9 @@ import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.api.storage.IECOBulkDisplayCell;
 import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
+import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
 import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
 import cn.dancingsnow.neoecoae.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOBulkStorageCellItem;
@@ -39,7 +41,7 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
     private final boolean allowUnconfiguredInserts;
     private final Map<AEItemKey, Account> accounts = new LinkedHashMap<>();
     private final Map<AEItemKey, AEItemKey> cutoffs = new LinkedHashMap<>();
-    private final Map<AEItemKey, BigInteger> pending = new LinkedHashMap<>();
+    private final Map<AEItemKey, PlannerAmount> pending = new LinkedHashMap<>();
     private final ListTag unresolved = new ListTag();
     private int storagePriority = 1;
     private boolean persisted = true;
@@ -49,7 +51,7 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
     private int cachedSlots;
     private long filterRevision = -1;
     private List<AEItemKey> cachedFilters = List.of();
-    private record Account(BulkUnits units, BigInteger amount) {}
+    private record Account(BulkUnits units, PlannerAmount amount) {}
 
     public ECOBulkStorageCell(ItemStack stack, @Nullable ISaveProvider container) {
         this(stack, container, Map.of(), false);
@@ -78,7 +80,8 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
                 if (entry.getValue().signum() <= 0) throw new IllegalArgumentException("Nonpositive legacy amount");
                 BulkUnits units = allowUnconfiguredInserts ? BulkUnits.single(entry.getKey())
                     : ECOCompressionService.units(entry.getKey());
-                merge(entry.getKey(), new Account(units, units.factor(entry.getKey()).multiply(entry.getValue())));
+                merge(entry.getKey(), new Account(units,
+                    units.factorQuantity(entry.getKey()).multiply(PlannerAmount.of(entry.getValue()))));
             }
             if (!allowUnconfiguredInserts) {
                 List<GenericStack> markers = new ArrayList<>(ECOBulkStorageCellItem.configuredStacks(stack));
@@ -113,7 +116,7 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
     @Override public long getStoredItemTypes() { return effectiveAccounts().size() + unresolved.size(); }
     @Override public long getRemainingItemTypes() { return Math.max(0, getTotalItemTypes() - getStoredItemTypes()); }
     @Override public long getStoredItemCount() {
-        return BulkUnits.clamp(getExactUsedBytes());
+        return BulkUnits.clamp(storedQuantity());
     }
     @Override public long getRemainingItemCount() {
         List<AEItemKey> filters = getEffectiveConfiguredFilters();
@@ -128,7 +131,10 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
     @Override public long getUsedBytes() { return getStoredItemCount(); }
     @Override public BigInteger getStoredItemCountExact() { return getExactUsedBytes(); }
     public BigInteger getExactUsedBytes() {
-        return effectiveAccounts().values().stream().map(Account::amount).reduce(BigInteger.ZERO, BigInteger::add);
+        return storedQuantity().toBigInteger();
+    }
+    private PlannerAmount storedQuantity() {
+        return effectiveAccounts().values().stream().map(Account::amount).reduce(PlannerAmount.ZERO, PlannerAmount::add);
     }
     @Override public long getTotalBytes() { return Long.MAX_VALUE; }
     @Override public long getFreeBytes() { return Long.MAX_VALUE; }
@@ -163,13 +169,13 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
             boolean historicalConflict = result.values().stream().anyMatch(account -> account.units().compressible()
                 && !account.units().equals(current) && account.units().items().stream().anyMatch(current::contains));
             if (historicalConflict) continue;
-            BigInteger total = BigInteger.ZERO;
+            PlannerAmount total = PlannerAmount.ZERO;
             for (var iterator = result.entrySet().iterator(); iterator.hasNext();) {
                 Account account = iterator.next().getValue();
                 if (account.units().equals(current)) {
                     total = total.add(account.amount());
                 } else if (!account.units().compressible() && current.contains(account.units().items().get(0))) {
-                    total = total.add(account.amount().multiply(current.factor(account.units().items().get(0))));
+                    total = total.add(account.amount().multiply(current.factorQuantity(account.units().items().get(0))));
                 } else continue;
                 iterator.remove();
             }
@@ -216,24 +222,27 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
     }
     public Map<AEItemKey, BigInteger> getStoredEntries() {
         Map<AEItemKey, BigInteger> result = new LinkedHashMap<>();
-        effectiveAccounts().forEach((key, account) -> result.put(key, account.amount()));
+        effectiveAccounts().forEach((key, account) -> result.put(key, account.amount().toBigInteger()));
         return Map.copyOf(result);
     }
 
     @Override public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
-        return amount <= 0 ? 0 : insertBigInteger(what, BigInteger.valueOf(amount), mode, source).longValueExact();
+        return amount <= 0 ? 0 : insertQuantity(what, PlannerAmount.of(amount), mode, source).longValueExact();
     }
     @Override public BigInteger insertBigInteger(AEKey what, BigInteger amount, Actionable mode, IActionSource source) {
+        return insertQuantity(what, PlannerAmount.of(amount), mode, source).toBigInteger();
+    }
+    private PlannerAmount insertQuantity(AEKey what, PlannerAmount amount, Actionable mode, IActionSource source) {
         refreshUnresolved();
-        if (amount.signum() <= 0 || !(what instanceof AEItemKey item) || !canStoreKeyInsideStorageCell(what)) return BigInteger.ZERO;
+        if (amount.signum() <= 0 || !(what instanceof AEItemKey item) || !canStoreKeyInsideStorageCell(what)) return PlannerAmount.ZERO;
         if (item.getReadOnlyStack().getItem() instanceof cn.dancingsnow.neoecoae.items.ECOStorageCellItem) {
             var nested = cn.dancingsnow.neoecoae.items.ECOStorageCellItem.getCellInventory(item.toStack());
-            if (nested != null && !nested.canFitInsideCell()) return BigInteger.ZERO;
+            if (nested != null && !nested.canFitInsideCell()) return PlannerAmount.ZERO;
         }
         List<AEItemKey> filters = getEffectiveConfiguredFilters();
         AEItemKey marker = filters.stream()
             .filter(key -> ECOCompressionService.sameChain(key, item)).findFirst().orElse(null);
-        if (marker == null && !(allowUnconfiguredInserts && filters.isEmpty())) return BigInteger.ZERO;
+        if (marker == null && !(allowUnconfiguredInserts && filters.isEmpty())) return PlannerAmount.ZERO;
         BulkUnits current = marker == null ? BulkUnits.single(item) : ECOCompressionService.units(item);
         Map<AEItemKey, Account> available = effectiveAccounts();
         AEItemKey target = null;
@@ -241,17 +250,17 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
             BulkUnits saved = entry.getValue().units();
             if (saved.items().stream().anyMatch(current::contains)) {
                 // Reloads may not reinterpret old units, nor open another account for the same stock.
-                if (!saved.equals(current)) return BigInteger.ZERO;
+                if (!saved.equals(current)) return PlannerAmount.ZERO;
                 target = entry.getKey();
                 break;
             }
         }
-        if (target == null && getRemainingItemTypes() == 0) return BigInteger.ZERO;
+        if (target == null && getRemainingItemTypes() == 0) return PlannerAmount.ZERO;
         if (mode == Actionable.MODULATE) {
             if (target == null) target = marker != null ? marker : item;
             Account previous = available.get(target);
-            BigInteger before = previous == null ? BigInteger.ZERO : previous.amount();
-            available.put(target, new Account(current, before.add(current.factor(item).multiply(amount))));
+            PlannerAmount before = previous == null ? PlannerAmount.ZERO : previous.amount();
+            available.put(target, new Account(current, before.add(current.factorQuantity(item).multiply(amount))));
             commitAccounts(available);
             saveChanges();
         }
@@ -263,25 +272,28 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
     }
 
     @Override public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
-        return amount <= 0 ? 0 : extractBigInteger(what, BigInteger.valueOf(amount), mode, source).longValueExact();
+        return amount <= 0 ? 0 : extractQuantity(what, PlannerAmount.of(amount), mode, source).longValueExact();
     }
     /** Exact extraction; the long API is a bounded projection of the same accounting. */
     @Override public BigInteger extractBigInteger(AEKey what, BigInteger amount, Actionable mode, IActionSource source) {
-        if (cn.dancingsnow.neoecoae.storage.transfer.StorageExtractionExclusions.contains(this)) return BigInteger.ZERO;
+        return amount == null ? BigInteger.ZERO : extractQuantity(what, PlannerAmount.of(amount), mode, source).toBigInteger();
+    }
+    private PlannerAmount extractQuantity(AEKey what, PlannerAmount amount, Actionable mode, IActionSource source) {
+        if (cn.dancingsnow.neoecoae.storage.transfer.StorageExtractionExclusions.contains(this)) return PlannerAmount.ZERO;
         refreshUnresolved();
-        if (amount == null || amount.signum() <= 0 || !(what instanceof AEItemKey item)) return BigInteger.ZERO;
+        if (amount.signum() <= 0 || !(what instanceof AEItemKey item)) return PlannerAmount.ZERO;
         Map<AEItemKey, Account> available = effectiveAccounts();
-        BigInteger remaining = amount;
+        PlannerAmount remaining = amount;
         for (var iterator = available.entrySet().iterator(); iterator.hasNext() && remaining.signum() > 0;) {
             var entry = iterator.next(); Account account = entry.getValue();
-            BigInteger factor = account.units().factor(item);
+            PlannerAmount factor = account.units().factorQuantity(item);
             if (factor.signum() <= 0 || (!isCurrent(account.units()) || !compressionEnabled(account.units()))
                     && !item.equals(account.units().items().get(0))) continue;
-            BigInteger taken = account.amount().divide(factor).min(remaining);
+            PlannerAmount taken = account.amount().divide(factor).min(remaining);
             if (taken.signum() == 0) continue;
             remaining = remaining.subtract(taken);
             if (mode == Actionable.MODULATE) {
-                BigInteger after = account.amount().subtract(factor.multiply(taken));
+                PlannerAmount after = account.amount().subtract(factor.multiply(taken));
                 if (after.signum() == 0) iterator.remove();
                 else entry.setValue(new Account(account.units(), after));
             }
@@ -310,15 +322,15 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
         if (selected == null) selected = getEffectiveConfiguredFilters().stream().filter(units::contains).findFirst().orElse(key);
         return units.cutoff(selected);
     }
-    private void visit(BiConsumer<AEItemKey, BigInteger> visitor) {
+    private void visit(BiConsumer<AEItemKey, PlannerAmount> visitor) {
         refreshUnresolved();
-        effectiveAccounts().forEach((key, account) -> account.units().visit(account.amount(), cutoff(key, account), visitor));
+        effectiveAccounts().forEach((key, account) -> account.units().visitQuantities(account.amount(), cutoff(key, account), visitor));
     }
     @Override public void getAvailableStacks(KeyCounter out) { visit((key, amount) -> BulkUnits.addSaturated(out, key, amount)); }
     @Override public void neoecoae$visitExactAmounts(BiConsumer<AEKey, ExactAmount> visitor) {
-        Map<AEItemKey, BigInteger> totals = new LinkedHashMap<>();
-        visit((key, amount) -> totals.merge(key, amount, BigInteger::add));
-        totals.forEach((key, amount) -> visitor.accept(key, ExactAmount.finite(amount)));
+        Map<AEItemKey, PlannerAmount> totals = new LinkedHashMap<>();
+        visit((key, amount) -> totals.merge(key, amount, PlannerAmount::add));
+        totals.forEach((key, amount) -> visitor.accept(key, ExactAmount.finite(amount.toBigInteger())));
     }
     @Override public boolean neoecoae$hasSaturatingListing() { return true; }
     @Override public boolean isPreferredStorageFor(AEKey key, IActionSource source) { return insert(key, 1, Actionable.SIMULATE, source) > 0; }
@@ -334,7 +346,7 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
         List<IPatternDetails> result = new ArrayList<>();
         definitions.forEach((units, cutoff) -> {
             for (int i = 0; i < units.items().size() - 1; i++) {
-                long ratio = units.factors().get(i + 1).divide(units.factors().get(i)).longValueExact();
+                long ratio = units.factorQuantity(i + 1).divide(units.factorQuantity(i)).longValueExact();
                 if (i < cutoff) result.add(new ECOBulkConversionPattern(units.items().get(i + 1), 1, units.items().get(i), ratio));
                 else result.add(new ECOBulkConversionPattern(units.items().get(i), ratio, units.items().get(i + 1), 1));
             }
@@ -373,12 +385,15 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
 
     /** Ownership of already-consumed crafting inputs is transferred to this disk, never to a grid pivot. */
     public void enqueueOutput(AEItemKey key, BigInteger amount) {
+        enqueueOutputQuantity(key, PlannerAmount.of(amount));
+    }
+    public void enqueueOutputQuantity(AEItemKey key, PlannerAmount amount) {
         if (amount.signum() <= 0) throw new IllegalArgumentException("Non-positive conversion output");
-        pending.merge(key, amount, BigInteger::add);
+        pending.merge(key, amount, PlannerAmount::add);
         saveChanges();
         persist();
     }
-    public Map<AEItemKey, BigInteger> getPendingOutputs() { return Map.copyOf(pending); }
+    public Map<AEItemKey, BigInteger> getPendingOutputs() { return Map.copyOf(ECOExactInventory.toBigIntegers(pending)); }
     public void drainOutputs(MEStorage network, IActionSource source) {
         for (var iterator = pending.entrySet().iterator(); iterator.hasNext();) {
             var entry = iterator.next();
@@ -386,7 +401,7 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
             long inserted = network.insert(entry.getKey(), requested, Actionable.MODULATE, source);
             if (inserted < 0 || inserted > requested) throw new IllegalStateException("Invalid conversion output acknowledgement");
             if (inserted == 0) continue;
-            BigInteger remaining = entry.getValue().subtract(BigInteger.valueOf(inserted));
+            PlannerAmount remaining = entry.getValue().subtract(inserted);
             if (remaining.signum() == 0) iterator.remove(); else entry.setValue(remaining);
             saveChanges();
         }
@@ -444,9 +459,9 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
         for (Tag raw : data.getList("pending", Tag.TAG_COMPOUND)) {
             CompoundTag entry = (CompoundTag) raw;
             try {
-                AEItemKey key = BulkItemKeys.read(entry); BigInteger amount = new BigInteger(entry.getString("amount"));
+                AEItemKey key = BulkItemKeys.read(entry); PlannerAmount amount = PlannerAmount.parse(entry.getString("amount"));
                 if (key == null || amount.signum() <= 0) throw new IllegalArgumentException();
-                pending.merge(key, amount, BigInteger::add);
+                pending.merge(key, amount, PlannerAmount::add);
             } catch (RuntimeException invalid) { quarantine(entry, version, "pending"); }
         }
         if (!data.isEmpty()) persisted = false;
@@ -469,16 +484,16 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
         else if (envelope.contains("pending", Tag.TAG_COMPOUND)) {
             CompoundTag entry = envelope.getCompound("pending");
             try {
-                AEItemKey key = BulkItemKeys.read(entry); BigInteger amount = new BigInteger(entry.getString("amount"));
+                AEItemKey key = BulkItemKeys.read(entry); PlannerAmount amount = PlannerAmount.parse(entry.getString("amount"));
                 if (key == null || amount.signum() <= 0) throw new IllegalArgumentException();
-                pending.merge(key, amount, BigInteger::add);
+                pending.merge(key, amount, PlannerAmount::add);
             } catch (RuntimeException invalid) { unresolved.add(envelope.copy()); }
         } else unresolved.add(envelope.copy());
     }
     private void loadEntry(CompoundTag entry, int version) {
         try {
             AEItemKey key = BulkItemKeys.read(entry);
-            BigInteger amount = version >= 2 ? new BigInteger(entry.getString("units")) : BigInteger.valueOf(entry.getLong("units"));
+            PlannerAmount amount = version >= 2 ? PlannerAmount.parse(entry.getString("units")) : PlannerAmount.of(entry.getLong("units"));
             if (key == null || amount.signum() <= 0) throw new IllegalArgumentException();
             BulkUnits units;
             if (version == 0) {

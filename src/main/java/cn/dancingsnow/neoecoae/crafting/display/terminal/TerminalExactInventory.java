@@ -9,7 +9,7 @@ import cn.dancingsnow.neoecoae.storage.StorageListingDelta;
 import cn.dancingsnow.neoecoae.storage.StorageListingVersion;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
-import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -90,7 +90,7 @@ final class TerminalExactInventory {
             network.visitOversizedTotals((key, amount) -> exceptional.add(key));
             for (Mount mount : mounts.values()) exceptional.addAll(mount.values.keySet());
             for (AEKey key : exceptional) {
-                BigInteger total = network.listedTotal(key, inventory.get(key));
+                PlannerAmount total = PlannerAmount.of(network.listedTotal(key, inventory.get(key)));
                 boolean infinite = false;
                 for (var entry : mounts.entrySet()) {
                     ExactAmount exact = entry.getValue().values.get(key);
@@ -99,10 +99,9 @@ final class TerminalExactInventory {
                         infinite = true;
                         break;
                     }
-                    total = total.subtract(BigInteger.valueOf(network.mountedAmount(entry.getKey(), key)))
-                            .add(exact.value());
+                    total = total.subtract(network.mountedAmount(entry.getKey(), key)).add(exact.quantity());
                 }
-                ExactAmount exact = infinite ? ExactAmount.unbounded() : ExactAmount.finite(total);
+                ExactAmount exact = infinite ? ExactAmount.unbounded() : ExactAmount.finite(total.toBigInteger());
                 if (differs(exact, inventory.get(key))) result.put(key, exact);
             }
         });

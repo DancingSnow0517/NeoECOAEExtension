@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.storage.infinite;
 
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import appeng.api.stacks.AEKey;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
@@ -249,14 +250,16 @@ public final class ECOInfiniteStorageTransfer {
      */
     public static boolean restoreTarget(IECOStorageMigrationCell cell, AEKey key,
                                         ECOInfiniteStorageEngine.RestoreTargetAmounts goal, IActionSource source) {
-        java.math.BigInteger current = cell.getMigrationAmountBigInteger(key);
-        if (current.compareTo(goal.beforeExact()) < 0 || current.compareTo(goal.afterExact()) > 0) {
+        PlannerAmount current = PlannerAmount.of(cell.getMigrationAmountBigInteger(key));
+        if (current.compareTo(PlannerAmount.of(goal.beforeExact())) < 0
+                || current.compareTo(PlannerAmount.of(goal.afterExact())) > 0) {
             throw new IllegalStateException("Restore target quantity differs from its saved plan");
         }
-        java.math.BigInteger remaining = goal.afterExact().subtract(current);
+        PlannerAmount remaining = PlannerAmount.of(goal.afterExact()).subtract(current);
         if (remaining.signum() == 0) return true;
-        java.math.BigInteger inserted = cell.insertForMigrationBigInteger(key, remaining, Actionable.MODULATE, source);
-        return inserted.equals(remaining) && cell.getMigrationAmountBigInteger(key).equals(goal.afterExact());
+        java.math.BigInteger offered = remaining.toBigInteger();
+        java.math.BigInteger inserted = cell.insertForMigrationBigInteger(key, offered, Actionable.MODULATE, source);
+        return inserted.equals(offered) && cell.getMigrationAmountBigInteger(key).equals(goal.afterExact());
     }
 
     private record Entry(AEKey key, long amount) {

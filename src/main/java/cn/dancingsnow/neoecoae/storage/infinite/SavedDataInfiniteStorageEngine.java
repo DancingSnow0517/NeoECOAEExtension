@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.storage.StorageByteAccounting;
 
 import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -133,13 +134,13 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         if (key == null || amount == null || amount.signum() <= 0 || !data.canRead(key)) return BigInteger.ZERO;
         if (amount.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) <= 0)
             return BigInteger.valueOf(extract(key, amount.longValueExact(), mode));
-        BigInteger available = data.getAmount(key).toBigInteger(), taken = available.min(amount);
-        if (taken.signum() == 0 || mode == Actionable.SIMULATE) return taken;
+        HugeAmount available = data.getAmount(key), taken = available.min(HugeAmount.of(amount));
+        if (taken.isZero() || mode == Actionable.SIMULATE) return taken.toBigInteger();
         if (!data.canWrite()) return BigInteger.ZERO;
-        data.amounts.set(key, HugeAmount.of(available.subtract(taken)));
+        data.amounts.set(key, available.subtract(taken));
         MutableTypeStats stats = statsFor(key.getType()); stats.total.subtract(taken);
         if (available.equals(taken) && --stats.types == 0) removeStats(key.getType());
-        data.setDirty(); statisticsDirty = true; return taken;
+        data.setDirty(); statisticsDirty = true; return taken.toBigInteger();
     }
 
     private MutableTypeStats statsFor(AEKeyType type) {
@@ -248,12 +249,12 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
 
     @Override
     public BigInteger usedBytes() {
-        BigInteger used = BigInteger.ZERO;
+        PlannerAmount used = PlannerAmount.ZERO;
         for (TypeStats stats : getTypeStats()) {
-            used = used.add(StorageByteAccounting.usedBytes(stats.storedTypes(), stats.storedAmount().toBigInteger(),
+            used = used.add(StorageByteAccounting.usedBytesQuantity(stats.storedTypes(), stats.storedAmount().quantity(),
                     stats.keyType().getAmountPerByte(), 1L << (12 + ECOTier.L9.getTier())));
         }
-        return used;
+        return used.toBigInteger();
     }
 
     @Override

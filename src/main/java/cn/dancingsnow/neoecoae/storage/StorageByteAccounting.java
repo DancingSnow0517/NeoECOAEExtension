@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.storage;
 
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.math.BigInteger;
 
 /**
@@ -39,28 +40,28 @@ public final class StorageByteAccounting {
             return 0L;
         }
 
-        BigInteger freeBytes = BigInteger.valueOf(totalBytes).subtract(usedBytes);
+        PlannerAmount freeBytes = PlannerAmount.of(totalBytes).subtract(PlannerAmount.of(usedBytes));
         if (freeBytes.signum() < 0) {
             return 0L;
         }
 
         amountPerByte = Math.max(1L, amountPerByte);
-        BigInteger amountPerByteValue = BigInteger.valueOf(amountPerByte);
+        PlannerAmount amountPerByteValue = PlannerAmount.of(amountPerByte);
+        PlannerAmount bucket = PlannerAmount.of(targetBucketAmount);
         long unitsToCompleteBucket = targetBucketAmount.signum() <= 0
             ? 0L
-            : amountPerByteValue.subtract(targetBucketAmount.mod(amountPerByteValue))
-                .mod(amountPerByteValue).longValue();
+            : amountPerByteValue.subtract(bucket.remainder(amountPerByteValue))
+                .remainder(amountPerByteValue).longValueExact();
 
         if (newType) {
-            freeBytes = freeBytes.subtract(BigInteger.valueOf(Math.max(0L, bytesPerType)));
+            freeBytes = freeBytes.subtract(Math.max(0L, bytesPerType));
             if (freeBytes.signum() < 0 || freeBytes.signum() == 0 && unitsToCompleteBucket == 0L) {
                 return 0L;
             }
         }
 
-        BigInteger acceptable = freeBytes.multiply(amountPerByteValue)
-            .add(BigInteger.valueOf(unitsToCompleteBucket));
-        return acceptable.min(BigInteger.valueOf(Long.MAX_VALUE)).longValue();
+        PlannerAmount acceptable = freeBytes.multiply(amountPerByteValue).add(unitsToCompleteBucket);
+        return acceptable.longValueSaturated();
     }
 
     public static BigInteger usedBytes(
@@ -69,15 +70,16 @@ public final class StorageByteAccounting {
         long amountPerByte,
         long bytesPerType
     ) {
-        amountPerByte = Math.max(1L, amountPerByte);
-        BigInteger normalizedAmount = storedAmount == null || storedAmount.signum() <= 0
-            ? BigInteger.ZERO : storedAmount;
-        BigInteger divisor = BigInteger.valueOf(amountPerByte);
-        BigInteger[] division = normalizedAmount.divideAndRemainder(divisor);
-        BigInteger contentBytes = division[0].add(division[1].signum() == 0 ? BigInteger.ZERO : BigInteger.ONE);
-        return contentBytes.add(
-            BigInteger.valueOf(Math.max(0L, storedTypes)).multiply(BigInteger.valueOf(Math.max(0L, bytesPerType)))
-        );
+        return usedBytesQuantity(storedTypes, storedAmount == null ? PlannerAmount.ZERO : PlannerAmount.of(storedAmount),
+            amountPerByte, bytesPerType).toBigInteger();
+    }
+
+    public static PlannerAmount usedBytesQuantity(long storedTypes, PlannerAmount storedAmount,
+            long amountPerByte, long bytesPerType) {
+        PlannerAmount normalizedAmount = storedAmount == null || storedAmount.signum() <= 0
+            ? PlannerAmount.ZERO : storedAmount;
+        return normalizedAmount.ceilDiv(PlannerAmount.of(Math.max(1L, amountPerByte)))
+            .add(PlannerAmount.of(Math.max(0L, storedTypes)).multiply(Math.max(0L, bytesPerType)));
     }
 
     private static long saturatingAdd(long left, long right) {

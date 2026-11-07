@@ -5,13 +5,11 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.storage.SaturatingStackAccumulator;
-import java.math.BigInteger;
 import java.util.Map;
 import java.util.function.Consumer;
 
 /** Reuses one mounted-inventory counter per network; ordinary listings need only one merge pass. */
 public final class StorageListingAccumulator {
-    private static final BigInteger MAX_LONG = BigInteger.valueOf(Long.MAX_VALUE);
     private final KeyCounter contribution = new KeyCounter();
 
     public void append(MEStorage storage, KeyCounter output, Consumer<KeyCounter> listing) {
@@ -57,7 +55,7 @@ public final class StorageListingAccumulator {
                 if (exactAmounts == null) exactAmounts = ExactAmountCollector.sourceAmounts(storage);
                 ExactAmount exact = exactAmounts.get(entry.getKey());
                 if (exact == null) continue;
-                amount = exact.infinite() ? Long.MAX_VALUE : exact.value().min(MAX_LONG).longValueExact();
+                amount = exact.longValueSaturated();
             }
             if (amount != 0) SaturatingStackAccumulator.add(output, entry.getKey(), amount);
         }
@@ -71,7 +69,7 @@ public final class StorageListingAccumulator {
             if (amount < 0) {
                 if (exactAmounts == null) exactAmounts = ExactAmountCollector.sourceAmounts(storage);
                 ExactAmount exact = exactAmounts.get(entry.getKey());
-                long repaired = exact == null ? 0 : exact.infinite() ? Long.MAX_VALUE : exact.value().min(MAX_LONG).longValueExact();
+                long repaired = exact == null ? 0 : exact.longValueSaturated();
                 output.set(entry.getKey(), repaired);
                 removeZeros |= repaired == 0;
             } else removeZeros |= amount == 0;

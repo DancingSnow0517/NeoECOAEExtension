@@ -10,6 +10,7 @@ import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
 import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
 import cn.dancingsnow.neoecoae.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.storage.StorageByteAccounting;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.storage.infinite.HugeAmount;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
@@ -25,7 +26,7 @@ import java.util.function.BiConsumer;
 
 /** Quantity is unbounded, type count is finite. This is stored inventory, never a resource source. */
 final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements ECOBigIntegerStorage, ExactAmountSource {
-    // long, then U126, then BigInteger only past 2^126: ordinary transfers never allocate a BigInteger.
+    // long, then U128, then BigInteger only past 2^128: ordinary transfers never allocate a BigInteger.
     private final Map<AEKey, HugeAmount> amounts = new LinkedHashMap<>();
     private final BiggerAE2StorageCellItem item;
     private final ISaveProvider host;
@@ -66,8 +67,8 @@ final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements EC
 
     @Override
     public long getUsedBytes() {
-        BigInteger divisor = BigInteger.valueOf(Math.max(1, getKeyType().getAmountPerByte()));
-        return saturated(total().toBigInteger().add(divisor).subtract(BigInteger.ONE).divide(divisor));
+        return StorageByteAccounting.usedBytesQuantity(0L, total().quantity(), getKeyType().getAmountPerByte(), 0L)
+            .longValueSaturated();
     }
 
     @Override
@@ -210,5 +211,4 @@ final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements EC
         return total;
     }
 
-    private static long saturated(BigInteger amount) { return amount.min(BigInteger.valueOf(Long.MAX_VALUE)).longValueExact(); }
 }

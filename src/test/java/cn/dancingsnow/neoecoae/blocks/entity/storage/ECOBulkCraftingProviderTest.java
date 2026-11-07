@@ -7,6 +7,7 @@ import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider.Batch;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.storage.bulk.ECOBulkConversionPattern;
 import cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
@@ -44,11 +45,11 @@ class ECOBulkCraftingProviderTest {
     @Test void acceptsExactlyThePublishedInputsAndPersistsOutputsOnTheAcceptingDisk() {
         var f = new Fixture(); var inputs = f.inputs(1);
         assertTrue(f.provider.pushPattern(f.pattern, inputs));
-        assertTrue(inputs[0].isEmpty()); verify(f.cell).enqueueOutput(f.nugget, BigInteger.valueOf(9));
+        assertTrue(inputs[0].isEmpty()); verify(f.cell).enqueueOutputQuantity(f.nugget, PlannerAmount.of(9));
         assertFalse(f.provider.pushPattern(f.pattern, f.inputs(2)));
         when(f.cell.getConversionPatterns()).thenReturn(List.of());
         assertFalse(f.provider.pushPattern(f.pattern, f.inputs(1)));
-        verify(f.cell, times(1)).enqueueOutput(any(), any());
+        verify(f.cell, times(1)).enqueueOutputQuantity(any(), any());
     }
     @Test void unformedUnpoweredAndInfiniteHostsWithdrawTheirPatterns() {
         var f = new Fixture(); assertEquals(List.of(f.pattern), f.provider.getAvailablePatterns());
@@ -61,16 +62,16 @@ class ECOBulkCraftingProviderTest {
     @Test void fastPathRejectsMalformedBatchesAndQueuesTheWholeAcceptedBatch() {
         var f = new Fixture(); var preparation = f.provider.eco$prepareFastPath(f.context()); assertNotNull(preparation);
         var valid = new Batch(100, List.of(new GenericStack(f.ingot, 100)), List.of(new GenericStack(f.nugget, 900)), List.of());
-        assertTrue(preparation.push(valid)); verify(f.cell).enqueueOutput(f.nugget, BigInteger.valueOf(900));
+        assertTrue(preparation.push(valid)); verify(f.cell).enqueueOutputQuantity(f.nugget, PlannerAmount.of(900));
         assertFalse(preparation.push(new Batch(100, valid.inputTotal(), List.of(new GenericStack(f.nugget, 901)), List.of())));
         assertFalse(preparation.push(new Batch(100, List.of(), valid.outputTotal(), List.of())));
-        verify(f.cell, times(1)).enqueueOutput(any(), any());
+        verify(f.cell, times(1)).enqueueOutputQuantity(any(), any());
     }
     @Test void exactFastPathNeverTruncatesHugeConversionOutputs() {
         var f = new Fixture(); var count = BigInteger.TEN.pow(40);
         var prepared = f.provider.eco$prepareExactFastPath(f.context(), count); assertNotNull(prepared);
         assertEquals(count, prepared.craftCount()); assertTrue(prepared.dispatch().getAsBoolean());
-        verify(f.cell).enqueueOutput(f.nugget, count.multiply(BigInteger.valueOf(9)));
+        verify(f.cell).enqueueOutputQuantity(f.nugget, PlannerAmount.of(count.multiply(BigInteger.valueOf(9))));
     }
     @Test void removingTheDiskAfterPreparationRejectsDispatchWithoutAcceptingInputs() {
         var f = new Fixture(); var preparation = f.provider.eco$prepareFastPath(f.context()); assertNotNull(preparation);
@@ -78,6 +79,6 @@ class ECOBulkCraftingProviderTest {
         var batch = new Batch(1, List.of(new GenericStack(f.ingot, 1)), List.of(new GenericStack(f.nugget, 9)), List.of());
         assertFalse(preparation.push(batch));
         var inputs = f.inputs(1); assertFalse(f.provider.pushPattern(f.pattern, inputs));
-        assertEquals(1, inputs[0].get(f.ingot)); verify(f.cell, never()).enqueueOutput(any(), any());
+        assertEquals(1, inputs[0].get(f.ingot)); verify(f.cell, never()).enqueueOutputQuantity(any(), any());
     }
 }

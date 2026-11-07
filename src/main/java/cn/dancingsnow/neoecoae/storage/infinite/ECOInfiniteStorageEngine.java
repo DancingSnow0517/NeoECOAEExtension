@@ -7,6 +7,7 @@ import appeng.api.stacks.KeyCounter;
 
 import java.util.Collection;
 import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.util.UUID;
 
 public interface ECOInfiniteStorageEngine {
@@ -40,7 +41,7 @@ public interface ECOInfiniteStorageEngine {
     long extract(AEKey key, long amount, Actionable mode);
 
     default BigInteger extract(AEKey key, BigInteger amount, Actionable mode) {
-        return BigInteger.valueOf(extract(key, amount.min(BigInteger.valueOf(Long.MAX_VALUE)).longValueExact(), mode));
+        return BigInteger.valueOf(extract(key, PlannerAmount.of(amount).min(PlannerAmount.of(Long.MAX_VALUE)).longValueExact(), mode));
     }
 
     HugeAmount getAmount(AEKey key);
@@ -194,12 +195,13 @@ public interface ECOInfiniteStorageEngine {
         }
         public RestoreTargetAmounts {
             if (beforeExact == null || afterExact == null || transferredExact == null || beforeExact.signum() < 0
-                || afterExact.compareTo(beforeExact) < 0 || transferredExact.compareTo(afterExact.subtract(beforeExact)) < 0
+                || afterExact.compareTo(beforeExact) < 0 || PlannerAmount.of(transferredExact).compareTo(
+                    PlannerAmount.of(afterExact).subtract(PlannerAmount.of(beforeExact))) < 0
                 || transferredExact.compareTo(afterExact) > 0) throw new IllegalArgumentException("Invalid restore target amounts");
         }
-        public long before() { return beforeExact.min(BigInteger.valueOf(Long.MAX_VALUE)).longValue(); }
-        public long after() { return afterExact.min(BigInteger.valueOf(Long.MAX_VALUE)).longValue(); }
-        public long transferred() { return transferredExact.min(BigInteger.valueOf(Long.MAX_VALUE)).longValue(); }
+        public long before() { return PlannerAmount.of(beforeExact).longValueSaturated(); }
+        public long after() { return PlannerAmount.of(afterExact).longValueSaturated(); }
+        public long transferred() { return PlannerAmount.of(transferredExact).longValueSaturated(); }
     }
 
     boolean reserveRestores(java.util.Map<AEKey, UUID> transactions, java.util.Set<UUID> targets,

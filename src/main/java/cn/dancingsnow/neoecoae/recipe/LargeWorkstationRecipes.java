@@ -37,7 +37,7 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.stream.Collectors;
 
-import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.util.LinkedHashMap;
 
 /** Grouped viewer recipes with complete original and borrowed execution contracts. */
@@ -148,12 +148,12 @@ public final class LargeWorkstationRecipes {
         return List.copyOf(groups);
     }
     private static MaterialContract materialContract(LargeWorkstationRecipe recipe, DynamicOps<JsonElement> ops) {
-        Map<Object, Long> items = new HashMap<>(), fluids = new HashMap<>();
-        Map<AEKey, Long> resources = new HashMap<>(), outputs = new HashMap<>();
-        for (var input : recipe.display().inputItems()) items.merge(itemPredicate(input.ingredient(), ops), (long) input.count(), Math::addExact);
-        for (var fluid : recipe.inputFluids()) fluids.merge(fluidPredicate(fluid.ingredient(), ops), (long) fluid.amount(), Math::addExact);
-        for (var extra : recipe.extraInputs()) if (!isLightning(extra)) resources.merge(extra.what(), extra.amount(), Math::addExact);
-        for (var output : recipe.outputs()) outputs.merge(output.what(), output.amount(), Math::addExact);
+        Map<Object, PlannerAmount> items = new HashMap<>(), fluids = new HashMap<>();
+        Map<AEKey, PlannerAmount> resources = new HashMap<>(), outputs = new HashMap<>();
+        for (var input : recipe.display().inputItems()) items.merge(itemPredicate(input.ingredient(), ops), PlannerAmount.of(input.count()), PlannerAmount::add);
+        for (var fluid : recipe.inputFluids()) fluids.merge(fluidPredicate(fluid.ingredient(), ops), PlannerAmount.of(fluid.amount()), PlannerAmount::add);
+        for (var extra : recipe.extraInputs()) if (!isLightning(extra)) resources.merge(extra.what(), PlannerAmount.of(extra.amount()), PlannerAmount::add);
+        for (var output : recipe.outputs()) outputs.merge(output.what(), PlannerAmount.of(output.amount()), PlannerAmount::add);
         return new MaterialContract(Map.copyOf(items), Map.copyOf(fluids), Map.copyOf(resources), Map.copyOf(outputs));
     }
     private static int compareCosts(LargeWorkstationRecipe first, long firstMultiplier,
@@ -164,22 +164,22 @@ public final class LargeWorkstationRecipes {
         // Different currencies have no universal price ordering. Keep a deterministic contract order.
         int currency = Integer.compare(energyKind(first), energyKind(second));
         if (currency != 0) return currency;
-        int energy = BigInteger.valueOf(first.energy()).multiply(BigInteger.valueOf(firstMultiplier))
-            .compareTo(BigInteger.valueOf(second.energy()).multiply(BigInteger.valueOf(secondMultiplier)));
+        int energy = PlannerAmount.of(first.energy()).multiply(firstMultiplier)
+            .compareTo(PlannerAmount.of(second.energy()).multiply(secondMultiplier));
         if (energy != 0) return energy;
-        int fe = BigInteger.valueOf(first.feEnergy()).multiply(BigInteger.valueOf(firstMultiplier))
-            .compareTo(BigInteger.valueOf(second.feEnergy()).multiply(BigInteger.valueOf(secondMultiplier)));
+        int fe = PlannerAmount.of(first.feEnergy()).multiply(firstMultiplier)
+            .compareTo(PlannerAmount.of(second.feEnergy()).multiply(secondMultiplier));
         if (fe != 0) return fe;
-        int extras = extraCost(first).multiply(BigInteger.valueOf(firstMultiplier))
-            .compareTo(extraCost(second).multiply(BigInteger.valueOf(secondMultiplier)));
+        int extras = extraCost(first).multiply(firstMultiplier)
+            .compareTo(extraCost(second).multiply(secondMultiplier));
         if (extras != 0) return extras;
-        return BigInteger.valueOf(first.processingTicks()).multiply(BigInteger.valueOf(firstMultiplier))
-            .compareTo(BigInteger.valueOf(second.processingTicks()).multiply(BigInteger.valueOf(secondMultiplier)));
+        return PlannerAmount.of(first.processingTicks()).multiply(firstMultiplier)
+            .compareTo(PlannerAmount.of(second.processingTicks()).multiply(secondMultiplier));
     }
 
-    private static BigInteger extraCost(LargeWorkstationRecipe recipe) {
-        return recipe.extraInputs().stream().map(input -> BigInteger.valueOf(input.amount()))
-            .reduce(BigInteger.ZERO, BigInteger::add);
+    private static PlannerAmount extraCost(LargeWorkstationRecipe recipe) {
+        return recipe.extraInputs().stream().map(input -> PlannerAmount.of(input.amount()))
+            .reduce(PlannerAmount.ZERO, PlannerAmount::add);
     }
 
     private static int energyKind(LargeWorkstationRecipe recipe) {
@@ -210,33 +210,28 @@ public final class LargeWorkstationRecipes {
         return current.stream().allMatch(recipe -> byId.get(recipe.getId()) == recipe);
     }
 
-    private record MaterialContract(Map<Object, Long> items, Map<Object, Long> fluids,
-                                    Map<AEKey, Long> resources, Map<AEKey, Long> outputs) {
-        long scale() {
-            long scale = 0;
+    private record MaterialContract(Map<Object, PlannerAmount> items, Map<Object, PlannerAmount> fluids,
+                                    Map<AEKey, PlannerAmount> resources, Map<AEKey, PlannerAmount> outputs) {
+        PlannerAmount scale() {
+            PlannerAmount scale = PlannerAmount.ZERO;
             for (var entries : List.of(items, fluids, resources, outputs)) {
-                for (long amount : entries.values()) {
-                    if (amount <= 0) throw new IllegalArgumentException("Non-positive material quantity");
-                    long next = amount;
-                    while (next != 0) {
-                        long remainder = scale % next;
-                        scale = next;
-                        next = remainder;
-                    }
+                for (PlannerAmount amount : entries.values()) {
+                    if (amount.signum() <= 0) throw new IllegalArgumentException("Non-positive material quantity");
+                    scale = scale.gcd(amount);
                 }
             }
-            if (scale == 0 || outputs.isEmpty()) throw new IllegalArgumentException("Empty material contract");
+            if (scale.isZero() || outputs.isEmpty()) throw new IllegalArgumentException("Empty material contract");
             return scale;
         }
 
-        MaterialContract divide(long divisor) {
+        MaterialContract divide(PlannerAmount divisor) {
             return new MaterialContract(divide(items, divisor), divide(fluids, divisor),
                 divide(resources, divisor), divide(outputs, divisor));
         }
 
-        private static <K> Map<K, Long> divide(Map<K, Long> amounts, long divisor) {
-            Map<K, Long> result = new HashMap<>();
-            amounts.forEach((key, amount) -> result.put(key, amount / divisor));
+        private static <K> Map<K, PlannerAmount> divide(Map<K, PlannerAmount> amounts, PlannerAmount divisor) {
+            Map<K, PlannerAmount> result = new HashMap<>();
+            amounts.forEach((key, amount) -> result.put(key, amount.divide(divisor)));
             return Map.copyOf(result);
         }
     }

@@ -7,6 +7,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -159,7 +160,7 @@ public final class ExactAmountCollector {
             long previous = longs.getLong(key);
             if (previous > Long.MAX_VALUE - amount) {
                 longs.removeLong(key);
-                totals.put(key, ExactAmount.finite(BigInteger.valueOf(previous).add(BigInteger.valueOf(amount))));
+                totals.put(key, ExactAmount.finite(PlannerAmount.of(previous).add(amount).toBigInteger()));
             } else {
                 longs.put(key, previous + amount);
             }

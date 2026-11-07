@@ -18,7 +18,7 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.util.DrawerHelper;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
 import java.math.BigDecimal;
-import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.List;
@@ -518,22 +518,22 @@ final class StorageHostCharts {
     static List<CapacitySegment> capacitySegments(StoragePanelState state, int availableWidth) {
         int width = Math.max(0, availableWidth);
         if (width <= 0) return List.of();
-        Map<ResourceColor, BigInteger> amounts = new LinkedHashMap<>();
+        Map<ResourceColor, PlannerAmount> amounts = new LinkedHashMap<>();
         for (StoragePanelState.TypeLine type : state.types()) {
             if (type.exactUsedBytes().signum() <= 0) continue;
-            amounts.merge(new ResourceColor(type.swatch(), type.color()), type.exactUsedBytes(), BigInteger::add);
+            amounts.merge(new ResourceColor(type.swatch(), type.color()), PlannerAmount.of(type.exactUsedBytes()), PlannerAmount::add);
         }
-        BigInteger total = amounts.values().stream().reduce(BigInteger.ZERO, BigInteger::add);
+        PlannerAmount total = amounts.values().stream().reduce(PlannerAmount.ZERO, PlannerAmount::add);
         if (total.signum() <= 0) return List.of();
         var resources = amounts.entrySet().stream().sorted(
-            Comparator.<Map.Entry<ResourceColor, BigInteger>, BigInteger>comparing(Map.Entry::getValue).reversed()
+            Comparator.<Map.Entry<ResourceColor, PlannerAmount>, PlannerAmount>comparing(Map.Entry::getValue).reversed()
                 .thenComparingInt(entry -> entry.getKey().swatch()).thenComparingInt(entry -> entry.getKey().color())).toList();
         List<CapacitySegment> segments = new ArrayList<>();
-        BigInteger accumulated = BigInteger.ZERO;
+        PlannerAmount accumulated = PlannerAmount.ZERO;
         int previous = 0;
         for (var resource : resources) {
             accumulated = accumulated.add(resource.getValue());
-            int end = accumulated.multiply(BigInteger.valueOf(width)).add(total.shiftRight(1)).divide(total).intValue();
+            int end = accumulated.multiply(width).add(total.shiftRight(1)).divide(total).intValueExact();
             if (end > previous) segments.add(new CapacitySegment(resource.getKey().swatch(), resource.getKey().color(), end - previous));
             previous = end;
         }
@@ -577,13 +577,13 @@ final class StorageHostCharts {
     private List<Component> resourceTooltip() {
         List<Component> lines = new ArrayList<>();
         lines.add(Component.translatable("gui.neoecoae.storage.ui.resource_distribution"));
-        BigInteger total = state().types().stream().map(StoragePanelState.TypeLine::exactUsedBytes)
-            .reduce(BigInteger.ZERO, BigInteger::add);
+        PlannerAmount total = state().types().stream().map(type -> PlannerAmount.of(type.exactUsedBytes()))
+            .reduce(PlannerAmount.ZERO, PlannerAmount::add);
         if (total.signum() <= 0) return lines;
         for (StoragePanelState.TypeLine type : state().types()) {
             if (type.exactUsedBytes().signum() <= 0) continue;
             double share = new BigDecimal(type.exactUsedBytes())
-                .divide(new BigDecimal(total), MathContext.DECIMAL64).doubleValue();
+                .divide(new BigDecimal(total.toBigInteger()), MathContext.DECIMAL64).doubleValue();
             lines.add(Component.translatable("gui.neoecoae.storage.ui.resource_share",
                 type.name(), HostText.fullBytes(type.exactUsedBytes()), HostText.percent(share)).withStyle(neColor -> neColor.withColor(type.color())));
         }
@@ -594,18 +594,18 @@ final class StorageHostCharts {
         var types = snapshot.types().stream().filter(type -> type.exactUsedBytes().signum() > 0
             && type.swatch() == segment.swatch() && type.color() == segment.color()).toList();
         if (types.isEmpty()) return List.of();
-        BigInteger used = types.stream().map(StoragePanelState.TypeLine::exactUsedBytes)
-            .reduce(BigInteger.ZERO, BigInteger::add);
-        BigInteger total = snapshot.types().stream().map(StoragePanelState.TypeLine::exactUsedBytes)
-            .filter(amount -> amount.signum() > 0).reduce(BigInteger.ZERO, BigInteger::add);
+        PlannerAmount used = types.stream().map(type -> PlannerAmount.of(type.exactUsedBytes()))
+            .reduce(PlannerAmount.ZERO, PlannerAmount::add);
+        PlannerAmount total = snapshot.types().stream().map(type -> PlannerAmount.of(type.exactUsedBytes()))
+            .filter(amount -> amount.signum() > 0).reduce(PlannerAmount.ZERO, PlannerAmount::add);
         var name = Component.empty();
         for (Component alias : types.stream().map(StoragePanelState.TypeLine::name).distinct().toList()) {
             if (!name.getString().isEmpty()) name.append(" / ");
             name.append(alias);
         }
-        double share = new BigDecimal(used).divide(new BigDecimal(total), MathContext.DECIMAL64).doubleValue();
+        double share = new BigDecimal(used.toBigInteger()).divide(new BigDecimal(total.toBigInteger()), MathContext.DECIMAL64).doubleValue();
         return List.of(Component.translatable("gui.neoecoae.storage.ui.resource_share", name,
-            HostText.fullBytes(used), HostText.percent(share)).withStyle(neColor -> neColor.withColor(segment.color())));
+            HostText.fullBytes(used.toBigInteger()), HostText.percent(share)).withStyle(neColor -> neColor.withColor(segment.color())));
     }
 
     private List<Component> domainTooltip() {

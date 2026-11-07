@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import net.minecraft.network.chat.Component;
@@ -31,8 +32,9 @@ public final class HostText {
     private static final long BYTES_IN_G = BYTES_IN_M * 1024L;
     private static final long BYTES_IN_T = BYTES_IN_G * 1024L;
     private static final long BYTES_IN_P = BYTES_IN_T * 1024L;
-    private static final BigInteger BIG_BYTES_IN_K = BigInteger.valueOf(BYTES_IN_K);
+    private static final PlannerAmount BYTE_UNIT_FACTOR = PlannerAmount.of(BYTES_IN_K);
     private static final int TOOLTIP_BYTE_DIGITS = 4;
+    private static final PlannerAmount TOOLTIP_BYTE_LIMIT = PlannerAmount.of(10L).pow(TOOLTIP_BYTE_DIGITS);
     // Continue the binary-prefix display beyond yotta for effectively unbounded storage amounts.
     private static final String[] EXPANDED_BYTE_UNITS = {
         "", "K", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q"
@@ -89,34 +91,33 @@ public final class HostText {
     }
 
     public static String compactStorageBytes(BigInteger value) {
-        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
-        BigInteger unit = BigInteger.ONE;
+        PlannerAmount safe = value == null || value.signum() < 0 ? PlannerAmount.ZERO : PlannerAmount.of(value);
+        PlannerAmount unit = PlannerAmount.ONE;
         int unitIndex = 0;
-        BigInteger limit = BigInteger.TEN.pow(TOOLTIP_BYTE_DIGITS);
-        while (unitIndex < EXPANDED_BYTE_UNITS.length - 1 && safe.divide(unit).compareTo(limit) >= 0) {
-            unit = unit.multiply(BIG_BYTES_IN_K);
+        while (unitIndex < EXPANDED_BYTE_UNITS.length - 1 && safe.divide(unit).compareTo(TOOLTIP_BYTE_LIMIT) >= 0) {
+            unit = unit.multiply(BYTE_UNIT_FACTOR);
             unitIndex++;
         }
-        return DisplayNumbers.grouped(new BigDecimal(safe)
-            .divide(new BigDecimal(unit), 0, RoundingMode.HALF_UP)
+        return DisplayNumbers.grouped(new BigDecimal(safe.toBigInteger())
+            .divide(new BigDecimal(unit.toBigInteger()), 0, RoundingMode.HALF_UP)
             .toPlainString()) + EXPANDED_BYTE_UNITS[unitIndex];
     }
 
     /** Matches the 1.20.1 System Load tooltip: retain up to ten integer digits plus two decimals. */
     public static String preciseHugeAmount(BigInteger value) {
-        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
+        PlannerAmount safe = value == null || value.signum() < 0 ? PlannerAmount.ZERO : PlannerAmount.of(value);
         if (safe.signum() == 0) {
             return "0";
         }
         int unitIndex = 0;
-        BigInteger unit = BigInteger.ONE;
+        PlannerAmount unit = PlannerAmount.ONE;
         while (unitIndex < EXPANDED_BYTE_UNITS.length - 1
-            && safe.compareTo(unit.multiply(BIG_BYTES_IN_K)) >= 0) {
-            unit = unit.multiply(BIG_BYTES_IN_K);
+            && safe.compareTo(unit.multiply(BYTE_UNIT_FACTOR)) >= 0) {
+            unit = unit.multiply(BYTE_UNIT_FACTOR);
             unitIndex++;
         }
         while (unitIndex > 0) {
-            BigInteger smallerUnit = unit.divide(BIG_BYTES_IN_K);
+            PlannerAmount smallerUnit = unit.divide(BYTE_UNIT_FACTOR);
             if (safe.divide(smallerUnit).toString().length() > 10) {
                 break;
             }
@@ -124,27 +125,27 @@ public final class HostText {
             unitIndex--;
         }
         if (unitIndex == 0) {
-            return DisplayNumbers.grouped(safe);
+            return DisplayNumbers.grouped(safe.toString());
         }
-        BigDecimal scaled = new BigDecimal(safe)
-            .divide(new BigDecimal(unit), 2, RoundingMode.DOWN);
+        BigDecimal scaled = new BigDecimal(safe.toBigInteger())
+            .divide(new BigDecimal(unit.toBigInteger()), 2, RoundingMode.DOWN);
         return DisplayNumbers.grouped(scaled.toPlainString()) + EXPANDED_BYTE_UNITS[unitIndex];
     }
 
     public static String hugeStackAmount(BigInteger value) {
-        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
-        BigInteger unit = BigInteger.ONE;
+        PlannerAmount safe = value == null || value.signum() < 0 ? PlannerAmount.ZERO : PlannerAmount.of(value);
+        PlannerAmount unit = PlannerAmount.ONE;
         int unitIndex = 0;
         while (unitIndex < EXPANDED_BYTE_UNITS.length - 1
-            && safe.compareTo(unit.multiply(BIG_BYTES_IN_K)) >= 0) {
-            unit = unit.multiply(BIG_BYTES_IN_K);
+            && safe.compareTo(unit.multiply(BYTE_UNIT_FACTOR)) >= 0) {
+            unit = unit.multiply(BYTE_UNIT_FACTOR);
             unitIndex++;
         }
         if (unitIndex == 0) {
-            return DisplayNumbers.grouped(safe);
+            return DisplayNumbers.grouped(safe.toString());
         }
-        return DisplayNumbers.grouped(new BigDecimal(safe)
-            .divide(new BigDecimal(unit), 2, RoundingMode.DOWN)
+        return DisplayNumbers.grouped(new BigDecimal(safe.toBigInteger())
+            .divide(new BigDecimal(unit.toBigInteger()), 2, RoundingMode.DOWN)
             .toPlainString()) + EXPANDED_BYTE_UNITS[unitIndex];
     }
 
@@ -153,36 +154,36 @@ public final class HostText {
     }
 
     public static String fitHugeAmount(BigInteger value, int maxWidth, ToIntFunction<String> width) {
-        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
-        String exact = expandedStorageBytes(safe);
+        PlannerAmount safe = value == null || value.signum() < 0 ? PlannerAmount.ZERO : PlannerAmount.of(value);
+        String exact = expandedStorageBytes(safe.toBigInteger());
         if (width.applyAsInt(exact) <= maxWidth) {
             return exact;
         }
 
         int naturalUnitIndex = 0;
-        BigInteger naturalUnit = BigInteger.ONE;
+        PlannerAmount naturalUnit = PlannerAmount.ONE;
         while (naturalUnitIndex < EXPANDED_BYTE_UNITS.length - 1
-            && safe.compareTo(naturalUnit.multiply(BIG_BYTES_IN_K)) >= 0) {
-            naturalUnit = naturalUnit.multiply(BIG_BYTES_IN_K);
+            && safe.compareTo(naturalUnit.multiply(BYTE_UNIT_FACTOR)) >= 0) {
+            naturalUnit = naturalUnit.multiply(BYTE_UNIT_FACTOR);
             naturalUnitIndex++;
         }
         for (int decimals = 2; decimals >= 0; decimals--) {
-            BigInteger unit = BIG_BYTES_IN_K;
+            PlannerAmount unit = BYTE_UNIT_FACTOR;
             for (int unitIndex = 1; unitIndex <= naturalUnitIndex; unitIndex++) {
-                String candidate = DisplayNumbers.grouped(new BigDecimal(safe)
-                    .divide(new BigDecimal(unit), decimals, RoundingMode.HALF_UP)
+                String candidate = DisplayNumbers.grouped(new BigDecimal(safe.toBigInteger())
+                    .divide(new BigDecimal(unit.toBigInteger()), decimals, RoundingMode.HALF_UP)
                     .toPlainString()) + EXPANDED_BYTE_UNITS[unitIndex];
                 if (width.applyAsInt(candidate) <= maxWidth) {
                     return candidate;
                 }
-                unit = unit.multiply(BIG_BYTES_IN_K);
+                unit = unit.multiply(BYTE_UNIT_FACTOR);
             }
         }
 
         int exponent = Math.max(0, safe.toString().length() - 1);
-        BigDecimal divisor = BigDecimal.TEN.pow(exponent);
+        BigDecimal divisor = new BigDecimal(PlannerAmount.of(10L).pow(exponent).toBigInteger());
         for (int decimals = 3; decimals >= 0; decimals--) {
-            String candidate = new BigDecimal(safe)
+            String candidate = new BigDecimal(safe.toBigInteger())
                 .divide(divisor, decimals, RoundingMode.HALF_UP)
                 .stripTrailingZeros()
                 .toPlainString() + "e" + exponent;
