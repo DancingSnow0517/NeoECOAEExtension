@@ -109,6 +109,7 @@ public final class ECOPlanningService {
         public static final int SEARCHING = 1, COMPLETE = 2, LIMITED = 3, FAILED = 4, STOPPED = 5;
         private final CompletableFuture<ICraftingPlan> first = new CompletableFuture<>();
         private volatile @Nullable ICraftingPlan latest;
+        private @Nullable ECOPlanningResult latestResult;
         private volatile int searchState = SEARCHING;
         private volatile boolean stopped;
         private @Nullable Future<?> worker;
@@ -121,6 +122,7 @@ public final class ECOPlanningService {
         private synchronized void publish(ECOPlanningResult result) {
             if (stopped) return;
             latest = result.plan();
+            latestResult = result;
             first.complete(latest);
         }
 
@@ -128,13 +130,26 @@ public final class ECOPlanningService {
             if (stopped) return;
             var result = cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry.findExact(plan);
             boolean executable = result != null && result.executable();
+            boolean reportCompleted = result != null && latestResult != null && !latestResult.executable()
+                && !result.exactMissingItems().isEmpty() && sameMaterialReport(latestResult, result);
             // An interrupted/failed speculative search must never replace an already usable preview.
-            if (latest == null || executable) {
+            // A retained full shortage report can acquire a final proof or limited-search diagnostic.
+            if (latest == null || executable || reportCompleted) {
                 latest = plan;
+                latestResult = result;
                 first.complete(plan);
             }
             searchState = result != null && result.routeSearchIncomplete() ? LIMITED
                 : latest != plan && !executable ? FAILED : COMPLETE;
+        }
+
+        private static boolean sameMaterialReport(ECOPlanningResult before, ECOPlanningResult after) {
+            return java.util.Objects.equals(before.plan().finalOutput(), after.plan().finalOutput())
+                && before.exactMissingItems().equals(after.exactMissingItems())
+                && before.exactUsedItems().equals(after.exactUsedItems())
+                && before.exactEmittedItems().equals(after.exactEmittedItems())
+                && before.exactPatternTimes().equals(after.exactPatternTimes())
+                && before.theoreticalBytes().equals(after.theoreticalBytes());
         }
 
         private synchronized void fail(Throwable failure) {
