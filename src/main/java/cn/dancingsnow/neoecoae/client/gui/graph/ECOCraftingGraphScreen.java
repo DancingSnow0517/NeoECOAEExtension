@@ -10,7 +10,6 @@ import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutCache;
 import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -49,6 +48,8 @@ public final class ECOCraftingGraphScreen extends Screen {
     private final List<ClientCraftingGraph.Node> searchSuggestions = new ArrayList<>();
     private @Nullable Integer selectedId;
     private @Nullable ClientCraftingGraph.Node hovered;
+    private @Nullable GraphMaterialCard materialDetails;
+    private @Nullable GraphMaterialCard materialTooltip;
     private float cameraX;
     private float cameraY = TOOLBAR_HEIGHT;
     private float zoom = 1;
@@ -131,7 +132,12 @@ public final class ECOCraftingGraphScreen extends Screen {
         else if (graph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER) drawClusterDetails(graphics);
         else if (graph.isCompactTree()) drawDetailsPanel(graphics);
         if (!frame.tooltip().isEmpty() && overGraph) {
-            graphics.renderComponentTooltip(font, frame.tooltip(), mouseX, mouseY);
+            if (graph.view() == ClientCraftingGraph.View.MAIN && GraphMaterialCard.supports(hovered)) {
+                if (materialTooltip == null || !materialTooltip.matches(graph, hovered, font)) {
+                    materialTooltip = new GraphMaterialCard(graph, hovered, font, false);
+                }
+                materialTooltip.renderTooltip(graphics, mouseX, mouseY, width, height);
+            } else graphics.renderComponentTooltip(font, frame.tooltip(), mouseX, mouseY);
         }
     }
 
@@ -569,6 +575,8 @@ public final class ECOCraftingGraphScreen extends Screen {
             graph = projectedBase.limited(focus, missingOnly ? 99 : depth, collapsed);
         }
         layoutCache.invalidate();
+        materialDetails = null;
+        materialTooltip = null;
         layout = layoutCache.get(graph);
         if (graph.isRecursiveCycle()) {
             var cycle = graph.nodes().values().stream().map(ClientCraftingGraph.Node::cycle)
@@ -662,6 +670,13 @@ public final class ECOCraftingGraphScreen extends Screen {
         if (selectedId == null) return;
         var node = graph.nodes().get(selectedId);
         if (node == null) return;
+        if (GraphMaterialCard.supports(node)) {
+            if (materialDetails == null || !materialDetails.matches(graph, node, font)) {
+                materialDetails = new GraphMaterialCard(graph, node, font, true);
+            }
+            materialDetails.renderDetails(graphics, width, height);
+            return;
+        }
         int panelWidth = 220;
         int left = width - panelWidth - 8;
         int top = 38;
@@ -684,16 +699,6 @@ public final class ECOCraftingGraphScreen extends Screen {
                 detailTextLine(graphics, left, y, "action",
                     Component.translatable("gui.neoecoae.crafting_graph.action.expand"));
             }
-        } else if (node.material() != null) {
-            var material = node.material();
-            y = detailTextLine(graphics, left, y, "requested", compact(material.exactRequested()));
-            y = detailTextLine(graphics, left, y, "inventory", compact(material.exactFromInventory()));
-            y = detailTextLine(graphics, left, y, "to_craft", compact(material.exactToCraft()));
-            y = detailTextLine(graphics, left, y, "missing", compact(material.exactMissing()));
-            y = detailTextLine(graphics, left, y, "consumed", compact(material.exactConsumed()));
-            y = detailTextLine(graphics, left, y, "produced", compact(material.exactProduced()));
-            y = detailTextLine(graphics, left, y, "status", statusText(material.status().name()));
-            detailLine(graphics, left, y, "source_patterns", baseGraph.source().patterns().size());
         } else if (node.cluster() != null) {
             var cluster = node.cluster();
             y = detailLine(graphics, left, y, "cluster_cycles", cluster.componentIds().size());
@@ -732,14 +737,6 @@ public final class ECOCraftingGraphScreen extends Screen {
     private Component depthLabel() { return tr(depth == 99 ? "toolbar.depth_all" : "toolbar.depth", depth); }
     private Component viewLabel() { return tr(layoutMode == GraphLayout.Mode.COMPACT_TREE
         ? "toolbar.view_tree" : "toolbar.view_graph"); }
-    private static Component compact(String exact) {
-        try {
-            return Component.literal(HostText.ae2Amount(new BigInteger(exact)));
-        } catch (RuntimeException ignored) {
-            return Component.literal(exact);
-        }
-    }
-
     private void updateSearchSuggestions() {
         searchSuggestions.clear();
         if (search == null) return;
