@@ -20,6 +20,7 @@ import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
@@ -41,6 +42,7 @@ public final class GraphRenderer implements AutoCloseable {
     private boolean cachedView;
     private ClientCraftingGraph tooltipGraph;
     private ClientCraftingGraph.Node tooltipNode;
+    private Language tooltipLanguage;
     private List<Component> tooltipLines = List.of();
 
     public static void resourcesReloaded() { GraphViewportCache.resourcesReloaded(); }
@@ -93,9 +95,10 @@ public final class GraphRenderer implements AutoCloseable {
             frame = new Frame(hovered, List.of());
         }
         // Hover text contains exact amount formatting; keep it off the stationary-frame hot path.
-        if (tooltipGraph != graph || tooltipNode != frame.hovered()) {
+        if (tooltipGraph != graph || tooltipNode != frame.hovered() || tooltipLanguage != Language.getInstance()) {
             tooltipGraph = graph;
             tooltipNode = frame.hovered();
+            tooltipLanguage = Language.getInstance();
             tooltipLines = graph.isCompactTree() ? CompactTreeRenderer.tooltip(graph, tooltipNode)
                 : tooltip(graph, tooltipNode);
         }
@@ -109,6 +112,7 @@ public final class GraphRenderer implements AutoCloseable {
         visibility.clear();
         tooltipGraph = null;
         tooltipNode = null;
+        tooltipLanguage = null;
         tooltipLines = List.of();
         cachedView = false;
     }
