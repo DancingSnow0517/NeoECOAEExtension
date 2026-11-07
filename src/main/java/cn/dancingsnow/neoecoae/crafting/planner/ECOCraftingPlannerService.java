@@ -101,6 +101,7 @@ public final class ECOCraftingPlannerService {
             cancellation = () -> { callerCancellation.checkpoint(); sharedBudget.checkpoint(); };
             long startedNanos = System.nanoTime();
             ECOPlanningResult[] accepted = {null};
+            boolean[] reportedMissing = {false};
             String budgetStage = "structural_initialization";
             try (var ignored = ECOPlanningStageLogger.open(
                     NEConfig.ecoPlanningStageDebug, planningRequestId, goal, amount, simulation)) {
@@ -121,7 +122,20 @@ public final class ECOCraftingPlannerService {
                                 candidate -> {
                                     ECOPlanningResult ready = buildResult(candidate, amount, simulation, startedNanos,
                                         callerCancellation);
-                                    if (!ready.executable()) return false;
+                                    if (!ready.executable()) {
+                                        if (onReady != null && accepted[0] == null && !reportedMissing[0]
+                                                && !ready.exactMissingItems().isEmpty()
+                                                && (ready.status() == PlanningStatus.MISSING_ITEMS
+                                                    || ready.status() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE)) {
+                                            callerCancellation.checkpoint();
+                                            attach(ready);
+                                            reportedMissing[0] = true;
+                                            onReady.accept(ready);
+                                            ECOPlanningStageLogger.finish("first_material_report", startedNanos, true,
+                                                "MISSING_ITEMS; alternative routes remain unproven");
+                                        }
+                                        return false;
+                                    }
                                     callerCancellation.checkpoint();
                                     attach(ready);
                                     boolean first = accepted[0] == null;

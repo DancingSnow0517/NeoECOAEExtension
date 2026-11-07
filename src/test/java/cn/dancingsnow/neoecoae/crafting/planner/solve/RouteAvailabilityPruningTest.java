@@ -23,6 +23,54 @@ import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.Test;
 
 class RouteAvailabilityPruningTest {
+    @Test void progressiveMissingReportDoesNotReleaseTheAlternativeSearchBudget() throws Exception {
+        InventoryTestBootstrap.initialize();
+        var keys = List.of(Items.STONE, Items.DIRT, Items.SAND, Items.GLASS, Items.COBBLESTONE,
+            Items.NETHERRACK, Items.END_STONE, Items.OBSIDIAN, Items.CLAY_BALL, Items.FLINT,
+            Items.COAL, Items.CHARCOAL).stream().map(AEItemKey::of).toList();
+        var goal = AEItemKey.of(Items.BRICK);
+        var scarce = keys.get(keys.size() - 1);
+        var index = new LinkedHashMap<AEKey, List<IPatternDetails>>();
+        index.put(goal, List.of(pattern(goal, keys.get(0), scarce)));
+        for (int i = 0; i < keys.size() - 1; i++) {
+            index.put(keys.get(i), List.of(pattern(keys.get(i), keys.get(i + 1)),
+                pattern(keys.get(i), keys.get(i + 1))));
+        }
+        // Alternative matching is intentionally left to the existing resolver, so independent optimistic
+        // supplies cannot prove that the two branches compete for the same last piece of raw material.
+        index.values().forEach(patterns -> patterns.forEach(pattern -> {
+            for (var input : pattern.getInputs()) {
+                var stack = input.getPossibleInputs()[0];
+                when(input.getPossibleInputs()).thenReturn(new GenericStack[] {stack, stack});
+            }
+        }));
+        var service = mock(ICraftingService.class);
+        when(service.getCraftingFor(any())).thenAnswer(call -> index.getOrDefault(call.getArgument(0), List.of()));
+        var network = new cn.dancingsnow.neoecoae.crafting.planner.compile.CraftingNetworkCompiler()
+            .compile(service, goal, ECOCancellation.NONE);
+        var graph = new cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = cn.dancingsnow.neoecoae.crafting.planner.graph.CondensationGraph.build(graph,
+            new cn.dancingsnow.neoecoae.crafting.planner.graph.TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE),
+            ECOCancellation.NONE);
+        var planner = new ComponentPlanner(new AcyclicCraftingSolver(),
+            new cn.dancingsnow.neoecoae.crafting.planner.cycle.BoundedCycleSolver());
+        var selection = planner.selectRoutes(condensation, false, ECOCancellation.NONE);
+        var stock = new KeyCounter(); stock.set(scarce, 1);
+        var budget = new ECOPlanningBudget(ECOCancellation.NONE, 300_000, Long.MAX_VALUE, () -> 0);
+        var reports = new ArrayList<ComponentPlanner.Outcome>();
+        var result = planner.planWithRouteFallback(network, condensation, selection, stock,
+            PlannerInventorySnapshot.of(stock), 1, false, false, budget,
+            report -> { reports.add(report); return false; }, true);
+        assertEquals(1, reports.size(), "Speculative partial failures must not replace the full preferred report");
+        assertEquals(PlanningStatus.MISSING_ITEMS, reports.get(0).status());
+        assertEquals(PlannerAmount.ONE, reports.get(0).state().missingAmounts().get(scarce));
+        assertEquals(reports.get(0).state().missingAmounts(), result.state().missingAmounts());
+        assertTrue(result.trace().diagnostics().stream().anyMatch(d -> d.code()
+            == PlannerDiagnostic.Code.ROUTE_SEARCH_BUDGET_EXHAUSTED));
+        assertTrue(budget.work() < 250_000, "Recovery must leave the parent allowance available: " + budget.work());
+        budget.checkpoint();
+    }
+
     @Test void provenMissingLeafDoesNotEnumerate4096UnhelpfulRoutes() throws Exception {
         InventoryTestBootstrap.initialize();
         var keys = List.of(Items.RAW_IRON, Items.STONE, Items.DIRT, Items.SAND, Items.GLASS,

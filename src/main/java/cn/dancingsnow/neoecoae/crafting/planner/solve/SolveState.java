@@ -35,6 +35,7 @@ public final class SolveState {
     final Map<AEKey, Set<AEKey>> parents = new HashMap<>();
     final Set<AEKey> unsupported = new LinkedHashSet<>();
     PlannerAmount bytes = PlannerAmount.ZERO;
+    private PlannerAmount uncommittedPreviewBytes = PlannerAmount.ZERO;
 
     SolveState(KeyCounter inventory) {
         for (var entry : inventory) if (entry.getLongValue() > 0) stored.add(entry.getKey(), entry.getLongValue());
@@ -74,8 +75,13 @@ public final class SolveState {
     public boolean hasPlannedCrafting() { return !patternTimes.isEmpty(); }
     /** AE2-facing storage size; exact only after representability has been established. */
     public long bytes() { return bytes.longValueExact(); }
-    public PlannerAmount plannerBytes() { return bytes; }
+    /** Includes expanded missing-material branches without treating their tasks as executable. */
+    public PlannerAmount plannerBytes() { return bytes.add(uncommittedPreviewBytes); }
     public ExecutionProvenance executionProvenance() { return provenance.freeze(); }
+
+    void retainPreviewBytes(PlannerAmount amount) {
+        uncommittedPreviewBytes = uncommittedPreviewBytes.add(amount);
+    }
 
     PlannerAmount craftedAmount(AEKey key) { return crafted.get(key); }
 
@@ -240,6 +246,7 @@ public final class SolveState {
         copy.deferredSuppliers.putAll(deferredSuppliers);
         parents.forEach((key, value) -> copy.parents.put(key, new LinkedHashSet<>(value)));
         copy.unsupported.addAll(unsupported); copy.bytes = bytes;
+        copy.uncommittedPreviewBytes = uncommittedPreviewBytes;
         copy.provenance.replaceWith(provenance);
         return copy;
     }
@@ -268,6 +275,7 @@ public final class SolveState {
         deferredSuppliers.clear(); deferredSuppliers.putAll(source.deferredSuppliers);
         source.parents.forEach((key, value) -> parents.put(key, new LinkedHashSet<>(value)));
         unsupported.clear(); unsupported.addAll(source.unsupported); bytes = source.bytes;
+        uncommittedPreviewBytes = source.uncommittedPreviewBytes;
         provenance.replaceWith(source.provenance);
     }
 

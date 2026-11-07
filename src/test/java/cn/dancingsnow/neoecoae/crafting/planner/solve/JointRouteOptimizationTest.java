@@ -76,6 +76,30 @@ class JointRouteOptimizationTest {
         assertTasks(published.get(0), Map.of(expensive, 5L, smelt, 5L));
     }
 
+    @Test void publishesCompleteMissingReportBeforeJointRecoveryFindsAnExecutableRoute() throws Exception {
+        var a = pattern(List.of(stack(iron, 1)), stack(goal, 1));
+        var b = pattern(List.of(stack(copper, 1)), stack(goal, 1));
+        var session = new ECOCraftingPlannerService().createSession(service(false, a, b),
+            goal, stock(iron, 6, copper, 4), false);
+        List<ECOPlanningResult> published = new ArrayList<>();
+        List<Map<AEKey, PlannerAmount>> missingAtPublication = new ArrayList<>();
+        var result = session.plan(10, false, ECOCancellation.NONE, ready -> {
+            published.add(ready);
+            missingAtPublication.add(Map.copyOf(ready.exactMissingItems()));
+        });
+        assertTrue(published.size() >= 2, "A shortage must not keep the first Future pending until recovery ends");
+        var first = published.get(0);
+        assertEquals(PlanningStatus.MISSING_ITEMS, first.status());
+        assertFalse(first.executable());
+        assertFalse(first.provenInfeasible(), "The first route's shortage is not a proof about every alternative");
+        assertFalse(first.exactMissingItems().isEmpty());
+        assertEquals(10L, first.plan().finalOutput().amount());
+        assertTrue(first.theoreticalBytes().signum() > 0);
+        assertEquals(missingAtPublication.get(0), first.exactMissingItems());
+        assertTasks(published.get(published.size() - 1), Map.of(a, 6L, b, 4L));
+        assertTasks(result, Map.of(a, 6L, b, 4L));
+    }
+
     @Test void jointlyProducesTwoRequestedMaterialsAndBuildsSupplierPhases() throws Exception {
         var a = pattern(List.of(stack(iron, 1)), stack(ingot, 1));
         var b = pattern(List.of(stack(iron, 1)), stack(slag, 1));

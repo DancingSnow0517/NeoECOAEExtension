@@ -463,17 +463,7 @@ public final class AcyclicCraftingSolver {
             traceLong(state.missing.get(network.goal())), 0, PlanTraceNode.Selection.NOT_APPLICABLE, null)
             .withExact(goal.toBigInteger(), PlannerAmount.ZERO.toBigInteger(), goal.toBigInteger(),
                 state.missing.get(network.goal()).toBigInteger(), PlannerAmount.ZERO.toBigInteger()));
-        for (var demand : state.demand.entrySet()) {
-            PlannerAmount used = state.used.get(demand.getKey());
-            PlannerAmount missing = state.missing.get(demand.getKey());
-            PlannerAmount requested = demand.getValue();
-            PlannerAmount toCraft = demand.getValue().subtract(used).subtract(missing).max(PlannerAmount.ZERO);
-            trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.MATERIAL, demand.getKey(), null, traceLong(requested),
-                traceLong(used), traceLong(toCraft), traceLong(missing), 0,
-                PlanTraceNode.Selection.NOT_APPLICABLE, null)
-                .withExact(requested.toBigInteger(), used.toBigInteger(), toCraft.toBigInteger(),
-                    missing.toBigInteger(), java.math.BigInteger.ZERO));
-        }
+        addMaterialTrace(state.demand, state.usedAmounts(), state.missingAmounts(), trace);
         for (var selected : state.selected.entrySet()) {
             CompiledPattern pattern = selected.getValue();
             long times = traceLong(state.patternTimes.getOrDefault(pattern.details(), PlannerAmount.ZERO));
@@ -492,6 +482,22 @@ public final class AcyclicCraftingSolver {
                 trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.UNSUPPORTED_INPUT,
                     pattern.unsupportedReason()));
             }
+        }
+    }
+
+    /** The same material arithmetic also describes external DAGs that cannot be committed for execution. */
+    static void addMaterialTrace(Map<AEKey, PlannerAmount> demands, Map<AEKey, PlannerAmount> inventory,
+            Map<AEKey, PlannerAmount> deficits, ECOPlanTrace trace) {
+        for (var demand : demands.entrySet()) {
+            PlannerAmount used = inventory.getOrDefault(demand.getKey(), PlannerAmount.ZERO);
+            PlannerAmount missing = deficits.getOrDefault(demand.getKey(), PlannerAmount.ZERO);
+            PlannerAmount requested = demand.getValue();
+            PlannerAmount toCraft = requested.subtract(used).subtract(missing).max(PlannerAmount.ZERO);
+            trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.MATERIAL, demand.getKey(), null, traceLong(requested),
+                traceLong(used), traceLong(toCraft), traceLong(missing), 0,
+                PlanTraceNode.Selection.NOT_APPLICABLE, null)
+                .withExact(requested.toBigInteger(), used.toBigInteger(), toCraft.toBigInteger(),
+                    missing.toBigInteger(), java.math.BigInteger.ZERO));
         }
     }
 

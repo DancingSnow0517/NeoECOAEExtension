@@ -70,7 +70,7 @@ public final class ComponentPlanner {
 
     @FunctionalInterface
     public interface CandidateListener {
-        /** Return true only after the candidate has passed the target backend's execution checks. */
+        /** May also receive the preferred material-shortage report; return true only for a validated executable. */
         boolean accept(Outcome candidate) throws InterruptedException;
     }
 
@@ -519,6 +519,7 @@ public final class ComponentPlanner {
                             }
                         }
                     }
+                    if (external != null && !external.solved()) external.addMaterialPreview(acyclic.state(), trace);
                 }
                 List<cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingGraphEdge> externalEdges = cycle
                         .outgoingDependencies().stream().flatMap(dependency -> dependency.relationships().stream()).toList();
@@ -833,6 +834,14 @@ public final class ComponentPlanner {
         Outcome preferred = plan(network, activeSelection, inventory, snapshot, amount, cyclePlanningEnabled,
             ignorePatternSubstitutions, cancellation, failures, externalDemandPlanner, seeds, false);
         boolean executable = offerCandidate(preferred, listener);
+        // The full preferred walk owns the material table even when it cannot execute. Speculative route
+        // probes below may stop at their first failure and must never be offered as complete shortage reports.
+        if (!preferred.completeCandidate() && improvePublishedRoute && listener != null
+                && !preferred.state().missingAmounts().isEmpty()
+                && (preferred.status() == PlanningStatus.MISSING_ITEMS
+                    || preferred.status() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE)) {
+            listener.accept(preferred);
+        }
         if (executable && improvePublishedRoute) ((ECOPlanningBudget) cancellation).continueUntilCancelled();
         // The first executable route reaches the confirmation page before any optional optimization.
         if (executable && !improvePublishedRoute) return preferred;
@@ -879,13 +888,8 @@ public final class ComponentPlanner {
                 }
             }
             if (executable && !improvePublishedRoute) return preferred;
-            // Alternatives are speculative. Give them a bounded share of the session so a failing order reports its
-            // material shortage instead of trying producer combinations until the whole allowance is gone.
-            ECOCancellation alternatives = improvePublishedRoute ? cancellation : ((ECOPlanningBudget) cancellation).slice(
-                Math.max(1L, NEConfig.ecoPlanningMaxWork / ALTERNATIVE_ROUTE_SHARE),
-                Math.max(1L, NEConfig.ecoPlanningMaxMillis) * 1_000_000L / ALTERNATIVE_ROUTE_SHARE);
             return searchAlternativeRoutes(network, universe, activeSelection, inventory, snapshot, amount,
-                cyclePlanningEnabled, ignorePatternSubstitutions, alternatives, failures, preferred,
+                cyclePlanningEnabled, ignorePatternSubstitutions, cancellation, failures, preferred,
                 externalDemandPlanner, supply, seeds, listener, improvePublishedRoute, executable);
         } catch (cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget.Exhausted exhausted) {
             // The interrupted alternative is speculative. The completed route still owns a valid
@@ -906,6 +910,12 @@ public final class ComponentPlanner {
                         SeedFloors seeds, @Nullable CandidateListener listener, boolean improvePublishedRoute,
                         boolean executable)
             throws InterruptedException {
+        ECOPlanningBudget sessionBudget = (ECOPlanningBudget) cancellation;
+        // Opening a progressive confirmation is not evidence of a supplied plan. Only an executable
+        // incumbent allows continued optimization; failed-route recovery keeps its bounded share.
+        if (!executable || !improvePublishedRoute) cancellation = sessionBudget.slice(
+            Math.max(1L, NEConfig.ecoPlanningMaxWork / ALTERNATIVE_ROUTE_SHARE),
+            Math.max(1L, NEConfig.ecoPlanningMaxMillis) * 1_000_000L / ALTERNATIVE_ROUTE_SHARE);
         Map<AEKey, Integer> baseline = new Object2ObjectLinkedOpenHashMap<>();
         // The numeric pass can retry an acyclic producer, while cycle-owned keys are deliberately
         // absent from SolveState.selected because their work is deferred to the cycle transaction.
@@ -972,7 +982,9 @@ public final class ComponentPlanner {
                     best = alternative;
                     resultTrace = alternative.trace();
                     if (!improvePublishedRoute) return alternative;
-                    ((ECOPlanningBudget) cancellation).continueUntilCancelled();
+                    // Recovery found an executable route. Stop using its small allowance before optimizing it.
+                    sessionBudget.continueUntilCancelled();
+                    cancellation = sessionBudget;
                 }
             }
             if (limitedCandidates > 0) {
@@ -984,7 +996,8 @@ public final class ComponentPlanner {
             return best;
         } catch (ECOPlanningBudget.Exhausted exhausted) {
             best.trace().addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.ROUTE_SEARCH_BUDGET_EXHAUSTED,
-                "stage=alternative_routes " + exhausted.getMessage() + "; retaining the completed route"));
+                "stage=alternative_routes " + exhausted.getMessage() + "; attempts=" + attempts
+                    + " expansions=" + routes.expansions() + "; retaining the completed route"));
             return incompleteSearch(best);
         } finally {
             if (routes.prunedBranches() > 0) resultTrace.addDiagnostic(new PlannerDiagnostic(
