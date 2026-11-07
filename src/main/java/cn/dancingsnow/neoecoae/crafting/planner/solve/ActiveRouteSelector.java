@@ -1,5 +1,8 @@
 package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
+import static cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingAdd;
+import static cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingMultiply;
+
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.component.CycleComponent;
@@ -391,12 +394,5 @@ public final class ActiveRouteSelector {
             return true;
         }
 
-        private static long saturatingAdd(long left, long right) {
-            return Long.MAX_VALUE - left < right ? Long.MAX_VALUE : left + right;
-        }
-
-        private static long saturatingMultiply(long left, long right) {
-            return left != 0L && right > Long.MAX_VALUE / left ? Long.MAX_VALUE : left * right;
-        }
     }
 }

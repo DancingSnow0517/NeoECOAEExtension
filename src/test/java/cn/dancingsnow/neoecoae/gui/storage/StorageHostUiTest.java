@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
-import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.common.HostProgressTestSupport;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
@@ -22,7 +21,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.style.PropertyRegistry;
 import com.lowdragmc.lowdraglib2.gui.ui.layout.LayoutProperties;
 import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
 import appeng.api.storage.cells.CellState;
-import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
 import java.util.List;
 import java.math.BigInteger;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
@@ -43,7 +41,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.registries.RegistryManager;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -54,16 +51,7 @@ import static org.mockito.Mockito.*;
 class StorageHostUiTest {
     @BeforeAll
     static void bootstrap() throws ClassNotFoundException {
-        InventoryTestBootstrap.initialize();
-        try (var mods = mockStatic(ModList.class); var registrate = mockStatic(NERegistrate.class)) {
-            ModList modList = mock(ModList.class);
-            when(modList.getAllScanData()).thenReturn(List.of());
-            mods.when(ModList::get).thenReturn(modList);
-            registrate.when(() -> NERegistrate.create("neoecoae")).thenReturn(mock(NERegistrate.class));
-            Class.forName(UIElement.class.getName());
-            Class.forName(NETextures.class.getName());
-            AccessorRegistries.init();
-        }
+        InventoryTestBootstrap.initializeUi();
     }
 
     @Test

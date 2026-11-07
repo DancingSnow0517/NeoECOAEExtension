@@ -1,5 +1,8 @@
 package cn.dancingsnow.neoecoae.storage;
 
+import static cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingAdd;
+import static cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingMultiply;
+
 import java.math.BigInteger;
 
 /**
@@ -26,43 +29,6 @@ public final class StorageByteAccounting {
         return saturatingAdd(unitsToCompleteBucket, saturatingMultiply(freeBytes, amountPerByte));
     }
 
-    public static long remainingInsertAmount(
-        long totalBytes,
-        BigInteger usedBytes,
-        BigInteger targetBucketAmount,
-        long amountPerByte,
-        long bytesPerType,
-        boolean newType
-    ) {
-        if (totalBytes <= 0L || usedBytes == null || targetBucketAmount == null
-            || usedBytes.signum() < 0 || targetBucketAmount.signum() < 0) {
-            return 0L;
-        }
-
-        BigInteger freeBytes = BigInteger.valueOf(totalBytes).subtract(usedBytes);
-        if (freeBytes.signum() < 0) {
-            return 0L;
-        }
-
-        amountPerByte = Math.max(1L, amountPerByte);
-        BigInteger amountPerByteValue = BigInteger.valueOf(amountPerByte);
-        long unitsToCompleteBucket = targetBucketAmount.signum() <= 0
-            ? 0L
-            : amountPerByteValue.subtract(targetBucketAmount.mod(amountPerByteValue))
-                .mod(amountPerByteValue).longValue();
-
-        if (newType) {
-            freeBytes = freeBytes.subtract(BigInteger.valueOf(Math.max(0L, bytesPerType)));
-            if (freeBytes.signum() < 0 || freeBytes.signum() == 0 && unitsToCompleteBucket == 0L) {
-                return 0L;
-            }
-        }
-
-        BigInteger acceptable = freeBytes.multiply(amountPerByteValue)
-            .add(BigInteger.valueOf(unitsToCompleteBucket));
-        return acceptable.min(BigInteger.valueOf(Long.MAX_VALUE)).longValue();
-    }
-
     public static BigInteger usedBytes(
         long storedTypes,
         BigInteger storedAmount,
@@ -80,17 +46,4 @@ public final class StorageByteAccounting {
         );
     }
 
-    private static long saturatingAdd(long left, long right) {
-        if (right > 0L && left > Long.MAX_VALUE - right) {
-            return Long.MAX_VALUE;
-        }
-        return left + right;
-    }
-
-    private static long saturatingMultiply(long left, long right) {
-        if (left <= 0L || right <= 0L) {
-            return 0L;
-        }
-        return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
-    }
 }

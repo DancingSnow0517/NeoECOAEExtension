@@ -205,16 +205,60 @@ class ComputationAe2LtStatusTest {
             .anyMatch(row -> new BigInteger(row.getByteArray(field)).equals(expected)), page + ": " + field);
     }
 
+    @Test void queuedSelectionsRefreshOnceAndAcknowledgeTheLatestClickOrRemovedCpu() throws Exception {
+        try (var mods = mockStatic(ModList.class)) {
+            loaded(mods, false);
+            var first = mock(ICraftingCPU.class);
+            var second = mock(ICraftingCPU.class);
+            when(first.getSelectionMode()).thenReturn(CpuSelectionMode.ANY);
+            when(second.getSelectionMode()).thenReturn(CpuSelectionMode.ANY);
+            var fixture = new Fixture(first, second);
+            assertEquals(1, fixture.snapshot().getInt("selectedSerial"));
+            int reads = fixture.cpuReads;
+            for (int sequence = 1; sequence <= 20; sequence++) {
+                fixture.select(sequence, sequence % 2 == 0 ? 2 : 1);
+            }
+            assertEquals(reads, fixture.cpuReads, "queued clicks must not each enumerate and sort the CPU list");
+            var latest = fixture.snapshot();
+            assertEquals(reads + 1, fixture.cpuReads);
+            assertEquals(20, latest.getLong("selectionSequence"));
+            assertEquals(2, latest.getInt("selectedSerial"));
+            fixture.select(19, 1);
+            fixture.select(20, 2);
+            assertSame(latest, fixture.snapshot(), "duplicate and stale requests must not invalidate the cache");
+
+            fixture.select(21, 2);
+            fixture.cpus.remove(second);
+            var removed = fixture.snapshot();
+            assertEquals(21, removed.getLong("selectionSequence"));
+            assertEquals(1, removed.getInt("selectedSerial"), "acknowledge the fallback if the clicked CPU disappeared");
+        }
+    }
+
     private static final class Fixture {
         final AtomicLong tick = new AtomicLong();
+        final java.util.List<ICraftingCPU> cpus;
+        int cpuReads;
         final Object state;
-        Fixture(ICraftingCPU cpu) throws Exception {
-            var source = new ComputationCpuStatusPanel.Source(null, tick::get, () -> true, () -> List.of(cpu),
+        Fixture(ICraftingCPU... cpus) throws Exception {
+            this.cpus = new java.util.ArrayList<>(List.of(cpus));
+            var source = new ComputationCpuStatusPanel.Source(null, tick::get, () -> true, () -> {
+                cpuReads++;
+                return this.cpus;
+            },
                 ignored -> {}, ICraftingCPU::cancelJob, null);
             var type = Class.forName(ComputationCpuStatusPanel.class.getName() + "$ServerState");
             var constructor = type.getDeclaredConstructor(ComputationCpuStatusPanel.Source.class, CpuSelectionState.Identities.class);
             constructor.setAccessible(true);
             state = constructor.newInstance(source, new CpuSelectionState.Identities<ICraftingCPU>());
+        }
+        void select(long sequence, int serial) throws Exception {
+            var request = new CompoundTag();
+            request.putLong("sequence", sequence);
+            request.putInt("serial", serial);
+            var method = state.getClass().getDeclaredMethod("select", CompoundTag.class);
+            method.setAccessible(true);
+            method.invoke(state, request);
         }
         CompoundTag snapshot() throws Exception {
             var method = state.getClass().getDeclaredMethod("snapshot");

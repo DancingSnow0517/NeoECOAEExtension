@@ -3,8 +3,19 @@ package cn.dancingsnow.neoecoae.gui.computation;
 import appeng.api.client.AEKeyRendering;
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEFluidKey;
 import appeng.core.AEConfig;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import com.lowdragmc.lowdraglib2.LDLib2;
+import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
+import com.lowdragmc.lowdraglib2.gui.ui.UI;
+import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
+import com.lowdragmc.lowdraglib2.integration.xei.emi.EMIUIEvents;
+import com.lowdragmc.lowdraglib2.integration.xei.jei.JEIUIEvents;
+import com.lowdragmc.lowdraglib2.integration.xei.jei.LDLibJEIPlugin;
+import dev.emi.emi.api.stack.EmiStackInteraction;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
@@ -12,6 +23,11 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import mezz.jei.api.gui.builder.IClickableIngredientFactory;
+import mezz.jei.api.ingredients.IIngredientType;
+import mezz.jei.api.runtime.IClickableIngredient;
+import mezz.jei.api.runtime.IIngredientManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -19,9 +35,14 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.material.Fluids;
+import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.fml.ModList;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -89,9 +110,57 @@ class ComputationScrollRenderingTest {
         panel.setValue(snapshot(0, 0, 1), false);
         scroll(panel, "scrollItemsTo", 6);
         panel.open(2);
-        panel.setValue(snapshot(0, 0, 2), false);
+        var response = snapshot(0, 0, 2);
+        response.putLong("selectionSequence", 1);
+        panel.setValue(response, false);
         assertEquals(0, field(panel, "itemOffset"));
         assertFalse((boolean) field(panel, "itemScrollPending"));
+    }
+
+    @Test void rapidCpuSelectionCannotBeOverwrittenByAnEarlierReply() throws Exception {
+        var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
+        panel.setValue(snapshot(0, 0, 1), false);
+        panel.open(2);
+        panel.open(3);
+        var earlier = snapshot(0, 0, 2);
+        earlier.putLong("selectionSequence", 1);
+        panel.setValue(earlier, false);
+        assertEquals(3, field(panel, "selectedSerial"), "the latest click owns the highlight and outgoing request");
+        var request = (com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue<?>) field(panel, "selectionRequest");
+        assertEquals(3, ((CompoundTag) request.getValue()).getInt("serial"));
+        assertEquals(2, ((CompoundTag) request.getValue()).getLong("sequence"));
+        assertEquals(0, field(panel, "itemTotal"), "do not expose another CPU's items while selection is pending");
+
+        var latest = snapshot(0, 0, 3);
+        latest.putLong("selectionSequence", 2);
+        panel.setValue(latest, false);
+        assertEquals(3, field(panel, "selectedSerial"));
+        assertEquals(60, field(panel, "itemTotal"));
+        panel.setValue(earlier, false);
+        assertEquals(3, field(panel, "selectedSerial"), "late replies stay stale after the latest acknowledgement");
+    }
+
+    @Test void returningToTheSameCpuCannotAcknowledgeAnOlderSelection() throws Exception {
+        var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
+        var original = snapshot(0, 0, 1);
+        panel.setValue(original, false);
+        panel.open(2);
+        panel.open(1);
+        panel.setValue(original.copy(), false);
+        assertEquals(0, field(panel, "itemTotal"), "serial equality cannot acknowledge an A-B-A switch");
+        var latest = original.copy();
+        latest.putLong("selectionSequence", 2);
+        panel.setValue(latest, false);
+        assertEquals(60, field(panel, "itemTotal"));
+    }
+
+    @Test void clickingTheSelectedCpuKeepsAnUnfinishedItemScroll() throws Exception {
+        var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
+        panel.setValue(snapshot(0, 0, 1), false);
+        scroll(panel, "scrollItemsTo", 6);
+        panel.open(1);
+        assertTrue((boolean) field(panel, "itemScrollPending"));
+        assertEquals(6, field(panel, "itemOffset"));
     }
 
     @Test void sidebarKeepsItsPageVisibleUntilTheLatestScrollReply() throws Exception {
@@ -165,6 +234,106 @@ class ComputationScrollRenderingTest {
             }
             }
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"jei", "emi"})
+    void recipeLookupFollowsTheRenderedItemAndTaskPages(String viewer) throws Exception {
+        var previousIngredients = LDLibJEIPlugin.ingredientManager;
+        try (var fonts = mockStatic(com.lowdragmc.lowdraglib2.gui.LDLibFonts.class);
+             var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            ldlib.when(() -> LDLib2.id(anyString())).thenAnswer(call ->
+                ResourceLocation.fromNamespaceAndPath("ldlib2", call.getArgument(0)));
+            com.lowdragmc.lowdraglib2.gui.ui.layout.LayoutProperties.init();
+            var font = mock(Font.class, RETURNS_DEEP_STUBS);
+            set(font, "lineHeight", 9);
+            fonts.when(com.lowdragmc.lowdraglib2.gui.LDLibFonts::font).thenReturn(font);
+            ldlib.when(LDLib2::isClient).thenReturn(true);
+            ldlib.when(LDLib2::isJeiLoaded).thenReturn(viewer.equals("jei"));
+            ldlib.when(LDLib2::isEmiLoaded).thenReturn(viewer.equals("emi"));
+            var factory = viewer.equals("jei") ? jeiFactory() : null;
+            var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
+            ldlib.when(LDLib2::isClient).thenReturn(false);
+            var ui = ModularUI.of(UI.of(panel));
+            ui.init(ComputationCpuStatusPanel.WIDTH, ComputationCpuStatusPanel.HEIGHT);
+            var snapshot = snapshot(0, 0, 1);
+            snapshot.getList("items", net.minecraft.nbt.Tag.TAG_COMPOUND).add(new ComputationCpuItemEntry(
+                AEFluidKey.of(Fluids.WATER), BigInteger.ONE, BigInteger.ZERO, BigInteger.ZERO, false)
+                .write(config().registries()));
+            var tasks = new ListTag();
+            tasks.add(new ComputationCpuItemEntry(AEItemKey.of(Items.DIAMOND), BigInteger.ZERO,
+                BigInteger.ONE, BigInteger.ZERO, false).write(config().registries()));
+            snapshot.put("tasks", tasks);
+            snapshot.putInt("taskTotal", 1);
+            panel.setValue(snapshot, false);
+            assertDrawn(panel, 1);
+
+            assertSame(Items.STONE, recipeAt(panel, ui, viewer, factory, 106, 28));
+            assertSame(Fluids.WATER, recipeAt(panel, ui, viewer, factory, 174, 28));
+            assertSame(Items.DIAMOND, recipeAt(panel, ui, viewer, factory, 334, 28));
+            assertNull(recipeAt(panel, ui, viewer, factory, 172, 28), "column separator");
+            assertNull(recipeAt(panel, ui, viewer, factory, 106, 49), "row separator");
+            assertNull(recipeAt(panel, ui, viewer, factory, 242, 28), "empty cell");
+
+            scroll(panel, "scrollItemsTo", 3);
+            var next = snapshot(0, 3, 1, 0, 1);
+            var nextItems = next.getList("items", net.minecraft.nbt.Tag.TAG_COMPOUND);
+            nextItems.add(nextItems.get(0).copy());
+            nextItems.set(0, new ComputationCpuItemEntry(AEItemKey.of(Items.GOLD_INGOT), BigInteger.ONE,
+                BigInteger.ZERO, BigInteger.ZERO, false).write(config().registries()));
+            panel.setValue(next, false);
+            assertSame(Items.STONE, recipeAt(panel, ui, viewer, factory, 106, 28), "keep the visible page until redraw");
+            assertDrawn(panel, 1);
+            assertSame(Items.GOLD_INGOT, recipeAt(panel, ui, viewer, factory, 106, 28));
+
+            var search = panel.selectId("computation-status-search").findFirst().orElseThrow();
+            set(ui, "focusedElement", search);
+            assertNull(recipeAt(panel, ui, viewer, factory, 106, 28), "typing R must stay in the search field");
+            set(ui, "focusedElement", null);
+            ((UIElement) field(panel, "itemActionsPopup")).setDisplay(true);
+            ui.init(ComputationCpuStatusPanel.WIDTH, ComputationCpuStatusPanel.HEIGHT);
+            assertNull(recipeAt(panel, ui, viewer, factory, 106, 28), "a popup must not expose the item behind it");
+        } finally {
+            LDLibJEIPlugin.ingredientManager = previousIngredients;
+        }
+    }
+
+    /** Use the selected JEI runtime's real ingredient and clickable builders, with only its registry boundary mocked. */
+    private static IClickableIngredientFactory jeiFactory() throws Exception {
+        var createTyped = Class.forName("mezz.jei.common.ingredients.TypedIngredient")
+            .getMethod("createUnvalidated", IIngredientType.class, Object.class);
+        var ingredients = mock(IIngredientManager.class);
+        when(ingredients.createTypedIngredient(any(), any(), eq(false)))
+            .thenAnswer(call -> Optional.of(createTyped.invoke(null, call.getArgument(0), call.getArgument(1))));
+        LDLibJEIPlugin.ingredientManager = ingredients;
+        var factoryType = Class.forName("mezz.jei.common.ingredients.ITypedIngredientFactory");
+        return (IClickableIngredientFactory) Class.forName("mezz.jei.common.input.ClickableIngredientFactory")
+            .getConstructor(factoryType).newInstance(mock(factoryType, org.mockito.AdditionalAnswers.returnsFirstArg()));
+    }
+
+    private static Object recipeAt(ComputationCpuStatusPanel panel, ModularUI ui, String viewer,
+            IClickableIngredientFactory factory, int localX, int localY) throws Exception {
+        float x = panel.getPositionX() + localX, y = panel.getPositionY() + localY;
+        var target = panel.hitTest(x, y).getA();
+        set(ui, "lastMouseX", x);
+        set(ui, "lastMouseY", y);
+        set(ui, "lastHoveredElement", target);
+        var event = UIEvent.create(viewer.equals("jei") ? JEIUIEvents.CLICKABLE_INGREDIENT : EMIUIEvents.STACK_PROVIDER);
+        event.target = target;
+        event.x = x;
+        event.y = y;
+        event.customData = factory;
+        UIEventDispatcher.dispatchEvent(event);
+        if (event.customData instanceof Optional<?> result && result.orElse(null) instanceof IClickableIngredient<?> clickable) {
+            var ingredient = clickable.getTypedIngredient().getIngredient();
+            if (ingredient instanceof ItemStack item) return item.getItem();
+            if (ingredient instanceof FluidStack fluid) return fluid.getFluid();
+        }
+        if (event.customData instanceof EmiStackInteraction interaction && !interaction.isEmpty()) {
+            return interaction.getStack().getEmiStacks().getFirst().getKey();
+        }
+        return null;
     }
 
     /** Card tooltips measure text with the client font; the window stays absent so Shift reads as released. */

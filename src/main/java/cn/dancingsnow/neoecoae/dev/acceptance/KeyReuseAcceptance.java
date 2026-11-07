@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.compat.ae2.keyreuse;
+package cn.dancingsnow.neoecoae.dev.acceptance;
 
 import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOMatterKeys;
 
@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOFluxKeys;
 import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOChemicalKeys;
 
 import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;

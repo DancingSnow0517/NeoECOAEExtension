@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.dev;
 
+import static cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingAdd;
+
 import java.math.BigInteger;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -44,7 +46,7 @@ final class FeWorkload {
         }
         ticks++;
         long elapsed = System.nanoTime() - begin;
-        tickNanos = saturatedAdd(tickNanos, elapsed);
+        tickNanos = saturatingAdd(tickNanos, elapsed);
         maxTickNanos = Math.max(maxTickNanos, elapsed);
     }
 
@@ -67,14 +69,10 @@ final class FeWorkload {
         try {
             result = insert ? access.insert(amount, simulate) : access.extract(amount, simulate);
         } finally {
-            callNanos = saturatedAdd(callNanos, System.nanoTime() - begin);
+            callNanos = saturatingAdd(callNanos, System.nanoTime() - begin);
         }
         if (result < 0 || result > amount) throw new IllegalStateException("Invalid FE acceptance; paused without retry: " + result + " / " + amount);
         return result;
-    }
-
-    private static long saturatedAdd(long left, long right) {
-        return right > Long.MAX_VALUE - left ? Long.MAX_VALUE : left + right;
     }
 
     Map<String, Object> report() {

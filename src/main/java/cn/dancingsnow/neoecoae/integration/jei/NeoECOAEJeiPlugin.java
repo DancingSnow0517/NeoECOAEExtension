@@ -1,5 +1,10 @@
 package cn.dancingsnow.neoecoae.integration.jei;
 
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.integration.xei.jei.LDLibJEIPlugin;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.integration.jei.categories.CoolingCategory;
 import cn.dancingsnow.neoecoae.integration.jei.categories.IntegrationWorkingStationCategory;
@@ -15,6 +20,8 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import net.minecraft.client.Minecraft;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
+import mezz.jei.api.constants.VanillaTypes;
+import mezz.jei.api.neoforge.NeoForgeTypes;
 import mezz.jei.api.helpers.IGuiHelper;
 import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.registration.IRecipeCatalystRegistration;
@@ -27,6 +34,7 @@ import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import org.jetbrains.annotations.Nullable;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 @JeiPlugin
 public class NeoECOAEJeiPlugin implements IModPlugin {
@@ -83,6 +91,20 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
     }
 
     public static @Nullable IJeiRuntime runtime() { return runtime; }
+
+    /** Exposes custom AE-key hit regions through LDLib's normal JEI recipe/usage lookup. */
+    public static void bindIngredient(UIElement element, Supplier<@Nullable AEKey> keySupplier) {
+        LDLibJEIPlugin.clickableIngredient(element, () -> {
+            var key = keySupplier.get();
+            return key instanceof AEItemKey item
+                ? LDLibJEIPlugin.createTypedIngredient(VanillaTypes.ITEM_STACK, item.toStack()).orElse(null) : null;
+        });
+        LDLibJEIPlugin.clickableIngredient(element, () -> {
+            var key = keySupplier.get();
+            return key instanceof AEFluidKey fluid
+                ? LDLibJEIPlugin.createTypedIngredient(NeoForgeTypes.FLUID_STACK, fluid.toStack(1)).orElse(null) : null;
+        });
+    }
 
     @Override
     public void onRuntimeUnavailable() {

@@ -166,9 +166,12 @@ class ComputationItemActionsTest {
             var constructor = type.getDeclaredConstructor(ComputationCpuStatusPanel.Source.class, CpuSelectionState.Identities.class);
             constructor.setAccessible(true);
             state = constructor.newInstance(ComputationCpuStatusPanel.Source.of(config), new CpuSelectionState.Identities<ECOCraftingCPU>());
-            var select = type.getDeclaredMethod("select", int.class);
+            var select = type.getDeclaredMethod("select", CompoundTag.class);
             select.setAccessible(true);
-            select.invoke(state, 1);
+            var selection = new CompoundTag();
+            selection.putInt("serial", 1);
+            selection.putLong("sequence", 1);
+            select.invoke(state, selection);
             action = type.getDeclaredMethod("itemAction", int.class, CompoundTag.class);
             action.setAccessible(true);
             response = type.getDeclaredField("itemActionResponse");
