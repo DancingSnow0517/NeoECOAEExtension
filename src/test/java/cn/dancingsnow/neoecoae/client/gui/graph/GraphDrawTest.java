@@ -92,13 +92,7 @@ class GraphDrawTest {
         var labels = new ArrayList<String>();
         when(graphics.drawString(eq(font), anyString(), anyInt(), anyInt(), anyInt(), anyBoolean()))
             .thenAnswer(call -> { labels.add(call.getArgument(1)); return 0; });
-        var language = mock(net.minecraft.locale.Language.class);
-        var translations = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(
-            getClass().getResourceAsStream("/assets/neoecoae/lang/zh_cn.json"), java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
-        when(language.getOrDefault(anyString())).thenAnswer(call -> translations.has(call.getArgument(0))
-            ? translations.get((String) call.getArgument(0)).getAsString() : call.getArgument(0));
-        when(language.getOrDefault(anyString(), anyString())).thenAnswer(call -> translations.has(call.getArgument(0))
-            ? translations.get((String) call.getArgument(0)).getAsString() : call.getArgument(1));
+        var language = language("zh_cn");
         try (var minecraft = mockStatic(Minecraft.class); var icons = mockStatic(AEKeyRendering.class);
                 var languages = mockStatic(net.minecraft.locale.Language.class);
                 var renderer = new GraphRenderer()) {
@@ -162,5 +156,89 @@ class GraphDrawTest {
                 new RecursionLayer(folded.addedInputs(), folded.inventory(), folded.patternTimes(), false), 12).stream()
                 .anyMatch(line -> line.getString().contains("合并")), "An ordinary layer must not claim to be merged");
         }
+    }
+
+    @Test
+    void materialCardsLocalizeBothLayoutsAlignValuesAndKeepTooltipInsideTheScreen() throws Exception {
+        var key = AEItemKey.of(Items.NETHER_STAR);
+        var material = new MaterialNode(0, key, 1, 0, 1, 0, MaterialStatus.CRAFTING, "1", "0", "1", "0", "0", "1");
+        var snapshot = new CraftingGraphSnapshot(0, List.of(material),
+            List.of(new PatternNode(-2, "demo", List.of(), List.of(new Relationship(0, 1)), 1, CandidateStatus.SELECTED, null, -1)),
+            List.of(), List.of(), List.of(), new Summary("SUCCESS", 1, 1, 0, 0, 0));
+        var graph = ClientCraftingGraph.main(snapshot, false);
+        var node = graph.nodes().get(0);
+        var client = mock(Minecraft.class);
+        var font = mock(Font.class);
+        when(font.width(any(net.minecraft.network.chat.Component.class)))
+            .thenAnswer(call -> ((net.minecraft.network.chat.Component) call.getArgument(0)).getString().length() * 6);
+        var fontField = Minecraft.class.getDeclaredField("font");
+        fontField.setAccessible(true);
+        fontField.set(client, font);
+        var graphics = mock(GuiGraphics.class);
+        var pose = new PoseStack();
+        when(graphics.pose()).thenReturn(pose);
+        var drawn = new ArrayList<CardText>();
+        when(graphics.drawString(eq(font), any(net.minecraft.network.chat.Component.class), anyInt(), anyInt(), anyInt(), anyBoolean()))
+            .thenAnswer(call -> {
+                net.minecraft.network.chat.Component text = call.getArgument(1);
+                var matrix = pose.last().pose();
+                var point = new org.joml.Vector3f((int) call.getArgument(2), (int) call.getArgument(3), 0).mulPosition(matrix);
+                drawn.add(new CardText(text.getString(), point.x, point.y, point.x + font.width(text) * matrix.m00(), point.y + 9 * matrix.m11()));
+                return 0;
+            });
+        try (var minecraft = mockStatic(Minecraft.class); var languages = mockStatic(net.minecraft.locale.Language.class)) {
+            minecraft.when(Minecraft::getInstance).thenReturn(client);
+            GraphMaterialCard previous = null;
+            for (String locale : List.of("zh_cn", "en_us")) {
+                var activeLanguage = language(locale);
+                languages.when(net.minecraft.locale.Language::getInstance).thenReturn(activeLanguage);
+                if (previous != null) assertFalse(previous.matches(graph, node, font), "Switching language rebuilds cached content");
+                boolean chinese = locale.equals("zh_cn");
+                var tooltip = CompactTreeRenderer.tooltip(graph, node).stream().map(net.minecraft.network.chat.Component::getString).toList();
+                assertTrue(tooltip.contains(chinese ? "请求数量" : "Requested"), tooltip.toString());
+                assertTrue(tooltip.contains(chinese ? "○ 合成中" : "○ Crafting"), tooltip.toString());
+                assertFalse(tooltip.stream().anyMatch(text -> text.contains("gui.neoecoae.") || text.contains("CRAFTING")));
+                var details = new GraphMaterialCard(graph, node, font, true);
+                drawn.clear();
+                details.renderDetails(graphics, 960, 540);
+                var requested = drawn.stream().filter(text -> text.text().equals(chinese ? "请求数量" : "Requested")).findFirst().orElseThrow();
+                var inventory = drawn.stream().filter(text -> text.text().equals(chinese ? "库存供应" : "Inventory")).findFirst().orElseThrow();
+                var toCraft = drawn.stream().filter(text -> text.text().equals(chinese ? "待合成" : "To Craft")).findFirst().orElseThrow();
+                assertTrue(requested.right() < inventory.x(), "The main metrics use two distinct columns");
+                assertEquals(requested.x(), toCraft.x());
+                assertTrue(drawn.stream().anyMatch(text -> text.text().equals("0") && text.x() == inventory.x()),
+                    "The second column value is aligned below its label");
+                assertTrue(drawn.stream().anyMatch(text -> text.text().equals(chinese ? "来源样板 #1" : "Source patterns #1")));
+                drawn.clear();
+                new GraphMaterialCard(graph, node, font, false).renderTooltip(graphics, 955, 535, 960, 540);
+                var values = drawn.stream().filter(text -> text.text().equals("0") || text.text().equals("1")).toList();
+                assertEquals(6, values.size());
+                assertTrue(values.stream().allMatch(text -> Math.abs(text.right() - values.get(0).right()) < 0.01f),
+                    "All six quantities share the tooltip's right edge");
+                assertTrue(drawn.stream().allMatch(text -> text.x() >= 4 && text.y() >= 4 && text.right() <= 956 && text.bottom() <= 536));
+                assertEquals(new org.joml.Matrix4f(), pose.last().pose());
+                previous = details;
+            }
+            var large = new MaterialNode(0, key, Long.MAX_VALUE, 0, Long.MAX_VALUE, 3, MaterialStatus.MISSING,
+                "922337203685477580812345", "0", "922337203685477580812345", "3", "0", "1");
+            var largeNode = new ClientCraftingGraph.Node(0, ClientCraftingGraph.Kind.MATERIAL, "star", key, large, null, null);
+            var exact = GraphMaterialCard.builder(graph, largeNode, false).texts();
+            assertTrue(exact.stream().anyMatch(text -> text.getString().equals("922,337,203,685,477,580,812,345")));
+            var missing = exact.stream().filter(text -> text.getString().equals("3")).findFirst().orElseThrow();
+            assertEquals(0xff7a7a, missing.getStyle().getColor().getValue());
+        }
+    }
+
+    private record CardText(String text, float x, float y, float right, float bottom) {}
+
+    private static net.minecraft.locale.Language language(String locale) {
+        var language = mock(net.minecraft.locale.Language.class);
+        var translations = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(
+            GraphDrawTest.class.getResourceAsStream("/assets/neoecoae/lang/" + locale + ".json"), java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+        when(language.getOrDefault(anyString())).thenAnswer(call -> translations.has(call.getArgument(0))
+            ? translations.get((String) call.getArgument(0)).getAsString() : call.getArgument(0));
+        when(language.getOrDefault(anyString(), anyString())).thenAnswer(call -> translations.has(call.getArgument(0))
+            ? translations.get((String) call.getArgument(0)).getAsString() : call.getArgument(1));
+        return language;
     }
 }

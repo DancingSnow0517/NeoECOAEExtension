@@ -240,17 +240,19 @@ public final class CompactTreeRenderer {
             if (folder == null) return List.of(Component.literal(node.label()));
             List<Component> result = new ArrayList<>();
             result.add(Component.literal(node.label()));
-            result.add(Component.literal("hidden nodes: " + folder.hiddenNodeCount()));
-            result.add(Component.literal("hidden layers: " + folder.hiddenDepth()));
-            result.add(Component.literal("missing: " + folder.containsMissing() + ", unsupported: "
-                + folder.containsUnsupported() + ", cycle: " + folder.containsCycle()));
-            result.add(Component.literal("click: expand one level, right click: expand all"));
+            result.add(Component.translatable("gui.neoecoae.crafting_graph.details.hidden_nodes", folder.hiddenNodeCount()));
+            result.add(Component.translatable("gui.neoecoae.crafting_graph.details.hidden_layers", folder.hiddenDepth()));
+            result.add(Component.translatable("gui.neoecoae.crafting_graph.details.missing", yesNo(folder.containsMissing())));
+            result.add(Component.translatable("gui.neoecoae.crafting_graph.details.unsupported", yesNo(folder.containsUnsupported())));
+            result.add(Component.translatable("gui.neoecoae.crafting_graph.details.cycle", yesNo(folder.containsCycle())));
+            result.add(Component.translatable("gui.neoecoae.crafting_graph.action.expand_hint"));
             return result;
         }
         if (node.kind() == ClientCraftingGraph.Kind.REFERENCE) {
             var treeNode = graph.compactTreeNode(node.id());
-            return List.of(Component.literal(node.label()), Component.literal("shared dependency reference"),
-                Component.literal(treeNode == null ? "" : "source id: " + treeNode.sourceId()));
+            return List.of(Component.literal(node.label()), Component.translatable("gui.neoecoae.crafting_graph.reference.description"),
+                treeNode == null ? Component.empty()
+                    : Component.translatable("gui.neoecoae.crafting_graph.reference.source", treeNode.sourceId()));
         }
         if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP && node.cycle() != null) {
             var cycle = node.cycle();
@@ -261,21 +263,18 @@ public final class CompactTreeRenderer {
         if (node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER && node.cluster() != null) {
             var cluster = node.cluster();
             return List.of(GraphRenderer.recursionText("modules", cluster.clusterId()),
-                Component.literal("独立循环：" + cluster.componentIds().size()),
-                Component.literal("跨环物料流：" + cluster.flows().size()),
+                Component.translatable("gui.neoecoae.crafting_graph.details.cluster_cycles", cluster.componentIds().size()),
+                Component.translatable("gui.neoecoae.crafting_graph.details.cluster_flows", cluster.flows().size()),
                 GraphRenderer.recursionText("open_modules"));
         }
         if (node.material() != null) {
-            var material = node.material();
-            return List.of(Component.literal(node.label()), Component.literal("requested: " + compactAmount(material.exactRequested())),
-                Component.literal("inventory: " + compactAmount(material.exactFromInventory())),
-                Component.literal("to craft: " + compactAmount(material.exactToCraft())),
-                Component.literal("missing: " + compactAmount(material.exactMissing())),
-                Component.literal("consumed: " + compactAmount(material.exactConsumed())),
-                Component.literal("produced: " + compactAmount(material.exactProduced())),
-                Component.literal("status: " + material.status()));
+            return GraphMaterialCard.builder(graph, node, false).texts();
         }
         return List.of(Component.literal(node.label()));
+    }
+
+    private static Component yesNo(boolean value) {
+        return Component.translatable("gui.neoecoae.common." + (value ? "yes" : "no"));
     }
 
     private static int nodeBorder(ClientCraftingGraph graph, ClientCraftingGraph.Node node) {

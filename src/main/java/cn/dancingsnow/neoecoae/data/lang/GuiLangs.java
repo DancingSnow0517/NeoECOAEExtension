@@ -1005,6 +1005,18 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_graph.recursion.output_types", "%s output types");
         provider.add("gui.neoecoae.crafting_graph.recursion.module_target", "Target: %s");
         provider.add("gui.neoecoae.crafting_graph.details.folder", "Collapsed group");
+        provider.add("gui.neoecoae.crafting_graph.card.request", "Crafting request");
+        provider.add("gui.neoecoae.crafting_graph.card.requested", "Requested");
+        provider.add("gui.neoecoae.crafting_graph.card.inventory", "Inventory");
+        provider.add("gui.neoecoae.crafting_graph.card.to_craft", "To Craft");
+        provider.add("gui.neoecoae.crafting_graph.card.missing", "Missing");
+        provider.add("gui.neoecoae.crafting_graph.card.consumed", "Consumed");
+        provider.add("gui.neoecoae.crafting_graph.card.produced", "Produced");
+        provider.add("gui.neoecoae.crafting_graph.card.status", "STATUS");
+        provider.add("gui.neoecoae.crafting_graph.card.source_patterns", "Source patterns #%s");
+        provider.add("gui.neoecoae.crafting_graph.reference.description", "Shared dependency reference");
+        provider.add("gui.neoecoae.crafting_graph.reference.source", "Source ID: %s");
+        provider.add("gui.neoecoae.crafting_graph.action.expand_hint", "Click: expand one level; right-click: expand all");
         provider.add("gui.neoecoae.crafting_graph.details.hidden_nodes", "Hidden nodes: %s");
         provider.add("gui.neoecoae.crafting_graph.details.hidden_layers", "Hidden layers: %s");
         provider.add("gui.neoecoae.crafting_graph.details.depth", "Depth: %s");
