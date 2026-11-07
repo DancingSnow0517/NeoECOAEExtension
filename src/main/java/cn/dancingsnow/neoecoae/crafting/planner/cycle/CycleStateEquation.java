@@ -20,33 +20,53 @@ import java.util.LinkedHashMap;
 public final class CycleStateEquation {
     public enum Status { OPTIMAL, FEASIBLE, INFEASIBLE, UNKNOWN }
     public record Result(Status status, PlannerAmount[] counts) {}
-    private record Constraint(int[] indices, BigInteger[] coefficients, BigInteger bound) {
-        static Constraint normalized(Map<Integer, BigInteger> row, BigInteger bound) {
-            BigInteger gcd = BigInteger.ZERO;
-            for (BigInteger coefficient : row.values()) gcd = gcd.gcd(coefficient.abs());
-            if (gcd.signum() == 0) gcd = BigInteger.ONE;
-            int[] indices = new int[row.size()];
-            BigInteger[] coefficients = new BigInteger[row.size()];
-            int i = 0;
-            for (var entry : row.entrySet()) {
-                indices[i] = entry.getKey(); coefficients[i++] = entry.getValue().divide(gcd);
-            }
-            // Integer lhs is a multiple of gcd, also when rhs is negative.
-            BigInteger[] division = bound.divideAndRemainder(gcd);
-            return new Constraint(indices, coefficients,
-                division[1].signum() < 0 ? division[0].subtract(BigInteger.ONE) : division[0]);
-        }
-    }
 
-    /** Sparse net consumption columns; gross inputs still require execution verification. */
+    /** Compatibility input boundary; native planner callers use solveSparseAmounts directly. */
     public static Result solveSparseMaterialBalance(List<Map<Integer, BigInteger>> columns, boolean[] imports,
             PlannerAmount[] stock, PlannerAmount[] target, boolean firstFeasible,
             ECOCancellation cancellation) throws InterruptedException {
         return solveSparseMaterialBalance(columns, imports, stock, target, Map.of(), firstFeasible, cancellation);
     }
 
-    /** Optional proven or heuristic lower bounds restrict only this candidate search, never the original graph. */
     public static Result solveSparseMaterialBalance(List<Map<Integer, BigInteger>> columns, boolean[] imports,
+            PlannerAmount[] stock, PlannerAmount[] target, Map<Integer, PlannerAmount> lowerBounds,
+            boolean firstFeasible, ECOCancellation cancellation) throws InterruptedException {
+        List<Map<Integer, PlannerAmount>> amounts = new ArrayList<>(columns.size());
+        for (var column : columns) {
+            cancellation.checkpoint();
+            var converted = new LinkedHashMap<Integer, PlannerAmount>();
+            column.forEach((key, value) -> converted.put(key, PlannerAmount.of(value)));
+            amounts.add(converted);
+        }
+        return solveSparseAmounts(amounts, imports, stock, target, lowerBounds, firstFeasible, cancellation);
+    }
+    private record Constraint(int[] indices, PlannerAmount[] coefficients, PlannerAmount bound) {
+        static Constraint normalized(Map<Integer, PlannerAmount> row, PlannerAmount bound) {
+            PlannerAmount gcd = PlannerAmount.ZERO;
+            for (PlannerAmount coefficient : row.values()) gcd = gcd.gcd(coefficient.abs());
+            if (gcd.signum() == 0) gcd = PlannerAmount.ONE;
+            int[] indices = new int[row.size()];
+            PlannerAmount[] coefficients = new PlannerAmount[row.size()];
+            int i = 0;
+            for (var entry : row.entrySet()) {
+                indices[i] = entry.getKey(); coefficients[i++] = entry.getValue().divide(gcd);
+            }
+            // Integer lhs is a multiple of gcd, also when rhs is negative.
+            PlannerAmount[] division = bound.divideAndRemainder(gcd);
+            return new Constraint(indices, coefficients,
+                division[1].signum() < 0 ? division[0].subtract(PlannerAmount.ONE) : division[0]);
+        }
+    }
+
+    /** Sparse net consumption columns; gross inputs still require execution verification. */
+    public static Result solveSparseAmounts(List<Map<Integer, PlannerAmount>> columns, boolean[] imports,
+            PlannerAmount[] stock, PlannerAmount[] target, boolean firstFeasible,
+            ECOCancellation cancellation) throws InterruptedException {
+        return solveSparseAmounts(columns, imports, stock, target, Map.of(), firstFeasible, cancellation);
+    }
+
+    /** Optional proven or heuristic lower bounds restrict only this candidate search, never the original graph. */
+    public static Result solveSparseAmounts(List<Map<Integer, PlannerAmount>> columns, boolean[] imports,
             PlannerAmount[] stock, PlannerAmount[] target, Map<Integer, PlannerAmount> lowerBounds,
             boolean firstFeasible, ECOCancellation cancellation) throws InterruptedException {
         try {
@@ -81,24 +101,42 @@ public final class CycleStateEquation {
     static Result solve(long[][] consumed, long[][] produced, boolean[] boundary,
             PlannerAmount[] stock, PlannerAmount[] target, boolean firstFeasible,
             ECOCancellation cancellation, CycleMemoryBudget memory) throws InterruptedException {
-        List<Map<Integer, BigInteger>> columns = new ArrayList<>();
+        return solve(exactMatrix(consumed), exactMatrix(produced), boundary, stock, target, firstFeasible,
+            cancellation, memory);
+    }
+
+    static Result solve(PlannerAmount[][] consumed, PlannerAmount[][] produced, boolean[] boundary,
+            PlannerAmount[] stock, PlannerAmount[] target, ECOCancellation cancellation, CycleMemoryBudget memory)
+            throws InterruptedException {
+        return solve(consumed, produced, boundary, stock, target, false, cancellation, memory);
+    }
+
+    static Result solve(PlannerAmount[][] consumed, PlannerAmount[][] produced, boolean[] boundary,
+            PlannerAmount[] stock, PlannerAmount[] target, boolean firstFeasible,
+            ECOCancellation cancellation, CycleMemoryBudget memory) throws InterruptedException {
+        List<Map<Integer, PlannerAmount>> columns = new ArrayList<>();
         for (int p = 0; p < consumed.length; p++) {
             cancellation.checkpoint();
-            Map<Integer, BigInteger> column = new LinkedHashMap<>();
+            Map<Integer, PlannerAmount> column = new LinkedHashMap<>();
             for (int key = 0; key < stock.length; key++) {
-                if (consumed[p][key] != produced[p][key]) column.put(key,
-                    BigInteger.valueOf(consumed[p][key]).subtract(BigInteger.valueOf(produced[p][key])));
+                if (!consumed[p][key].equals(produced[p][key])) column.put(key,
+                    consumed[p][key].subtract(produced[p][key]));
             }
             columns.add(column);
         }
         return solveSparse(columns, boundary, stock, target, Map.of(), firstFeasible, cancellation, memory);
     }
 
-    private static Result solveSparse(List<Map<Integer, BigInteger>> columns, boolean[] boundary,
+    private static PlannerAmount[][] exactMatrix(long[][] source) {
+        return java.util.Arrays.stream(source).map(row -> java.util.Arrays.stream(row)
+            .mapToObj(PlannerAmount::of).toArray(PlannerAmount[]::new)).toArray(PlannerAmount[][]::new);
+    }
+
+    private static Result solveSparse(List<Map<Integer, PlannerAmount>> columns, boolean[] boundary,
             PlannerAmount[] stock, PlannerAmount[] target, Map<Integer, PlannerAmount> lowerBounds, boolean firstFeasible,
             ECOCancellation cancellation, CycleMemoryBudget memory) throws InterruptedException {
         int variables = columns.size();
-        List<Map<Integer, BigInteger>> rows = new ArrayList<>();
+        List<Map<Integer, PlannerAmount>> rows = new ArrayList<>();
         for (int key = 0; key < stock.length; key++) rows.add(new LinkedHashMap<>());
         long constraintBytes = 64L + 64L * stock.length;
         for (int p = 0; p < variables; p++) {
@@ -114,14 +152,14 @@ public final class CycleStateEquation {
         for (int key = 0; key < stock.length; key++) {
             cancellation.checkpoint();
             if (boundary[key]) continue;
-            Map<Integer, BigInteger> row = rows.get(key);
+            Map<Integer, PlannerAmount> row = rows.get(key);
             if (row.isEmpty()) {
                 if (stock[key].compareTo(target[key]) < 0) return result(Status.INFEASIBLE, null);
                 continue;
             }
             if (row.values().stream().noneMatch(value -> value.signum() > 0)
                     && stock[key].compareTo(target[key]) >= 0) continue;
-            BigInteger bound = stock[key].subtract(target[key]).toBigInteger();
+            PlannerAmount bound = stock[key].subtract(target[key]);
             constraintBytes += 64L + 16L * row.size() + CycleMemoryBudget.integerBytes(bound);
             memory.check(constraintBytes);
             constraints.add(Constraint.normalized(row, bound));
@@ -130,9 +168,9 @@ public final class CycleStateEquation {
             cancellation.checkpoint();
             if (lower.getKey() < 0 || lower.getKey() >= variables || lower.getValue().signum() < 0)
                 throw new IllegalArgumentException("Invalid firing lower bound");
-            constraints.add(new Constraint(new int[] {lower.getKey()}, new BigInteger[] {BigInteger.ONE.negate()},
-                lower.getValue().toBigInteger().negate()));
-            constraintBytes += 128L + CycleMemoryBudget.integerBytes(lower.getValue().toBigInteger());
+            constraints.add(new Constraint(new int[] {lower.getKey()}, new PlannerAmount[] {PlannerAmount.ONE.negate()},
+                lower.getValue().negate()));
+            constraintBytes += 128L + CycleMemoryBudget.integerBytes(lower.getValue());
             memory.check(constraintBytes);
         }
         return presolveAndMinimize(variables, constraints, firstFeasible, cancellation, memory, constraintBytes);
@@ -141,22 +179,22 @@ public final class CycleStateEquation {
     /** Exact interval propagation; only quantities forced in every feasible vector are substituted. */
     private static Result presolveAndMinimize(int variables, List<Constraint> constraints, boolean firstFeasible,
             ECOCancellation cancellation, CycleMemoryBudget memory, long bytes) throws InterruptedException {
-        BigInteger[] lower = new BigInteger[variables], upper = new BigInteger[variables];
+        PlannerAmount[] lower = new PlannerAmount[variables], upper = new PlannerAmount[variables];
         memory.check(bytes + 64L + 32L * variables);
-        Arrays.fill(lower, BigInteger.ZERO);
+        Arrays.fill(lower, PlannerAmount.ZERO);
         boolean changed;
         int passes = 0;
         do {
             changed = false;
             for (Constraint row : constraints) {
                 cancellation.checkpoint();
-                BigInteger minimum = BigInteger.ZERO;
-                BigInteger[] terms = new BigInteger[row.indices.length];
+                PlannerAmount minimum = PlannerAmount.ZERO;
+                PlannerAmount[] terms = new PlannerAmount[row.indices.length];
                 int unbounded = 0;
                 for (int i = 0; i < row.indices.length; i++) {
                     cancellation.checkpoint();
-                    int variable = row.indices[i]; BigInteger coefficient = row.coefficients[i];
-                    BigInteger bound = coefficient.signum() > 0 ? lower[variable] : upper[variable];
+                    int variable = row.indices[i]; PlannerAmount coefficient = row.coefficients[i];
+                    PlannerAmount bound = coefficient.signum() > 0 ? lower[variable] : upper[variable];
                     if (bound == null) unbounded++;
                     else {
                         terms[i] = coefficient.multiply(bound);
@@ -166,11 +204,11 @@ public final class CycleStateEquation {
                 if (unbounded == 0 && minimum.compareTo(row.bound) > 0) return result(Status.INFEASIBLE, null);
                 for (int i = 0; i < row.indices.length; i++) {
                     cancellation.checkpoint();
-                    int variable = row.indices[i]; BigInteger coefficient = row.coefficients[i];
+                    int variable = row.indices[i]; PlannerAmount coefficient = row.coefficients[i];
                     if (unbounded - (terms[i] == null ? 1 : 0) != 0) continue;
-                    BigInteger other = terms[i] == null ? minimum : minimum.subtract(terms[i]);
-                    BigInteger rhs = row.bound.subtract(other);
-                    BigInteger bound = coefficient.signum() > 0
+                    PlannerAmount other = terms[i] == null ? minimum : minimum.subtract(terms[i]);
+                    PlannerAmount rhs = row.bound.subtract(other);
+                    PlannerAmount bound = coefficient.signum() > 0
                         ? floorDiv(rhs, coefficient) : floorDiv(rhs, coefficient.negate()).negate();
                     if (coefficient.signum() > 0 && (upper[variable] == null || bound.compareTo(upper[variable]) < 0)) {
                         upper[variable] = bound; changed = true;
@@ -190,7 +228,7 @@ public final class CycleStateEquation {
         List<Constraint> reduced = new ArrayList<>();
         for (Constraint row : constraints) {
             cancellation.checkpoint();
-            Map<Integer, BigInteger> coefficients = new LinkedHashMap<>(); BigInteger bound = row.bound;
+            Map<Integer, PlannerAmount> coefficients = new LinkedHashMap<>(); PlannerAmount bound = row.bound;
             for (int i = 0; i < row.indices.length; i++) {
                 int p = row.indices[i];
                 if (remap[p] < 0) bound = bound.subtract(row.coefficients[i].multiply(lower[p]));
@@ -203,13 +241,13 @@ public final class CycleStateEquation {
         Result result = minimize(retained, reduced, firstFeasible, cancellation, memory, bytes);
         if (result.counts == null) return result;
         PlannerAmount[] full = new PlannerAmount[variables];
-        for (int p = 0; p < variables; p++) full[p] = remap[p] < 0 ? PlannerAmount.of(lower[p]) : result.counts[remap[p]];
+        for (int p = 0; p < variables; p++) full[p] = remap[p] < 0 ? lower[p] : result.counts[remap[p]];
         return new Result(result.status, full);
     }
 
-    private static BigInteger floorDiv(BigInteger numerator, BigInteger positiveDenominator) {
-        BigInteger[] division = numerator.divideAndRemainder(positiveDenominator);
-        return division[1].signum() < 0 ? division[0].subtract(BigInteger.ONE) : division[0];
+    private static PlannerAmount floorDiv(PlannerAmount numerator, PlannerAmount positiveDenominator) {
+        PlannerAmount[] division = numerator.divideAndRemainder(positiveDenominator);
+        return division[1].signum() < 0 ? division[0].subtract(PlannerAmount.ONE) : division[0];
     }
 
     private static Result minimize(int variables, List<Constraint> constraints, boolean firstFeasible, ECOCancellation cancellation,
@@ -217,8 +255,8 @@ public final class CycleStateEquation {
             throws InterruptedException {
         var pending = new ArrayDeque<List<Constraint>>();
         pending.push(constraints);
-        BigInteger[] best = null;
-        BigInteger bestCost = null;
+        PlannerAmount[] best = null;
+        PlannerAmount bestCost = null;
         Budget budget = new Budget(cancellation, memory, constraintBytes);
         try {
             while (!pending.isEmpty()) {
@@ -234,24 +272,24 @@ public final class CycleStateEquation {
                 int fractional = -1;
                 for (int p = 0; p < variables; p++) {
                     cost = cost.add(vector[p]);
-                    if (!vector[p].denominator.equals(BigInteger.ONE) && fractional < 0) fractional = p;
+                    if (!vector[p].denominator.equals(PlannerAmount.ONE) && fractional < 0) fractional = p;
                 }
                 // Every physical firing count is integral, so the integer objective is at least ceil(LP).
                 // Comparing only the fractional bound keeps exploring equivalent joint-output patterns
                 // even after an optimal integer vector is known (e.g. every split of 10,682.75 firings).
                 if (bestCost != null && cost.ceiling().compareTo(bestCost) >= 0) continue;
                 if (fractional < 0) {
-                    best = Arrays.stream(vector).map(value -> value.numerator).toArray(BigInteger[]::new);
+                    best = Arrays.stream(vector).map(value -> value.numerator).toArray(PlannerAmount[]::new);
                     bestCost = cost.numerator;
                     if (firstFeasible) return result(Status.FEASIBLE, best);
                     continue;
                 }
-                BigInteger floor = vector[fractional].numerator.divide(vector[fractional].denominator);
+                PlannerAmount floor = vector[fractional].numerator.divide(vector[fractional].denominator);
                 var lower = new ArrayList<>(branch);
-                lower.add(new Constraint(new int[] {fractional}, new BigInteger[] {BigInteger.ONE}, floor));
+                lower.add(new Constraint(new int[] {fractional}, new PlannerAmount[] {PlannerAmount.ONE}, floor));
                 var upper = new ArrayList<>(branch);
-                upper.add(new Constraint(new int[] {fractional}, new BigInteger[] {BigInteger.ONE.negate()},
-                    floor.add(BigInteger.ONE).negate()));
+                upper.add(new Constraint(new int[] {fractional}, new PlannerAmount[] {PlannerAmount.ONE.negate()},
+                    floor.add(PlannerAmount.ONE).negate()));
                 pending.push(lower);
                 pending.push(upper);
             }
@@ -262,9 +300,8 @@ public final class CycleStateEquation {
         return result(best == null ? Status.INFEASIBLE : Status.OPTIMAL, best);
     }
 
-    private static Result result(Status status, BigInteger[] vector) {
-        return new Result(status, vector == null ? null
-            : Arrays.stream(vector).map(PlannerAmount::of).toArray(PlannerAmount[]::new));
+    private static Result result(Status status, PlannerAmount[] vector) {
+        return new Result(status, vector);
     }
 
     private static final class Budget {
@@ -389,32 +426,32 @@ public final class CycleStateEquation {
         }
     }
 
-    private record Rational(BigInteger numerator, BigInteger denominator) implements Comparable<Rational> {
-        static final Rational ZERO = of(BigInteger.ZERO), ONE = of(BigInteger.ONE), NEGATIVE_ONE = of(BigInteger.ONE.negate());
+    private record Rational(PlannerAmount numerator, PlannerAmount denominator) implements Comparable<Rational> {
+        static final Rational ZERO = of(PlannerAmount.ZERO), ONE = of(PlannerAmount.ONE), NEGATIVE_ONE = of(PlannerAmount.ONE.negate());
         Rational {
             if (denominator.signum() == 0) throw new ArithmeticException("Zero denominator");
             if (denominator.signum() < 0) { numerator = numerator.negate(); denominator = denominator.negate(); }
-            BigInteger gcd = numerator.gcd(denominator);
+            PlannerAmount gcd = numerator.gcd(denominator);
             numerator = numerator.divide(gcd); denominator = denominator.divide(gcd);
         }
-        static Rational of(BigInteger value) { return new Rational(value, BigInteger.ONE); }
+        static Rational of(PlannerAmount value) { return new Rational(value, PlannerAmount.ONE); }
         int signum() { return numerator.signum(); }
-        BigInteger ceiling() {
-            BigInteger[] quotient = numerator.divideAndRemainder(denominator);
-            return quotient[1].signum() > 0 ? quotient[0].add(BigInteger.ONE) : quotient[0];
+        PlannerAmount ceiling() {
+            PlannerAmount[] quotient = numerator.divideAndRemainder(denominator);
+            return quotient[1].signum() > 0 ? quotient[0].add(PlannerAmount.ONE) : quotient[0];
         }
         Rational negate() { return new Rational(numerator.negate(), denominator); }
         Rational add(Rational other) {
             if (other.signum() == 0) return this;
             if (signum() == 0) return other;
-            BigInteger gcd = denominator.gcd(other.denominator);
-            BigInteger left = other.denominator.divide(gcd), right = denominator.divide(gcd);
+            PlannerAmount gcd = denominator.gcd(other.denominator);
+            PlannerAmount left = other.denominator.divide(gcd), right = denominator.divide(gcd);
             return new Rational(numerator.multiply(left).add(other.numerator.multiply(right)), denominator.multiply(left));
         }
         Rational subtract(Rational other) { return add(other.negate()); }
         Rational multiply(Rational other) {
             if (signum() == 0 || other.signum() == 0) return ZERO;
-            BigInteger left = numerator.gcd(other.denominator), right = other.numerator.gcd(denominator);
+            PlannerAmount left = numerator.gcd(other.denominator), right = other.numerator.gcd(denominator);
             return new Rational(numerator.divide(left).multiply(other.numerator.divide(right)),
                 denominator.divide(right).multiply(other.denominator.divide(left)));
         }

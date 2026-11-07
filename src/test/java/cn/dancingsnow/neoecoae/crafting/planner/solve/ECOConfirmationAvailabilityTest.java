@@ -90,7 +90,7 @@ class ECOConfirmationAvailabilityTest {
         var fallback = mock(Future.class);
         doReturn(fallback).when(service).beginCraftingCalculation(null, requester, key, 1L, strategy);
 
-        var menu = mock(CraftConfirmMenuMixin.class, CALLS_REAL_METHODS);
+        var menu = mock(CraftConfirmMenuMixin.class, withSettings().useConstructor().defaultAnswer(CALLS_REAL_METHODS));
         var returned = menu.neoecoae$routeEcoPlanningRequest(service, null, requester, key, 1L, strategy);
 
         assertSame(fallback, returned);

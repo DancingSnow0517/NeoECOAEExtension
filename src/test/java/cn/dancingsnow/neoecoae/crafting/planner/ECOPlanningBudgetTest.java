@@ -6,6 +6,23 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class ECOPlanningBudgetTest {
+    @Test void executablePreviewReleasesTheGlobalLimitButKeepsCancellationAndCandidateLimits() throws Exception {
+        var cancelled = new java.util.concurrent.atomic.AtomicBoolean();
+        var clock = new AtomicLong();
+        var budget = new ECOPlanningBudget(() -> {
+            if (cancelled.get()) throw new InterruptedException("submitted");
+        }, 2, 100, clock::get);
+        budget.checkpoint();
+        budget.continueUntilCancelled();
+        clock.set(1_000);
+        for (int i = 0; i < 10; i++) budget.checkpoint();
+        var candidate = budget.slice(2, 100);
+        candidate.checkpoint(); candidate.checkpoint();
+        assertThrows(ECOPlanningBudget.Exhausted.class, candidate::checkpoint);
+        budget.checkpoint();
+        cancelled.set(true);
+        assertThrows(InterruptedException.class, budget::checkpoint);
+    }
     @Test void sharedWorkCannotResetBetweenSubproblems() throws Exception {
         var budget = new ECOPlanningBudget(ECOCancellation.NONE, 2, 100, () -> 0);
         ECOCancellation first = budget, second = budget;

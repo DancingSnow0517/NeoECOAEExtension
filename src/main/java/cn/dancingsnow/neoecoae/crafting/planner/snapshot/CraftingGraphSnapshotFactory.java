@@ -100,11 +100,10 @@ public final class CraftingGraphSnapshotFactory {
             for (AEKey key : cycle.members()) materials.computeIfAbsent(key, MutableMaterial::new).cycle = true;
             // Surface the deficit on the actual startup key. Projecting the aggregate seed deficit onto every
             // requested cycle output makes unrelated outputs appear to be missing the same startup material.
-            if (cycle.solveResult() != null && !cycle.solveResult().seedShortfall().isEmpty()) {
-                cycle.solveResult().seedShortfall().forEach((key, amount) -> {
+            if (cycle.solveResult() != null && !cycle.solveResult().exactSeedShortfall().isEmpty()) {
+                cycle.solveResult().exactSeedShortfall().forEach((key, amount) -> {
                     var material = materials.computeIfAbsent(key, MutableMaterial::new);
-                    PlannerAmount deficit = PlannerAmount.of(amount);
-                    material.exactMissing = material.exactMissing.max(deficit);
+                    material.exactMissing = material.exactMissing.max(amount);
                     material.missing = material.exactMissing.fitsLong() ? material.exactMissing.longValueExact() : Long.MAX_VALUE;
                 });
             }
@@ -148,15 +147,15 @@ public final class CraftingGraphSnapshotFactory {
             };
             int componentId = componentFor(node.key(), trace.components());
             PatternNode pattern = new PatternNode(patternNodeId, displayIdentity(node.pattern()), inputs, outputs,
-                node.firingCount(), status, node.reason(), componentId);
+                PlannerAmount.of(node.exactFiringCount()), status, node.reason(), componentId);
             patterns.add(pattern);
             boolean selected = status == CandidateStatus.SELECTED;
             for (Relationship output : outputs) {
                 EdgeKind kind = output.materialNodeId() == outputId ? EdgeKind.PATTERN_OUTPUT : EdgeKind.BYPRODUCT;
-                edges.add(new Edge(output.materialNodeId(), patternNodeId, output.amount(), kind, selected));
+                edges.add(new Edge(output.materialNodeId(), patternNodeId, output.plannerAmount(), kind, selected));
             }
             for (Relationship input : inputs) {
-                edges.add(new Edge(patternNodeId, input.materialNodeId(), input.amount(), EdgeKind.PATTERN_INPUT,
+                edges.add(new Edge(patternNodeId, input.materialNodeId(), input.plannerAmount(), EdgeKind.PATTERN_INPUT,
                     selected));
             }
         }
@@ -177,25 +176,24 @@ public final class CraftingGraphSnapshotFactory {
                 List<Relationship> inputs = internalEdge.pattern().inputs().stream()
                     .map(input -> {
                         Integer inputId = nodeIds.get(input.key());
-                        return inputId == null || !input.amountPerPattern().fitsLong() ? null
-                            : new Relationship(inputId, input.amountPerPattern().longValueExact());
+                        return inputId == null ? null : new Relationship(inputId, input.amountPerPattern());
                     })
                     .filter(java.util.Objects::nonNull).toList();
                 List<Relationship> outputs = internalEdge.pattern().outputs().stream()
                     .filter(output -> nodeIds.containsKey(output.what()))
                     .map(output -> new Relationship(nodeIds.get(output.what()), output.amount())).toList();
-                long firingCount = cycle.solveResult() == null ? 0
-                    : cycle.solveResult().patternTimes().getOrDefault(details, 0L);
+                PlannerAmount firingCount = cycle.solveResult() == null ? PlannerAmount.ZERO
+                    : cycle.solveResult().exactPatternTimes().getOrDefault(details, PlannerAmount.ZERO);
                 patterns.add(new PatternNode(patternNodeId, displayIdentity(details), inputs, outputs, firingCount,
-                    firingCount > 0 ? CandidateStatus.SELECTED : CandidateStatus.REJECTED,
-                    firingCount > 0 ? null : "CYCLIC_CANDIDATE", cycle.componentId()));
+                    firingCount.signum() > 0 ? CandidateStatus.SELECTED : CandidateStatus.REJECTED,
+                    firingCount.signum() > 0 ? null : "CYCLIC_CANDIDATE", cycle.componentId()));
                 for (Relationship output : outputs) {
-                    edges.add(new Edge(output.materialNodeId(), patternNodeId, output.amount(), EdgeKind.PATTERN_OUTPUT,
-                        firingCount > 0));
+                    edges.add(new Edge(output.materialNodeId(), patternNodeId, output.plannerAmount(), EdgeKind.PATTERN_OUTPUT,
+                        firingCount.signum() > 0));
                 }
                 for (Relationship input : inputs) {
-                    edges.add(new Edge(patternNodeId, input.materialNodeId(), input.amount(), EdgeKind.PATTERN_INPUT,
-                        firingCount > 0));
+                    edges.add(new Edge(patternNodeId, input.materialNodeId(), input.plannerAmount(), EdgeKind.PATTERN_INPUT,
+                        firingCount.signum() > 0));
                 }
             }
             List<Integer> memberIds = cycle.members().stream().map(nodeIds::get).filter(java.util.Objects::nonNull)
@@ -205,41 +203,33 @@ public final class CraftingGraphSnapshotFactory {
                 Integer from = nodeIds.get(internalEdge.producer());
                 Integer to = nodeIds.get(internalEdge.requiredInput());
                 if (from != null && to != null) {
-                    if (internalEdge.input().amountPerPattern().fitsLong()) {
-                        internal.add(new Edge(from, to, internalEdge.input().amountPerPattern().longValueExact(),
-                            EdgeKind.CYCLE_INTERNAL, true));
-                    }
+                    internal.add(new Edge(from, to, internalEdge.input().amountPerPattern(), EdgeKind.CYCLE_INTERNAL, true));
                 }
             }
             for (var externalEdge : cycle.externalEdges()) {
                 Integer from = nodeIds.get(externalEdge.producer());
                 Integer to = nodeIds.get(externalEdge.requiredInput());
                 if (from != null && to != null) {
-                    if (externalEdge.input().amountPerPattern().fitsLong()) {
-                        edges.add(new Edge(from, to, externalEdge.input().amountPerPattern().longValueExact(),
-                            EdgeKind.PATTERN_INPUT, true));
-                    }
+                    edges.add(new Edge(from, to, externalEdge.input().amountPerPattern(), EdgeKind.PATTERN_INPUT, true));
                 }
             }
             var solve = cycle.solveResult();
-            Map<AEKey, Long> externalInputValues = new LinkedHashMap<>();
             Map<AEKey, PlannerAmount> exactExternalInputs = new LinkedHashMap<>();
             for (var edge : cycle.externalEdges()) {
                 if (edge.requiredInput() != null) {
                     exactExternalInputs.merge(edge.requiredInput(), edge.input().amountPerPattern(), PlannerAmount::add);
                 }
             }
-            exactExternalInputs.forEach((key, value) -> {
-                if (value.fitsLong()) externalInputValues.put(key, value.longValueExact());
-            });
-            if (solve != null) solve.externalDemand().forEach(externalInputValues::put);
-            List<KeyAmount> externalInputs = keyAmounts(externalInputValues);
+            if (solve != null) exactExternalInputs.putAll(solve.exactExternalDemand());
+            List<KeyAmount> externalInputs = plannerKeyAmounts(exactExternalInputs);
             CycleDiagnostic diagnostic = cycleIndex < result.cycles().size() ? result.cycles().get(cycleIndex) : null;
             cycles.add(new CraftingGraphSnapshot.CycleGroup(cycle.componentId(), memberIds, internal,
-                cycle.status().name(), keyAmounts(cycle.requiredOutputs()),
+                cycle.status().name(), result.components().stream().filter(component -> component.componentId() == cycle.componentId())
+                    .findFirst().map(component -> plannerKeyAmounts(component.plannerRequiredOutputs()))
+                    .orElseGet(() -> keyAmounts(cycle.requiredOutputs())),
                 externalInputs,
-                solve == null ? List.of() : keyAmounts(solve.requiredSeed()),
-                solve == null ? List.of() : solve.patternTimes().entrySet().stream()
+                solve == null ? List.of() : plannerKeyAmounts(solve.exactRequiredSeed()),
+                solve == null ? List.of() : solve.exactPatternTimes().entrySet().stream()
                     .filter(entry -> patternIds.containsKey(entry.getKey()))
                     .map(entry -> new PatternAmount(patternIds.get(entry.getKey()), entry.getValue())).toList(),
                 solve == null ? List.of() : solve.executionWitness().stream()
@@ -293,7 +283,7 @@ public final class CraftingGraphSnapshotFactory {
         List<Relationship> result = new ArrayList<>();
         for (var edge : edges) {
             if (edge.from().equals(output) && nodeIds.containsKey(edge.to())) {
-                result.add(new Relationship(nodeIds.get(edge.to()), edge.amount()));
+                result.add(new Relationship(nodeIds.get(edge.to()), PlannerAmount.of(edge.exactAmount())));
             }
         }
         return result;
@@ -320,7 +310,7 @@ public final class CraftingGraphSnapshotFactory {
                 GenericStack possible = input.getPossibleInputs()[0];
                 Integer id = nodeIds.get(possible.what());
                 PlannerAmount amount = PlannerAmount.of(possible.amount()).multiply(input.getMultiplier());
-                if (id != null && amount.fitsLong()) result.add(new Relationship(id, amount.longValueExact()));
+                if (id != null) result.add(new Relationship(id, amount));
             }
         } catch (RuntimeException ignored) {
             // A malformed/rejected candidate is still represented, but without unsafe relationship data.
@@ -346,6 +336,11 @@ public final class CraftingGraphSnapshotFactory {
         return values.entrySet().stream()
             .filter(entry -> entry.getKey() != null)
             .sorted(Comparator.comparing(entry -> entry.getKey().toString()))
+            .map(entry -> new KeyAmount(entry.getKey(), entry.getValue())).toList();
+    }
+
+    private static List<KeyAmount> plannerKeyAmounts(Map<AEKey, PlannerAmount> values) {
+        return values.entrySet().stream().sorted(Comparator.comparing(entry -> entry.getKey().toString()))
             .map(entry -> new KeyAmount(entry.getKey(), entry.getValue())).toList();
     }
 

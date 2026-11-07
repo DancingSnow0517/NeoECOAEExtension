@@ -115,7 +115,7 @@ class ECOExecutionRuntimeDagStreamingTest {
             progress[1].accept(1L);
             runtime.onAccepted(cycle, 1L, new KeyCounter[0]);
             assertEquals(List.of(0, 1), taskIds(runtime.candidates()));
-            assertEquals(Map.of(seed, 2L), runtime.protectedStartupSeed(null));
+            assertEquals(Map.of(seed, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.of(2L)), runtime.protectedStartupSeed(null));
 
             cycle = runtime.candidates().get(1);
             progress[1].accept(1L);

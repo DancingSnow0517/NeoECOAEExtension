@@ -55,9 +55,9 @@ public final class PatternProfileValidator {
         EnumSet<PatternCapability> capabilities = EnumSet.noneOf(PatternCapability.class);
         if (fastPathSafe(pattern)) capabilities.add(PatternCapability.FAST_PATH_SAFE);
 
-        Map<AEKey, Long> consumption = new LinkedHashMap<>();
-        Map<AEKey, Long> production = new LinkedHashMap<>();
-        Map<AEKey, Long> remainder = new LinkedHashMap<>();
+        Map<AEKey, PlannerAmount> consumption = new LinkedHashMap<>();
+        Map<AEKey, PlannerAmount> production = new LinkedHashMap<>();
+        Map<AEKey, PlannerAmount> remainder = new LinkedHashMap<>();
         NetGrowthRejection rejection = netGrowthRejection(pattern, consumption, production, remainder);
         if (rejection == NetGrowthRejection.NONE) {
             capabilities.add(PatternCapability.NET_GROWTH_SAFE);
@@ -84,8 +84,8 @@ public final class PatternProfileValidator {
      * Growth rule set. Fills the per-firing vectors as a side effect and returns
      * {@link NetGrowthRejection#NONE} exactly when the capability may be granted.
      */
-    private static NetGrowthRejection netGrowthRejection(CompiledPattern pattern, Map<AEKey, Long> consumption,
-            Map<AEKey, Long> production, Map<AEKey, Long> remainder) {
+    private static NetGrowthRejection netGrowthRejection(CompiledPattern pattern, Map<AEKey, PlannerAmount> exactConsumption,
+            Map<AEKey, PlannerAmount> exactProduction, Map<AEKey, PlannerAmount> exactRemainder) {
         if (pattern.details() == null) return NetGrowthRejection.MISSING_DETAILS;
         if (!pattern.netGrowthValidated()) return NetGrowthRejection.UNSTABLE_STATIC_CONTRACT;
 
@@ -95,9 +95,6 @@ public final class PatternProfileValidator {
         if (pattern.outputs().isEmpty()) return NetGrowthRejection.INDETERMINATE_OUTPUT;
         if (pattern.inputs().isEmpty()) return NetGrowthRejection.NO_INPUTS;
 
-        Map<AEKey, PlannerAmount> exactConsumption = new LinkedHashMap<>();
-        Map<AEKey, PlannerAmount> exactProduction = new LinkedHashMap<>();
-        Map<AEKey, PlannerAmount> exactRemainder = new LinkedHashMap<>();
         // The semantic adapter may expose returned/reusable stock that is not present in AE2's ordinary output list.
         // Feed the normalized gross output vector into the existing exact validator so the growth fast path cannot
         // silently undercount Thunder feedback while the algebra itself remains unchanged.
@@ -121,23 +118,6 @@ public final class PatternProfileValidator {
                 exactRemainder.merge(input.remainderKey(), input.remainderAmountPerPattern(), PlannerAmount::add);
             }
         }
-        for (AEKey key : exactRemainder.keySet()) {
-            if (!exactProduction.getOrDefault(key, PlannerAmount.ZERO).add(exactRemainder.get(key)).fitsLong()) {
-                return NetGrowthRejection.UNREPRESENTABLE;
-            }
-        }
-        if (!copyExact(exactConsumption, consumption) || !copyExact(exactProduction, production)
-                || !copyExact(exactRemainder, remainder)) {
-            return NetGrowthRejection.UNREPRESENTABLE;
-        }
         return NetGrowthRejection.NONE;
-    }
-
-    private static boolean copyExact(Map<AEKey, PlannerAmount> source, Map<AEKey, Long> target) {
-        for (var entry : source.entrySet()) {
-            if (!entry.getValue().fitsLong()) return false;
-            target.put(entry.getKey(), entry.getValue().longValueExact());
-        }
-        return true;
     }
 }

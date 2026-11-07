@@ -4,6 +4,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
 import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.util.List;
 import java.util.Map;
 import java.util.function.ToLongBiFunction;
@@ -12,7 +13,7 @@ import net.minecraft.nbt.CompoundTag;
 
 /** Durable custody for one exact virtual lane. External long APIs only see bounded windows. */
 public final class ECOExactVirtualLedger {
-    private final BigInteger crafts;
+    private final PlannerAmount crafts;
     private final ECOExactInventory inputs = inventory();
     private final ECOExactInventory outputs = inventory();
 
@@ -24,19 +25,27 @@ public final class ECOExactVirtualLedger {
 
     public ECOExactVirtualLedger(BigInteger crafts, List<GenericStack> inputs,
             List<GenericStack> outputs, List<GenericStack> remaining) {
-        if (crafts.signum() <= 0) throw new IllegalArgumentException("Invalid exact virtual count");
-        this.crafts = crafts;
-        this.inputs.restore(ECOExactInventory.totals(inputs, crafts));
-        this.outputs.restore(ECOExactInventory.totals(outputs, crafts));
-        this.outputs.restore(ECOExactInventory.totals(remaining, crafts));
+        this(PlannerAmount.of(crafts), inputs, outputs, remaining);
     }
 
-    private ECOExactVirtualLedger(BigInteger crafts) {
+    public ECOExactVirtualLedger(PlannerAmount crafts, List<GenericStack> inputs,
+            List<GenericStack> outputs, List<GenericStack> remaining) {
+        if (crafts.signum() <= 0) throw new IllegalArgumentException("Invalid exact virtual count");
+        this.crafts = crafts;
+        this.inputs.restoreQuantities(ECOExactInventory.totalsQuantities(inputs, crafts));
+        this.outputs.restoreQuantities(ECOExactInventory.totalsQuantities(outputs, crafts));
+        this.outputs.restoreQuantities(ECOExactInventory.totalsQuantities(remaining, crafts));
+    }
+
+    private ECOExactVirtualLedger(PlannerAmount crafts) {
         if (crafts.signum() <= 0) throw new IllegalArgumentException("Invalid saved exact virtual count");
         this.crafts = crafts;
     }
 
-    public BigInteger crafts() { return crafts; }
+    public BigInteger crafts() { return crafts.toBigInteger(); }
+    public PlannerAmount craftQuantity() { return crafts; }
+    public PlannerAmount quantity(boolean output, AEKey key) { return (output ? outputs : inputs).quantity(key); }
+    public PlannerAmount totalQuantity(boolean output) { return (output ? outputs : inputs).totalQuantity(); }
     public Map<AEKey, BigInteger> snapshot(boolean output) {
         return (output ? outputs : inputs).snapshot();
     }
@@ -44,32 +53,34 @@ public final class ECOExactVirtualLedger {
     /** Update each accepted key before the next external call; partial failure cannot replay a transfer. */
     public boolean drain(boolean output, ToLongBiFunction<AEKey, Long> insert, Runnable changed) {
         var inventory = output ? outputs : inputs;
-        for (var entry : inventory.snapshot().entrySet()) {
-            long offered = entry.getValue().min(BigInteger.valueOf(Long.MAX_VALUE)).longValueExact();
+        for (var entry : inventory.snapshotQuantities().entrySet()) {
+            long offered = entry.getValue().longValueSaturated();
             long accepted = insert.applyAsLong(entry.getKey(), offered);
             if (accepted < 0 || accepted > offered) throw new IllegalStateException("Invalid exact delivery");
             if (accepted > 0) {
-                inventory.debit(Map.of(entry.getKey(), BigInteger.valueOf(accepted)));
+                inventory.debitQuantities(Map.of(entry.getKey(), PlannerAmount.of(accepted)));
                 changed.run();
             }
         }
-        return inventory.snapshot().isEmpty();
+        return inventory.list.isEmpty();
     }
 
     /** Exact delivery path used when the destination can accept more than AE2's long-sized windows. */
     public boolean drainExact(boolean output, BiFunction<AEKey, BigInteger, BigInteger> insert, Runnable changed) {
         var inventory = output ? outputs : inputs;
-        for (var entry : inventory.snapshot().entrySet()) {
-            BigInteger accepted = insert.apply(entry.getKey(), entry.getValue());
-            if (accepted == null || accepted.signum() < 0 || accepted.compareTo(entry.getValue()) > 0) {
+        for (var entry : inventory.snapshotQuantities().entrySet()) {
+            BigInteger receipt = insert.apply(entry.getKey(), entry.getValue().toBigInteger());
+            if (receipt == null) throw new IllegalStateException("Invalid exact delivery amount");
+            PlannerAmount accepted = PlannerAmount.of(receipt);
+            if (accepted.signum() < 0 || accepted.compareTo(entry.getValue()) > 0) {
                 throw new IllegalStateException("Invalid exact delivery amount");
             }
             if (accepted.signum() > 0) {
-                inventory.debit(Map.of(entry.getKey(), accepted));
+                inventory.debitQuantities(Map.of(entry.getKey(), accepted));
                 changed.run();
             }
         }
-        return inventory.snapshot().isEmpty();
+        return inventory.list.isEmpty();
     }
 
     public CompoundTag write() {
@@ -81,7 +92,7 @@ public final class ECOExactVirtualLedger {
     }
 
     public static ECOExactVirtualLedger read(CompoundTag tag) {
-        var ledger = new ECOExactVirtualLedger(new BigInteger(tag.getString("crafts")));
+        var ledger = new ECOExactVirtualLedger(PlannerAmount.parse(tag.getString("crafts")));
         ledger.inputs.readFromNBT(tag.getList("inputs", 10));
         ledger.outputs.readFromNBT(tag.getList("outputs", 10));
         return ledger;

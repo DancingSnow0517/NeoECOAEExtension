@@ -20,6 +20,9 @@ public class CraftConfirmMenuSynchronizationTest {
         var client = new OtherAddonFields();
         setEco(server, "neoecoae$calculationNanos", 1234567890123L);
         setEco(server, "neoecoae$planningStatusCode", 7);
+        setEco(server, "neoecoae$optimizationState", 1);
+        setEco(server, "neoecoae$exactPlanReady", true);
+        setEco(server, "neoecoae$provenInfeasible", false);
         server.customProgress = 987654321L;
         server.customDiagnostic = "another addon diagnostic";
         server.customHighId = "another independently assigned range";
@@ -31,16 +34,20 @@ public class CraftConfirmMenuSynchronizationTest {
             clientSync.readUpdate(buffer);
             assertEquals(1234567890123L, getEco(client, "neoecoae$calculationNanos"));
             assertEquals(7, getEco(client, "neoecoae$planningStatusCode"));
+            assertEquals(1, getEco(client, "neoecoae$optimizationState"));
+            assertEquals(true, getEco(client, "neoecoae$exactPlanReady"));
             assertEquals(server.customProgress, client.customProgress);
             assertEquals(server.customDiagnostic, client.customDiagnostic);
             assertEquals(server.customHighId, client.customHighId);
 
             buffer.clear();
             setEco(server, "neoecoae$planningStatusCode", 9);
+            setEco(server, "neoecoae$optimizationState", 2);
             server.customDiagnostic = "updated addon diagnostic";
             serverSync.writeUpdate(buffer);
             clientSync.readUpdate(buffer);
             assertEquals(9, getEco(client, "neoecoae$planningStatusCode"));
+            assertEquals(2, getEco(client, "neoecoae$optimizationState"));
             assertEquals(1234567890123L, getEco(client, "neoecoae$calculationNanos"));
             assertEquals(server.customDiagnostic, client.customDiagnostic);
             assertEquals(987654321L, client.customProgress);

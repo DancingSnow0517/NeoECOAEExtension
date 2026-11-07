@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution.worker;
 
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+
 import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
 
 import cn.dancingsnow.neoecoae.platform.JdkCompat;
@@ -291,19 +293,23 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     /** Quantity of the displayed item only; other outputs and fluids must not inflate its count. */
     public java.math.BigInteger getDisplayedItemAmount(AEItemKey key) {
-        if (!isBusy) return java.math.BigInteger.ZERO;
+        return getDisplayedItemQuantity(key).toBigInteger();
+    }
+
+    public PlannerAmount getDisplayedItemQuantity(AEItemKey key) {
+        if (!isBusy) return PlannerAmount.ZERO;
         if (exactVirtual != null) {
-            return exactVirtual.snapshot(true).getOrDefault(key, java.math.BigInteger.ZERO);
+            return exactVirtual.quantity(true, key);
         }
-        java.math.BigInteger amount = java.math.BigInteger.ZERO;
+        PlannerAmount amount = PlannerAmount.ZERO;
         for (ItemStack output : outputItems) {
             if (!output.isEmpty() && key.equals(ECOKeyFactory.item(output))) {
-                amount = amount.add(java.math.BigInteger.valueOf(output.getCount()));
+                amount = amount.add(output.getCount());
             }
         }
         for (GenericStack output : batchOutputItems) {
             if (key.equals(output.what()) && output.amount() > 0) {
-                amount = amount.add(java.math.BigInteger.valueOf(output.amount()));
+                amount = amount.add(output.amount());
             }
         }
         return amount;
@@ -388,7 +394,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         var unit = recipe.withVirtualBatch(1L, job);
         if (unit == null || !pushVirtualBatch(unit, controller)) return false;
         exactVirtual = ledger;
-        craftCount = count.min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).longValueExact();
+        craftCount = ledger.craftQuantity().longValueSaturated();
         setChanged();
         return true;
     }
@@ -1178,12 +1184,11 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     public java.math.BigInteger getExactOutputAmount() {
         return exactVirtual == null ? java.math.BigInteger.valueOf(getOutputAmount())
-            : exactVirtual.snapshot(true).values().stream().reduce(java.math.BigInteger.ZERO, java.math.BigInteger::add);
+            : exactVirtual.totalQuantity(true).toBigInteger();
     }
 
     private long getOutputAmount() {
-        if (exactVirtual != null) return getExactOutputAmount()
-            .min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).longValueExact();
+        if (exactVirtual != null) return exactVirtual.totalQuantity(true).longValueSaturated();
         long amount = 0;
         for (ItemStack stack : outputItems) {
             if (!stack.isEmpty()) {

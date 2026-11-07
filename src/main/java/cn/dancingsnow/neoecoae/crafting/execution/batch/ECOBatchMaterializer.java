@@ -5,6 +5,8 @@ import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOFastPathStacks;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.world.level.Level;
@@ -14,8 +16,13 @@ public final class ECOBatchMaterializer {
     /** Verified stateful totals are already calculated; never multiply reusable tools again. */
     public ECOBatchInputLease materializePrepared(ListCraftingInventory inventory, List<GenericStack> inputs,
             java.util.Map<appeng.api.stacks.AEKey, java.math.BigInteger> exactInputs) {
+        return materializePreparedQuantities(inventory, inputs, ECOExactInventory.fromBigIntegers(exactInputs));
+    }
+
+    public ECOBatchInputLease materializePreparedQuantities(ListCraftingInventory inventory, List<GenericStack> inputs,
+            java.util.Map<appeng.api.stacks.AEKey, PlannerAmount> exactInputs) {
         return exactInputs.isEmpty() ? ECOBatchInputLease.acquire(inventory, inputs)
-                : ECOBatchInputLease.acquireExact(
+                : ECOBatchInputLease.acquireExactQuantities(
                         (cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) inventory, exactInputs);
     }
 

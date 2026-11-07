@@ -67,13 +67,17 @@ class ECOExactCycleReservationTest {
             var run = mock(PatternRun.class);
             when(run.details()).thenReturn(pattern);
             when(run.count()).thenReturn(1L);
+            when(run.plannerCount()).thenReturn(PlannerAmount.ONE);
             when(run.repeatWidth()).thenReturn(1);
             when(run.repetitions()).thenReturn(1L);
+            when(run.plannerRepetitions()).thenReturn(PlannerAmount.ONE);
             var cycle = mock(CycleSolveResult.class);
             when(cycle.status()).thenReturn(CycleSolveStatus.SUCCESS);
             when(cycle.patternTimes()).thenReturn(Map.of(pattern, 1L));
+            when(cycle.exactPatternTimes()).thenReturn(Map.of(pattern, PlannerAmount.ONE));
             when(cycle.executionPlan()).thenReturn(List.of(run));
             when(cycle.requiredSeed()).thenReturn(Map.of(stock, 1L));
+            when(cycle.exactRequiredSeed()).thenReturn(Map.of(stock, PlannerAmount.ONE));
             return new ComponentPlanningResult(id, ComponentPlanningResult.Type.CYCLIC,
                 ComponentPlanningResult.Status.PLANNED, Map.of(output, 1L), Set.of(pattern), Set.of(pattern),
                 CyclePlanningStatus.SOLVED, null, Map.of(), null, cycle,

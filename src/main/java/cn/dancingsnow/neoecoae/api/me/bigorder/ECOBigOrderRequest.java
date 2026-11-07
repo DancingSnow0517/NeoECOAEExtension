@@ -9,6 +9,7 @@ import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
 import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -24,14 +25,15 @@ public record ECOBigOrderRequest(AEKey goal, BigInteger requested, boolean force
             ECOPlannerOptions options) {
         java.util.Objects.requireNonNull(result, "result");
         if (result.plan() == null) throw new IllegalArgumentException("Missing planning projection");
-        Map<AEKey, BigInteger> preview = new LinkedHashMap<>();
+        Map<AEKey, PlannerAmount> preview = new LinkedHashMap<>();
         result.trace().nodes().forEach(node -> {
             if (node.key() != null && node.exactToCraft().signum() > 0) {
-                preview.merge(node.key(), node.exactToCraft(), BigInteger::max);
+                preview.merge(node.key(), PlannerAmount.of(node.exactToCraft()), PlannerAmount::max);
             }
         });
         var output = result.plan().finalOutput();
-        return new ECOBigOrderRequest(output.what(), BigInteger.valueOf(output.amount()), forced, options, preview);
+        return new ECOBigOrderRequest(output.what(), BigInteger.valueOf(output.amount()), forced, options,
+                ECOExactInventory.toBigIntegers(preview));
     }
 
     private static final ThreadLocal<Submission> SUBMISSION = new ThreadLocal<>();
@@ -46,7 +48,7 @@ public record ECOBigOrderRequest(AEKey goal, BigInteger requested, boolean force
     }
     public ICraftingPlan carrier() {
         return new appeng.crafting.CraftingPlan(
-            new GenericStack(goal, requested.min(BigInteger.valueOf(Long.MAX_VALUE)).longValueExact()),
+            new GenericStack(goal, PlannerAmount.of(requested).longValueSaturated()),
             0, false, false, new KeyCounter(), new KeyCounter(), new KeyCounter(), Map.of());
     }
 

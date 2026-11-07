@@ -29,7 +29,7 @@ class ECONetworkVersionTest {
 
     @Test void sameEcoReleasePassesBothForgeChannelChecks() {
         var checks = register("20.6.0-dev");
-        assertEquals("4/20.6.0-dev", checks.version().get());
+        assertEquals("5/20.6.0-dev", checks.version().get());
         assertTrue(checks.client().test(checks.version().get()));
         assertTrue(checks.server().test(checks.version().get()));
     }

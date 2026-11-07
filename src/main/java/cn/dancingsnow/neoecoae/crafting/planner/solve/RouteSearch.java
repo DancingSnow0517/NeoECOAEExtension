@@ -99,6 +99,12 @@ final class RouteSearch {
         return prunedBranches;
     }
 
+    Map<AEKey, Integer> changedChoices() {
+        Map<AEKey, Integer> changed = new LinkedHashMap<>();
+        for (Frame frame : stack) if (frame.offset() != 0) changed.put(frame.key, choices.get(frame.key));
+        return changed;
+    }
+
     /** Next route as a full choice map, or null once every route has been returned. */
     @Nullable Map<AEKey, Integer> next(ECOCancellation cancellation) throws InterruptedException {
         while (true) {

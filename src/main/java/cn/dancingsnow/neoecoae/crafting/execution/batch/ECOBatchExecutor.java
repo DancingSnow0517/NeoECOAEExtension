@@ -6,6 +6,8 @@ import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
+import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
@@ -75,10 +77,16 @@ public final class ECOBatchExecutor {
     public static boolean executePrepared(ListCraftingInventory inventory, List<GenericStack> inputs,
             Map<AEKey, BigInteger> exactInputs, ECOFastPathFacade.Reservation energy,
             ECOStatefulBatchProvider provider) {
+        return executePreparedQuantities(inventory, inputs, ECOExactInventory.fromBigIntegers(exactInputs), energy, provider);
+    }
+
+    public static boolean executePreparedQuantities(ListCraftingInventory inventory, List<GenericStack> inputs,
+            Map<AEKey, PlannerAmount> exactInputs, ECOFastPathFacade.Reservation energy,
+            ECOStatefulBatchProvider provider) {
         ECOBatchInputLease lease = null;
         boolean retained = false;
         try {
-            lease = MATERIALIZER.materializePrepared(inventory, inputs, exactInputs);
+            lease = MATERIALIZER.materializePreparedQuantities(inventory, inputs, exactInputs);
             if (lease == null) return false;
             try {
                 retained = provider.eco$dispatchPreparedBatch();

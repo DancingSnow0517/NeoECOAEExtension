@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
 import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -45,11 +46,12 @@ public final class CycleStructure {
 
     public record Gain(BigInteger numerator, BigInteger denominator) {
         public int compareToOne() {
-            return numerator.compareTo(denominator);
+            return PlannerAmount.of(numerator).compareTo(PlannerAmount.of(denominator));
         }
 
         public boolean greaterThan(Gain other) {
-            return numerator.multiply(other.denominator).compareTo(other.numerator.multiply(denominator)) > 0;
+            return PlannerAmount.of(numerator).multiply(PlannerAmount.of(other.denominator))
+                    .compareTo(PlannerAmount.of(other.numerator).multiply(PlannerAmount.of(denominator))) > 0;
         }
 
         @Override public String toString() {
@@ -182,17 +184,17 @@ public final class CycleStructure {
 
     /** Material multiplier around a loop of consumption edges; null when an edge carries no amount ratio. */
     public static @Nullable Gain gain(List<CraftingGraphEdge> loop) {
-        BigInteger numerator = BigInteger.ONE, denominator = BigInteger.ONE;
+        PlannerAmount numerator = PlannerAmount.ONE, denominator = PlannerAmount.ONE;
         for (CraftingGraphEdge edge : loop) {
             if (kind(edge) != EdgeKind.CONSUMPTION) return null;
-            BigInteger in = edge.input().amountPerPattern().toBigInteger();
-            BigInteger out = outputAmount(edge.pattern(), edge.producer());
+            PlannerAmount in = edge.input().amountPerPattern();
+            PlannerAmount out = outputAmount(edge.pattern(), edge.producer());
             if (in.signum() <= 0 || out.signum() <= 0) return null;
             numerator = numerator.multiply(out);
             denominator = denominator.multiply(in);
         }
-        BigInteger gcd = numerator.gcd(denominator);
-        return new Gain(numerator.divide(gcd), denominator.divide(gcd));
+        PlannerAmount gcd = numerator.gcd(denominator);
+        return new Gain(numerator.divide(gcd).toBigInteger(), denominator.divide(gcd).toBigInteger());
     }
 
     /** A few distinct elementary loops, each starting at its earliest member so rotations are not repeated. */
@@ -272,12 +274,12 @@ public final class CycleStructure {
         return new Cores(core, cyclic);
     }
 
-    private static BigInteger outputAmount(CompiledPattern pattern, AEKey key) {
-        BigInteger total = BigInteger.ZERO;
+    private static PlannerAmount outputAmount(CompiledPattern pattern, AEKey key) {
+        PlannerAmount total = PlannerAmount.ZERO;
         for (GenericStack output : pattern.outputs()) {
-            if (output != null && key.equals(output.what())) total = total.add(BigInteger.valueOf(output.amount()));
+            if (output != null && key.equals(output.what())) total = total.add(output.amount());
         }
-        return total.signum() > 0 ? total : pattern.outputPerPattern().toBigInteger();
+        return total.signum() > 0 ? total : pattern.outputPerPattern();
     }
 
     private static boolean outputs(CompiledPattern pattern, AEKey key) {

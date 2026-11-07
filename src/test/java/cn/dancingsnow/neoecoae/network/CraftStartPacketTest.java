@@ -14,6 +14,34 @@ import static org.mockito.Mockito.*;
 class CraftStartPacketTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
+    @Test void submissionLocksTheDisplayedRevisionAndRejectsAnUnknownRevision() {
+        var menu = mock(CraftConfirmMenu.class, withSettings().extraInterfaces(ECOForceCraftStartSync.class,
+            cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode.class));
+        var mode = (cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode) menu;
+        menu.submitError = new CraftConfirmMenu.SyncableSubmitResult((appeng.api.networking.crafting.ICraftingSubmitResult) null);
+        var player = mock(ServerPlayer.class); player.containerMenu = menu;
+        when(menu.stillValid(player)).thenReturn(true);
+        when(mode.neoecoae$lockDisplayedPlan(42L)).thenReturn(true);
+        var task = new AtomicReference<CompletableFuture<Void>>();
+        var context = queuedContext(player, task);
+        var packet = new ECOForceCraftStartFlagC2SPacket(menu.containerId, false, 42L);
+        var buffer = new net.minecraft.network.FriendlyByteBuf(io.netty.buffer.Unpooled.buffer());
+        try {
+            ECOForceCraftStartFlagC2SPacket.STREAM_CODEC.encode(buffer, packet);
+            packet = ECOForceCraftStartFlagC2SPacket.STREAM_CODEC.decode(buffer);
+        } finally { buffer.release(); }
+        ECOForceCraftStartFlagC2SPacket.handle(packet, context);
+        task.get().join();
+        var order = inOrder(menu);
+        order.verify(mode).neoecoae$lockDisplayedPlan(42L);
+        order.verify((ECOForceCraftStartSync) menu).neoecoae$setForceCraftStart(false);
+        order.verify(menu).startJob();
+        clearInvocations(menu);
+        ECOForceCraftStartFlagC2SPacket.handle(new ECOForceCraftStartFlagC2SPacket(menu.containerId, false, 41L), context);
+        task.get().join();
+        verify(menu, never()).startJob();
+    }
+
     @Test void oneIntentAppliesForceFlagAndStartsTheCurrentValidMenuInOrder() {
         var menu = mock(CraftConfirmMenu.class, withSettings().extraInterfaces(ECOForceCraftStartSync.class));
         menu.submitError = new CraftConfirmMenu.SyncableSubmitResult(

@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.crafting.planner.cycle;
 
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
-import java.math.BigInteger;
 
 /** Conservative retained-size estimates, not a cap on recipe count or integer precision. */
 final class CycleMemoryBudget {
@@ -36,13 +35,15 @@ final class CycleMemoryBudget {
     }
 
     // Include object/array headers and eight-byte references even on compressed-oops JVMs.
-    static long integerBytes(BigInteger value) {
-        return 64L + 4L * ((value.bitLength() + 31L) / 32L);
+    static long integerBytes(PlannerAmount value) {
+        if (value.fitsLong()) return 48L;
+        if (value.fitsDoubleLong()) return 80L;
+        return 128L + 4L * ((value.bitLength() + 31L) / 32L);
     }
 
     static long markingBytes(PlannerAmount[] marking) {
         long bytes = 192L + 16L * marking.length; // Node, queue/set entries and two inventory arrays.
-        for (PlannerAmount amount : marking) bytes += 32L + integerBytes(amount.toBigInteger());
+        for (PlannerAmount amount : marking) bytes += 32L + integerBytes(amount);
         return bytes;
     }
 

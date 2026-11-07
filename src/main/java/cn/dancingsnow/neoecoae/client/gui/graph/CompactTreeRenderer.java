@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.client.gui.graph;
 
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import appeng.api.client.AEKeyRendering;
 import cn.dancingsnow.neoecoae.crafting.graph.ClientCraftingGraph;
 import cn.dancingsnow.neoecoae.crafting.graph.CompactTreeNode;
@@ -314,7 +315,7 @@ public final class CompactTreeRenderer {
         if (material.consumedBigInteger().signum() == 0 && material.producedBigInteger().signum() == 0) {
             return compactAmount(material.exactRequested());
         }
-        java.math.BigInteger delta = material.producedBigInteger().subtract(material.consumedBigInteger());
+        PlannerAmount delta = PlannerAmount.of(material.producedBigInteger()).subtract(PlannerAmount.of(material.consumedBigInteger()));
         String amount = compactAmount(delta.abs().toString());
         return delta.signum() > 0 ? "+" + amount : delta.signum() < 0 ? "-" + amount : "0";
     }

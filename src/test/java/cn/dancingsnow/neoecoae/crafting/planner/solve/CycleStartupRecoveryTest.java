@@ -149,7 +149,7 @@ class CycleStartupRecoveryTest {
     }
 
     @Test
-    void accumulatedStartupPrefixBeyondLongIsARepresentabilityResult() throws Exception {
+    void accumulatedStartupPrefixBeyondLongKeepsTheRealRawMaterialShortage() throws Exception {
         var inventory = new KeyCounter(); inventory.add(raw, Long.MAX_VALUE);
         var calls = new AtomicInteger();
         CycleSolver solver = (request, cancellation) -> {
@@ -165,9 +165,8 @@ class CycleStartupRecoveryTest {
                 CycleSolveMetrics.NONE);
         };
         var outcome = plan(new ComponentPlanner(new AcyclicCraftingSolver(), solver), inventory);
-        assertEquals(PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE, outcome.status());
-        assertTrue(outcome.trace().diagnostics().stream()
-            .anyMatch(diagnostic -> diagnostic.message().contains("9223372036854775808")));
+        assertEquals(PlanningStatus.MISSING_ITEMS, outcome.status());
+        assertEquals(PlannerAmount.ONE, outcome.state().missingAmounts().get(raw), outcome.trace().diagnostics().toString());
         assertTrue(outcome.state().patternTimes().isEmpty());
         assertTrue(outcome.state().usedItems().isEmpty());
         assertEquals(Long.MAX_VALUE, inventory.get(raw));

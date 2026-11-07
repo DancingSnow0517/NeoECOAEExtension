@@ -19,6 +19,75 @@ class ECOPlanningServiceTest {
     private final AEKey goal = mock(AEKey.class);
 
     @Test
+    void firstPreviewCompletesBeforeTheWorkerFinishesAndKeepsImproving() throws Exception {
+        var initial = result(PlanningStatus.SUCCESS, false);
+        var improved = result(PlanningStatus.SUCCESS, false);
+        var continueSearch = new java.util.concurrent.CountDownLatch(1);
+        when(session.plan(eq(10L), eq(false), any(), any())).thenAnswer(call -> {
+            java.util.function.Consumer<ECOPlanningResult> publish = call.getArgument(3);
+            publish.accept(initial);
+            assertTrue(continueSearch.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            publish.accept(improved);
+            return improved;
+        });
+        var request = ECOPlanningService.begin(session, goal, 10L, CalculationStrategy.REPORT_MISSING_ITEMS);
+        try {
+            assertSame(initial.plan(), request.get(5, java.util.concurrent.TimeUnit.SECONDS));
+            assertEquals(ECOPlanningService.Request.SEARCHING, request.searchState());
+            continueSearch.countDown();
+            awaitFinished(request);
+            assertSame(improved.plan(), request.latest());
+            assertSame(initial.plan(), request.get(), "AE2's initial Future must keep its first preview");
+        } finally { continueSearch.countDown(); request.cancel(true); }
+    }
+
+    @Test
+    void submissionCancellationRejectsLatePublishedRoutes() throws Exception {
+        var initial = result(PlanningStatus.SUCCESS, false);
+        var late = result(PlanningStatus.SUCCESS, false);
+        var blocked = new java.util.concurrent.CountDownLatch(1);
+        var attempted = new java.util.concurrent.CountDownLatch(1);
+        when(session.plan(eq(10L), eq(false), any(), any())).thenAnswer(call -> {
+            java.util.function.Consumer<ECOPlanningResult> publish = call.getArgument(3);
+            publish.accept(initial);
+            try { blocked.await(); } catch (InterruptedException cancelled) { /* Simulate a late callback. */ }
+            publish.accept(late);
+            attempted.countDown();
+            return late;
+        });
+        var request = ECOPlanningService.begin(session, goal, 10L, CalculationStrategy.REPORT_MISSING_ITEMS);
+        try {
+            assertSame(initial.plan(), request.get(5, java.util.concurrent.TimeUnit.SECONDS));
+            request.cancel(true);
+            assertTrue(attempted.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            assertSame(initial.plan(), request.latest());
+            assertEquals(ECOPlanningService.Request.STOPPED, request.searchState());
+        } finally { blocked.countDown(); request.cancel(true); }
+    }
+
+    @Test
+    void aBackgroundFailureKeepsTheExecutablePreview() throws Exception {
+        var initial = result(PlanningStatus.SUCCESS, false);
+        when(session.plan(eq(10L), eq(false), any(), any())).thenAnswer(call -> {
+            ((java.util.function.Consumer<ECOPlanningResult>) call.getArgument(3)).accept(initial);
+            throw new IllegalStateException("failed alternative");
+        });
+        var request = ECOPlanningService.begin(session, goal, 10L, CalculationStrategy.REPORT_MISSING_ITEMS);
+        try {
+            assertSame(initial.plan(), request.get(5, java.util.concurrent.TimeUnit.SECONDS));
+            awaitFinished(request);
+            assertSame(initial.plan(), request.latest());
+            assertEquals(ECOPlanningService.Request.FAILED, request.searchState());
+        } finally { request.cancel(true); }
+    }
+
+    private static void awaitFinished(ECOPlanningService.Request request) {
+        assertTimeoutPreemptively(java.time.Duration.ofSeconds(5), () -> {
+            while (request.searchState() == ECOPlanningService.Request.SEARCHING) Thread.sleep(1L);
+        });
+    }
+
+    @Test
     void missingReportReturnsTheOriginalPlanWithoutRecalculating() throws Exception {
         var exact = result(PlanningStatus.MISSING_ITEMS, true);
         when(session.plan(eq(10L), eq(false), any())).thenReturn(exact);
@@ -81,6 +150,9 @@ class ECOPlanningServiceTest {
     private static ECOPlanningResult result(PlanningStatus status, boolean simulation) {
         var plan = mock(CraftingPlan.class);
         when(plan.simulation()).thenReturn(simulation);
+        when(plan.usedItems()).thenReturn(new appeng.api.stacks.KeyCounter());
+        when(plan.emittedItems()).thenReturn(new appeng.api.stacks.KeyCounter());
+        when(plan.missingItems()).thenReturn(new appeng.api.stacks.KeyCounter());
         return new ECOPlanningResult(status, plan, new ECOPlanTrace(), List.of(), 0);
     }
 }

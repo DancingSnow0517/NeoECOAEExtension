@@ -27,6 +27,8 @@ import java.util.*;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.core.HolderLookup;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class ECOExactOrderTest {
     @org.junit.jupiter.api.BeforeAll
@@ -171,9 +173,9 @@ class ECOExactOrderTest {
             assertTrue(logic.trySubmitJob(grid, new ECOExactCraftingPlan(result, true), IActionSource.empty(), null).successful());
             var job = logic.getJob();
             logic.tickCraftingLogic(null, null);
-            assertEquals(BigInteger.valueOf(9), job.deferredStock.get(input));
+            assertEquals(BigInteger.valueOf(9), job.deferredStock.get(input).toBigInteger());
             logic.tickCraftingLogic(null, null);
-            assertEquals(BigInteger.valueOf(5), job.deferredStock.get(input));
+            assertEquals(BigInteger.valueOf(5), job.deferredStock.get(input).toBigInteger());
             assertEquals(4, logic.getInventory().list.get(input));
             logic.tickCraftingLogic(null, null);
             assertTrue(job.deferredStock.isEmpty());
@@ -245,7 +247,10 @@ class ECOExactOrderTest {
         assertEquals(Set.of(a, c), new HashSet<>(cycleRuntime.candidates().stream().map(ECOExecutionRuntime.DispatchCandidate::pattern).toList()));
     }
 
-    @Test void checkpointKeepsExactTaskAndDeferredMaterials() {
+    @ParameterizedTest
+    @ValueSource(ints = {67, 127, 128, 129, 1024})
+    void checkpointKeepsExactTaskAndDeferredMaterials(int bits) {
+        BigInteger quantity = BigInteger.ONE.shiftLeft(bits).subtract(BigInteger.ONE);
         cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize();
         var key = mock(AEKey.class, RETURNS_DEEP_STUBS);
         var pattern = pattern(key);
@@ -253,8 +258,8 @@ class ECOExactOrderTest {
         when(pattern.getDefinition()).thenReturn(definition);
         var registries = mock(HolderLookup.Provider.class);
         when(definition.toTag()).thenAnswer(i -> new CompoundTag());
-        var result = result(key, Map.of(pattern, PlannerAmount.of(HUGE)));
-        result.setExactMaterials(Map.of(key, PlannerAmount.of(HUGE)), Map.of(), Map.of());
+        var result = result(key, Map.of(pattern, PlannerAmount.of(quantity)));
+        result.setExactMaterials(Map.of(key, PlannerAmount.of(quantity)), Map.of(), Map.of());
         var cpu = mock(ECOCraftingCPU.class);
         var logic = new ECOCraftingCPULogic(cpu);
         try (var types = mockStatic(AEKeyTypes.class);
@@ -271,15 +276,38 @@ class ECOExactOrderTest {
             job.tasks.get(pattern).accept(37);
             var restored = new ExecutingCraftingJob(job.writeToNBT(), ignored -> {}, logic);
             assertTrue(restored.exactOrder);
-            assertEquals(HUGE.subtract(BigInteger.valueOf(37)), restored.tasks.get(pattern).remainingExact());
-            assertEquals(HUGE.subtract(BigInteger.valueOf(Long.MAX_VALUE)), restored.deferredStock.get(key));
+            assertEquals(quantity.subtract(BigInteger.valueOf(37)), restored.tasks.get(pattern).remainingExact());
+            assertEquals(quantity.subtract(BigInteger.valueOf(Long.MAX_VALUE)), restored.deferredStock.get(key).toBigInteger());
             assertEquals(link.getCraftingID(), restored.link.getCraftingID());
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {64, 128, 2048})
+    void exactProgressKeepsMixedUnitsAndSurvivesValuesBeyondDoubleRange(int bits) {
+        BigInteger scale = BigInteger.ONE.shiftLeft(bits);
+        var data = new CompoundTag();
+        data.putBoolean("exactWork", true);
+        var started = new CompoundTag();
+        var completed = new CompoundTag();
+        for (var type : AEKeyTypes.getAll()) {
+            boolean item = type == AEKeyType.items(), fluid = type == AEKeyType.fluids();
+            started.putString(type.getId().toString(), scale.multiply(BigInteger.valueOf(item ? 4 : fluid ? 8000 : 0)).toString());
+            completed.putString(type.getId().toString(), scale.multiply(BigInteger.valueOf(item ? 1 : fluid ? 6000 : 0)).toString());
+        }
+        data.put("exactStarted", started);
+        data.put("exactCompleted", completed);
+        var tracker = new ElapsedTimeTracker(data);
+
+        assertEquals(7F / 12F, tracker.getProgress(), 0.000001F);
+        var restored = new ElapsedTimeTracker(tracker.writeToNBT());
+        assertEquals(tracker.getProgress(), restored.getProgress());
+        assertEquals(scale.multiply(BigInteger.valueOf(8000)), restored.getExactStartedWork(AEKeyType.fluids()));
+    }
+
     private static ECOExecutionPlan.TaskSpec task(int id, IPatternDetails pattern) {
         return new ECOExecutionPlan.TaskSpec(id, PlanIdentity.patternIdentityFor(pattern), pattern,
-            ECOExecutionPlan.PatternRuntimeInfo.from(pattern), Long.MAX_VALUE, id, ECOExecutionPlan.TaskKind.DAG);
+            ECOExecutionPlan.PatternRuntimeInfo.from(pattern), PlannerAmount.of(HUGE), id, ECOExecutionPlan.TaskKind.DAG, List.of());
     }
     private static IPatternDetails pattern(AEKey output) {
         var pattern = mock(IPatternDetails.class);

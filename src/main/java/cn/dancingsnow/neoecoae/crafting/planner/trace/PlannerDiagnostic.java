@@ -57,6 +57,8 @@ public record PlannerDiagnostic(Code code, String message) {
         /** A quantity proof excluded an entire producer-choice subtree before numeric planning. */
         ROUTE_BRANCH_PRUNED,
         /** The whole-network material balance has no solution: no route, cycle or seed can complete the order. */
-        MATERIAL_BALANCE_INFEASIBLE
+        MATERIAL_BALANCE_INFEASIBLE,
+        /** The exact numeric ledger exists, but its backend execution contract could not be validated. */
+        EXACT_EXECUTION_INVALID
     }
 }

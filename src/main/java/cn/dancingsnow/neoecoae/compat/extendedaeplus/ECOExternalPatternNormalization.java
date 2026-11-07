@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.compat.extendedaeplus;
 
 import appeng.api.crafting.IPatternDetails;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.math.BigInteger;
 import java.util.*;
 
@@ -14,22 +15,28 @@ public final class ECOExternalPatternNormalization {
 
     public static Map<IPatternDetails, BigInteger> normalize(Map<IPatternDetails, Long> tasks) {
         Map<IPatternDetails, BigInteger> result = new LinkedHashMap<>();
+        normalizeQuantities(tasks).forEach((pattern, count) -> result.put(pattern, count.toBigInteger()));
+        return result;
+    }
+
+    public static Map<IPatternDetails, PlannerAmount> normalizeQuantities(Map<IPatternDetails, Long> tasks) {
+        Map<IPatternDetails, PlannerAmount> result = new LinkedHashMap<>();
         tasks.forEach((pattern, count) -> {
             if (count <= 0) return;
-            BigInteger copies = BigInteger.valueOf(count);
+            PlannerAmount copies = PlannerAmount.of(count);
             Set<IPatternDetails> seen = Collections.newSetFromMap(new IdentityHashMap<>());
             while (TYPES.contains(pattern.getClass().getName())) {
                 if (!seen.add(pattern)) throw new IllegalArgumentException("Cyclic EAEP wrapper");
                 try {
                     var original = (IPatternDetails) pattern.getClass().getMethod("getOriginal").invoke(pattern);
                     long multiplier = multiplier(pattern, original);
-                    copies = copies.multiply(BigInteger.valueOf(multiplier));
+                    copies = copies.multiply(multiplier);
                     pattern = original;
                 } catch (ReflectiveOperationException failure) {
                     throw new IllegalArgumentException("Unsupported EAEP execution wrapper", failure);
                 }
             }
-            result.merge(pattern, copies, BigInteger::add);
+            result.merge(pattern, copies, PlannerAmount::add);
         });
         return result;
     }
@@ -43,7 +50,8 @@ public final class ECOExternalPatternNormalization {
         if (n <= 0) throw new IllegalArgumentException("Invalid EAEP multiplier");
         for (int i = 0; i < outputs.size(); i++) {
             if (!outputs.get(i).what().equals(base.get(i).what())
-                    || outputs.get(i).amount() != Math.multiplyExact(base.get(i).amount(), n))
+                    || !PlannerAmount.of(outputs.get(i).amount())
+                        .equals(PlannerAmount.of(base.get(i).amount()).multiply(n)))
                 throw new IllegalArgumentException("Non-linear EAEP outputs");
         }
         var inputs = scaled.getInputs();
@@ -51,7 +59,8 @@ public final class ECOExternalPatternNormalization {
         if (inputs.length != originals.length) throw new IllegalArgumentException("Invalid EAEP input shape");
         for (int i = 0; i < inputs.length; i++) {
             if (!Arrays.equals(inputs[i].getPossibleInputs(), originals[i].getPossibleInputs())
-                    || inputs[i].getMultiplier() != Math.multiplyExact(originals[i].getMultiplier(), n))
+                    || !PlannerAmount.of(inputs[i].getMultiplier())
+                        .equals(PlannerAmount.of(originals[i].getMultiplier()).multiply(n)))
                 throw new IllegalArgumentException("Non-linear EAEP inputs");
         }
         return n;

@@ -30,11 +30,17 @@ public final class ClientCraftingGraph {
         }
     }
 
-    public record Link(int fromId, int toId, long amount, CraftingGraphSnapshot.EdgeKind kind, boolean selected,
+    public record Link(int fromId, int toId, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount plannerAmount,
+            CraftingGraphSnapshot.EdgeKind kind, boolean selected,
             int materialNodeId) {
+        public Link(int fromId, int toId, long amount, CraftingGraphSnapshot.EdgeKind kind, boolean selected,
+                int materialNodeId) {
+            this(fromId, toId, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.of(amount), kind, selected, materialNodeId);
+        }
         public Link(int fromId, int toId, long amount, CraftingGraphSnapshot.EdgeKind kind, boolean selected) {
             this(fromId, toId, amount, kind, selected, -1);
         }
+        public long amount() { return plannerAmount.longValueSaturated(); }
     }
 
     private final CraftingGraphSnapshot source;
@@ -149,9 +155,9 @@ public final class ClientCraftingGraph {
             int to = collapse(edge.toId(), cycleByMember, clusterByComponent);
             if (from == to || !nodes.containsKey(from) || !nodes.containsKey(to)) continue;
             int materialId = edgeMaterialId(edge);
-            String identity = from + ":" + to + ":" + edge.kind() + ":" + materialId + ":" + edge.amount()
+            String identity = from + ":" + to + ":" + edge.kind() + ":" + materialId + ":" + edge.plannerAmount()
                 + ":" + edge.fromId() + ":" + edge.toId();
-            if (dedupe.add(identity)) links.add(new Link(from, to, edge.amount(), edge.kind(), edge.selected(),
+            if (dedupe.add(identity)) links.add(new Link(from, to, edge.plannerAmount(), edge.kind(), edge.selected(),
                 materialId));
         }
         int root = collapse(snapshot.rootNodeId(), cycleByMember, clusterByComponent);
@@ -205,18 +211,18 @@ public final class ClientCraftingGraph {
             boolean selected = pattern.status() == CraftingGraphSnapshot.CandidateStatus.SELECTED;
             for (var input : pattern.inputs()) {
                 if (nodes.containsKey(input.materialNodeId())
-                        && dedupe.add(input.materialNodeId() + ":" + patternId + ":input:" + input.amount())) {
+                        && dedupe.add(input.materialNodeId() + ":" + patternId + ":input:" + input.plannerAmount())) {
                     // Focus view deliberately reverses the dependency edge: material/input -> pattern.
-                    links.add(new Link(input.materialNodeId(), patternId, input.amount(),
+                    links.add(new Link(input.materialNodeId(), patternId, input.plannerAmount(),
                         CraftingGraphSnapshot.EdgeKind.PATTERN_INPUT, selected, input.materialNodeId()));
                 }
             }
             for (var output : pattern.outputs()) {
                 if (nodes.containsKey(output.materialNodeId())
-                        && dedupe.add(patternId + ":" + output.materialNodeId() + ":output:" + output.amount())) {
+                        && dedupe.add(patternId + ":" + output.materialNodeId() + ":output:" + output.plannerAmount())) {
                     CraftingGraphSnapshot.EdgeKind kind = members.contains(output.materialNodeId())
                         ? CraftingGraphSnapshot.EdgeKind.PATTERN_OUTPUT : CraftingGraphSnapshot.EdgeKind.BYPRODUCT;
-                    links.add(new Link(patternId, output.materialNodeId(), output.amount(), kind, selected,
+                    links.add(new Link(patternId, output.materialNodeId(), output.plannerAmount(), kind, selected,
                         output.materialNodeId()));
                 }
             }
@@ -226,8 +232,8 @@ public final class ClientCraftingGraph {
             // always take the material -> pattern -> material path above and never use this direct-edge fallback.
             for (var edge : snapshot.edges()) {
                 if (members.contains(edge.fromId()) && members.contains(edge.toId())
-                        && dedupe.add(edge.fromId() + ":" + edge.toId() + ":legacy:" + edge.amount())) {
-                    links.add(new Link(edge.fromId(), edge.toId(), edge.amount(), edge.kind(), edge.selected(),
+                        && dedupe.add(edge.fromId() + ":" + edge.toId() + ":legacy:" + edge.plannerAmount())) {
+                    links.add(new Link(edge.fromId(), edge.toId(), edge.plannerAmount(), edge.kind(), edge.selected(),
                         edgeMaterialId(edge)));
                 }
             }
@@ -279,14 +285,14 @@ public final class ClientCraftingGraph {
         for (var pattern : patterns) {
             boolean selected = pattern.status() == CraftingGraphSnapshot.CandidateStatus.SELECTED;
             for (var input : pattern.inputs()) if (nodes.containsKey(input.materialNodeId())) {
-                String identity = input.materialNodeId() + ":" + pattern.patternNodeId() + ":in:" + input.amount();
+                String identity = input.materialNodeId() + ":" + pattern.patternNodeId() + ":in:" + input.plannerAmount();
                 if (dedupe.add(identity)) links.add(new Link(input.materialNodeId(), pattern.patternNodeId(),
-                    input.amount(), CraftingGraphSnapshot.EdgeKind.PATTERN_INPUT, selected, input.materialNodeId()));
+                    input.plannerAmount(), CraftingGraphSnapshot.EdgeKind.PATTERN_INPUT, selected, input.materialNodeId()));
             }
             for (var output : pattern.outputs()) if (nodes.containsKey(output.materialNodeId())) {
-                String identity = pattern.patternNodeId() + ":" + output.materialNodeId() + ":out:" + output.amount();
+                String identity = pattern.patternNodeId() + ":" + output.materialNodeId() + ":out:" + output.plannerAmount();
                 if (dedupe.add(identity)) links.add(new Link(pattern.patternNodeId(), output.materialNodeId(),
-                    output.amount(), CraftingGraphSnapshot.EdgeKind.PATTERN_OUTPUT, selected,
+                    output.plannerAmount(), CraftingGraphSnapshot.EdgeKind.PATTERN_OUTPUT, selected,
                     output.materialNodeId()));
             }
         }

@@ -124,9 +124,13 @@ public final class SolveState {
 
     /** Exposes a disabled cycle as a normal AE2 missing entry without inventing missing internal SCC members. */
     void markCycleMissing(Map<AEKey, Long> requiredOutputs) {
+        markExactCycleMissing(plannerAmounts(requiredOutputs));
+    }
+
+    void markExactCycleMissing(Map<AEKey, PlannerAmount> requiredOutputs) {
         for (var entry : requiredOutputs.entrySet()) {
-            long amount = entry.getValue();
-            if (amount > 0) missing.set(entry.getKey(), missing.get(entry.getKey()).max(PlannerAmount.of(amount)));
+            PlannerAmount amount = entry.getValue();
+            if (amount.signum() > 0) missing.set(entry.getKey(), missing.get(entry.getKey()).max(amount));
         }
     }
 
@@ -136,12 +140,16 @@ public final class SolveState {
      * transaction itself is not committed.
      */
     void markMissing(Map<AEKey, Long> deficits) {
+        markExactMissing(plannerAmounts(deficits));
+    }
+
+    void markExactMissing(Map<AEKey, PlannerAmount> deficits) {
         for (var entry : deficits.entrySet()) {
-            long amount = entry.getValue() == null ? 0L : entry.getValue();
-            if (amount > 0L) {
+            PlannerAmount amount = entry.getValue();
+            if (amount.signum() > 0) {
                 // External-demand entries are independent deficits; accumulate them when multiple cycle
                 // boundaries require the same leaf material.
-                missing.add(entry.getKey(), PlannerAmount.of(amount));
+                missing.add(entry.getKey(), amount);
             }
         }
     }
@@ -157,29 +165,39 @@ public final class SolveState {
             Map<AEKey, Long> ownedCycleReservations,
             Map<AEKey, Long> plannedCycleInputs, Map<AEKey, Long> additionalCycleReservations, KeyCounter inventory,
             KeyCounter directExternalReservations, List<SolveState> externalStates) {
+        return applyExactCycleTransaction(componentId, plannerAmounts(requiredOutputs), cycle,
+            plannerAmounts(ownedCycleReservations), plannerAmounts(plannedCycleInputs),
+            plannerAmounts(additionalCycleReservations), PlannerInventorySnapshot.of(inventory, stored.unboundedKeys()),
+            PlannerInventorySnapshot.of(directExternalReservations).amounts(), externalStates);
+    }
+
+    boolean applyExactCycleTransaction(int componentId, Map<AEKey, PlannerAmount> requiredOutputs, CycleSolveResult cycle,
+            Map<AEKey, PlannerAmount> ownedCycleReservations, Map<AEKey, PlannerAmount> plannedCycleInputs,
+            Map<AEKey, PlannerAmount> additionalCycleReservations, PlannerInventorySnapshot inventory,
+            Map<AEKey, PlannerAmount> directExternalReservations, List<SolveState> externalStates) {
         if (cycle == null || cycle.status() != cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus.SUCCESS
-                || !cycle.seedShortfall().isEmpty()) return false;
+                || !cycle.exactSeedShortfall().isEmpty()) return false;
         SolveState candidate = copy();
         try {
-            for (var entry : cycle.requiredSeed().entrySet()) {
-                if (entry.getValue() < 0) return false;
-                long availableSeed = Math.addExact(ownedCycleReservations.getOrDefault(entry.getKey(), 0L),
-                    plannedCycleInputs.getOrDefault(entry.getKey(), 0L));
-                if (availableSeed < entry.getValue()) return false;
+            for (var entry : cycle.exactRequiredSeed().entrySet()) {
+                if (entry.getValue().signum() < 0) return false;
+                PlannerAmount availableSeed = ownedCycleReservations.getOrDefault(entry.getKey(), PlannerAmount.ZERO)
+                    .add(plannedCycleInputs.getOrDefault(entry.getKey(), PlannerAmount.ZERO));
+                if (availableSeed.compareTo(entry.getValue()) < 0) return false;
             }
             for (var entry : additionalCycleReservations.entrySet()) {
-                if (entry.getValue() < 0) return false;
+                if (entry.getValue().signum() < 0) return false;
                 candidate.used.add(entry.getKey(), entry.getValue());
-                candidate.reserveBoundary(componentId, entry.getKey(), PlannerAmount.of(entry.getValue()));
+                candidate.reserveBoundary(componentId, entry.getKey(), entry.getValue());
             }
-            for (var entry : directExternalReservations) {
-                candidate.used.add(entry.getKey(), entry.getLongValue());
-                candidate.reserveBoundary(componentId, entry.getKey(), PlannerAmount.of(entry.getLongValue()));
+            for (var entry : directExternalReservations.entrySet()) {
+                candidate.used.add(entry.getKey(), entry.getValue());
+                candidate.reserveBoundary(componentId, entry.getKey(), entry.getValue());
             }
             for (SolveState external : externalStates) candidate.mergeExternal(external, componentId);
-            for (var entry : cycle.patternTimes().entrySet()) {
-                if (entry.getValue() < 0) return false;
-                candidate.patternTimes.merge(entry.getKey(), PlannerAmount.of(entry.getValue()), PlannerAmount::add);
+            for (var entry : cycle.exactPatternTimes().entrySet()) {
+                if (entry.getValue().signum() < 0) return false;
+                candidate.patternTimes.merge(entry.getKey(), entry.getValue(), PlannerAmount::add);
             }
             for (AEKey key : requiredOutputs.keySet()) {
                 IPatternDetails deferred = candidate.deferredSuppliers.remove(key);
@@ -190,14 +208,14 @@ public final class SolveState {
             if (cycle.plannerTotalFirings().signum() > 0) {
                 for (var entry : requiredOutputs.entrySet()) {
                     PlannerAmount pending = candidate.provenance.pendingAmount(entry.getKey())
-                        .min(PlannerAmount.of(entry.getValue()));
+                        .min(entry.getValue());
                     if (pending.signum() > 0) candidate.provenance.allocatePending(entry.getKey(), entry.getKey(),
                         new MaterialSource.CycleOutput(componentId), pending);
                 }
             }
             for (var entry : candidate.used) {
                 if (!candidate.stored.isUnbounded(entry.getKey())
-                        && entry.getValue().compareTo(PlannerAmount.of(inventory.get(entry.getKey()))) > 0) return false;
+                        && entry.getValue().compareTo(inventory.amountOf(entry.getKey())) > 0) return false;
             }
             replaceWith(candidate);
             return true;
@@ -206,7 +224,13 @@ public final class SolveState {
         }
     }
 
-    SolveState copy() {
+    private static Map<AEKey, PlannerAmount> plannerAmounts(Map<AEKey, Long> values) {
+        Map<AEKey, PlannerAmount> result = new LinkedHashMap<>();
+        values.forEach((key, amount) -> result.put(key, PlannerAmount.of(amount)));
+        return result;
+    }
+
+    public SolveState copy() {
         SolveState copy = new SolveState(new KeyCounter());
         copy.stored.replaceFrom(stored); copy.crafted.replaceFrom(crafted);
         copy.used.replaceFrom(used); copy.emitted.replaceFrom(emitted);

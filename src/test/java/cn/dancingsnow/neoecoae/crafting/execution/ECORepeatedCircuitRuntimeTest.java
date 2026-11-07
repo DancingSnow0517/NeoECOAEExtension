@@ -15,6 +15,7 @@ import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,57 @@ import static org.mockito.Mockito.*;
 
 class ECORepeatedCircuitRuntimeTest {
     @BeforeAll static void bootstrap() { cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize(); }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {64, 128, 192})
+    void wideLapsKeepBoundedDispatchAndRestoreTheExactLastLap(int bits) {
+        assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+            var laps = PlannerAmount.ONE.shiftLeft(bits);
+            var fixture = fixture(laps, PlannerAmount.ZERO, PlannerAmount.ZERO, true);
+            accept(fixture.runtime, fixture, 0, 5, 5);
+            accept(fixture.runtime, fixture, 0, Long.MAX_VALUE, Long.MAX_VALUE);
+            var saved = new CompoundTag();
+            fixture.runtime.writeToNBT(saved);
+            var restored = ECOExecutionRuntime.fromNBT(fixture.plan, fixture.patterns, fixture.progress, saved);
+            assertEquals(Long.MAX_VALUE, restored.candidates().get(0).maxDispatchCount());
+            assertEquals(laps.multiply(2L).add(3L).subtract(Long.MAX_VALUE), fixture.progress[0].remainingQuantity());
+            // The live accepted counters are authoritative on reload, including a prefix beyond 128 bits.
+            fixture.progress[0].setExact(laps.multiply(2L).add(8L), PlannerAmount.of(4L));
+            fixture.progress[1].setExact(laps, PlannerAmount.ONE);
+            restored = ECOExecutionRuntime.fromNBT(fixture.plan, fixture.patterns, fixture.progress, saved);
+            accept(restored, fixture, 0, 1, 1);
+            accept(restored, fixture, 1, 1, 1);
+            accept(restored, fixture, 0, 3, 3);
+            assertTrue(restored.isComplete());
+        });
+    }
+
+    @Test void dynamicCycleRestoresExactFiringsAfterLongSizedBatches() {
+        var count = PlannerAmount.ONE.shiftLeft(160);
+        var pattern = pattern();
+        var task = new ECOExecutionPlan.TaskSpec(0, PlanIdentity.patternIdentityFor(pattern), pattern,
+            ECOExecutionPlan.PatternRuntimeInfo.from(pattern), count, 0, ECOExecutionPlan.TaskKind.CYCLE_DYNAMIC, List.of());
+        var phase = new ECOExecutionPlan.PhaseSpec(Map.of(0, count), Map.of(), 0, 0,
+            ECOExecutionSchedule.Type.DYNAMIC_CYCLE, List.of(0), List.of(), List.of());
+        var plan = new ECOExecutionPlan(new PlanIdentity.Signature(mock(AEKey.class), 1, Map.of(), Map.of(), Map.of(), Map.of()),
+            ExecutionMode.DYNAMIC_CYCLE, List.of(task), List.of(phase), new ECOExecutionSchedule(List.of()));
+        var progress = new ExecutingCraftingJob.TaskProgress();
+        progress.setExact(count, count);
+        var bindings = new ExecutingCraftingJob.TaskProgress[]{progress};
+        var runtime = new ECOExecutionRuntime(plan, Map.of(0, pattern), bindings);
+        var candidate = runtime.candidates().get(0);
+        progress.accept(Long.MAX_VALUE);
+        runtime.onAccepted(candidate, Long.MAX_VALUE, new KeyCounter[0]);
+        var saved = new CompoundTag(); runtime.writeToNBT(saved);
+        assertEquals(count.subtract(Long.MAX_VALUE).toString(), saved.getList("phases", 10).getCompound(0)
+            .getList("dynamic", 10).getCompound(0).getString("count"));
+        progress.setExact(count, PlannerAmount.ONE);
+        runtime = ECOExecutionRuntime.fromNBT(plan, Map.of(0, pattern), bindings, saved);
+        candidate = runtime.candidates().get(0);
+        assertEquals(1L, candidate.maxDispatchCount());
+        progress.accept(1L); runtime.onAccepted(candidate, 1L, new KeyCounter[0]);
+        assertTrue(runtime.isComplete());
+    }
 
     @Test void partialProviderAcceptanceAndReloadKeepLapOrder() {
         var fixture = fixture(3, 0, 0);
@@ -76,7 +128,7 @@ class ECORepeatedCircuitRuntimeTest {
     }
 
     @Test void persistedPlanKeepsCircuitBoundariesAndLegacyStepsRemainReadable() {
-        var fixture = fixture(1_000_000_000_000L, 0, 0);
+        var fixture = fixture(PlannerAmount.ONE.shiftLeft(140), PlannerAmount.ZERO, PlannerAmount.ZERO, false);
         var registries = mock(HolderLookup.Provider.class);
         var definitions = List.of(mock(AEItemKey.class), mock(AEItemKey.class));
         for (int i = 0; i < 2; i++) {
@@ -98,6 +150,7 @@ class ECORepeatedCircuitRuntimeTest {
             var restored = ECOExecutionPlanNbtCodec.decode(saved, logic,
                 new GenericStack(mock(AEKey.class), 1));
             assertEquals(cn.dancingsnow.neoecoae.platform.JdkCompat.first(fixture.plan.phases()).steps(), cn.dancingsnow.neoecoae.platform.JdkCompat.first(restored.phases()).steps());
+            assertEquals(fixture.plan.tasks().get(0).plannerTotalCount(), restored.tasks().get(0).plannerTotalCount());
         }
     }
 
@@ -107,6 +160,11 @@ class ECORepeatedCircuitRuntimeTest {
             List.of(new ECOExecutionPlan.ExecutionStep(0, 2, 1, 2), new ECOExecutionPlan.ExecutionStep(1, 1, 2, 2)), List.of());
         assertThrows(IllegalArgumentException.class, () -> new ECOExecutionPlan(fixture.plan.signature(),
             ExecutionMode.ORDERED_CYCLE, fixture.plan.tasks(), List.of(invalid), fixture.plan.schedule()));
+        var oversized = new ECOExecutionPlan.PhaseSpec(0, 0, ECOExecutionSchedule.Type.CYCLE, List.of(0, 1),
+            List.of(new ECOExecutionPlan.ExecutionStep(0, 2),
+                    new ECOExecutionPlan.ExecutionStep(1, 1, 2, Long.MAX_VALUE)), List.of());
+        assertThrows(IllegalArgumentException.class, () -> new ECOExecutionPlan(fixture.plan.signature(),
+            ExecutionMode.ORDERED_CYCLE, fixture.plan.tasks(), List.of(oversized), fixture.plan.schedule()));
     }
 
     private static void accept(ECOExecutionRuntime runtime, Fixture fixture, int id, long allowance, long accepted) {
@@ -127,27 +185,33 @@ class ECORepeatedCircuitRuntimeTest {
     }
 
     private static Fixture fixture(long laps, long acceptedFirst, long acceptedSecond, boolean processing) {
+        return fixture(PlannerAmount.of(laps), PlannerAmount.of(acceptedFirst), PlannerAmount.of(acceptedSecond), processing);
+    }
+
+    private static Fixture fixture(PlannerAmount laps, PlannerAmount acceptedFirst, PlannerAmount acceptedSecond,
+            boolean processing) {
         var first = pattern();
         var second = pattern();
         when(first.supportsPushInputsToExternalInventory()).thenReturn(processing);
         when(second.supportsPushInputsToExternalInventory()).thenReturn(processing);
         var patterns = Map.of(0, first, 1, second);
-        long[] totals = {Math.addExact(Math.multiplyExact(laps, 2L), 8L), laps};
+        PlannerAmount[] totals = {laps.multiply(2L).add(8L), laps};
         var tasks = java.util.stream.IntStream.range(0, 2).mapToObj(id -> new ECOExecutionPlan.TaskSpec(id,
             PlanIdentity.patternIdentityFor(patterns.get(id)), patterns.get(id),
             ECOExecutionPlan.PatternRuntimeInfo.from(patterns.get(id)), totals[id], 0,
-            ECOExecutionPlan.TaskKind.CYCLE_ORDERED)).toList();
+            ECOExecutionPlan.TaskKind.CYCLE_ORDERED, List.of())).toList();
         var steps = List.of(new ECOExecutionPlan.ExecutionStep(0, 5), new ECOExecutionPlan.ExecutionStep(0, 2),
-            new ECOExecutionPlan.ExecutionStep(1, 1, laps == 1 ? 1 : 2, laps), new ECOExecutionPlan.ExecutionStep(0, 3));
+            new ECOExecutionPlan.ExecutionStep(1, PlannerAmount.ONE, laps.equals(PlannerAmount.ONE) ? 1 : 2, laps),
+            new ECOExecutionPlan.ExecutionStep(0, 3));
         var phase = new ECOExecutionPlan.PhaseSpec(0, 0, ECOExecutionSchedule.Type.CYCLE, List.of(0, 1), steps, List.of());
         var signature = new PlanIdentity.Signature(mock(AEKey.class), 1, Map.of(), Map.of(), Map.of(), Map.of());
         var plan = new ECOExecutionPlan(signature, ExecutionMode.ORDERED_CYCLE, tasks, List.of(phase), new ECOExecutionSchedule(List.of()));
         var progress = new ExecutingCraftingJob.TaskProgress[2];
         for (int id = 0; id < 2; id++) {
             progress[id] = new ExecutingCraftingJob.TaskProgress();
-            progress[id].setExact(BigInteger.valueOf(totals[id]), BigInteger.valueOf(totals[id]));
-            long accepted = id == 0 ? acceptedFirst : acceptedSecond;
-            if (accepted > 0) progress[id].accept(accepted);
+            progress[id].setExact(totals[id], totals[id]);
+            PlannerAmount accepted = id == 0 ? acceptedFirst : acceptedSecond;
+            if (accepted.signum() > 0) progress[id].accept(accepted);
         }
         return new Fixture(plan, patterns, progress, new ECOExecutionRuntime(plan, patterns, progress));
     }

@@ -155,7 +155,7 @@ class CreativeSupplyPlanningTest {
             Map.of(key, 64L), inventory.toKeyCounter(), base, Map.of(key, Long.MAX_VALUE), Set.of(key),
             false, ECOCancellation.NONE);
         assertTrue(outcome.solved());
-        assertEquals(64, outcome.directReservations().get(key));
+        assertEquals(PlannerAmount.of(64L), outcome.directReservations().get(key));
         assertTrue(outcome.delegatedCycleDemands().isEmpty(), "Creative supply does not need a cycle producer");
         assertTrue(outcome.missingLeaves().isEmpty());
     }

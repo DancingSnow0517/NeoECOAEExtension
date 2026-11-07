@@ -81,7 +81,15 @@ public final class AcyclicCraftingSolver {
             boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
         Map<AEKey, PlannerAmount> goals = new LinkedHashMap<>();
         demands.forEach((key, amount) -> { if (amount > 0) goals.put(key, PlannerAmount.of(amount)); });
-        return solveGoals(network, inventory, goals, false, initialChoices, deferredPatterns,
+        return solveExactDemands(network, inventory, goals, initialChoices, deferredPatterns,
+            ignorePatternSubstitutions, cancellation);
+    }
+
+    Outcome solveExactDemands(CompiledNetwork network, PlannerInventorySnapshot inventory,
+            Map<AEKey, PlannerAmount> demands, Map<AEKey, Integer> initialChoices,
+            Set<IPatternDetails> deferredPatterns, boolean ignorePatternSubstitutions,
+            ECOCancellation cancellation) throws InterruptedException {
+        return solveGoals(network, inventory, demands, false, initialChoices, deferredPatterns,
             ignorePatternSubstitutions, cancellation);
     }
 
@@ -89,7 +97,7 @@ public final class AcyclicCraftingSolver {
             Map<AEKey, PlannerAmount> goals, boolean additionalGoal, Map<AEKey, Integer> initialChoices,
             Set<IPatternDetails> deferredPatterns, boolean ignorePatternSubstitutions,
             ECOCancellation cancellation) throws InterruptedException {
-        long amount = goals.getOrDefault(network.goal(), PlannerAmount.ZERO).longValueExact();
+        PlannerAmount amount = goals.getOrDefault(network.goal(), PlannerAmount.ZERO);
         ECOPlanTrace trace = new ECOPlanTrace();
         if (goals.values().stream().anyMatch(value -> value.signum() <= 0)) {
             trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.AMOUNT_OVERFLOW, "Goal amount must be positive"));
@@ -450,9 +458,8 @@ public final class AcyclicCraftingSolver {
         counter.add(key, amount);
     }
 
-    private static void addTrace(CompiledNetwork network, SolveState state, long goalAmount, ECOPlanTrace trace) {
-        PlannerAmount goal = PlannerAmount.of(goalAmount);
-        trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.GOAL, network.goal(), null, goalAmount, 0, goalAmount,
+    private static void addTrace(CompiledNetwork network, SolveState state, PlannerAmount goal, ECOPlanTrace trace) {
+        trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.GOAL, network.goal(), null, traceLong(goal), 0, traceLong(goal),
             traceLong(state.missing.get(network.goal())), 0, PlanTraceNode.Selection.NOT_APPLICABLE, null)
             .withExact(goal.toBigInteger(), PlannerAmount.ZERO.toBigInteger(), goal.toBigInteger(),
                 state.missing.get(network.goal()).toBigInteger(), PlannerAmount.ZERO.toBigInteger()));

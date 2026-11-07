@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.planner.growth;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -37,14 +38,14 @@ public final class ValidatedPatternProfile {
     private final PatternProfileValidator issuer;
     private final CompiledPattern pattern;
     private final Set<PatternCapability> capabilities;
-    private final Map<AEKey, Long> consumption;
-    private final Map<AEKey, Long> production;
-    private final Map<AEKey, Long> remainder;
+    private final Map<AEKey, PlannerAmount> consumption;
+    private final Map<AEKey, PlannerAmount> production;
+    private final Map<AEKey, PlannerAmount> remainder;
     private final NetGrowthRejection netGrowthRejection;
 
     private ValidatedPatternProfile(PatternProfileValidator issuer, CompiledPattern pattern,
-            Set<PatternCapability> capabilities, Map<AEKey, Long> consumption, Map<AEKey, Long> production,
-            Map<AEKey, Long> remainder, NetGrowthRejection netGrowthRejection) {
+            Set<PatternCapability> capabilities, Map<AEKey, PlannerAmount> consumption, Map<AEKey, PlannerAmount> production,
+            Map<AEKey, PlannerAmount> remainder, NetGrowthRejection netGrowthRejection) {
         this.issuer = issuer;
         this.pattern = pattern;
         this.capabilities = capabilities;
@@ -56,8 +57,8 @@ public final class ValidatedPatternProfile {
 
     /** Trusted construction. Only {@link PatternProfileValidator} may call this. */
     static ValidatedPatternProfile trusted(PatternProfileValidator issuer, CompiledPattern pattern,
-            Set<PatternCapability> capabilities, Map<AEKey, Long> consumption, Map<AEKey, Long> production,
-            Map<AEKey, Long> remainder, NetGrowthRejection netGrowthRejection) {
+            Set<PatternCapability> capabilities, Map<AEKey, PlannerAmount> consumption, Map<AEKey, PlannerAmount> production,
+            Map<AEKey, PlannerAmount> remainder, NetGrowthRejection netGrowthRejection) {
         return new ValidatedPatternProfile(issuer, pattern, capabilities, consumption, production, remainder,
             netGrowthRejection);
     }
@@ -96,37 +97,52 @@ public final class ValidatedPatternProfile {
     }
 
     public Map<AEKey, Long> consumption() {
-        return consumption;
+        return bounded(consumption);
     }
 
     public Map<AEKey, Long> production() {
-        return production;
+        return bounded(production);
     }
 
     public Map<AEKey, Long> remainder() {
-        return remainder;
+        return bounded(remainder);
     }
 
     public long consumptionOf(AEKey key) {
-        return consumption.getOrDefault(key, 0L);
+        return plannerConsumptionOf(key).longValueSaturated();
     }
 
     public long productionOf(AEKey key) {
-        return production.getOrDefault(key, 0L);
+        return production.getOrDefault(key, PlannerAmount.ZERO).longValueSaturated();
     }
 
     public long remainderOf(AEKey key) {
-        return remainder.getOrDefault(key, 0L);
+        return plannerRemainderOf(key).longValueSaturated();
     }
 
     /** Everything that comes back per firing: fresh production plus the determinate static remainder. */
     public long grossProductionOf(AEKey key) {
-        return Math.addExact(productionOf(key), remainderOf(key));
+        return plannerGrossProductionOf(key).longValueSaturated();
     }
 
     /** {@code production[k] + remainder[k] - consumption[k]} for one firing. May be negative. */
     public long netDeltaPerFiring(AEKey key) {
-        return Math.subtractExact(grossProductionOf(key), consumptionOf(key));
+        return plannerNetDeltaPerFiring(key).longValueSaturated();
+    }
+
+    public PlannerAmount plannerConsumptionOf(AEKey key) { return consumption.getOrDefault(key, PlannerAmount.ZERO); }
+    public PlannerAmount plannerRemainderOf(AEKey key) { return remainder.getOrDefault(key, PlannerAmount.ZERO); }
+    public PlannerAmount plannerGrossProductionOf(AEKey key) {
+        return production.getOrDefault(key, PlannerAmount.ZERO).add(plannerRemainderOf(key));
+    }
+    public PlannerAmount plannerNetDeltaPerFiring(AEKey key) {
+        return plannerGrossProductionOf(key).subtract(plannerConsumptionOf(key));
+    }
+
+    private static Map<AEKey, Long> bounded(Map<AEKey, PlannerAmount> values) {
+        Map<AEKey, Long> result = new LinkedHashMap<>();
+        values.forEach((key, value) -> result.put(key, value.longValueSaturated()));
+        return result;
     }
 
     /** Every key the contract touches, in a deterministic order: consumed first, then produced. */
@@ -144,7 +160,7 @@ public final class ValidatedPatternProfile {
     public List<AEKey> selfReferencingKeys() {
         List<AEKey> result = new ArrayList<>();
         for (AEKey key : touchedKeys()) {
-            if (consumptionOf(key) > 0 && grossProductionOf(key) > 0) result.add(key);
+            if (plannerConsumptionOf(key).signum() > 0 && plannerGrossProductionOf(key).signum() > 0) result.add(key);
         }
         return result;
     }

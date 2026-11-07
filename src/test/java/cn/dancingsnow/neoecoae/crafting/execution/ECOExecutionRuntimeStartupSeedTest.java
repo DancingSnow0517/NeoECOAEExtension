@@ -15,6 +15,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionPlan;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionSchedule;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionMode;
 import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.world.level.material.Fluids;
@@ -37,9 +38,9 @@ class ECOExecutionRuntimeStartupSeedTest {
         var firstCandidate = new ECOExecutionRuntime.DispatchCandidate(0, 0, first, 2L, true);
         var secondCandidate = new ECOExecutionRuntime.DispatchCandidate(1, 1, second, 2L, true);
 
-        assertEquals(Map.of(seed, 12L), runtime.protectedStartupSeed(null));
-        assertEquals(Map.of(seed, 7L), runtime.protectedStartupSeed(firstCandidate));
-        assertEquals(Map.of(seed, 5L), runtime.protectedStartupSeed(secondCandidate));
+        assertEquals(Map.of(seed, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.of(12L)), runtime.protectedStartupSeed(null));
+        assertEquals(Map.of(seed, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.of(7L)), runtime.protectedStartupSeed(firstCandidate));
+        assertEquals(Map.of(seed, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.of(5L)), runtime.protectedStartupSeed(secondCandidate));
         // Dispatch asks for the same snapshot once per candidate, so it must not be rebuilt while nothing moved.
         assertSame(runtime.protectedStartupSeed(firstCandidate), runtime.protectedStartupSeed(firstCandidate));
 
@@ -47,14 +48,14 @@ class ECOExecutionRuntimeStartupSeedTest {
         inputs.add(seed, 1L);
         setup.progress(0).accept(1L);
         runtime.onAccepted(firstCandidate, 1L, new KeyCounter[] {inputs});
-        assertEquals(Map.of(seed, 11L), runtime.protectedStartupSeed(null));
-        assertEquals(Map.of(seed, 7L), runtime.protectedStartupSeed(firstCandidate));
-        assertEquals(Map.of(seed, 4L), runtime.protectedStartupSeed(secondCandidate));
+        assertEquals(Map.of(seed, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.of(11L)), runtime.protectedStartupSeed(null));
+        assertEquals(Map.of(seed, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.of(7L)), runtime.protectedStartupSeed(firstCandidate));
+        assertEquals(Map.of(seed, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.of(4L)), runtime.protectedStartupSeed(secondCandidate));
 
         // The final step completes phase 0, which releases whatever seed it still owned.
         setup.progress(0).accept(1L);
         runtime.onAccepted(firstCandidate, 1L, new KeyCounter[0]);
-        assertEquals(Map.of(seed, 7L), runtime.protectedStartupSeed(null));
+        assertEquals(Map.of(seed, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.of(7L)), runtime.protectedStartupSeed(null));
         assertEquals(Map.of(), runtime.protectedStartupSeed(secondCandidate));
     }
 
@@ -98,7 +99,7 @@ class ECOExecutionRuntimeStartupSeedTest {
 
         var candidates = runtime.candidates();
         assertEquals(0, cn.dancingsnow.neoecoae.platform.JdkCompat.first(candidates).taskId(), "fixture must put the consumer first");
-        assertEquals(Map.of(seed, 1L), runtime.protectedStartupSeed(cn.dancingsnow.neoecoae.platform.JdkCompat.first(candidates)));
+        assertEquals(Map.of(seed, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.of(1L)), runtime.protectedStartupSeed(cn.dancingsnow.neoecoae.platform.JdkCompat.first(candidates)));
         assertEquals(Map.of(), runtime.protectedStartupSeed(candidates.get(1)));
 
         var inventory = new ListCraftingInventory(ignored -> {});
@@ -115,13 +116,43 @@ class ECOExecutionRuntimeStartupSeedTest {
         }
     }
 
+    @Test void wideSeedOwnershipSurvivesConsumptionReloadAndInputPreview() {
+        AEKey seed = AEFluidKey.of(Fluids.WATER);
+        var first = pattern(seed);
+        var second = pattern(seed, AEFluidKey.of(Fluids.LAVA), 1L);
+        var huge = PlannerAmount.ONE.shiftLeft(160);
+        var setup = runtime(first, second, seed, huge, PlannerAmount.of(7L));
+        var runtime = setup.runtime();
+        var inputs = new KeyCounter(); inputs.add(seed, 2L);
+        setup.progress(0).accept(1L);
+        runtime.onAccepted(runtime.candidates().get(0), 1L, new KeyCounter[]{inputs});
+        var saved = new net.minecraft.nbt.CompoundTag(); runtime.writeToNBT(saved);
+        runtime = ECOExecutionRuntime.fromNBT(runtime.plan(), Map.of(0, first, 1, second), setup.progress(), saved);
+        var secondCandidate = runtime.candidates().stream().filter(candidate -> candidate.taskId() == 1).findFirst().orElseThrow();
+        assertEquals(huge.subtract(2L), runtime.protectedStartupSeed(secondCandidate).get(seed));
+        var inventory = new cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory(ignored -> {});
+        inventory.setEnabled(true);
+        inventory.restore(Map.of(seed, huge.add(6L).toBigInteger()));
+        var preview = new ECOCraftingInputPreview(inventory, second, runtime.protectedStartupSeed(secondCandidate));
+        assertEquals(8L, preview.extract(seed, 9L, Actionable.MODULATE));
+        assertEquals(0L, preview.extract(seed, 1L, Actionable.MODULATE));
+        assertNull(runtime.startupSeedShortfall(inventory));
+        inventory.extract(seed, 2L, Actionable.MODULATE);
+        assertEquals(seed, runtime.startupSeedShortfall(inventory));
+    }
+
     private static Setup runtime(IPatternDetails first, IPatternDetails second, AEKey seed) {
+        return runtime(first, second, seed, PlannerAmount.of(5L), PlannerAmount.of(7L));
+    }
+
+    private static Setup runtime(IPatternDetails first, IPatternDetails second, AEKey seed,
+            PlannerAmount firstSeed, PlannerAmount secondSeed) {
         var tasks = List.of(task(0, first), task(1, second));
         var phases = List.of(
-            new ECOExecutionPlan.PhaseSpec(0, 0, ECOExecutionSchedule.Type.CYCLE, List.of(0),
-                List.of(new ECOExecutionPlan.ExecutionStep(0, 2)), List.of(), Map.of(), Map.of(seed, 5L)),
-            new ECOExecutionPlan.PhaseSpec(1, 1, ECOExecutionSchedule.Type.CYCLE, List.of(1),
-                List.of(new ECOExecutionPlan.ExecutionStep(1, 2)), List.of(), Map.of(), Map.of(seed, 7L)));
+            new ECOExecutionPlan.PhaseSpec(Map.of(), Map.of(seed, firstSeed), 0, 0, ECOExecutionSchedule.Type.CYCLE, List.of(0),
+                List.of(new ECOExecutionPlan.ExecutionStep(0, 2)), List.of()),
+            new ECOExecutionPlan.PhaseSpec(Map.of(), Map.of(seed, secondSeed), 1, 1, ECOExecutionSchedule.Type.CYCLE, List.of(1),
+                List.of(new ECOExecutionPlan.ExecutionStep(1, 2)), List.of()));
         var signature = new PlanIdentity.Signature(mock(AEKey.class), 1, Map.of(), Map.of(), Map.of(), Map.of());
         var plan = new ECOExecutionPlan(signature, ExecutionMode.ORDERED_CYCLE, tasks, phases,
             new ECOExecutionSchedule(List.of()));

@@ -19,7 +19,6 @@ import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleStateEquation;
 import com.google.common.collect.MapMaker;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ReferenceSet;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -53,13 +52,13 @@ final class SeedFloors {
 
     static final SeedFloors NONE = new SeedFloors(List.of(), List.of());
 
-    /** Large enough that one lap never exhausts the probe stock, small enough to stay exact in long arithmetic. */
+    /** Extra stock above the component's exact per-firing requirements for a startup probe. */
     private static final long PROBE_STOCK = 1L << 32;
     private static final long PROBE_WORK = 200_000L;
     private static final long PROBE_NANOS = 500_000_000L;
-    private static final long UNKNOWN = Long.MAX_VALUE;
+    private static final PlannerAmount UNKNOWN = PlannerAmount.ZERO;
     /** The probe ran out of its allowance; not cached, so a later order measures again. */
-    private static final long BUDGET = -1L;
+    private static final PlannerAmount BUDGET = PlannerAmount.of(-1L);
     /** Structure-only results: whether a component needs a seed, and each member's minimal startup seed. */
     private static final ConcurrentMap<CompiledNetwork, ConcurrentMap<Set<AEKey>, Profile>> PROFILES =
         new MapMaker().weakKeys().makeMap();
@@ -105,14 +104,7 @@ final class SeedFloors {
     }
 
     KeyCounter reduce(KeyCounter inventory) {
-        if (floors.isEmpty()) return inventory;
-        KeyCounter result = new KeyCounter();
-        for (var entry : inventory) result.add(entry.getKey(), entry.getLongValue());
-        reservations().forEach((key, amount) -> {
-            long held = result.get(key);
-            if (held != Long.MAX_VALUE) result.set(key, Math.max(0L, held - amount.longValueExact()));
-        });
-        return result;
+        return reduce(PlannerInventorySnapshot.of(inventory)).toKeyCounter();
     }
 
     PlannerInventorySnapshot reduce(PlannerInventorySnapshot snapshot) {
@@ -174,12 +166,12 @@ final class SeedFloors {
             for (AEKey member : component.members()) {
                 // AE2 crafts the requested amount anew, so a cycle never consumes the goal's own stored copies.
                 if (member.equals(network.goal())) continue;
+                if (stock.stored.isUnbounded(member)) continue;
                 PlannerAmount held = stock.stored.get(member);
                 if (held.signum() <= 0) continue;
-                long minimum = profile.minimum(member, network, component, solver, cancellation);
-                if (minimum == BUDGET) unknown = true;
-                if (minimum <= 0L || minimum == UNKNOWN || minimum == BUDGET) continue;
-                PlannerAmount seed = PlannerAmount.of(minimum);
+                PlannerAmount seed = profile.minimum(member, network, component, solver, cancellation);
+                if (seed.equals(BUDGET)) unknown = true;
+                if (seed.signum() <= 0) continue;
                 Floor candidate = new Floor(member, seed, held.min(seed), Set.copyOf(members));
                 // Keep the form the stock can restart most often: compare held/minimum without division.
                 if (best == null || held.multiply(best.minimum()).compareTo(
@@ -208,20 +200,20 @@ final class SeedFloors {
         }
         Map<AEKey, Integer> index = new LinkedHashMap<>();
         for (AEKey member : component.members()) index.putIfAbsent(member, index.size());
-        List<Map<Integer, BigInteger>> columns = new ArrayList<>();
+        List<Map<Integer, PlannerAmount>> columns = new ArrayList<>();
         ReferenceSet<IPatternDetails> seen = new ReferenceOpenHashSet<>();
         for (CompiledPattern pattern : component.patterns()) {
             cancellation.checkpoint();
             if (!seen.add(pattern.details())) continue;
-            Map<Integer, BigInteger> column = new LinkedHashMap<>();
+            Map<Integer, PlannerAmount> column = new LinkedHashMap<>();
             for (CompiledInput input : pattern.inputs()) {
                 Integer slot = index.get(input.key());
                 if (slot == null || input.reusable()) continue;
-                column.merge(slot, input.amountPerPattern().toBigInteger(), BigInteger::add);
+                column.merge(slot, input.amountPerPattern(), PlannerAmount::add);
             }
             for (GenericStack output : pattern.grossOutputs()) {
                 Integer slot = index.get(output.what());
-                if (slot != null) column.merge(slot, BigInteger.valueOf(output.amount()).negate(), BigInteger::add);
+                if (slot != null) column.merge(slot, PlannerAmount.of(output.amount()).negate(), PlannerAmount::add);
             }
             column.values().removeIf(value -> value.signum() == 0);
             columns.add(column);
@@ -236,7 +228,7 @@ final class SeedFloors {
             target[member] = PlannerAmount.ONE;
             CycleStateEquation.Status status;
             try {
-                status = CycleStateEquation.solveSparseMaterialBalance(columns, imports, initial, target, true,
+                status = CycleStateEquation.solveSparseAmounts(columns, imports, initial, target, true,
                     slice(cancellation)).status();
             } catch (ECOPlanningBudget.Exhausted exhausted) {
                 // Only the probe's slice ran out; the session's own allowance decides whether planning goes on.
@@ -256,31 +248,38 @@ final class SeedFloors {
 
     private static final class Profile {
         private final boolean seeded;
-        private final Map<AEKey, Long> minimums = new ConcurrentHashMap<>();
+        private final Map<AEKey, PlannerAmount> minimums = new ConcurrentHashMap<>();
 
         Profile(boolean seeded) { this.seeded = seeded; }
 
         boolean seeded() { return seeded; }
 
         /** Startup stock of {@code member} that the solver's lap needs to gain one more copy from that member alone. */
-        long minimum(AEKey member, CompiledNetwork network, CycleComponent component, CycleSolver solver,
+        PlannerAmount minimum(AEKey member, CompiledNetwork network, CycleComponent component, CycleSolver solver,
                 ECOCancellation cancellation) throws InterruptedException {
-            Long known = minimums.get(member);
+            PlannerAmount known = minimums.get(member);
             if (known != null) return known;
             CycleSolveResult probe;
+            PlannerAmount probeStock = PlannerAmount.of(PROBE_STOCK);
+            for (CompiledPattern pattern : component.patterns()) {
+                for (CompiledInput input : pattern.inputs()) {
+                    if (input.key().equals(member)) probeStock = probeStock.add(input.amountPerPattern());
+                }
+            }
             try {
-                probe = solver.solve(new CycleSolveRequest(component, Map.of(member, PROBE_STOCK + 1L),
-                    Map.of(member, PROBE_STOCK), component.outgoingDependencies(), new CycleSolveRequest.PlannerOptions()),
+                probe = solver.solve(new CycleSolveRequest(component, Map.of(member, probeStock.add(1L)),
+                    Map.of(member, probeStock), Set.of(), component.outgoingDependencies(),
+                    new CycleSolveRequest.PlannerOptions(), Map.of()),
                     slice(cancellation));
             } catch (ECOPlanningBudget.Exhausted exhausted) {
                 // Unknown within the probe allowance; retried by a later order instead of cached as "no seed".
                 cancellation.checkpoint();
                 return BUDGET;
             }
-            long minimum = UNKNOWN;
+            PlannerAmount minimum = UNKNOWN;
             if (probe.status() == CycleSolveStatus.SUCCESS) {
-                long taken = probe.requiredSeed().getOrDefault(member, 0L);
-                if (taken > 0L && taken < PROBE_STOCK) minimum = taken;
+                PlannerAmount taken = probe.exactRequiredSeed().getOrDefault(member, PlannerAmount.ZERO);
+                if (taken.signum() > 0 && taken.compareTo(probeStock) < 0) minimum = taken;
             }
             minimums.put(member, minimum);
             return minimum;
