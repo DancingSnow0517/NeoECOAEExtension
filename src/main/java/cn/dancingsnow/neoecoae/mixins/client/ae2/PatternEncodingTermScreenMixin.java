@@ -28,11 +28,12 @@ public class PatternEncodingTermScreenMixin<C extends PatternEncodingTermMenu> e
     public void init() {
         super.init();
         var bounds = new Rect2i(leftPos, topPos, imageWidth, imageHeight);
-        var firstModeTab = getStyle().getWidget("modeTabButton0").resolve(bounds);
-        // Keep the 1.20.1 side button aligned with the terminal's encoding tabs.
+        var lastModeTabStyle = getStyle().getWidget("modeTabButton3");
+        var lastModeTab = lastModeTabStyle.resolve(bounds);
+        // Place the upload button fifth, directly below the four encoding tabs.
         neoecoae$uploadButton = addRenderableWidget(new UploadButton(
-            leftPos + imageWidth - 1,
-            firstModeTab.getY() - 3,
+            lastModeTab.getX(),
+            lastModeTab.getY() + lastModeTabStyle.getHeight(),
             b -> ((PatternEncodingTermMenuExtension)this.getMenu()).neoecoae$uploadPattern()
         ));
     }
