@@ -31,6 +31,14 @@ import org.junit.jupiter.api.Test;
 class ComputationProcessingDisplayTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
+    @Test void refreshingNeverAddsAMachineStatusNotice() {
+        assertTrue(ComputationProcessingTooltips.rows(ECOProcessingProgress.EMPTY.refreshing(true)).isEmpty());
+        var progress = ECOProcessingProgress.summarize(List.of(machine(50, 100, State.RUNNING))).refreshing(true);
+        var lines = ComputationProcessingTooltips.describe(progress);
+        assertTrue(lines.stream().noneMatch(line -> key(line).equals("gui.neoecoae.processing.refreshing")));
+        assertTrue(lines.stream().anyMatch(line -> key(line).equals("gui.neoecoae.processing.count")));
+    }
+
     @Test void pendingOverheatStatusReachesTheCellAndTooltipWithoutInventingACycle() throws Exception {
         var key = AEItemKey.of(Items.STONE);
         var progress = ECOProcessingProgress.summarize(List.of(new Machine(Component.literal("Workstation"),

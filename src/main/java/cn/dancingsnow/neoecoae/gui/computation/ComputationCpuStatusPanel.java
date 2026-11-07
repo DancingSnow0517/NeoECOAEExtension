@@ -79,7 +79,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * The 427x226 ECO crafting status page (stretches downwards with AE2's terminal style). A: CPU list, B: crafting status in AE2 order, C: running tasks in
- * start order, D: search that moves matches to B's first cell, E: AE2's suspend/cancel controls.
+ * processing state order, D: search that moves matches to B's first cell, E: AE2's suspend/cancel controls.
  */
 final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private final HostProgressAnimation opening = new HostProgressAnimation();
@@ -876,6 +876,17 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         .thenComparing(item -> item.key().getDisplayName().getString())
         .thenComparing(item -> item.key().getId().toString());
 
+    /** Running work, dispatched work awaiting a machine cycle, then work with a problem. */
+    private static int taskPriority(ComputationCpuItemEntry item, ECOProcessingProgress progress) {
+        if (item.stepStopped()) return 2;
+        if (progress == null) return 1;
+        return switch (progress.state()) {
+            case RUNNING -> 0;
+            case QUEUED -> 1;
+            case WAITING, PAUSED, UNAVAILABLE -> 2;
+        };
+    }
+
     /** AE2-style terminal search: plain text matches names, {@code @} the mod id and {@code *} the resource id. */
     static boolean matches(AEKey key, String query) {
         if (query.isEmpty()) return false;
@@ -902,7 +913,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         private CompoundTag itemActionResponse = new CompoundTag();
         private String query = "";
         private boolean focusPending;
-        // Running tasks keep the order in which they were first observed; earlier tasks stay on top.
+        // Within each processing state, tasks keep their first-observed order.
         private final LinkedHashSet<AEKey> taskOrder = new LinkedHashSet<>();
         private int taskSerial = -1;
         private UUID taskJob;
@@ -1155,7 +1166,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
                 }
             }
             if (selectedCpu != null) tag.put("selected", ComputationCpuEntry.sample(selectedCpu, selection.selectedSerial()).write(registries));
-            // Processing progress is sampled separately, only for rows the client shows (see processingSnapshot).
+            // Detailed processing progress is synced separately for the rows the client shows (see processingSnapshot).
             Map<AEKey, ComputationCpuItemEntry> visible = new LinkedHashMap<>();
             tag.putInt("itemTotal", all.size());
             itemOffset = cn.dancingsnow.neoecoae.platform.JdkCompat.clamp(itemOffset / ITEM_COLS, 0, maxItemRows(all.size(), rows)) * ITEM_COLS;
@@ -1191,7 +1202,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             return page;
         }
 
-        /** Running entries in first-observed order; the order restarts when the CPU or its job changes. */
+        /** Group tasks by processing state, retaining first-observed order within each group. */
         private List<ComputationCpuItemEntry> tasks(@Nullable ICraftingCPU cpu, List<ComputationCpuItemEntry> all) {
             UUID job = jobId(cpu);
             if (selection.selectedSerial() != taskSerial || !Objects.equals(job, taskJob)) {
@@ -1200,11 +1211,17 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
                 taskJob = job;
             }
             Map<AEKey, ComputationCpuItemEntry> active = new HashMap<>();
+            Map<AEKey, Integer> priorities = new HashMap<>();
             List<AEKey> naturalOrder = new ArrayList<>();
             for (ComputationCpuItemEntry item : all) {
+                if (item.active().signum() <= 0 && item.pending().signum() <= 0) continue;
+                var progress = cpu instanceof ECOCraftingCPU eco ? eco.getLogic().getProcessingProgress(item.key())
+                    : ECOProcessingProgress.EMPTY;
                 // Admission-blocked pending work (for example an overheated workstation) is listed as a task too.
-                if (item.active().signum() <= 0 && !blockedByMachine(cpu, item)) continue;
+                if (item.active().signum() <= 0
+                    && (progress == null || progress.state() != ECOProcessingProgress.State.WAITING)) continue;
                 active.put(item.key(), item);
+                priorities.put(item.key(), taskPriority(item, progress));
                 naturalOrder.add(item.key());
             }
             taskOrder.retainAll(active.keySet());
@@ -1213,13 +1230,8 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             taskOrder.addAll(naturalOrder);
             List<ComputationCpuItemEntry> result = new ArrayList<>(taskOrder.size());
             for (AEKey key : taskOrder) result.add(active.get(key));
+            result.sort(Comparator.comparingInt(item -> priorities.get(item.key())));
             return result;
-        }
-
-        private static boolean blockedByMachine(@Nullable ICraftingCPU cpu, ComputationCpuItemEntry item) {
-            if (!(cpu instanceof ECOCraftingCPU eco) || item.pending().signum() <= 0) return false;
-            var progress = eco.getLogic().getProcessingProgress(item.key());
-            return progress != null && progress.state() == ECOProcessingProgress.State.WAITING;
         }
 
         /** ECO jobs know their own patterns; for AE2 jobs every network pattern producing the key is a candidate. */
