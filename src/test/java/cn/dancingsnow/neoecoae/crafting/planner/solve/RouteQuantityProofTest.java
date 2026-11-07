@@ -47,23 +47,28 @@ class RouteQuantityProofTest {
         assertTrue(prepared.metrics().contains("proofLimited=1"));
     }
 
-    @Test void impossibleLargeOrderReturnsTheSupplyProofBeforeSolvingItsCycle() throws Exception {
+    @Test void impossibleLargeOrderKeepsCycleMaterialsBeforePruningAlternativeRoutes() throws Exception {
+        for (AEKey key : List.of(goal, raw, other)) when(key.getAmountPerByte()).thenReturn(8);
         var network = network(pattern(Map.of(other, PlannerAmount.ONE, raw, PlannerAmount.ONE), Map.of(other, 2L)),
             pattern(Map.of(other, PlannerAmount.ONE), Map.of(goal, 1L)));
         var graph = new cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingGraphBuilder().build(network, ECOCancellation.NONE);
         var condensation = cn.dancingsnow.neoecoae.crafting.planner.graph.CondensationGraph.build(graph,
             new cn.dancingsnow.neoecoae.crafting.planner.graph.TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE),
             ECOCancellation.NONE);
-        var cycleSolver = mock(cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolver.class);
+        var cycleSolver = new cn.dancingsnow.neoecoae.crafting.planner.cycle.BoundedCycleSolver();
         var planner = new ComponentPlanner(new AcyclicCraftingSolver(), cycleSolver);
-        var stock = new KeyCounter(); stock.set(raw, 3L);
+        var stock = new KeyCounter(); stock.set(other, 1L); stock.set(raw, 3L);
         var selection = planner.selectRoutes(condensation, true, ECOCancellation.NONE);
         var result = planner.planWithRouteFallback(network, condensation, selection, stock, PlannerInventorySnapshot.of(stock),
             Long.MAX_VALUE, true, false, ECOCancellation.NONE);
         assertTrue(result.trace().diagnostics().stream().anyMatch(diagnostic -> diagnostic.code()
             == cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic.Code.ROUTE_QUANTITY_BOUND));
-        assertTrue(result.components().isEmpty(), "A supply proof does not pretend to have computed a detailed route");
-        verifyNoInteractions(cycleSolver);
+        assertFalse(result.components().isEmpty());
+        assertFalse(result.cycles().isEmpty());
+        assertEquals(Map.of(raw, PlannerAmount.of(Long.MAX_VALUE - 3)), result.state().missingAmounts(),
+            "The seeded loop is expandable; its raw input is the bottleneck, not the recursive material");
+        assertTrue(result.trace().diagnostics().stream().noneMatch(diagnostic -> diagnostic.code()
+            == cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic.Code.ROUTE_SEARCH_BUDGET_EXHAUSTED));
     }
 
     @Test void positiveButInsufficientStockHasAQuantityProof() throws Exception {
@@ -159,10 +164,14 @@ class RouteQuantityProofTest {
     private CompiledPattern pattern(Map<AEKey, PlannerAmount> inputs, Map<AEKey, Long> outputs) {
         var details = mock(IPatternDetails.class);
         var stacks = outputs.entrySet().stream().map(e -> new GenericStack(e.getKey(), e.getValue())).toList();
+        var primary = stacks.get(0);
+        when(details.getOutputs()).thenReturn(stacks.toArray(GenericStack[]::new));
+        when(details.getPrimaryOutput()).thenReturn(primary);
         var compiled = inputs.entrySet().stream().map(e -> new CompiledInput(null, e.getKey(), e.getValue(), true, null)).toList();
         var consumed = inputs.entrySet().stream().map(e -> new PatternSemantics.Input(null, e.getKey(), e.getValue(), null, PlannerAmount.ZERO)).toList();
         var semantics = new PatternSemantics(details, null, consumed, stacks, List.of(), List.of(),
             PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE, true, true, null);
-        return new CompiledPattern(nextId++, details, goal, PlannerAmount.ONE, compiled, stacks, true, null, false, semantics);
+        return new CompiledPattern(nextId++, details, primary.what(), PlannerAmount.of(primary.amount()),
+            compiled, stacks, true, null, false, semantics);
     }
 }

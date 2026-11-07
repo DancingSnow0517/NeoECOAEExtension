@@ -592,6 +592,7 @@ public final class ComponentPlanner {
             ECOCancellation cancellation) throws InterruptedException {
         ExternalDemandPlanner.Outcome external = null;
         CycleSolveResult recoveryFailure = null;
+        StartupRecovery seededDeficit = null;
         Map<AEKey, PlannerAmount> unresolvedSeed = Map.of();
         List<Map<AEKey, PlannerAmount>> candidates = new ArrayList<>();
         if (!proposal.exactSeedShortfall().isEmpty()) candidates.add(proposal.exactSeedShortfall());
@@ -610,18 +611,25 @@ public final class ComponentPlanner {
                     PlannerAmount present = stock.getOrDefault(key, PlannerAmount.ZERO);
                     if (present.signum() > 0) heldSeed.put(key, present);
                 }
-                Map<AEKey, PlannerAmount> seedDemands = candidate;
-                if (completeMaterialDeficit(proposal) && candidate.equals(proposal.exactSeedShortfall())) {
-                    // Preserve the full-order leaf report instead of hiding fuel behind the first missing tool.
-                    seedDemands = mergeDemands(candidate, proposal.positiveExactExternalDemand());
-                    heldSeed = cycleInitialReservations(requiredOutputs, stock, proposal);
-                    seedDelegates = delegatedCycleInputs(network, condensation, choices, cycle, seedDemands.keySet());
-                }
-                var seedAttempt = externalPlanner.solveExactDemands(network, cycle, seedDemands, inventory, state,
+                // First distinguish an unavailable startup seed from a seed that can be made but whose
+                // recurring ingredients cannot cover the order. Both deficits remain visible in the report.
+                var seedAttempt = externalPlanner.solveExactDemands(network, cycle, candidate, inventory, state,
                         reservationRemainder(heldSeed, stockReservations), seedDelegates,
                         ignorePatternSubstitutions, cancellation);
                 if (!seedAttempt.solved()) {
-                    if (external == null || recoveryFailure != null && !candidate.equals(initialCandidate)) external = seedAttempt;
+                    if (external == null || recoveryFailure != null && !candidate.equals(initialCandidate)) {
+                        external = seedAttempt;
+                        if (completeMaterialDeficit(proposal) && candidate.equals(proposal.exactSeedShortfall())) {
+                            // The witness keeps the startup amount separate from the full-order fuel demand.
+                            // Reuse the shared external DAG so seed and fuel do not double-count raw stock.
+                            var demands = mergeDemands(candidate, proposal.positiveExactExternalDemand());
+                            external = externalPlanner.solveExactDemands(network, cycle, demands, inventory, state,
+                                reservationRemainder(cycleInitialReservations(requiredOutputs, stock, proposal),
+                                    stockReservations),
+                                delegatedCycleInputs(network, condensation, choices, cycle, demands.keySet()),
+                                ignorePatternSubstitutions, cancellation);
+                        }
+                    }
                     break;
                 }
                 Map<AEKey, PlannerAmount> projectedStock = mergeDemands(stock, candidate);
@@ -636,11 +644,14 @@ public final class ComponentPlanner {
                         reservationRemainder(reservations, stockReservations), delegated,
                         ignorePatternSubstitutions, cancellation);
                 if (external == null) external = recoveryAttempt;
-                if (!recoveryAttempt.solved()) break;
                 if (recovered.status() == CycleSolveStatus.SUCCESS) {
-                    // Discard speculative states. The common supply/commit phase plans this candidate once more.
-                    return new StartupRecovery(recovered, targets, projectedStock, candidate, null, Map.of());
+                    // Keep the verified startup even when its fuel is missing. Other startup choices may
+                    // still succeed, but the old seed-shortfall proposal must not replace this material report.
+                    var recoveredStartup = new StartupRecovery(recovered, targets, projectedStock, candidate, null, Map.of());
+                    if (recoveryAttempt.solved()) return recoveredStartup;
+                    if (seededDeficit == null) seededDeficit = recoveredStartup;
                 }
+                if (!recoveryAttempt.solved()) break;
                 if (recoveryFailure == null && (!completeMaterialDeficit(proposal) || completeMaterialDeficit(recovered))) {
                     recoveryFailure = recovered;
                     unresolvedSeed = candidate;
@@ -655,6 +666,7 @@ public final class ComponentPlanner {
                 break;
             }
         }
+        if (seededDeficit != null) return seededDeficit;
         CycleSolveResult result = recoveryFailure == null ? proposal : recoveryFailure;
         Map<AEKey, PlannerAmount> missing = recoveryFailure != null
                 && recoveryFailure.status() == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT
@@ -813,23 +825,8 @@ public final class ComponentPlanner {
                         SeedFloors seeds, @Nullable CandidateListener listener, boolean improvePublishedRoute)
             throws InterruptedException {
         RouteQuantityProof.Prepared supply = null;
-        // Large cyclic requests can fail a cheap, global quantity bound before paying for cycle expansion.
-        // A timed-out proof leaves the normal route untouched and never invents a missing-material list.
-        if (amount > Integer.MAX_VALUE && cyclePlanningEnabled && !activeSelection.condensation().cycles().isEmpty()) {
-            long started = ECOPlanningStageLogger.start();
-            supply = RouteQuantityProof.prepareBounded(network, owned, cancellation);
-            PlannerAmount bound = supply == null ? null : supply.insufficientOutput(amount, Map.of(), Set.of(), cancellation);
-            ECOPlanningStageLogger.finish("early_supply_bound", started, bound != null,
-                supply == null ? "proof=unknown" : supply.metrics());
-            if (bound != null) {
-                ECOPlanTrace trace = new ECOPlanTrace();
-                trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.ROUTE_QUANTITY_BOUND,
-                    "All-route optimistic supply " + bound + " is below requested " + amount + "; "
-                        + supply.explanation() + "; detailed route materials have not been expanded"));
-                return new Outcome(PlanningStatus.CYCLE_UNRESOLVED, new SolveState(snapshot), trace,
-                    List.of(), List.of(), List.of());
-            }
-        }
+        // A quantity bound can prune alternatives, but cannot identify a startup seed or the missing leaves.
+        // Always expand the preferred route at the requested amount before returning any supply proof.
         // The ordinary route follows AE's producer order. Optional optimization begins only after it can publish.
         CycleFailureCache failures = new CycleFailureCache(cycleSolver);
         ExternalDemandPlanner externalDemandPlanner = new ExternalDemandPlanner(acyclicSolver);

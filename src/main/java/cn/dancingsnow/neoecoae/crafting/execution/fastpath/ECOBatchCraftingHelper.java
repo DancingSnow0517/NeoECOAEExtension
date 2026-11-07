@@ -7,6 +7,7 @@ import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -308,6 +309,30 @@ public final class ECOBatchCraftingHelper {
         return low;
     }
 
+    /** Exact orders use the same rounded-up request and affordability checks as ordinary batches. */
+    public static BigInteger maxAffordableCrafts(double patternPower, BigInteger requested,
+            DoubleUnaryOperator simulatedExtraction) {
+        Objects.requireNonNull(requested, "requested");
+        Objects.requireNonNull(simulatedExtraction, "simulatedExtraction");
+        if (requested.signum() <= 0 || !Double.isFinite(patternPower) || patternPower < 0) return BigInteger.ZERO;
+        if (patternPower == 0) return requested;
+        if (requested.bitLength() < 64) {
+            return BigInteger.valueOf(maxAffordableCrafts(patternPower, requested.longValueExact(), simulatedExtraction));
+        }
+        BigInteger bounded = requested.min(new BigDecimal(Double.MAX_VALUE)
+            .divideToIntegralValue(new BigDecimal(patternPower)).toBigInteger());
+        if (bounded.signum() <= 0) return BigInteger.ZERO;
+        if (hasEnoughEnergy(patternPower, bounded, simulatedExtraction)) return bounded;
+        BigInteger low = BigInteger.ZERO;
+        BigInteger high = bounded.subtract(BigInteger.ONE);
+        while (low.compareTo(high) < 0) {
+            BigInteger count = low.add(high.subtract(low).add(BigInteger.ONE).shiftRight(1));
+            if (hasEnoughEnergy(patternPower, count, simulatedExtraction)) low = count;
+            else high = count.subtract(BigInteger.ONE);
+        }
+        return low;
+    }
+
     /**
      * Atomically extracts the requested concrete inputs.
      *
@@ -356,12 +381,32 @@ public final class ECOBatchCraftingHelper {
         long batchSize,
         DoubleUnaryOperator simulatedExtraction
     ) {
+        return hasEnoughEnergy(patternPower, BigInteger.valueOf(batchSize), simulatedExtraction);
+    }
+
+    private static boolean hasEnoughEnergy(double patternPower, BigInteger batchSize,
+            DoubleUnaryOperator simulatedExtraction) {
         double totalPower = energyRequest(patternPower, batchSize);
         if (!Double.isFinite(totalPower) || totalPower < 0.0D) {
             return false;
         }
         double extracted = simulatedExtraction.applyAsDouble(totalPower);
-        return Double.isFinite(extracted) && extracted >= totalPower;
+        if (!Double.isFinite(extracted) || extracted <= 0) return false;
+        if (extracted >= totalPower) return true;
+        double shortfall = totalPower - extracted;
+        if (shortfall > energyTolerance(totalPower)) return false;
+        if (shortfall <= patternPower * 0.5) return true;
+        // One ULP may span several crafts at huge counts. Probe the next representable request to
+        // distinguish multiplier rounding from a real network limit without funding missing copies.
+        double probe = Math.nextUp(totalPower);
+        if (!Double.isFinite(probe)) return false;
+        double confirmed = simulatedExtraction.applyAsDouble(probe);
+        return Double.isFinite(confirmed) && confirmed >= totalPower;
+    }
+
+    /** AE2's 0.01 AE allowance, widened relatively for large multiplier round trips. */
+    public static double energyTolerance(double request) {
+        return Math.max(0.01, Math.abs(request) * 1.0e-12);
     }
 
     /** Bounds only the AE2 interface's finite range; integer precision is handled by the energy ledger. */
@@ -375,13 +420,21 @@ public final class ECOBatchCraftingHelper {
 
     /** Preserve the supplied double's exact value and the integer count before crossing the AE2 boundary. */
     public static BigDecimal exactEnergy(double perCraftEnergy, long count) {
-        if (!Double.isFinite(perCraftEnergy) || perCraftEnergy < 0 || count < 0) {
+        return exactEnergy(perCraftEnergy, BigInteger.valueOf(count));
+    }
+
+    public static BigDecimal exactEnergy(double perCraftEnergy, BigInteger count) {
+        if (!Double.isFinite(perCraftEnergy) || perCraftEnergy < 0 || count.signum() < 0) {
             throw new IllegalArgumentException("Invalid crafting energy");
         }
-        return new BigDecimal(perCraftEnergy).multiply(BigDecimal.valueOf(count));
+        return new BigDecimal(perCraftEnergy).multiply(new BigDecimal(count));
     }
 
     public static double energyRequest(double perCraftEnergy, long count) {
+        return energyRequest(perCraftEnergy, BigInteger.valueOf(count));
+    }
+
+    public static double energyRequest(double perCraftEnergy, BigInteger count) {
         var exact = exactEnergy(perCraftEnergy, count);
         double request = exact.doubleValue();
         if (Double.isFinite(request) && new BigDecimal(request).compareTo(exact) < 0) {

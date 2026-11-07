@@ -43,6 +43,12 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             && !snapshot.nodes().isEmpty();
     }
 
+    /** The requested root alone is not a material calculation or a zero-byte estimate. */
+    static boolean hasMaterialDetails(CraftingGraphSnapshot snapshot) {
+        return snapshot.nodes().stream().anyMatch(node -> node.fromInventoryBigInteger().signum() > 0
+            || node.toCraftBigInteger().signum() > 0 || node.missingBigInteger().signum() > 0);
+    }
+
     private static final int MISSING_OVERLAY = 0x1AFF0000;
     private static final int CYCLE_OVERLAY = 0x1AB86BFF;
     private static final int FUZZY_PLANNING_OVERLAY = 0x264CAF70;
@@ -75,6 +81,10 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
         }
         if (craft.signum() > 0) {
             lines.add(GuiText.ToCraft.text(formatAmount(entry.key(), craft, AmountFormat.SLOT)));
+        }
+        if (craft.signum() == 0 && entry.requestedBigInteger().compareTo(stored.add(missing)) > 0) {
+            lines.add(Component.translatable("gui.neoecoae.crafting_graph.details.requested",
+                formatAmount(entry.key(), entry.requestedBigInteger(), AmountFormat.SLOT)));
         }
         if (lines.isEmpty()) {
             lines.add(Component.translatable("gui.neoecoae.crafting_report.quantity_unknown"));
@@ -118,10 +128,13 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
         return 0;
     }
 
-    static List<CraftingGraphSnapshot.MaterialNode> sortMaterials(List<CraftingGraphSnapshot.MaterialNode> nodes) {
+    static List<CraftingGraphSnapshot.MaterialNode> sortMaterials(List<CraftingGraphSnapshot.MaterialNode> nodes,
+            Predicate<AEKey> missingStartupSeed) {
         return nodes.stream()
             .filter(ECOExactMaterialTableRenderer::hasAmount)
-            .sorted(Comparator.comparing(CraftingGraphSnapshot.MaterialNode::missingBigInteger).reversed()
+            .sorted(Comparator.comparing((CraftingGraphSnapshot.MaterialNode node) ->
+                    missingStartupSeed.test(node.key())).reversed()
+                .thenComparing(CraftingGraphSnapshot.MaterialNode::missingBigInteger, Comparator.reverseOrder())
                 .thenComparing(CraftingGraphSnapshot.MaterialNode::toCraftBigInteger, Comparator.reverseOrder())
                 .thenComparing(CraftingGraphSnapshot.MaterialNode::fromInventoryBigInteger,
                     Comparator.reverseOrder())
@@ -150,10 +163,11 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             return Component.translatable("gui.neoecoae.crafting_report.seed_shortfall_estimate", amount);
         }
         return isMissingStartupSeed(key)
-            ? Component.literal("缺少启动种子数量：" + amount) : GuiText.Missing.text(amount);
+            ? Component.translatable("gui.neoecoae.crafting_report.missing_startup_seed").append(": " + amount)
+            : GuiText.Missing.text(amount);
     }
 
-    private static String formatAmount(AEKey key, BigInteger amount, AmountFormat format) {
+    static String formatAmount(AEKey key, BigInteger amount, AmountFormat format) {
         if (amount.signum() < 0) {
             amount = amount.negate();
         }

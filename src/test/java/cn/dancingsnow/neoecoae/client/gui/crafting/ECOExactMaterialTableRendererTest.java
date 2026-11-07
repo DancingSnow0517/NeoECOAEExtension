@@ -29,7 +29,7 @@ class ECOExactMaterialTableRendererTest {
             PlanningStatus.MISSING_ITEMS, plan,
             new cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace(), List.of(), 0);
         var snapshot = cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshotFactory.create(result);
-        var rows = ECOExactMaterialTableRenderer.sortMaterials(snapshot.nodes());
+        var rows = ECOExactMaterialTableRenderer.sortMaterials(snapshot.nodes(), key -> false);
         var storedRow = rows.stream().filter(row -> row.key().equals(variant)).findFirst().orElseThrow();
         assertEquals(java.math.BigInteger.valueOf(3), storedRow.fromInventoryBigInteger());
         assertEquals(java.math.BigInteger.ONE, cn.dancingsnow.neoecoae.platform.JdkCompat.first(rows).missingBigInteger());
@@ -93,7 +93,7 @@ class ECOExactMaterialTableRendererTest {
     @Test
     void structuralMaterialWithoutSolvedAmountsShowsUnknown() {
         AEKey key = mock(AEKey.class);
-        var node = new CraftingGraphSnapshot.MaterialNode(0, key, 1, 0, 0, 0,
+        var node = new CraftingGraphSnapshot.MaterialNode(0, key, 0, 0, 0, 0,
             CraftingGraphSnapshot.MaterialStatus.UNSUPPORTED);
         var renderer = mock(ECOExactMaterialTableRenderer.class, CALLS_REAL_METHODS);
         var lines = renderer.getEntryDescription(node);
@@ -101,6 +101,42 @@ class ECOExactMaterialTableRendererTest {
         var contents = (net.minecraft.network.chat.contents.TranslatableContents) cn.dancingsnow.neoecoae.platform.JdkCompat.first(lines).getContents();
         assertEquals("gui.neoecoae.crafting_report.quantity_unknown", contents.getKey());
         verify(key, never()).formatAmount(anyLong(), any());
+    }
+
+    @Test
+    void requestedAmountRemainsVisibleWithoutInventingMaterialOrByteTotals() {
+        AEKey key = mock(AEKey.class);
+        long amount = 5_000_000_000_000_000_000L;
+        when(key.formatAmount(amount, AmountFormat.SLOT)).thenReturn("5E");
+        var node = new CraftingGraphSnapshot.MaterialNode(0, key, amount, 0, 0, 0,
+            CraftingGraphSnapshot.MaterialStatus.CYCLE);
+        var snapshot = new CraftingGraphSnapshot(0, List.of(node), List.of(), List.of(), List.of(), List.of(),
+            new CraftingGraphSnapshot.Summary("CYCLE_UNRESOLVED", 1, 0, 0, 0, 0));
+        var renderer = mock(ECOExactMaterialTableRenderer.class, CALLS_REAL_METHODS);
+        var contents = (net.minecraft.network.chat.contents.TranslatableContents)
+            renderer.getEntryDescription(node).get(0).getContents();
+        assertEquals("gui.neoecoae.crafting_graph.details.requested", contents.getKey());
+        assertArrayEquals(new Object[] {"5E"}, contents.getArgs());
+        assertFalse(ECOExactMaterialTableRenderer.hasMaterialDetails(snapshot));
+        assertFalse(ECOCraftReportHeaderRenderer.hasCompleteByteEstimate(snapshot));
+    }
+
+    @Test
+    void startupSeedPrecedesLargerExternalShortagesWithoutHidingEither() {
+        AEKey seed = mock(AEKey.class, "seed"), fuel = mock(AEKey.class, "fuel");
+        var seedNode = new CraftingGraphSnapshot.MaterialNode(0, seed, 5_000_000_000_000_000_000L, 0, 0, 1,
+            CraftingGraphSnapshot.MaterialStatus.MISSING);
+        var fuelNode = new CraftingGraphSnapshot.MaterialNode(1, fuel, 5_000_000_000_000_000_000L,
+            0, 0, 5_000_000_000_000_000_000L, CraftingGraphSnapshot.MaterialStatus.MISSING);
+        var rows = ECOExactMaterialTableRenderer.sortMaterials(List.of(fuelNode, seedNode), seed::equals);
+        assertEquals(List.of(seedNode, fuelNode), rows);
+        var cycle = new CraftingGraphSnapshot.CycleGroup(0, List.of(0), List.of(), "INSUFFICIENT_EXTERNAL_INPUT",
+            List.of(), List.of(), List.of(new CraftingGraphSnapshot.KeyAmount(seed, 1L)), List.of(), List.of());
+        var snapshot = new CraftingGraphSnapshot(0, rows, List.of(), List.of(), List.of(cycle), List.of(),
+            new CraftingGraphSnapshot.Summary("MISSING_ITEMS", 2, 0, 0, 1, 0));
+        assertTrue(ECOExactMaterialTableRenderer.hasMaterialDetails(snapshot));
+        assertFalse(ECOCraftReportHeaderRenderer.hasCompleteByteEstimate(snapshot),
+            "An uncommitted cyclic deficit report has no full execution byte estimate");
     }
 
     @Test
