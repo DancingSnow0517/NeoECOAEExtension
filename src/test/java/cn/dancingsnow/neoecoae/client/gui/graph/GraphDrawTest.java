@@ -110,6 +110,8 @@ class GraphDrawTest {
             assertFalse(labels.contains("耗尽"), "Material cards only show an icon and amount");
             assertTrue(labels.stream().anyMatch(label -> label.contains("第 1 层")), labels.toString());
             assertTrue(labels.containsAll(List.of("0", "1", "2", "3")), labels.toString());
+            assertFalse(labels.stream().anyMatch(label -> label.contains("交付请求数量") || label.contains("取出目标")),
+                "The removed delivery banner must not be drawn");
             assertFalse(labels.contains("99") || labels.contains("999"), "Whole-order quantities must not replace checkpoint amounts");
             icons.verify(() -> AEKeyRendering.drawInGui(eq(client), eq(graphics), anyInt(), anyInt(), any()), times(6));
             labels.clear();

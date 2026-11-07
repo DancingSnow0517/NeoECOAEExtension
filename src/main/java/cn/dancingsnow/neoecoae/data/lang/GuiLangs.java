@@ -969,7 +969,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_graph.recursion.source_remaining", "Remainder: last inventory - requiredOutputs");
         provider.add("gui.neoecoae.crafting_graph.recursion.layer_count", "%s layers");
         provider.add("gui.neoecoae.crafting_graph.recursion.not_determined", "Not determined");
-        provider.add("gui.neoecoae.crafting_graph.recursion.overview", "Cycle #%s · %s layers ↑ · %s seed types · %s external types · %s retained types");
+        provider.add("gui.neoecoae.crafting_graph.recursion.overview", "Cycle #%s · %s layers → · %s seed types · %s external types · %s retained types");
         provider.add("gui.neoecoae.crafting_graph.recursion.module", "Recursive Module #%s");
         provider.add("gui.neoecoae.crafting_graph.recursion.modules", "Recursive Modules #%s");
         provider.add("gui.neoecoae.crafting_graph.recursion.open", "Click to view seed growth");
@@ -997,7 +997,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_graph.recursion.amount", "Quantity: %s");
         provider.add("gui.neoecoae.crafting_graph.recursion.order_missing", "Missing for the whole order: %s");
         provider.add("gui.neoecoae.crafting_graph.recursion.conditional", "This shows the full recursion after supplying the missing materials.");
-        provider.add("gui.neoecoae.crafting_graph.recursion.direction", "Read upward. Drag to explore layers; scroll to zoom.");
+        provider.add("gui.neoecoae.crafting_graph.recursion.direction", "Read left to right. Drag to explore layers; scroll to zoom.");
         provider.add("gui.neoecoae.crafting_graph.recursion.return_to_plan", "Click to return to the outer plan");
         provider.add("gui.neoecoae.crafting_graph.recursion.no_output", "No output requested");
         provider.add("gui.neoecoae.crafting_graph.recursion.output_types", "%s output types");
