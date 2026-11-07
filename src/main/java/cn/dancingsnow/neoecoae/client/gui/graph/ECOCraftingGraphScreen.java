@@ -586,18 +586,14 @@ public final class ECOCraftingGraphScreen extends Screen {
         }
     }
 
-    /** Enter at a readable seed scale; Fit All remains available for the complete overview. */
+    /** Long recursion strips open at their left edge with readable nodes and the next steps in view. */
     private void focusRecursionStart() {
         if (zoom >= 0.85f) return;
-        var seeds = graph.nodes().values().stream().filter(node -> node.recursion().level() == 0
-            && node.recursion().role() != cn.dancingsnow.neoecoae.crafting.graph.RecursiveCycleNode.Role.INPUT)
-            .map(node -> layout.box(node.id())).filter(java.util.Objects::nonNull).toList();
-        if (seeds.isEmpty()) return;
-        zoom = 0.85f;
-        float centerX = (float) seeds.stream().mapToDouble(GraphLayoutSnapshot.Box::centerX).average().orElse(0);
-        float bottom = (float) seeds.stream().mapToDouble(box -> box.y() + box.height()).max().orElse(0);
-        cameraX = Math.max(1, width - detailsReserve()) / 2.0f - centerX * zoom;
-        cameraY = height - 34 - bottom * zoom;
+        var bounds = layout.bounds();
+        float availableHeight = Math.max(1, height - graphContentTop() - 24);
+        zoom = Math.min(0.85f, availableHeight / bounds.height());
+        cameraX = 16 - bounds.left() * zoom;
+        cameraY = graphContentTop() + 12 + (availableHeight - bounds.height() * zoom) / 2 - bounds.top() * zoom;
     }
 
     private void fitAll() {

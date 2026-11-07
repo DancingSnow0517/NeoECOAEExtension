@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.Set;
 import org.jetbrains.annotations.Nullable;
 
-/** Acyclic occurrences of one recursive module: inputs below, accumulated stock above, delivery at the top. */
+/** Acyclic occurrences of one recursive module: initial stock, execution checkpoints and final material results. */
 final class RecursiveCycleProjection {
     private RecursiveCycleProjection() {}
 
@@ -63,22 +63,37 @@ final class RecursiveCycleProjection {
                 state.add(input);
             }
         }
-        int delivery = builder.control(preview.complete() ? Role.DELIVERY : Role.UNKNOWN, level, null);
-        state.forEach(id -> builder.connect(id, delivery));
-        int root = delivery;
+        int unresolved = -1;
+        if (!preview.complete()) {
+            unresolved = builder.control(Role.UNKNOWN, level, null);
+            for (int id : state) builder.connect(id, unresolved);
+            state = List.of(unresolved);
+        }
+        Map<AEKey, List<Integer>> endingStock = new LinkedHashMap<>();
+        Map<Integer, PlannerAmount> remainingStock = new LinkedHashMap<>();
+        for (int id : state) {
+            var node = builder.nodes.get(id);
+            if (node.key() != null) {
+                endingStock.computeIfAbsent(node.key(), ignored -> new ArrayList<>()).add(id);
+                remainingStock.put(id, node.recursion().amount());
+            }
+        }
+        int fallbackRoot = state.get(0);
+        int root = fallbackRoot;
         Integer focus = null;
         for (var value : cycle.requiredOutputs()) {
             int output = builder.material(value, Role.OUTPUT, level + 1);
             builder.outputs.add(output);
-            builder.connect(delivery, output);
-            if (root == delivery || snapshot.rootNodeId() == builder.nodes.get(output).material().nodeId()) root = output;
+            if (unresolved >= 0) builder.connect(unresolved, output);
+            else builder.connectResult(endingStock.getOrDefault(value.key(), List.of()), remainingStock, output);
+            if (root == fallbackRoot || snapshot.rootNodeId() == builder.nodes.get(output).material().nodeId()) root = output;
             if (value.key().equals(focusedKey)) focus = output;
         }
         if (preview.complete()) {
             for (var balance : builder.balances.values()) {
                 int retained = builder.material(new KeyAmount(balance.key(), balance.remaining()), Role.RETAINED,
                     level + 1, null, balance.netChange());
-                builder.connect(delivery, retained);
+                builder.connectResult(endingStock.getOrDefault(balance.key(), List.of()), remainingStock, retained);
             }
         }
         if (focus == null && focusedKey != null) {
@@ -134,13 +149,28 @@ final class RecursiveCycleProjection {
             return id;
         }
 
-        void connect(int fromId, int toId) {
+        void connectResult(List<Integer> sources, Map<Integer, PlannerAmount> remainingStock, int result) {
+            PlannerAmount demand = nodes.get(result).recursion().amount();
+            for (int source : sources) {
+                if (demand.signum() <= 0) break;
+                PlannerAmount available = remainingStock.get(source);
+                PlannerAmount transferred = available.min(demand);
+                if (transferred.signum() <= 0) continue;
+                connect(source, result, transferred);
+                remainingStock.put(source, available.subtract(transferred));
+                demand = demand.subtract(transferred);
+            }
+        }
+
+        void connect(int fromId, int toId) { connect(fromId, toId, null); }
+
+        private void connect(int fromId, int toId, @Nullable PlannerAmount amount) {
             var from = nodes.get(fromId);
             var to = nodes.get(toId);
             var material = from.key() != null ? from : to.key() != null ? to : null;
             links.add(new ClientCraftingGraph.Link(fromId, toId,
-                material == null ? PlannerAmount.ZERO : material.recursion().amount(),
-                from.key() != null ? CraftingGraphSnapshot.EdgeKind.PATTERN_INPUT
+                amount != null ? amount : material == null ? PlannerAmount.ZERO : material.recursion().amount(),
+                from.key() != null && to.key() == null ? CraftingGraphSnapshot.EdgeKind.PATTERN_INPUT
                     : CraftingGraphSnapshot.EdgeKind.PATTERN_OUTPUT,
                 cycle.recursion().complete(), material == null ? -1 : material.id()));
         }
