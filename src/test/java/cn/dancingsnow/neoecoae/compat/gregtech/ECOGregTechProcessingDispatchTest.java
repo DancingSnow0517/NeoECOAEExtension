@@ -160,5 +160,27 @@ class ECOGregTechProcessingDispatchTest {
         assertEquals(false, pluginClass.getMethod("shouldApplyMixin", String.class, String.class)
                 .invoke(plugin, "com.gregtechceu.gtceu.integration.ae2.machine.MEPatternBufferPartMachine",
                         "cn.dancingsnow.neoecoae.mixins.compat.gregtech.GTMEPatternBufferMixin"));
+        assertEquals(false, pluginClass.getMethod("shouldApplyMixin", String.class, String.class)
+                .invoke(plugin, "org.gtlcore.gtlcore.integration.ae2.storage.FastInfinityCellInventory",
+                        "cn.dancingsnow.neoecoae.mixins.compat.gregtech.GTLInfinityCellInventoryMixin"));
+    }
+
+    @Test void installedGtlCellsExposeTheExactQuantityContractUsedByTheOptionalMixin() throws Exception {
+        String jar = System.getProperty("neoecoae.gtProcessingGtlJar");
+        org.junit.jupiter.api.Assumptions.assumeTrue(jar != null, "Set gtProcessingGtlJar to check the installed GTL release");
+        try (var archive = new java.util.zip.ZipFile(jar)) {
+            for (String name : java.util.List.of("FastInfinityCellInventory", "InfinityCellInventory")) {
+                var entry = archive.getEntry("org/gtlcore/gtlcore/integration/ae2/storage/" + name + ".class");
+                assertNotNull(entry, name);
+                var node = new org.objectweb.asm.tree.ClassNode();
+                try (var input = archive.getInputStream(entry)) {
+                    new org.objectweb.asm.ClassReader(input).accept(node, org.objectweb.asm.ClassReader.SKIP_CODE);
+                }
+                assertTrue(node.interfaces.contains("org/gtlcore/gtlcore/integration/ae2/storage/PreciseStorageAmount"));
+                assertTrue(node.methods.stream().anyMatch(method -> method.name.equals("getExactStoredAmount")
+                    && method.desc.equals("(Lappeng/api/stacks/AEKey;)Ljava/math/BigInteger;")
+                    && (method.access & org.objectweb.asm.Opcodes.ACC_PUBLIC) != 0));
+            }
+        }
     }
 }

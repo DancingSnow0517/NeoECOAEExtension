@@ -27,6 +27,11 @@ public final class ECOOptionalAddonMixinPlugin implements IMixinConfigPlugin {
     }
 
     @Override public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+        if (mixinClassName.endsWith(".GTLInfinityCellInventoryMixin")) {
+            return getClass().getClassLoader().getResource(
+                "org/gtlcore/gtlcore/integration/ae2/storage/PreciseStorageAmount.class") != null
+                && getClass().getClassLoader().getResource(targetClassName.replace('.', '/') + ".class") != null;
+        }
         if (mixinClassName.endsWith(".MekanismExternalStorageStrategyMixin")
             && getClass().getClassLoader().getResource("mekanism/api/chemical/IChemicalHandler.class") == null) return false;
         if (mixinClassName.endsWith(".OmniWasteCellRecognitionMixin")
