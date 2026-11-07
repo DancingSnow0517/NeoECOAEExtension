@@ -1634,5 +1634,14 @@
   "gui.neoecoae.computation.ui.switch.smart_doubling.limit_value": "%s 份",
   "gui.neoecoae.computation.ui.switch.smart_doubling.limit_note": "實發之數，猶受當下可用並行所限。",
   "gui.neoecoae.computation.ui.switch.smart_doubling.blocking": "阻擋為先",
-  "gui.neoecoae.computation.ui.switch.smart_doubling.blocking_note": "合阻擋之條者，雖發猶為阻擋所遏。"
+  "gui.neoecoae.computation.ui.switch.smart_doubling.blocking_note": "合阻擋之條者，雖發猶為阻擋所遏。",
+  "gui.neoecoae.craft_error.shortfall": "本次未能提取：%s",
+  "gui.neoecoae.craft_error.meaning": "實際提取量不足；此數量是本次提取缺口，並非網絡總庫存。",
+  "gui.neoecoae.craft_error.unknown_cause": "AE2 未返回底層原因。請檢查以下可能原因：",
+  "gui.neoecoae.craft_error.stock_changed": "• 庫存變動：計算後被其他任務、機器或玩家取走。",
+  "gui.neoecoae.craft_error.storage_offline": "• 存儲離線：設備斷連、缺少頻道、斷電或存儲盤被移走。",
+  "gui.neoecoae.craft_error.extraction_blocked": "• 禁止提取：權限、輸出過濾、存儲鎖定或第三方存儲規則。",
+  "gui.neoecoae.craft_error.transfer_limit": "• 提取不完整：存儲單次傳輸上限或大數量兼容問題。",
+  "gui.neoecoae.craft_error.retry": "重試：恢復材料訪問後，再次提交原計劃。",
+  "gui.neoecoae.craft_error.replan": "返回：按當前庫存重新計算。本頁僅報告首個提取失敗的材料。"
 }

@@ -85,6 +85,15 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.big_order.child", "Segment %s · remaining %s");
         provider.add("gui.neoecoae.big_order.requires_cpu", "BigInt orders require an ECO CPU");
         provider.add("gui.neoecoae.big_order.single_task", "ECO CPU: execute the complete order as one task");
+        provider.add("gui.neoecoae.craft_error.shortfall", "Not extracted this attempt: %s");
+        provider.add("gui.neoecoae.craft_error.meaning", "The actual extraction fell short. This is the unextracted remainder, not total network stock.");
+        provider.add("gui.neoecoae.craft_error.unknown_cause", "AE2 did not report the underlying cause. Possible causes to check:");
+        provider.add("gui.neoecoae.craft_error.stock_changed", "- Stock changed: another task, machine, or player took the material after planning.");
+        provider.add("gui.neoecoae.craft_error.storage_offline", "- Storage became unavailable: disconnected device, missing channel, power loss, or removed cell.");
+        provider.add("gui.neoecoae.craft_error.extraction_blocked", "- Extraction denied: permissions, output filters, locked storage, or a third-party storage rule.");
+        provider.add("gui.neoecoae.craft_error.transfer_limit", "- Storage returned only part of the request: per-call transfer limits or large-amount compatibility issues.");
+        provider.add("gui.neoecoae.craft_error.retry", "Retry: submit the same plan again after restoring material access.");
+        provider.add("gui.neoecoae.craft_error.replan", "Back: recalculate using current stock. This page reports only the first failed material.");
         provider.add("gui.neoecoae.crafting_report.exact_incomplete", "Execution plan incomplete; see CPU details");
         provider.add("gui.neoecoae.crafting_report.supply_insufficient", "Available supply cannot cover this order");
         provider.add("gui.neoecoae.crafting_report.optimizing", "Background optimization");
