@@ -5,13 +5,104 @@ import static org.mockito.Mockito.*;
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
+import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
+import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus;
+import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class ECOExactMaterialTableRendererTest {
+    @Test
+    void unchangedReportReusesMaterialRowsAndFlagsUntilEitherDiagnosticsSnapshotChanges() {
+        AEKey seed = mock(AEKey.class, "seed"), fuel = mock(AEKey.class, "fuel");
+        var seedNode = new CraftingGraphSnapshot.MaterialNode(0, seed, 100, 0, 0, 1,
+            CraftingGraphSnapshot.MaterialStatus.MISSING);
+        var fuelNode = new CraftingGraphSnapshot.MaterialNode(1, fuel, 700, 3, 0, 697,
+            CraftingGraphSnapshot.MaterialStatus.MISSING);
+        var nodes = spy(new ArrayList<>(List.of(fuelNode, seedNode)));
+        var group = new CraftingGraphSnapshot.CycleGroup(4, List.of(0), List.of(), "INSUFFICIENT_EXTERNAL_INPUT",
+            List.of(), List.of(), List.of(new CraftingGraphSnapshot.KeyAmount(seed, 1L)), List.of(), List.of());
+        var groups = spy(new ArrayList<>(List.of(group)));
+        var fuzzyId = new net.minecraft.resources.ResourceLocation("test", "fuzzy");
+        var fuzzy = spy(new ArrayList<>(List.of(fuzzyId)));
+        var snapshot = new CraftingGraphSnapshot(0, nodes, List.of(), List.of(), groups, fuzzy,
+            new CraftingGraphSnapshot.Summary("CYCLE_UNRESOLVED", 2, 0, 0, 1, 0));
+        var entry = new ECOCycleItemList.Entry(seed, BigInteger.ZERO, BigInteger.ZERO, BigInteger.ONE,
+            BigInteger.ZERO, BigInteger.ONE, ExecutionCountKnowledge.UNKNOWN,
+            CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, 4);
+        var cycles = spy(new ArrayList<>(List.of(entry)));
+        var data = new ECOExactMaterialTableRenderer.MaterialData();
+        data.update(snapshot, cycles);
+        var rows = data.sorted();
+        assertEquals(List.of(seedNode, fuelNode), rows);
+        assertEquals(List.of(seed, fuel), data.missing());
+        assertTrue(data.isMissingStartupSeed(seed));
+        assertTrue(data.isEstimatedStartupSeed(seed));
+        assertTrue(data.isFuzzyItem(fuzzyId));
+        assertTrue(data.hasMaterialDetails());
+        assertFalse(data.hasCompleteByteEstimate());
+
+        clearInvocations(nodes, groups, fuzzy, cycles);
+        for (int frame = 0; frame < 100; frame++) {
+            data.update(snapshot, cycles);
+            assertSame(rows, data.sorted());
+            assertTrue(data.isCycleParticipant(seed));
+            assertTrue(data.hasEstimatedStartupSeed());
+            assertTrue(data.containsComponent(4));
+            assertEquals(2, data.missing().size());
+        }
+        verifyNoInteractions(nodes, groups, fuzzy, cycles);
+
+        var solvedCycles = List.of(new ECOCycleItemList.Entry(seed, 1, 100, 4));
+        data.update(snapshot, solvedCycles);
+        assertEquals(List.of(fuelNode, seedNode), data.sorted());
+        assertFalse(data.isMissingStartupSeed(seed));
+        assertFalse(data.hasEstimatedStartupSeed());
+
+        var suppliedFuel = new CraftingGraphSnapshot.MaterialNode(1, fuel, 700, 700, 0, 0,
+            CraftingGraphSnapshot.MaterialStatus.SATISFIED);
+        var updated = new CraftingGraphSnapshot(0, List.of(seedNode, suppliedFuel), List.of(), List.of(), groups,
+            List.of(), new CraftingGraphSnapshot.Summary("MISSING_ITEMS", 2, 0, 0, 1, 0));
+        data.update(updated, solvedCycles);
+        assertEquals(List.of(seed), data.missing());
+        assertEquals(List.of(seedNode, suppliedFuel), data.sorted());
+        assertFalse(data.isFuzzyItem(fuzzyId));
+        data.update(CraftingGraphSnapshot.EMPTY, List.of());
+        assertTrue(data.sorted().isEmpty());
+        assertFalse(data.isCycleParticipant(seed));
+        assertFalse(data.containsComponent(4));
+    }
+
+    @Test
+    void sortingPreparesSeedFlagsAndWideAmountsOncePerMaterial() {
+        AEKey key = mock(AEKey.class);
+        var nodes = new ArrayList<CraftingGraphSnapshot.MaterialNode>();
+        BigInteger first = BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE);
+        for (int index = 0; index < 256; index++) {
+            String amount = first.add(BigInteger.valueOf(index)).toString();
+            nodes.add(spy(new CraftingGraphSnapshot.MaterialNode(index, key, Long.MAX_VALUE, 0, 0,
+                Long.MAX_VALUE, CraftingGraphSnapshot.MaterialStatus.MISSING,
+                amount, "0", "0", amount, "0", "0")));
+        }
+        var seedChecks = new java.util.concurrent.atomic.AtomicInteger();
+        var sorted = ECOExactMaterialTableRenderer.sortMaterials(nodes, ignored -> {
+            seedChecks.incrementAndGet();
+            return false;
+        });
+        assertEquals(nodes.size(), seedChecks.get(), "Seed flags must not be recomputed by the comparator");
+        assertEquals(255, sorted.get(0).nodeId());
+        assertEquals(0, sorted.get(255).nodeId());
+        for (var node : nodes) {
+            verify(node, times(1)).missingBigInteger();
+            verify(node, times(1)).toCraftBigInteger();
+            verify(node, times(1)).fromInventoryBigInteger();
+        }
+    }
+
     @Test
     void reservedComponentVariantIsListedAlongsideTheMissingTemplate() {
         AEKey template = mock(AEKey.class);
@@ -136,7 +227,26 @@ class ECOExactMaterialTableRendererTest {
             new CraftingGraphSnapshot.Summary("MISSING_ITEMS", 2, 0, 0, 1, 0));
         assertTrue(ECOExactMaterialTableRenderer.hasMaterialDetails(snapshot));
         assertFalse(ECOCraftReportHeaderRenderer.hasCompleteByteEstimate(snapshot),
-            "An uncommitted cyclic deficit report has no full execution byte estimate");
+            "An unknown firing vector has no full-order byte estimate");
+    }
+
+    @Test
+    void completeMissingCycleKeepsItsByteEstimateEvenThoughItCannotExecute() {
+        AEKey fuel = mock(AEKey.class);
+        var node = new CraftingGraphSnapshot.MaterialNode(0, fuel, 700, 3, 0, 697,
+            CraftingGraphSnapshot.MaterialStatus.MISSING);
+        for (String status : List.of("MISSING_ITEMS", "PLANNED_BUT_AMOUNT_UNREPRESENTABLE", "PARTIAL")) {
+            for (ExecutionCountKnowledge knowledge : ExecutionCountKnowledge.values()) {
+                var cycle = new CraftingGraphSnapshot.CycleGroup(4, List.of(0), List.of(),
+                    "INSUFFICIENT_EXTERNAL_INPUT", List.of(), List.of(), List.of(), List.of(), List.of(),
+                    List.of(), List.of(), List.of(), List.of(), List.of(), knowledge,
+                    CycleSolveStatus.SUCCESS);
+                var snapshot = new CraftingGraphSnapshot(0, List.of(node), List.of(), List.of(), List.of(cycle),
+                    List.of(), new CraftingGraphSnapshot.Summary(status, 1, 0, 0, 1, 0));
+                assertEquals(knowledge == ExecutionCountKnowledge.EXACT && !status.equals("PARTIAL"),
+                    ECOCraftReportHeaderRenderer.hasCompleteByteEstimate(snapshot));
+            }
+        }
     }
 
     @Test
@@ -165,6 +275,22 @@ class ECOExactMaterialTableRendererTest {
             assertEquals(3, renderer.getEntryTooltip(node).size());
             verify(diamond).formatAmount(21864722041L, AmountFormat.FULL);
             verify(diamond).formatAmount(115481708064L, AmountFormat.FULL);
+        }
+    }
+
+    @Test
+    void originalMaterialCellShowsStockCraftingAndDeficitTogether() {
+        AEKey material = mock(AEKey.class);
+        when(material.formatAmount(anyLong(), any())).thenAnswer(call -> Long.toString(call.getArgument(0)));
+        var node = new CraftingGraphSnapshot.MaterialNode(0, material, 100L, 25L, 60L, 15L,
+            CraftingGraphSnapshot.MaterialStatus.MISSING);
+        var renderer = mock(ECOExactMaterialTableRenderer.class, CALLS_REAL_METHODS);
+        var expected = List.of(appeng.core.localization.GuiText.FromStorage.text("25"),
+            appeng.core.localization.GuiText.Missing.text("15"), appeng.core.localization.GuiText.ToCraft.text("60"));
+        assertEquals(expected, renderer.getEntryDescription(node));
+        try (var rendering = mockStatic(AEKeyRendering.class)) {
+            rendering.when(() -> AEKeyRendering.getTooltip(material)).thenReturn(new ArrayList<>());
+            assertEquals(expected, renderer.getEntryTooltip(node).subList(0, 3));
         }
     }
 }

@@ -135,10 +135,23 @@ class ComponentPlannerMissingSeedTest {
             outcome.state().missingAmounts());
         var snapshot = cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshotFactory.create(result);
         var goal = snapshot.nodes().stream().filter(node -> node.key().equals(seed)).findFirst().orElseThrow();
+        var recursion = snapshot.cycleGroups().get(0).recursion();
+        assertTrue(recursion.complete(), "The real solver's huge missing-material plan retains its recursive growth");
+        assertTrue(recursion.layers().size() <= 64);
+        var finalInventory = recursion.layers().get(recursion.layers().size() - 1).inventory();
+        assertTrue(finalInventory.stream().anyMatch(value -> value.key().equals(seed)
+            && value.plannerAmount().compareTo(PlannerAmount.of(amount)) >= 0));
         assertEquals(java.math.BigInteger.valueOf(amount), goal.requestedBigInteger());
         assertEquals(java.math.BigInteger.ZERO, goal.missingBigInteger());
         assertEquals(missing.toBigInteger(), snapshot.nodes().stream().filter(node -> node.key().equals(raw))
             .findFirst().orElseThrow().missingBigInteger());
+        var rawNode = snapshot.nodes().stream().filter(node -> node.key().equals(raw)).findFirst().orElseThrow();
+        assertEquals(java.math.BigInteger.valueOf(5), rawNode.fromInventoryBigInteger());
+        assertEquals(rawRequired.toBigInteger(), rawNode.requestedBigInteger());
+        var fuelNode = snapshot.nodes().stream().filter(node -> node.key().equals(fuel)).findFirst().orElseThrow();
+        assertEquals(java.math.BigInteger.valueOf(3), fuelNode.fromInventoryBigInteger());
+        assertEquals(java.math.BigInteger.valueOf(amount - 3), fuelNode.toCraftBigInteger());
+        assertTrue(outcome.state().usedAmounts().isEmpty(), "Preview stock must not authorize an uncommitted cycle");
 
         var suppliedStock = PlannerInventorySnapshot.exact(Map.of(seed, PlannerAmount.ONE,
             fuel, PlannerAmount.of(3), raw, rawRequired), Set.of());
@@ -150,6 +163,12 @@ class ComponentPlannerMissingSeedTest {
         assertEquals(PlannerAmount.of(amount), supplied.state().plannerPatternTimes().get(prepare.details()));
         assertEquals(rawRequired, supplied.state().usedAmounts().get(raw));
         supplied.state().executionProvenance().requireComplete();
+        assertEquals(supplied.state().plannerBytes(), outcome.state().plannerBytes(),
+            "The same expanded route has the same byte estimate when only its raw-stock deficit changes");
+        assertTrue(outcome.state().plannerBytes().compareTo(PlannerAmount.of(outcome.state().bytes())) > 0,
+            "Uncommitted external work still contributes to the preview byte estimate");
+        assertEquals(outcome.state().plannerBytes(), outcome.state().copy().plannerBytes(),
+            "Retaining a candidate must preserve its material-preview byte estimate");
     }
 
     @Test
@@ -686,6 +705,8 @@ class ComponentPlannerMissingSeedTest {
             var snapshot = cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshotFactory.create(result);
             assertEquals(java.math.BigInteger.valueOf(28L - storedDiamonds), snapshot.nodes().stream()
                 .filter(node -> node.key().equals(diamond)).findFirst().orElseThrow().missingBigInteger());
+            assertEquals(java.math.BigInteger.valueOf(storedDiamonds), snapshot.nodes().stream()
+                .filter(node -> node.key().equals(diamond)).findFirst().orElseThrow().fromInventoryBigInteger());
             assertEquals(java.math.BigInteger.valueOf(4L), snapshot.nodes().stream()
                 .filter(node -> node.key().equals(netherrack)).findFirst().orElseThrow().missingBigInteger());
         }

@@ -43,5 +43,10 @@ public interface ECOCraftConfirmMenuMode {
 
     CraftingGraphSnapshot neoecoae$getCraftingGraphSnapshot();
     default void neoecoae$setDiagnostics(long version, CraftingGraphSnapshot graph, ECOCycleItemList cycles) {}
+    default void neoecoae$setMaterialReport(long version, CraftingGraphSnapshot report, ECOCycleItemList cycles) {
+        neoecoae$setDiagnostics(version, report, cycles);
+    }
     default boolean neoecoae$diagnosticsReady() { return true; }
+    default boolean neoecoae$graphReady() { return neoecoae$diagnosticsReady(); }
+    default int neoecoae$getReportSyncFailure() { return 0; }
 }

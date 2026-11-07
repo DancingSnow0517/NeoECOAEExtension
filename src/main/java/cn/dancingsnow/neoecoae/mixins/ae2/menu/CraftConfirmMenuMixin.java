@@ -118,8 +118,12 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
 
     @Unique @GuiSync(12009) private long neoecoae$diagnosticsVersion;
     @Unique private long neoecoae$receivedDiagnosticsVersion = -1;
+    @Unique private long neoecoae$receivedGraphVersion = -1;
     @Unique private CraftingGraphSnapshot neoecoae$sentGraph;
     @Unique private ECOCycleItemList neoecoae$sentCycles;
+    @Unique private boolean neoecoae$graphPending;
+    /** 1: material report failed; 2: optional full graph failed after the material report. */
+    @Unique @GuiSync(12015) private int neoecoae$reportSyncFailure;
     @Unique private long neoecoae$startButtonAttemptStartedNanos;
     @Unique private @Nullable ECOPlanningService.Request neoecoae$planningRequest;
     @Unique private long neoecoae$nextPreviewTick;
@@ -191,17 +195,41 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
     }
 
     @Override public void neoecoae$setDiagnostics(long version, CraftingGraphSnapshot graph, ECOCycleItemList cycles) {
+        if (version < neoecoae$receivedDiagnosticsVersion) return;
         neoecoae$receivedDiagnosticsVersion = version;
+        neoecoae$receivedGraphVersion = version;
         neoecoae$craftingGraph = graph;
         neoecoae$cycleItems = cycles;
     }
+
+    @Override public void neoecoae$setMaterialReport(long version, CraftingGraphSnapshot report, ECOCycleItemList cycles) {
+        if (version <= neoecoae$receivedDiagnosticsVersion) return;
+        neoecoae$receivedDiagnosticsVersion = version;
+        neoecoae$craftingGraph = report;
+        neoecoae$cycleItems = cycles;
+    }
+
+    @Override public boolean neoecoae$graphReady() {
+        return !((CraftConfirmMenu) (Object) this).isClientSide()
+            || neoecoae$receivedGraphVersion == neoecoae$diagnosticsVersion;
+    }
+
+    @Override public int neoecoae$getReportSyncFailure() { return neoecoae$reportSyncFailure; }
 
     @Inject(method = {"broadcastChanges()V", "m_38946_()V"}, at = @At("TAIL"))
     private void neoecoae$sendDiagnostics(CallbackInfo ci) {
         var menu = (CraftConfirmMenu) (Object) this;
         if (!(menu.getPlayer() instanceof ServerPlayer player) || player.containerMenu != menu) return;
-        if (neoecoae$sentGraph == neoecoae$craftingGraph && neoecoae$sentCycles == neoecoae$cycleItems) return;
+        if (neoecoae$sentGraph == neoecoae$craftingGraph && neoecoae$sentCycles == neoecoae$cycleItems) {
+            if (neoecoae$graphPending && !cn.dancingsnow.neoecoae.network.MenuDataTransport.busy(player,
+                    cn.dancingsnow.neoecoae.network.MenuDataTransport.Channel.GRAPH)) {
+                neoecoae$sendReport(player, neoecoae$craftingGraph, true);
+                neoecoae$graphPending = false;
+            }
+            return;
+        }
         neoecoae$diagnosticsVersion++;
+        neoecoae$reportSyncFailure = 0;
         if (result != null) {
             neoecoae$displayedPlans.put(neoecoae$diagnosticsVersion, result);
             while (neoecoae$displayedPlans.size() > 8) {
@@ -213,14 +241,28 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
         // A changed plan invalidates the previous stream, even when its first chunks have already arrived.
         cn.dancingsnow.neoecoae.network.MenuDataTransport.cancel(player,
             cn.dancingsnow.neoecoae.network.MenuDataTransport.Channel.GRAPH);
-        cn.dancingsnow.neoecoae.network.MenuDataTransport.send(player,
-            cn.dancingsnow.neoecoae.network.MenuDataTransport.Channel.GRAPH, buf -> {
-                buf.writeVarLong(neoecoae$diagnosticsVersion);
-                neoecoae$craftingGraph.writeToPacket(buf);
-                neoecoae$cycleItems.writeToPacket(buf);
-            });
+        // Keep the exact table on the critical path, then send graph details after those rows have been sent.
+        // Both payloads describe the same displayed plan, including its submission revision.
+        neoecoae$graphPending = neoecoae$sendReport(player, neoecoae$craftingGraph.materialReport(), false);
         neoecoae$sentGraph = neoecoae$craftingGraph;
         neoecoae$sentCycles = neoecoae$cycleItems;
+    }
+
+    @Unique
+    private boolean neoecoae$sendReport(ServerPlayer player, CraftingGraphSnapshot snapshot, boolean completeGraph) {
+        try {
+            cn.dancingsnow.neoecoae.network.CraftingReportStream.send(player,
+                neoecoae$diagnosticsVersion, completeGraph, snapshot, neoecoae$cycleItems);
+            return true;
+        } catch (RuntimeException error) {
+            neoecoae$reportSyncFailure = completeGraph ? 2 : 1;
+            org.slf4j.LoggerFactory.getLogger("neoecoae").error(
+                "[craft-confirm] Failed to encode {} for revision {} (materials={}, patterns={}, edges={}, cycles={})",
+                completeGraph ? "crafting graph" : "material report", neoecoae$diagnosticsVersion,
+                snapshot.nodes().size(), snapshot.patterns().size(), snapshot.edges().size(),
+                snapshot.cycleGroups().size(), error);
+            return false;
+        }
     }
 
     @Override public String neoecoae$getPlanningDiagnostic() {
