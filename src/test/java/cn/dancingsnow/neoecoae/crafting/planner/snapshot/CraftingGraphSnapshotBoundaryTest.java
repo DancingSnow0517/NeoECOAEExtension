@@ -25,6 +25,26 @@ import static org.mockito.Mockito.*;
 class CraftingGraphSnapshotBoundaryTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
+    @Test void graphPacketKeepsWideRecipeEdgesFiringsAndSeedAmounts() {
+        var amount = cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.ONE.shiftLeft(160);
+        var key = AEItemKey.of(Items.IRON_INGOT);
+        var relationship = new CraftingGraphSnapshot.Relationship(0, amount);
+        var edge = new CraftingGraphSnapshot.Edge(-2, 0, amount, CraftingGraphSnapshot.EdgeKind.PATTERN_INPUT, true);
+        var pattern = new CraftingGraphSnapshot.PatternNode(-2, "wide", List.of(relationship), List.of(), amount,
+            CraftingGraphSnapshot.CandidateStatus.SELECTED, null, 0);
+        var cycle = new CraftingGraphSnapshot.CycleGroup(0, List.of(0), List.of(edge), "SOLVED",
+            List.of(new CraftingGraphSnapshot.KeyAmount(key, amount)), List.of(),
+            List.of(new CraftingGraphSnapshot.KeyAmount(key, amount)),
+            List.of(new CraftingGraphSnapshot.PatternAmount(-2, amount)), List.of());
+        var graph = new CraftingGraphSnapshot(-1, List.of(), List.of(pattern), List.of(edge), List.of(cycle), List.of(),
+            new CraftingGraphSnapshot.Summary("SUCCESS", 0, 1, 1, 1, 0));
+        var buffer = new net.minecraft.network.FriendlyByteBuf(io.netty.buffer.Unpooled.buffer());
+        try {
+            graph.writeToPacket(buffer);
+            assertEquals(graph, new CraftingGraphSnapshot(buffer));
+        } finally { buffer.release(); }
+    }
+
     @Test
     void earlyFailureWithoutPlanOrTraceHasNoInventedRoot() {
         var result = new ECOPlanningResult(PlanningStatus.INTERNAL_ERROR, null, new ECOPlanTrace(), List.of(), 0);

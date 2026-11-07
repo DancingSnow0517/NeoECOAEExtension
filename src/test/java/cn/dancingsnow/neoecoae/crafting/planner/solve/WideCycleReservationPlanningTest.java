@@ -51,10 +51,12 @@ class WideCycleReservationPlanningTest {
         var stock = new KeyCounter(); stock.set(consumer, 1); stock.set(supplier, 1);
         var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
             .plan(network, condensation, stock, 1, true, ECOCancellation.NONE);
-        // A bounded cycle witness may reject this count; the exact sum must survive as a normal diagnostic.
         assertEquals(PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE, outcome.status());
-        assertTrue(outcome.components().stream().anyMatch(component -> component.cycleStatus()
-            == cn.dancingsnow.neoecoae.crafting.planner.result.CyclePlanningStatus.UNREPRESENTABLE));
+        assertTrue(outcome.completeCandidate(), outcome.trace().diagnostics().toString());
+        assertTrue(outcome.components().stream().filter(component -> component.cycleResult() != null)
+            .allMatch(component -> component.cycleResult().status()
+                == cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus.SUCCESS));
+        assertTrue(outcome.state().plannerPatternTimes().values().stream().anyMatch(count -> !count.fitsLong()));
     }
 
     @ParameterizedTest

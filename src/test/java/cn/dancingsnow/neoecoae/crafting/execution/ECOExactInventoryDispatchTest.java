@@ -175,7 +175,7 @@ class ECOExactInventoryDispatchTest {
         fill();
         var pattern = mock(IPatternDetails.class, RETURNS_DEEP_STUBS);
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[0]);
-        var preview = new ECOCraftingInputPreview(inventory, pattern, Map.of(input, Long.MAX_VALUE));
+        var preview = new ECOCraftingInputPreview(inventory, pattern, Map.of(input, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.of(Long.MAX_VALUE)));
         assertEquals(9, preview.extract(input, 9, Actionable.MODULATE));
         assertEquals(MAX.multiply(BigInteger.valueOf(9)), inventory.amount(input));
     }

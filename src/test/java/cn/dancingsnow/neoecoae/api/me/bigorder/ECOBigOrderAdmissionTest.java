@@ -8,6 +8,18 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ECOBigOrderAdmissionTest {
+    @Test void finiteWideReservationsUseTheExactTotalAndBoundedAccessCheck() {
+        var required = cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.ONE.shiftLeft(160);
+        assertTrue(ECOBigOrderAdmission.hasStoredAmount(required, required, false, amount -> {
+            assertEquals(Long.MAX_VALUE, amount);
+            return amount;
+        }));
+        assertFalse(ECOBigOrderAdmission.hasStoredAmount(required, required.subtract(1L), false, amount -> {
+            fail("The exact finite shortage must be rejected before probing");
+            return amount;
+        }));
+        assertFalse(ECOBigOrderAdmission.hasStoredAmount(required, required, false, amount -> 0L));
+    }
     @Test void onlyForcedMissingPlansCanEnterTheMaterialWaitingPath() {
         assertFalse(ECOBigOrderAdmission.waitsForMaterials(null, true));
         for (var status : cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.values()) {

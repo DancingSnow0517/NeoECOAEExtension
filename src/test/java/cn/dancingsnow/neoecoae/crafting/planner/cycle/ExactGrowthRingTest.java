@@ -32,8 +32,9 @@ class ExactGrowthRingTest {
             // so a wide deliverable alone must not make an otherwise representable task overflow.
             var expectedCount = amount.subtract(BigInteger.ONE);
             boolean fits = expectedCount.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) <= 0;
-            assertEquals(fits ? CycleSolveStatus.SUCCESS : CycleSolveStatus.UNREPRESENTABLE,
-                result.status(), result.diagnostics().toString());
+            assertEquals(CycleSolveStatus.SUCCESS, result.status(), result.diagnostics().toString());
+            assertFalse(result.executionPlan().isEmpty(), "Wide counts need a complete compact execution witness");
+            assertTrue(result.exactDeliverableOutputs().get(ring.members().get(0)).toBigInteger().compareTo(amount) >= 0);
             assertTrue(result.hasExactExecutionCounts());
             assertEquals(!fits, result.exactPatternTimes().values().stream().anyMatch(count -> !count.fitsLong()));
             result.exactPatternTimes().values().forEach(count -> assertEquals(expectedCount, count.toBigInteger()));
@@ -59,7 +60,7 @@ class ExactGrowthRingTest {
     void wideTargetStillReportsMissingStartupSeed(int size) throws Exception {
         var ring = ring(size);
         var result = solve(ring, BigInteger.TEN.pow(20), Map.of());
-        assertEquals(CycleSolveStatus.UNREPRESENTABLE, result.status());
+        assertEquals(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, result.status());
         assertTrue(result.hasExactExecutionCounts());
         assertFalse(result.seedShortfall().isEmpty(), "Exact arithmetic must not create a free startup seed");
     }

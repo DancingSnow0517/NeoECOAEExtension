@@ -45,6 +45,7 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
 import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -703,10 +704,11 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     static Component title(ComputationCpuEntry cpu, boolean hasItems) {
         var title = GuiText.CraftingStatus.text();
         if (cpu == null) return title;
-        BigInteger completed = cpu.requested().subtract(cpu.remaining()).max(BigInteger.ONE);
-        BigInteger eta = BigInteger.valueOf(cpu.elapsed()).multiply(cpu.remaining()).divide(completed);
+        PlannerAmount remaining = PlannerAmount.of(cpu.remaining());
+        PlannerAmount completed = PlannerAmount.of(cpu.requested()).subtract(remaining).max(PlannerAmount.ONE);
+        PlannerAmount eta = PlannerAmount.of(cpu.elapsed()).multiply(remaining).divide(completed);
         if (hasItems && eta.signum() > 0) {
-            long nanos = eta.min(BigInteger.valueOf(Long.MAX_VALUE)).longValue();
+            long nanos = eta.longValueSaturated();
             title.append(" - " + DurationFormatUtils.formatDuration(
                 TimeUnit.NANOSECONDS.toMillis(nanos), GuiText.ETAFormat.getLocal()));
         }

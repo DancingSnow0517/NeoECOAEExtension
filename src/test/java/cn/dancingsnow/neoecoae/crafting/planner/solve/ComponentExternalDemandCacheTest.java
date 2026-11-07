@@ -58,9 +58,9 @@ class ComponentExternalDemandCacheTest {
         // that only fail because that seed has to stay; each is planned once before the fuel route succeeds.
         verify(solver, times(4)).solve(same(network), any(), any(PlannerInventorySnapshot.class), eq(1L),
             anyMap(), anySet(), eq(false), any());
-        verify(solver).solveDemands(any(), any(), eq(Map.of(boundary, 1L)), anyMap(), anySet(), eq(false), any());
+        verify(solver).solveExactDemands(any(), any(), eq(Map.of(boundary, PlannerAmount.ONE)), anyMap(), anySet(), eq(false), any());
         // The missing original is solved once.
-        verify(solver, times(1)).solveDemands(any(), any(), anyMap(), anyMap(), anySet(), anyBoolean(), any());
+        verify(solver, times(1)).solveExactDemands(any(), any(), anyMap(), anyMap(), anySet(), anyBoolean(), any());
         assertEquals(2L, stock.get(seed));
         assertEquals(1L, stock.get(raw));
         assertEquals(1L, stock.get(fuel));
@@ -73,7 +73,7 @@ class ComponentExternalDemandCacheTest {
         assertTrue(recovered.state().patternTimes().containsKey(growth.details()));
         assertTrue(recovered.state().patternTimes().containsKey(external.details()));
         // Seed retention is part of the first solve, so only the accepted {boundary=1} is supplied again.
-        verify(solver, times(2)).solveDemands(any(), any(), anyMap(), anyMap(), anySet(), anyBoolean(), any());
+        verify(solver, times(2)).solveExactDemands(any(), any(), anyMap(), anyMap(), anySet(), anyBoolean(), any());
     }
 
     private static AEKey key(String name) {

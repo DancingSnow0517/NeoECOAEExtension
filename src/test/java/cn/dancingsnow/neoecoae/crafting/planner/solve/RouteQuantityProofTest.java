@@ -27,6 +27,45 @@ class RouteQuantityProofTest {
     private final AEKey raw = mock(AEKey.class, "raw");
     private final AEKey other = mock(AEKey.class, "other");
 
+    @Test void exactFiniteStockAndBottleneckPropagationSurviveTheWideTiers() throws Exception {
+        var unit = PlannerAmount.ONE.shiftLeft(160);
+        var prepared = RouteQuantityProof.prepare(network(pattern(Map.of(raw, unit), Map.of(goal, 1L))),
+            PlannerInventorySnapshot.exact(Map.of(raw, unit.multiply(3L)), Set.of()), ECOCancellation.NONE);
+        assertNotNull(prepared);
+        assertNull(prepared.insufficientOutput(3, Map.of(), Set.of(), ECOCancellation.NONE));
+        assertEquals(PlannerAmount.of(3L), prepared.insufficientOutput(4, Map.of(), Set.of(), ECOCancellation.NONE));
+        assertTrue(prepared.explanation().contains("raw <= " + unit.multiply(3L)));
+        assertTrue(prepared.explanation().contains("not an executable maximum"));
+    }
+
+    @Test void budgetLimitedProofIsUnknownAndCannotExcludeARoute() throws Exception {
+        var prepared = RouteQuantityProof.prepare(network(pattern(Map.of(raw, PlannerAmount.ONE), Map.of(goal, 1L))),
+            PlannerInventorySnapshot.of(new KeyCounter()), ECOCancellation.NONE);
+        var budget = new cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget(ECOCancellation.NONE,
+            1L, Long.MAX_VALUE, () -> 0L);
+        assertFalse(prepared.rejectsBranch(1, Map.of(), Set.of(goal), budget));
+        assertTrue(prepared.metrics().contains("proofLimited=1"));
+    }
+
+    @Test void impossibleLargeOrderReturnsTheSupplyProofBeforeSolvingItsCycle() throws Exception {
+        var network = network(pattern(Map.of(other, PlannerAmount.ONE, raw, PlannerAmount.ONE), Map.of(other, 2L)),
+            pattern(Map.of(other, PlannerAmount.ONE), Map.of(goal, 1L)));
+        var graph = new cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = cn.dancingsnow.neoecoae.crafting.planner.graph.CondensationGraph.build(graph,
+            new cn.dancingsnow.neoecoae.crafting.planner.graph.TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE),
+            ECOCancellation.NONE);
+        var cycleSolver = mock(cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolver.class);
+        var planner = new ComponentPlanner(new AcyclicCraftingSolver(), cycleSolver);
+        var stock = new KeyCounter(); stock.set(raw, 3L);
+        var selection = planner.selectRoutes(condensation, true, ECOCancellation.NONE);
+        var result = planner.planWithRouteFallback(network, condensation, selection, stock, PlannerInventorySnapshot.of(stock),
+            Long.MAX_VALUE, true, false, ECOCancellation.NONE);
+        assertTrue(result.trace().diagnostics().stream().anyMatch(diagnostic -> diagnostic.code()
+            == cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic.Code.ROUTE_QUANTITY_BOUND));
+        assertTrue(result.components().isEmpty(), "A supply proof does not pretend to have computed a detailed route");
+        verifyNoInteractions(cycleSolver);
+    }
+
     @Test void positiveButInsufficientStockHasAQuantityProof() throws Exception {
         var network = network(pattern(Map.of(raw, PlannerAmount.of(4)), Map.of(goal, 3L)));
         assertEquals(PlannerAmount.of(6), bound(network, Map.of(raw, 9L), 1_000_000_000L));

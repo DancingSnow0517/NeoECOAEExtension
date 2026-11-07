@@ -11,7 +11,6 @@ import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleStateEquation;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -63,10 +62,10 @@ final class MaterialBalanceProof {
         if (patterns.isEmpty()) return false;
         Map<AEKey, Integer> keys = new LinkedHashMap<>();
         keys.put(network.goal(), 0);
-        List<Map<Integer, BigInteger>> columns = new ArrayList<>(patterns.size());
+        List<Map<Integer, PlannerAmount>> columns = new ArrayList<>(patterns.size());
         for (CompiledPattern pattern : patterns) {
             cancellation.checkpoint();
-            Map<Integer, BigInteger> column = new LinkedHashMap<>();
+            Map<Integer, PlannerAmount> column = new LinkedHashMap<>();
             for (CompiledInput input : pattern.inputs()) {
                 // A reusable same-key return is net zero; any other remainder is credited as an output below.
                 PlannerAmount consumed = input.reusable() ? PlannerAmount.ZERO : input.amountPerPattern();
@@ -74,17 +73,17 @@ final class MaterialBalanceProof {
                     consumed = consumed.subtract(input.remainderAmountPerPattern()).max(PlannerAmount.ZERO);
                 }
                 if (consumed.signum() > 0) {
-                    column.merge(index(keys, input.key()), consumed.toBigInteger(), BigInteger::add);
+                    column.merge(index(keys, input.key()), consumed, PlannerAmount::add);
                 }
                 if (input.remainderKey() != null && !input.remainderKey().equals(input.key())
                         && input.remainderAmountPerPattern().signum() > 0) {
                     column.merge(index(keys, input.remainderKey()),
-                        input.remainderAmountPerPattern().toBigInteger().negate(), BigInteger::add);
+                        input.remainderAmountPerPattern().negate(), PlannerAmount::add);
                 }
             }
             for (GenericStack output : pattern.grossOutputs()) {
-                column.merge(index(keys, output.what()), BigInteger.valueOf(output.amount()).negate(),
-                    BigInteger::add);
+                column.merge(index(keys, output.what()), PlannerAmount.of(output.amount()).negate(),
+                    PlannerAmount::add);
             }
             column.values().removeIf(value -> value.signum() == 0);
             columns.add(column);
@@ -108,7 +107,7 @@ final class MaterialBalanceProof {
         ECOCancellation bounded = cancellation instanceof ECOPlanningBudget budget ? budget.slice(WORK, NANOS)
             : new ECOPlanningBudget(cancellation, WORK, NANOS, System::nanoTime);
         try {
-            return CycleStateEquation.solveSparseMaterialBalance(columns, imports, initial, target, true, bounded)
+            return CycleStateEquation.solveSparseAmounts(columns, imports, initial, target, true, bounded)
                 .status() == CycleStateEquation.Status.INFEASIBLE;
         } catch (ECOPlanningBudget.Exhausted exhausted) {
             // An unfinished relaxation proves nothing; keep the caller's own allowance for its search.

@@ -8,11 +8,12 @@ import cn.dancingsnow.neoecoae.platform.network.NEStreamCodec;
 import cn.dancingsnow.neoecoae.platform.network.NEPacketContext;
 
 /** Contains intent only; the server resolves the result, target and CPU from the open menu. */
-public record ECOBigOrderStartC2SPacket(int containerId, boolean forced) {
+public record ECOBigOrderStartC2SPacket(int containerId, boolean forced, long revision) {
+    public ECOBigOrderStartC2SPacket(int containerId, boolean forced) { this(containerId, forced, -1L); }
 
     public static final NEStreamCodec<FriendlyByteBuf, ECOBigOrderStartC2SPacket> STREAM_CODEC = NEStreamCodec.of(
-        (buf, packet) -> { buf.writeVarInt(packet.containerId); buf.writeBoolean(packet.forced); },
-        buf -> new ECOBigOrderStartC2SPacket(buf.readVarInt(), buf.readBoolean()));
+        (buf, packet) -> { buf.writeVarInt(packet.containerId); buf.writeBoolean(packet.forced); buf.writeLong(packet.revision); },
+        buf -> new ECOBigOrderStartC2SPacket(buf.readVarInt(), buf.readBoolean(), buf.readLong()));
     public static void handle(ECOBigOrderStartC2SPacket packet, NEPacketContext context) {
         context.enqueueWork(() -> {
             var current = context.player().containerMenu;
@@ -36,7 +37,14 @@ public record ECOBigOrderStartC2SPacket(int containerId, boolean forced) {
                 return;
             }
             CraftSubmissionPacketFeedback.submit(menu, "big-order", packet.forced,
-                () -> mode.neoecoae$startBigOrder(packet.forced));
+                () -> {
+                    if (packet.revision >= 0 && !mode.neoecoae$lockDisplayedPlan(packet.revision)) {
+                        menu.submitError = new CraftConfirmMenu.SyncableSubmitResult(
+                            appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
+                        return;
+                    }
+                    mode.neoecoae$startBigOrder(packet.forced);
+                });
         });
     }
 }

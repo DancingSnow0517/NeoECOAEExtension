@@ -278,7 +278,7 @@ final class ECOCraftingTaskScheduler {
                 var outputs = new appeng.api.stacks.KeyCounter();
                 var remainders = new appeng.api.stacks.KeyCounter();
                 var protectedStartupSeed = current.executionRuntime == null
-                        ? java.util.Map.<AEKey, Long>of()
+                        ? java.util.Map.<AEKey, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount>of()
                         : current.executionRuntime.protectedStartupSeed(candidate);
                 var inputInventory = current.executionRuntime == null && current.fuzzyPlanningItemIds.isEmpty()
                         ? new ECOCraftingInputPreview(inventory, inputTemplateCache)

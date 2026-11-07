@@ -47,6 +47,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOGrowthDispatchBarrier;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionPlan;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionSchedule;
@@ -88,8 +89,8 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
     GenericStack finalOutput;
     long remainingAmount;
     boolean exactOrder;
-    final Map<AEKey, java.math.BigInteger> deferredStock = new LinkedHashMap<>();
-    final Map<AEKey, java.math.BigInteger> deferredEmitted = new LinkedHashMap<>();
+    final Map<AEKey, PlannerAmount> deferredStock = new LinkedHashMap<>();
+    final Map<AEKey, PlannerAmount> deferredEmitted = new LinkedHashMap<>();
     /** Outputs of successful multi-craft dispatches in this job, used by the ECO status page. */
     final Set<AEKey> batchedOutputs = new HashSet<>();
     final Set<AEKey> stoppedProcessingOutputs = new HashSet<>();
@@ -161,11 +162,11 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         // imported plans need EAEP automatic wrappers converted back to logical crafts.
         if (executionPlan == null && !exactOrder) {
             var normalized = cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExternalPatternNormalization
-                    .normalize(plan.patternTimes());
+                    .normalizeQuantities(plan.patternTimes());
             tasks.clear();
             normalized.forEach((pattern, count) -> {
                 var progress = new TaskProgress();
-                if (count.bitLength() > 63) progress.setExact(count, count);
+                if (!count.fitsLong()) progress.setExact(count, count);
                 else progress.value = count.longValueExact();
                 tasks.put(pattern, progress);
             });
@@ -174,14 +175,14 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         if (plan instanceof cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan exact) {
             exactOrder = true;
             exact.exactTasks().forEach((pattern, count) -> tasks.get(pattern).setExact(count, count));
-            deferredStock.putAll(exact.deferredStock());
-            deferredEmitted.putAll(exact.deferredEmitted());
+            deferredStock.putAll(cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory.fromBigIntegers(exact.deferredStock()));
+            deferredEmitted.putAll(cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory.fromBigIntegers(exact.deferredEmitted()));
             timeTracker.startExactWork();
             exact.exactTasks().forEach((pattern, count) -> java.util.Arrays.stream(pattern.getOutputs()).forEach(output ->
-                timeTracker.addMaxItems(count.multiply(java.math.BigInteger.valueOf(output.amount()))
-                    .multiply(java.math.BigInteger.valueOf(output.what().getAmountPerUnit())), output.what().getType())));
+                timeTracker.addMaxItems(PlannerAmount.of(count).multiply(output.amount())
+                    .multiply(output.what().getAmountPerUnit()), output.what().getType())));
             for (var entry : plan.emittedItems()) timeTracker.addMaxItems(
-                java.math.BigInteger.valueOf(entry.getLongValue()), entry.getKey().getType());
+                PlannerAmount.of(entry.getLongValue()), entry.getKey().getType());
             deferredEmitted.forEach((key, amount) -> timeTracker.addMaxItems(amount, key.getType()));
         }
         if (executionPlan == null) {
@@ -236,8 +237,8 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
                 final TaskProgress tp = new TaskProgress();
                 tp.value = item.getLong(NBT_CRAFTING_PROGRESS);
                 if (item.contains("exactRemaining")) tp.setExact(
-                    new java.math.BigInteger(item.getString("exactTotal")),
-                    new java.math.BigInteger(item.getString("exactRemaining")));
+                    PlannerAmount.parse(item.getString("exactTotal")),
+                    PlannerAmount.parse(item.getString("exactRemaining")));
                 this.tasks.put(details, tp);
             } else taskDefinitionLost = true;
         }
@@ -310,8 +311,9 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
                 throw new IllegalArgumentException("Execution plan task is absent from submitted plan: " + task.id());
             }
             TaskProgress progress = tasks.get(match);
-            if (progress == null || progress.value < 0L || progress.value > task.totalCount()
-                    || (validateTotals && progress.value != task.totalCount())) {
+            if (progress == null || progress.remainingQuantity().signum() < 0
+                    || progress.remainingQuantity().compareTo(task.plannerTotalCount()) > 0
+                    || (validateTotals && !progress.remainingQuantity().equals(task.plannerTotalCount()))) {
                 throw new IllegalArgumentException("Execution plan count does not match submitted task: " + task.id());
             }
             result.put(task.id(), match);
@@ -413,32 +415,43 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
     }
 
     static class TaskProgress extends cn.dancingsnow.neoecoae.api.me.ExecutingCraftingJob.TaskProgress {
-        private java.math.BigInteger exactTotal;
-        private java.math.BigInteger exactRemaining;
+        private PlannerAmount exactTotal;
+        private PlannerAmount exactRemaining;
 
         void setExact(java.math.BigInteger total, java.math.BigInteger remaining) {
+            setExact(PlannerAmount.of(total), PlannerAmount.of(remaining));
+        }
+
+        void setExact(PlannerAmount total, PlannerAmount remaining) {
             if (remaining.signum() < 0 || total.compareTo(remaining) < 0)
                 throw new IllegalArgumentException("Invalid exact task progress");
             exactTotal = total;
             exactRemaining = remaining;
-            value = cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan.bounded(remaining);
+            value = remaining.longValueSaturated();
         }
         java.math.BigInteger remainingExact() {
-            return exactRemaining == null ? java.math.BigInteger.valueOf(value) : exactRemaining;
+            return remainingQuantity().toBigInteger();
         }
+        PlannerAmount remainingQuantity() { return exactRemaining == null ? PlannerAmount.of(value) : exactRemaining; }
         boolean isExact() { return exactTotal != null; }
         long completedBounded(long total) {
-            return exactTotal == null ? Math.max(0L, total - value)
-                : cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan.bounded(exactTotal.subtract(exactRemaining));
+            return completedQuantity(PlannerAmount.of(total)).longValueSaturated();
+        }
+        PlannerAmount completedQuantity(PlannerAmount total) {
+            return (exactTotal == null ? total : exactTotal).subtract(remainingQuantity()).max(PlannerAmount.ZERO);
         }
         void accept(long count) {
             if (count < 0 || count > value) throw new IllegalArgumentException("Dispatch exceeds remaining task");
             if (exactRemaining == null) value -= count;
-            else setExact(exactTotal, exactRemaining.subtract(java.math.BigInteger.valueOf(count)));
+            else setExact(exactTotal, exactRemaining.subtract(count));
         }
 
         void accept(java.math.BigInteger count) {
-            if (count.signum() < 0 || count.compareTo(remainingExact()) > 0)
+            accept(PlannerAmount.of(count));
+        }
+
+        void accept(PlannerAmount count) {
+            if (count.signum() < 0 || count.compareTo(remainingQuantity()) > 0)
                 throw new IllegalArgumentException("Dispatch exceeds remaining task");
             if (exactRemaining == null) accept(count.longValueExact());
             else setExact(exactTotal, exactRemaining.subtract(count));
@@ -452,7 +465,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         return inventory;
     }
 
-    private static void writeDeferred(CompoundTag data, String name, Map<AEKey, java.math.BigInteger> amounts) {
+    private static void writeDeferred(CompoundTag data, String name, Map<AEKey, PlannerAmount> amounts) {
         var list = new ListTag();
         amounts.forEach((key, amount) -> {
             var entry = new CompoundTag();
@@ -463,12 +476,12 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         data.put(name, list);
     }
 
-    private static void readDeferred(CompoundTag data, String name, Map<AEKey, java.math.BigInteger> amounts) {
+    private static void readDeferred(CompoundTag data, String name, Map<AEKey, PlannerAmount> amounts) {
         var list = data.getList(name, Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
             var entry = list.getCompound(i);
             var key = ECOKeyFactory.readTag(entry.getCompound("key"));
-            var amount = new java.math.BigInteger(entry.getString("amount"));
+            var amount = PlannerAmount.parse(entry.getString("amount"));
             if (key == null || amount.signum() <= 0) throw new IllegalArgumentException("Invalid deferred material");
             amounts.put(key.what(), amount);
         }

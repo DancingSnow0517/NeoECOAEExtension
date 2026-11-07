@@ -298,7 +298,7 @@ class ECOProcessingComponentMatchingTest {
         var inventory = new ListCraftingInventory(ignored -> {});
         inventory.insert(actual, 2, Actionable.MODULATE);
         var inputs = ECOCraftingInputResolver.extractPatternInputsFromDisposablePreview(pattern,
-            new ECOCraftingInputPreview(inventory, pattern, Map.of(actual, 1L), new ECOCraftingRemainderCache(), MARKED),
+            new ECOCraftingInputPreview(inventory, pattern, Map.of(actual, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.ONE), new ECOCraftingRemainderCache(), MARKED),
             null, new KeyCounter(), new KeyCounter(), new ECOCraftingRemainderCache());
         assertNull(inputs);
         assertEquals(2, inventory.list.get(actual));
