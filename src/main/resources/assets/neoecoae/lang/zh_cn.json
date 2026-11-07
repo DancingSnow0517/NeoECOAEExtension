@@ -1,4 +1,13 @@
 {
+  "gui.neoecoae.craft_error.shortfall": "本次未能提取：%s",
+  "gui.neoecoae.craft_error.meaning": "实际提取量不足；此数量是本次提取缺口，并非网络总库存。",
+  "gui.neoecoae.craft_error.unknown_cause": "AE2 未返回底层原因。请检查以下可能原因：",
+  "gui.neoecoae.craft_error.stock_changed": "• 库存变动：计算后被其他任务、机器或玩家取走。",
+  "gui.neoecoae.craft_error.storage_offline": "• 存储离线：设备断连、缺少频道、断电或存储盘被移走。",
+  "gui.neoecoae.craft_error.extraction_blocked": "• 禁止提取：权限、输出过滤、存储锁定或第三方存储规则。",
+  "gui.neoecoae.craft_error.transfer_limit": "• 提取不完整：存储单次传输上限或大数量兼容问题。",
+  "gui.neoecoae.craft_error.retry": "重试：恢复材料访问后，再次提交原计划。",
+  "gui.neoecoae.craft_error.replan": "返回：按当前库存重新计算。本页仅报告首个提取失败的材料。",
   "item.neoecoae.dev_resource_generator": "开发随机资源发生器 / 存储盘",
   "neoecoae.configuration.keyReuse": "AE 资源 key 复用",
   "neoecoae.configuration.keyReuse.tooltip": "本地缓存选项。保留值相等语义与旧存档格式。",

@@ -1,4 +1,13 @@
 {
+  "gui.neoecoae.craft_error.shortfall": "Not extracted this attempt: %s",
+  "gui.neoecoae.craft_error.meaning": "The actual extraction fell short. This is the unextracted remainder, not total network stock.",
+  "gui.neoecoae.craft_error.unknown_cause": "AE2 did not report the underlying cause. Possible causes to check:",
+  "gui.neoecoae.craft_error.stock_changed": "- Stock changed: another task, machine, or player took the material after planning.",
+  "gui.neoecoae.craft_error.storage_offline": "- Storage became unavailable: disconnected device, missing channel, power loss, or removed cell.",
+  "gui.neoecoae.craft_error.extraction_blocked": "- Extraction denied: permissions, output filters, locked storage, or a third-party storage rule.",
+  "gui.neoecoae.craft_error.transfer_limit": "- Storage returned only part of the request: per-call transfer limits or large-amount compatibility issues.",
+  "gui.neoecoae.craft_error.retry": "Retry: submit the same plan again after restoring material access.",
+  "gui.neoecoae.craft_error.replan": "Back: recalculate using current stock. This page reports only the first failed material.",
   "item.neoecoae.dev_resource_generator": "Dev Random Resource Generator / Cell",
   "block.neoecoae.aluminum_alloy_block": "Aluminum Alloy Block",
   "block.neoecoae.aluminum_alloy_casing": "Aluminum Alloy Casing",
