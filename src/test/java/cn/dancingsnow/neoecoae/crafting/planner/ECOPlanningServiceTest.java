@@ -43,7 +43,7 @@ class ECOPlanningServiceTest {
 
     @Test
     void submissionCancellationRejectsLatePublishedRoutes() throws Exception {
-        var initial = result(PlanningStatus.SUCCESS, false);
+        var initial = result(PlanningStatus.MISSING_ITEMS, true);
         var late = result(PlanningStatus.SUCCESS, false);
         var blocked = new java.util.concurrent.CountDownLatch(1);
         var attempted = new java.util.concurrent.CountDownLatch(1);
@@ -79,6 +79,41 @@ class ECOPlanningServiceTest {
             assertSame(initial.plan(), request.latest());
             assertEquals(ECOPlanningService.Request.FAILED, request.searchState());
         } finally { request.cancel(true); }
+    }
+
+    @Test
+    void completedShortageSearchRefreshesItsProofWithoutReplacingTheInitialFuture() throws Exception {
+        for (boolean limited : List.of(false, true)) {
+            var initial = result(PlanningStatus.MISSING_ITEMS, true);
+            var finished = result(limited ? PlanningStatus.CYCLE_UNRESOLVED : PlanningStatus.MISSING_ITEMS, true);
+            var missing = java.util.Map.of(goal, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.ONE);
+            initial.setExactMaterials(java.util.Map.of(), java.util.Map.of(), missing);
+            finished.setExactMaterials(java.util.Map.of(), java.util.Map.of(), missing);
+            finished.trace().addDiagnostic(new cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic(
+                limited ? cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic.Code.ROUTE_SEARCH_BUDGET_EXHAUSTED
+                    : cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic.Code.ROUTE_QUANTITY_BOUND,
+                "Finished checking alternatives"));
+            cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry.register(finished.plan(), finished);
+            var continueSearch = new java.util.concurrent.CountDownLatch(1);
+            when(session.plan(eq(10L), eq(false), any(), any())).thenAnswer(call -> {
+                ((java.util.function.Consumer<ECOPlanningResult>) call.getArgument(3)).accept(initial);
+                assertTrue(continueSearch.await(5, java.util.concurrent.TimeUnit.SECONDS));
+                return finished;
+            });
+            var request = ECOPlanningService.begin(session, goal, 10L, CalculationStrategy.REPORT_MISSING_ITEMS);
+            try {
+                assertSame(initial.plan(), request.get(5, java.util.concurrent.TimeUnit.SECONDS));
+                assertEquals(ECOPlanningService.Request.SEARCHING, request.searchState());
+                continueSearch.countDown();
+                awaitFinished(request);
+                assertSame(finished.plan(), request.latest());
+                assertSame(initial.plan(), request.get());
+                assertEquals(limited ? ECOPlanningService.Request.LIMITED : ECOPlanningService.Request.COMPLETE,
+                    request.searchState());
+                assertFalse(initial.provenInfeasible());
+                assertEquals(!limited, finished.provenInfeasible());
+            } finally { continueSearch.countDown(); request.cancel(true); }
+        }
     }
 
     private static void awaitFinished(ECOPlanningService.Request request) {

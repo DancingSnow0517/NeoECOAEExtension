@@ -33,6 +33,19 @@ final class ExternalDemandPlanner {
             return new Outcome(status, reservations, copiedStates, new LinkedHashMap<>(missingLeaves),
                 new LinkedHashSet<>(selectedPatterns), new LinkedHashMap<>(delegatedCycleDemands), diagnostic);
         }
+
+        void addMaterialPreview(SolveState base, cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace trace) {
+            Map<AEKey, PlannerAmount> demands = new LinkedHashMap<>(directReservations);
+            Map<AEKey, PlannerAmount> inventory = new LinkedHashMap<>(directReservations);
+            for (SolveState state : states) {
+                state.plannerDemands().forEach((key, amount) -> demands.merge(key, amount, PlannerAmount::add));
+                state.usedAmounts().forEach((key, amount) -> inventory.merge(key, amount, PlannerAmount::add));
+                // Keep the same byte arithmetic as a successful external merge, but no execution/stock effects.
+                base.retainPreviewBytes(state.plannerBytes());
+            }
+            missingLeaves.forEach((key, amount) -> demands.merge(key, amount, PlannerAmount::max));
+            AcyclicCraftingSolver.addMaterialTrace(demands, inventory, missingLeaves, trace);
+        }
     }
 
     private final AcyclicCraftingSolver acyclicSolver;
@@ -171,7 +184,12 @@ final class ExternalDemandPlanner {
             // All roots are in the same solve: full outputs and finite raw stock are credited exactly once.
             Outcome one = solveDeficits(network, cycle, deficits, available,
                 base.stored.unboundedKeys(), ignorePatternSubstitutions, cancellation);
-            if (!one.solved()) return one;
+            if (!one.solved()) {
+                // Keep the stock already credited to these boundary roots. A failed cycle is explanatory,
+                // but dropping these reservations makes its report look as though all inventory was ignored.
+                return new Outcome(one.status(), direct, one.states(), one.missingLeaves(), one.selectedPatterns(),
+                    delegated, one.diagnostic());
+            }
             SolveState state = cn.dancingsnow.neoecoae.platform.JdkCompat.first(one.states());
             states.add(state);
             selected.addAll(one.selectedPatterns());
@@ -238,8 +256,8 @@ final class ExternalDemandPlanner {
                     && !solved.state().missingAmounts().isEmpty()) {
             Map<AEKey, PlannerAmount> missing = new LinkedHashMap<>(solved.state().missingAmounts());
             if (missing.keySet().stream().anyMatch(forbiddenMembers::contains)) {
-                return failure(CycleExternalDemandStatus.FORBIDDEN_ROUTE, missing,
-                    "All usable external routes re-enter the current cycle component");
+                return new Outcome(CycleExternalDemandStatus.FORBIDDEN_ROUTE, Map.of(), List.of(solved.state()),
+                    missing, Set.of(), Map.of(), "All usable external routes re-enter the current cycle component");
             }
             return new Outcome(CycleExternalDemandStatus.MISSING, Map.of(), List.of(solved.state()),
                 missing, Set.of(), Map.of(), "External DAG leaf material is missing");
