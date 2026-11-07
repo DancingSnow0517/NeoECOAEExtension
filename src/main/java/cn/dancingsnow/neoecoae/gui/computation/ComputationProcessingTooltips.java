@@ -40,13 +40,11 @@ final class ComputationProcessingTooltips {
     }
 
     static List<Row> rows(ECOProcessingProgress progress) {
-        if (progress.machineCount() == 0 && !progress.refreshing()) return List.of();
+        if (progress.machineCount() == 0) return List.of();
         var rows = new ArrayList<Row>();
         if (progress.machineCount() > 0) {
             rows.add(text(Component.translatable("gui.neoecoae.processing.count", progress.machineCount())));
         }
-        if (progress.refreshing()) rows.add(text(Component.translatable("gui.neoecoae.processing.refreshing")
-            .withStyle(ChatFormatting.GRAY)));
         if (progress.machineCount() > 0 && progress.machines().isEmpty()) {
             rows.add(text(Component.translatable("gui.neoecoae.processing.loading_details").withStyle(ChatFormatting.GRAY)));
         }

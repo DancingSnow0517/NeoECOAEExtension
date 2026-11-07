@@ -29,6 +29,33 @@ import org.junit.jupiter.api.Test;
 class ComputationItemActionServerTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
+    @Test void tasksRegroupByLiveStateAndKeepTheirOriginalOrderWithinEachGroup() throws Exception {
+        var fixture = new Fixture();
+        var entries = List.of(Items.STONE, Items.DIRT, Items.GOLD_INGOT, Items.IRON_INGOT, Items.DIAMOND)
+            .stream().map(item -> new ComputationCpuItemEntry(AEItemKey.of(item), java.math.BigInteger.ZERO,
+                java.math.BigInteger.ONE, java.math.BigInteger.ZERO, false)).toList();
+        var states = List.of(ECOProcessingProgress.State.QUEUED, ECOProcessingProgress.State.RUNNING,
+            ECOProcessingProgress.State.WAITING, ECOProcessingProgress.State.PAUSED,
+            ECOProcessingProgress.State.UNAVAILABLE);
+        for (int index = 0; index < entries.size(); index++) {
+            when(fixture.logic.getProcessingProgress(entries.get(index).key())).thenReturn(
+                new ECOProcessingProgress(0, false, states.get(index), 1, -1, false, List.of()));
+        }
+        var types = new Class<?>[]{appeng.api.networking.crafting.ICraftingCPU.class, List.class};
+        var first = (List<?>) fixture.call("tasks", types, fixture.cpu, entries);
+        assertEquals(entries.get(1), first.get(0));
+        assertEquals(entries.get(0), first.get(1));
+        var problemOrder = List.copyOf(first.subList(2, first.size()));
+        assertEquals(new java.util.HashSet<>(entries.subList(2, entries.size())), new java.util.HashSet<>(problemOrder));
+
+        when(fixture.logic.getProcessingProgress(entries.get(0).key())).thenReturn(
+            new ECOProcessingProgress(0, false, ECOProcessingProgress.State.RUNNING, 1, -1, false, List.of()));
+        var changed = (List<?>) fixture.call("tasks", types, fixture.cpu, entries);
+        assertEquals(entries.get(0), changed.get(0));
+        assertEquals(entries.get(1), changed.get(1));
+        assertEquals(problemOrder, changed.subList(2, changed.size()));
+    }
+
     @Test void stepActionCallsTheSelectedOutputsControlAndNeverCancelsTheCpu() throws Exception {
         var fixture = new Fixture();
         when(fixture.logic.setProcessingStepStopped(fixture.key, true)).thenReturn(true);
@@ -57,6 +84,8 @@ class ComputationItemActionServerTest {
         fixture.call("select", new Class<?>[]{int.class}, 1);
         var counts = (CompoundTag) fixture.call("snapshot", new Class<?>[0]);
         assertFalse(counts.getList("items", 10).getCompound(0).contains("processing"));
+        // Task ordering also reads live progress; count detail queries independently.
+        clearInvocations(fixture.logic);
         var summary = (CompoundTag) fixture.call("processingSnapshot", new Class<?>[0]);
         assertEquals(1000, summary.getList("items", 10).getCompound(0).getCompound("progress").getInt("count"));
         assertTrue(summary.getList("items", 10).getCompound(0).getCompound("progress").getList("machines", 10).isEmpty());
@@ -65,10 +94,12 @@ class ComputationItemActionServerTest {
         fixture.call("processingDetails", new Class<?>[]{int.class, CompoundTag.class}, 1, request);
         var details = (CompoundTag) fixture.call("processingSnapshot", new Class<?>[0]);
         assertEquals(3, details.getList("items", 10).getCompound(0).getCompound("progress").getList("machines", 10).size());
+        verify(fixture.logic, times(2)).getProcessingProgress(fixture.key);
         fixture.tick.set(3);
         fixture.call("snapshot", new Class<?>[0]);
+        clearInvocations(fixture.logic);
         assertSame(details, fixture.call("processingSnapshot", new Class<?>[0]));
-        verify(fixture.logic, times(2)).getProcessingProgress(fixture.key);
+        verify(fixture.logic, never()).getProcessingProgress(any());
         fixture.call("processingDetails", new Class<?>[]{int.class, CompoundTag.class}, -1, new CompoundTag());
         clearInvocations(fixture.logic);
         assertTrue(((CompoundTag) fixture.call("processingSnapshot", new Class<?>[0])).getList("items", 10).isEmpty());
