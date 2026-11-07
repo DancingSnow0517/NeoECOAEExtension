@@ -19,6 +19,8 @@ import appeng.crafting.pattern.AEProcessingPattern;
 import appeng.crafting.pattern.EncodedProcessingPattern;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching;
+import cn.dancingsnow.neoecoae.crafting.ECOComponentInsensitiveProcessingPattern;
+import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOThunderboltPlanningBridge;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCraftingPlannerService;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
@@ -62,6 +64,148 @@ class ECOProcessingComponentMatchingTest {
         var definition = mock(AEItemKey.class);
         when(definition.get(AEComponents.ENCODED_PROCESSING_PATTERN)).thenReturn(encoded);
         return new AEProcessingPattern(definition);
+    }
+
+    private static AEProcessingPattern persistentPattern(GenericStack... inputs) {
+        var stack = new ItemStack(Items.PAPER);
+        // AE2's missing-content item is bound by the mod registry lifecycle, absent in a plain JVM.
+        var encoded = mock(EncodedProcessingPattern.class);
+        when(encoded.sparseInputs()).thenReturn(Arrays.asList(inputs));
+        when(encoded.sparseOutputs()).thenReturn(List.of(new GenericStack(AEItemKey.of(Items.IRON_BLOCK), 1)));
+        stack.set(AEComponents.ENCODED_PROCESSING_PATTERN, encoded);
+        return new AEProcessingPattern(AEItemKey.of(stack));
+    }
+
+    @Test void foreignPlannerUsesCapturedInterfaceItemsWithoutChangingRegisteredPatterns() throws Exception {
+        var source = persistentPattern(new GenericStack(pickaxe(0), 1));
+        var actual = pickaxe(131);
+        var registered = service(source);
+        var marked = new java.util.HashSet<>(MARKED);
+        var foreign = ECOThunderboltPlanningBridge.forCalculation(registered, marked);
+        marked.clear();
+        var output = source.getPrimaryOutput().what();
+        var adapted = foreign.getCraftingFor(output).iterator().next();
+        assertInstanceOf(ECOComponentInsensitiveProcessingPattern.class, adapted);
+        assertSame(adapted, foreign.getCraftingFor(output).iterator().next());
+        assertFalse(source.getInputs()[0].isValid(actual, null));
+        assertTrue(adapted.getInputs()[0].isValid(actual, null));
+        assertFalse(adapted.getInputs()[0].isValid(AEItemKey.of(Items.DIAMOND_PICKAXE), null));
+        // Exercise the released Thunderbolt planner, not just the adapter predicate.
+        var inventory = new appeng.crafting.inv.CraftingSimulationState() {
+            protected long simulateExtractParent(AEKey key, long amount) { return actual.equals(key) ? Math.min(1, amount) : 0; }
+            protected Iterable<AEKey> findFuzzyParent(AEKey key) {
+                return ECOProcessingComponentMatching.sameItem(actual, key) ? List.of(actual) : List.of();
+            }
+        };
+        var result = com.moakiee.thunderbolt.core.crafting.planner.FastCraftingPlanner.tryAttempt(
+            foreign, inventory, null, output, 1, false);
+        assertTrue(result.handled());
+        assertNotNull(result.plan());
+        assertFalse(result.plan().simulation());
+        assertEquals(1, result.plan().usedItems().get(actual));
+        assertTrue(result.plan().patternTimes().containsKey(adapted));
+    }
+
+    @Test void foreignProcessingPolicySurvivesReloadAndPreservesSparseInputAmounts() {
+        var source = persistentPattern(new GenericStack(pickaxe(0), 1), new GenericStack(pickaxe(0), 2));
+        var task = (ECOComponentInsensitiveProcessingPattern) ECOComponentInsensitiveProcessingPattern.of(source, MARKED);
+        var restored = (ECOComponentInsensitiveProcessingPattern) ECOComponentInsensitiveProcessingPattern.restore(
+            new AEProcessingPattern(task.getDefinition()));
+        assertEquals(source.getDefinition(), restored.ecoProviderPattern().getDefinition());
+        assertEquals(task.getDefinition(), restored.getDefinition());
+        var actual = pickaxe(131);
+        var holders = new KeyCounter[] {new KeyCounter()};
+        holders[0].add(actual, 3);
+        var emitted = new KeyCounter();
+        restored.pushInputsToExternalInventory(holders, emitted::add);
+        assertEquals(3, emitted.get(actual));
+        assertEquals(0, emitted.get(pickaxe(0)));
+        // No permissive context may leak into subsequent unmarked dispatches.
+        assertFalse(ECOProcessingComponentMatching.pushInputs(source, holders, (key, amount) -> fail()));
+    }
+
+    @Test void foreignProviderUsesPhysicalIdentityAndCapturedPolicyAfterInterfaceChanges() {
+        var source = persistentPattern(new GenericStack(pickaxe(0), 1));
+        var task = (ECOComponentInsensitiveProcessingPattern) ECOComponentInsensitiveProcessingPattern.of(source, MARKED);
+        var actual = pickaxe(131);
+        var holders = new KeyCounter[] {new KeyCounter()};
+        holders[0].add(actual, 1);
+        var emitted = new KeyCounter();
+        var physical = mock(ICraftingProvider.class);
+        when(physical.pushPattern(same(source), same(holders))).thenAnswer(call ->
+            ECOProcessingComponentMatching.pushInputs(source, holders, emitted::add));
+        assertSame(task.provider(physical), task.provider(physical));
+        assertTrue(task.provider(physical).pushPattern(task, holders));
+        assertEquals(1, emitted.get(actual));
+        verify(physical).pushPattern(source, holders);
+        assertFalse(ECOProcessingComponentMatching.pushInputs(source, holders, (key, amount) -> fail()));
+    }
+
+    @Test void foreignPolicyPreservesBatchAdmissionAndJobAwareProviderContracts() {
+        var source = persistentPattern(new GenericStack(pickaxe(0), 1));
+        var task = (ECOComponentInsensitiveProcessingPattern) ECOComponentInsensitiveProcessingPattern.of(source, MARKED);
+        var physical = mock(ICraftingProvider.class, withSettings().extraInterfaces(
+            com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider.class,
+            cn.dancingsnow.neoecoae.api.me.provider.ECOJobAwareCraftingProvider.class));
+        var batch = (com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider) physical;
+        var holders = new KeyCounter[] {new KeyCounter()}; holders[0].add(pickaxe(131), 1);
+        var emitted = new KeyCounter();
+        when(batch.pushBatch(same(source), same(holders), eq(1L))).thenAnswer(call ->
+            ECOProcessingComponentMatching.pushInputs(source, holders, emitted::add) ? 0L : 1L);
+        var wrapped = (com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider) task.provider(physical);
+        assertEquals(0, wrapped.pushBatch(task, holders, 1));
+        assertEquals(1, emitted.get(pickaxe(131)));
+        var job = UUID.randomUUID();
+        var jobProvider = (cn.dancingsnow.neoecoae.api.me.provider.ECOJobAwareCraftingProvider) physical;
+        when(jobProvider.pushPattern(same(source), same(holders), eq(job))).thenAnswer(call ->
+            ECOProcessingComponentMatching.pushInputs(source, holders, emitted::add));
+        assertTrue(((cn.dancingsnow.neoecoae.api.me.provider.ECOJobAwareCraftingProvider) wrapped)
+            .pushPattern(task, holders, job));
+        assertEquals(2, emitted.get(pickaxe(131)));
+        assertFalse(ECOProcessingComponentMatching.pushInputs(source, holders, (key, amount) -> fail()));
+    }
+
+    @Test void preparedForeignBatchRetainsThePolicyUntilCommit() throws Exception {
+        try { Class.forName("com.moakiee.thunderbolt.api.crafting.batch.PreparedBatch"); }
+        catch (ClassNotFoundException oldVersion) {
+            org.junit.jupiter.api.Assumptions.abort("This Thunderbolt version predates prepared admission");
+        }
+        var source = persistentPattern(new GenericStack(pickaxe(0), 1));
+        var task = (ECOComponentInsensitiveProcessingPattern) ECOComponentInsensitiveProcessingPattern.of(source, MARKED);
+        var physical = mock(com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider.class);
+        var holders = new KeyCounter[] {new KeyCounter()}; holders[0].add(pickaxe(131), 1);
+        var emitted = new KeyCounter();
+        var prepared = mock(com.moakiee.thunderbolt.api.crafting.batch.PreparedBatch.class);
+        when(physical.prepareBatch(same(source), same(holders), eq(1L), isNull())).thenReturn(prepared);
+        when(prepared.push(1)).thenAnswer(call ->
+            ECOProcessingComponentMatching.pushInputs(source, holders, emitted::add) ? 0L : 1L);
+        var wrapped = (com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider) task.provider(physical);
+        assertEquals(0, wrapped.prepareBatch(task, holders, 1, null).push(1));
+        assertEquals(1, emitted.get(pickaxe(131)));
+        assertFalse(ECOProcessingComponentMatching.pushInputs(source, holders, (key, amount) -> fail()));
+    }
+
+    @Test void absentPolicyRetainsOriginalServiceAndUnsupportedPatterns() {
+        var source = persistentPattern(new GenericStack(pickaxe(0), 1));
+        var registered = service(source);
+        assertSame(registered, ECOThunderboltPlanningBridge.forCalculation(registered, Set.of()));
+        assertSame(source, ECOComponentInsensitiveProcessingPattern.of(source, Set.of(ResourceLocation.parse("minecraft:stone"))));
+        var custom = mock(IPatternDetails.class);
+        assertSame(custom, ECOComponentInsensitiveProcessingPattern.of(custom, MARKED));
+        assertSame(source, ECOComponentInsensitiveProcessingPattern.restore(source));
+    }
+
+    @Test void interfacePolicyIsCapturedOnceBeforeForeignWorkerReads() {
+        var settings = mock(appeng.api.networking.crafting.ICraftingService.class,
+            withSettings().extraInterfaces(cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings.class));
+        var network = (cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings) settings;
+        var marked = new java.util.HashSet<>(MARKED);
+        when(network.neoecoae$getFuzzyPlanningItemIds()).thenReturn(marked);
+        var snapshot = ECOThunderboltPlanningBridge.capture(settings);
+        marked.clear();
+        assertEquals(MARKED, snapshot);
+        verify(network).neoecoae$getFuzzyPlanningItemIds();
+        assertEquals(Set.of(), ECOThunderboltPlanningBridge.capture(mock(appeng.api.networking.crafting.ICraftingService.class)));
     }
 
     private static CraftingService service(AEProcessingPattern... patterns) {

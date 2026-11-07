@@ -65,6 +65,16 @@ import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
 @Mixin(CraftingService.class)
 public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings, ECOCraftingOutputRouter,
         IGridServiceProvider, ECOCraftingProviderRevision, ECOCraftingServiceDiagnostics {
+    @Inject(method = "getProviders", at = @At("HEAD"), cancellable = true)
+    private void neoecoae$componentPolicyProviders(IPatternDetails pattern,
+            CallbackInfoReturnable<Iterable<appeng.api.networking.crafting.ICraftingProvider>> cir) {
+        if (pattern instanceof cn.dancingsnow.neoecoae.crafting.ECOComponentInsensitiveProcessingPattern policy) {
+            var physical = ((CraftingService) (Object) this).getProviders(policy.ecoProviderPattern());
+            cir.setReturnValue(() -> java.util.stream.StreamSupport.stream(physical.spliterator(), false)
+                .map(policy::provider).iterator());
+        }
+    }
+
     @Unique
     private static final Logger NEOECOAE_SUBMISSION_LOGGER = LoggerFactory.getLogger("neoecoae.submit");
     @Unique
