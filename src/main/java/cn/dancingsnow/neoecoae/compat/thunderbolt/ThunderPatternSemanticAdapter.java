@@ -1,7 +1,9 @@
 package cn.dancingsnow.neoecoae.compat.thunderbolt;
 
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemantics;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.AE2PatternSemanticAdapter;
@@ -57,12 +59,25 @@ public final class ThunderPatternSemanticAdapter implements ECOPatternSemanticAd
             }
             boolean usesIdOnlyMatching = hasIdOnlyInput || hasIdOnlyOutput;
 
+            // Quantities/remainders come from the source, but membership belongs to the
+            // physical overload input. The unwrapped processing input is still STRICT.
+            var physicalInputs = pattern.getInputs();
+            if (physicalInputs.length != ae2.consumedInputs().size()) {
+                return ECOPatternSemantics.unsupported(pattern, definition, "THUNDER_INPUT_SLOT_MISMATCH");
+            }
+            var inputs = new java.util.ArrayList<ECOPatternSemantics.Input>(physicalInputs.length);
+            for (int slot = 0; slot < physicalInputs.length; slot++) {
+                var input = ae2.consumedInputs().get(slot);
+                inputs.add(new ECOPatternSemantics.Input(physicalInputs[slot], input.key(),
+                    input.amountPerPattern(), input.returnedKey(), input.returnedAmountPerPattern()));
+            }
+
             // Static planning commits ID_ONLY slots to the concrete templates advertised by IPatternDetails.
             // AE2LT remains free to substitute component variants at execution time. Such substitutions are
             // deliberately excluded from cycle-safety proofs because the concrete returned/output key may differ.
             ECOPatternSemantics.MatchingMode matching = usesIdOnlyMatching
                 ? ECOPatternSemantics.MatchingMode.SUBSTITUTION : ae2.matchingMode();
-            return new ECOPatternSemantics(pattern, definition, ae2.consumedInputs(), ae2.producedOutputs(),
+            return new ECOPatternSemantics(pattern, definition, inputs, ae2.producedOutputs(),
                 ae2.returnedOutputs(), ae2.feedbackEdges(), matching,
                 ECOPatternSemantics.ExecutionRestriction.NONE, true,
                 ae2.cycleSafe() && !usesIdOnlyMatching, null);
@@ -76,6 +91,17 @@ public final class ThunderPatternSemanticAdapter implements ECOPatternSemanticAd
     public boolean ignoresComponents(IPatternDetails pattern, int inputSlot) {
         return supports(pattern) && inputSlot >= 0
             && (boolean) ThunderboltApi.invoke(IS_FUZZY_INPUT, pattern, inputSlot);
+    }
+
+    @Override
+    public AEKey preferredInputKey(IPatternDetails pattern, int inputSlot, AEKey encodedKey,
+            ICraftingService service) {
+        if (!ignoresComponents(pattern, inputSlot) || !(encodedKey instanceof AEItemKey wanted)) return encodedKey;
+        var input = pattern.getInputs()[inputSlot];
+        if (input.getRemainingKey(encodedKey) != null || !service.getCraftingFor(encodedKey).isEmpty()) return encodedKey;
+        AEKey preferred = service.getFuzzyCraftable(encodedKey, candidate -> candidate instanceof AEItemKey item
+            && item.getItem() == wanted.getItem() && input.isValid(candidate, null));
+        return preferred == null ? encodedKey : preferred;
     }
 
     @Override
