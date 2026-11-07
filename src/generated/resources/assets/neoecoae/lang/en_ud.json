@@ -1598,5 +1598,14 @@
   "gui.neoecoae.computation.ui.switch.smart_doubling.blocking_note": "˙ǝpoɯ buıʞɔoןq ʎq pןǝɥ ןןıʇs ǝɹɐ suoıʇıpuoɔ buıʞɔoןq ʇǝǝɯ ʇɐɥʇ sǝɥɔʇɐdsıᗡ",
   "gui.neoecoae.computation.ui.switch.smart_doubling.limit": "pǝןqɐsıp uǝɥʍ dɐɔ ɥɔʇɐdsıp-ɹǝԀ",
   "gui.neoecoae.computation.ui.switch.smart_doubling.limit_note": "˙ɯsıןǝןןɐɹɐd ǝןqɐןıɐʌɐ ʎq pǝʇıɯıן ןןıʇs ǝɹɐ sǝɥɔʇɐdsıp ןɐnʇɔⱯ",
-  "gui.neoecoae.computation.ui.switch.smart_doubling.limit_value": "sʇɟɐɹɔ %1$s"
+  "gui.neoecoae.computation.ui.switch.smart_doubling.limit_value": "sʇɟɐɹɔ %1$s",
+  "gui.neoecoae.craft_error.shortfall": "%s :ʇdɯǝʇʇɐ sıɥʇ pǝʇɔɐɹʇxǝ ʇoN",
+  "gui.neoecoae.craft_error.meaning": "˙ʞɔoʇs ʞɹoʍʇǝu ןɐʇoʇ ʇou 'ɹǝpuıɐɯǝɹ pǝʇɔɐɹʇxǝun ǝɥʇ sı sıɥ⟘ ˙ʇɹoɥs ןןǝɟ uoıʇɔɐɹʇxǝ ןɐnʇɔɐ ǝɥ⟘",
+  "gui.neoecoae.craft_error.unknown_cause": ":ʞɔǝɥɔ oʇ sǝsnɐɔ ǝןqıssoԀ ˙ǝsnɐɔ buıʎןɹǝpun ǝɥʇ ʇɹodǝɹ ʇou pıp ᄅƎⱯ",
+  "gui.neoecoae.craft_error.stock_changed": "˙buıuuɐןd ɹǝʇɟɐ ןɐıɹǝʇɐɯ ǝɥʇ ʞooʇ ɹǝʎɐןd ɹo 'ǝuıɥɔɐɯ 'ʞsɐʇ ɹǝɥʇouɐ :pǝbuɐɥɔ ʞɔoʇS -",
+  "gui.neoecoae.craft_error.storage_offline": "˙ןןǝɔ pǝʌoɯǝɹ ɹo 'ssoן ɹǝʍod 'ןǝuuɐɥɔ buıssıɯ 'ǝɔıʌǝp pǝʇɔǝuuoɔsıp :ǝןqɐןıɐʌɐun ǝɯɐɔǝq ǝbɐɹoʇS -",
+  "gui.neoecoae.craft_error.extraction_blocked": "˙ǝןnɹ ǝbɐɹoʇs ʎʇɹɐd-pɹıɥʇ ɐ ɹo 'ǝbɐɹoʇs pǝʞɔoן 'sɹǝʇןıɟ ʇndʇno 'suoıssıɯɹǝd :pǝıuǝp uoıʇɔɐɹʇxƎ -",
+  "gui.neoecoae.craft_error.transfer_limit": "˙sǝnssı ʎʇıןıqıʇɐdɯoɔ ʇunoɯɐ-ǝbɹɐן ɹo sʇıɯıן ɹǝɟsuɐɹʇ ןןɐɔ-ɹǝd :ʇsǝnbǝɹ ǝɥʇ ɟo ʇɹɐd ʎןuo pǝuɹnʇǝɹ ǝbɐɹoʇS -",
+  "gui.neoecoae.craft_error.retry": "˙ssǝɔɔɐ ןɐıɹǝʇɐɯ buıɹoʇsǝɹ ɹǝʇɟɐ uıɐbɐ uɐןd ǝɯɐs ǝɥʇ ʇıɯqns :ʎɹʇǝᴚ",
+  "gui.neoecoae.craft_error.replan": "˙ןɐıɹǝʇɐɯ pǝןıɐɟ ʇsɹıɟ ǝɥʇ ʎןuo sʇɹodǝɹ ǝbɐd sıɥ⟘ ˙ʞɔoʇs ʇuǝɹɹnɔ buısn ǝʇɐןnɔןɐɔǝɹ :ʞɔɐᗺ"
 }
