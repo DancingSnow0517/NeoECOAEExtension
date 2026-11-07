@@ -5,7 +5,7 @@ import java.util.Random;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-/** The running total crosses long, U126 and BigInteger and must equal the exact sum at every snapshot. */
+/** The running total crosses long, U128 and BigInteger and must equal the exact sum at every snapshot. */
 class MutableInfiniteStorageTotalTest {
     @Test void totalMatchesExactSumAcrossTiers() {
         Random random = new Random(7);

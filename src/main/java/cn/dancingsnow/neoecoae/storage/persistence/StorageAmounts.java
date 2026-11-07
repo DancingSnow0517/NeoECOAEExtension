@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.storage.persistence;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
 import cn.dancingsnow.neoecoae.storage.infinite.HugeAmount;
+import cn.dancingsnow.neoecoae.crafting.amount.U128;
 import it.unimi.dsi.fastutil.objects.AbstractObject2LongMap;
 import it.unimi.dsi.fastutil.objects.AbstractObjectSet;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
@@ -201,7 +202,7 @@ public class StorageAmounts {
         entry.amount = amount.toLongSaturated();
         if (amount.isBig()) {
             if (entry.wide == null) entry.wide = new WideAmount();
-            entry.wide.set(amount.toBigInteger());
+            entry.wide.set(amount);
         } else entry.wide = null;
         size += (wasEmpty ? 1 : 0) - (entry.amount == 0 ? 1 : 0);
         oversized += (entry.wide != null ? 1 : 0) - (wasWide ? 1 : 0);
@@ -356,7 +357,7 @@ public class StorageAmounts {
         Entry(AEKey key) { this.key = key; }
 
         HugeAmount snapshot() {
-            if (snapshot == null) snapshot = wide == null ? HugeAmount.of(amount) : HugeAmount.of(exact());
+            if (snapshot == null) snapshot = wide == null ? HugeAmount.of(amount) : wide.snapshot();
             return snapshot;
         }
 
@@ -368,15 +369,15 @@ public class StorageAmounts {
 
     /** Allocated once on promotion. The two words are mutable only inside the server-owned ledger. */
     private static final class WideAmount {
-        private static final long HIGH_LIMIT = 1L << 62;
         long high;
         long low;
         BigInteger big;
 
-        void set(BigInteger value) {
-            big = value.bitLength() > 126 ? value : null;
-            high = big == null ? value.shiftRight(64).longValue() : 0;
-            low = big == null ? value.longValue() : 0;
+        void set(HugeAmount value) {
+            U128 nativeValue = value.toU128();
+            big = nativeValue == null ? value.toBigInteger() : null;
+            high = nativeValue == null ? 0L : nativeValue.highWord();
+            low = nativeValue == null ? 0L : nativeValue.lowWord();
         }
 
         void add(long value) {
@@ -386,7 +387,7 @@ public class StorageAmounts {
             }
             long next = low + value;
             long carry = Long.compareUnsigned(next, low) < 0 ? 1 : 0;
-            if (high + carry == HIGH_LIMIT) {
+            if (high == -1L && carry != 0L) {
                 big = exact().add(BigInteger.valueOf(value));
             } else {
                 high += carry;
@@ -396,7 +397,7 @@ public class StorageAmounts {
 
         void subtract(long value) {
             if (big != null) {
-                set(big.subtract(BigInteger.valueOf(value)));
+                set(HugeAmount.of(big.subtract(BigInteger.valueOf(value))));
                 return;
             }
             high -= Long.compareUnsigned(low, value) < 0 ? 1 : 0;
@@ -406,10 +407,11 @@ public class StorageAmounts {
         boolean fitsLong() { return big == null && high == 0 && low >= 0; }
 
         BigInteger exact() {
-            if (big != null) return big;
-            BigInteger lower = BigInteger.valueOf(low & Long.MAX_VALUE);
-            if (low < 0) lower = lower.setBit(63);
-            return high == 0 ? lower : BigInteger.valueOf(high).shiftLeft(64).or(lower);
+            return snapshot().toBigInteger();
+        }
+
+        HugeAmount snapshot() {
+            return big == null ? HugeAmount.of(U128.ofParts(high, low)) : HugeAmount.of(big);
         }
     }
 }
