@@ -18,6 +18,7 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.hooks.ticking.TickHandler;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
 
 /**
  * Optional batch dispatch boundary. It owns FastPath preparation, energy reservation, physical push, and rollback;
@@ -75,15 +76,13 @@ final class ECOCraftingFastPathDispatcher {
         var runtimeAllowance = requested;
         if (!Double.isFinite(singlePower) || singlePower < 0) return null;
         if (singlePower > 0) {
-            var unit = new java.math.BigDecimal(singlePower);
-            double offer = Math.min(Double.MAX_VALUE, unit.multiply(new java.math.BigDecimal(requested.toBigInteger())).doubleValue());
-            double available = energyService.extractAEPower(offer, appeng.api.config.Actionable.SIMULATE,
-                appeng.api.config.PowerMultiplier.CONFIG);
-            if (!Double.isFinite(available) || available <= 0) {
+            requested = PlannerAmount.of(ECOBatchCraftingHelper.maxAffordableCrafts(singlePower, requested.toBigInteger(),
+                offer -> energyService.extractAEPower(offer, appeng.api.config.Actionable.SIMULATE,
+                    appeng.api.config.PowerMultiplier.CONFIG)));
+            if (requested.signum() <= 0) {
                 exactDiagnostic(request, provider, "energy-limit", requested);
                 return null;
             }
-            requested = requested.min(PlannerAmount.of(new java.math.BigDecimal(available).divideToIntegralValue(unit).toBigInteger()));
         }
         exactDiagnostic(request, provider, "after-energy-allowance", requested);
         var context = cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext.create(request.pattern(),

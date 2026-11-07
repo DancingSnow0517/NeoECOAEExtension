@@ -546,7 +546,7 @@
   "gui.neoecoae.crafting_report.search_incomplete": "Route search incomplete; calculated materials are retained",
   "gui.neoecoae.crafting_report.exact_incomplete": "Execution plan incomplete; see CPU details",
   "gui.neoecoae.crafting_report.supply_insufficient": "Available supply cannot cover this order",
-  "gui.neoecoae.crafting_report.optimizing": "Plan ready; optimizing other routes in the background",
+  "gui.neoecoae.crafting_report.optimizing": "Background optimization",
   "gui.neoecoae.crafting_report.optimization_paused": "Current plan retained; further optimization is incomplete",
   "gui.neoecoae.crafting_report.optimization_finished": "Route optimization finished",
   "gui.neoecoae.crafting_report.seed_parallelism": "Concurrent uses allowed by this seed: at most %s",

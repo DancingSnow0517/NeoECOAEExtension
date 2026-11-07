@@ -89,7 +89,7 @@
   "gui.neoecoae.crafting_report.search_incomplete": "路线搜索未完成，已保留已算出的材料",
   "gui.neoecoae.crafting_report.exact_incomplete": "执行方案未完成，请悬停 CPU 查看原因",
   "gui.neoecoae.crafting_report.supply_insufficient": "已确认可用供应不足以完成整单",
-  "gui.neoecoae.crafting_report.optimizing": "方案已就绪，后台正在优化其他路线",
+  "gui.neoecoae.crafting_report.optimizing": "后台优化",
   "gui.neoecoae.crafting_report.optimization_paused": "已保留当前方案，部分路线尚未完成优化",
   "gui.neoecoae.crafting_report.optimization_finished": "路线优化已结束",
   "gui.neoecoae.crafting_report.complex_tree_hint": "合成树复杂请检查样板",

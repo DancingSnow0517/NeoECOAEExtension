@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.client.gui.crafting;
 
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AmountFormat;
 import appeng.client.gui.AEBaseScreen;
 import appeng.client.gui.Icon;
 import appeng.client.gui.StackWithBounds;
@@ -17,6 +18,7 @@ import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.client.gui.graph.ECOCraftingGraphScreen;
 import cn.dancingsnow.neoecoae.client.gui.widget.NEAe2Button;
 import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
@@ -47,6 +49,13 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private static final int CPU_TIER_GLYPH_V = 0;
     private static final int CYCLE_STATUS_X = 237;
     private static final int CYCLE_STATUS_Y = 7;
+    private static final int OPTIMIZATION_INDICATOR_SIZE = 10;
+    private static final int OPTIMIZATION_INDICATOR_X = 312 - OPTIMIZATION_INDICATOR_SIZE / 2;
+    private static final int OPTIMIZATION_INDICATOR_Y = CYCLE_STATUS_Y
+        + (ECOIcon.CYCLE_ENABLED.height - OPTIMIZATION_INDICATOR_SIZE) / 2;
+    private static final int[][] OPTIMIZATION_SEGMENTS = {
+        {4, 0}, {7, 1}, {8, 4}, {7, 7}, {4, 8}, {1, 7}, {0, 4}, {1, 1}
+    };
     private static final long LARGE_CYCLE_INDICATOR_DELAY_NANOS = 500_000_000L;
 
     private final ECOCraftConfirmTableRenderer table;
@@ -60,6 +69,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private final Scrollbar cycleScrollbar;
     private @Nullable Integer selectedCycleComponentId;
     private final long openedNanos = System.nanoTime();
+    private boolean backgroundOptimizing;
     private boolean lastSubmissionForced;
     private String lastStartGate;
     private ECOCraftReportHeaderRenderer.Summary reportSummary = ECOCraftReportHeaderRenderer.pending(
@@ -72,7 +82,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             this::isFuzzyPlanningItem);
         exactTable = new ECOExactMaterialTableRenderer(this, 9, 27, this::isCycleParticipant,
             this::isMissingStartupSeed, this::isEstimatedStartupSeed, this::isFuzzyPlanningItem);
-        cycleItems = new ECOCycleItemListRenderer(this, 237, 27);
+        cycleItems = new ECOCycleItemListRenderer(this, 237, 27, this::isMissingStartupSeed);
         scrollbar = widgets.addScrollBar("scrollbar", cn.dancingsnow.neoecoae.client.gui.widget.NEScrollbars.BIG);
         cycleScrollbar = widgets.addScrollBar("cycleScrollbar", cn.dancingsnow.neoecoae.client.gui.widget.NEScrollbars.BIG);
         start = addTextButton("start", GuiText.Start.text(), this::start);
@@ -130,7 +140,9 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 : null);
 
         Component cpuDetails = Component.empty();
-        boolean unknownBytes = false;
+        boolean unknownBytes = (Object) menu instanceof ECOCraftConfirmMenuMode byteMode
+            && byteMode.neoecoae$getPlanningStatus() != null
+            && !ECOCraftReportHeaderRenderer.hasCompleteByteEstimate(byteMode.neoecoae$getCraftingGraphSnapshot());
         if (plan != null) {
             if (plan.isSimulation()) {
                 cpuDetails = GuiText.PartialPlan.text();
@@ -152,8 +164,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode
                 && mode.neoecoae$getPlanningStatus() == PlanningStatus.CYCLE_UNRESOLVED) {
-            boolean retainedMaterials = !mode.neoecoae$getCraftingGraphSnapshot().nodes().isEmpty()
-                || plan != null && !plan.getEntries().isEmpty();
+            boolean retainedMaterials = ECOExactMaterialTableRenderer.hasMaterialDetails(
+                mode.neoecoae$getCraftingGraphSnapshot());
             boolean seedEstimate = mode.neoecoae$getCycleItems().stream()
                 .anyMatch(ECOCycleItemList.Entry::seedShortfallIsEstimate);
             cpuDetails = Component.translatable(seedEstimate
@@ -162,7 +174,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                     : "gui.neoecoae.crafting_report.planning_failed")
                 .withStyle(neColor -> neColor.withColor(0x604100));
             selectCPU.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.literal(mode.neoecoae$getPlanningDiagnostic())));
+                cpuDetails));
             if (plan != null && !retainedMaterials) {
                 unknownBytes = true;
             }
@@ -176,31 +188,40 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         } else {
             selectCPU.setTooltip(null);
         }
-        if ((Object) menu instanceof ECOCraftConfirmMenuMode mode && mode.neoecoae$provenInfeasible()) {
-            cpuDetails = Component.translatable("gui.neoecoae.crafting_report.supply_insufficient")
-                .withStyle(neColor -> neColor.withColor(0x752121));
-            selectCPU.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-                Component.literal(mode.neoecoae$getPlanningDiagnostic())));
+        if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {
+            var missing = exactMaterials().stream().filter(node -> node.missingBigInteger().signum() > 0).toList();
+            boolean shortage = mode.neoecoae$provenInfeasible()
+                || mode.neoecoae$getPlanningStatus() == PlanningStatus.MISSING_ITEMS
+                || mode.neoecoae$getPlanningStatus() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE;
+            if (shortage && !missing.isEmpty()) {
+                cpuDetails = Component.translatable(missing.stream().anyMatch(node -> isMissingStartupSeed(node.key()))
+                    ? "gui.neoecoae.crafting_report.missing_startup_seed" : "gui.neoecoae.crafting_graph.status.missing")
+                    .withStyle(neColor -> neColor.withColor(0x752121));
+            } else if (mode.neoecoae$provenInfeasible()) {
+                cpuDetails = Component.translatable("gui.neoecoae.crafting_report.supply_insufficient")
+                    .withStyle(neColor -> neColor.withColor(0x752121));
+            }
+            if (shortage || mode.neoecoae$getPlanningStatus() == PlanningStatus.CYCLE_UNRESOLVED) {
+                selectCPU.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                    materialShortageTooltip(cpuDetails, missing)));
+            }
         }
 
         setTextContent(TEXT_ID_DIALOG_TITLE, Component.empty());
         setTextContent("complex_tree_hint", (Object) menu instanceof ECOCraftConfirmMenuMode mode
                 && mode.neoecoae$getPlanningStatus() == PlanningStatus.CYCLE_UNRESOLVED
+                && !mode.neoecoae$provenInfeasible()
             ? Component.translatable(mode.neoecoae$getCycleItems().stream()
                     .anyMatch(ECOCycleItemList.Entry::seedShortfallIsEstimate)
                     ? "gui.neoecoae.crafting_report.seed_requirement_unknown"
                     : "gui.neoecoae.crafting_report.complex_tree_hint").withStyle(neColor -> neColor.withColor(0xFFCC66))
             : Component.empty());
         setTextContent("cycle_status", Component.empty());
+        backgroundOptimizing = false;
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode && mode.neoecoae$getOptimizationState() > 0
                 && (mode.neoecoae$getPlanningStatus() == PlanningStatus.SUCCESS || mode.neoecoae$exactPlanReady())) {
-            String optimization = switch (mode.neoecoae$getOptimizationState()) {
-                case cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService.Request.SEARCHING -> "optimizing";
-                case cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService.Request.LIMITED,
-                    cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService.Request.FAILED -> "optimization_paused";
-                default -> "optimization_finished";
-            };
-            setTextContent("complex_tree_hint", Component.translatable("gui.neoecoae.crafting_report." + optimization));
+            backgroundOptimizing = mode.neoecoae$getOptimizationState() == ECOPlanningService.Request.SEARCHING;
+            setTextContent("complex_tree_hint", Component.empty());
         }
         setTextContent("cpu_status", cpuDetails);
         boolean exactMaterialTable = shouldUseExactMaterialTable();
@@ -263,6 +284,23 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         }
     }
 
+    private static Component materialShortageTooltip(Component heading,
+            List<CraftingGraphSnapshot.MaterialNode> missing) {
+        var tooltip = heading.copy();
+        int shown = Math.min(4, missing.size());
+        for (int index = 0; index < shown; index++) {
+            var material = missing.get(index);
+            tooltip.append("\n").append(material.key().getDisplayName()).append(" × ")
+                .append(ECOExactMaterialTableRenderer.formatAmount(material.key(), material.missingBigInteger(),
+                    AmountFormat.SLOT));
+        }
+        if (missing.size() > shown) {
+            tooltip.append("\n").append(Component.translatable("gui.neoecoae.crafting_graph.summary.more",
+                missing.size() - shown));
+        }
+        return tooltip;
+    }
+
     private Component getNextCpuButtonLabel() {
         if (menu.hasNoCPU()) return GuiText.NoCraftingCPUs.text();
         Component cpuName = menu.cpuName == null ? GuiText.Automatic.text() : menu.cpuName;
@@ -290,6 +328,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 !mode.neoecoae$getCraftingGraphSnapshot().cycleGroups().isEmpty(),
                 mode.neoecoae$getPlanningStatus());
         }
+        drawOptimizationIndicator(graphics);
 
         cycleItems.renderTooltip(graphics);
     }
@@ -300,10 +339,32 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     }
 
     void renderReportTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (ECOCraftReportHeaderRenderer.isHovered(mouseX - leftPos, mouseY - topPos)) {
+        int localMouseX = mouseX - leftPos;
+        int localMouseY = mouseY - topPos;
+        if (ECOCraftReportHeaderRenderer.isHovered(localMouseX, localMouseY)) {
             // 1.20.1 tooltips render immediately. Wait until the foreground pose is restored,
             // then use screen coordinates for both the cursor and vanilla edge placement.
             drawTooltipWithHeader(graphics, mouseX, mouseY, reportSummary.tooltip());
+        } else if (backgroundOptimizing
+                && localMouseX >= OPTIMIZATION_INDICATOR_X
+                && localMouseX < OPTIMIZATION_INDICATOR_X + OPTIMIZATION_INDICATOR_SIZE
+                && localMouseY >= OPTIMIZATION_INDICATOR_Y
+                && localMouseY < OPTIMIZATION_INDICATOR_Y + OPTIMIZATION_INDICATOR_SIZE) {
+            drawTooltipWithHeader(graphics, mouseX, mouseY,
+                List.of(Component.translatable("gui.neoecoae.crafting_report.optimizing")));
+        }
+    }
+
+    private void drawOptimizationIndicator(GuiGraphics graphics) {
+        if (!backgroundOptimizing) return;
+        int frame = (int) ((System.nanoTime() - openedNanos) / 100_000_000L % OPTIMIZATION_SEGMENTS.length);
+        for (int index = 0; index < OPTIMIZATION_SEGMENTS.length; index++) {
+            int shade = 255 - Math.floorMod(frame - index, OPTIMIZATION_SEGMENTS.length) * 22;
+            int color = 0xFF000000 | shade << 16 | shade << 8 | shade;
+            int x = OPTIMIZATION_INDICATOR_X + OPTIMIZATION_SEGMENTS[index][0];
+            int y = OPTIMIZATION_INDICATOR_Y + OPTIMIZATION_SEGMENTS[index][1];
+            // Step the highlight around square pixels so the ring stays aligned to the GUI grid.
+            graphics.fill(x, y, x + 2, y + 2, color);
         }
     }
 
@@ -337,15 +398,27 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         icon.blit(graphics, CYCLE_STATUS_X, CYCLE_STATUS_Y, 0);
         String labelKey = !cycleDetected
             ? status == PlanningStatus.CYCLE_UNRESOLVED
-                ? "gui.neoecoae.crafting_report.cycle_not_detected_preview"
+                ? enabled ? "gui.neoecoae.crafting.cycle_planning.on" : "gui.neoecoae.crafting.cycle_planning.off"
                 : "gui.neoecoae.crafting_report.cycle_not_detected"
             : enabled
                 ? "gui.neoecoae.crafting_report.cycle_planning_enabled"
                 : "gui.neoecoae.crafting_report.cycle_planning_disabled";
         Component label = Component.translatable(labelKey)
             .withStyle(neColor -> neColor.withColor(AE2_TEXT_DARK));
-        graphics.drawString(font, label, CYCLE_STATUS_X + 18, CYCLE_STATUS_Y + 4,
-            AE2_TEXT_DARK, false);
+        int labelX = CYCLE_STATUS_X + 18;
+        int labelRight = backgroundOptimizing ? OPTIMIZATION_INDICATOR_X - 4 : imageWidth - 4;
+        float scale = Math.min(1.0F, (float) (labelRight - labelX) / Math.max(1, font.width(label)));
+        int labelY = Math.round(CYCLE_STATUS_Y + (icon.height - font.lineHeight * scale) / 2.0F);
+        var pose = graphics.pose();
+        pose.pushPose();
+        try {
+            pose.translate(labelX, labelY, 0);
+            pose.scale(scale, scale, 1);
+            graphics.drawString(font, label, 0, 0, AE2_TEXT_DARK, false);
+        } finally {
+            graphics.flush();
+            pose.popPose();
+        }
     }
 
     @Override @Nullable public StackWithBounds getStackUnderMouse(double mouseX, double mouseY) {
@@ -445,7 +518,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private List<CraftingGraphSnapshot.MaterialNode> exactMaterials() {
         if (!((Object) menu instanceof ECOCraftConfirmMenuMode mode)) return List.of();
         if (isDiagnosticShell()) return mode.neoecoae$getCraftingGraphSnapshot().nodes();
-        return ECOExactMaterialTableRenderer.sortMaterials(mode.neoecoae$getCraftingGraphSnapshot().nodes());
+        return ECOExactMaterialTableRenderer.sortMaterials(mode.neoecoae$getCraftingGraphSnapshot().nodes(),
+            this::isMissingStartupSeed);
     }
 
     /**
@@ -539,8 +613,10 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 .filter(entry -> entry.what().equals(key))
                 .anyMatch(entry -> entry.exactMissing().signum() > 0
                     && entry.solveStatus() == cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT
-                    && entry.exactSingleNetOutput().signum() == 0
-                    && entry.exactTotalNetOutput().signum() == 0);
+                    && entry.exactTotalNetOutput().signum() >= 0
+                    && mode.neoecoae$getCraftingGraphSnapshot().cycleGroups().stream()
+                        .anyMatch(cycle -> cycle.componentId() == entry.componentId()
+                            && cycle.requiredSeed().stream().anyMatch(seed -> seed.key().equals(key))));
     }
 
     private boolean isEstimatedStartupSeed(AEKey key) {

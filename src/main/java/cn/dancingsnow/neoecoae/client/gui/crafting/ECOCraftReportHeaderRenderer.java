@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.client.gui.crafting;
 
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -33,6 +34,12 @@ final class ECOCraftReportHeaderRenderer {
     private ECOCraftReportHeaderRenderer() {}
 
     record Summary(Component elapsed, Component bytes, List<Component> tooltip) {}
+
+    static boolean hasCompleteByteEstimate(CraftingGraphSnapshot snapshot) {
+        return ECOExactMaterialTableRenderer.hasMaterialDetails(snapshot)
+            && snapshot.cycleGroups().stream().allMatch(cycle ->
+                cycle.status().equals("SOLVED") || cycle.status().equals("NOT_REQUIRED"));
+    }
 
     static Summary pending(Component status) {
         Component bytes = text("bytes_pending");

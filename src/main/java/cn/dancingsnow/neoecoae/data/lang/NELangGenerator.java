@@ -87,7 +87,7 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.big_order.single_task", "ECO CPU: execute the complete order as one task");
         provider.add("gui.neoecoae.crafting_report.exact_incomplete", "Execution plan incomplete; see CPU details");
         provider.add("gui.neoecoae.crafting_report.supply_insufficient", "Available supply cannot cover this order");
-        provider.add("gui.neoecoae.crafting_report.optimizing", "Plan ready; optimizing other routes in the background");
+        provider.add("gui.neoecoae.crafting_report.optimizing", "Background optimization");
         provider.add("gui.neoecoae.crafting_report.optimization_paused", "Current plan retained; further optimization is incomplete");
         provider.add("gui.neoecoae.crafting_report.optimization_finished", "Route optimization finished");
         provider.add("gui.neoecoae.storage_interface.ignore_creative.on", "Ignore creative cell input: On");
