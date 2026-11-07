@@ -20,10 +20,13 @@ import appeng.crafting.inv.ListCraftingInventory;
 import appeng.crafting.pattern.AEProcessingPattern;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingJobContext;
+import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
+import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan;
 import cn.dancingsnow.neoecoae.compat.gregtech.ECOGregTechProcessingDispatch;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.PatternProviderLogicAccessor;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.ArrayList;
+import java.math.BigInteger;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.resources.ResourceLocation;
@@ -33,6 +36,8 @@ import net.minecraft.world.level.material.Fluids;
 import org.gtlcore.gtlcore.integration.ae2.crafting.IPatternProviderAutoExpand;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class ECOGregTechProcessingDispatchIntegrationTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
@@ -116,6 +121,33 @@ class ECOGregTechProcessingDispatchIntegrationTest {
         assertEquals(192, provider.stored.get(f.iron));
         assertEquals(32_000, provider.stored.get(f.water));
         assertSame(f.pattern, ECOGregTechProcessingDispatch.bufferExecutionPattern(f.pattern, f.inputs));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void exactOrderSettlesMultipleChunksWhoseCombinedOutputOrRemainderExceedsLong(boolean remainder) {
+        long perCraft = 2_000;
+        long crafts = (Long.MAX_VALUE / perCraft) * 2;
+        var f = new Fixture(crafts, false, true);
+        var key = remainder ? AEItemKey.of(Items.BUCKET) : f.output;
+        (remainder ? f.request.remainders() : f.request.outputs()).set(key, perCraft);
+        if (!remainder) {
+            when(f.pattern.getOutputs()).thenReturn(new GenericStack[]{new GenericStack(key, perCraft)});
+        }
+        var provider = f.gtlBuffer();
+
+        var result = f.dispatch(provider, (request, target) -> fail("Accepted native chunks must not be replayed"));
+
+        assertEquals(crafts, result.acceptedCrafts());
+        assertEquals(2, provider.pushes);
+        assertEquals(crafts * 3, provider.stored.get(f.iron));
+        assertEquals(crafts * 500, provider.stored.get(f.water));
+        assertEquals(0, f.inventory.list.get(f.iron));
+        assertEquals(0, f.inventory.list.get(f.water));
+        assertEquals(BigInteger.ZERO, f.progress.remainingExact());
+        assertEquals(BigInteger.valueOf(crafts).multiply(BigInteger.valueOf(perCraft)),
+                ((ECOExactInventory) f.job.waitingFor).amount(key));
+        assertFalse(f.job.suspended);
     }
 
     @Test void gtlBufferLongCapacityPreventsOverflowAndDoesNotReplayAnOrdinaryPush() {
@@ -370,7 +402,9 @@ class ECOGregTechProcessingDispatchIntegrationTest {
         final ECOCraftingDispatchRequest request;
         final ECOProcessingPatternDispatcher dispatcher;
 
-        Fixture(long crafts, boolean configureCircuit) {
+        Fixture(long crafts, boolean configureCircuit) { this(crafts, configureCircuit, false); }
+
+        Fixture(long crafts, boolean configureCircuit, boolean exactOrder) {
             when(circuit.getId()).thenReturn(new ResourceLocation("gtceu", "programmed_circuit"));
             when(circuit.getType()).thenReturn(appeng.api.stacks.AEKeyType.items());
             var keys = configureCircuit ? List.<AEKey>of(iron, water, circuit) : List.<AEKey>of(iron, water);
@@ -399,7 +433,7 @@ class ECOGregTechProcessingDispatchIntegrationTest {
                 return null;
             }).when(pattern).pushInputsToExternalInventory(any(), any());
             when(energy.extractAEPower(anyDouble(), any(), any())).thenAnswer(call -> call.getArgument(0));
-            var plan = mock(ICraftingPlan.class);
+            ICraftingPlan plan = exactOrder ? mock(ECOExactCraftingPlan.class) : mock(ICraftingPlan.class);
             when(plan.finalOutput()).thenReturn(new GenericStack(output, crafts * 2L));
             when(plan.emittedItems()).thenReturn(new KeyCounter());
             var link = mock(CraftingLink.class);
@@ -408,6 +442,7 @@ class ECOGregTechProcessingDispatchIntegrationTest {
                 job = new ExecutingCraftingJob(plan, ignored -> {}, link, null);
             }
             progress.value = crafts;
+            if (exactOrder) progress.setExact(BigInteger.valueOf(crafts), BigInteger.valueOf(crafts));
             job.tasks.put(pattern, progress);
             var outputs = new KeyCounter();
             outputs.add(output, 2);

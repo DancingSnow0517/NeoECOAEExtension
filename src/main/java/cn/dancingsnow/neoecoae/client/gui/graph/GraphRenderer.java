@@ -11,6 +11,7 @@ import cn.dancingsnow.neoecoae.crafting.graph.InterCycleFlow;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -430,9 +431,8 @@ public final class GraphRenderer implements AutoCloseable {
             key = graph.source().nodes().stream().filter(node -> node.nodeId() == link.materialNodeId())
                 .map(CraftingGraphSnapshot.MaterialNode::key).findFirst().orElse(null);
         }
-        if (key == null) return "×" + link.amount();
-        long magnitude = link.amount() == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(link.amount());
-        return "×" + key.formatAmount(magnitude, AmountFormat.SLOT);
+        if (key == null) return "×" + compactAmount(link.plannerAmount().toString());
+        return "×" + formatMagnitude(key, link.plannerAmount());
     }
 
     private static void drawClusterLabels(GuiGraphics graphics, ClientCraftingGraph graph,
@@ -569,7 +569,7 @@ public final class GraphRenderer implements AutoCloseable {
                     y + Math.max(3, pixelHeight >= 28 ? 6 : 2), border);
                 if (pixelHeight >= 28 && pixelWidth >= 32) {
                     graphics.drawCenteredString(font,
-                        fit(font, "× " + compactAmount(Long.toString(pattern.firingCount())), pixelWidth - 6),
+                        fit(font, "× " + compactAmount(pattern.plannerFiringCount().toString()), pixelWidth - 6),
                         (x + right) / 2, y + 18, TEXT);
                 }
             }
@@ -654,7 +654,7 @@ public final class GraphRenderer implements AutoCloseable {
 
     private static CompactCycleValue compactCycleValue(ClientCraftingGraph graph, ClientCraftingGraph.Node node) {
         if (node.kind() == ClientCraftingGraph.Kind.PATTERN && node.pattern() != null) {
-            return new CompactCycleValue(compactAmount(Long.toString(node.pattern().firingCount())), TEXT);
+            return new CompactCycleValue(compactAmount(node.pattern().plannerFiringCount().toString()), TEXT);
         }
         if (node.material() == null) return new CompactCycleValue("-", MUTED);
         var cycle = graph.source().cycleGroups().stream()
@@ -663,9 +663,8 @@ public final class GraphRenderer implements AutoCloseable {
                 : value.memberNodeIds().contains(node.material().nodeId()))
             .findFirst().orElse(null);
         if (cycle == null) return new CompactCycleValue("-", MUTED);
-        BigInteger consumed = node.material().consumedBigInteger();
-        BigInteger produced = node.material().producedBigInteger();
-        BigInteger delta = produced.subtract(consumed);
+        PlannerAmount delta = PlannerAmount.of(node.material().producedBigInteger())
+            .subtract(PlannerAmount.of(node.material().consumedBigInteger()));
         String text = signedTaskChange(node.material());
         int color = delta.signum() > 0 ? 0xff75c48b : delta.signum() < 0 ? 0xffe07a7a : MUTED;
         return new CompactCycleValue(text, color);
@@ -693,7 +692,7 @@ public final class GraphRenderer implements AutoCloseable {
     }
 
     private static String signedTaskChange(CraftingGraphSnapshot.MaterialNode material) {
-        BigInteger delta = material.producedBigInteger().subtract(material.consumedBigInteger());
+        PlannerAmount delta = PlannerAmount.of(material.producedBigInteger()).subtract(PlannerAmount.of(material.consumedBigInteger()));
         String magnitude = compactAmount(delta.abs().toString());
         return delta.signum() > 0 ? "+" + magnitude : delta.signum() < 0 ? "-" + magnitude : "0";
     }
@@ -720,7 +719,7 @@ public final class GraphRenderer implements AutoCloseable {
             var pattern = node.pattern();
             var lines = new ArrayList<Component>();
             lines.add(Component.literal(pattern.displayIdentity()));
-            lines.add(Component.literal("执行次数：" + compactAmount(Long.toString(pattern.firingCount()))));
+            lines.add(Component.literal("执行次数：" + compactAmount(pattern.plannerFiringCount().toString())));
             lines.add(Component.literal("状态：" + pattern.status().name()));
             lines.add(Component.literal("输入：" + relationshipText(graph, pattern.inputs())));
             lines.add(Component.literal("输出：" + relationshipText(graph, pattern.outputs())));
@@ -848,7 +847,7 @@ public final class GraphRenderer implements AutoCloseable {
 
     private static String amountText(List<CraftingGraphSnapshot.KeyAmount> values, AEKey key) {
         return values.stream().filter(value -> value.key().equals(key)).findFirst()
-            .map(value -> formatMagnitude(key, value.amount())).orElse("-");
+            .map(value -> formatMagnitude(key, value.plannerAmount())).orElse("-");
     }
 
     private static String relationshipText(ClientCraftingGraph graph,
@@ -858,7 +857,7 @@ public final class GraphRenderer implements AutoCloseable {
             var node = graph.nodes().get(relationship.materialNodeId());
             String label = node == null || node.key() == null ? "#" + relationship.materialNodeId()
                 : node.key().getDisplayName().getString();
-            return label + " ×" + compactAmount(Long.toString(relationship.amount()));
+            return label + " ×" + compactAmount(relationship.plannerAmount().toString());
         }).reduce((left, right) -> left + ", " + right).orElse("-");
     }
 
@@ -882,6 +881,12 @@ public final class GraphRenderer implements AutoCloseable {
     private static String formatMagnitude(AEKey key, long amount) {
         long magnitude = amount == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(amount);
         return cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers.grouped(key.formatAmount(magnitude, AmountFormat.SLOT));
+    }
+
+    private static String formatMagnitude(AEKey key, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount amount) {
+        return amount.fitsLong() ? formatMagnitude(key, amount.longValueExact())
+            : cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter.format(
+                amount.abs().toBigInteger(), key.getAmountPerUnit(), false);
     }
 
 }

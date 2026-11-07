@@ -9,6 +9,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ExactCycleAmount;
@@ -183,28 +184,33 @@ public record CraftingGraphSnapshot(
         }
     }
 
-    public record Relationship(int materialNodeId, long amount) {
+    public record Relationship(int materialNodeId, PlannerAmount plannerAmount) {
+        public Relationship(int materialNodeId, long amount) { this(materialNodeId, PlannerAmount.of(amount)); }
+        public long amount() { return plannerAmount.longValueSaturated(); }
         private static Relationship read(FriendlyByteBuf data) {
-            return new Relationship(data.readVarInt(), data.readVarLong());
+            return new Relationship(data.readVarInt(), readAmount(data));
         }
 
         private void write(FriendlyByteBuf data) {
             data.writeVarInt(materialNodeId);
-            data.writeVarLong(amount);
+            writeAmount(data, plannerAmount);
         }
     }
 
     public record PatternNode(int patternNodeId, String displayIdentity, List<Relationship> inputs,
             List<Relationship> outputs,
-            long firingCount, CandidateStatus status, @Nullable String rejectionReason, int componentId) {
-        public PatternNode {
-
-
+            PlannerAmount plannerFiringCount, CandidateStatus status, @Nullable String rejectionReason, int componentId) {
+        public PatternNode(int patternNodeId, String displayIdentity, List<Relationship> inputs,
+                List<Relationship> outputs, long firingCount, CandidateStatus status,
+                @Nullable String rejectionReason, int componentId) {
+            this(patternNodeId, displayIdentity, inputs, outputs, PlannerAmount.of(firingCount), status,
+                rejectionReason, componentId);
         }
+        public long firingCount() { return plannerFiringCount.longValueSaturated(); }
 
         private static PatternNode read(FriendlyByteBuf data) {
             return new PatternNode(data.readVarInt(), data.readUtf(), readList(data, Relationship::read),
-                readList(data, Relationship::read), data.readVarLong(), data.readEnum(CandidateStatus.class),
+                readList(data, Relationship::read), readAmount(data), data.readEnum(CandidateStatus.class),
                 readNullableString(data), data.readVarInt());
         }
 
@@ -213,7 +219,7 @@ public record CraftingGraphSnapshot(
             data.writeUtf(displayIdentity);
             writeList(data, inputs, Relationship::write);
             writeList(data, outputs, Relationship::write);
-            data.writeVarLong(firingCount);
+            writeAmount(data, plannerFiringCount);
             data.writeEnum(status);
             writeNullableString(data, rejectionReason);
             data.writeVarInt(componentId);
@@ -221,40 +227,48 @@ public record CraftingGraphSnapshot(
     }
 
     /** Edges use globally unique visual IDs: material IDs are non-negative and pattern IDs are encoded by clients. */
-    public record Edge(int fromId, int toId, long amount, EdgeKind kind, boolean selected) {
+    public record Edge(int fromId, int toId, PlannerAmount plannerAmount, EdgeKind kind, boolean selected) {
+        public Edge(int fromId, int toId, long amount, EdgeKind kind, boolean selected) {
+            this(fromId, toId, PlannerAmount.of(amount), kind, selected);
+        }
+        public long amount() { return plannerAmount.longValueSaturated(); }
         private static Edge read(FriendlyByteBuf data) {
-            return new Edge(data.readVarInt(), data.readVarInt(), data.readVarLong(), data.readEnum(EdgeKind.class),
+            return new Edge(data.readVarInt(), data.readVarInt(), readAmount(data), data.readEnum(EdgeKind.class),
                 data.readBoolean());
         }
 
         private void write(FriendlyByteBuf data) {
             data.writeVarInt(fromId);
             data.writeVarInt(toId);
-            data.writeVarLong(amount);
+            writeAmount(data, plannerAmount);
             data.writeEnum(kind);
             data.writeBoolean(selected);
         }
     }
 
-    public record KeyAmount(AEKey key, long amount) {
+    public record KeyAmount(AEKey key, PlannerAmount plannerAmount) {
+        public KeyAmount(AEKey key, long amount) { this(key, PlannerAmount.of(amount)); }
+        public long amount() { return plannerAmount.longValueSaturated(); }
         private static KeyAmount read(FriendlyByteBuf data) {
-            return new KeyAmount(ECOKeyFactory.readKey(data), data.readVarLong());
+            return new KeyAmount(ECOKeyFactory.readKey(data), readAmount(data));
         }
 
         private void write(FriendlyByteBuf data) {
             AEKey.writeKey(data, key);
-            data.writeVarLong(amount);
+            writeAmount(data, plannerAmount);
         }
     }
 
-    public record PatternAmount(int patternNodeId, long amount) {
+    public record PatternAmount(int patternNodeId, PlannerAmount plannerAmount) {
+        public PatternAmount(int patternNodeId, long amount) { this(patternNodeId, PlannerAmount.of(amount)); }
+        public long amount() { return plannerAmount.longValueSaturated(); }
         private static PatternAmount read(FriendlyByteBuf data) {
-            return new PatternAmount(data.readVarInt(), data.readVarLong());
+            return new PatternAmount(data.readVarInt(), readAmount(data));
         }
 
         private void write(FriendlyByteBuf data) {
             data.writeVarInt(patternNodeId);
-            data.writeVarLong(amount);
+            writeAmount(data, plannerAmount);
         }
     }
 
@@ -328,7 +342,7 @@ public record CraftingGraphSnapshot(
         }
 
         private static List<ExactKeyAmount> exact(List<KeyAmount> values) {
-            return values.stream().map(value -> new ExactKeyAmount(value.key(), ExactCycleAmount.of(value.amount())))
+            return values.stream().map(value -> new ExactKeyAmount(value.key(), ExactCycleAmount.of(value.plannerAmount())))
                 .toList();
         }
     }
@@ -352,6 +366,16 @@ public record CraftingGraphSnapshot(
 
     private interface Reader<T> { T read(FriendlyByteBuf data); }
     private interface Writer<T> { void write(T value, FriendlyByteBuf data); }
+
+    private static PlannerAmount readAmount(FriendlyByteBuf data) {
+        return data.readBoolean() ? PlannerAmount.of(data.readVarLong()) : PlannerAmount.parse(data.readUtf());
+    }
+
+    private static void writeAmount(FriendlyByteBuf data, PlannerAmount amount) {
+        data.writeBoolean(amount.fitsLong());
+        if (amount.fitsLong()) data.writeVarLong(amount.longValueExact());
+        else data.writeUtf(amount.toString());
+    }
 
     private static <T> List<T> readList(FriendlyByteBuf data, Reader<T> reader) {
         int size = data.readVarInt();

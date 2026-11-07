@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.crafting.planner.result;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.util.List;
 import java.util.Objects;
 
@@ -13,24 +14,38 @@ public record PlannedInputAllocation(int slot, List<Run> runs) {
         if (runs.isEmpty()) throw new IllegalArgumentException("Empty allocation");
     }
 
-    public record Run(AEKey key, long amount, long crafts) {
+    public record Run(AEKey key, PlannerAmount plannerAmount, PlannerAmount plannerCrafts) {
+        public Run(AEKey key, long amount, long crafts) {
+            this(key, PlannerAmount.of(amount), PlannerAmount.of(crafts));
+        }
         public Run {
             Objects.requireNonNull(key);
-            if (amount <= 0 || crafts <= 0) throw new IllegalArgumentException("Invalid input run");
+            if (plannerAmount.signum() <= 0 || plannerCrafts.signum() <= 0) throw new IllegalArgumentException("Invalid input run");
         }
+        public long amount() { return plannerAmount.longValueSaturated(); }
+        public long crafts() { return plannerCrafts.longValueSaturated(); }
     }
 
     public long totalCrafts() {
-        long total = 0;
-        for (var run : runs) total = Math.addExact(total, run.crafts());
+        return plannerTotalCrafts().longValueSaturated();
+    }
+
+    public PlannerAmount plannerTotalCrafts() {
+        PlannerAmount total = PlannerAmount.ZERO;
+        for (var run : runs) total = total.add(run.plannerCrafts());
         return total;
     }
 
     public Run at(long completed) {
-        if (completed < 0) throw new IllegalArgumentException("Negative progress");
+        return at(PlannerAmount.of(completed));
+    }
+
+    public Run at(PlannerAmount completed) {
+        if (completed.signum() < 0) throw new IllegalArgumentException("Negative progress");
         for (var run : runs) {
-            if (completed < run.crafts()) return new Run(run.key(), run.amount(), run.crafts() - completed);
-            completed -= run.crafts();
+            if (completed.compareTo(run.plannerCrafts()) < 0)
+                return new Run(run.key(), run.plannerAmount(), run.plannerCrafts().subtract(completed));
+            completed = completed.subtract(run.plannerCrafts());
         }
         throw new IllegalStateException("Input allocation exhausted");
     }

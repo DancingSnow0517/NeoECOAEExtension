@@ -61,6 +61,21 @@ class JointRouteOptimizationTest {
                 Map.of(expensive, 5L, smelt, 5L));
     }
 
+    @Test void publishesPreferredRouteBeforeTheCheaperBackgroundRoute() throws Exception {
+        var expensive = pattern(List.of(stack(ingot, 1)), stack(goal, 1));
+        var smelt = pattern(List.of(stack(iron, 1)), stack(ingot, 1));
+        var direct = pattern(List.of(stack(copper, 1)), stack(goal, 1));
+        var session = new ECOCraftingPlannerService().createSession(service(false, expensive, smelt, direct),
+            goal, stock(iron, 5, copper, 5), false, false);
+        List<ECOPlanningResult> published = new ArrayList<>();
+        var result = session.plan(5, false, ECOCancellation.NONE, published::add);
+        assertTrue(published.size() >= 2);
+        assertTasks(published.get(0), Map.of(expensive, 5L, smelt, 5L));
+        assertTasks(published.get(published.size() - 1), Map.of(direct, 5L));
+        assertTasks(result, Map.of(direct, 5L));
+        assertTasks(published.get(0), Map.of(expensive, 5L, smelt, 5L));
+    }
+
     @Test void jointlyProducesTwoRequestedMaterialsAndBuildsSupplierPhases() throws Exception {
         var a = pattern(List.of(stack(iron, 1)), stack(ingot, 1));
         var b = pattern(List.of(stack(iron, 1)), stack(slag, 1));

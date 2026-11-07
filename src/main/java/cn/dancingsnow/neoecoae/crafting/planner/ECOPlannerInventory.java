@@ -20,9 +20,20 @@ public final class ECOPlannerInventory {
     private ECOPlannerInventory() {}
 
     public static PlannerInventorySnapshot capture(IGrid grid) {
-        var inventory = grid.getStorageService().getInventory().getAvailableStacks();
+        var storage = cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot.resolve(
+            grid.getStorageService().getInventory());
+        var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        var snapshot = cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot.sample(
+            storage, server == null ? 0L : server.getTickCount(), true, true, storage::getAvailableStacks);
+        var amounts = new java.util.LinkedHashMap<AEKey, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount>();
+        for (var entry : snapshot.inventory()) amounts.put(entry.getKey(),
+            cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.of(entry.getLongValue()));
         Set<AEKey> unbounded = collectUnboundedKeys(grid);
-        return PlannerInventorySnapshot.of(inventory, unbounded);
+        snapshot.amounts().forEach((key, amount) -> {
+            if (amount.infinite()) unbounded.add(key);
+            else amounts.put(key, amount.quantity());
+        });
+        return PlannerInventorySnapshot.exact(amounts, unbounded);
     }
 
     /**

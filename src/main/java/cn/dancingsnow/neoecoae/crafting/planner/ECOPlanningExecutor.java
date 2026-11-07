@@ -10,17 +10,22 @@ import java.util.concurrent.TimeUnit;
 public final class ECOPlanningExecutor {
     private static final int MAX_WORKERS = Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors()));
     private static final ThreadPoolExecutor EXECUTOR = new ThreadPoolExecutor(
-        0, MAX_WORKERS, 30L, TimeUnit.SECONDS, new ArrayBlockingQueue<>(32),
+        MAX_WORKERS, MAX_WORKERS, 30L, TimeUnit.SECONDS, new ArrayBlockingQueue<>(32),
         runnable -> {
             Thread thread = new Thread(runnable, "ECO Planning Worker");
             thread.setDaemon(true);
             return thread;
         }, new ThreadPoolExecutor.AbortPolicy());
 
+    static {
+        EXECUTOR.allowCoreThreadTimeOut(true);
+    }
+
     private ECOPlanningExecutor() {
     }
 
     public static <T> Future<T> submit(Callable<T> task) {
+        EXECUTOR.purge();
         return EXECUTOR.submit(task);
     }
 }

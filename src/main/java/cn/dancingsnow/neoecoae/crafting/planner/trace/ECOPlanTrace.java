@@ -12,6 +12,17 @@ public final class ECOPlanTrace {
     private final List<CycleTrace> cycles = new ArrayList<>();
     private final List<PlannerDiagnostic> diagnostics = new ArrayList<>();
 
+    /** Published previews must not share the lists still being annotated by route search. */
+    public ECOPlanTrace copy() {
+        ECOPlanTrace copy = new ECOPlanTrace();
+        copy.nodes.addAll(nodes);
+        copy.edges.addAll(edges);
+        copy.components.addAll(components);
+        copy.cycles.addAll(cycles);
+        copy.diagnostics.addAll(diagnostics);
+        return copy;
+    }
+
     public void addNode(PlanTraceNode node) { nodes.add(node); }
     public void addEdge(PlanTraceEdge edge) { edges.add(edge); }
     public void addComponent(ComponentTrace component) { components.add(component); }

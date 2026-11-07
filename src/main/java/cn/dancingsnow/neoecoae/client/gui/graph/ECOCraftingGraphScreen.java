@@ -261,7 +261,7 @@ public final class ECOCraftingGraphScreen extends Screen {
             if (i > 0) text.append(", ");
             var value = values.get(i);
             text.append(value.key().getDisplayName().getString()).append(" ×")
-                .append(HostText.ae2Amount(value.amount()));
+                .append(HostText.ae2Amount(value.plannerAmount().toBigInteger()));
         }
         if (values.size() > shown) text.append(tr("summary.more", values.size() - shown).getString());
         return Component.literal(text.toString());
@@ -277,7 +277,7 @@ public final class ECOCraftingGraphScreen extends Screen {
             var pattern = snapshot.patterns().stream()
                 .filter(candidate -> candidate.patternNodeId() == value.patternNodeId()).findFirst().orElse(null);
             text.append(pattern == null ? "Pattern #" + value.patternNodeId() : pattern.displayIdentity())
-                .append(" ×").append(HostText.ae2Amount(value.amount()));
+                .append(" ×").append(HostText.ae2Amount(value.plannerAmount().toBigInteger()));
         }
         if (cycle.patternTimes().size() > shown) text.append(" +").append(cycle.patternTimes().size() - shown)
             .append(tr("summary.more_suffix").getString());

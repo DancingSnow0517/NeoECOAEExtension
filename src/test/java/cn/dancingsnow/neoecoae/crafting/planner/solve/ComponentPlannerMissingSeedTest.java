@@ -352,7 +352,8 @@ class ComponentPlannerMissingSeedTest {
             .filter(candidate -> candidate.type()
                 == cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Type.CYCLIC)
             .findFirst().orElseThrow().cycleResult();
-        assertEquals(CycleSolveStatus.UNREPRESENTABLE, cycle.status(), cycle.diagnostics().toString());
+        assertEquals(CycleSolveStatus.SUCCESS, cycle.status(), cycle.diagnostics().toString());
+        assertFalse(cycle.executionPlan().isEmpty());
         assertTrue(cycle.seedShortfall().isEmpty(), cycle.diagnostics().toString());
         assertTrue(cycle.diagnostics().stream().anyMatch(diagnostic ->
             diagnostic.code() == cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveDiagnostic.Code.SEED_COVERED_BY_STOCK));

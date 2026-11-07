@@ -14,6 +14,9 @@ class ECOBigOrderPlannerTest {
     private ECOPlanningResult result(PlanningStatus status, long bytes) {
         var plan = mock(CraftingPlan.class);
         when(plan.bytes()).thenReturn(bytes);
+        when(plan.usedItems()).thenReturn(new appeng.api.stacks.KeyCounter());
+        when(plan.emittedItems()).thenReturn(new appeng.api.stacks.KeyCounter());
+        when(plan.missingItems()).thenReturn(new appeng.api.stacks.KeyCounter());
         return new ECOPlanningResult(status, plan, new ECOPlanTrace(), List.of(), 0);
     }
 

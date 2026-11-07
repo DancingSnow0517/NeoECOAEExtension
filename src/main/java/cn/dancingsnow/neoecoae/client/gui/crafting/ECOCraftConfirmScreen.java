@@ -114,6 +114,9 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             || mode.neoecoae$getPlanningStatus() == PlanningStatus.SUCCESS
             || mode.neoecoae$getPlanningStatus() == PlanningStatus.MISSING_ITEMS || unrepresentable;
         boolean startable = plan != null && (!plan.isSimulation() || allowed && (forceStart || bigOrder));
+        if ((Object) menu instanceof ECOCraftConfirmMenuMode mode
+                && (mode.neoecoae$provenInfeasible() || unrepresentable && !mode.neoecoae$exactPlanReady()))
+            startable = false;
         start.active = startable && (bigOrder
             ? ((ECOCraftConfirmMenuMode) (Object) menu).neoecoae$bigOrderCpuAvailable() : !menu.hasNoCPU());
         selectCPU.active = startable || forceStart;
@@ -140,7 +143,9 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             }
         }
         if (unrepresentable) {
-            cpuDetails = Component.translatable(((ECOCraftConfirmMenuMode) (Object) menu).neoecoae$bigOrderCpuAvailable()
+            var mode = (ECOCraftConfirmMenuMode) (Object) menu;
+            cpuDetails = Component.translatable(!mode.neoecoae$exactPlanReady()
+                ? "gui.neoecoae.crafting_report.exact_incomplete" : mode.neoecoae$bigOrderCpuAvailable()
                 ? "gui.neoecoae.big_order.single_task" : "gui.neoecoae.big_order.requires_cpu")
                 .withStyle(neColor -> neColor.withColor(AE2_TEXT_DARK));
         }
@@ -171,6 +176,12 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         } else {
             selectCPU.setTooltip(null);
         }
+        if ((Object) menu instanceof ECOCraftConfirmMenuMode mode && mode.neoecoae$provenInfeasible()) {
+            cpuDetails = Component.translatable("gui.neoecoae.crafting_report.supply_insufficient")
+                .withStyle(neColor -> neColor.withColor(0x752121));
+            selectCPU.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.literal(mode.neoecoae$getPlanningDiagnostic())));
+        }
 
         setTextContent(TEXT_ID_DIALOG_TITLE, Component.empty());
         setTextContent("complex_tree_hint", (Object) menu instanceof ECOCraftConfirmMenuMode mode
@@ -181,6 +192,16 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                     : "gui.neoecoae.crafting_report.complex_tree_hint").withStyle(neColor -> neColor.withColor(0xFFCC66))
             : Component.empty());
         setTextContent("cycle_status", Component.empty());
+        if ((Object) menu instanceof ECOCraftConfirmMenuMode mode && mode.neoecoae$getOptimizationState() > 0
+                && (mode.neoecoae$getPlanningStatus() == PlanningStatus.SUCCESS || mode.neoecoae$exactPlanReady())) {
+            String optimization = switch (mode.neoecoae$getOptimizationState()) {
+                case cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService.Request.SEARCHING -> "optimizing";
+                case cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService.Request.LIMITED,
+                    cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService.Request.FAILED -> "optimization_paused";
+                default -> "optimization_finished";
+            };
+            setTextContent("complex_tree_hint", Component.translatable("gui.neoecoae.crafting_report." + optimization));
+        }
         setTextContent("cpu_status", cpuDetails);
         boolean exactMaterialTable = shouldUseExactMaterialTable();
         int size = exactMaterialTable ? exactMaterials().size()
@@ -388,10 +409,11 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             (Object) menu instanceof ECOCraftConfirmMenuMode mode ? mode.neoecoae$getPlanningStatus() : null);
         if (usesBigOrderSubmission(forceStart)) {
             ECONetwork.sendToServer(new cn.dancingsnow.neoecoae.network.ECOBigOrderStartC2SPacket(
-                menu.containerId, forceStart));
+                menu.containerId, forceStart, ((ECOCraftConfirmMenuMode) (Object) menu).neoecoae$getDisplayedPlanRevision()));
             return;
         }
-        ECONetwork.sendToServer(new ECOForceCraftStartFlagC2SPacket(menu.containerId, forceStart));
+        ECONetwork.sendToServer(new ECOForceCraftStartFlagC2SPacket(menu.containerId, forceStart,
+            (Object) menu instanceof ECOCraftConfirmMenuMode mode ? mode.neoecoae$getDisplayedPlanRevision() : -1L));
     }
 
     private void openGraph() {
