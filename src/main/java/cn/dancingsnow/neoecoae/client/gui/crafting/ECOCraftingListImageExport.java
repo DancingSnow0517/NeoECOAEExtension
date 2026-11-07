@@ -58,13 +58,17 @@ final class ECOCraftingListImageExport {
                 "gui.neoecoae.crafting_report.export_materials", entries.size()), WIDTH - MARGIN * 2));
             int headerHeight = MARGIN + heading.size() * LINE_HEIGHT + 5;
             int maxHeight = Math.min(MAX_STRIP_HEIGHT, RenderSystem.maxSupportedTextureSize() / SCALE);
-            Layout layout = layout(entries.size(), headerHeight, maxHeight);
+            int rows = Math.toIntExact(((long) entries.size() + COLUMNS - 1) / COLUMNS);
+            int panels = panelCount(rows);
+            int rowsPerPanel = (rows + panels - 1) / panels;
+            int entriesPerPanel = Math.multiplyExact(rowsPerPanel, COLUMNS);
+            Layout layout = layout(entriesPerPanel, headerHeight, maxHeight);
             Path directory = client.gameDirectory.toPath().resolve("screenshots");
             Files.createDirectories(directory);
             Path file = directory.resolve("neoecoae-plan-"
                 + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH.mm.ss"))
                 + "-" + UUID.randomUUID().toString().substring(0, 8) + ".png");
-            renderImage(client, screen, entries, heading, headerHeight, layout, file);
+            renderImage(client, screen, entries, heading, headerHeight, layout, panels, entriesPerPanel, file);
             Component link = Component.literal(file.getFileName().toString())
                 .withStyle(ChatFormatting.UNDERLINE).withStyle(style -> style.withClickEvent(
                     new ClickEvent(ClickEvent.Action.OPEN_FILE, file.toAbsolutePath().toString())));
@@ -74,6 +78,15 @@ final class ECOCraftingListImageExport {
             LoggerFactory.getLogger("neoecoae").warn("Could not export crafting list image", exception);
             client.gui.getChat().addMessage(Component.translatable("screenshot.failure", exception.getMessage()));
         }
+    }
+
+    /** Keep the row count as close as possible to the total number of columns (three per panel). */
+    private static int panelCount(int rows) {
+        int lower = Math.max(1, (int) Math.sqrt(rows / (double) COLUMNS));
+        int upper = lower + 1;
+        long lowerDifference = Math.abs(((long) rows + lower - 1) / lower - (long) lower * COLUMNS);
+        long upperDifference = Math.abs(((long) rows + upper - 1) / upper - (long) upper * COLUMNS);
+        return upperDifference < lowerDifference ? upper : lower;
     }
 
     /** Whole rows are contiguous in the final image; only its first strip has a header. */
@@ -99,7 +112,8 @@ final class ECOCraftingListImageExport {
     }
 
     private static void renderImage(Minecraft client, AEBaseScreen<?> screen, List<Entry> entries,
-            List<FormattedCharSequence> heading, int headerHeight, Layout layout, Path file) throws IOException {
+            List<FormattedCharSequence> heading, int headerHeight, Layout layout,
+            int panels, int entriesPerPanel, Path file) throws IOException {
         // Preserve the caller's matrices without borrowing RenderSystem's shared backup slot.
         Matrix4f projection = new Matrix4f(RenderSystem.getProjectionMatrix());
         VertexSorting sorting = RenderSystem.getVertexSorting();
@@ -107,15 +121,22 @@ final class ECOCraftingListImageExport {
         modelView.pushPose();
         GuiGraphics graphics = new GuiGraphics(client, client.renderBuffers().bufferSource());
         graphics.flush();
-        try (NativeImage image = new NativeImage(WIDTH * SCALE, Math.multiplyExact(layout.height(), SCALE), false)) {
+        try (NativeImage image = new NativeImage(Math.multiplyExact(panels, WIDTH * SCALE),
+                Math.multiplyExact(layout.height(), SCALE), false)) {
             modelView.setIdentity();
             modelView.translate(0, 0, -2000);
             RenderSystem.applyModelViewMatrix();
-            for (Strip strip : layout.strips()) {
-                try (NativeImage rendered = renderStrip(client, screen, graphics, entries, heading,
-                        headerHeight, strip, strip.y() + strip.height() == layout.height())) {
-                    rendered.copyRect(image, 0, 0, 0, strip.y() * SCALE,
-                        rendered.getWidth(), rendered.getHeight(), false, false);
+            for (int panel = 0; panel < panels; panel++) {
+                int firstEntry = Math.min(entries.size(), Math.multiplyExact(panel, entriesPerPanel));
+                int endEntry = (int) Math.min(entries.size(), (long) firstEntry + entriesPerPanel);
+                List<Entry> panelEntries = entries.subList(firstEntry, endEntry);
+                for (Strip strip : layout.strips()) {
+                    try (NativeImage rendered = renderStrip(client, screen, graphics, panelEntries,
+                            panel == 0 ? heading : List.of(), headerHeight, strip,
+                            strip.y() + strip.height() == layout.height())) {
+                        rendered.copyRect(image, 0, 0, panel * WIDTH * SCALE, strip.y() * SCALE,
+                            rendered.getWidth(), rendered.getHeight(), false, false);
+                    }
                 }
             }
             image.writeToFile(file);
