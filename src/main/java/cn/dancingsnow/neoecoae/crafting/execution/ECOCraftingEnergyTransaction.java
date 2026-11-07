@@ -15,6 +15,7 @@ import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.energy.IEnergyService;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
 
 /**
  * Owns the CPU's energy reservation/refund ledger without exposing transaction details to dispatch orchestration.
@@ -72,7 +73,7 @@ final class ECOCraftingEnergyTransaction {
     @Nullable
     Reservation reserve(IEnergyService service, double perCraft, java.math.BigInteger count) {
         if (!Double.isFinite(perCraft) || perCraft < 0 || count.signum() < 0) return null;
-        var power = new BigDecimal(perCraft).multiply(new BigDecimal(count));
+        var power = ECOBatchCraftingHelper.exactEnergy(perCraft, count);
         var credit = power.min(prepaidEnergyCredit);
         var required = power.subtract(credit);
         double request = required.doubleValue();
@@ -87,8 +88,10 @@ final class ECOCraftingEnergyTransaction {
                 logAccountingFailure("energy reservation failed", failure);
                 return null;
             }
-            // Do not forgive an underpayment with a growing floating-point tolerance.
-            if (!Double.isFinite(charged) || charged != request) {
+            // CONFIG extraction multiplies then divides the request. Use the same rounding allowance
+            // as simulation, while rejecting invalid debits and keeping refunds tied to the actual charge.
+            if (!Double.isFinite(charged) || charged <= 0
+                    || Math.abs(charged - request) > ECOBatchCraftingHelper.energyTolerance(request)) {
                 if (Double.isFinite(charged) && charged > 0) refundEnergyOrRetainCredit(service, decimal(charged));
                 logAccountingFailure("reservation charged " + charged + " of " + request, null);
                 return null;

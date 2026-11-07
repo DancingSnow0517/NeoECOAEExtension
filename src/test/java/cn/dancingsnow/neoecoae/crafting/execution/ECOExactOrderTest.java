@@ -102,9 +102,13 @@ class ECOExactOrderTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(longs = {0, 4, 16384})
-    void exactDispatchHonorsSmartDoublingLimitAndDoesNotOptOrdinaryJobsIn(long limit) {
+    @org.junit.jupiter.params.provider.CsvSource({"0, 0", "4, 0", "16384, 0",
+        "1, 59.144", "4, 59.144", "0, 59.144"})
+    void exactDispatchHonorsSmartDoublingLimitAndDoesNotOptOrdinaryJobsIn(long limit, double power) {
         BigInteger expected = limit == 0 ? HUGE : BigInteger.valueOf(limit);
+        var energy = mock(appeng.api.networking.energy.IEnergyService.class);
+        when(energy.extractAEPower(anyDouble(), any(), eq(appeng.api.config.PowerMultiplier.CONFIG)))
+            .thenAnswer(call -> ((double) call.getArgument(0) * 10.0) / 10.0);
         var input = mock(AEKey.class, RETURNS_DEEP_STUBS);
         var output = mock(AEKey.class, RETURNS_DEEP_STUBS);
         when(output.getAmountPerUnit()).thenReturn(1);
@@ -138,12 +142,13 @@ class ECOExactOrderTest {
             when(provider.eco$prepareExactFastPath(any(), eq(expected))).thenReturn(
                 new cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider.ExactPreparation(expected, () -> true));
             assertEquals(expected, limit == 0
-                ? dispatcher.tryExactDispatch(request, provider, 0, null, ignored -> {})
-                : dispatcher.tryExactDispatch(request, provider, 0, null, ignored -> {}, limit));
+                ? dispatcher.tryExactDispatch(request, provider, power, energy, ignored -> {})
+                : dispatcher.tryExactDispatch(request, provider, power, energy, ignored -> {}, limit));
+            if (power == 0) verifyNoInteractions(energy);
             assertEquals(HUGE.subtract(expected), inventory.amount(input));
             assertEquals(HUGE.subtract(expected), job.tasks.get(pattern).remainingExact());
             assertEquals(expected, cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory.amount(job.waitingFor, output));
-            assertTrue(job.batchedOutputs.contains(output));
+            assertEquals(expected.compareTo(BigInteger.ONE) > 0, job.batchedOutputs.contains(output));
             assertEquals(expected, event.get().exactDispatchedCrafts());
             assertEquals(limit == 0, job.executionRuntime.isComplete());
             job.exactOrder = false;
