@@ -61,33 +61,74 @@ class JointRouteOptimizationTest {
                 Map.of(expensive, 5L, smelt, 5L));
     }
 
-    @Test void publishesPreferredRouteBeforeTheCheaperBackgroundRoute() throws Exception {
+    @Test void keepsTheCheaperValidatedCandidateWhenTheShortOptimizationWindowEnds() throws Exception {
         var expensive = pattern(List.of(stack(ingot, 1)), stack(goal, 1));
         var smelt = pattern(List.of(stack(iron, 1)), stack(ingot, 1));
         var direct = pattern(List.of(stack(copper, 1)), stack(goal, 1));
         var session = new ECOCraftingPlannerService().createSession(service(false, expensive, smelt, direct),
             goal, stock(iron, 5, copper, 5), false, false);
+        var clock = planningClock(session);
+        clock.set(120_000_000L);
         List<ECOPlanningResult> published = new ArrayList<>();
-        var result = session.plan(5, false, ECOCancellation.NONE, published::add);
+        var result = session.plan(5, false, ECOCancellation.NONE, ready -> {
+            published.add(ready);
+            clock.set(published.size() == 1 ? 169_000_000L : 171_000_000L);
+        });
         assertTrue(published.size() >= 2);
         assertTasks(published.get(0), Map.of(expensive, 5L, smelt, 5L));
         assertTasks(published.get(published.size() - 1), Map.of(direct, 5L));
         assertTasks(result, Map.of(direct, 5L));
+        assertSame(published.get(published.size() - 1), result, "Reuse the validated plan after optimization");
         assertTasks(published.get(0), Map.of(expensive, 5L, smelt, 5L));
     }
 
-    @Test void publishesCompleteMissingReportBeforeJointRecoveryFindsAnExecutableRoute() throws Exception {
+    @Test void aFirstExecutablePlanAfterTwoHundredMillisSkipsFurtherOptimization() throws Exception {
+        var expensive = pattern(List.of(stack(ingot, 1)), stack(goal, 1));
+        var smelt = pattern(List.of(stack(iron, 1)), stack(ingot, 1));
+        var direct = pattern(List.of(stack(copper, 1)), stack(goal, 1));
+        var session = new ECOCraftingPlannerService().createSession(service(false, expensive, smelt, direct),
+            goal, stock(iron, 5, copper, 5), false, false);
+        planningClock(session).set(250_000_000L);
+        List<ECOPlanningResult> candidates = new ArrayList<>();
+
+        var result = session.plan(5, false, ECOCancellation.NONE, candidates::add);
+
+        assertEquals(1, candidates.size());
+        assertSame(candidates.get(0), result);
+        assertTasks(result, Map.of(expensive, 5L, smelt, 5L));
+        assertTrue(result.routeSearchIncomplete());
+        assertTrue(result.trace().diagnostics().stream()
+            .anyMatch(diagnostic -> diagnostic.message().contains("OPTIMIZATION_TIME_LIMIT")));
+    }
+
+    @Test void aSingleProducerFinishesWithoutEnteringOptionalSearchEvenAfterTwoHundredMillis() throws Exception {
+        var direct = pattern(List.of(stack(copper, 1)), stack(goal, 1));
+        var session = new ECOCraftingPlannerService().createSession(service(false, direct),
+            goal, stock(copper, 5), false, false);
+        planningClock(session).set(250_000_000L);
+        List<ECOPlanningResult> candidates = new ArrayList<>();
+
+        var result = session.plan(5, false, ECOCancellation.NONE, candidates::add);
+
+        assertEquals(1, candidates.size());
+        assertSame(candidates.get(0), result);
+        assertTasks(result, Map.of(direct, 5L));
+        assertFalse(result.routeSearchIncomplete());
+    }
+
+    @Test void missingRouteRecoveryCanFindItsFirstExecutablePlanAfterTwoHundredMillis() throws Exception {
         var a = pattern(List.of(stack(iron, 1)), stack(goal, 1));
         var b = pattern(List.of(stack(copper, 1)), stack(goal, 1));
         var session = new ECOCraftingPlannerService().createSession(service(false, a, b),
             goal, stock(iron, 6, copper, 4), false);
+        planningClock(session).set(250_000_000L);
         List<ECOPlanningResult> published = new ArrayList<>();
         List<Map<AEKey, PlannerAmount>> missingAtPublication = new ArrayList<>();
         var result = session.plan(10, false, ECOCancellation.NONE, ready -> {
             published.add(ready);
             missingAtPublication.add(Map.copyOf(ready.exactMissingItems()));
         });
-        assertTrue(published.size() >= 2, "A shortage must not keep the first Future pending until recovery ends");
+        assertTrue(published.size() >= 2, "A missing candidate must not start the optional optimization deadline");
         var first = published.get(0);
         assertEquals(PlanningStatus.MISSING_ITEMS, first.status());
         assertFalse(first.executable());
@@ -179,6 +220,16 @@ class JointRouteOptimizationTest {
         assertTrue(incomplete.trace().diagnostics().stream().anyMatch(d -> d.code() == PlannerDiagnostic.Code.ROUTE_OPTIMIZATION_BUDGET));
         assertThrows(InterruptedException.class, () -> new JointRouteOptimizer().optimize(network,
                 PlannerInventorySnapshot.of(inventory), 5, preferred, () -> { throw new InterruptedException(); }));
+    }
+
+    private static java.util.concurrent.atomic.AtomicLong planningClock(ECOCraftingPlannerService.Session session)
+            throws ReflectiveOperationException {
+        var clock = new java.util.concurrent.atomic.AtomicLong();
+        // Reuse the budget's injectable clock so JVM warm-up and host load cannot decide which route wins.
+        var field = ECOCraftingPlannerService.Session.class.getDeclaredField("planningBudget");
+        field.setAccessible(true);
+        field.set(session, new ECOPlanningBudget(ECOCancellation.NONE, Long.MAX_VALUE, Long.MAX_VALUE, clock::get));
+        return clock;
     }
 
     private static void assertTasks(ECOPlanningResult result, Map<IPatternDetails, Long> tasks) {

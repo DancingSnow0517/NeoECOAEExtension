@@ -22,7 +22,7 @@ public final class ECOPlanningResult {
     private final List<CycleDiagnostic> cycles;
     private final List<ComponentPlanningResult> components;
     private final List<Integer> executionComponentOrder;
-    private final long calculationNanos;
+    private long calculationNanos;
     private PlannerAmount theoreticalBytes = PlannerAmount.ZERO;
     private java.util.Map<IPatternDetails, PlannerAmount> exactPatternTimes;
     private java.util.Map<appeng.api.stacks.AEKey, PlannerAmount> exactUsedItems = java.util.Map.of();
@@ -148,6 +148,8 @@ public final class ECOPlanningResult {
     public List<ComponentPlanningResult> components() { return components; }
     public List<Integer> executionComponentOrder() { return executionComponentOrder; }
     public long calculationNanos() { return calculationNanos; }
+    /** Record total elapsed time before final publication without rebuilding the validated execution plan. */
+    public void finishCalculation(long elapsedNanos) { calculationNanos = Math.max(calculationNanos, elapsedNanos); }
     public BigInteger theoreticalBytes() { return theoreticalBytes.toBigInteger(); }
     /** Final committed firing vector for reports, including counts that cannot fit an AE2 plan. */
     public java.util.Map<IPatternDetails, PlannerAmount> exactPatternTimes() { return exactPatternTimes; }
