@@ -1,6 +1,6 @@
 # AGENTS.md
 
-本文件适用于本仓库的协作与自动化代理。项目介绍见 [README_ZH_CN.md](README_ZH_CN.md)，附属接入见 [中文 API](docs/API_ZH_CN.md) / [English API](docs/API.md)。`docs/` 只维护 API；不新增开发流程、机制介绍、性能报告或历史记录。玩法内容维护在 `guidebook/`，版本更新维护在 `CHANGELOG.md`。
+本文件适用于本仓库的协作与自动化代理或任何人类、猫以及六个月之后完全忘记自己曾经写了什么的你。项目介绍见 [README_ZH_CN.md](README_ZH_CN.md)，附属接入见 [中文 API](docs/API_ZH_CN.md) / [English API](docs/API.md)。`docs/` 只维护 API；不新增开发流程、机制介绍、性能报告或历史记录。玩法内容维护在 `guidebook/`，版本更新维护在 `CHANGELOG.md`。
 
 ## 开始工作
 
@@ -9,6 +9,7 @@
 - Mod 源码仓库统一位于 `E:\Minecraft Project`。查找外部 Mod 时先确认远端与分支；没有本地仓库则从 GitHub 克隆，有远端更新则先拉取再阅读。已有未提交修改或分支分叉时不得强制覆盖；可使用隔离检出读取远端。
 - 接入以本仓实际依赖和目标实例 JAR 为准。最新版源码不等于编译/运行版本；必要时读取匹配 tag 或用 `javap` 核对签名、Mixin 目标。
 - 先用 `rg` 定位实际入口，再读取相关代码和测试。按任务查阅下表，不在每次开始时加载全部源码或文档。
+- 禁止发挥任何不必要的小巧思，任何涉及新功能/想法请发 issue 讨论而非直接
 
 ## 任务路由
 
