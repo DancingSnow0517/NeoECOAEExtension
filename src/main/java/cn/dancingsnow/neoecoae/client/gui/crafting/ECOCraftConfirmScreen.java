@@ -82,7 +82,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         Component.translatable("gui.neoecoae.crafting_report.calculating"));
 
     private record ReportSummaryState(@Nullable CraftingPlanSummary plan, boolean loadingDetails,
-            long nanos, BigInteger bytes, boolean unknownBytes,
+            long nanos, @Nullable BigInteger bytes, boolean incompleteBytes,
             @Nullable CraftingGraphSnapshot.Summary graphSummary, Language language,
             net.minecraft.client.gui.Font font) {}
 
@@ -154,7 +154,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 : null);
 
         Component cpuDetails = Component.empty();
-        boolean unknownBytes = (Object) menu instanceof ECOCraftConfirmMenuMode byteMode
+        boolean incompleteBytes = (Object) menu instanceof ECOCraftConfirmMenuMode byteMode
             && byteMode.neoecoae$getPlanningStatus() != null
             && !materialData.hasCompleteByteEstimate();
         if (plan != null) {
@@ -188,13 +188,13 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             selectCPU.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
                 cpuDetails));
             if (plan != null && !retainedMaterials) {
-                unknownBytes = true;
+                incompleteBytes = true;
             }
         } else if (isDiagnosticShell()) {
             var mode = (ECOCraftConfirmMenuMode) (Object) menu;
             cpuDetails = Component.translatable("gui.neoecoae.crafting_report.planning_failed")
                 .withStyle(neColor -> neColor.withColor(0x752121));
-            unknownBytes = true;
+            incompleteBytes = true;
             selectCPU.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
                 Component.literal(mode.neoecoae$getPlanningStatus() + "\n" + mode.neoecoae$getPlanningDiagnostic())));
         } else {
@@ -252,7 +252,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             start.active = false;
             graph.active = false;
         }
-        updateReportSummary(plan, unknownBytes);
+        updateReportSummary(plan, incompleteBytes);
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode && mode.neoecoae$getReportSyncFailure() != 0) {
             setTextContent("complex_tree_hint", Component.translatable(mode.neoecoae$getReportSyncFailure() == 1
                 ? "gui.neoecoae.crafting_report.material_sync_failed"
@@ -275,7 +275,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         }
     }
 
-    private void updateReportSummary(@Nullable CraftingPlanSummary plan, boolean unknownBytes) {
+    private void updateReportSummary(@Nullable CraftingPlanSummary plan, boolean incompleteBytes) {
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode && mode.neoecoae$getReportSyncFailure() == 1) {
             reportSummaryState = null;
             reportSummary = ECOCraftReportHeaderRenderer.pending(
@@ -294,7 +294,9 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             BigInteger theoreticalBytes = mode.neoecoae$getTheoreticalBytes();
             if (theoreticalBytes.signum() > 0) usedBytes = theoreticalBytes;
         }
-        var state = new ReportSummaryState(plan, loadingDetails, nanos, usedBytes, unknownBytes,
+        // Retain calculated bytes for partial reports, but never invent a total from a diagnostic shell.
+        if (incompleteBytes && !materialData.hasMaterialDetails()) usedBytes = null;
+        var state = new ReportSummaryState(plan, loadingDetails, nanos, usedBytes, incompleteBytes,
             graphSummary, Language.getInstance(), font);
         if (state.equals(reportSummaryState)) return;
         reportSummaryState = state;
@@ -305,7 +307,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             reportSummary = ECOCraftReportHeaderRenderer.pending(
                 Component.translatable("gui.neoecoae.crafting_report.calculating"));
         } else {
-            reportSummary = ECOCraftReportHeaderRenderer.completed(nanos, unknownBytes ? null : usedBytes,
+            reportSummary = ECOCraftReportHeaderRenderer.completed(nanos, usedBytes, !incompleteBytes,
                 text -> font.width(text));
             if (graphSummary != null) {
                 var tooltip = new ArrayList<>(reportSummary.tooltip());

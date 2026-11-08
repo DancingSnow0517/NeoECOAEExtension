@@ -634,6 +634,8 @@
   "gui.neoecoae.crafting_report.bookmark_missing": "Save Missing",
   "gui.neoecoae.crafting_report.bytes": " - Bytes: %s",
   "gui.neoecoae.crafting_report.bytes_only": "Bytes: %s",
+  "gui.neoecoae.crafting_report.bytes_partial": "Partial bytes: %s",
+  "gui.neoecoae.crafting_report.bytes_partial_hint": "Only the computed portion is included. Unresolved cycles or branches prevent a complete byte total.",
   "gui.neoecoae.crafting_report.bytes_pending": "Bytes: pending",
   "gui.neoecoae.crafting_report.bytes_unknown": "Bytes: unknown",
   "gui.neoecoae.crafting_report.calculating": "Calculating...",

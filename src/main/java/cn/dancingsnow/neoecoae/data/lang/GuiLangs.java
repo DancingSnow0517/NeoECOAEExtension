@@ -821,6 +821,8 @@ public class GuiLangs {
         // computation interface
         provider.add("gui.neoecoae.crafting_report.bytes", " - Bytes: %s");
         provider.add("gui.neoecoae.crafting_report.bytes_only", "Bytes: %s");
+        provider.add("gui.neoecoae.crafting_report.bytes_partial", "Partial bytes: %s");
+        provider.add("gui.neoecoae.crafting_report.bytes_partial_hint", "Only the computed portion is included. Unresolved cycles or branches prevent a complete byte total.");
         provider.add("gui.neoecoae.crafting_report.elapsed", "Time: %s ms");
         provider.add("gui.neoecoae.crafting_report.total_patterns", "Total patterns: %s");
         provider.add("gui.neoecoae.crafting_report.total_cycles", "Total cycles: %s");

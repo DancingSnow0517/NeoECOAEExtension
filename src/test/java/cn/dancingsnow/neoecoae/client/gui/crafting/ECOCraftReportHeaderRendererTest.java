@@ -3,7 +3,12 @@ package cn.dancingsnow.neoecoae.client.gui.crafting;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import appeng.api.stacks.AEKey;
+import appeng.menu.me.crafting.CraftConfirmMenu;
+import appeng.menu.me.crafting.CraftingPlanSummary;
+import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.math.BigInteger;
 import java.util.ArrayDeque;
@@ -141,7 +146,7 @@ class ECOCraftReportHeaderRendererTest {
     @Test
     void hugeByteCountsRemainExactInTheTooltipAndFitTheMeasuredRow() {
         BigInteger huge = BigInteger.TEN.pow(123).add(BigInteger.valueOf(987654321));
-        var summary = ECOCraftReportHeaderRenderer.completed(543_210L, huge,
+        var summary = ECOCraftReportHeaderRenderer.completed(543_210L, huge, true,
             text -> ("字节：" + argument(text)).length() * 9);
 
         assertEquals("0.54321", argument(summary.elapsed()));
@@ -156,12 +161,66 @@ class ECOCraftReportHeaderRendererTest {
     }
 
     @Test
+    void incompleteStressReportKeepsComputedBigIntegerBytesInTheScreenAndTooltip() throws Exception {
+        BigInteger huge = BigInteger.TEN.pow(123).add(BigInteger.valueOf(987654321));
+        var node = new CraftingGraphSnapshot.MaterialNode(0, mock(AEKey.class), 100, 0, 0, 100,
+            CraftingGraphSnapshot.MaterialStatus.MISSING);
+        var cycle = new CraftingGraphSnapshot.CycleGroup(75, List.of(0), List.of(),
+            "INSUFFICIENT_EXTERNAL_INPUT", List.of(), List.of(), List.of(), List.of(), List.of());
+        var snapshot = new CraftingGraphSnapshot(0, List.of(node), List.of(), List.of(), List.of(cycle),
+            List.of(), new CraftingGraphSnapshot.Summary("PLANNED_BUT_AMOUNT_UNREPRESENTABLE", 1, 0, 0, 1, 0));
+        var data = new ECOExactMaterialTableRenderer.MaterialData();
+        data.update(snapshot, List.of());
+        assertFalse(data.hasCompleteByteEstimate());
+
+        var menu = mock(CraftConfirmMenu.class, withSettings().extraInterfaces(ECOCraftConfirmMenuMode.class));
+        var mode = (ECOCraftConfirmMenuMode) menu;
+        when(mode.neoecoae$diagnosticsReady()).thenReturn(true);
+        when(mode.neoecoae$getTheoreticalBytes()).thenReturn(huge);
+        when(mode.neoecoae$getCraftingGraphSnapshot()).thenReturn(snapshot);
+        var plan = mock(CraftingPlanSummary.class);
+        when(plan.getUsedBytes()).thenReturn(Long.MAX_VALUE);
+        var screen = mock(ECOCraftConfirmScreen.class);
+        var font = mock(Font.class);
+        when(font.width(any(Component.class))).thenAnswer(call ->
+            ("已算字节：" + argument(call.getArgument(0))).length() * 7);
+        setField(net.minecraft.client.gui.screens.inventory.AbstractContainerScreen.class, screen, "menu", menu);
+        setField(net.minecraft.client.gui.screens.Screen.class, screen, "font", font);
+        setField(ECOCraftConfirmScreen.class, screen, "materialData", data);
+        var update = ECOCraftConfirmScreen.class.getDeclaredMethod(
+            "updateReportSummary", CraftingPlanSummary.class, boolean.class);
+        update.setAccessible(true);
+        var summaryField = ECOCraftConfirmScreen.class.getDeclaredField("reportSummary");
+        summaryField.setAccessible(true);
+        update.invoke(screen, plan, !data.hasCompleteByteEstimate());
+        var summary = (ECOCraftReportHeaderRenderer.Summary) summaryField.get(screen);
+
+        assertEquals("gui.neoecoae.crafting_report.bytes_partial", key(summary.bytes()));
+        assertTrue(font.width(summary.bytes()) <= (int) (100 / 1.15F));
+        assertEquals("gui.neoecoae.crafting_report.bytes_partial", key(summary.tooltip().get(1)));
+        assertTrue(summary.tooltip().stream().anyMatch(line -> line.getContents() instanceof TranslatableContents text
+            && text.getKey().equals("gui.neoecoae.crafting_report.bytes_partial_hint")));
+        String exact = summary.tooltip().stream().filter(line -> !(line.getContents() instanceof TranslatableContents))
+            .map(Component::getString).reduce("", String::concat);
+        assertEquals(DisplayNumbers.grouped(huge.toString()) + " B", exact);
+
+        data.update(CraftingGraphSnapshot.EMPTY, List.of());
+        when(mode.neoecoae$getCraftingGraphSnapshot()).thenReturn(CraftingGraphSnapshot.EMPTY);
+        update.invoke(screen, plan, true);
+        summary = (ECOCraftReportHeaderRenderer.Summary) summaryField.get(screen);
+        assertEquals("gui.neoecoae.crafting_report.bytes_unknown", key(summary.bytes()),
+            "A diagnostic shell without material calculations must not display a byte total");
+    }
+
+    @Test
     void pendingAndUnknownByteCountsAreDistinctAndZeroRetainsElapsedTooltip() {
         var pending = ECOCraftReportHeaderRenderer.pending(Component.literal("计算中…"));
-        var unknown = ECOCraftReportHeaderRenderer.completed(0, null, text -> 0);
-        var zero = ECOCraftReportHeaderRenderer.completed(0, BigInteger.ZERO, text -> 0);
+        var unknown = ECOCraftReportHeaderRenderer.completed(0, null, false, text -> 0);
+        var zero = ECOCraftReportHeaderRenderer.completed(0, BigInteger.ZERO, true, text -> 0);
+        var incompleteZero = ECOCraftReportHeaderRenderer.completed(0, BigInteger.ZERO, false, text -> 0);
         assertEquals("gui.neoecoae.crafting_report.bytes_pending", key(pending.bytes()));
         assertEquals("gui.neoecoae.crafting_report.bytes_unknown", key(unknown.bytes()));
+        assertEquals("gui.neoecoae.crafting_report.bytes_unknown", key(incompleteZero.bytes()));
         assertEquals("0.0000", argument(zero.elapsed()));
         assertEquals("0 B", argument(zero.bytes()));
         assertEquals("0.0000010000", ECOCraftReportHeaderRenderer.formatMillis(1));
