@@ -33,13 +33,16 @@ final class ECOCraftingListImageExport {
     private static final int COLUMNS = 3;
     private static final int ROW_HEIGHT = 23;
     private static final int TABLE_WIDTH = 205;
+    // Adjacent groups share the same one-pixel cell divider.
+    private static final int PANEL_STRIDE = TABLE_WIDTH - 1;
     private static final int TABLE_X = 9;
     private static final int TABLE_TEXTURE_Y = 27;
     private static final int VISIBLE_ROWS = 7;
     private static final int WIDTH = 222;
     private static final int MARGIN = 9;
     private static final int MAX_STRIP_HEIGHT = 1024;
-    private static final int SCALE = 2;
+    // Render directly at higher resolution to preserve detail in the table's small text and icons.
+    private static final int SCALE = 4;
     private static final int LINE_HEIGHT = 11;
 
     record Entry(AEKey key, List<Component> description, int overlay) {}
@@ -52,14 +55,15 @@ final class ECOCraftingListImageExport {
         if (entries.isEmpty()) return;
         Minecraft client = Minecraft.getInstance();
         try {
-            List<FormattedCharSequence> heading = new ArrayList<>();
-            for (Component line : header) heading.addAll(client.font.split(line, WIDTH - MARGIN * 2));
-            heading.addAll(client.font.split(Component.translatable(
-                "gui.neoecoae.crafting_report.export_materials", entries.size()), WIDTH - MARGIN * 2));
-            int headerHeight = MARGIN + heading.size() * LINE_HEIGHT + 5;
-            int maxHeight = Math.min(MAX_STRIP_HEIGHT, RenderSystem.maxSupportedTextureSize() / SCALE);
             int rows = Math.toIntExact(((long) entries.size() + COLUMNS - 1) / COLUMNS);
             int panels = panelCount(rows);
+            int headingWidth = (panels == 1 ? WIDTH : TABLE_X - 1 + PANEL_STRIDE) - MARGIN * 2;
+            List<FormattedCharSequence> heading = new ArrayList<>();
+            for (Component line : header) heading.addAll(client.font.split(line, headingWidth));
+            heading.addAll(client.font.split(Component.translatable(
+                "gui.neoecoae.crafting_report.export_materials", entries.size()), headingWidth));
+            int headerHeight = MARGIN + heading.size() * LINE_HEIGHT + 5;
+            int maxHeight = Math.min(MAX_STRIP_HEIGHT, RenderSystem.maxSupportedTextureSize() / SCALE);
             int rowsPerPanel = (rows + panels - 1) / panels;
             int entriesPerPanel = Math.multiplyExact(rowsPerPanel, COLUMNS);
             Layout layout = layout(entriesPerPanel, headerHeight, maxHeight);
@@ -121,7 +125,8 @@ final class ECOCraftingListImageExport {
         modelView.pushPose();
         GuiGraphics graphics = new GuiGraphics(client, client.renderBuffers().bufferSource());
         graphics.flush();
-        try (NativeImage image = new NativeImage(Math.multiplyExact(panels, WIDTH * SCALE),
+        int imageWidth = Math.addExact(WIDTH, Math.multiplyExact(panels - 1, PANEL_STRIDE));
+        try (NativeImage image = new NativeImage(Math.multiplyExact(imageWidth, SCALE),
                 Math.multiplyExact(layout.height(), SCALE), false)) {
             modelView.setIdentity();
             modelView.translate(0, 0, -2000);
@@ -130,12 +135,16 @@ final class ECOCraftingListImageExport {
                 int firstEntry = Math.min(entries.size(), Math.multiplyExact(panel, entriesPerPanel));
                 int endEntry = (int) Math.min(entries.size(), (long) firstEntry + entriesPerPanel);
                 List<Entry> panelEntries = entries.subList(firstEntry, endEntry);
+                // Keep only the image's outer margins; splice the groups at their cell dividers.
+                int sourceX = panel == 0 ? 0 : TABLE_X - 1;
+                int sourceEndX = panel == panels - 1 ? WIDTH : TABLE_X - 1 + PANEL_STRIDE;
+                int destinationX = panel * PANEL_STRIDE + sourceX;
                 for (Strip strip : layout.strips()) {
                     try (NativeImage rendered = renderStrip(client, screen, graphics, panelEntries,
                             panel == 0 ? heading : List.of(), headerHeight, strip,
                             strip.y() + strip.height() == layout.height())) {
-                        rendered.copyRect(image, 0, 0, panel * WIDTH * SCALE, strip.y() * SCALE,
-                            rendered.getWidth(), rendered.getHeight(), false, false);
+                        rendered.copyRect(image, sourceX * SCALE, 0, destinationX * SCALE, strip.y() * SCALE,
+                            (sourceEndX - sourceX) * SCALE, rendered.getHeight(), false, false);
                     }
                 }
             }
