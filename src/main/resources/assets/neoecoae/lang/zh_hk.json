@@ -725,6 +725,8 @@
   "gui.neoecoae.crafting_report.solving_large_cycle": "[ECO] 正在求解大型循環",
   "gui.neoecoae.crafting_report.bytes": " - 字節：%s",
   "gui.neoecoae.crafting_report.bytes_only": "字節：%s",
+  "gui.neoecoae.crafting_report.bytes_partial": "已算字節：%s",
+  "gui.neoecoae.crafting_report.bytes_partial_hint": "僅統計已計算的部分；仍有循環或分支未完成求解，暫不能確定整單總字節數。",
   "gui.neoecoae.crafting_report.elapsed": "耗時：%s ms",
   "gui.neoecoae.crafting_report.total_patterns": "樣板總數：%s",
   "gui.neoecoae.crafting_report.total_cycles": "循環總數：%s",

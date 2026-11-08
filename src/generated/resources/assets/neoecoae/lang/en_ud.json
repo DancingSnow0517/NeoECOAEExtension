@@ -551,6 +551,8 @@
   "gui.neoecoae.crafting_report.bookmark_missing": "buıssıW ǝʌɐS",
   "gui.neoecoae.crafting_report.bytes": "%s :sǝʇʎᗺ - ",
   "gui.neoecoae.crafting_report.bytes_only": "%s :sǝʇʎᗺ",
+  "gui.neoecoae.crafting_report.bytes_partial": "%s :sǝʇʎq ןɐıʇɹɐԀ",
+  "gui.neoecoae.crafting_report.bytes_partial_hint": "˙ןɐʇoʇ ǝʇʎq ǝʇǝןdɯoɔ ɐ ʇuǝʌǝɹd sǝɥɔuɐɹq ɹo sǝןɔʎɔ pǝʌןosǝɹu∩ ˙pǝpnןɔuı sı uoıʇɹod pǝʇndɯoɔ ǝɥʇ ʎןuO",
   "gui.neoecoae.crafting_report.bytes_pending": "buıpuǝd :sǝʇʎᗺ",
   "gui.neoecoae.crafting_report.bytes_unknown": "uʍouʞun :sǝʇʎᗺ",
   "gui.neoecoae.crafting_report.calculating": "˙˙˙buıʇɐןnɔןɐƆ",
