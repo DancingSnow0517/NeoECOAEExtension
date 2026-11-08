@@ -2,24 +2,46 @@ package cn.dancingsnow.neoecoae.crafting.planner;
 
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class ECOPlanningBudgetTest {
-    @Test void executablePreviewReleasesTheGlobalLimitButKeepsCancellationAndCandidateLimits() throws Exception {
+    @ParameterizedTest
+    @CsvSource({"0, 50", "120, 170", "180, 200", "200, 200", "320, 200"})
+    void optimizationUsesAtMostFiftyMillisWithinTheFirstTwoHundred(long firstMillis, long deadlineMillis)
+            throws Exception {
+        var clock = new AtomicLong();
+        var budget = new ECOPlanningBudget(ECOCancellation.NONE, 100, 1_000_000_000L, clock::get);
+        clock.set(firstMillis * 1_000_000L);
+        budget.checkpoint(); // Searching for feasibility may legitimately take longer than 200 ms.
+        budget.beginOptimization();
+        if (firstMillis < deadlineMillis) {
+            clock.set(deadlineMillis * 1_000_000L - 1L);
+            budget.checkpoint();
+        }
+        clock.set(Math.max(firstMillis, deadlineMillis) * 1_000_000L);
+        var exhausted = assertThrows(ECOPlanningBudget.Exhausted.class, budget::checkpoint);
+        assertTrue(exhausted.getMessage().contains("reason=OPTIMIZATION_TIME_LIMIT"));
+    }
+
+    @Test void improvementsAndCandidateLimitsCannotRestartTheWindowAndCancellationStillWins() throws Exception {
         var cancelled = new java.util.concurrent.atomic.AtomicBoolean();
         var clock = new AtomicLong();
         var budget = new ECOPlanningBudget(() -> {
             if (cancelled.get()) throw new InterruptedException("submitted");
-        }, 2, 100, clock::get);
+        }, 100, 1_000_000_000L, clock::get);
         budget.checkpoint();
-        budget.continueUntilCancelled();
-        clock.set(1_000);
-        for (int i = 0; i < 10; i++) budget.checkpoint();
-        var candidate = budget.slice(2, 100);
+        budget.beginOptimization();
+        clock.set(40_000_000L);
+        budget.beginOptimization(); // A better candidate must not grant another 50 ms.
+        var candidate = budget.slice(2, 100_000_000L);
         candidate.checkpoint(); candidate.checkpoint();
         assertThrows(ECOPlanningBudget.Exhausted.class, candidate::checkpoint);
         budget.checkpoint();
+        clock.set(50_000_000L);
+        assertThrows(ECOPlanningBudget.Exhausted.class, budget::checkpoint);
         cancelled.set(true);
         assertThrows(InterruptedException.class, budget::checkpoint);
     }

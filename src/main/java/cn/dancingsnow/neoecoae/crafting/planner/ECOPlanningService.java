@@ -5,10 +5,8 @@ import appeng.api.networking.crafting.CalculationStrategy;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
-import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 
 import java.util.concurrent.Future;
 import java.util.concurrent.CompletableFuture;
@@ -43,7 +41,7 @@ public final class ECOPlanningService {
         Request request = new Request();
         request.attach(ECOPlanningExecutor.submit(() -> {
             try {
-                request.finish(plan(session, goal, amount, strategy, request::checkpoint, request::publish));
+                request.finish(plan(session, goal, amount, strategy, request::checkpoint, request::retainCandidate));
             } catch (Throwable failure) {
                 request.fail(failure);
             }
@@ -104,12 +102,12 @@ public final class ECOPlanningService {
         return result.executable();
     }
 
-    /** The Future completes at the first usable preview; its worker remains owned by the open menu. */
+    /** Candidates remain private until the worker selects one final plan for the confirmation page. */
     public static final class Request implements Future<ICraftingPlan> {
         public static final int SEARCHING = 1, COMPLETE = 2, LIMITED = 3, FAILED = 4, STOPPED = 5;
-        private final CompletableFuture<ICraftingPlan> first = new CompletableFuture<>();
-        private volatile @Nullable ICraftingPlan latest;
-        private @Nullable ECOPlanningResult latestResult;
+        private final CompletableFuture<ICraftingPlan> completion = new CompletableFuture<>();
+        private @Nullable ICraftingPlan candidate;
+        private @Nullable ECOPlanningResult candidateResult;
         private volatile int searchState = SEARCHING;
         private volatile boolean stopped;
         private @Nullable Future<?> worker;
@@ -119,28 +117,27 @@ public final class ECOPlanningService {
             if (stopped) task.cancel(true);
         }
 
-        private synchronized void publish(ECOPlanningResult result) {
-            if (stopped) return;
-            latest = result.plan();
-            latestResult = result;
-            first.complete(latest);
+        private synchronized void retainCandidate(ECOPlanningResult result) {
+            if (stopped || completion.isDone()) return;
+            candidate = result.plan();
+            candidateResult = result;
         }
 
         private synchronized void finish(ICraftingPlan plan) {
-            if (stopped) return;
+            if (stopped || completion.isDone()) return;
             var result = cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry.findExact(plan);
             boolean executable = result != null && result.executable();
-            boolean reportCompleted = result != null && latestResult != null && !latestResult.executable()
-                && !result.exactMissingItems().isEmpty() && sameMaterialReport(latestResult, result);
-            // An interrupted/failed speculative search must never replace an already usable preview.
+            boolean reportCompleted = result != null && candidateResult != null && !candidateResult.executable()
+                && !result.exactMissingItems().isEmpty() && sameMaterialReport(candidateResult, result);
+            // An interrupted/failed speculative search must never discard a validated candidate.
             // A retained full shortage report can acquire a final proof or limited-search diagnostic.
-            if (latest == null || executable || reportCompleted) {
-                latest = plan;
-                latestResult = result;
-                first.complete(plan);
+            if (candidate == null || executable || reportCompleted) {
+                candidate = plan;
+                candidateResult = result;
             }
             searchState = result != null && result.routeSearchIncomplete() ? LIMITED
-                : latest != plan && !executable ? FAILED : COMPLETE;
+                : candidate != plan && !executable ? FAILED : COMPLETE;
+            completion.complete(candidate);
         }
 
         private static boolean sameMaterialReport(ECOPlanningResult before, ECOPlanningResult after) {
@@ -153,9 +150,10 @@ public final class ECOPlanningService {
         }
 
         private synchronized void fail(Throwable failure) {
-            if (stopped) return;
+            if (stopped || completion.isDone()) return;
             searchState = FAILED;
-            first.completeExceptionally(failure);
+            if (candidate != null) completion.complete(candidate);
+            else completion.completeExceptionally(failure);
         }
 
         private void checkpoint() throws InterruptedException {
@@ -163,24 +161,24 @@ public final class ECOPlanningService {
             if (stopped) throw new InterruptedException("ECO confirmation closed or submitted");
         }
 
-        public @Nullable ICraftingPlan latest() { return latest; }
         public int searchState() { return searchState; }
 
         @Override public boolean cancel(boolean mayInterruptIfRunning) {
             Future<?> task;
             synchronized (this) {
+                if (stopped || completion.isDone()) return false;
                 stopped = true;
                 searchState = STOPPED;
                 task = worker;
             }
             if (task != null) task.cancel(mayInterruptIfRunning);
-            return first.cancel(mayInterruptIfRunning);
+            return completion.cancel(mayInterruptIfRunning);
         }
-        @Override public boolean isCancelled() { return first.isCancelled(); }
-        @Override public boolean isDone() { return first.isDone(); }
-        @Override public ICraftingPlan get() throws InterruptedException, ExecutionException { return first.get(); }
+        @Override public boolean isCancelled() { return completion.isCancelled(); }
+        @Override public boolean isDone() { return completion.isDone(); }
+        @Override public ICraftingPlan get() throws InterruptedException, ExecutionException { return completion.get(); }
         @Override public ICraftingPlan get(long timeout, TimeUnit unit)
-                throws InterruptedException, ExecutionException, TimeoutException { return first.get(timeout, unit); }
+                throws InterruptedException, ExecutionException, TimeoutException { return completion.get(timeout, unit); }
     }
 
     private static void checkpoint() throws InterruptedException {

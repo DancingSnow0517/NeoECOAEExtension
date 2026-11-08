@@ -842,10 +842,10 @@ public final class ComponentPlanner {
                     || preferred.status() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE)) {
             listener.accept(preferred);
         }
-        if (executable && improvePublishedRoute) ((ECOPlanningBudget) cancellation).continueUntilCancelled();
-        // The first executable route reaches the confirmation page before any optional optimization.
-        if (executable && !improvePublishedRoute) return preferred;
+        // No optional work is needed when there is no competing producer route.
+        if (executable && (!improvePublishedRoute || !network.multiplePaths())) return preferred;
         try {
+            cancellation.checkpoint();
             // Preserve the completed route's material report if this proof itself exhausts the session.
             // It runs before the heavyweight joint model and whole-route alternatives.
             if (!executable
@@ -884,7 +884,6 @@ public final class ComponentPlanner {
                         && offerCandidate(optimized, listener)) {
                     preferred = optimized;
                     executable = true;
-                    if (improvePublishedRoute) ((ECOPlanningBudget) cancellation).continueUntilCancelled();
                 }
             }
             if (executable && !improvePublishedRoute) return preferred;
@@ -911,8 +910,8 @@ public final class ComponentPlanner {
                         boolean executable)
             throws InterruptedException {
         ECOPlanningBudget sessionBudget = (ECOPlanningBudget) cancellation;
-        // Opening a progressive confirmation is not evidence of a supplied plan. Only an executable
-        // incumbent allows continued optimization; failed-route recovery keeps its bounded share.
+        // Only a validated executable incumbent starts the short optimization window.
+        // Failed-route recovery keeps its original allowance until it finds one.
         if (!executable || !improvePublishedRoute) cancellation = sessionBudget.slice(
             Math.max(1L, NEConfig.ecoPlanningMaxWork / ALTERNATIVE_ROUTE_SHARE),
             Math.max(1L, NEConfig.ecoPlanningMaxMillis) * 1_000_000L / ALTERNATIVE_ROUTE_SHARE);
@@ -983,7 +982,6 @@ public final class ComponentPlanner {
                     resultTrace = alternative.trace();
                     if (!improvePublishedRoute) return alternative;
                     // Recovery found an executable route. Stop using its small allowance before optimizing it.
-                    sessionBudget.continueUntilCancelled();
                     cancellation = sessionBudget;
                 }
             }

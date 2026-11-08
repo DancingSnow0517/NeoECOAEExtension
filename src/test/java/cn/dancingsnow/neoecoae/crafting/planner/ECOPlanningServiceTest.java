@@ -7,49 +7,65 @@ import static org.mockito.Mockito.*;
 import appeng.api.networking.crafting.CalculationStrategy;
 import appeng.api.stacks.AEKey;
 import appeng.crafting.CraftingPlan;
+import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class ECOPlanningServiceTest {
     private final ECOCraftingPlannerService.Session session = mock(ECOCraftingPlannerService.Session.class);
     private final AEKey goal = mock(AEKey.class);
 
-    @Test
-    void firstPreviewCompletesBeforeTheWorkerFinishesAndKeepsImproving() throws Exception {
-        var initial = result(PlanningStatus.SUCCESS, false);
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void candidatesStayPrivateUntilTheFinalPlanIsSelectedAndCannotReplaceItLater(boolean initiallyMissing)
+            throws Exception {
+        var initial = result(initiallyMissing ? PlanningStatus.MISSING_ITEMS : PlanningStatus.SUCCESS, initiallyMissing);
         var improved = result(PlanningStatus.SUCCESS, false);
-        var continueSearch = new java.util.concurrent.CountDownLatch(1);
+        var retained = new CountDownLatch(1);
+        var continueSearch = new CountDownLatch(1);
+        var callback = new java.util.concurrent.atomic.AtomicReference<java.util.function.Consumer<ECOPlanningResult>>();
         when(session.plan(eq(10L), eq(false), any(), any())).thenAnswer(call -> {
             java.util.function.Consumer<ECOPlanningResult> publish = call.getArgument(3);
+            callback.set(publish);
             publish.accept(initial);
-            assertTrue(continueSearch.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            retained.countDown();
+            assertTrue(continueSearch.await(5, TimeUnit.SECONDS));
             publish.accept(improved);
             return improved;
         });
         var request = ECOPlanningService.begin(session, goal, 10L, CalculationStrategy.REPORT_MISSING_ITEMS);
         try {
-            assertSame(initial.plan(), request.get(5, java.util.concurrent.TimeUnit.SECONDS));
+            assertTrue(retained.await(5, TimeUnit.SECONDS));
+            assertFalse(request.isDone());
+            assertThrows(TimeoutException.class, () -> request.get(0, TimeUnit.NANOSECONDS));
             assertEquals(ECOPlanningService.Request.SEARCHING, request.searchState());
             continueSearch.countDown();
-            awaitFinished(request);
-            assertSame(improved.plan(), request.latest());
-            assertSame(initial.plan(), request.get(), "AE2's initial Future must keep its first preview");
+            assertSame(improved.plan(), request.get(5, TimeUnit.SECONDS));
+            assertEquals(ECOPlanningService.Request.COMPLETE, request.searchState());
+            callback.get().accept(initial);
+            assertSame(improved.plan(), request.get(), "Late candidates cannot replace the displayed plan");
         } finally { continueSearch.countDown(); request.cancel(true); }
     }
 
     @Test
-    void submissionCancellationRejectsLatePublishedRoutes() throws Exception {
+    void closingTheMenuCancelsThePendingResultAndRejectsLateCandidates() throws Exception {
         var initial = result(PlanningStatus.MISSING_ITEMS, true);
         var late = result(PlanningStatus.SUCCESS, false);
         var blocked = new java.util.concurrent.CountDownLatch(1);
         var attempted = new java.util.concurrent.CountDownLatch(1);
+        var retained = new CountDownLatch(1);
         when(session.plan(eq(10L), eq(false), any(), any())).thenAnswer(call -> {
             java.util.function.Consumer<ECOPlanningResult> publish = call.getArgument(3);
             publish.accept(initial);
+            retained.countDown();
             try { blocked.await(); } catch (InterruptedException cancelled) { /* Simulate a late callback. */ }
             publish.accept(late);
             attempted.countDown();
@@ -57,16 +73,18 @@ class ECOPlanningServiceTest {
         });
         var request = ECOPlanningService.begin(session, goal, 10L, CalculationStrategy.REPORT_MISSING_ITEMS);
         try {
-            assertSame(initial.plan(), request.get(5, java.util.concurrent.TimeUnit.SECONDS));
-            request.cancel(true);
+            assertTrue(retained.await(5, TimeUnit.SECONDS));
+            assertFalse(request.isDone());
+            assertTrue(request.cancel(true));
             assertTrue(attempted.await(5, java.util.concurrent.TimeUnit.SECONDS));
-            assertSame(initial.plan(), request.latest());
+            assertTrue(request.isCancelled());
+            assertThrows(java.util.concurrent.CancellationException.class, request::get);
             assertEquals(ECOPlanningService.Request.STOPPED, request.searchState());
         } finally { blocked.countDown(); request.cancel(true); }
     }
 
     @Test
-    void aBackgroundFailureKeepsTheExecutablePreview() throws Exception {
+    void anOptimizationFailureStillPublishesTheValidatedCandidate() throws Exception {
         var initial = result(PlanningStatus.SUCCESS, false);
         when(session.plan(eq(10L), eq(false), any(), any())).thenAnswer(call -> {
             ((java.util.function.Consumer<ECOPlanningResult>) call.getArgument(3)).accept(initial);
@@ -75,14 +93,12 @@ class ECOPlanningServiceTest {
         var request = ECOPlanningService.begin(session, goal, 10L, CalculationStrategy.REPORT_MISSING_ITEMS);
         try {
             assertSame(initial.plan(), request.get(5, java.util.concurrent.TimeUnit.SECONDS));
-            awaitFinished(request);
-            assertSame(initial.plan(), request.latest());
             assertEquals(ECOPlanningService.Request.FAILED, request.searchState());
         } finally { request.cancel(true); }
     }
 
     @Test
-    void completedShortageSearchRefreshesItsProofWithoutReplacingTheInitialFuture() throws Exception {
+    void shortageReportIsPublishedOnceWithTheCompletedProofOrLimitedSearchDiagnostic() throws Exception {
         for (boolean limited : List.of(false, true)) {
             var initial = result(PlanningStatus.MISSING_ITEMS, true);
             var finished = result(limited ? PlanningStatus.CYCLE_UNRESOLVED : PlanningStatus.MISSING_ITEMS, true);
@@ -95,31 +111,26 @@ class ECOPlanningServiceTest {
                 "Finished checking alternatives"));
             cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry.register(finished.plan(), finished);
             var continueSearch = new java.util.concurrent.CountDownLatch(1);
+            var retained = new CountDownLatch(1);
             when(session.plan(eq(10L), eq(false), any(), any())).thenAnswer(call -> {
                 ((java.util.function.Consumer<ECOPlanningResult>) call.getArgument(3)).accept(initial);
+                retained.countDown();
                 assertTrue(continueSearch.await(5, java.util.concurrent.TimeUnit.SECONDS));
                 return finished;
             });
             var request = ECOPlanningService.begin(session, goal, 10L, CalculationStrategy.REPORT_MISSING_ITEMS);
             try {
-                assertSame(initial.plan(), request.get(5, java.util.concurrent.TimeUnit.SECONDS));
+                assertTrue(retained.await(5, TimeUnit.SECONDS));
+                assertFalse(request.isDone());
                 assertEquals(ECOPlanningService.Request.SEARCHING, request.searchState());
                 continueSearch.countDown();
-                awaitFinished(request);
-                assertSame(finished.plan(), request.latest());
-                assertSame(initial.plan(), request.get());
+                assertSame(finished.plan(), request.get(5, TimeUnit.SECONDS));
                 assertEquals(limited ? ECOPlanningService.Request.LIMITED : ECOPlanningService.Request.COMPLETE,
                     request.searchState());
                 assertFalse(initial.provenInfeasible());
                 assertEquals(!limited, finished.provenInfeasible());
             } finally { continueSearch.countDown(); request.cancel(true); }
         }
-    }
-
-    private static void awaitFinished(ECOPlanningService.Request request) {
-        assertTimeoutPreemptively(java.time.Duration.ofSeconds(5), () -> {
-            while (request.searchState() == ECOPlanningService.Request.SEARCHING) Thread.sleep(1L);
-        });
     }
 
     @Test
@@ -188,6 +199,8 @@ class ECOPlanningServiceTest {
         when(plan.usedItems()).thenReturn(new appeng.api.stacks.KeyCounter());
         when(plan.emittedItems()).thenReturn(new appeng.api.stacks.KeyCounter());
         when(plan.missingItems()).thenReturn(new appeng.api.stacks.KeyCounter());
-        return new ECOPlanningResult(status, plan, new ECOPlanTrace(), List.of(), 0);
+        var result = new ECOPlanningResult(status, plan, new ECOPlanTrace(), List.of(), 0);
+        ECOPlanningResultRegistry.register(plan, result);
+        return result;
     }
 }
