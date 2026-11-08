@@ -126,7 +126,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
     @Unique @GuiSync(12015) private int neoecoae$reportSyncFailure;
     @Unique private long neoecoae$startButtonAttemptStartedNanos;
     @Unique private @Nullable ECOPlanningService.Request neoecoae$planningRequest;
-    @Unique private long neoecoae$nextPreviewTick;
     @Unique private final java.util.Map<Long, ICraftingPlan> neoecoae$displayedPlans = new LinkedHashMap<>();
     @Unique @GuiSync(12012) private int neoecoae$optimizationState;
     @Unique @GuiSync(12013) private boolean neoecoae$exactPlanReady;
@@ -159,7 +158,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
     }
 
     @Inject(method = {"broadcastChanges()V", "m_38946_()V"}, at = @At("HEAD"))
-    private void neoecoae$pollImprovedPreview(CallbackInfo ci) {
+    private void neoecoae$updatePlanningState(CallbackInfo ci) {
         var menu = (CraftConfirmMenu) (Object) this;
         if (!(menu.getPlayer() instanceof ServerPlayer player) || neoecoae$planningRequest == null) return;
         if (player.containerMenu != menu || getGrid() == null) {
@@ -167,14 +166,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
             return;
         }
         neoecoae$optimizationState = neoecoae$planningRequest.searchState();
-        ICraftingPlan improved = neoecoae$planningRequest.latest();
-        if (result == null || job != null || improved == null || improved == result
-                || player.tickCount < neoecoae$nextPreviewTick
-                || cn.dancingsnow.neoecoae.network.MenuDataTransport.busy(player,
-                    cn.dancingsnow.neoecoae.network.MenuDataTransport.Channel.GRAPH)) return;
-        neoecoae$nextPreviewTick = player.tickCount + 20L;
-        // Use AE2's existing result/summary/packet lifecycle for every replacement.
-        menu.setJob(java.util.concurrent.CompletableFuture.completedFuture(improved));
     }
 
     @Inject(method = {"removed(Lnet/minecraft/world/entity/player/Player;)V",
@@ -488,7 +479,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
     private void resetPlannerDiagnostics() {
         neoecoae$stopOptimization();
         neoecoae$displayedPlans.clear();
-        neoecoae$nextPreviewTick = 0L;
         neoecoae$exactPlanReady = false;
         neoecoae$provenInfeasible = false;
         neoecoae$planningDiagnostic = "";
@@ -577,6 +567,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
     )
     private void capturePlannerDiagnostics(CallbackInfo ci) {
         if (neoecoae$ownsPlan(result)) {
+            if (neoecoae$planningRequest != null) {
+                neoecoae$optimizationState = neoecoae$planningRequest.searchState();
+            }
             neoecoae$applyPlannerDiagnostics(result);
             neoecoae$showFastPlannerReport = true;
             neoecoae$ecoReportReady = true;

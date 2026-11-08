@@ -29,6 +29,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -89,7 +90,7 @@ public final class ECOCraftingPlannerService {
             return plan(amount, simulation, cancellation, null);
         }
 
-        /** Publish validated incumbents while the same worker continues the remaining route search. */
+        /** Retain validated candidates during a short optional search before final confirmation. */
         public ECOPlanningResult plan(long amount, boolean simulation, ECOCancellation cancellation,
                 @org.jetbrains.annotations.Nullable java.util.function.Consumer<ECOPlanningResult> onReady)
                 throws InterruptedException {
@@ -98,7 +99,8 @@ public final class ECOCraftingPlannerService {
                 if (planningBudget == null) planningBudget = new ECOPlanningBudget(ECOCancellation.NONE);
             }
             ECOPlanningBudget sharedBudget = planningBudget;
-            cancellation = () -> { callerCancellation.checkpoint(); sharedBudget.checkpoint(); };
+            ECOCancellation searchCancellation = () -> { callerCancellation.checkpoint(); sharedBudget.checkpoint(); };
+            cancellation = searchCancellation;
             long startedNanos = System.nanoTime();
             ECOPlanningResult[] accepted = {null};
             boolean[] reportedMissing = {false};
@@ -120,8 +122,11 @@ public final class ECOCraftingPlannerService {
                         solved = componentPlanner.planWithRouteFallback(compiled, condensation, activeSelection,
                                 inventory, inventorySnapshot, amount, cyclePlanningEnabled, ignorePatternSubstitutions, cancellation,
                                 candidate -> {
+                                    ECOCancellation candidateCancellation = accepted[0] == null
+                                        ? callerCancellation : searchCancellation;
                                     ECOPlanningResult ready = buildResult(candidate, amount, simulation, startedNanos,
-                                        callerCancellation);
+                                        candidateCancellation);
+                                    candidateCancellation.checkpoint();
                                     if (!ready.executable()) {
                                         if (onReady != null && accepted[0] == null && !reportedMissing[0]
                                                 && !ready.exactMissingItems().isEmpty()
@@ -136,12 +141,12 @@ public final class ECOCraftingPlannerService {
                                         }
                                         return false;
                                     }
-                                    callerCancellation.checkpoint();
                                     attach(ready);
+                                    candidateCancellation.checkpoint();
                                     boolean first = accepted[0] == null;
                                     accepted[0] = ready;
                                     if (onReady != null) {
-                                        sharedBudget.continueUntilCancelled();
+                                        sharedBudget.beginOptimization();
                                         onReady.accept(ready);
                                     }
                                     ECOPlanningStageLogger.finish(first ? "first_executable" : "improved_executable",
@@ -157,14 +162,24 @@ public final class ECOCraftingPlannerService {
                     ECOPlanningStageLogger.finish("component_planning", componentStarted,
                             solved.status() == PlanningStatus.SUCCESS,
                             ECOPlanningStageLogger.resultReason(solved.status(), solved.trace()));
-                    var result = onReady == null && accepted[0] != null ? accepted[0]
+                    var result = accepted[0] != null ? accepted[0]
                         : buildResult(solved, amount, simulation, startedNanos, callerCancellation);
+                    if (accepted[0] != null) {
+                        // Reuse the validated execution plan; rebuilding it after the window would add another
+                        // potentially expensive validation pass. Only finish the search diagnostics and timing.
+                        var diagnostics = new HashSet<>(result.trace().diagnostics());
+                        for (var diagnostic : solved.trace().diagnostics()) {
+                            if (diagnostics.add(diagnostic)) result.trace().addDiagnostic(diagnostic);
+                        }
+                    }
                     callerCancellation.checkpoint();
+                    result.finishCalculation(elapsedSince(startedNanos));
                     attach(result);
                     logTotal(startedNanos, result);
                     return result;
                 } catch (InterruptedException e) {
                     if (accepted[0] != null) {
+                        accepted[0].finishCalculation(elapsedSince(startedNanos));
                         logTotal(startedNanos, accepted[0]);
                         return accepted[0];
                     }
@@ -178,6 +193,14 @@ public final class ECOCraftingPlannerService {
                     logTotal(startedNanos, result);
                     return result;
                 } catch (ECOPlanningBudget.Exhausted exhausted) {
+                    if (accepted[0] != null) {
+                        accepted[0].trace().addDiagnostic(new PlannerDiagnostic(
+                            PlannerDiagnostic.Code.ROUTE_OPTIMIZATION_BUDGET,
+                            "stage=" + budgetStage + " " + exhausted.getMessage()));
+                        accepted[0].finishCalculation(elapsedSince(startedNanos));
+                        logTotal(startedNanos, accepted[0]);
+                        return accepted[0];
+                    }
                     ECOPlanTrace trace = new ECOPlanTrace();
                     trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_BUDGET_EXHAUSTED,
                         "stage=" + budgetStage + " " + exhausted.getMessage()));
