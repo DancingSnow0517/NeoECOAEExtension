@@ -32,6 +32,72 @@ import org.junit.jupiter.api.Test;
 class NetworkInventoryCacheDeltaTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
+    @Test void wovenPreciseFiltersPropagateDeltaAndObserveInPlaceRuleChanges() {
+        var fixture = new Fixture();
+        var a = AEItemKey.of(Items.STONE);
+        var b = AEItemKey.of(Items.DIRT);
+        var c = AEItemKey.of(Items.IRON_INGOT);
+        fixture.engine.insert(a, 10, Actionable.MODULATE);
+        fixture.engine.insert(b, 20, Actionable.MODULATE);
+        fixture.engine.insert(c, 30, Actionable.MODULATE);
+        var handler = new appeng.me.storage.MEInventoryHandler(fixture.storage);
+        org.junit.jupiter.api.Assumptions.assumeTrue(handler instanceof StorageListingDelta);
+        KeyCounter rules = new KeyCounter(); rules.set(a, 1); rules.set(b, 1);
+        handler.setPartitionList(new appeng.util.prioritylist.PrecisePriorityList(rules));
+        handler.setExtractFiltering(true, true);
+        Reader first = new Reader(handler), second = new Reader(handler);
+        first.refresh(); second.refresh();
+        int listings = fixture.listings[0];
+        fixture.engine.insert(a, 5, Actionable.MODULATE);
+        fixture.engine.extract(b, 20, Actionable.MODULATE);
+        fixture.engine.insert(c, 7, Actionable.MODULATE);
+        first.refresh(); second.refresh();
+        assertEquals(listings, fixture.listings[0], "both readers must consume the same filtered delta independently");
+        assertEquals(15, first.published.get(a)); assertEquals(0, first.published.get(b));
+        assertEquals(0, first.published.get(c)); assertEquals(15, second.published.get(a));
+        // Mutate the original counter without the wrapper's setter, including a retained zero entry.
+        rules.set(a, 0); rules.set(c, 1);
+        first.refresh(); second.refresh();
+        assertEquals(0, first.published.get(a)); assertEquals(37, first.published.get(c));
+        assertEquals(37, second.published.get(c));
+        assertEquals(listings + 2, fixture.listings[0]);
+        handler.setWhitelist(appeng.api.config.IncludeExclude.BLACKLIST);
+        first.refresh(); assertEquals(15, first.published.get(a)); assertEquals(0, first.published.get(c));
+        handler.setAllowExtraction(false);
+        first.refresh(); assertTrue(first.published.isEmpty());
+        handler.setAllowExtraction(true);
+        first.refresh(); assertEquals(15, first.published.get(a));
+        rules.clear();
+        first.refresh(); assertEquals(37, first.published.get(c), "an empty filter allows all keys");
+        assertEquals(0, first.published.get(b));
+    }
+
+    @Test void wovenBridgeKeepsCustomAndLargeFiltersOnTheNativePath() {
+        var fixture = new Fixture();
+        var handler = new appeng.me.storage.MEInventoryHandler(fixture.storage);
+        org.junit.jupiter.api.Assumptions.assumeTrue(handler instanceof StorageListingDelta);
+        KeyCounter rules = new KeyCounter();
+        for (AEKey key : keys(70, "filter")) {
+            rules.set(key, 1); fixture.engine.insert(key, 10, Actionable.MODULATE);
+        }
+        handler.setExtractFiltering(true, true);
+        handler.setPartitionList(new appeng.util.prioritylist.PrecisePriorityList(rules));
+        assertEquals(StorageListingVersion.UNKNOWN, ((StorageListingVersion) handler).neoecoae$listingVersion());
+        Reader reader = new Reader(handler); reader.refresh();
+        assertEquals(70, reader.published.size());
+        KeyCounter small = new KeyCounter(); small.set(AEItemKey.of(Items.STONE), 1);
+        handler.setPartitionList(new appeng.util.prioritylist.PrecisePriorityList(small) {
+            @Override public boolean isListed(AEKey key) { return false; }
+        });
+        assertEquals(StorageListingVersion.UNKNOWN, ((StorageListingVersion) handler).neoecoae$listingVersion());
+        reader.refresh(); assertTrue(reader.published.isEmpty());
+        // A filtered handler uses its delegate's no-arg overload. Nested wrappers do not promise
+        // that this overload equals their consumer listing, so their delta cannot substitute it.
+        var nested = new appeng.me.storage.MEInventoryHandler(handler);
+        nested.setExtractFiltering(true, true);
+        assertEquals(StorageListingVersion.UNKNOWN, ((StorageListingVersion) nested).neoecoae$listingVersion());
+    }
+
     @Test void frequentTransfersOnOneKeyDoNotListTheWholeDomain() {
         var fixture = new Fixture();
         List<AEKey> keys = keys(300, "fe");

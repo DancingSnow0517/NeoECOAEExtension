@@ -27,8 +27,8 @@ public final class ECOPlannerInventory {
         var snapshot = cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot.sample(
             storage, server == null ? 0L : server.getTickCount(), true, true, storage::getAvailableStacks);
         var amounts = new java.util.LinkedHashMap<AEKey, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount>();
-        for (var entry : snapshot.inventory()) amounts.put(entry.getKey(),
-            cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.of(entry.getLongValue()));
+        snapshot.visitVisibleAmounts((key, amount) -> amounts.put(key,
+            cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.of(amount)));
         Set<AEKey> unbounded = collectUnboundedKeys(grid);
         snapshot.amounts().forEach((key, amount) -> {
             if (amount.infinite()) unbounded.add(key);

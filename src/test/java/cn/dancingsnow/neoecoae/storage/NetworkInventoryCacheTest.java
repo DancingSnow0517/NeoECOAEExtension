@@ -22,6 +22,33 @@ class NetworkInventoryCacheTest {
     private final Map<AEKey, Long> notified = new LinkedHashMap<>();
     private final AEKey a = key(), b = key(), c = key();
 
+    @Test void watcherCanRelistAndChangeMountsAfterTheWholeBatchIsPublished() {
+        var first = network.add(new Versioned());
+        first.stock.put(a, 3L);
+        var later = new Versioned(); later.stock.put(b, 7L);
+        assertTrue(cache.refresh(network, published, amounts, (key, amount) -> {
+            assertTrue(network.neoecoae$withMounts(inventories -> {
+                KeyCounter live = new KeyCounter();
+                inventories.forEach(storage -> storage.getAvailableStacks(live));
+                assertEquals(3, live.get(a));
+            }), "a watcher can query native stock without hitting the recursive-listing guard");
+            assertEquals(3, published.get(a));
+            assertEquals(3, amounts.getLong(a));
+            network.add(later); network.generation++;
+        }));
+        refresh();
+        assertEquals(7, published.get(b));
+        first.stock.put(a, 5L); first.version++;
+        assertTrue(cache.refresh(network, published, amounts, (key, amount) -> {
+            assertFalse(network.inUse, "delta notifications also release the native mount lock");
+            assertEquals(5, published.get(a));
+            assertEquals(7, published.get(b));
+            network.list.remove(later); network.generation++;
+        }));
+        refresh();
+        assertEquals(5, published.get(a)); assertEquals(0, published.get(b));
+    }
+
     @Test void unchangedVersionedMountsAreNotListedAgain() {
         var versioned = network.add(new Versioned());
         var external = network.add(new Fake());
@@ -239,7 +266,8 @@ class NetworkInventoryCacheTest {
         @Override
         public boolean neoecoae$withMounts(Consumer<List<MEStorage>> action) {
             if (inUse) return false;
-            action.accept(list);
+            inUse = true;
+            try { action.accept(list); } finally { inUse = false; }
             return true;
         }
     }

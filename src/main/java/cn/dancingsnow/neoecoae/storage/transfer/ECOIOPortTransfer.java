@@ -23,6 +23,10 @@ public final class ECOIOPortTransfer {
     private static final int KEYS_PER_TICK = 5;
     private final ObjectLinkedOpenHashSet<AEKey> queue = new ObjectLinkedOpenHashSet<>();
     private MEStorage previousSource;
+    private MEStorage previousDestination;
+    private long nextOutputTick = Long.MIN_VALUE;
+    private long lastOutputTick = Long.MIN_VALUE;
+    private boolean transferring;
     private final KeyCounter outputListing = new KeyCounter();
     private MEStorage listedSource;
     private Object listedIdentity;
@@ -39,6 +43,8 @@ public final class ECOIOPortTransfer {
         outputListing.clear(); outputListing.removeEmptySubmaps();
         mountListing = null;
         listedAmounts.clear();
+        previousDestination = null;
+        nextOutputTick = lastOutputTick = Long.MIN_VALUE;
     }
 
     public long transfer(IGrid grid, MEStorage hostStorage, boolean fillHost, IActionSource source) {
@@ -58,13 +64,30 @@ public final class ECOIOPortTransfer {
     public long transfer(IGrid grid, MEStorage hostStorage, boolean fillHost,
                          boolean ignoreCreativeInput, boolean excludeStorageBuses,
                          IActionSource source, Predicate<AEKey> filter) {
-        return StorageBusTransferFilter.transfer(excludeStorageBuses,
-            () -> transferContents(grid, hostStorage, fillHost, ignoreCreativeInput, excludeStorageBuses, source, filter));
+        return transfer(grid, hostStorage, fillHost, ignoreCreativeInput, excludeStorageBuses,
+            source, filter, Long.MIN_VALUE, 1, Long.MAX_VALUE);
+    }
+
+    /** Output batching retains all resources in the host's existing authoritative storage. */
+    public long transfer(IGrid grid, MEStorage hostStorage, boolean fillHost,
+                         boolean ignoreCreativeInput, boolean excludeStorageBuses,
+                         IActionSource source, Predicate<AEKey> filter,
+                         long tick, int outputIntervalTicks, long outputFlushThreshold) {
+        if (transferring) return 0;
+        transferring = true;
+        try {
+            return StorageBusTransferFilter.transfer(excludeStorageBuses,
+                () -> transferContents(grid, hostStorage, fillHost, ignoreCreativeInput, excludeStorageBuses,
+                    source, filter, tick, Math.max(1, Math.min(20, outputIntervalTicks)), Math.max(1, outputFlushThreshold)));
+        } finally {
+            transferring = false;
+        }
     }
 
     private long transferContents(IGrid grid, MEStorage hostStorage, boolean fillHost,
                                   boolean ignoreCreativeInput, boolean excludeStorageBuses,
-                                  IActionSource source, Predicate<AEKey> filter) {
+                                  IActionSource source, Predicate<AEKey> filter,
+                                  long tick, int outputIntervalTicks, long outputFlushThreshold) {
         MEStorage networkStorage = grid.getStorageService().getInventory();
         MEStorage from;
         MEStorage destination;
@@ -73,8 +96,15 @@ public final class ECOIOPortTransfer {
         boolean stableFilter = filter instanceof StorageInterfaceFilter && filter == previousFilter;
         from = fillHost ? networkStorage : hostStorage;
         destination = fillHost ? hostStorage : networkStorage;
+        boolean scheduled = !fillHost && tick != Long.MIN_VALUE && outputIntervalTicks > 1;
+        if (destination != previousDestination || tick < lastOutputTick) nextOutputTick = Long.MIN_VALUE;
+        previousDestination = destination;
+        lastOutputTick = tick;
+        boolean outputDue = !scheduled || tick >= nextOutputTick;
         if (from != previousSource) {
             previousSource = from;
+            nextOutputTick = Long.MIN_VALUE;
+            outputDue = true;
             listedSource = null;
             queue.clear();
             stableFilter = false;
@@ -113,19 +143,32 @@ public final class ECOIOPortTransfer {
         previousFilter = filter;
 
         long moved = 0L;
+        boolean attempted = false;
         int keysRemaining = Math.min(KEYS_PER_TICK, queue.size());
-        while (keysRemaining-- > 0) {
-            var key = queue.removeFirst();
+        while (keysRemaining-- > 0 && !queue.isEmpty()) {
+            var key = queue.first();
             // Also recheck pending keys after a filter or interface change.
-            if (!filter.test(key)) continue;
+            if (!filter.test(key)) { queue.removeFirst(); continue; }
             long amount = availableAmount(available, key);
-            if (amount <= 0L) continue;
+            if (amount <= 0L) { queue.removeFirst(); continue; }
+            // Keep the queue position while waiting: rotating on skipped ticks can starve some keys.
+            if (!outputDue && amount < outputFlushThreshold) break;
+            queue.removeFirst();
+            attempted = true;
 
             long possible = destination.insert(key, amount, Actionable.SIMULATE, source);
             if (possible <= 0L) {
                 enqueue(key);
                 continue;
             }
+
+            // Do not remove stock from a possibly extract-only source just to discover there is no power.
+            // poweredInsert still rechecks power and acceptance after extraction, as required by AE2.
+            double energyFactor = Math.max(1.0, key.getAmountPerOperation());
+            double power = grid.getEnergyService().extractAEPower(possible / energyFactor,
+                Actionable.SIMULATE, appeng.api.config.PowerMultiplier.CONFIG);
+            possible = Math.min(possible, (long) (power * energyFactor + 0.9));
+            if (possible <= 0) { enqueue(key); break; }
 
             long extracted = fillHost && ignoreCreativeInput
                 ? ECOCreativeExtractionFilter.extract(from, key, possible, source)
@@ -145,10 +188,12 @@ public final class ECOIOPortTransfer {
             if (inserted > 0L) {
                 moved = inserted > Long.MAX_VALUE - moved ? Long.MAX_VALUE : moved + inserted;
             }
-            if (inserted < amount) {
-                enqueue(key);
-            }
+            // Keep a candidate until the next refreshed listing says it is empty. Consumption and
+            // replenishment can restore the same total before then, producing no aggregate delta.
+            enqueue(key);
         }
+        if (scheduled && attempted) nextOutputTick = tick > Long.MAX_VALUE - outputIntervalTicks
+            ? Long.MAX_VALUE : tick + outputIntervalTicks;
         return moved;
     }
 

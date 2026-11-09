@@ -8,7 +8,8 @@ from pathlib import Path
 
 def load_forks(root, label):
     records = {}
-    files = sorted(root.glob(f"{label}-*/results.json"))
+    files = sorted(path for path in root.glob(f"{label}-*/results.json")
+        if path.parent.name.removeprefix(label + "-").isdigit())
     if not files:
         raise ValueError(f"No completed forks: {label}")
     for path in files:
@@ -28,6 +29,10 @@ def summarize(records):
     cycles = [r.get("cyclesPerSample", 1) for r in records]
     medians = [r.get("medianNsPerCycle", statistics.median(r["elapsedNs"])) for r in records]
     allocations = [r.get("meanBytesPerCycle", statistics.mean(r["allocatedBytes"])) for r in records]
+    operations = {r.get("ioOperationsPerCycle", 1) for r in records}
+    if len(operations) != 1:
+        raise ValueError("Mismatched operations per cycle")
+    operations = operations.pop()
     samples = [value / cycles[i] for i, r in enumerate(records) for value in r["elapsedNs"]]
     return {
         "forks": len(records),
@@ -39,6 +44,10 @@ def summarize(records):
         "forkBytesMin": min(allocations),
         "forkBytesMax": max(allocations),
         "cyclesPerSecond": 1e9 / statistics.median(medians),
+        "operationsPerCycle": operations,
+        "nsPerOperation": statistics.median(medians) / operations,
+        "bytesPerOperation": statistics.median(allocations) / operations,
+        "operationsPerSecond": operations * 1e9 / statistics.median(medians),
         "sampleP95NsPerCycle": percentile(samples, 95),
         "sampleMaxNsPerCycle": max(samples),
         "gcCounts": [r.get("gcCount") for r in records],
