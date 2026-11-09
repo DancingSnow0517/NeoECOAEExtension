@@ -6,11 +6,15 @@ import static org.mockito.Mockito.*;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.IUpgradeableObject;
 import com.extendedae_plus.compat.PatternProviderLogicVirtualCompatBridge;
+import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import net.minecraft.world.item.Item;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class ECOExtendedAEPlusVirtualCraftingTest {
+    @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
+
     interface Provider extends IUpgradeableObject, PatternProviderLogicVirtualCompatBridge {}
 
     final Item card = mock(Item.class);
