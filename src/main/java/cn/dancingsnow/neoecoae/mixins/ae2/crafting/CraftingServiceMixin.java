@@ -42,6 +42,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.Identifier;
 import org.apache.commons.lang3.mutable.MutableObject;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,8 +57,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
@@ -123,6 +126,8 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
 
     @Unique
     private final Set<NEComputationCluster> neoecoae$computationClusters = new HashSet<>();
+    @Unique
+    private final Map<UUID, ECOCraftingCPU> neoecoae$cpusByJob = new HashMap<>();
 
     @Override
     public String neoecoae$describeCpuSelection(ICraftingPlan plan, IActionSource source) {
@@ -473,12 +478,15 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     )
     private void onUpdateCPUClusters(CallbackInfo ci) {
         this.neoecoae$computationClusters.clear();
+        this.neoecoae$cpusByJob.clear();
 
         for (ECOComputationSystemBlockEntity blockEntity : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
             NEComputationCluster cluster = blockEntity.getCluster();
             if (cluster != null) {
                 this.neoecoae$computationClusters.add(cluster);
                 for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
+                    UUID jobId = cpu.getLogic().getProcessingJobId();
+                    if (jobId != null) this.neoecoae$cpusByJob.put(jobId, cpu);
                     ICraftingLink maybeLink = cpu.getLogic().getLastLink();
                     if (maybeLink != null) {
                         this.addLink((CraftingLink) maybeLink);
@@ -501,10 +509,12 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             CallbackInfoReturnable<Long> cir,
             @Local(ordinal = 1) LocalLongRef inserted
     ) {
+        if (this.neoecoae$computationClusters.isEmpty() || inserted.get() >= amount) return;
         for (NEComputationCluster cluster : this.neoecoae$computationClusters) {
             if (cluster != null) {
-                for (var cpu : cluster.getActiveCPUs()) {
+                for (var cpu : cluster.getAllocatedCPUs()) {
                     inserted.set(inserted.get() + cpu.getLogic().insert(what, amount - inserted.get(), type));
+                    if (inserted.get() >= amount) return;
                 }
             }
         }
@@ -520,26 +530,8 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         if (craftingJobId == null || what == null || amount <= 0L) {
             return 0L;
         }
-        long inserted = neoecoae$insertIntoCachedCpuForJob(craftingJobId, what, amount, type);
-        if (inserted > 0L) {
-            return inserted;
-        }
-
-        // A newly submitted CPU can finish a virtual batch before CraftingService has run updateCPUClusters.
-        // Consult the live grid as a fallback so the output is retained for the right job during that window.
-        Set<NEComputationCluster> liveClusters = new HashSet<>();
-        for (ECOComputationSystemBlockEntity host : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
-            if (host.getCluster() != null) {
-                liveClusters.add(host.getCluster());
-            }
-        }
-        for (NEComputationCluster cluster : liveClusters) {
-            for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
-                if (cpu.getLogic().hasCraftingJob(craftingJobId)) {
-                    return cpu.getLogic().insertForJob(craftingJobId, what, amount, type);
-                }
-            }
-        }
+        ECOCraftingCPU owner = neoecoae$findCpuForJob(craftingJobId);
+        if (owner != null) return owner.getLogic().insertForJob(craftingJobId, what, amount, type);
         if (this instanceof ECOAdvancedAeCraftingOutputRouter advancedRouter) {
             long advanced = advancedRouter.neoecoae$insertIntoAdvancedAeCpuForJob(craftingJobId, what, amount, type);
             if (advanced > 0) return advanced;
@@ -558,15 +550,8 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         if (jobId == null || key == null || amount.signum() <= 0) return java.math.BigInteger.ZERO;
         if (amount.bitLength() <= 63)
             return ECOCraftingOutputRouter.super.neoecoae$insertExactIntoCpuForJob(jobId, key, amount, mode);
-        if (neoecoae$computationClusters != null) {
-            for (var cluster : neoecoae$computationClusters) {
-                if (cluster == null) continue;
-                for (var cpu : cluster.getActiveCPUs()) {
-                    if (cpu.getLogic().hasCraftingJob(jobId))
-                        return cpu.getLogic().insertExactForJob(jobId, key, amount, mode);
-                }
-            }
-        }
+        ECOCraftingCPU owner = neoecoae$findCpuForJob(jobId);
+        if (owner != null) return owner.getLogic().insertExactForJob(jobId, key, amount, mode);
         for (var cpu : getCpus()) {
             var accepted = cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtCraftingAdapter
                     .insertExactCpuOutput(cpu, jobId, key, amount, mode);
@@ -576,18 +561,46 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     }
 
     @Unique
-    private long neoecoae$insertIntoCachedCpuForJob(UUID craftingJobId, AEKey what, long amount, Actionable type) {
+    @Nullable
+    private ECOCraftingCPU neoecoae$findCpuForJob(UUID jobId) {
+        ECOCraftingCPU cached = this.neoecoae$cpusByJob.get(jobId);
+        if (cached != null) {
+            if (cached.getLogic().hasCraftingJob(jobId) && neoecoae$isRegisteredCpu(cached)) return cached;
+            this.neoecoae$cpusByJob.remove(jobId);
+        }
         for (NEComputationCluster cluster : this.neoecoae$computationClusters) {
-            if (cluster == null) {
-                continue;
-            }
-            for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
-                if (cpu.getLogic().hasCraftingJob(craftingJobId)) {
-                    return cpu.getLogic().insertForJob(craftingJobId, what, amount, type);
-                }
+            ECOCraftingCPU owner = neoecoae$findCpuForJob(cluster, jobId);
+            if (owner != null) return owner;
+        }
+
+        // Submission and NBT recovery can precede AE2's next CPU-cache refresh. Do not cache misses.
+        Set<NEComputationCluster> visited = new HashSet<>(this.neoecoae$computationClusters);
+        for (ECOComputationSystemBlockEntity host : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
+            NEComputationCluster cluster = host.getCluster();
+            if (cluster == null || !visited.add(cluster)) continue;
+            ECOCraftingCPU owner = neoecoae$findCpuForJob(cluster, jobId);
+            if (owner != null) return owner;
+        }
+        return null;
+    }
+
+    @Unique
+    @Nullable
+    private ECOCraftingCPU neoecoae$findCpuForJob(@Nullable NEComputationCluster cluster, UUID jobId) {
+        if (cluster == null) return null;
+        for (ECOCraftingCPU cpu : cluster.getAllocatedCPUs()) {
+            if (cpu.getLogic().hasCraftingJob(jobId) && neoecoae$isRegisteredCpu(cpu)) {
+                this.neoecoae$cpusByJob.put(jobId, cpu);
+                return cpu;
             }
         }
-        return 0L;
+        return null;
+    }
+
+    @Unique
+    private boolean neoecoae$isRegisteredCpu(ECOCraftingCPU cpu) {
+        NEComputationCluster cluster = cpu.getCluster();
+        return !cluster.isDestroyed() && cluster.isCpuRegistered(cpu) && cpu.getGrid() == grid;
     }
 
     @Inject(method = "submitJob", at = @At("HEAD"))
