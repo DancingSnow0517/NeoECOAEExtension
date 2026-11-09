@@ -29,7 +29,11 @@ import org.junit.jupiter.api.Test;
 
 class TerminalNetworkSnapshotTest {
     private static final BigInteger MAX = BigInteger.valueOf(Long.MAX_VALUE);
-    @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
+    @BeforeAll static void bootstrap() {
+        InventoryTestBootstrap.initialize();
+        if (Boolean.getBoolean("neoecoae.counterSnapshotWoven"))
+            assertInstanceOf(TerminalInventorySnapshot.SnapshotCounter.class, (Object) new KeyCounter());
+    }
     @AfterEach void clear() { TerminalInventorySnapshot.clear(); }
 
     @Test void changedKeysAndUnchangedSnapshotsAreSharedWithoutRelistingTheDomain() {
@@ -79,6 +83,121 @@ class TerminalNetworkSnapshotTest {
         assertEquals(10, ordinary.inventory().get(key));
         assertTrue(ordinary.amounts().isEmpty());
         assertEquals(1, source.listings);
+    }
+
+    @Test void publishedCountersDetachForMutationAndNativeBulkOperations() {
+        var stone = AEItemKey.of(Items.STONE);
+        var dirt = AEItemKey.of(Items.DIRT);
+        var source = new Domain();
+        source.engine.insert(stone, 10, Actionable.MODULATE);
+        source.engine.insert(dirt, 7, Actionable.MODULATE);
+        for (int i = 0; i < 64; i++) {
+            var variant = new net.minecraft.world.item.ItemStack(Items.DIRT);
+            variant.getOrCreateTag().putInt("snapshot-variant", i);
+            source.engine.insert(AEItemKey.of(variant), 1, Actionable.MODULATE);
+        }
+        var network = new Network(source);
+        var first = network.sample(0, false).inventory();
+        source.engine.insert(stone, 5, Actionable.MODULATE);
+        var second = network.sample(1, false).inventory();
+        assertEquals(66, first.size());
+        assertFalse(first.isEmpty());
+        assertEquals(10, first.get(stone));
+        assertEquals(15, second.get(stone));
+        var copy = new KeyCounter();
+        copy.addAll(second);
+        assertEquals(15, copy.get(stone));
+        copy.removeAll(first);
+        assertEquals(5, copy.get(stone));
+        assertEquals(0, copy.get(dirt));
+        second.set(dirt, 99);
+        assertEquals(10, first.remove(stone));
+        source.engine.insert(stone, 1, Actionable.MODULATE);
+        var third = network.sample(2, false).inventory();
+        assertEquals(16, third.get(stone));
+        assertEquals(7, third.get(dirt), "a mutated reader must not corrupt shared immutable buckets");
+        third.add(stone, 4);
+        assertEquals(20, third.get(stone));
+        third.remove(stone, 1);
+        assertEquals(19, third.get(stone));
+        third.reset();
+        assertEquals(0, third.get(stone));
+        third.removeZeros();
+        assertTrue(third.isEmpty());
+        assertEquals(7, first.get(dirt));
+        source.engine.insert(dirt, 1, Actionable.MODULATE);
+        var fourth = network.sample(3, false).inventory();
+        fourth.clear();
+        assertTrue(fourth.isEmpty());
+        source.engine.insert(stone, 1, Actionable.MODULATE);
+        assertEquals(17, network.sample(4, false).inventory().get(stone));
+    }
+
+    @Test void fuzzyAndIteratorViewsCannotMutateAnotherPublication() {
+        var firstTool = new net.minecraft.world.item.ItemStack(Items.DIAMOND_PICKAXE);
+        firstTool.setDamageValue(20);
+        var secondTool = firstTool.copy(); secondTool.setDamageValue(70);
+        var firstKey = AEItemKey.of(firstTool); var secondKey = AEItemKey.of(secondTool);
+        var source = new Domain();
+        source.engine.insert(firstKey, 10, Actionable.MODULATE);
+        source.engine.insert(secondKey, 20, Actionable.MODULATE);
+        var network = new Network(source);
+        var first = network.sample(0, false).inventory();
+        source.engine.insert(firstKey, 5, Actionable.MODULATE);
+        var second = network.sample(1, false).inventory();
+        long total = 0;
+        for (var entry : first.findFuzzy(firstKey, appeng.api.config.FuzzyMode.IGNORE_ALL)) {
+            total += entry.getLongValue(); entry.setValue(1);
+        }
+        assertEquals(30, total);
+        assertEquals(15, second.get(firstKey));
+        assertEquals(20, second.get(secondKey));
+        var iterator = second.iterator();
+        AEKey removed = iterator.next().getKey(); iterator.remove();
+        assertEquals(0, second.get(removed));
+        source.engine.insert(firstKey, 1, Actionable.MODULATE);
+        var next = network.sample(2, false).inventory();
+        assertEquals(Set.of(firstKey, secondKey), next.keySet());
+        assertNotNull(next.getFirstEntry());
+        assertNotNull(next.getFirstKey(AEItemKey.class));
+        assertEquals(16, next.get(firstKey));
+        assertEquals(20, next.get(secondKey));
+        for (int tick = 3; tick < 45; tick++) {
+            source.engine.insert(firstKey, 1, Actionable.MODULATE);
+            var current = network.sample(tick, false).inventory();
+            assertEquals(14 + tick, current.get(firstKey), "native-to-shared format changes retain all intervening writes");
+            assertEquals(20, current.get(secondKey));
+        }
+    }
+
+    @Test void concurrentReadCannotSeeAnUnfinishedNativeMaterialization() throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeTrue((Object) new KeyCounter() instanceof TerminalInventorySnapshot.SnapshotCounter);
+        var key = org.mockito.Mockito.mock(AEKey.class);
+        org.mockito.Mockito.when(key.getPrimaryKey()).thenReturn(new Object());
+        var pause = new java.util.concurrent.atomic.AtomicBoolean();
+        var copying = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        org.mockito.Mockito.when(key.getFuzzySearchMaxValue()).thenAnswer(call -> {
+            if (pause.compareAndSet(true, false)) {
+                copying.countDown();
+                if (!release.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new AssertionError("copy was not released");
+            }
+            return 0;
+        });
+        var source = new Domain(); source.engine.insert(key, 17, Actionable.MODULATE);
+        var inventory = new Network(source).sample(0, false).inventory();
+        var executor = java.util.concurrent.Executors.newSingleThreadExecutor();
+        pause.set(true);
+        try {
+            var view = executor.submit(() -> inventory.iterator().next().getLongValue());
+            assertTrue(copying.await(10, java.util.concurrent.TimeUnit.SECONDS));
+            assertEquals(17, inventory.get(key));
+            assertEquals(1, inventory.size());
+            assertFalse(inventory.isEmpty());
+            release.countDown();
+            assertEquals(17, view.get(10, java.util.concurrent.TimeUnit.SECONDS));
+            assertEquals(17, inventory.get(key));
+        } finally { release.countDown(); executor.shutdownNow(); }
     }
 
     @Test void ordinaryContributionsOverflowExactlyAndUnmountingRemovesTheSideChannel() {
