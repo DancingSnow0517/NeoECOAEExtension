@@ -9,7 +9,7 @@ import java.util.function.BiConsumer;
 
 /**
  * One quantity table. Only keys exceeding long have a side entry, held as a {@link HugeAmount}: U126 below 2^126,
- * BigInteger only beyond. Server-thread owned.
+ * segmented magnitudes beyond. Server-thread owned.
  */
 final class InfiniteStorageAmounts {
     private final Object2LongOpenHashMap<AEKey> amounts = new Object2LongOpenHashMap<>();

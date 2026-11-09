@@ -36,13 +36,17 @@ public final class U126 implements Comparable<U126> {
     }
 
     /** {@code null} when the parts do not form a value below 2^126. */
-    static @Nullable U126 ofParts(long hi, long lo) {
+    public static @Nullable U126 ofParts(long hi, long lo) {
         return hi < 0L || hi >= HI_LIMIT ? null : hi == 0L && lo == 0L ? ZERO : new U126(hi, lo);
     }
 
     public boolean isZero() { return hi == 0L && lo == 0L; }
 
     public boolean fitsLong() { return hi == 0L && lo >= 0L; }
+
+    public long highWord() { return hi; }
+
+    public long lowWord() { return lo; }
 
     /** Only valid when {@link #fitsLong()}. */
     public long longValue() { return lo; }

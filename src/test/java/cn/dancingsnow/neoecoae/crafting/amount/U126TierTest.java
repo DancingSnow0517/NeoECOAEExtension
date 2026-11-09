@@ -95,6 +95,70 @@ class U126TierTest {
         assertTrue(PlannerAmount.ZERO.subtract(min).add(min).fitsLong());
     }
 
+
+    @Test void segmentedMagnitudesOwnTheirArraysAndRejectUnderflow() {
+        long[] limbs = {7L, -1L, Long.MIN_VALUE};
+        BigInteger expected = BigInteger.ONE.shiftLeft(191)
+            .add(BigInteger.ONE.shiftLeft(64).subtract(BigInteger.ONE).shiftLeft(64))
+            .add(BigInteger.valueOf(7));
+        UnsignedLongArray value = UnsignedLongArray.fromLimbs(limbs);
+        limbs[0] = 99;
+        long[] exported = value.toLongArray();
+        exported[2] = 0;
+        assertEquals(expected, value.toBigInteger());
+        assertEquals(expected.hashCode(), value.hashCode());
+        assertEquals(value, UnsignedLongArray.fromBigInteger(expected));
+        assertThrows(IllegalArgumentException.class, () -> UnsignedLongArray.fromBigInteger(BigInteger.valueOf(-1)));
+        assertThrows(IllegalArgumentException.class, () -> value.add(-1));
+        assertThrows(IllegalArgumentException.class, () -> value.subtract(-1));
+        assertThrows(ArithmeticException.class, () -> UnsignedLongArray.ZERO.subtract(1));
+        assertThrows(ArithmeticException.class, () -> UnsignedLongArray.fromLong(1).subtract(value));
+        assertEquals(UnsignedLongArray.ZERO, UnsignedLongArray.fromLimbs(new long[] {0, 0, 0}));
+    }
+
+    @Test void segmentedStorageCarriesBorrowsDemotesAndReloadsExactly() {
+        for (int bits : new int[] {63, 64, 65, 125, 126, 127, 128, 129, 192, 256, 1024, 4096}) {
+            BigInteger power = BigInteger.ONE.shiftLeft(bits);
+            HugeAmount below = HugeAmount.of(power.subtract(BigInteger.ONE));
+            HugeAmount above = below.add(1);
+            assertEquals(power, above.toBigInteger(), "carry across " + bits + " bits");
+            assertEquals(below, above.subtract(1), "borrow across " + bits + " bits");
+            assertEquals(HugeAmount.of(1), above.subtract(below), "cancellation demotes to long");
+            assertEquals(HugeAmount.ZERO, above.subtract(above));
+            assertEquals(above, HugeAmount.read(above.write()));
+            assertEquals(above.hashCode(), power.hashCode());
+            assertEquals(power.subtract(BigInteger.ONE), below.toBigInteger(), "published value stays immutable");
+        }
+        Random random = new Random(0xB166E2);
+        for (int i = 0; i < 2_000; i++) {
+            BigInteger a = new BigInteger(random.nextInt(2049), random);
+            BigInteger b = new BigInteger(random.nextInt(2049), random);
+            UnsignedLongArray x = UnsignedLongArray.fromBigInteger(a);
+            UnsignedLongArray y = UnsignedLongArray.fromBigInteger(b);
+            assertEquals(a, x.toBigInteger());
+            assertEquals(a.bitLength(), x.bitLength());
+            assertEquals(a.hashCode(), x.hashCode());
+            assertEquals(a.add(b), x.add(y).toBigInteger());
+            assertEquals(Integer.signum(a.compareTo(b)), Integer.signum(x.compareTo(y)));
+            assertEquals(a.min(LONG_MAX).longValueExact(), x.toLongSaturated());
+            HugeAmount amount = HugeAmount.of(x);
+            assertEquals(a, amount.toBigInteger());
+            assertEquals(a.add(b), amount.add(HugeAmount.of(y)).toBigInteger());
+            long delta = random.nextLong() & Long.MAX_VALUE;
+            assertEquals(a.add(BigInteger.valueOf(delta)), x.add(delta).toBigInteger());
+            assertEquals(amount, amount.add(delta).subtract(delta));
+            if (a.compareTo(b) >= 0) {
+                assertEquals(a.subtract(b), x.subtract(y).toBigInteger());
+                assertEquals(a.subtract(b), amount.subtract(HugeAmount.of(y)).toBigInteger());
+            }
+            if (a.compareTo(BigInteger.valueOf(delta)) >= 0) {
+                assertEquals(a.subtract(BigInteger.valueOf(delta)), x.subtract(delta).toBigInteger());
+            }
+            assertEquals(amount, HugeAmount.read(amount.write()));
+        }
+    }
+
+
     @Test void hugeAmountKeepsTiersAndItsSerializedForm() {
         for (int i = 0; i < 100_000; i++) {
             BigInteger a = magnitude(), b = magnitude();
