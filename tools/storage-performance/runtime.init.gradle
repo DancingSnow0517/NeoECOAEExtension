@@ -1,0 +1,34 @@
+allprojects {
+    afterEvaluate {
+        // Other acceptance harnesses deliberately link optional chemical/energy add-ons.
+        // This base-AE2 run compiles only this task's test harness, never excludes production sources.
+        project.sourceSets.acceptance.java.setIncludes(['cn/dancingsnow/neoecoae/storage/StoragePerformanceAcceptance.java'])
+        def acceptanceClasses = project.layout.buildDirectory.dir('classes/java/storageAcceptance')
+        project.tasks.named('compileAcceptanceJava') { destinationDirectory.set(acceptanceClasses) }
+        project.sourceSets.acceptance.output.classesDirs.setFrom(acceptanceClasses)
+        tasks.named('runServer') {
+            javaLauncher = project.javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+            gameDirectory.set(project.layout.projectDirectory.dir('run/storage-performance/server'))
+            minHeapSize = '1G'
+            maxHeapSize = '2G'
+            systemProperty 'neoecoae.storagePerformanceAcceptance', 'true'
+            systemProperty 'neoecoae.storagePerformance', 'true'
+            systemProperty 'neoecoae.storageAcceptanceOptimized', project.providers.gradleProperty('storageAcceptanceOptimized').getOrElse('true')
+            systemProperty 'mixin.debug.export', 'true'
+            doFirst {
+                def directory = gameDirectory.get().asFile
+                directory.mkdirs()
+                new File(directory, 'eula.txt').text = 'eula=true\n'
+                new File(directory, 'server.properties').text = '''server-ip=127.0.0.1
+server-port=25596
+online-mode=false
+view-distance=2
+simulation-distance=2
+spawn-protection=0
+level-seed=42
+max-tick-time=120000
+'''
+            }
+        }
+    }
+}
