@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.compat.storage.ECOOptionalUnboundedCells;
 import cn.dancingsnow.neoecoae.crafting.planner.solve.PlannerInventorySnapshot;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
+import cn.dancingsnow.neoecoae.crafting.display.terminal.SparseExactAmountSource;
 import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
 import cn.dancingsnow.neoecoae.storage.ECOCreativeCell;
 
@@ -68,6 +69,14 @@ public final class ECOPlannerInventory {
     }
 
     private static void markUnbounded(ExactAmountSource source, Set<AEKey> target) {
+        if (source instanceof SparseExactAmountSource sparse && sparse.neoecoae$hasSparseExactAmounts()) {
+            if (sparse.neoecoae$mayHaveExceptionalAmounts()) {
+                sparse.neoecoae$visitExceptionalAmounts((key, amount) -> {
+                    if (amount.infinite()) target.add(key);
+                });
+            }
+            return;
+        }
         source.neoecoae$visitExactAmounts((key, amount) -> {
             if (amount.infinite()) target.add(key);
         });

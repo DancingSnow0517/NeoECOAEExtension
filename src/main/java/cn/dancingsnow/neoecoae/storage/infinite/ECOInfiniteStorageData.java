@@ -245,7 +245,10 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.storag
         ListTag entries = new ListTag();
         amounts.forEach((key, amount) -> {
             CompoundTag entry = new CompoundTag();
+            long keyStarted = cn.dancingsnow.neoecoae.storage.StoragePerformance.start();
             entry.put("key", encodedKeys.computeIfAbsent(key, k -> codec == null ? k.toTagGeneric() : codec.encode(k)).copy());
+            cn.dancingsnow.neoecoae.storage.StoragePerformance.end(
+                cn.dancingsnow.neoecoae.storage.StoragePerformance.Phase.KEY_ENCODING, keyStarted);
             entry.put("amount", amount.write());
             Restore restore = restores.get(key);
             if (restore != null) {
