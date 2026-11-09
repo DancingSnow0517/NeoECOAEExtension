@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.storage.persistence;
 
 import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.storage.StoragePerformance;
 
 import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.platform.nbt.NECellNbt;
@@ -72,7 +73,11 @@ public final class ECOStorageRepository {
     public static void flush(MinecraftServer server) { Session s = SESSIONS.get(server); if (s != null) s.flush(); }
     public static void stopped(MinecraftServer server) {
         Session session = SESSIONS.remove(server);
-        if (session != null) { session.closed = true; session.owners.clear(); session.notifications.clear(); session.dirty.clear(); }
+        if (session != null) {
+            session.closed = true; session.owners.clear(); session.notifications.clear();
+            for (StorageSavedData data : session.dirty.keySet()) { data.checkpointDequeued(); data.dirtyListener(null); }
+            session.dirty.clear();
+        }
     }
 
     public static final class Session {
@@ -90,8 +95,15 @@ public final class ECOStorageRepository {
         public MinecraftServer server() { return server; }
         public DimensionDataStorage storage() { return storage; }
         public void track(StorageSavedData data) {
-            data.dirtyListener(() -> dirty.putIfAbsent(data, currentTick));
-            if (data.isDirty()) dirty.putIfAbsent(data, currentTick);
+            data.checkpointDequeued();
+            data.dirtyListener(() -> schedule(data));
+            if (data.isDirty()) data.requestCheckpoint();
+        }
+        private void schedule(StorageSavedData data) {
+            if (closed) return;
+            Long previous = dirty.putIfAbsent(data, currentTick);
+            StoragePerformance.count(previous == null ? StoragePerformance.Counter.DIRTY_ENQUEUE
+                : StoragePerformance.Counter.DIRTY_ALREADY_QUEUED);
         }
         public Access open(ItemStack stack, ISaveProvider owner) {
             var root = NEItemData.read(stack);
@@ -194,13 +206,14 @@ public final class ECOStorageRepository {
                 StorageSavedData data = entry.getKey();
                 if (data.isDirty() && tick - entry.getValue() < 100) break;
                 dirty.remove(data);
-                if (data.isDirty() && !data.flush()) dirty.put(data, tick);
+                data.checkpointDequeued();
+                if (data.isDirty() && !data.flush()) data.requestCheckpoint();
             }
         }
         public void flush() {
             tick(-1);
             for (StorageSavedData data : new java.util.ArrayList<>(dirty.keySet())) {
-                if (data.flush()) dirty.remove(data);
+                if (data.flush()) { dirty.remove(data); data.checkpointDequeued(); }
             }
             if (!dirty.isEmpty()) throw new IllegalStateException("ECO storage still has " + dirty.size() + " unsaved records");
         }
