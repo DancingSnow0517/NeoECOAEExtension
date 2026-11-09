@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.storage.infinite;
 
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.crafting.amount.U126;
+import cn.dancingsnow.neoecoae.crafting.amount.UnsignedLongArray;
 import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.math.BigInteger;
@@ -117,7 +119,7 @@ final class InfiniteStorageAmounts {
         entry.amount = amount.toLongSaturated();
         if (amount.isBig()) {
             if (entry.wide == null) entry.wide = new WideAmount();
-            entry.wide.set(amount.toBigInteger());
+            entry.wide.set(amount);
         } else entry.wide = null;
         size += (wasEmpty ? 1 : 0) - (entry.amount == 0 ? 1 : 0);
         oversized += (entry.wide != null ? 1 : 0) - (wasWide ? 1 : 0);
@@ -234,7 +236,7 @@ final class InfiniteStorageAmounts {
         Entry(AEKey key) { this.key = key; }
 
         HugeAmount snapshot() {
-            if (snapshot == null) snapshot = wide == null ? HugeAmount.of(amount) : HugeAmount.of(exact());
+            if (snapshot == null) snapshot = wide == null ? HugeAmount.of(amount) : wide.snapshot();
             return snapshot;
         }
 
@@ -249,23 +251,24 @@ final class InfiniteStorageAmounts {
         private static final long HIGH_LIMIT = 1L << 62;
         long high;
         long low;
-        BigInteger big;
+        UnsignedLongArray big;
 
-        void set(BigInteger value) {
-            big = value.bitLength() > 126 ? value : null;
-            high = big == null ? value.shiftRight(64).longValue() : 0;
-            low = big == null ? value.longValue() : 0;
+        void set(HugeAmount value) {
+            U126 nativeValue = value.toU126();
+            big = nativeValue == null ? value.toUnsignedLongArray() : null;
+            high = nativeValue == null ? 0L : nativeValue.highWord();
+            low = nativeValue == null ? 0L : nativeValue.lowWord();
         }
 
         void add(long value) {
             if (big != null) {
-                big = big.add(BigInteger.valueOf(value));
+                big = big.add(value);
                 return;
             }
             long next = low + value;
             long carry = Long.compareUnsigned(next, low) < 0 ? 1 : 0;
             if (high + carry == HIGH_LIMIT) {
-                big = exact().add(BigInteger.valueOf(value));
+                big = UnsignedLongArray.fromParts(high, low).add(value);
             } else {
                 high += carry;
                 low = next;
@@ -274,7 +277,9 @@ final class InfiniteStorageAmounts {
 
         void subtract(long value) {
             if (big != null) {
-                set(big.subtract(BigInteger.valueOf(value)));
+                UnsignedLongArray remaining = big.subtract(value);
+                if (remaining.bitLength() > 126) big = remaining;
+                else set(HugeAmount.of(remaining));
                 return;
             }
             high -= Long.compareUnsigned(low, value) < 0 ? 1 : 0;
@@ -284,10 +289,14 @@ final class InfiniteStorageAmounts {
         boolean fitsLong() { return big == null && high == 0 && low >= 0; }
 
         BigInteger exact() {
-            if (big != null) return big;
+            if (big != null) return big.toBigInteger();
             BigInteger lower = BigInteger.valueOf(low & Long.MAX_VALUE);
             if (low < 0) lower = lower.setBit(63);
             return high == 0 ? lower : BigInteger.valueOf(high).shiftLeft(64).or(lower);
+        }
+
+        HugeAmount snapshot() {
+            return big == null ? HugeAmount.of(U126.ofParts(high, low)) : HugeAmount.of(big);
         }
     }
 }

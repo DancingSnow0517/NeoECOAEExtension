@@ -41,7 +41,7 @@ class InfiniteStorageAmountsTest {
         var key = AEItemKey.of(Items.STONE);
         var values = new InfiniteStorageAmounts();
         var random = new Random(912731);
-        for (int bits : new int[] {63, 64, 65, 100, 125, 126, 127, 160}) {
+        for (int bits : new int[] {63, 64, 65, 100, 125, 126, 127, 160, 192, 256, 1024, 4096}) {
             BigInteger expected = BigInteger.ONE.shiftLeft(bits).subtract(BigInteger.ONE);
             values.set(key, HugeAmount.of(expected));
             HugeAmount published = values.get(key);
