@@ -26,7 +26,7 @@ import java.util.function.BiConsumer;
 
 /** Quantity is unbounded, type count is finite. This is stored inventory, never a resource source. */
 final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements ECOBigIntegerStorage, ExactAmountSource {
-    // long, then U128, then BigInteger only past 2^128: ordinary transfers never allocate a BigInteger.
+    // long, then U128, then segmented magnitudes past 2^128: ordinary transfers never allocate a BigInteger.
     private final Map<AEKey, HugeAmount> amounts = new LinkedHashMap<>();
     private final BiggerAE2StorageCellItem item;
     private final ISaveProvider host;
