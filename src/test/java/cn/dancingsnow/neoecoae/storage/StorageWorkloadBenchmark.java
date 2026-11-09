@@ -46,6 +46,7 @@ import jdk.jfr.Name;
 /** Executable subsystem benchmark; no timings are asserted by the unit test suite. */
 public final class StorageWorkloadBenchmark {
     private static volatile long consumed;
+    private static volatile AEKey escapedKey;
     private static final IActionSource SOURCE = IActionSource.empty();
     private static final ThreadMXBean MX = (ThreadMXBean) ManagementFactory.getThreadMXBean();
     private static final JsonArray RESULTS = new JsonArray();
@@ -54,7 +55,7 @@ public final class StorageWorkloadBenchmark {
     private static final int WARMUP_BATCHES = Integer.getInteger("neoecoae.benchmark.warmupBatches", 4);
     private static final int ITERATIONS_MULTIPLIER = Integer.getInteger("neoecoae.benchmark.iterationsMultiplier", 1);
 
-    @FunctionalInterface private interface Cycle { long run(int cycle); }
+    @FunctionalInterface public interface Cycle { long run(int cycle); }
 
     @Name("neoecoae.StorageBenchmarkSample") @Label("Measured storage batch")
     static final class SampleEvent extends Event {
@@ -70,6 +71,11 @@ public final class StorageWorkloadBenchmark {
         StorageTestContext.bootstrap();
         KeyReuse.configure(Boolean.parseBoolean(System.getProperty("neoecoae.benchmark.keyReuse", "true")));
         MX.setThreadAllocatedMemoryEnabled(true);
+        factories(output.getParent());
+        fluids(output.getParent());
+        StorageCounterLayouts.run(MATRIX);
+        StorageDeviceWorkloads.run(MATRIX);
+        cn.dancingsnow.neoecoae.blocks.entity.storage.CombinedStorageAmountTest.benchmark(output.getParent());
         var pending = new ECOCellSavedData(UUID.randomUUID());
         var session = new ECOStorageRepository.Session(null, output.getParent());
         session.tick(1000); session.track(pending); pending.setDirty();
@@ -100,7 +106,13 @@ public final class StorageWorkloadBenchmark {
                 io("official-network-drive-watcher", watched, keys, n, k);
                 cache("cell-network-cache", cell, keys, n, k, false);
                 cache("cell-terminal-one", cell, keys, n, k, true);
+                // Obtain genuinely distinct references even with the default-key bridge enabled.
+                boolean reuse = KeyReuse.epoch() != null;
+                KeyReuse.configure(false);
                 AEKey[] equal = keys(n);
+                KeyReuse.configure(reuse);
+                for (int i = 0; i < n; i++) if (equal[i] == keys[i] || !equal[i].equals(keys[i]))
+                    throw new AssertionError("Expected equal, distinct external keys");
                 measure("cell-equal-key-query",n,k,k,cycle -> {
                     long sum=0;
                     for(int i=0;i<k;i++) sum+=cell.extract(equal[index(cycle,i,n,k)],1,Actionable.SIMULATE,SOURCE);
@@ -119,6 +131,7 @@ public final class StorageWorkloadBenchmark {
         }
         interfaces(output.getParent());
         mountedInterfaces();
+        wrapperCaches(output.getParent());
         planning(output.getParent());
         checkpoint(output.getParent());
         JsonObject report=new JsonObject();
@@ -132,6 +145,8 @@ public final class StorageWorkloadBenchmark {
         report.addProperty("iterationsMultiplier", ITERATIONS_MULTIPLIER);
         report.addProperty("snapshotCounterBridge", Arrays.stream(KeyCounter.class.getInterfaces())
             .anyMatch(type -> type.getName().endsWith("TerminalInventorySnapshot$SnapshotCounter")));
+        report.addProperty("defaultKeyBridge", Arrays.stream(net.minecraft.world.item.Item.class.getInterfaces())
+            .anyMatch(type -> type.getName().endsWith("DefaultKeyOwner")));
         report.addProperty("cellFixture","L9 bytes and per-type accounting; type limit 10000 (stock item limit is 315)");
         report.addProperty("initialOccupancy","approximately 85% of L9 item capacity after per-type overhead");
         report.add("results",RESULTS); report.add("diagnostics",StoragePerformance.snapshot());
@@ -141,6 +156,155 @@ public final class StorageWorkloadBenchmark {
 
     private static long seed(int n) { return ((1L<<28)-n*(1L<<15))*8*85/100/n; }
     private static AEKey[] keys(int n) { return StorageTestContext.keys(n,Boolean.getBoolean("neoecoae.benchmark.tagged")); }
+
+    /** Tagged fluids exercise value equality and the opposite (few primary keys) native-counter layout. */
+    private static void fluids(Path directory) throws Exception {
+        if (!ONLY.startsWith("fluid")) return;
+        for (int[] workload : MATRIX) {
+            int n = workload[0], k = workload[1];
+            AEKey[] keys = new AEKey[n], equal = new AEKey[n];
+            for (int i = 0; i < n; i++) {
+                var tag = new net.minecraft.nbt.CompoundTag(); tag.putInt("variant", i);
+                var fluid = i % 2 == 0 ? net.minecraft.world.level.material.Fluids.WATER : net.minecraft.world.level.material.Fluids.LAVA;
+                keys[i] = appeng.api.stacks.AEFluidKey.of(fluid, tag);
+                equal[i] = appeng.api.stacks.AEFluidKey.of(fluid, tag.copy());
+                if (keys[i] == equal[i] || !keys[i].equals(equal[i])) throw new AssertionError("fluid value equality");
+            }
+            try (var context = new StorageTestContext(Files.createTempDirectory(directory, "fluid-"))) {
+                var cell = context.newFluidCell();
+                for (AEKey key : keys) if (cell.insert(key, 1_000_000, Actionable.MODULATE, SOURCE) != 1_000_000)
+                    throw new AssertionError("fluid capacity");
+                io("fluid-cell-direct", cell, keys, n, k);
+                var network = new NetworkStorage(); network.mount(0, new DriveWatcher(cell, () -> {}));
+                io("fluid-official-network-drive", network, keys, n, k);
+                cache("fluid-cell-network-cache", cell, keys, n, k, false);
+                cache("fluid-cell-terminal", cell, keys, n, k, true);
+                measure("fluid-equal-key-query", n, k, k, cycle -> {
+                    long total = 0;
+                    for (int i = 0; i < k; i++) total += cell.extract(equal[index(cycle, i, n, k)], 1, Actionable.SIMULATE, SOURCE);
+                    if (total != k) throw new AssertionError("equal fluid lookup");
+                    return total;
+                });
+            }
+        }
+    }
+
+    private static void wrapperCaches(Path directory) throws Exception {
+        if (!ONLY.startsWith("wrapper")) return;
+        for (int[] workload : MATRIX) {
+            int n = workload[0], k = workload[1];
+            AEKey[] keys = StorageTestContext.keys(n, false);
+            try (var context = new StorageTestContext(Files.createTempDirectory(directory, "wrappers-"), true)) {
+                for (AEKey key : keys) context.cell.insert(key, 1000, Actionable.MODULATE, SOURCE);
+                for (String kind : new String[]{"delegate", "drive", "precise"}) {
+                    MEStorage wrapped;
+                    if (kind.equals("delegate")) wrapped = new appeng.me.storage.DelegatingMEInventory(context.cell);
+                    else if (kind.equals("drive")) wrapped = new DriveWatcher(context.cell, () -> {});
+                    else {
+                        var handler = new appeng.me.storage.MEInventoryHandler(context.cell);
+                        var partition = appeng.util.prioritylist.IPartitionList.builder();
+                        for (int i = 0; i < 5; i++) partition.add(keys[i]);
+                        handler.setPartitionList(partition.build()); handler.setExtractFiltering(true, true);
+                        wrapped = handler;
+                    }
+                    var mounts = new Mounts(List.of(wrapped));
+                    var cache = new NetworkInventoryCache(false);
+                    var published = new KeyCounter(); var amounts = new Object2LongOpenHashMap<AEKey>();
+                    cache.refresh(mounts, published, amounts, (key, amount) -> {});
+                    measure("wrapper-" + kind, n, k, 2 * k, cycle -> {
+                        for (int i = 0; i < k; i++) {
+                            AEKey key = keys[(cycle * 31 + i) % n];
+                            context.cell.insert(key, 2, Actionable.MODULATE, SOURCE);
+                            context.cell.extract(key, 1, Actionable.MODULATE, SOURCE);
+                        }
+                        if (!cache.refresh(mounts, published, amounts, (key, amount) -> {}))
+                            throw new AssertionError("cache refresh");
+                        return published.get(keys[0]);
+                    });
+                    var full = new KeyCounter();
+                    wrapped.getAvailableStacks(full);
+                    if (full.size() != published.size()) throw new AssertionError("wrapper size mismatch " + kind
+                        + " n=" + n + " k=" + k + " full=" + full.size() + " cached=" + published.size());
+                    for (var entry : full) if (published.get(entry.getKey()) != entry.getLongValue())
+                        throw new AssertionError("wrapper quantity mismatch");
+                }
+            }
+        }
+    }
+
+    /** Factory results deliberately escape, as they do when admitted to an inventory or a request queue. */
+    private static void factories(Path directory) throws Exception {
+        if (!ONLY.startsWith("factory")) return;
+        for (int[] workload : MATRIX) {
+            int n = workload[0], k = workload[1];
+            AEKey[] keys = StorageTestContext.keys(n, false);
+            var items = new net.minecraft.world.item.Item[n];
+            var stacks = new net.minecraft.world.item.ItemStack[n];
+            var tags = new net.minecraft.nbt.CompoundTag[n * 8];
+            for (int i = 0; i < n; i++) {
+                items[i] = ((appeng.api.stacks.AEItemKey) keys[i]).getItem();
+                stacks[i] = new net.minecraft.world.item.ItemStack(items[i]);
+            }
+            for (int i = 0; i < tags.length; i++) {
+                tags[i] = new net.minecraft.nbt.CompoundTag();
+                tags[i].putInt("variant", i);
+                tags[i].putString("payload", "factory-benchmark-".repeat(4));
+            }
+            measure("factory-item", n, k, k, cycle -> {
+                for (int i = 0; i < k; i++) escapedKey = appeng.api.stacks.AEItemKey.of(items[(cycle + i) % n]);
+                return escapedKey.hashCode();
+            });
+            measure("factory-item-stack", n, k, k, cycle -> {
+                for (int i = 0; i < k; i++) escapedKey = appeng.api.stacks.AEItemKey.of(stacks[(cycle + i) % n]);
+                return escapedKey.hashCode();
+            });
+            if (ONLY.equals("factory-item-cell")) {
+                try (var context = new StorageTestContext(Files.createTempDirectory(directory, "factory-cell-"), true)) {
+                    for (AEKey key : keys) context.cell.insert(key, 1000, Actionable.MODULATE, SOURCE);
+                    measure("factory-item-cell", n, k, 2 * k, cycle -> {
+                        long moved = 0;
+                        for (int i = 0; i < k; i++) {
+                            var item = items[(cycle * 31 + i) % n];
+                            moved += context.cell.insert(appeng.api.stacks.AEItemKey.of(item), 1, Actionable.MODULATE, SOURCE);
+                            moved += context.cell.extract(appeng.api.stacks.AEItemKey.of(item), 1, Actionable.MODULATE, SOURCE);
+                        }
+                        return moved;
+                    });
+                    for (AEKey key : keys) if (context.cell.extract(key, 2000, Actionable.SIMULATE, SOURCE) != 1000)
+                        throw new AssertionError("Factory + cell IO did not conserve quantities");
+                }
+            }
+            measure("factory-fluid-default", n, k, k, cycle -> {
+                for (int i = 0; i < k; i++) escapedKey = appeng.api.stacks.AEFluidKey.of(
+                    (cycle + i) % 2 == 0 ? net.minecraft.world.level.material.Fluids.WATER : net.minecraft.world.level.material.Fluids.LAVA);
+                return escapedKey.hashCode();
+            });
+            for (boolean churn : new boolean[]{false, true}) {
+                int variants = churn ? tags.length : n;
+                var cache = com.google.common.cache.CacheBuilder.newBuilder().maximumSize(1024).weakValues()
+                    .<net.minecraft.nbt.CompoundTag, appeng.api.stacks.AEFluidKey>build();
+                String suffix = churn ? "-churn" : "-repeat";
+                measure("factory-tagged-fluid" + suffix, n, k, k, cycle -> {
+                    for (int i = 0; i < k; i++) escapedKey = appeng.api.stacks.AEFluidKey.of(
+                        net.minecraft.world.level.material.Fluids.WATER, tags[(cycle * k + i) % variants]);
+                    return escapedKey.hashCode();
+                });
+                measure("factory-weak-fluid-prototype" + suffix, n, k, k, cycle -> {
+                    for (int i = 0; i < k; i++) {
+                        var tag = tags[(cycle * k + i) % variants];
+                        var key = cache.getIfPresent(tag);
+                        if (key == null) {
+                            key = appeng.api.stacks.AEFluidKey.of(net.minecraft.world.level.material.Fluids.WATER, tag);
+                            // The factory owns this copied tag; never retain a mutable caller-owned NBT tree.
+                            cache.put(key.getTag(), key);
+                        }
+                        escapedKey = key;
+                    }
+                    return escapedKey.hashCode();
+                });
+            }
+        }
+    }
     private static int index(int cycle,int i,int n,int k) { return k<n ? i : (cycle*31+i*37)%n; }
 
     private static void interfaces(Path directory) throws Exception {
@@ -275,7 +439,7 @@ public final class StorageWorkloadBenchmark {
                         case "getCellItem" -> context.stack.getItem();
                         default -> throw new UnsupportedOperationException(m.getName());
                     });
-                var network = new NetworkStorage(); network.mount(0, context.cell);
+                var network = new MountedStorage(List.of(context.cell));
                 IStorageService service = (IStorageService) Proxy.newProxyInstance(StorageWorkloadBenchmark.class.getClassLoader(),
                     new Class<?>[]{IStorageService.class}, (p,m,args) -> {
                         if (m.getName().equals("getInventory")) return network;
@@ -295,17 +459,29 @@ public final class StorageWorkloadBenchmark {
                     if (snapshot.amounts().size() != n || !snapshot.unboundedKeys().isEmpty()) throw new AssertionError("Planner stock");
                     return snapshot.amountOf(keys[cycle % n]).longValueSaturated();
                 });
+                measure("planner-update-capture", n, 20, 40, cycle -> {
+                    for (int i = 0; i < 20; i++) {
+                        AEKey key = keys[(cycle * 31 + i) % n];
+                        context.cell.insert(key, 2, Actionable.MODULATE, SOURCE);
+                        context.cell.extract(key, 1, Actionable.MODULATE, SOURCE);
+                    }
+                    var snapshot = cn.dancingsnow.neoecoae.crafting.planner.ECOPlannerInventory.capture(grid);
+                    if (snapshot.amounts().size() != n) throw new AssertionError("Planner updated stock");
+                    return snapshot.amountOf(keys[cycle % n]).longValueSaturated();
+                });
             }
             TerminalInventorySnapshot.clear();
         }
     }
 
     /** Same visible mount contract as the ECO network bridge; all IO still uses native AE2 routing. */
-    private static final class MountedStorage implements MEStorage, NetworkInventoryCache.Mounts {
+    private static final class MountedStorage implements MEStorage, NetworkInventoryCache.Mounts, TerminalInventorySnapshot.Source {
         private final List<MEStorage> mounts;
+        private final TerminalInventorySnapshot.Cache terminal = new TerminalInventorySnapshot.Cache();
         private final NetworkStorage network = new NetworkStorage();
         MountedStorage(List<MEStorage> mounts) { this.mounts = mounts; mounts.forEach(mount -> network.mount(0, mount)); }
         @Override public long neoecoae$mountGeneration() { return 0; }
+        @Override public TerminalInventorySnapshot.Cache neoecoae$terminalCache() { return terminal; }
         @Override public boolean neoecoae$distinctMountsGuaranteed() { return true; }
         @Override public boolean neoecoae$withMounts(Consumer<List<MEStorage>> action) { action.accept(mounts); return true; }
         @Override public void getAvailableStacks(KeyCounter out) { network.getAvailableStacks(out); }
@@ -359,7 +535,7 @@ public final class StorageWorkloadBenchmark {
         });
     }
 
-    private static void measure(String name,int n,int k,int operations,Cycle body) {
+    public static void measure(String name,int n,int k,int operations,Cycle body) {
         if(!ONLY.isEmpty()&&!name.contains(ONLY))return;
         int iterations=Math.multiplyExact(Math.max(100,20000/k), ITERATIONS_MULTIPLIER);
         int cycle=0;
@@ -389,20 +565,31 @@ public final class StorageWorkloadBenchmark {
         RESULTS.add(row);
     }
 
+    static void record(JsonObject row) { RESULTS.add(row); }
+
     private static void checkpoint(Path directory) throws Exception {
         if(!ONLY.isEmpty()&&!"checkpoint".contains(ONLY))return;
         StoragePerformance.reset();
         for(int n:new int[]{100,300,500,1000}) {
             var data=new ECOCellSavedData(UUID.randomUUID());
-            for(AEKey key:StorageTestContext.keys(n,false))data.amounts().add(key,1000);
+            var keys=StorageTestContext.keys(n,false);
+            for(AEKey key:keys)data.amounts().add(key,1000);
             data.bind(directory.resolve("checkpoint-"+n+".dat"));
-            long[] times=new long[12],bytes=new long[12];
+            long[] times=new long[24],bytes=new long[24];
             for(int i=0;i<times.length+3;i++) {
+                if(i==3)StoragePerformance.reset();
+                for(AEKey key:keys)data.amounts().add(key,1);
                 data.setDirty();long allocated=MX.getThreadAllocatedBytes(Thread.currentThread().getId()),started=System.nanoTime();
                 if(!data.flush())throw new AssertionError(data.writeFailure());
                 if(i>=3){times[i-3]=System.nanoTime()-started;bytes[i-3]=MX.getThreadAllocatedBytes(Thread.currentThread().getId())-allocated;}
             }
+            var saved=net.minecraft.nbt.NbtIo.readCompressed(data.dataFile().toFile()).getCompound("data");
+            var restored=ECOCellSavedData.load(saved,data.id());
+            for(AEKey key:keys)if(restored.amounts().visible(key)!=1027)throw new AssertionError("checkpoint recovery");
+            if(data.isDirty()||data.durableRevision()!=data.contentRevision())throw new AssertionError("checkpoint revision");
             JsonObject row=new JsonObject();row.addProperty("name","checkpoint");row.addProperty("n",n);
+            row.addProperty("compressedBytes",Files.size(data.dataFile()));
+            row.add("diagnostics",StoragePerformance.snapshot());
             row.add("elapsedNs",longs(times));row.add("allocatedBytes",longs(bytes));RESULTS.add(row);
         }
     }

@@ -12,12 +12,14 @@ import net.minecraft.world.level.material.Fluid;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraft.network.FriendlyByteBuf;
 
-/** Internal ECO entry points. AE2 and addon factories/decoders retain their original behavior. */
+/** Internal ECO entry points, sharing generation-scoped default keys with the optional official-AE2 bridge. */
 public final class ECOKeyFactory {
     private ECOKeyFactory() {}
 
     public static AEItemKey item(ItemStack stack) {
         Object epoch = KeyReuse.epoch();
+        // The bridge sees AE2's normalized caps directly, avoiding a second serialization in ECO.
+        if (epoch != null && stack.getItem() instanceof DefaultKeyOwner) return AEItemKey.of(stack);
         if (epoch == null || stack.isEmpty() || !plain(stack)) return AEItemKey.of(stack);
         KeyReuseSlot slot = KeyReuse.itemSlot(epoch, stack.getItem());
         if (slot == null) return AEItemKey.of(stack);
@@ -38,6 +40,7 @@ public final class ECOKeyFactory {
     public static AEItemKey item(ItemLike item) {
         Object epoch = KeyReuse.epoch();
         var owner = item.asItem();
+        if (epoch != null && owner instanceof DefaultKeyOwner) return AEItemKey.of(owner);
         KeyReuseSlot slot = KeyReuse.itemSlot(epoch, owner);
         if (slot == null) return AEItemKey.of(owner);
         AEItemKey key = (AEItemKey) slot.get(epoch);
@@ -126,9 +129,8 @@ public final class ECOKeyFactory {
             if (!plain(stack)) return key;
             owned = item(stack);
         } else if (key instanceof AEFluidKey fluid) {
-            FluidStack stack = fluid.toStack(1);
-            if (!plain(stack)) return key;
-            owned = fluid(stack.getFluid());
+            // Tagged keys returned above; no temporary FluidStack is needed for this default key.
+            owned = fluid(fluid.getFluid());
         } else {
             return OptionalECOKeys.canonicalize(key);
         }

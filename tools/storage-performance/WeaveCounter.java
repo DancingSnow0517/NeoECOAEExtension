@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.transformer.IMixinTransformerFactory;
 import org.spongepowered.asm.service.*;
 import org.spongepowered.asm.util.ReEntranceLock;
 
-/** Runs the real Mixin transformer on the pinned AE2 counter without launching Minecraft or opening a world. */
+/** Runs the real Mixin transformer on pinned classes without launching Minecraft or opening a world. */
 public final class WeaveCounter {
     private record Property(String name) implements IPropertyKey {}
 
@@ -99,19 +99,23 @@ public final class WeaveCounter {
         var transformer = factory.createTransformer();
         MixinEnvironment.getDefaultEnvironment().setActiveTransformer(transformer);
         com.llamalad7.mixinextras.MixinExtrasBootstrap.init();
-        Mixins.addConfiguration("counter-only.mixins.json");
-        String target = "appeng.api.stacks.KeyCounter";
+        Mixins.addConfiguration(args.length > 1 ? args[1] : "counter-only.mixins.json");
+        String[] targets = args.length > 2 ? java.util.Arrays.copyOfRange(args, 2, args.length)
+            : new String[]{"appeng.api.stacks.KeyCounter"};
+        for (String target : targets) {
         byte[] original;
         try (InputStream input = loader.getResourceAsStream(target.replace('.', '/') + ".class")) {
             original = input.readAllBytes();
         }
         byte[] transformed = transformer.transformClassBytes(target, target, original);
-        if (java.util.Arrays.equals(original, transformed)) throw new AssertionError("Counter was not transformed");
+        if (java.util.Arrays.equals(original, transformed)) throw new AssertionError(target + " was not transformed");
         var node = new ClassNode(); new ClassReader(transformed).accept(node, 0);
-        if (node.interfaces.stream().noneMatch(name -> name.endsWith("TerminalInventorySnapshot$SnapshotCounter")))
+        if (target.equals("appeng.api.stacks.KeyCounter")
+                && node.interfaces.stream().noneMatch(name -> name.endsWith("TerminalInventorySnapshot$SnapshotCounter")))
             throw new AssertionError("Snapshot interface missing");
         Path file = output.resolve(target.replace('.', '/') + ".class");
         Files.createDirectories(file.getParent()); Files.write(file, transformed);
-        System.out.println("Woven pinned AE2 KeyCounter: " + file + " (" + transformed.length + " bytes)");
+        System.out.println("Woven pinned class: " + file + " (" + transformed.length + " bytes)");
+        }
     }
 }

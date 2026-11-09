@@ -142,7 +142,7 @@ public final class NetworkInventoryCache {
                 if (valid) StoragePerformance.count(StoragePerformance.Counter.CACHE_REPAIR);
                 valid = false;
                 refreshes = 0;
-                rebuild(inventories, published, amounts, changes, fullListing);
+                rebuild(inventories, published, amounts, fullListing);
             } else {
                 try {
                     update(inventories, mountGeneration != generation, amounts, fullListing);
@@ -151,14 +151,20 @@ public final class NetworkInventoryCache {
                     valid = false;
                     throw failure;
                 }
-                publish(published, amounts, changes);
+                publish(published, amounts);
             }
             generation = mountGeneration;
             valid = true;
             refreshed = true;
             });
-            if (!locked || !refreshed) valid = false;
-            return locked && refreshed;
+            if (!locked || !refreshed) {
+                valid = false;
+                return false;
+            }
+            // Native StorageService notifies after listing releases the mount lock. Observers may
+            // query stock or remount storage; neither operation should be treated as recursive listing.
+            notifyChanges(changes, amounts.size(), pendingKeys.size());
+            return true;
         } catch (RuntimeException | Error failure) {
             valid = false;
             throw failure;
@@ -181,7 +187,7 @@ public final class NetworkInventoryCache {
     }
 
     private void rebuild(List<MEStorage> inventories, KeyCounter published, Object2LongMap<AEKey> amounts,
-            ObjLongConsumer<AEKey> changes, BiConsumer<MEStorage, KeyCounter> fullListing) {
+            BiConsumer<MEStorage, KeyCounter> fullListing) {
         mounts.clear();
         oversized.clear();
         pendingKeys.clear();
@@ -218,7 +224,6 @@ public final class NetworkInventoryCache {
         amounts.clear();
         amounts.putAll(totals);
         totals.clear();
-        notifyChanges(changes, amounts.size(), pendingKeys.size());
     }
 
     private void update(List<MEStorage> inventories, boolean remounted, Object2LongMap<AEKey> amounts,
@@ -298,7 +303,7 @@ public final class NetworkInventoryCache {
         return applied;
     }
 
-    private void publish(KeyCounter published, Object2LongMap<AEKey> amounts, ObjLongConsumer<AEKey> changes) {
+    private void publish(KeyCounter published, Object2LongMap<AEKey> amounts) {
         boolean removed = false;
         int touched = pendingKeys.size(), changed = 0;
         for (int i = 0; i < touched; i++) {
@@ -317,8 +322,7 @@ public final class NetworkInventoryCache {
         pendingKeys.size(changed);
         pendingAmounts.size(changed);
         if (removed) published.removeEmptySubmaps();
-        // A watcher may synchronously read another changed key: publish the entire batch first.
-        notifyChanges(changes, amounts.size(), touched);
+        // Notifications follow only after the entire batch is published and the mount lock is released.
     }
 
     private void notifyChanges(ObjLongConsumer<AEKey> changes, int liveResources, int touched) {

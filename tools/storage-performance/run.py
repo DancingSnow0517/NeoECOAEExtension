@@ -6,6 +6,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--output', type=Path, required=True)
 parser.add_argument('--label', required=True)
 parser.add_argument('--baseline-jar', type=Path)
+parser.add_argument('--test-jar', type=Path, help='Preserved test/benchmark classes and resources')
 parser.add_argument('--counter-fixture', type=Path)
 parser.add_argument('--forks', type=int, default=3)
 parser.add_argument('--java-home', type=Path, default=Path('C:/Program Files/Zulu/zulu-21'))
@@ -26,6 +27,11 @@ if args.baseline_jar:
     parts = [str(args.baseline_jar.resolve()) if Path(part).resolve() == (root/'build/classes/java/main').resolve()
              else part for part in parts]
     classpath = os.pathsep.join(parts)
+if args.test_jar:
+    parts = [str(args.test_jar.resolve()) if Path(part).resolve() == (root/'build/classes/java/test').resolve()
+             else part for part in classpath.split(os.pathsep)
+             if Path(part).resolve() != (root/'build/resources/test').resolve()]
+    classpath = os.pathsep.join(parts)
 if args.counter_fixture:
     classpath = str(args.counter_fixture.resolve()) + os.pathsep + classpath
 java = args.java_home/'bin/java.exe'
@@ -34,6 +40,8 @@ args.output.mkdir(parents=True, exist_ok=True)
 metadata = {'label': args.label, 'java': version.stdout+version.stderr, 'os': platform.platform(),
             'baselineJar': str(args.baseline_jar) if args.baseline_jar else None,
             'baselineSha256': hashlib.sha256(args.baseline_jar.read_bytes()).hexdigest() if args.baseline_jar else None,
+            'testJar': str(args.test_jar) if args.test_jar else None,
+            'testJarSha256': hashlib.sha256(args.test_jar.read_bytes()).hexdigest() if args.test_jar else None,
             'counterFixture': str(args.counter_fixture) if args.counter_fixture else None,
             'counterFixtureSha256': hashlib.sha256((args.counter_fixture/'appeng/api/stacks/KeyCounter.class').read_bytes()).hexdigest() if args.counter_fixture else None,
             'forks': []}

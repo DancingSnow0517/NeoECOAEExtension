@@ -59,6 +59,7 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
         FluidStack selected = fluid.isEmpty() ? FluidStack.EMPTY : new FluidStack(fluid, 1);
         if (markedCoolant.isFluidStackIdentical(selected)) return;
         markedCoolant = selected;
+        nextCoolantPullTick = 0;
         setChanged();
         markForUpdate();
     }
@@ -120,6 +121,10 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
 
     private void pullNetworkCoolant() {
         if (markedCoolant.isEmpty() && tank.isEmpty()) return;
+        long minimum = Math.max(1L, (long) tank.getCapacity()
+            * cn.dancingsnow.neoecoae.config.NEConfig.smartCoolingRefillThresholdPercent / 100);
+        if (!markedCoolant.isEmpty() && tank.getFluid().isFluidEqual(markedCoolant)
+                && tank.getFluidAmount() >= minimum) return;
         var cluster = getCluster();
         if (cluster == null || cluster.getController() == null || !getMainNode().isActive()) return;
         var controller = cluster.getController();
@@ -136,6 +141,7 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
             if (!tank.isEmpty()) return;
         }
         if (markedCoolant.isEmpty() || !controller.isActiveCooling() || tank.getSpace() <= 0) return;
+        if (tank.getFluidAmount() >= minimum) return;
         AEFluidKey selected = ECOKeyFactory.fluid(markedCoolant);
         int space = tank.fill(selected.toStack(tank.getSpace()), IFluidHandler.FluidAction.SIMULATE);
         if (space <= 0) return;

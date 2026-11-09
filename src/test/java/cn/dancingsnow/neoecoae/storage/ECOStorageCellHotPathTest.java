@@ -28,7 +28,10 @@ class ECOStorageCellHotPathTest {
     @Test void equalKeysEpochsDeletionAndReadmissionShareOneLedger(@TempDir Path directory) throws Exception {
         KeyReuse.configure(true);
         try(var context=new StorageTestContext(directory)) {
+            // Model distinct keys supplied by an uncached producer, even when the factory bridge is woven.
+            KeyReuse.configure(false);
             var first=AEItemKey.of(Items.IRON_INGOT);var equal=AEItemKey.of(Items.IRON_INGOT);
+            KeyReuse.configure(true);
             assertNotSame(first,equal);assertEquals(first,equal);
             assertEquals(100,context.cell.insert(first,100,Actionable.MODULATE,SOURCE));
             KeyReuse.invalidate();var fresh=ECOKeyFactory.item(new ItemStack(Items.IRON_INGOT));

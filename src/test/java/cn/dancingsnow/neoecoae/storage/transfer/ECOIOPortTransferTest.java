@@ -31,6 +31,106 @@ class ECOIOPortTransferTest {
         InventoryTestBootstrap.initialize();
     }
 
+    @Test void scheduledOutputCombinesRepeatedKeysWhileStockRemainsInTheHost() {
+        AEKey key = AEItemKey.of(Items.STONE);
+        var host = new CountingStorage(key, 0, Long.MAX_VALUE);
+        var network = new CountingStorage(key, 0, Long.MAX_VALUE);
+        var grid = inputGrid(network); var transfer = new ECOIOPortTransfer();
+        for (int tick = 0; tick < 20; tick++) {
+            host.insert(key, 1, Actionable.MODULATE, IActionSource.empty());
+            transfer.transfer(grid, host, false, false, true, IActionSource.empty(), what -> true, tick, 5, 64);
+            assertEquals(tick + 1, host.amount + network.amount);
+            if (tick == 4) assertEquals(4, host.amount, "waiting stock is still owned by the source");
+        }
+        transfer.transfer(grid, host, false, false, true, IActionSource.empty(), what -> true, 20, 5, 64);
+        assertEquals(20, network.amount); assertEquals(0, host.amount);
+        assertEquals(5, network.modulatedInserts);
+        host.insert(key, 64, Actionable.MODULATE, IActionSource.empty());
+        assertEquals(64, transfer.transfer(grid, host, false, false, true,
+            IActionSource.empty(), what -> true, 21, 5, 64), "threshold flush does not wait for tick 25");
+    }
+
+    @Test void blockedOutputAndResetKeepAllStockForTheReconnectedNetwork() {
+        AEKey key = AEItemKey.of(Items.STONE);
+        var host = new CountingStorage(key, 23, Long.MAX_VALUE);
+        var full = new CountingStorage(key, 0, 0);
+        var transfer = new ECOIOPortTransfer();
+        assertEquals(0, transfer.transfer(inputGrid(full), host, false, false, true,
+            IActionSource.empty(), what -> true, 0, 20, 64));
+        assertEquals(23, host.amount); assertEquals(0, host.modulatedExtracts);
+        transfer.reset();
+        var replacement = new CountingStorage(key, 0, Long.MAX_VALUE);
+        assertEquals(23, transfer.transfer(inputGrid(replacement), host, false, false, true,
+            IActionSource.empty(), what -> true, 1, 20, 64));
+        assertEquals(23, replacement.amount); assertEquals(0, host.amount);
+    }
+
+    @Test void noPowerNeverExtractsFromASourceThatCannotAcceptReturns() {
+        AEKey key = AEItemKey.of(Items.STONE);
+        var owned = new CountingStorage(key, 31, 31);
+        MEStorage source = new MEStorage() {
+            public long extract(AEKey what, long amount, Actionable mode, IActionSource action) {
+                return owned.extract(what, amount, mode, action);
+            }
+            public void getAvailableStacks(KeyCounter out) { owned.getAvailableStacks(out); }
+            public net.minecraft.network.chat.Component getDescription() { return net.minecraft.network.chat.Component.empty(); }
+        };
+        var grid = inputGrid(source);
+        when(grid.getEnergyService().extractAEPower(anyDouble(), any(), any())).thenReturn(0.0);
+        var target = new CountingStorage(key, 0, Long.MAX_VALUE);
+        assertEquals(0, new ECOIOPortTransfer().transfer(grid, target, true, IActionSource.empty()));
+        assertEquals(31, owned.amount); assertEquals(0, owned.modulatedExtracts); assertEquals(0, target.amount);
+    }
+
+    @Test void callbackReentryCannotReplaceTheActiveTransferQueue() {
+        AEKey key = AEItemKey.of(Items.STONE);
+        var host = new CountingStorage(key, 17, Long.MAX_VALUE);
+        var target = new CountingStorage(key, 0, Long.MAX_VALUE);
+        var transfer = new ECOIOPortTransfer(); IGrid[] grid = {null};
+        MEStorage callback = new MEStorage() {
+            public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
+                if (mode == Actionable.MODULATE)
+                    assertEquals(0, transfer.transfer(grid[0], host, false, IActionSource.empty()));
+                return target.insert(what, amount, mode, source);
+            }
+            public net.minecraft.network.chat.Component getDescription() { return net.minecraft.network.chat.Component.empty(); }
+        };
+        grid[0] = inputGrid(callback);
+        assertEquals(17, transfer.transfer(grid[0], host, false, IActionSource.empty()));
+        assertEquals(17, target.amount); assertEquals(0, host.amount); assertEquals(1, host.modulatedExtracts);
+    }
+
+    @Test void replenishingAMountedSourceToTheSameTotalDoesNotLoseItsCandidate() {
+        AEKey key = AEItemKey.of(Items.STONE);
+        for (boolean input : List.of(false, true)) {
+            var owned = new CountingStorage(key, 0, Long.MAX_VALUE);
+            class Mounted implements MEStorage, cn.dancingsnow.neoecoae.storage.NetworkInventoryCache.Mounts {
+                public long neoecoae$mountGeneration() { return 0; }
+                public boolean neoecoae$withMounts(java.util.function.Consumer<List<MEStorage>> consumer) {
+                    consumer.accept(List.of(owned)); return true;
+                }
+                public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
+                    return owned.insert(what, amount, mode, source);
+                }
+                public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
+                    return owned.extract(what, amount, mode, source);
+                }
+                public void getAvailableStacks(KeyCounter out) { owned.getAvailableStacks(out); }
+                public net.minecraft.network.chat.Component getDescription() { return net.minecraft.network.chat.Component.empty(); }
+            }
+            var mounted = new Mounted(); var target = new CountingStorage(key, 0, Long.MAX_VALUE);
+            var grid = inputGrid(input ? mounted : target);
+            var filter = new cn.dancingsnow.neoecoae.storage.StorageInterfaceFilter(new net.minecraft.nbt.CompoundTag());
+            var transfer = new ECOIOPortTransfer();
+            for (int tick = 0; tick < 10; tick++) {
+                owned.insert(key, 1, Actionable.MODULATE, IActionSource.empty());
+                assertEquals(1, transfer.transfer(grid, input ? target : mounted, input, false, true,
+                    IActionSource.empty(), filter), "equal aggregate totals can still contain newly produced stock");
+            }
+            assertEquals(10, target.amount); assertEquals(0, owned.amount);
+        }
+    }
+
     @Test
     void resourceFilterRestrictsBothInputAndOutputBeforeAnyExtraction() {
         AEKey allowed = AEItemKey.of(Items.STONE), denied = AEItemKey.of(Items.DIRT);
@@ -425,6 +525,7 @@ class ECOIOPortTransferTest {
         private final long capacity;
         private long amount;
         private int modulatedExtracts;
+        private int modulatedInserts;
         private boolean creative;
 
         private CountingStorage(AEKey key, long amount, long capacity) {
@@ -437,7 +538,7 @@ class ECOIOPortTransferTest {
         public long insert(AEKey what, long requested, Actionable mode, IActionSource source) {
             if (!key.equals(what)) return 0L;
             long accepted = Math.min(requested, capacity - amount);
-            if (mode == Actionable.MODULATE) amount += accepted;
+            if (mode == Actionable.MODULATE) { amount += accepted; if (accepted > 0) modulatedInserts++; }
             return accepted;
         }
 

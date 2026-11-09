@@ -41,6 +41,7 @@ public record TerminalInventorySnapshot(KeyCounter inventory, Map<AEKey, ExactAm
         void neoecoae$useSnapshot(Contents contents);
         void neoecoae$materializeSnapshot();
         boolean neoecoae$wasMaterialized();
+        default boolean neoecoae$visitSnapshot(java.util.function.ObjLongConsumer<AEKey> visitor) { return false; }
     }
 
     /** Immutable buckets: a new publication copies only buckets containing changed keys. */
@@ -87,7 +88,9 @@ public record TerminalInventorySnapshot(KeyCounter inventory, Map<AEKey, ExactAm
             return new Contents(next, amounts.size());
         }
 
-        private static int bucket(AEKey key) { return HashCommon.mix(key.hashCode()) & (BUCKETS - 1); }
+        // FastUtil uses the low mixed bits within each bucket. Reusing those bits here forces
+        // every key in a bucket into the same initial slots, turning exact reads into long probes.
+        private static int bucket(AEKey key) { return HashCommon.mix(key.hashCode()) >>> 27; }
         public long get(AEKey key) {
             var bucket = buckets[bucket(key)];
             return bucket == null ? 0 : bucket.getLong(key);
@@ -96,11 +99,21 @@ public record TerminalInventorySnapshot(KeyCounter inventory, Map<AEKey, ExactAm
 
         /** Populates a fresh native counter after its snapshot marker has been removed. */
         public void copyInto(KeyCounter counter) {
+            forEach(counter::set);
+        }
+
+        public void forEach(java.util.function.ObjLongConsumer<AEKey> visitor) {
             for (var bucket : buckets) {
                 if (bucket != null) for (var entry : Object2LongMaps.fastIterable(bucket))
-                    counter.set(entry.getKey(), entry.getLongValue());
+                    visitor.accept(entry.getKey(), entry.getLongValue());
             }
         }
+    }
+
+    /** Exact-only consumers need no mutable/fuzzy AE2 view and cannot mutate the shared publication. */
+    public void visitVisibleAmounts(java.util.function.ObjLongConsumer<AEKey> visitor) {
+        if ((Object) inventory instanceof SnapshotCounter bridge && bridge.neoecoae$visitSnapshot(visitor)) return;
+        for (var entry : inventory) visitor.accept(entry.getKey(), entry.getLongValue());
     }
 
     public static TerminalInventorySnapshot sample(Object storage, long tick, boolean exact,
@@ -180,7 +193,6 @@ public record TerminalInventorySnapshot(KeyCounter inventory, Map<AEKey, ExactAm
         private static final int FULL_READ_PROBE_INTERVAL = 32;
         private final NetworkInventoryCache network = new NetworkInventoryCache(false);
         private final TerminalExactInventory precision = new TerminalExactInventory(network);
-        private final KeyCounter working = new KeyCounter();
         private final Object2LongOpenHashMap<AEKey> amounts = new Object2LongOpenHashMap<>();
         private final ObjectLinkedOpenHashSet<AEKey> changed = new ObjectLinkedOpenHashSet<>();
         private final ArrayDeque<Change> history = new ArrayDeque<>();
@@ -202,8 +214,6 @@ public record TerminalInventorySnapshot(KeyCounter inventory, Map<AEKey, ExactAm
 
         private void reset() {
             invalidateNetwork();
-            working.clear();
-            working.removeEmptySubmaps();
             amounts.clear();
             snapshot = null;
             tick = exactTick = Long.MIN_VALUE;
@@ -233,10 +243,10 @@ public record TerminalInventorySnapshot(KeyCounter inventory, Map<AEKey, ExactAm
                     iterator.remove();
                 }
                 precision.begin(collect);
-                if (!network.refresh(storage, working, amounts, (key, amount) -> changed.add(key), precision::list)) return null;
+                if (!network.refresh(storage, null, amounts, (key, amount) -> changed.add(key), precision::list)) return null;
                 Map<AEKey, ExactAmount> exact = snapshot == null ? Map.of() : snapshot.amounts();
                 if (collect) {
-                    exact = precision.sample(storage, working, exact);
+                    exact = precision.sample(storage, amounts, exact);
                     if (exact == null) return null;
                 }
                 if (published == null || !changed.isEmpty()) publish();
@@ -270,8 +280,8 @@ public record TerminalInventorySnapshot(KeyCounter inventory, Map<AEKey, ExactAm
                 }
             } else {
                 // Unknown AE2 versions keep the public-API copy; no reflective access to native internals.
-                if (StoragePerformance.ENABLED) StoragePerformance.add(StoragePerformance.Counter.TERMINAL_COPIED_KEYS, working.size());
-                next.addAll(working);
+                if (StoragePerformance.ENABLED) StoragePerformance.add(StoragePerformance.Counter.TERMINAL_COPIED_KEYS, amounts.size());
+                for (var entry : Object2LongMaps.fastIterable(amounts)) next.set(entry.getKey(), entry.getLongValue());
             }
             long from = version++;
             if (changed.size() > MAX_HISTORY_KEYS) {

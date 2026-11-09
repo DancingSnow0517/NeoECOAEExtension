@@ -31,6 +31,7 @@ import net.minecraftforge.server.ServerLifecycleHooks;
 public final class StorageTestContext implements AutoCloseable {
     private static ECOStorageCellItem item;
     private static ECOStorageCellItem benchmarkItem;
+    private static ECOStorageCellItem fluidItem;
     public final MinecraftServer server;
     public final ECOStorageRepository.Session session;
     public final ItemStack stack;
@@ -49,6 +50,8 @@ public final class StorageTestContext implements AutoCloseable {
         // L9 byte capacity/accounting; only the type limit is lifted for the requested 500/1000-key experiments.
         benchmarkItem = Registry.register(BuiltInRegistries.ITEM, "eco_storage_test:benchmark_cell",
             new ECOStorageCellItem(new Item.Properties(), ECOTier.L9, AEKeyType.items(), () -> type));
+        fluidItem = Registry.register(BuiltInRegistries.ITEM, "eco_storage_test:fluid_cell",
+            new ECOStorageCellItem(new Item.Properties(), ECOTier.L9, AEKeyType.fluids(), () -> type));
     }
 
     public StorageTestContext(Path directory) throws Exception {
@@ -82,6 +85,8 @@ public final class StorageTestContext implements AutoCloseable {
             return new ECOStorageCell(value, saveProvider);
         }
     }
+
+    public ECOStorageCell newFluidCell() { return open(new ItemStack(fluidItem), owner); }
 
     public static AEKey[] keys(int n, boolean tagged) {
         List<AEKey> result = new ArrayList<>();
