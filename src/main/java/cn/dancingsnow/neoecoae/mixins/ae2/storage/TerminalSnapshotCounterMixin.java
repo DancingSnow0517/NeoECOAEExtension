@@ -31,6 +31,13 @@ public abstract class TerminalSnapshotCounterMixin implements SnapshotCounter {
 
     @Override public boolean neoecoae$wasMaterialized() { return neoecoae$materialized != null; }
 
+    @Override public boolean neoecoae$visitSnapshot(java.util.function.ObjLongConsumer<AEKey> visitor) {
+        Contents contents = neoecoae$snapshot;
+        if (!neoecoae$isSnapshot || contents == null) return false;
+        contents.forEach(visitor);
+        return true;
+    }
+
     @Override public void neoecoae$materializeSnapshot() {
         if (!neoecoae$isSnapshot) return;
         synchronized (this) {

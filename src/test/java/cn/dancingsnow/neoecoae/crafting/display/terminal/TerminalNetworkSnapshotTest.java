@@ -36,6 +36,33 @@ class TerminalNetworkSnapshotTest {
     }
     @AfterEach void clear() { TerminalInventorySnapshot.clear(); }
 
+    @Test void planningSeesSameTickChangesWithoutMaterializingTheSharedTerminalView() {
+        var stone = AEItemKey.of(Items.STONE);
+        var dirt = AEItemKey.of(Items.DIRT);
+        var source = new Domain();
+        source.engine.insert(stone, 10, Actionable.MODULATE);
+        source.engine.insert(dirt, MAX.add(BigInteger.valueOf(7)), Actionable.MODULATE);
+        var network = new Network(source);
+        var before = network.sample(0, true);
+        var grid = org.mockito.Mockito.mock(appeng.api.networking.IGrid.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+        org.mockito.Mockito.when(grid.getStorageService().getInventory()).thenReturn(network);
+        org.mockito.Mockito.when(grid.getMachineClasses()).thenReturn(Set.of());
+        source.engine.insert(stone, 5, Actionable.MODULATE);
+        source.engine.insert(dirt, 3, Actionable.MODULATE);
+        var first = cn.dancingsnow.neoecoae.crafting.planner.ECOPlannerInventory.capture(grid);
+        assertEquals(15, first.amountOf(stone).longValueSaturated());
+        assertEquals(MAX.add(BigInteger.TEN), first.amountOf(dirt).toBigInteger());
+        var publication = network.sample(0, false);
+        if ((Object) publication.inventory() instanceof TerminalInventorySnapshot.SnapshotCounter bridge)
+            assertFalse(bridge.neoecoae$wasMaterialized());
+        source.engine.extract(stone, 15, Actionable.MODULATE);
+        var second = cn.dancingsnow.neoecoae.crafting.planner.ECOPlannerInventory.capture(grid);
+        assertEquals(0, second.amountOf(stone).longValueSaturated());
+        assertEquals(15, first.amountOf(stone).longValueSaturated());
+        assertEquals(10, before.inventory().get(stone));
+        assertEquals(1, source.listings);
+    }
+
     @Test void changedKeysAndUnchangedSnapshotsAreSharedWithoutRelistingTheDomain() {
         var key = AEItemKey.of(Items.STONE);
         var source = new Domain();
@@ -83,6 +110,37 @@ class TerminalNetworkSnapshotTest {
         assertEquals(10, ordinary.inventory().get(key));
         assertTrue(ordinary.amounts().isEmpty());
         assertEquals(1, source.listings);
+    }
+
+    @Test void exactTraversalKeepsSharedSnapshotsIndependentWithoutBuildingANativeView() {
+        var source = new Domain();
+        var keys = new ArrayList<AEKey>();
+        for (int i = 0; i < 300; i++) {
+            var stack = new net.minecraft.world.item.ItemStack(Items.STONE);
+            stack.getOrCreateTag().putInt("variant", i);
+            AEKey key = AEItemKey.of(stack);
+            keys.add(key);
+            source.engine.insert(key, i + 1, Actionable.MODULATE);
+        }
+        var network = new Network(source);
+        var first = network.sample(0, false);
+        var values = new java.util.HashMap<AEKey, Long>();
+        first.visitVisibleAmounts(values::put);
+        assertEquals(300, values.size());
+        if ((Object) first.inventory() instanceof TerminalInventorySnapshot.SnapshotCounter bridge)
+            assertFalse(bridge.neoecoae$wasMaterialized());
+        source.engine.extract(keys.get(0), 1, Actionable.MODULATE);
+        source.engine.insert(keys.get(1), 7, Actionable.MODULATE);
+        var second = network.sample(1, false);
+        assertEquals(1, first.inventory().get(keys.get(0)));
+        assertEquals(0, second.inventory().get(keys.get(0)));
+        assertEquals(2, first.inventory().get(keys.get(1)));
+        assertEquals(9, second.inventory().get(keys.get(1)));
+        second.inventory().set(keys.get(1), 20);
+        values.clear();
+        second.visitVisibleAmounts(values::put);
+        assertEquals(20L, values.get(keys.get(1)));
+        assertEquals(2, first.inventory().get(keys.get(1)));
     }
 
     @Test void publishedCountersDetachForMutationAndNativeBulkOperations() {

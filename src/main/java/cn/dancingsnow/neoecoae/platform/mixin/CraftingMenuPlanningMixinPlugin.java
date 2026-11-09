@@ -15,7 +15,8 @@ public final class CraftingMenuPlanningMixinPlugin implements IMixinConfigPlugin
     @Override public String getRefMapperConfig() { return null; }
     @Override public boolean shouldApplyMixin(String target, String mixin) {
         if (mixin.endsWith(".DelegatingStorageListingMixin") || mixin.endsWith(".MEInventoryHandlerListingMixin")
-                || mixin.endsWith(".TerminalSnapshotCounterMixin")) {
+                || mixin.endsWith(".TerminalSnapshotCounterMixin") || mixin.endsWith(".PrecisePriorityListAccessor")
+                || mixin.contains(".ae2.key.")) {
             var mods = net.minecraftforge.fml.loading.LoadingModList.get();
             return mods != null && mods.getMods().stream().anyMatch(mod -> mod.getModId().equals("ae2")
                 && mod.getVersion().toString().equals("15.4.11"));
