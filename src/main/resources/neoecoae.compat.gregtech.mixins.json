@@ -6,7 +6,8 @@
   "compatibilityLevel": "JAVA_17",
   "mixins": [
     "GTMEPatternBufferMixin",
-    "GTLInfinityCellInventoryMixin"
+    "GTLInfinityCellInventoryMixin",
+    "GTLFastInfinityCellTransferMixin"
   ],
   "client": [],
   "server": [],
