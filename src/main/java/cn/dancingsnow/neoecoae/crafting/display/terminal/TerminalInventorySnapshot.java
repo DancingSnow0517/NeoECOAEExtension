@@ -7,10 +7,14 @@ import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.SupplierStorageAccessor;
 import cn.dancingsnow.neoecoae.network.MenuDataTransport;
 import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
+import cn.dancingsnow.neoecoae.storage.StoragePerformance;
 import cn.dancingsnow.neoecoae.storage.transfer.StorageBusTransferFilter;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2LongMaps;
+import it.unimi.dsi.fastutil.HashCommon;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
 import java.lang.ref.WeakReference;
 import java.math.BigInteger;
 import java.util.ArrayDeque;
@@ -30,6 +34,86 @@ public record TerminalInventorySnapshot(KeyCounter inventory, Map<AEKey, ExactAm
     /** The network owns caches that refer to its mounts; a global weak-key map must not retain that graph. */
     public interface Source {
         Cache neoecoae$terminalCache();
+    }
+
+    /** Implemented only by the optional AE2 counter bridge. Unmarked counters keep AE2's native behavior. */
+    public interface SnapshotCounter {
+        void neoecoae$useSnapshot(Contents contents);
+        void neoecoae$materializeSnapshot();
+        boolean neoecoae$wasMaterialized();
+        default boolean neoecoae$visitSnapshot(java.util.function.ObjLongConsumer<AEKey> visitor) { return false; }
+    }
+
+    /** Immutable buckets: a new publication copies only buckets containing changed keys. */
+    public static final class Contents {
+        private static final int BUCKETS = 32;
+        private final Object2LongOpenHashMap<AEKey>[] buckets;
+        private final int size;
+
+        private Contents(Object2LongOpenHashMap<AEKey>[] buckets, int size) {
+            this.buckets = buckets;
+            this.size = size;
+        }
+
+        @SuppressWarnings("unchecked")
+        private static Contents copy(Object2LongOpenHashMap<AEKey> amounts) {
+            if (StoragePerformance.ENABLED) StoragePerformance.add(StoragePerformance.Counter.TERMINAL_COW_COPIED_KEYS, amounts.size());
+            var buckets = (Object2LongOpenHashMap<AEKey>[]) new Object2LongOpenHashMap<?>[BUCKETS];
+            int expected = Math.max(2, (amounts.size() + BUCKETS - 1) / BUCKETS);
+            for (var entry : Object2LongMaps.fastIterable(amounts)) {
+                int bucket = bucket(entry.getKey());
+                if (buckets[bucket] == null) buckets[bucket] = new Object2LongOpenHashMap<>(expected);
+                buckets[bucket].put(entry.getKey(), entry.getLongValue());
+            }
+            return new Contents(buckets, amounts.size());
+        }
+
+        private Contents update(Object2LongOpenHashMap<AEKey> amounts, Set<AEKey> changed) {
+            // Dense batches would otherwise copy the old buckets and overwrite most of them again.
+            if ((long) changed.size() * 2 >= amounts.size()) return copy(amounts);
+            var next = buckets.clone();
+            int copied = 0;
+            for (AEKey key : changed) {
+                int bucket = bucket(key), mask = 1 << bucket;
+                if ((copied & mask) == 0) {
+                    if (StoragePerformance.ENABLED && buckets[bucket] != null)
+                        StoragePerformance.add(StoragePerformance.Counter.TERMINAL_COW_COPIED_KEYS, buckets[bucket].size());
+                    next[bucket] = buckets[bucket] == null ? new Object2LongOpenHashMap<>(2) : buckets[bucket].clone();
+                    copied |= mask;
+                }
+                long amount = amounts.getLong(key);
+                if (amount == 0) next[bucket].removeLong(key);
+                else next[bucket].put(key, amount);
+            }
+            return new Contents(next, amounts.size());
+        }
+
+        // FastUtil uses the low mixed bits within each bucket. Reusing those bits here forces
+        // every key in a bucket into the same initial slots, turning exact reads into long probes.
+        private static int bucket(AEKey key) { return HashCommon.mix(key.hashCode()) >>> 27; }
+        public long get(AEKey key) {
+            var bucket = buckets[bucket(key)];
+            return bucket == null ? 0 : bucket.getLong(key);
+        }
+        public int size() { return size; }
+
+        /** Populates a fresh native counter after its snapshot marker has been removed. */
+        public void copyInto(KeyCounter counter) {
+            forEach(counter::set);
+        }
+
+        public void forEach(java.util.function.ObjLongConsumer<AEKey> visitor) {
+            for (var bucket : buckets) {
+                if (bucket != null) for (var entry : Object2LongMaps.fastIterable(bucket))
+                    visitor.accept(entry.getKey(), entry.getLongValue());
+            }
+        }
+    }
+
+    /** Exact-only consumers need no mutable/fuzzy AE2 view and cannot mutate the shared publication. */
+    public void visitVisibleAmounts(java.util.function.ObjLongConsumer<AEKey> visitor) {
+        if ((Object) inventory instanceof SnapshotCounter bridge && bridge.neoecoae$visitSnapshot(visitor)) return;
+        for (var entry : inventory) visitor.accept(entry.getKey(), entry.getLongValue());
     }
 
     public static TerminalInventorySnapshot sample(Object storage, long tick, boolean exact,
@@ -106,11 +190,11 @@ public record TerminalInventorySnapshot(KeyCounter inventory, Map<AEKey, ExactAm
     public static final class Cache {
         private static final int MAX_HISTORY_KEYS = 65_536;
         private static final int MAX_HISTORY_FRAMES = 32;
+        private static final int FULL_READ_PROBE_INTERVAL = 32;
         private final NetworkInventoryCache network = new NetworkInventoryCache(false);
         private final TerminalExactInventory precision = new TerminalExactInventory(network);
-        private final KeyCounter working = new KeyCounter();
         private final Object2LongOpenHashMap<AEKey> amounts = new Object2LongOpenHashMap<>();
-        private final ObjectOpenHashSet<AEKey> changed = new ObjectOpenHashSet<>();
+        private final ObjectLinkedOpenHashSet<AEKey> changed = new ObjectLinkedOpenHashSet<>();
         private final ArrayDeque<Change> history = new ArrayDeque<>();
         private final Long2ObjectOpenHashMap<Set<AEKey>> mergedChanges = new Long2ObjectOpenHashMap<>();
         private final WeakReference<Cache> reference = new WeakReference<>(this);
@@ -121,14 +205,15 @@ public record TerminalInventorySnapshot(KeyCounter inventory, Map<AEKey, ExactAm
         private long historyFloor;
         private int historyKeys;
         private KeyCounter published;
+        private Contents publishedContents;
+        private int nativePublications;
+        private int consecutiveFullReads;
         private TerminalInventorySnapshot snapshot;
 
         public Cache() {}
 
         private void reset() {
             invalidateNetwork();
-            working.clear();
-            working.removeEmptySubmaps();
             amounts.clear();
             snapshot = null;
             tick = exactTick = Long.MIN_VALUE;
@@ -140,6 +225,9 @@ public record TerminalInventorySnapshot(KeyCounter inventory, Map<AEKey, ExactAm
             precision.reset();
             if (published != null) {
                 published = null;
+                publishedContents = null;
+                nativePublications = 0;
+                consecutiveFullReads = 0;
                 historyFloor = ++version;
                 history.clear();
                 historyKeys = 0;
@@ -148,22 +236,53 @@ public record TerminalInventorySnapshot(KeyCounter inventory, Map<AEKey, ExactAm
         }
 
         private TerminalInventorySnapshot sampleNetwork(NetworkInventoryCache.Mounts storage, boolean collect) {
-            changed.clear();
-            precision.begin(collect);
-            if (!network.refresh(storage, working, amounts, (key, amount) -> changed.add(key), precision::list)) return null;
-            Map<AEKey, ExactAmount> exact = snapshot == null ? Map.of() : snapshot.amounts();
-            if (collect) {
-                exact = precision.sample(storage, working, exact);
-                if (exact == null) return null;
+            long measured = StoragePerformance.start();
+            try {
+                for (var iterator = changed.iterator(); iterator.hasNext();) {
+                    iterator.next();
+                    iterator.remove();
+                }
+                precision.begin(collect);
+                if (!network.refresh(storage, null, amounts, (key, amount) -> changed.add(key), precision::list)) return null;
+                Map<AEKey, ExactAmount> exact = snapshot == null ? Map.of() : snapshot.amounts();
+                if (collect) {
+                    exact = precision.sample(storage, amounts, exact);
+                    if (exact == null) return null;
+                }
+                if (published == null || !changed.isEmpty()) publish();
+                if (snapshot != null && snapshot.inventory() == published && snapshot.amounts() == exact) return snapshot;
+                return new TerminalInventorySnapshot(published, exact);
+            } finally {
+                StoragePerformance.end(StoragePerformance.Phase.TERMINAL_CAPTURE, measured);
             }
-            if (published == null || !changed.isEmpty()) publish();
-            return new TerminalInventorySnapshot(published, exact);
         }
 
         private void publish() {
-            // addAll clones native submaps in bulk. A fresh counter keeps previous viewers' baselines immutable.
+            StoragePerformance.count(StoragePerformance.Counter.TERMINAL_PUBLISH);
+            consecutiveFullReads = (Object) published instanceof SnapshotCounter previous && previous.neoecoae$wasMaterialized()
+                ? Math.min(2, consecutiveFullReads + 1) : 0;
+            // A terminal's initial full sync alone should not disable sharing on subsequent delta updates.
+            if (consecutiveFullReads == 2) {
+                nativePublications = FULL_READ_PROBE_INTERVAL;
+                publishedContents = null;
+            }
             KeyCounter next = new KeyCounter();
-            next.addAll(working);
+            if ((Object) next instanceof SnapshotCounter snapshotCounter) {
+                if (nativePublications > 0) {
+                    nativePublications--;
+                    // Full/fuzzy readers already need a native counter. Avoid building two representations.
+                    for (var entry : Object2LongMaps.fastIterable(amounts)) next.set(entry.getKey(), entry.getLongValue());
+                    if (StoragePerformance.ENABLED)
+                        StoragePerformance.add(StoragePerformance.Counter.TERMINAL_COPIED_KEYS, amounts.size());
+                } else {
+                    publishedContents = publishedContents == null ? Contents.copy(amounts) : publishedContents.update(amounts, changed);
+                    snapshotCounter.neoecoae$useSnapshot(publishedContents);
+                }
+            } else {
+                // Unknown AE2 versions keep the public-API copy; no reflective access to native internals.
+                if (StoragePerformance.ENABLED) StoragePerformance.add(StoragePerformance.Counter.TERMINAL_COPIED_KEYS, amounts.size());
+                for (var entry : Object2LongMaps.fastIterable(amounts)) next.set(entry.getKey(), entry.getLongValue());
+            }
             long from = version++;
             if (changed.size() > MAX_HISTORY_KEYS) {
                 history.clear();

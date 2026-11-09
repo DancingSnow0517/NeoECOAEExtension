@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageDomains;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.PatternBusUpdateScheduler;
 import cn.dancingsnow.neoecoae.crafting.planner.growth.NetGrowthPatternValidationRegistry;
 import cn.dancingsnow.neoecoae.storage.ECOCellMutationBatch;
+import cn.dancingsnow.neoecoae.storage.StoragePerformance;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -30,6 +31,10 @@ public final class ECOStorageLifecycleEvents {
     }
 
     public static void onServerStopped(ServerStoppedEvent event) {
+        try { StoragePerformance.writeConfiguredReport(); }
+        catch (java.io.IOException failure) { org.slf4j.LoggerFactory.getLogger(ECOStorageLifecycleEvents.class)
+            .warn("Cannot write requested storage performance report", failure); }
+        StoragePerformance.reset();
         cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse.invalidate();
         MinecraftServer server = event.getServer();
         PatternBusUpdateScheduler.clear(server);
@@ -50,7 +55,7 @@ public final class ECOStorageLifecycleEvents {
     }
 
     public static void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) return;
+        if (event.phase != TickEvent.Phase.END) { StoragePerformance.beginTick(); return; }
         for (ServerLevel level : event.getServer().getAllLevels()) {
             NELogicalNetworkManager.tick(level);
         }
@@ -60,5 +65,6 @@ public final class ECOStorageLifecycleEvents {
         if (!FMLEnvironment.production) {
             ECOCellMutationBatch.assertClean();
         }
+        StoragePerformance.endTick();
     }
 }

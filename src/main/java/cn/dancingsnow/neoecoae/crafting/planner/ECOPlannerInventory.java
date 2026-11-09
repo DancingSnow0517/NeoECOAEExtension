@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.compat.storage.ECOOptionalUnboundedCells;
 import cn.dancingsnow.neoecoae.crafting.planner.solve.PlannerInventorySnapshot;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
+import cn.dancingsnow.neoecoae.crafting.display.terminal.SparseExactAmountSource;
 import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
 import cn.dancingsnow.neoecoae.storage.ECOCreativeCell;
 
@@ -26,8 +27,8 @@ public final class ECOPlannerInventory {
         var snapshot = cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot.sample(
             storage, server == null ? 0L : server.getTickCount(), true, true, storage::getAvailableStacks);
         var amounts = new java.util.LinkedHashMap<AEKey, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount>();
-        for (var entry : snapshot.inventory()) amounts.put(entry.getKey(),
-            cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.of(entry.getLongValue()));
+        snapshot.visitVisibleAmounts((key, amount) -> amounts.put(key,
+            cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.of(amount)));
         Set<AEKey> unbounded = collectUnboundedKeys(grid);
         snapshot.amounts().forEach((key, amount) -> {
             if (amount.infinite()) unbounded.add(key);
@@ -68,6 +69,14 @@ public final class ECOPlannerInventory {
     }
 
     private static void markUnbounded(ExactAmountSource source, Set<AEKey> target) {
+        if (source instanceof SparseExactAmountSource sparse && sparse.neoecoae$hasSparseExactAmounts()) {
+            if (sparse.neoecoae$mayHaveExceptionalAmounts()) {
+                sparse.neoecoae$visitExceptionalAmounts((key, amount) -> {
+                    if (amount.infinite()) target.add(key);
+                });
+            }
+            return;
+        }
         source.neoecoae$visitExactAmounts((key, amount) -> {
             if (amount.infinite()) target.add(key);
         });

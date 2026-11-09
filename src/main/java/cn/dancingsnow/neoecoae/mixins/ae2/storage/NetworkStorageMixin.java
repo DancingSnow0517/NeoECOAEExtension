@@ -162,6 +162,10 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, Netwo
         if (cn.dancingsnow.neoecoae.storage.transfer.StorageExtractionExclusions.contains(storage)) {
             return 0L;
         }
+        // Keep the Operation chain for other Mixins, but do not capture a supplier for the ordinary path.
+        if (!cn.dancingsnow.neoecoae.storage.transfer.ECOCreativeExtractionFilter.isActive(mode)) {
+            return original.call(storage, key, amount, mode, source);
+        }
         return cn.dancingsnow.neoecoae.storage.transfer.ECOCreativeExtractionFilter.extractSource(
             storage, key, mode, () -> original.call(storage, key, amount, mode, source));
     }

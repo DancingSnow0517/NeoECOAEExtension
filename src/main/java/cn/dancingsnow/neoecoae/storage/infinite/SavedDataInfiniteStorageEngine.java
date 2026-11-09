@@ -6,6 +6,7 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.storage.StorageByteAccounting;
+import cn.dancingsnow.neoecoae.storage.StoragePerformance;
 
 import java.math.BigInteger;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
@@ -72,6 +73,8 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
 
     @Override
     public long insert(AEKey key, long amount, Actionable mode) {
+        StoragePerformance.count(StoragePerformance.Counter.DOMAIN_INSERT);
+        StoragePerformance.count(mode == Actionable.SIMULATE ? StoragePerformance.Counter.SIMULATE : StoragePerformance.Counter.MODULATE);
         if (key == null || amount <= 0 || !data.canWrite(key)) return 0;
         if (mode == Actionable.MODULATE) insertAmount(key, amount);
         return amount;
@@ -113,6 +116,8 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
 
     @Override
     public long extract(AEKey key, long amount, Actionable mode) {
+        StoragePerformance.count(StoragePerformance.Counter.DOMAIN_EXTRACT);
+        StoragePerformance.count(mode == Actionable.SIMULATE ? StoragePerformance.Counter.SIMULATE : StoragePerformance.Counter.MODULATE);
         if (key == null || amount <= 0 || !data.canRead(key)) return 0;
         long current = data.amounts.visible(key);
         long extracted = Math.min(amount, current);
@@ -182,6 +187,10 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     @Override
     public HugeAmount getAmount(AEKey key) {
         return data.canRead(key) ? data.getAmount(key) : HugeAmount.ZERO;
+    }
+
+    public BigInteger exactAmount(AEKey key) {
+        return key != null && data.canRead(key) ? data.amounts.exact(key) : BigInteger.ZERO;
     }
 
     @Override

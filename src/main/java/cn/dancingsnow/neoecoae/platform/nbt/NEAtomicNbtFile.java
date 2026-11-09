@@ -1,9 +1,12 @@
 package cn.dancingsnow.neoecoae.platform.nbt;
 
+import cn.dancingsnow.neoecoae.storage.StoragePerformance;
+
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.Channels;
 import java.io.DataOutputStream;
+import java.io.BufferedOutputStream;
 import java.util.zip.GZIPOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,15 +27,22 @@ public final class NEAtomicNbtFile {
         try {
             try (FileChannel channel = FileChannel.open(pending, StandardOpenOption.WRITE);
                  GZIPOutputStream gzip = new GZIPOutputStream(Channels.newOutputStream(channel), 32768);
-                 DataOutputStream output = new DataOutputStream(gzip)) {
+                 DataOutputStream output = new DataOutputStream(new BufferedOutputStream(gzip, 32768))) {
+                long measured = StoragePerformance.start();
                 NbtIo.write(root, output);
-                gzip.finish();
                 output.flush();
+                gzip.finish();
+                StoragePerformance.end(StoragePerformance.Phase.NBT_GZIP_WRITE, measured);
+                measured = StoragePerformance.start();
                 channel.force(true);
+                StoragePerformance.end(StoragePerformance.Phase.FILE_FORCE, measured);
             }
+            long measured = StoragePerformance.start();
             if (!root.equals(NbtIo.readCompressed(pending.toFile()))) {
                 throw new IOException("ECO snapshot read-back verification failed: " + target);
             }
+            StoragePerformance.end(StoragePerformance.Phase.READBACK, measured);
+            measured = StoragePerformance.start();
             if (Files.isRegularFile(absolute)) {
                 Path backup = absolute.resolveSibling(absolute.getFileName() + ".bak");
                 Path temporaryBackup = Files.createTempFile(parent, absolute.getFileName() + ".", ".backup");
@@ -42,10 +52,15 @@ public final class NEAtomicNbtFile {
                     Files.move(temporaryBackup, backup, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
                 } finally { Files.deleteIfExists(temporaryBackup); }
             }
+            StoragePerformance.end(StoragePerformance.Phase.BACKUP, measured);
             // If atomic replacement is unsupported, retain the old file and retry on a later save.
+            measured = StoragePerformance.start();
             Files.move(pending, absolute, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            StoragePerformance.end(StoragePerformance.Phase.ATOMIC_MOVE, measured);
+            measured = StoragePerformance.start();
             try (FileChannel directory = FileChannel.open(parent, StandardOpenOption.READ)) { directory.force(true); }
             catch (IOException | UnsupportedOperationException ignored) { }
+            StoragePerformance.end(StoragePerformance.Phase.DIRECTORY_FORCE, measured);
         } finally {
             Files.deleteIfExists(pending);
         }

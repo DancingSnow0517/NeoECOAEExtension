@@ -19,13 +19,16 @@ class ECOKeyFactoryTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
     @AfterEach void stop() { KeyReuse.configure(false); }
 
-    @Test void upstreamFactoriesRemainIndependentWhileEcoReusesPlainKeys() {
+    @Test void defaultKeysShareTheSameSlotWithTheOptionalFactoryBridge() {
         KeyReuse.configure(true);
         ItemStack input = new ItemStack(Items.IRON_INGOT, 64);
         AEItemKey external = AEItemKey.of(input);
-        assertNotSame(external, AEItemKey.of(input));
+        boolean bridged = (Object) input.getItem() instanceof DefaultKeyOwner;
+        if (bridged) assertSame(external, AEItemKey.of(input));
+        else assertNotSame(external, AEItemKey.of(input));
         AEItemKey owned = ECOKeyFactory.item(input);
-        assertNotSame(external, owned);
+        if (bridged) assertSame(external, owned);
+        else assertNotSame(external, owned);
         assertSame(owned, ECOKeyFactory.item(input));
         assertSame(owned, ECOKeyFactory.canonicalize(external));
         assertEquals(external, owned);
@@ -34,7 +37,8 @@ class ECOKeyFactoryTest {
         assertEquals(1, owned.getReadOnlyStack().getCount());
         FluidStack water = new FluidStack(Fluids.WATER, 1000);
         AEFluidKey externalFluid = AEFluidKey.of(water);
-        assertNotSame(externalFluid, AEFluidKey.of(water));
+        if (bridged) assertSame(externalFluid, AEFluidKey.of(water));
+        else assertNotSame(externalFluid, AEFluidKey.of(water));
         assertSame(ECOKeyFactory.fluid(water), ECOKeyFactory.canonicalize(externalFluid));
         KeyReuse.configure(false);
         assertNotSame(ECOKeyFactory.item(input), ECOKeyFactory.item(input));
@@ -142,6 +146,31 @@ class ECOKeyFactoryTest {
             factory.verify(() -> AEFluidKey.of(source));
             factory.verify(() -> AEFluidKey.of(Fluids.WATER), org.mockito.Mockito.never());
         }
+    }
+
+    @Test void wovenFactoriesPreserveNullVersusEmptyTagsAndGenerationBoundaries() {
+        org.junit.jupiter.api.Assumptions.assumeTrue((Object) Items.IRON_INGOT instanceof DefaultKeyOwner);
+        KeyReuse.configure(true);
+        AEItemKey item = AEItemKey.of(Items.IRON_INGOT);
+        AEFluidKey fluid = AEFluidKey.of(Fluids.WATER);
+        assertSame(item, AEItemKey.of(new ItemStack(Items.IRON_INGOT, 64)));
+        assertSame(fluid, AEFluidKey.of(new FluidStack(Fluids.WATER, 1000)));
+        assertNotEquals(item, AEItemKey.of(Items.IRON_INGOT, new net.minecraft.nbt.CompoundTag()));
+        assertNotEquals(fluid, AEFluidKey.of(Fluids.WATER, new net.minecraft.nbt.CompoundTag()));
+        var tag = new net.minecraft.nbt.CompoundTag();
+        tag.putInt("variant", 1);
+        AEFluidKey first = AEFluidKey.of(Fluids.WATER, tag);
+        assertEquals(first, AEFluidKey.of(Fluids.WATER, tag.copy()));
+        tag.putInt("variant", 2);
+        assertNotEquals(first, AEFluidKey.of(Fluids.WATER, tag));
+        KeyReuse.invalidate();
+        assertNotSame(item, AEItemKey.of(Items.IRON_INGOT));
+        assertEquals(item, AEItemKey.of(Items.IRON_INGOT));
+        assertNotSame(fluid, AEFluidKey.of(Fluids.WATER));
+        assertEquals(fluid, AEFluidKey.of(Fluids.WATER));
+        KeyReuse.configure(false);
+        assertNotSame(AEItemKey.of(Items.IRON_INGOT), AEItemKey.of(Items.IRON_INGOT));
+        assertNotSame(AEFluidKey.of(Fluids.WATER), AEFluidKey.of(Fluids.WATER));
     }
 
     private static final class EqualOwner {
