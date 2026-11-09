@@ -189,6 +189,86 @@ class ECOIOPortTransferTest {
         assertEquals(0L, host.amount);
     }
 
+    @Test
+    void unchangedListingDoesNotSuppressRetryWhenExtractionBecomesAllowed() {
+        AEKey key=AEItemKey.of(Items.STONE);
+        class Versioned implements MEStorage, cn.dancingsnow.neoecoae.storage.StorageListingDelta {
+            long amount=10,version; boolean extracting; int listings;
+            @Override public long neoecoae$listingVersion(){return version;}
+            @Override public boolean neoecoae$visitListingChanges(long since,long current,java.util.function.ObjLongConsumer<AEKey> visitor){
+                if(current!=version)return false;visitor.accept(key,amount);return true;
+            }
+            @Override public void getAvailableStacks(KeyCounter out){listings++;if(amount>0)out.set(key,amount);}
+            @Override public long extract(AEKey what,long requested,Actionable mode,IActionSource source){
+                if(!extracting || !key.equals(what))return 0;
+                long taken=Math.min(amount,requested);if(mode==Actionable.MODULATE){amount-=taken;version++;}return taken;
+            }
+            @Override public net.minecraft.network.chat.Component getDescription(){return net.minecraft.network.chat.Component.empty();}
+        }
+        var from=new Versioned();var target=new CountingStorage(key,0,100);var grid=inputGrid(target);
+        var transfer=new ECOIOPortTransfer();
+        var filter=new cn.dancingsnow.neoecoae.storage.StorageInterfaceFilter(new net.minecraft.nbt.CompoundTag());
+        assertEquals(0,transfer.transfer(grid,from,false,false,false,IActionSource.empty(),filter));
+        from.extracting=true;
+        assertEquals(10,transfer.transfer(grid,from,false,false,false,IActionSource.empty(),filter));
+        assertEquals(1,from.listings);assertEquals(0,from.amount);assertEquals(10,target.amount);
+    }
+
+    @Test
+    void actualPartialAcceptanceReturnsTheRemainderAndKeepsEnergyChecks() {
+        AEKey key=AEItemKey.of(Items.STONE);
+        var source=new CountingStorage(key,20,100);
+        long[] target={0};int[] simulations={0};
+        MEStorage destination=new MEStorage(){
+            @Override public long insert(AEKey what,long amount,Actionable mode,IActionSource action){
+                if(mode==Actionable.SIMULATE){simulations[0]++;return amount;}
+                long accepted=Math.min(3,amount);target[0]+=accepted;return accepted;
+            }
+            @Override public net.minecraft.network.chat.Component getDescription(){return net.minecraft.network.chat.Component.empty();}
+        };
+        var grid=inputGrid(destination);
+        assertEquals(3,new ECOIOPortTransfer().transfer(grid,source,false,false,false,IActionSource.empty(),what->true));
+        assertEquals(17,source.amount);assertEquals(3,target[0]);assertEquals(2,simulations[0]);
+        org.mockito.Mockito.verify(grid.getEnergyService()).extractAEPower(anyDouble(),org.mockito.ArgumentMatchers.eq(Actionable.MODULATE),any());
+    }
+
+    @Test
+    void scopedListingCannotBecomeTheOrdinaryOutputBaseline() {
+        AEKey key = AEItemKey.of(Items.STONE);
+        var authority = new CountingStorage(key, 10, 100);
+        class View implements MEStorage, cn.dancingsnow.neoecoae.storage.StorageListingVersion {
+            int listings;
+            long version;
+            @Override public long neoecoae$listingVersion() { return version; }
+            @Override public void getAvailableStacks(KeyCounter out) {
+                listings++;
+                if (!cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountCollector.isActive())
+                    authority.getAvailableStacks(out);
+            }
+            @Override public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
+                long result = authority.extract(what, amount, mode, source);
+                if (result > 0 && mode == Actionable.MODULATE) version++;
+                return result;
+            }
+            @Override public net.minecraft.network.chat.Component getDescription() {
+                return net.minecraft.network.chat.Component.empty();
+            }
+        }
+        var from = new View();
+        var target = new CountingStorage(key, 0, 100);
+        var grid = inputGrid(target);
+        var transfer = new ECOIOPortTransfer();
+        var filter = new cn.dancingsnow.neoecoae.storage.StorageInterfaceFilter(new net.minecraft.nbt.CompoundTag());
+        cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountCollector.begin();
+        try {
+            assertEquals(0, transfer.transfer(grid, from, false, false, false, IActionSource.empty(), filter));
+        } finally { cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountCollector.abort(); }
+        assertEquals(10, transfer.transfer(grid, from, false, false, false, IActionSource.empty(), filter));
+        assertEquals(2, from.listings);
+        assertEquals(0, authority.amount);
+        assertEquals(10, target.amount);
+    }
+
     private static IGrid inputGrid(MEStorage network) {
         IGrid grid = mock(IGrid.class);
         IStorageService storage = mock(IStorageService.class);
@@ -201,6 +281,81 @@ class ECOIOPortTransferTest {
         when(grid.getEnergyService()).thenReturn(energy);
         when(energy.extractAEPower(anyDouble(), any(), any())).thenAnswer(call -> call.getArgument(0));
         return grid;
+    }
+
+    @Test void inputAndMultiStorageOutputRefreshOnlyChangedMounts() {
+        AEKey key = AEItemKey.of(Items.STONE);
+        for (boolean input : List.of(false, true)) {
+            for (boolean excludeBuses : List.of(false, true)) {
+                var first = new cn.dancingsnow.neoecoae.storage.infinite.SavedDataInfiniteStorageEngine(
+                    cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageData.createNew());
+                var second = new cn.dancingsnow.neoecoae.storage.infinite.SavedDataInfiniteStorageEngine(
+                    cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageData.createNew());
+                first.insert(key, 10, Actionable.MODULATE); second.insert(key, 20, Actionable.MODULATE);
+                int[] listings = {0};
+                var a = org.mockito.Mockito.spy(new cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorage(first,
+                    net.minecraft.network.chat.Component.empty(), () -> true));
+                var b = org.mockito.Mockito.spy(new cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorage(second,
+                    net.minecraft.network.chat.Component.empty(), () -> true));
+                org.mockito.Mockito.doAnswer(call -> { listings[0]++; return call.callRealMethod(); }).when(a).getAvailableStacks(any(KeyCounter.class));
+                org.mockito.Mockito.doAnswer(call -> { listings[0]++; return call.callRealMethod(); }).when(b).getAvailableStacks(any(KeyCounter.class));
+                var from = new MountView(List.of(a, b));
+                var destination = new CountingStorage(key, 0, 1);
+                var grid = inputGrid(input ? from : destination);
+                var transfer = new ECOIOPortTransfer();
+                var filter = new cn.dancingsnow.neoecoae.storage.StorageInterfaceFilter(new net.minecraft.nbt.CompoundTag());
+                assertEquals(1, transfer.transfer(grid, input ? destination : from, input, false, excludeBuses, IActionSource.empty(), filter));
+                int initialListings = listings[0];
+                for (int tick = 1; tick < 10; tick++) {
+                    destination.amount = 0; // Downstream consumed the previous tick's delivered item.
+                    first.insert(key, 1, Actionable.MODULATE);
+                    assertEquals(1, transfer.transfer(grid, input ? destination : from, input, false, excludeBuses, IActionSource.empty(), filter));
+                }
+                assertEquals(initialListings, listings[0]);
+                assertEquals(29, first.extract(key, 100, Actionable.SIMULATE) + second.extract(key, 100, Actionable.SIMULATE));
+                assertEquals(1, destination.amount);
+            }
+        }
+    }
+
+    @Test void privateMountCacheInvalidatesWhenBusScopeOrReadAccessChanges() {
+        AEKey key = AEItemKey.of(Items.DIRT);
+        var external = new CountingStorage(key, 20, 100);
+        var bus = new cn.dancingsnow.neoecoae.mixins.ae2.storage.StorageBusInventoryMixin(external) {};
+        var from = new MountView(List.of(bus));
+        var destination = new CountingStorage(key, 0, 5);
+        var grid = inputGrid(from);
+        var transfer = new ECOIOPortTransfer();
+        var filter = new cn.dancingsnow.neoecoae.storage.StorageInterfaceFilter(new net.minecraft.nbt.CompoundTag());
+        assertEquals(0, transfer.transfer(grid, destination, true, false, true, IActionSource.empty(), filter));
+        assertEquals(5, transfer.transfer(grid, destination, true, false, false, IActionSource.empty(), filter));
+        destination.amount = 0; from.readable = false;
+        assertEquals(0, transfer.transfer(grid, destination, true, false, false, IActionSource.empty(), filter));
+        from.readable = true;
+        assertEquals(0, transfer.transfer(grid, destination, true, false, true, IActionSource.empty(), filter));
+        assertEquals(5, transfer.transfer(grid, destination, true, false, false, IActionSource.empty(), filter));
+        assertEquals(10, external.amount);
+    }
+
+    private static final class MountView implements MEStorage, cn.dancingsnow.neoecoae.storage.NetworkInventoryCache.Mounts {
+        private final List<MEStorage> mounts;
+        boolean readable = true;
+        MountView(List<MEStorage> mounts) { this.mounts = mounts; }
+        @Override public long neoecoae$mountGeneration() { return readable ? 0 : 1; }
+        @Override public boolean neoecoae$withMounts(java.util.function.Consumer<List<MEStorage>> action) {
+            action.accept(readable ? mounts : List.of()); return true;
+        }
+        @Override public void getAvailableStacks(KeyCounter out) { if (readable) mounts.forEach(mount -> mount.getAvailableStacks(out)); }
+        @Override public long extract(AEKey key, long amount, Actionable mode, IActionSource source) {
+            if (!readable) return 0;
+            long extracted = 0;
+            for (MEStorage mount : mounts) {
+                if (extracted >= amount) break;
+                extracted += mount.extract(key, amount - extracted, mode, source);
+            }
+            return extracted;
+        }
+        @Override public net.minecraft.network.chat.Component getDescription() { return net.minecraft.network.chat.Component.empty(); }
     }
 
     @Test

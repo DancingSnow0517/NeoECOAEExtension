@@ -77,11 +77,14 @@ final class TerminalExactInventory {
                 seen.add(source);
                 Mount mount = mounts.computeIfAbsent(source, ignored -> new Mount());
                 long version = network.mountedVersion(source);
+                Object identity = network.mountedIdentity(source);
+                boolean viewChanged = mount.identity != identity;
                 if (!captured.contains(source)
-                        && (remounted || version == StorageListingVersion.UNKNOWN || version != mount.version)) {
-                    refresh(source, mount, version, remounted);
+                        && (remounted || viewChanged || version == StorageListingVersion.UNKNOWN || version != mount.version)) {
+                    refresh(source, mount, version, remounted || viewChanged);
                 }
                 mount.version = version;
+                mount.identity = identity;
             }
             mounts.keySet().removeIf(source -> !seen.contains(source));
             generation = currentGeneration;
@@ -149,5 +152,6 @@ final class TerminalExactInventory {
     private static final class Mount {
         final Map<AEKey, ExactAmount> values = new HashMap<>();
         long version = StorageListingVersion.UNKNOWN;
+        Object identity;
     }
 }

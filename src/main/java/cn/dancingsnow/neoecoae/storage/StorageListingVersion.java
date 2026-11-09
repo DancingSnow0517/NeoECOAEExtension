@@ -9,4 +9,7 @@ public interface StorageListingVersion {
     long UNKNOWN = Long.MIN_VALUE;
 
     long neoecoae$listingVersion();
+
+    /** A changed view identity is a full-list barrier, even if the underlying content version is unchanged. */
+    default Object neoecoae$listingIdentity() { return this; }
 }
