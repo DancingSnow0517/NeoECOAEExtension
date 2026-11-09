@@ -28,7 +28,10 @@ public final class ECOCellSavedData extends StorageSavedData {
     private boolean legacy2042Archived;
     private String legacy2042Failure;
 
-    public ECOCellSavedData(UUID id) { this.id = id; }
+    public ECOCellSavedData(UUID id) {
+        this.id = id;
+        amounts.enableChangeLog(StorageAmounts.CHANGE_LOG_CAPACITY);
+    }
     public UUID id() { return id; }
     public boolean legacyMigration() { return legacyMigration; }
     public boolean legacy2042() { return legacy2042; }
@@ -116,7 +119,10 @@ public final class ECOCellSavedData extends StorageSavedData {
         encodedKeys.keySet().removeIf(key -> amounts.visible(key) == 0);
         amounts.forEach((key, amount) -> {
             CompoundTag entry = new CompoundTag();
+            long keyStarted = cn.dancingsnow.neoecoae.storage.StoragePerformance.start();
             entry.put("key", encodedKeys.computeIfAbsent(key, AEKey::toTagGeneric).copy());
+            cn.dancingsnow.neoecoae.storage.StoragePerformance.end(
+                cn.dancingsnow.neoecoae.storage.StoragePerformance.Phase.KEY_ENCODING, keyStarted);
             entry.put("amount", amount.write());
             entries.add(entry);
         });

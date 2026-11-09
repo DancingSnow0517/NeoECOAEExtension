@@ -9,6 +9,9 @@ import java.util.function.BiConsumer;
 public interface ExactAmountSource {
     void neoecoae$visitExactAmounts(BiConsumer<AEKey, ExactAmount> visitor);
 
+    /** Optional authoritative single-key listing lookup. Null means unsupported, not an empty inventory. */
+    default @org.jetbrains.annotations.Nullable ExactAmount neoecoae$exactAmount(AEKey key) { return null; }
+
     /**
      * Opt in only when the ordinary listing appends nonnegative, saturating amounts to an
      * existing counter. Transparent use of that listing then needs no intermediate copy.

@@ -107,9 +107,13 @@ public final class ECOKeyFactory {
 
     /** Never publishes an externally owned key. Content equality remains authoritative across generations. */
     public static AEKey canonicalize(AEKey key) {
+        cn.dancingsnow.neoecoae.storage.StoragePerformance.count(
+            cn.dancingsnow.neoecoae.storage.StoragePerformance.Counter.KEY_CANONICALIZE);
         if (key == null || KeyReuse.epoch() == null) return key;
         AEKey owned;
         if (key instanceof AEItemKey || key instanceof AEFluidKey) {
+            // Tagged fluids cannot use a plain owner slot; avoid constructing a temporary FluidStack.
+            if (key instanceof AEFluidKey fluid && fluid.hasTag()) return key;
             Object epoch = KeyReuse.epoch();
             KeyReuseSlot slot = key instanceof AEItemKey
                     ? KeyReuse.itemSlot(epoch, key.getPrimaryKey()) : KeyReuse.fluidSlot(epoch, key.getPrimaryKey());
