@@ -66,6 +66,25 @@ import static org.mockito.Mockito.*;
 class CreativeSupplyPlanningTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
+    @Test void exactInventoryCaptureAndReservationKeepIndependentImmutableStock() {
+        var stone = AEItemKey.of(Items.STONE); var dirt = AEItemKey.of(Items.DIRT);
+        var huge = PlannerAmount.of(BigInteger.ONE.shiftLeft(140));
+        var inputs = new java.util.LinkedHashMap<AEKey, PlannerAmount>();
+        inputs.put(stone, huge); inputs.put(dirt, PlannerAmount.of(7));
+        var unlimited = new java.util.HashSet<AEKey>(); unlimited.add(dirt);
+        var snapshot = PlannerInventorySnapshot.exact(inputs, unlimited);
+        inputs.clear(); unlimited.clear();
+        assertEquals(huge, snapshot.amountOf(stone));
+        assertTrue(snapshot.isUnbounded(dirt));
+        var reserved = snapshot.withoutReserved(Map.of(stone, huge.subtract(3), dirt, huge));
+        assertEquals(PlannerAmount.of(3), reserved.amountOf(stone));
+        assertEquals(PlannerAmount.of(7), reserved.amountOf(dirt));
+        assertTrue(reserved.isUnbounded(dirt));
+        assertEquals(huge, snapshot.amountOf(stone));
+        assertThrows(UnsupportedOperationException.class, () -> snapshot.amounts().clear());
+        assertEquals(Long.MAX_VALUE, snapshot.toKeyCounter().get(dirt));
+    }
+
     @Test void onlyOnlineMountedEcoCreativeCellsConferUnlimitedSupply() {
         AEKey key = AEItemKey.of(Items.IRON_INGOT);
         KeyCounter stock = new KeyCounter();
