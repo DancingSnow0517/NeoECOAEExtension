@@ -5,13 +5,26 @@ import static org.mockito.Mockito.*;
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
+import appeng.menu.me.crafting.CraftConfirmMenu;
+import appeng.menu.me.crafting.CraftingPlanSummary;
+import appeng.menu.me.crafting.CraftingPlanSummaryEntry;
+import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class ECOExactMaterialTableRendererTest {
+    @BeforeAll
+    static void bootstrap() {
+        InventoryTestBootstrap.initialize();
+    }
+
     @Test
     void reservedComponentVariantIsListedAlongsideTheMissingTemplate() {
         AEKey template = mock(AEKey.class);
@@ -130,5 +143,71 @@ class ECOExactMaterialTableRendererTest {
             verify(diamond).formatAmount(21864722041L, AmountFormat.FULL);
             verify(diamond).formatAmount(115481708064L, AmountFormat.FULL);
         }
+    }
+
+    @Test
+    void exactReportBookmarksEveryGraphShortageWhenNativeSummaryListsOnlySome() throws Exception {
+        AEKey diamond = mock(AEKey.class, "diamond");
+        AEKey netherrack = mock(AEKey.class, "netherrack");
+        var nodes = List.of(
+            new CraftingGraphSnapshot.MaterialNode(0, diamond, 28, 20, 0, 8,
+                CraftingGraphSnapshot.MaterialStatus.MISSING),
+            new CraftingGraphSnapshot.MaterialNode(1, netherrack, 4, 0, 0, 4,
+                CraftingGraphSnapshot.MaterialStatus.MISSING));
+        var summary = new CraftingPlanSummary(0, true, List.of(
+            new CraftingPlanSummaryEntry(diamond, 0, 8, 0),
+            new CraftingPlanSummaryEntry(netherrack, 4, 0, 0)));
+        for (PlanningStatus status : List.of(PlanningStatus.MISSING_ITEMS, PlanningStatus.CYCLE_UNRESOLVED)) {
+            var snapshot = new CraftingGraphSnapshot(0, nodes, List.of(), List.of(), List.of(), List.of(),
+                new CraftingGraphSnapshot.Summary(status.name(), 2, 0, 0, 0, 0));
+            var screen = reportScreen(summary, snapshot, status);
+            assertEquals(Set.of(diamond, netherrack), Set.copyOf(bookmarkedKeys(screen)));
+            assertTrue(hasMissingMaterials(screen));
+        }
+    }
+
+    @Test
+    void nativeFallbackBookmarksItsSummaryAndIgnoresDiagnosticShortages() throws Exception {
+        AEKey nativeKey = mock(AEKey.class, "native material");
+        AEKey diagnosticKey = mock(AEKey.class, "diagnostic material");
+        var snapshot = new CraftingGraphSnapshot(0, List.of(
+            new CraftingGraphSnapshot.MaterialNode(0, diagnosticKey, 1, 0, 0, 1,
+                CraftingGraphSnapshot.MaterialStatus.MISSING)), List.of(), List.of(), List.of(), List.of(),
+            new CraftingGraphSnapshot.Summary("PARTIAL_UNSUPPORTED", 1, 0, 0, 0, 0));
+        for (long missing : List.of(0L, 3L)) {
+            var summary = new CraftingPlanSummary(0, true,
+                List.of(new CraftingPlanSummaryEntry(nativeKey, missing, 0, 0)));
+            var screen = reportScreen(summary, snapshot, PlanningStatus.PARTIAL_UNSUPPORTED);
+            assertEquals(missing > 0 ? List.of(nativeKey) : List.of(), bookmarkedKeys(screen));
+            assertEquals(missing > 0, hasMissingMaterials(screen));
+        }
+    }
+
+    private static ECOCraftConfirmScreen reportScreen(
+            CraftingPlanSummary summary, CraftingGraphSnapshot snapshot, PlanningStatus status) throws Exception {
+        var menu = mock(CraftConfirmMenu.class, withSettings().extraInterfaces(ECOCraftConfirmMenuMode.class));
+        when(menu.getPlan()).thenReturn(summary);
+        var mode = (ECOCraftConfirmMenuMode) menu;
+        when(mode.neoecoae$getPlanningStatus()).thenReturn(status);
+        when(mode.neoecoae$getCraftingGraphSnapshot()).thenReturn(snapshot);
+        when(mode.neoecoae$getCycleItems()).thenReturn(List.of());
+        var screen = mock(ECOCraftConfirmScreen.class, CALLS_REAL_METHODS);
+        var menuField = AbstractContainerScreen.class.getDeclaredField("menu");
+        menuField.setAccessible(true);
+        menuField.set(screen, menu);
+        return screen;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<AEKey> bookmarkedKeys(ECOCraftConfirmScreen screen) throws Exception {
+        var collect = ECOCraftConfirmScreen.class.getDeclaredMethod("missingKeys");
+        collect.setAccessible(true);
+        return (List<AEKey>) collect.invoke(screen);
+    }
+
+    private static boolean hasMissingMaterials(ECOCraftConfirmScreen screen) throws Exception {
+        var hasMissing = ECOCraftConfirmScreen.class.getDeclaredMethod("hasMissingMaterials");
+        hasMissing.setAccessible(true);
+        return (boolean) hasMissing.invoke(screen);
     }
 }

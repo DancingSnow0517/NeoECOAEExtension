@@ -11,6 +11,7 @@ import appeng.client.gui.widgets.Scrollbar;
 import appeng.core.localization.GuiText;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import appeng.menu.me.crafting.CraftingPlanSummary;
+import appeng.menu.me.crafting.CraftingPlanSummaryEntry;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOCpuTierGlyph;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
@@ -24,6 +25,7 @@ import cn.dancingsnow.neoecoae.integration.jei.JeiBookmarkAccess;
 import cn.dancingsnow.neoecoae.network.ECOForceCraftStartFlagC2SPacket;
 import java.math.BigInteger;
 import java.util.List;
+import java.util.Objects;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -186,8 +188,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         graph.active = (Object) menu instanceof ECOCraftConfirmMenuMode mode
             && (!mode.neoecoae$getCraftingGraphSnapshot().cycleGroups().isEmpty()
                 || mode.neoecoae$getCraftingGraphSnapshot().rootNodeId() >= 0);
-        bookmarkMissing.active = JeiBookmarkAccess.isAvailable()
-            && exactMaterials().stream().anyMatch(node -> node.missingBigInteger().signum() > 0);
+        bookmarkMissing.active = JeiBookmarkAccess.canBookmarkMissing() && hasMissingMaterials();
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode && !mode.neoecoae$diagnosticsReady()) {
             start.active = false;
             graph.active = false;
@@ -389,11 +390,33 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         minecraft.setScreen(new ECOCraftingGraphScreen(this, snapshot, initialCycle, focusedMaterial));
     }
 
+    private boolean hasMissingMaterials() {
+        if (shouldUseExactMaterialTable()) {
+            return exactMaterials().stream().anyMatch(node -> node.missingBigInteger().signum() > 0);
+        }
+        CraftingPlanSummary plan = menu.getPlan();
+        return plan != null && plan.getEntries().stream().anyMatch(entry -> entry.getMissingAmount() > 0L);
+    }
+
+    private List<AEKey> missingKeys() {
+        if (shouldUseExactMaterialTable()) {
+            return exactMaterials().stream()
+                .filter(node -> node.missingBigInteger().signum() > 0)
+                .map(CraftingGraphSnapshot.MaterialNode::key)
+                .filter(Objects::nonNull)
+                .toList();
+        }
+        CraftingPlanSummary plan = menu.getPlan();
+        return plan == null ? List.of() : plan.getEntries().stream()
+            .filter(entry -> entry.getMissingAmount() > 0L)
+            .map(CraftingPlanSummaryEntry::getWhat)
+            .filter(Objects::nonNull)
+            .toList();
+    }
+
     private void bookmarkMissing() {
         if (!bookmarkMissing.active) return;
-        JeiBookmarkAccess.addMissingToBookmarks(exactMaterials().stream()
-            .filter(node -> node.missingBigInteger().signum() > 0)
-            .map(CraftingGraphSnapshot.MaterialNode::key).toList());
+        JeiBookmarkAccess.addMissingToBookmarks(missingKeys());
     }
 
     private List<CraftingGraphSnapshot.MaterialNode> exactMaterials() {
