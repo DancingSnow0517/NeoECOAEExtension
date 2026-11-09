@@ -47,7 +47,7 @@ import org.slf4j.LoggerFactory;
 
 public class ECOStorageCell implements IECOStorageMigrationCell,
         cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage,
-        cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource, StorageListingVersion {
+        cn.dancingsnow.neoecoae.crafting.display.terminal.SparseExactAmountSource, StorageListingDelta {
     private static final BigInteger MAX_LONG = BigInteger.valueOf(Long.MAX_VALUE);
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
@@ -78,6 +78,39 @@ public class ECOStorageCell implements IECOStorageMigrationCell,
     public long neoecoae$listingVersion() {
         // Subclasses whose listing depends on other state must opt in by overriding this.
         return getClass() == ECOStorageCell.class ? contentListingVersion() : UNKNOWN;
+    }
+
+    @Override public cn.dancingsnow.neoecoae.crafting.amount.ExactAmount neoecoae$exactAmount(AEKey key) {
+        if (getClass() != ECOStorageCell.class) return null;
+        BigInteger amount = key == null || contentListingVersion() < 0 ? BigInteger.ZERO : storageData().amounts().exact(key);
+        return cn.dancingsnow.neoecoae.crafting.amount.ExactAmount.finite(amount);
+    }
+
+    @Override public boolean neoecoae$hasSparseExactAmounts() { return getClass() == ECOStorageCell.class; }
+
+    @Override public boolean neoecoae$mayHaveExceptionalAmounts() {
+        return contentListingVersion() >= 0 && storageData().amounts().hasOverflow();
+    }
+
+    @Override public void neoecoae$visitExceptionalAmounts(java.util.function.BiConsumer<AEKey,
+            cn.dancingsnow.neoecoae.crafting.amount.ExactAmount> visitor) {
+        if (!neoecoae$hasSparseExactAmounts()) { neoecoae$visitExactAmounts(visitor); return; }
+        if (contentListingVersion() < 0) return;
+        storageData().amounts().visitOverflow((key, amount) -> visitor.accept(key,
+            cn.dancingsnow.neoecoae.crafting.amount.ExactAmount.finite(amount)));
+    }
+
+    @Override public cn.dancingsnow.neoecoae.crafting.amount.ExactAmount neoecoae$exceptionalAmount(AEKey key) {
+        if (!neoecoae$hasSparseExactAmounts() || key == null || contentListingVersion() < 0) return null;
+        BigInteger amount = storageData().amounts().overflowAmount(key);
+        return amount == null ? null : cn.dancingsnow.neoecoae.crafting.amount.ExactAmount.finite(amount);
+    }
+
+    @Override
+    public boolean neoecoae$visitListingChanges(long since, long current, java.util.function.ObjLongConsumer<AEKey> visitor) {
+        // Specialised cells may supply virtual stock or a different listing; they must opt in separately.
+        if (getClass() != ECOStorageCell.class || since < 0 || current < 0 || current != contentListingVersion()) return false;
+        return storageData().amounts().visitListingChangesSince(since, current, visitor);
     }
 
     /** For listings that are exactly {@link #getCellItems()} while the cell may be read. */
@@ -282,7 +315,9 @@ public class ECOStorageCell implements IECOStorageMigrationCell,
 
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
-        what = ECOKeyFactory.canonicalize(what);
+        StoragePerformance.count(StoragePerformance.Counter.CELL_INSERT);
+        StoragePerformance.count(mode == Actionable.SIMULATE ? StoragePerformance.Counter.SIMULATE : StoragePerformance.Counter.MODULATE);
+        // StorageAmounts uses AEKey value semantics and canonicalizes only a newly admitted key.
         if (cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return 0L;
         if (!storageWritable() || amount <= 0 || what == null || !acceptsKey(what)) {
             return 0;
@@ -472,7 +507,8 @@ public class ECOStorageCell implements IECOStorageMigrationCell,
 
     @Override
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
-        what = ECOKeyFactory.canonicalize(what);
+        StoragePerformance.count(StoragePerformance.Counter.CELL_EXTRACT);
+        StoragePerformance.count(mode == Actionable.SIMULATE ? StoragePerformance.Counter.SIMULATE : StoragePerformance.Counter.MODULATE);
         if (!storageWritable() || amount <= 0L || cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return 0L;
         if (storageData().amounts().isBig(what)) {
             if (mode == Actionable.MODULATE) { storageData().amounts().subtract(what, amount); saveChanges(); }
