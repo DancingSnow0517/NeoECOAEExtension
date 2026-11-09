@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
 import cn.dancingsnow.neoecoae.storage.StorageListingDelta;
 import cn.dancingsnow.neoecoae.storage.StorageListingVersion;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
@@ -66,7 +67,7 @@ final class TerminalExactInventory {
         }
     }
 
-    Map<AEKey, ExactAmount> sample(NetworkInventoryCache.Mounts storage, KeyCounter inventory,
+    Map<AEKey, ExactAmount> sample(NetworkInventoryCache.Mounts storage, Object2LongMap<AEKey> inventory,
             Map<AEKey, ExactAmount> previous) {
         Map<AEKey, ExactAmount> result = new HashMap<>();
         boolean locked = storage.neoecoae$withMounts(inventories -> {
@@ -77,11 +78,14 @@ final class TerminalExactInventory {
                 seen.add(source);
                 Mount mount = mounts.computeIfAbsent(source, ignored -> new Mount());
                 long version = network.mountedVersion(source);
+                Object identity = network.mountedIdentity(source);
+                boolean viewChanged = mount.identity != identity;
                 if (!captured.contains(source)
-                        && (remounted || version == StorageListingVersion.UNKNOWN || version != mount.version)) {
-                    refresh(source, mount, version, remounted);
+                        && (remounted || viewChanged || version == StorageListingVersion.UNKNOWN || version != mount.version)) {
+                    refresh(source, mount, version, remounted || viewChanged);
                 }
                 mount.version = version;
+                mount.identity = identity;
             }
             mounts.keySet().removeIf(source -> !seen.contains(source));
             generation = currentGeneration;
@@ -90,7 +94,8 @@ final class TerminalExactInventory {
             network.visitOversizedTotals((key, amount) -> exceptional.add(key));
             for (Mount mount : mounts.values()) exceptional.addAll(mount.values.keySet());
             for (AEKey key : exceptional) {
-                PlannerAmount total = PlannerAmount.of(network.listedTotal(key, inventory.get(key)));
+                long visible = inventory.getLong(key);
+                PlannerAmount total = PlannerAmount.of(network.listedTotal(key, visible));
                 boolean infinite = false;
                 for (var entry : mounts.entrySet()) {
                     ExactAmount exact = entry.getValue().values.get(key);
@@ -102,7 +107,7 @@ final class TerminalExactInventory {
                     total = total.subtract(network.mountedAmount(entry.getKey(), key)).add(exact.quantity());
                 }
                 ExactAmount exact = infinite ? ExactAmount.unbounded() : ExactAmount.finite(total.toBigInteger());
-                if (differs(exact, inventory.get(key))) result.put(key, exact);
+                if (differs(exact, visible)) result.put(key, exact);
             }
         });
         if (!locked) return null;
@@ -149,5 +154,6 @@ final class TerminalExactInventory {
     private static final class Mount {
         final Map<AEKey, ExactAmount> values = new HashMap<>();
         long version = StorageListingVersion.UNKNOWN;
+        Object identity;
     }
 }

@@ -22,6 +22,33 @@ class NetworkInventoryCacheTest {
     private final Map<AEKey, Long> notified = new LinkedHashMap<>();
     private final AEKey a = key(), b = key(), c = key();
 
+    @Test void watcherCanRelistAndChangeMountsAfterTheWholeBatchIsPublished() {
+        var first = network.add(new Versioned());
+        first.stock.put(a, 3L);
+        var later = new Versioned(); later.stock.put(b, 7L);
+        assertTrue(cache.refresh(network, published, amounts, (key, amount) -> {
+            assertTrue(network.neoecoae$withMounts(inventories -> {
+                KeyCounter live = new KeyCounter();
+                inventories.forEach(storage -> storage.getAvailableStacks(live));
+                assertEquals(3, live.get(a));
+            }), "a watcher can query native stock without hitting the recursive-listing guard");
+            assertEquals(3, published.get(a));
+            assertEquals(3, amounts.getLong(a));
+            network.add(later); network.generation++;
+        }));
+        refresh();
+        assertEquals(7, published.get(b));
+        first.stock.put(a, 5L); first.version++;
+        assertTrue(cache.refresh(network, published, amounts, (key, amount) -> {
+            assertFalse(network.inUse, "delta notifications also release the native mount lock");
+            assertEquals(5, published.get(a));
+            assertEquals(7, published.get(b));
+            network.list.remove(later); network.generation++;
+        }));
+        refresh();
+        assertEquals(5, published.get(a)); assertEquals(0, published.get(b));
+    }
+
     @Test void unchangedVersionedMountsAreNotListedAgain() {
         var versioned = network.add(new Versioned());
         var external = network.add(new Fake());
@@ -106,6 +133,75 @@ class NetworkInventoryCacheTest {
         assertEquals(2L, published.get(a));
     }
 
+    @Test void watcherReentrySeesTheEntirePublishedBatch() {
+        var storage=network.add(new Versioned());
+        storage.stock.put(a,1L);storage.stock.put(b,2L);refresh();
+        storage.stock.put(a,11L);storage.stock.put(b,22L);storage.version++;
+        int[] calls={0};
+        assertTrue(cache.refresh(network,published,amounts,(key,amount)->{
+            calls[0]++;
+            assertEquals(11,published.get(a));assertEquals(22,published.get(b));
+            assertEquals(11,amounts.getLong(a));assertEquals(22,amounts.getLong(b));
+        }));
+        assertEquals(2,calls[0]);
+    }
+
+    @Test void aChangedViewIdentityInvalidatesAnUnchangedContentVersion() {
+        var storage=network.add(new Versioned());storage.stock.put(a,9L);refresh();
+        storage.stock.clear();storage.identity=new Object();
+        refresh();assertTrue(published.isEmpty());assertEquals(2,storage.listings);
+    }
+
+    @Test void fullRebuildPublishesAmountsBeforeWatcherReentry() {
+        var storage = network.add(new Versioned());
+        storage.stock.put(a, 11L);
+        storage.stock.put(b, 22L);
+        int[] calls = {0};
+        assertTrue(cache.refresh(network, published, amounts, (key, amount) -> {
+            calls[0]++;
+            assertEquals(11, published.get(a));
+            assertEquals(22, published.get(b));
+            assertEquals(11, amounts.getLong(a));
+            assertEquals(22, amounts.getLong(b));
+            assertFalse(cache.refresh(network, published, amounts, (nested, value) -> fail("recursive refresh must not publish")));
+        }));
+        assertEquals(2, calls[0]);
+    }
+
+    @Test void throwingWatcherCannotLeaveOldDeltasForTheNextRefresh() {
+        var storage = network.add(new Versioned());
+        storage.stock.put(a, 1L);
+        refresh();
+        storage.stock.put(a, 11L);
+        storage.stock.put(b, 22L);
+        storage.version++;
+        assertThrows(IllegalStateException.class, () -> cache.refresh(network, published, amounts,
+            (key, amount) -> { throw new IllegalStateException("watcher failed"); }));
+        assertMatchesFullListing();
+        storage.stock.remove(a);
+        storage.stock.put(b, 23L);
+        storage.version++;
+        notified.clear();
+        refresh();
+        assertEquals(Map.of(a, 0L, b, 23L), notified);
+        assertMatchesFullListing();
+    }
+
+    @Test void wrappedEpochsStillPublishAKeySeenInAnEarlierCycle() throws Exception {
+        var storage = network.add(new Versioned());
+        var epoch = NetworkInventoryCache.class.getDeclaredField("epoch");
+        epoch.setAccessible(true);
+        epoch.setInt(cache, -1);
+        storage.stock.put(a, 1L);
+        refresh();
+        epoch.setInt(cache, -1);
+        storage.stock.put(a, 9L);
+        storage.version++;
+        refresh();
+        assertEquals(9, published.get(a));
+        assertEquals(9, amounts.getLong(a));
+    }
+
     private void refresh() {
         assertTrue(cache.refresh(network, published, amounts, notified::put));
     }
@@ -146,6 +242,9 @@ class NetworkInventoryCacheTest {
 
     private static final class Versioned extends Fake implements StorageListingVersion {
         long version;
+        Object identity=new Object();
+
+        @Override public Object neoecoae$listingIdentity(){return identity;}
 
         @Override
         public long neoecoae$listingVersion() { return version; }
@@ -167,7 +266,8 @@ class NetworkInventoryCacheTest {
         @Override
         public boolean neoecoae$withMounts(Consumer<List<MEStorage>> action) {
             if (inUse) return false;
-            action.accept(list);
+            inUse = true;
+            try { action.accept(list); } finally { inUse = false; }
             return true;
         }
     }

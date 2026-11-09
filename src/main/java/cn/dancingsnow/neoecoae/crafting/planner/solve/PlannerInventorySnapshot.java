@@ -12,13 +12,17 @@ public final class PlannerInventorySnapshot {
     private final java.util.Map<AEKey, PlannerAmount> exactAmounts;
     private final java.util.Set<AEKey> unboundedKeys;
 
-    private PlannerInventorySnapshot(AEKey[] keys, PlannerAmount[] amounts, java.util.Set<AEKey> unboundedKeys) {
-        this.keys = keys;
-        this.amounts = amounts;
+    private PlannerInventorySnapshot(java.util.Map<AEKey, PlannerAmount> inventory,
+            java.util.Set<AEKey> unboundedKeys) {
+        this.keys = new AEKey[inventory.size()];
+        this.amounts = new PlannerAmount[inventory.size()];
         this.unboundedKeys = java.util.Set.copyOf(unboundedKeys);
-        var exact = new java.util.LinkedHashMap<AEKey, PlannerAmount>();
-        for (int i = 0; i < keys.length; i++) exact.put(keys[i], amounts[i]);
-        this.exactAmounts = java.util.Map.copyOf(exact);
+        int index = 0;
+        for (var entry : inventory.entrySet()) {
+            keys[index] = entry.getKey();
+            amounts[index++] = entry.getValue();
+        }
+        this.exactAmounts = java.util.Map.copyOf(inventory);
     }
 
     public static PlannerInventorySnapshot of(KeyCounter inventory) {
@@ -26,22 +30,17 @@ public final class PlannerInventorySnapshot {
     }
 
     public static PlannerInventorySnapshot of(KeyCounter inventory, java.util.Set<AEKey> unboundedKeys) {
-        java.util.List<AEKey> keys = new java.util.ArrayList<>();
-        java.util.List<PlannerAmount> amounts = new java.util.ArrayList<>();
+        var amounts = new java.util.LinkedHashMap<AEKey, PlannerAmount>();
         for (var entry : inventory) {
             if (entry.getLongValue() <= 0) continue;
-            keys.add(entry.getKey());
-            amounts.add(PlannerAmount.of(entry.getLongValue()));
+            amounts.put(entry.getKey(), PlannerAmount.of(entry.getLongValue()));
         }
-        return new PlannerInventorySnapshot(keys.toArray(AEKey[]::new), amounts.toArray(PlannerAmount[]::new), unboundedKeys);
+        return new PlannerInventorySnapshot(amounts, unboundedKeys);
     }
 
     public static PlannerInventorySnapshot exact(java.util.Map<AEKey, PlannerAmount> inventory,
             java.util.Set<AEKey> unboundedKeys) {
-        AEKey[] keys = inventory.keySet().toArray(AEKey[]::new);
-        PlannerAmount[] amounts = new PlannerAmount[keys.length];
-        for (int i = 0; i < keys.length; i++) amounts[i] = inventory.get(keys[i]);
-        return new PlannerInventorySnapshot(keys, amounts, unboundedKeys);
+        return new PlannerInventorySnapshot(inventory, unboundedKeys);
     }
 
     public java.util.Map<AEKey, PlannerAmount> amounts() { return exactAmounts; }
@@ -60,14 +59,16 @@ public final class PlannerInventorySnapshot {
     /** The same stock with {@code reserved} amounts set aside; unbounded keys stay unbounded. */
     PlannerInventorySnapshot withoutReserved(java.util.Map<AEKey, PlannerAmount> reserved) {
         if (reserved.isEmpty()) return this;
-        PlannerAmount[] remaining = amounts.clone();
+        var remaining = new java.util.LinkedHashMap<AEKey, PlannerAmount>();
         for (int i = 0; i < keys.length; i++) {
             PlannerAmount held = reserved.get(keys[i]);
+            PlannerAmount amount = amounts[i];
             if (held != null && !unboundedKeys.contains(keys[i])) {
-                remaining[i] = remaining[i].subtract(held).max(PlannerAmount.ZERO);
+                amount = amount.subtract(held).max(PlannerAmount.ZERO);
             }
+            remaining.put(keys[i], amount);
         }
-        return new PlannerInventorySnapshot(keys.clone(), remaining, unboundedKeys);
+        return new PlannerInventorySnapshot(remaining, unboundedKeys);
     }
 
     /** Independent bounded projection for APIs that still require long-valued stock. */

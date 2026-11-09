@@ -65,6 +65,11 @@ public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountS
     @Override
     public boolean neoecoae$hasSaturatingListing() { return engine instanceof SavedDataInfiniteStorageEngine; }
 
+    @Override public ExactAmount neoecoae$exactAmount(AEKey key) {
+        if (!(engine instanceof SavedDataInfiniteStorageEngine saved)) return null;
+        return ExactAmount.finite(allowInsert.getAsBoolean() ? saved.exactAmount(key) : BigInteger.ZERO);
+    }
+
     @Override
     public long neoecoae$listingVersion() {
         // A disabled view lists nothing, whatever the engine holds.

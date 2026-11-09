@@ -11,6 +11,9 @@ import org.jetbrains.annotations.Nullable;
 
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
@@ -19,6 +22,8 @@ import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.CombinedExactAmountSource;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountCollector;
 import cn.dancingsnow.neoecoae.storage.SaturatingStackAccumulator;
+import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
+import cn.dancingsnow.neoecoae.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.storage.transfer.ECOIOPortTransfer;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
@@ -30,6 +35,7 @@ final class ECOStorageInterfaceTransfer {
     private ECOInfiniteStorageEngine cachedStorageEngine;
     private MEStorage cachedInfiniteStorage;
     private CombinedStorage cachedCombinedStorage;
+    private final List<MEStorage> candidateCells = new ArrayList<>();
 
     ECOStorageInterfaceTransfer(ECOStorageSystemBlockEntity host) {
         this.host = host;
@@ -38,6 +44,9 @@ final class ECOStorageInterfaceTransfer {
     void invalidateInfiniteStorageView() {
         cachedStorageEngine = null;
         cachedInfiniteStorage = null;
+        cachedCombinedStorage = null;
+        candidateCells.clear();
+        ioPortTransfer.reset();
     }
 
     long transferStorageInterfaceContents(ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface) {
@@ -67,7 +76,10 @@ final class ECOStorageInterfaceTransfer {
             storageInterface.isIgnoringCreativeStorageInput(),
             storageInterface.isExcludingStorageBusContainers(),
             IActionSource.ofMachine(storageInterface),
-            storageInterface::acceptsStorageResource
+            storageInterface.storageResourceFilter(),
+            host.getLevel() == null ? 0L : host.getLevel().getGameTime(),
+            cn.dancingsnow.neoecoae.config.NEConfig.storageOutputTransferIntervalTicks,
+            cn.dancingsnow.neoecoae.config.NEConfig.storageOutputFlushThreshold
         );
         moved = bulkMoved > Long.MAX_VALUE - moved ? Long.MAX_VALUE : moved + bulkMoved;
         if (moved > 0L) {
@@ -84,7 +96,8 @@ final class ECOStorageInterfaceTransfer {
                 && (host.isInfiniteExitRequested() || !host.canUseHostDomainStorage())) {
             return null;
         }
-        List<MEStorage> cells = new ArrayList<>();
+        List<MEStorage> cells = candidateCells;
+        cells.clear();
         if (host.canUseHostDomainStorage()) {
             ECOInfiniteStorageEngine engine = host.getInfiniteEngine();
             if (engine != cachedStorageEngine) {
@@ -107,26 +120,85 @@ final class ECOStorageInterfaceTransfer {
             cachedCombinedStorage = null;
             return null;
         }
-        if (cachedCombinedStorage == null || !cachedCombinedStorage.inventories().equals(cells)) {
+        if (cachedCombinedStorage == null || !cachedCombinedStorage.hasInventories(cells)) {
             cachedCombinedStorage = new CombinedStorage(cells, host.getBlockState().getBlock().getName(),
                     () -> !host.storageHostMode().isInfiniteState() || host.canInsertIntoInfiniteDomain());
         }
         return cachedCombinedStorage;
     }
 
-    record CombinedStorage(List<MEStorage> inventories, net.minecraft.network.chat.Component description,
-            BooleanSupplier allowAccess)
-        implements MEStorage, CombinedExactAmountSource {
+    static final class CombinedStorage
+        implements MEStorage, CombinedExactAmountSource, cn.dancingsnow.neoecoae.storage.StorageListingDelta,
+            NetworkInventoryCache.Mounts {
+        private final List<MEStorage> inventories;
+        private final List<MEStorage> itemInserts;
+        private final List<MEStorage> fluidInserts;
+        private final net.minecraft.network.chat.Component description;
+        private final BooleanSupplier allowAccess;
+
+        CombinedStorage(List<MEStorage> inventories, net.minecraft.network.chat.Component description,
+                BooleanSupplier allowAccess) {
+            this.inventories = List.copyOf(inventories);
+            this.description = description;
+            this.allowAccess = allowAccess;
+            itemInserts = insertCandidates(AEKeyType.items());
+            fluidInserts = insertCandidates(AEKeyType.fluids());
+        }
         CombinedStorage(List<MEStorage> inventories, net.minecraft.network.chat.Component description) {
             this(inventories, description, () -> true);
+        }
+
+        boolean hasInventories(List<MEStorage> current) {
+            if (inventories.size() != current.size()) return false;
+            for (int i = 0; i < inventories.size(); i++) if (inventories.get(i) != current.get(i)) return false;
+            return true;
+        }
+
+        private List<MEStorage> insertCandidates(AEKeyType requested) {
+            List<MEStorage> result = new ArrayList<>();
+            for (MEStorage inventory : inventories) {
+                // Only these final native type predicates are known. Subclasses/custom types may accept both.
+                if (inventory.getClass() == ECOStorageCell.class) {
+                    AEKeyType type = ((ECOStorageCell) inventory).getKeyType();
+                    if ((type == AEKeyType.items() || type == AEKeyType.fluids()) && type != requested) continue;
+                }
+                result.add(inventory);
+            }
+            return result.size() == inventories.size() ? inventories : List.copyOf(result);
+        }
+
+        @Override public long neoecoae$mountGeneration() { return allowAccess.getAsBoolean() ? 0 : 1; }
+
+        @Override public boolean neoecoae$withMounts(java.util.function.Consumer<List<MEStorage>> action) {
+            action.accept(allowAccess.getAsBoolean() ? inventories : List.of());
+            return true;
+        }
+
+        @Override public long neoecoae$listingVersion() {
+            if (!allowAccess.getAsBoolean()) return -1;
+            return inventories.size() == 1 && inventories.get(0) instanceof cn.dancingsnow.neoecoae.storage.StorageListingVersion source
+                ? source.neoecoae$listingVersion() : UNKNOWN;
+        }
+
+        @Override public Object neoecoae$listingIdentity() {
+            return inventories.size() == 1 && inventories.get(0) instanceof cn.dancingsnow.neoecoae.storage.StorageListingVersion source
+                ? source.neoecoae$listingIdentity() : this;
+        }
+
+        @Override public boolean neoecoae$visitListingChanges(long since, long current, java.util.function.ObjLongConsumer<AEKey> visitor) {
+            return allowAccess.getAsBoolean() && since >= 0 && current >= 0 && inventories.size() == 1
+                && inventories.get(0) instanceof cn.dancingsnow.neoecoae.storage.StorageListingDelta source
+                && source.neoecoae$visitListingChanges(since,current,visitor);
         }
 
         @Override
         public long insert(AEKey key, long amount, appeng.api.config.Actionable mode, IActionSource source) {
             if (!allowAccess.getAsBoolean()) return 0L;
+            List<MEStorage> candidates = key instanceof AEItemKey ? itemInserts
+                : key instanceof AEFluidKey ? fluidInserts : inventories;
             long inserted = 0L;
             for (int pass = 0; pass < 2 && inserted < amount; pass++) {
-                for (MEStorage inventory : inventories) {
+                for (MEStorage inventory : candidates) {
                     if (inserted >= amount) break;
                     boolean bulk = inventory instanceof IECOStorageCell cell && cell.prioritizesMarkedInserts();
                     if (bulk != (pass == 0)) continue;
@@ -140,6 +212,7 @@ final class ECOStorageInterfaceTransfer {
         public long extract(AEKey key, long amount, appeng.api.config.Actionable mode, IActionSource source) {
             if (!allowAccess.getAsBoolean()) return 0L;
             long extracted = 0L;
+            // Loaded/migrated stock can outlive an insertion rule. Never exclude it from extraction by type.
             for (MEStorage inventory : inventories) {
                 if (extracted >= amount) break;
                 extracted += inventory.extract(key, amount - extracted, mode, source);
