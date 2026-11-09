@@ -5,10 +5,10 @@ import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledNetwork;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import java.util.ArrayDeque;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +18,7 @@ import org.jetbrains.annotations.Nullable;
 /** Optimistic, exact-quantity proofs; unknown capacity always means infinity, never zero. */
 final class RouteQuantityProof {
     private static final int MAX_REVISIONS = 65_536;
+    private static final int MAX_BRANCH_PROOFS = 256;
 
     private RouteQuantityProof() {}
 
@@ -52,8 +53,8 @@ final class RouteQuantityProof {
         private record Branch(long requested, Map<AEKey, Integer> choices) {}
         private final OptimisticSupplyModel model;
         private final PlannerInventorySnapshot inventory;
-        private final Map<AEKey, PlannerAmount> stock = new HashMap<>();
-        private final Map<Branch, Boolean> branchProofs = new LinkedHashMap<>();
+        private final Map<AEKey, PlannerAmount> stock;
+        private final Map<Branch, Boolean> branchProofs = new Object2ObjectOpenHashMap<>(MAX_BRANCH_PROOFS);
         private long proofNanos;
         private long checkpoints;
         private int calls;
@@ -72,6 +73,7 @@ final class RouteQuantityProof {
                 throws InterruptedException {
             this.model = model;
             this.inventory = inventory;
+            this.stock = new Object2ObjectOpenHashMap<>(inventory.amounts().size());
             for (var entry : inventory.amounts().entrySet()) {
                 cancellation.checkpoint();
                 if (entry.getValue().signum() > 0) stock.put(entry.getKey(), entry.getValue());
@@ -81,15 +83,15 @@ final class RouteQuantityProof {
         boolean rejectsBranch(long requested, Map<AEKey, Integer> choices, Set<AEKey> fixed,
                 ECOCancellation cancellation) throws InterruptedException {
             cancellation.checkpoint();
-            Map<AEKey, Integer> signature = new HashMap<>();
+            var signature = new Object2IntOpenHashMap<AEKey>(Math.min(model.variableKeys.size(), fixed.size()));
             for (AEKey key : model.variableKeys) {
-                if (fixed.contains(key)) signature.put(key, choices.getOrDefault(key, 0));
+                if (fixed.contains(key)) signature.put(key, choices.getOrDefault(key, 0).intValue());
             }
             Branch branch = new Branch(requested, signature);
             Boolean cached = branchProofs.get(branch);
             if (cached != null) { cacheHits++; return cached; }
             boolean rejected = insufficientOutput(requested, choices, fixed, cancellation) != null;
-            if (branchProofs.size() < 256) branchProofs.put(new Branch(requested, Map.copyOf(signature)), rejected);
+            if (branchProofs.size() < MAX_BRANCH_PROOFS) branchProofs.put(new Branch(requested, Map.copyOf(signature)), rejected);
             return rejected;
         }
 
@@ -116,10 +118,10 @@ final class RouteQuantityProof {
         private @Nullable PlannerAmount propagate(long requested, Map<AEKey, Integer> choices, Set<AEKey> fixed,
                 ECOCancellation cancellation) throws InterruptedException {
             if (requested <= 0) return null;
-            Map<AEKey, PlannerAmount> finite = new HashMap<>();
-            Map<AEKey, List<Limit>> reasons = fixed.isEmpty() ? new HashMap<>() : null;
+            Map<AEKey, PlannerAmount> finite = new Object2ObjectOpenHashMap<>(model.keys.size());
+            Map<AEKey, List<Limit>> reasons = fixed.isEmpty() ? new Object2ObjectOpenHashMap<>(model.keys.size()) : null;
             ArrayDeque<AEKey> queue = new ArrayDeque<>(model.keys);
-            Set<AEKey> queued = new HashSet<>(model.keys);
+            Set<AEKey> queued = new ObjectOpenHashSet<>(model.keys);
             PlannerAmount target = PlannerAmount.of(requested);
             int revisions = 0;
             while (!queue.isEmpty() && revisions++ < MAX_REVISIONS) {
@@ -170,7 +172,7 @@ final class RouteQuantityProof {
             StringBuilder text = new StringBuilder("supplyUpperBounds=[");
             ArrayDeque<AEKey> pending = new ArrayDeque<>();
             pending.add(model.goal);
-            Set<AEKey> visited = new HashSet<>();
+            Set<AEKey> visited = new ObjectOpenHashSet<>(16);
             while (!pending.isEmpty() && visited.size() < 16) {
                 AEKey key = pending.removeFirst();
                 if (!visited.add(key)) continue;

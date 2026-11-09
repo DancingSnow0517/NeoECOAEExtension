@@ -80,7 +80,8 @@ class ECOAe2LtBigCraftingInteropTest {
                 f.output, total, Actionable.SIMULATE));
         assertEquals(total, waiting(f.job).get(f.output));
 
-        var router = mock(CraftingServiceMixin.class, CALLS_REAL_METHODS);
+        var router = mock(CraftingServiceMixin.class,
+                withSettings().useConstructor().defaultAnswer(CALLS_REAL_METHODS));
         when(router.getCpus()).thenReturn(ImmutableSet.of(cpu));
         var crafting = mock(CraftingService.class, withSettings().extraInterfaces(ECOCraftingOutputRouter.class));
         var outputRouter = (ECOCraftingOutputRouter) crafting;
@@ -88,6 +89,7 @@ class ECOAe2LtBigCraftingInteropTest {
                 .thenAnswer(call -> router.neoecoae$insertExactIntoCpuForJob(call.getArgument(0),
                         call.getArgument(1), call.getArgument(2), call.getArgument(3)));
         var grid = mock(IGrid.class, RETURNS_DEEP_STUBS);
+        field(CraftingServiceMixin.class, "grid").set(router, grid);
         when(grid.getCraftingService()).thenReturn(crafting);
         when(worker.getMainNode().getGrid()).thenReturn(grid);
         var eject = ECOCraftingThread.class.getDeclaredMethod("ejectOutputs");

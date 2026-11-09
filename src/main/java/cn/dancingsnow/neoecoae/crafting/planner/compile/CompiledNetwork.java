@@ -1,10 +1,10 @@
 package cn.dancingsnow.neoecoae.crafting.planner.compile;
 
 import appeng.api.stacks.AEKey;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.LinkedHashMap;
 
 public record CompiledNetwork(
     AEKey goal,
@@ -21,8 +21,8 @@ public record CompiledNetwork(
     }
 
     public CompiledNetwork {
-        Map<AEKey, List<CompiledPattern>> all = new LinkedHashMap<>();
-        Map<AEKey, List<CompiledPattern>> fast = new LinkedHashMap<>();
+        Map<AEKey, List<CompiledPattern>> all = new Object2ObjectLinkedOpenHashMap<>(producers.size());
+        Map<AEKey, List<CompiledPattern>> fast = new Object2ObjectLinkedOpenHashMap<>(producers.size());
         multiplePaths = false;
         for (var entry : producers.entrySet()) {
             List<CompiledPattern> patterns = List.copyOf(entry.getValue());

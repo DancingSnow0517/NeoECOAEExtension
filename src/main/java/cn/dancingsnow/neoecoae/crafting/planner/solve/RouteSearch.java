@@ -4,10 +4,12 @@ import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
+import it.unimi.dsi.fastutil.objects.Object2IntLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import java.util.ArrayDeque;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import org.jetbrains.annotations.Nullable;
@@ -48,12 +50,12 @@ final class RouteSearch {
 
     private final CompiledNetwork network;
     /** Keys whose candidate patterns also output (or return) the map key; choosing them touches that key. */
-    private final Map<AEKey, Set<AEKey>> sideProducers = new LinkedHashMap<>();
-    private final Map<AEKey, Integer> choices;
-    private final Set<AEKey> fixed = new HashSet<>();
+    private final Map<AEKey, Set<AEKey>> sideProducers = new Object2ObjectOpenHashMap<>();
+    private final Object2IntMap<AEKey> choices;
+    private final Set<AEKey> fixed;
     private final ArrayDeque<Frame> stack = new ArrayDeque<>();
     private final ArrayDeque<AEKey> queue = new ArrayDeque<>();
-    private final Set<AEKey> seen = new HashSet<>();
+    private final Set<AEKey> seen;
     private int limit;
     private int deviations;
     private boolean deeper = true;
@@ -69,17 +71,19 @@ final class RouteSearch {
     RouteSearch(CompiledNetwork network, Map<AEKey, Integer> baseline, BranchPruner pruner) {
         this.network = network;
         this.pruner = pruner;
-        this.choices = new LinkedHashMap<>(baseline);
+        this.choices = new Object2IntLinkedOpenHashMap<>(baseline);
+        this.fixed = new ObjectOpenHashSet<>(baseline.size());
+        this.seen = new ObjectOpenHashSet<>(network.keys().size());
         for (var entry : network.fastProducers().entrySet()) {
             AEKey key = entry.getKey();
             for (CompiledPattern pattern : entry.getValue()) {
                 for (var output : pattern.grossOutputs()) {
                     if (output == null || output.what() == null || output.what().equals(key)) continue;
-                    sideProducers.computeIfAbsent(output.what(), ignored -> new LinkedHashSet<>()).add(key);
+                    sideProducers.computeIfAbsent(output.what(), ignored -> new ObjectLinkedOpenHashSet<>()).add(key);
                 }
                 for (var feedback : pattern.semantics().feedbackEdges()) {
                     if (feedback.returnedKey().equals(key)) continue;
-                    sideProducers.computeIfAbsent(feedback.returnedKey(), ignored -> new LinkedHashSet<>()).add(key);
+                    sideProducers.computeIfAbsent(feedback.returnedKey(), ignored -> new ObjectLinkedOpenHashSet<>()).add(key);
                 }
             }
         }
@@ -100,8 +104,8 @@ final class RouteSearch {
     }
 
     Map<AEKey, Integer> changedChoices() {
-        Map<AEKey, Integer> changed = new LinkedHashMap<>();
-        for (Frame frame : stack) if (frame.offset() != 0) changed.put(frame.key, choices.get(frame.key));
+        var changed = new Object2IntLinkedOpenHashMap<AEKey>(stack.size());
+        for (Frame frame : stack) if (frame.offset() != 0) changed.put(frame.key, choices.getInt(frame.key));
         return changed;
     }
 
@@ -113,7 +117,7 @@ final class RouteSearch {
                 limit++;
                 deeper = false;
                 passOpen = true;
-                if (descend(cancellation)) return new LinkedHashMap<>(choices);
+                if (descend(cancellation)) return new Object2IntLinkedOpenHashMap<>(choices);
                 continue;
             }
             if (stack.isEmpty()) {
@@ -130,7 +134,7 @@ final class RouteSearch {
                 continue;
             }
             apply(top);
-            if (descend(cancellation)) return new LinkedHashMap<>(choices);
+            if (descend(cancellation)) return new Object2IntLinkedOpenHashMap<>(choices);
         }
     }
 
@@ -176,7 +180,7 @@ final class RouteSearch {
 
     private int choice(AEKey key) {
         int size = network.fastProducersOf(key).size();
-        return Math.max(0, Math.min(choices.getOrDefault(key, 0), size - 1));
+        return Math.max(0, Math.min(choices.getInt(key), size - 1));
     }
 
     /**

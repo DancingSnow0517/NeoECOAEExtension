@@ -11,10 +11,11 @@ import cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingGraphNode;
 import cn.dancingsnow.neoecoae.crafting.planner.graph.CycleStructure;
 import cn.dancingsnow.neoecoae.crafting.planner.graph.SccComponent;
 import cn.dancingsnow.neoecoae.crafting.planner.graph.TarjanSccAnalyzer;
+import it.unimi.dsi.fastutil.objects.Object2IntLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -64,8 +65,8 @@ public final class ActiveRouteSelector {
      */
     public Selection select(CraftingDependencyGraph universe, boolean avoidCycles,
             ECOCancellation cancellation) throws InterruptedException {
-        Map<AEKey, Integer> choices = new LinkedHashMap<>();
-        Map<AEKey, List<CompiledPattern>> candidatesByKey = new LinkedHashMap<>();
+        var choices = new Object2IntLinkedOpenHashMap<AEKey>(universe.nodes().size());
+        Map<AEKey, List<CompiledPattern>> candidatesByKey = new Object2ObjectLinkedOpenHashMap<>(universe.nodes().size());
         List<CompiledPattern> deferred = new ArrayList<>();
         for (AEKey key : universe.nodes().keySet()) {
             choices.put(key, 0);
@@ -90,7 +91,7 @@ public final class ActiveRouteSelector {
             return finish(choices, initial.sccs(), initial.graph(), deferred, false, cancellation);
         }
 
-        Set<List<Integer>> visited = new HashSet<>();
+        Set<List<Integer>> visited = new ObjectOpenHashSet<>();
         visited.add(choiceVector(universe, choices));
         ArrayDeque<SearchFrame> frames = new ArrayDeque<>();
         Analysis current = initial;
@@ -130,8 +131,8 @@ public final class ActiveRouteSelector {
     /** Build a route for one explicit producer, including a self-loop that cycle avoidance skipped. */
     public Selection selectWithPattern(CraftingDependencyGraph universe, AEKey key, CompiledPattern pattern,
             ECOCancellation cancellation) throws InterruptedException {
-        Map<AEKey, Integer> choices = new LinkedHashMap<>();
-        Map<AEKey, List<CompiledPattern>> candidatesByKey = new LinkedHashMap<>();
+        var choices = new Object2IntLinkedOpenHashMap<AEKey>(universe.nodes().size());
+        Map<AEKey, List<CompiledPattern>> candidatesByKey = new Object2ObjectLinkedOpenHashMap<>(universe.nodes().size());
         for (AEKey candidateKey : universe.nodes().keySet()) {
             choices.put(candidateKey, 0);
             candidatesByKey.put(candidateKey, fastCandidates(universe, candidateKey));
@@ -145,7 +146,7 @@ public final class ActiveRouteSelector {
 
     public Selection selectWithChoices(CraftingDependencyGraph universe, Map<AEKey, Integer> choices,
             ECOCancellation cancellation) throws InterruptedException {
-        Map<AEKey, List<CompiledPattern>> candidates = new LinkedHashMap<>();
+        Map<AEKey, List<CompiledPattern>> candidates = new Object2ObjectLinkedOpenHashMap<>(universe.nodes().size());
         for (AEKey key : universe.nodes().keySet()) candidates.put(key, fastCandidates(universe, key));
         Analysis analysis = analyze(activeGraph(universe, choices, candidates, cancellation), cancellation);
         return finish(choices, analysis.sccs(), analysis.graph(), List.of(), false, cancellation);
@@ -164,7 +165,7 @@ public final class ActiveRouteSelector {
      */
     private Analysis analyze(CraftingDependencyGraph active, ECOCancellation cancellation) throws InterruptedException {
         List<SccComponent> sccs = tarjan.analyze(active, cancellation);
-        Set<CraftingGraphEdge> dropped = new HashSet<>();
+        Set<CraftingGraphEdge> dropped = new ObjectOpenHashSet<>();
         for (SccComponent scc : sccs) {
             cancellation.checkpoint();
             if (scc.cyclic()) dropped.addAll(CycleStructure.redundantOrderingEdges(scc.members(), scc.internalEdges()));
@@ -240,7 +241,7 @@ public final class ActiveRouteSelector {
             throws InterruptedException {
         if (start.equals(goal)) return true;
         ArrayDeque<AEKey> queue = new ArrayDeque<>();
-        Set<AEKey> seen = new HashSet<>();
+        Set<AEKey> seen = new ObjectOpenHashSet<>();
         queue.add(start);
         seen.add(start);
         while (!queue.isEmpty()) {
@@ -308,7 +309,7 @@ public final class ActiveRouteSelector {
     private static CraftingDependencyGraph activeGraph(CraftingDependencyGraph universe,
             Map<AEKey, Integer> choices, Map<AEKey, List<CompiledPattern>> candidatesByKey,
             ECOCancellation cancellation) throws InterruptedException {
-        Map<AEKey, CraftingGraphNode> nodes = new LinkedHashMap<>();
+        Map<AEKey, CraftingGraphNode> nodes = new Object2ObjectLinkedOpenHashMap<>(universe.nodes().size());
         List<CraftingGraphEdge> edges = new ArrayList<>();
         for (AEKey key : universe.nodes().keySet()) {
             cancellation.checkpoint();

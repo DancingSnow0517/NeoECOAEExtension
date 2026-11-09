@@ -60,6 +60,34 @@ class ECOProcessingMonitorTest {
         assertEquals(ECOProcessingMonitor.READS_PER_SERVER_TICK, fixture.reads.get());
     }
 
+    @Test void firstScanPublishesAvailableMachinesWithoutWaitingForTheEntireTraversal() {
+        var fixture = new Fixture();
+        var monitor = monitor(100);
+        var key = AEItemKey.of(Items.STONE);
+        var first = monitor.sample(fixture.level, key, 0);
+        assertTrue(first.refreshing());
+        assertEquals(ECOProcessingMonitor.READS_PER_CPU_TICK, first.machineCount());
+        assertTrue(first.hasProgress());
+        int reads = fixture.reads.get();
+        assertEquals(first, monitor.cachedProgress(key));
+        assertEquals(reads, fixture.reads.get(), "Sorting cached state must not consume a world read");
+        fixture.tick.set(1);
+        var next = monitor.sample(fixture.level, key, 1);
+        assertTrue(next.refreshing());
+        assertEquals(ECOProcessingMonitor.READS_PER_CPU_TICK * 2, next.machineCount());
+        fixture.tick.set(2);
+        monitor.sample(fixture.level, key, 2);
+        fixture.tick.set(3);
+        var complete = monitor.sample(fixture.level, key, 3);
+        assertFalse(complete.refreshing());
+        assertEquals(100, complete.machineCount());
+        fixture.tick.set(3 + ECOProcessingMonitor.REFRESH_INTERVAL);
+        var refreshing = monitor.sample(fixture.level, key, fixture.tick.get());
+        assertTrue(refreshing.refreshing());
+        assertEquals(complete.machineCount(), refreshing.machineCount(), "Later refreshes retain the complete sample");
+        assertEquals(complete.progress(), refreshing.progress());
+    }
+
     @Test void destinationPersistenceDoesNotTruncateAtEightOrSixtyFourAndFinishingReleasesState() {
         var original = monitor(1000);
         var restored = new ECOProcessingMonitor();

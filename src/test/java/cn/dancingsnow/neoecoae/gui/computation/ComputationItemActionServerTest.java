@@ -31,6 +31,8 @@ class ComputationItemActionServerTest {
 
     @Test void tasksRegroupByLiveStateAndKeepTheirOriginalOrderWithinEachGroup() throws Exception {
         var fixture = new Fixture();
+        fixture.call("select", new Class<?>[]{int.class}, 1);
+        fixture.call("snapshot", new Class<?>[0]);
         var entries = List.of(Items.STONE, Items.DIRT, Items.GOLD_INGOT, Items.IRON_INGOT, Items.DIAMOND)
             .stream().map(item -> new ComputationCpuItemEntry(AEItemKey.of(item), java.math.BigInteger.ZERO,
                 java.math.BigInteger.ONE, java.math.BigInteger.ZERO, false)).toList();
@@ -38,7 +40,7 @@ class ComputationItemActionServerTest {
             ECOProcessingProgress.State.WAITING, ECOProcessingProgress.State.PAUSED,
             ECOProcessingProgress.State.UNAVAILABLE);
         for (int index = 0; index < entries.size(); index++) {
-            when(fixture.logic.getProcessingProgress(entries.get(index).key())).thenReturn(
+            when(fixture.monitor.cachedProgress(entries.get(index).key())).thenReturn(
                 new ECOProcessingProgress(0, false, states.get(index), 1, -1, false, List.of()));
         }
         var types = new Class<?>[]{appeng.api.networking.crafting.ICraftingCPU.class, List.class};
@@ -48,12 +50,13 @@ class ComputationItemActionServerTest {
         var problemOrder = List.copyOf(first.subList(2, first.size()));
         assertEquals(new java.util.HashSet<>(entries.subList(2, entries.size())), new java.util.HashSet<>(problemOrder));
 
-        when(fixture.logic.getProcessingProgress(entries.get(0).key())).thenReturn(
+        when(fixture.monitor.cachedProgress(entries.get(0).key())).thenReturn(
             new ECOProcessingProgress(0, false, ECOProcessingProgress.State.RUNNING, 1, -1, false, List.of()));
         var changed = (List<?>) fixture.call("tasks", types, fixture.cpu, entries);
         assertEquals(entries.get(0), changed.get(0));
         assertEquals(entries.get(1), changed.get(1));
         assertEquals(problemOrder, changed.subList(2, changed.size()));
+        verify(fixture.logic, never()).getProcessingProgress(any());
     }
 
     @Test void stepActionCallsTheSelectedOutputsControlAndNeverCancelsTheCpu() throws Exception {
@@ -118,6 +121,7 @@ class ComputationItemActionServerTest {
             ECOProcessingProgress.State.WAITING, Component.translatable(
                 "gui.neoecoae.large_integrated_working_station.pause.overheated"))));
         when(fixture.logic.getProcessingProgress(fixture.key)).thenReturn(progress);
+        when(fixture.monitor.cachedProgress(fixture.key)).thenReturn(progress);
         fixture.tick.set(3);
         fixture.call("select", new Class<?>[]{int.class}, 1);
         fixture.call("snapshot", new Class<?>[0]);
@@ -133,6 +137,7 @@ class ComputationItemActionServerTest {
         assertTrue(observed.machines().get(0).reason().toString().contains("pause.overheated"));
 
         when(fixture.logic.getProcessingProgress(fixture.key)).thenReturn(ECOProcessingProgress.EMPTY);
+        when(fixture.monitor.cachedProgress(fixture.key)).thenReturn(ECOProcessingProgress.EMPTY);
         fixture.tick.set(13);
         var recovered = (CompoundTag) fixture.call("processingSnapshot", new Class<?>[0]);
         assertTrue(recovered.getList("items", 10).isEmpty());
@@ -156,14 +161,100 @@ class ComputationItemActionServerTest {
         }
     }
 
+    @Test void directTerminalEntryPublishesItsFirstProgressBeforeAnyCpuClick() throws Exception {
+        var fixture = new Fixture(true);
+        when(fixture.logic.getProcessingProgress(fixture.key)).thenReturn(progress(50));
+        var first = (CompoundTag) fixture.call("processingSnapshot", new Class<?>[0]);
+        assertEquals(1, first.getInt("serial"));
+        assertFalse(first.getBoolean("delta"));
+        assertEquals(1, first.getList("items", 10).size());
+        assertEquals(0.5F, first.getList("items", 10).getCompound(0).getCompound("progress").getFloat("progress"));
+    }
+
+    @Test void progressDeltasKeepUnchangedRowsAndRemoveOnlyDisappearedSamples() throws Exception {
+        var fixture = new Fixture(true);
+        var second = AEItemKey.of(Items.DIRT);
+        when(fixture.logic.getExactActivePreview()).thenReturn(Map.of(fixture.key, java.math.BigInteger.ONE, second, java.math.BigInteger.ONE));
+        when(fixture.logic.getWaitingFor(second)).thenReturn(1L);
+        when(fixture.logic.getProcessingProgress(any())).thenReturn(progress(50));
+        fixture.tick.set(10);
+        var first = (CompoundTag) fixture.call("processingSnapshot", new Class<?>[0]);
+        assertEquals(2, first.getList("items", 10).size());
+        when(fixture.logic.getProcessingProgress(fixture.key)).thenReturn(progress(60));
+        fixture.tick.set(15);
+        var change = (CompoundTag) fixture.call("processingSnapshot", new Class<?>[0]);
+        assertTrue(change.getBoolean("delta"));
+        assertEquals(1, change.getList("items", 10).size());
+        assertEquals(fixture.key.toTagGeneric(), change.getList("items", 10).getCompound(0).getCompound("key"));
+        assertTrue(bytes(change) < bytes(first), "A single changed row must encode less data than a full snapshot");
+        System.out.printf("Processing sync fixture: full=%d bytes, one-row delta=%d bytes (NBT only)%n", bytes(first), bytes(change));
+        fixture.tick.set(20);
+        assertSame(change, fixture.call("processingSnapshot", new Class<?>[0]), "No new packet when neither visible sample changes");
+        when(fixture.logic.getProcessingProgress(second)).thenReturn(ECOProcessingProgress.EMPTY);
+        fixture.tick.set(25);
+        var removal = (CompoundTag) fixture.call("processingSnapshot", new Class<?>[0]);
+        assertTrue(removal.getList("items", 10).isEmpty());
+        assertEquals(second.toTagGeneric(), removal.getList("removed", 10).getCompound(0));
+        when(fixture.logic.getProcessingJobId()).thenReturn(UUID.randomUUID());
+        fixture.tick.set(26);
+        var nextJob = (CompoundTag) fixture.call("processingSnapshot", new Class<?>[0]);
+        assertFalse(nextJob.getBoolean("delta"), "A replacement job on the same CPU starts with a full reset");
+    }
+
+    @Test void visibleRowsAreRequestedBeforeBoundedBackgroundWorkAndClosingStopsAllRequests() throws Exception {
+        var fixture = new Fixture(true);
+        Map<appeng.api.stacks.AEKey, java.math.BigInteger> active = new java.util.LinkedHashMap<>();
+        for (var item : net.minecraft.core.registries.BuiltInRegistries.ITEM) {
+            var key = AEItemKey.of(item);
+            if (key != null) active.put(key, java.math.BigInteger.ONE);
+            if (active.size() == 100) break;
+        }
+        when(fixture.logic.getExactActivePreview()).thenReturn(active);
+        when(fixture.logic.getProcessingProgress(any())).thenReturn(progress(50));
+        fixture.tick.set(10);
+        clearInvocations(fixture.logic);
+        var packet = (CompoundTag) fixture.call("processingSnapshot", new Class<?>[0]);
+        assertEquals(21, packet.getList("items", 10).size());
+        long requests = mockingDetails(fixture.logic).getInvocations().stream()
+            .filter(call -> call.getMethod().getName().equals("getProcessingProgress")).count();
+        assertTrue(requests <= 21 + 7 + 16, "Only visible rows and sixteen background candidates request scans");
+        System.out.printf("100-output fixture: visible progress=%d, scan requests=%d, payload=%d bytes (NBT only)%n",
+            packet.getList("items", 10).size(), requests, bytes(packet));
+        fixture.call("processingDetails", new Class<?>[]{int.class, CompoundTag.class}, -1, new CompoundTag());
+        clearInvocations(fixture.logic, fixture.monitor);
+        for (long tick = 20; tick < 100; tick += 5) {
+            fixture.tick.set(tick);
+            fixture.call("snapshot", new Class<?>[0]);
+            fixture.call("processingSnapshot", new Class<?>[0]);
+        }
+        verify(fixture.logic, never()).getProcessingProgress(any());
+        verify(fixture.logic, never()).getExactActivePreview();
+        verify(fixture.monitor, never()).cachedProgress(any());
+    }
+
+    private static ECOProcessingProgress progress(int ticks) {
+        return ECOProcessingProgress.summarize(List.of(new ECOProcessingProgress.Machine(Component.literal("Machine"),
+            "minecraft:overworld [0,64,0]", "test:recipe", ticks, 100, 1, ECOProcessingProgress.State.RUNNING, Component.empty())));
+    }
+
+    private static int bytes(CompoundTag tag) throws java.io.IOException {
+        var bytes = new java.io.ByteArrayOutputStream();
+        try (var output = new java.io.DataOutputStream(bytes)) { net.minecraft.nbt.NbtIo.write(tag, output); }
+        return bytes.size();
+    }
+
     private static final class Fixture {
         final AEItemKey key = AEItemKey.of(Items.STONE);
         final UUID job = UUID.randomUUID();
         final ECOCraftingCPU cpu = mock(ECOCraftingCPU.class);
         final ECOCraftingCPULogic logic = mock(ECOCraftingCPULogic.class);
+        final ECOProcessingMonitor monitor = mock(ECOProcessingMonitor.class);
         final AtomicLong tick = new AtomicLong();
         final Object server;
         Fixture() throws Exception {
+            this(false);
+        }
+        Fixture(boolean direct) throws Exception {
             var config = new ComputationControllerUI.Config(
                 () -> true, () -> 1, () -> 0, () -> 0,
                 () -> 0L, () -> 1024L, () -> 1024L,
@@ -176,7 +267,8 @@ class ComputationItemActionServerTest {
                 (position, expected, toInventory) -> false, (position, expected) -> false,
                 tick::get, () -> true, () -> List.of(cpu), ignored -> {}, ignored -> {}, Component::empty);
             when(cpu.getLogic()).thenReturn(logic);
-            when(logic.getProcessingMonitor()).thenReturn(mock(ECOProcessingMonitor.class));
+            when(logic.getProcessingMonitor()).thenReturn(monitor);
+            when(monitor.cachedProgress(any())).thenReturn(ECOProcessingProgress.EMPTY);
             when(cpu.getSelectionMode()).thenReturn(CpuSelectionMode.ANY);
             var tier = mock(IECOTier.class);
             when(tier.getCPUOverlayTexture()).thenReturn(new ResourceLocation("test", "cpu.png"));
@@ -193,9 +285,12 @@ class ComputationItemActionServerTest {
             var type = Class.forName(ComputationCpuStatusPanel.class.getName() + "$ServerState");
             var constructor = type.getDeclaredConstructor(ComputationCpuStatusPanel.Source.class, CpuSelectionState.Identities.class);
             constructor.setAccessible(true);
-            server = constructor.newInstance(ComputationCpuStatusPanel.Source.of(config),
+            var source = ComputationCpuStatusPanel.Source.of(config);
+            if (direct) source = new ComputationCpuStatusPanel.Source(source.player(), source.gameTime(), source.canInteract(),
+                source.cpus(), source.toggleCpuSuspended(), source.cancelCpu(), () -> {});
+            server = constructor.newInstance(source,
                 new CpuSelectionState.Identities<appeng.api.networking.crafting.ICraftingCPU>());
-            call("snapshot", new Class<?>[0]);
+            call("refresh", new Class<?>[0]);
         }
         Object call(String method, Class<?>[] types, Object... arguments) throws Exception {
             var target = server.getClass().getDeclaredMethod(method, types); target.setAccessible(true);
