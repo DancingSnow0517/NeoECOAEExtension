@@ -9,8 +9,11 @@ import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
+import it.unimi.dsi.fastutil.objects.Object2IntLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -60,31 +63,31 @@ final class OptimisticSupplyModel {
     private OptimisticSupplyModel(CompiledNetwork network, Set<AEKey> keys, List<Recipe> recipes,
             Map<AEKey, List<Production>> producers, Map<AEKey, Set<AEKey>> dependents) {
         this.goal = network.goal(); this.keys = keys; this.emitted = network.emittable();
-        this.variableKeys = new java.util.HashSet<>();
+        this.variableKeys = new ObjectOpenHashSet<>();
         network.fastProducers().forEach((key, choices) -> { if (choices.size() > 1) variableKeys.add(key); });
         this.recipes = recipes; this.producers = producers; this.dependents = dependents;
     }
 
     static @Nullable OptimisticSupplyModel compile(CompiledNetwork network, ECOCancellation cancellation)
             throws InterruptedException {
-        Set<AEKey> keys = new LinkedHashSet<>(network.keys());
+        Set<AEKey> keys = new ObjectLinkedOpenHashSet<>(network.keys());
         keys.add(network.goal());
         List<Recipe> recipes = new ArrayList<>();
-        Map<AEKey, List<Production>> producers = new HashMap<>();
-        Map<AEKey, Set<AEKey>> dependents = new HashMap<>();
-        Map<CompiledPattern, Map<AEKey, Integer>> indexed = new java.util.LinkedHashMap<>();
+        Map<AEKey, List<Production>> producers = new Object2ObjectOpenHashMap<>(keys.size());
+        Map<AEKey, Set<AEKey>> dependents = new Object2ObjectOpenHashMap<>(keys.size());
+        Map<CompiledPattern, Map<AEKey, Integer>> indexed = new Object2ObjectLinkedOpenHashMap<>(network.reachablePatternCount());
         for (var entry : network.producers().entrySet()) {
             List<CompiledPattern> fast = network.fastProducersOf(entry.getKey());
             for (CompiledPattern pattern : entry.getValue()) {
                 cancellation.checkpoint();
-                indexed.computeIfAbsent(pattern, ignored -> new java.util.LinkedHashMap<>())
+                indexed.computeIfAbsent(pattern, ignored -> new Object2IntLinkedOpenHashMap<>(1))
                     .put(entry.getKey(), pattern.fastSupported() ? fast.indexOf(pattern) : -1);
             }
         }
         for (var indexedEntry : indexed.entrySet()) {
             CompiledPattern pattern = indexedEntry.getKey();
             cancellation.checkpoint();
-            Map<AEKey, PlannerAmount> outputs = new HashMap<>();
+            Map<AEKey, PlannerAmount> outputs = new Object2ObjectOpenHashMap<>(pattern.grossOutputs().size());
             for (GenericStack output : pattern.grossOutputs()) {
                 if (output != null && output.what() != null && output.amount() > 0)
                     outputs.merge(output.what(), PlannerAmount.of(output.amount()), PlannerAmount::add);
@@ -145,7 +148,7 @@ final class OptimisticSupplyModel {
             keys.addAll(outputs.keySet());
             for (InputGroup input : inputs) for (Alternative alternative : input.alternatives()) {
                 keys.add(alternative.key());
-                dependents.computeIfAbsent(alternative.key(), ignored -> new LinkedHashSet<>()).addAll(outputs.keySet());
+                dependents.computeIfAbsent(alternative.key(), ignored -> new ObjectLinkedOpenHashSet<>()).addAll(outputs.keySet());
             }
             outputs.forEach((key, amount) -> producers.computeIfAbsent(key, ignored -> new ArrayList<>())
                 .add(new Production(recipe, amount)));

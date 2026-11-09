@@ -33,20 +33,27 @@ class RouteSearchTest {
         producers.put(x, List.of());
         producers.put(y, List.of());
         var network = network(goal, producers);
-        var search = new RouteSearch(network, Map.of(goal, 0, a, 0, b, 0));
+        var baseline = new LinkedHashMap<AEKey, Integer>();
+        for (AEKey key : List.of(goal, a, b)) baseline.put(key, 0);
+        var search = new RouteSearch(network, baseline);
 
         var expected = List.of(
             Map.of(goal, 1, a, 0, b, 0),
             Map.of(goal, 0, a, 1, b, 0),
             Map.of(goal, 1, a, 0, b, 1));
         var passes = List.of(1, 1, 2);
+        var returned = new ArrayList<Map<AEKey, Integer>>();
         for (int i = 0; i < expected.size(); i++) {
             var route = search.next(ECOCancellation.NONE);
             assertNotNull(route, "route " + i);
+            assertEquals(List.of(goal, a, b), new ArrayList<>(route.keySet()), "Keep baseline insertion order");
+            returned.add(route);
             assertEquals(expected.get(i), Map.of(goal, route.get(goal), a, route.get(a), b, route.get(b)));
             assertEquals(passes.get(i), search.pass());
         }
         assertNull(search.next(ECOCancellation.NONE));
+        assertEquals(expected, returned, "Backtracking must not mutate previously returned routes");
+        assertEquals(Map.of(goal, 0, a, 0, b, 0), baseline, "Search owns a copy of the baseline");
         assertTrue(search.expansions() > 0);
     }
 

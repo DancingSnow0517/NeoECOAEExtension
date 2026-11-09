@@ -39,6 +39,41 @@ class ComputationProcessingDisplayTest {
         assertTrue(lines.stream().anyMatch(line -> key(line).equals("gui.neoecoae.processing.count")));
     }
 
+    @Test void clientAppliesProgressDeltasWithoutDiscardingUnchangedMachines() throws Exception {
+        var panel = mock(ComputationCpuStatusPanel.class, CALLS_REAL_METHODS);
+        var values = new java.util.HashMap<appeng.api.stacks.AEKey, ECOProcessingProgress>();
+        UiTestSupport.set(panel, "selectedSerial", 1);
+        UiTestSupport.set(panel, "processingByKey", values);
+        var apply = ComputationCpuStatusPanel.class.getDeclaredMethod("applyProcessingOverview", net.minecraft.nbt.CompoundTag.class);
+        apply.setAccessible(true);
+        var stone = AEItemKey.of(Items.STONE);
+        var dirt = AEItemKey.of(Items.DIRT);
+        var sample = ECOProcessingProgress.summarize(List.of(machine(50, 100, State.RUNNING)));
+        var packet = new net.minecraft.nbt.CompoundTag();
+        packet.putInt("serial", 1);
+        var entries = new net.minecraft.nbt.ListTag();
+        for (var key : List.of(stone, dirt)) {
+            var entry = new net.minecraft.nbt.CompoundTag();
+            entry.put("key", key.toTagGeneric()); entry.put("progress", sample.page(-1).write()); entries.add(entry);
+        }
+        packet.put("items", entries);
+        apply.invoke(panel, packet);
+        assertEquals(2, values.size());
+        packet.putBoolean("delta", true);
+        entries.remove(1);
+        entries.getCompound(0).put("progress", ECOProcessingProgress.summarize(List.of(machine(70, 100, State.RUNNING))).page(-1).write());
+        apply.invoke(panel, packet);
+        assertEquals(0.7F, values.get(stone).progress());
+        assertEquals(0.5F, values.get(dirt).progress());
+        entries.clear();
+        var removed = new net.minecraft.nbt.ListTag(); removed.add(dirt.toTagGeneric()); packet.put("removed", removed);
+        apply.invoke(panel, packet);
+        assertEquals(java.util.Set.of(stone), values.keySet());
+        packet.putInt("serial", 2); packet.putBoolean("delta", false);
+        apply.invoke(panel, packet);
+        assertEquals(java.util.Set.of(stone), values.keySet(), "A delayed packet from another CPU must be ignored");
+    }
+
     @Test void pendingOverheatStatusReachesTheCellAndTooltipWithoutInventingACycle() throws Exception {
         var key = AEItemKey.of(Items.STONE);
         var progress = ECOProcessingProgress.summarize(List.of(new Machine(Component.literal("Workstation"),
@@ -89,6 +124,10 @@ class ComputationProcessingDisplayTest {
         assertTrue(row.text().stream().noneMatch(text -> text.endsWith("%")));
         assertTrue(ComputationProcessingTooltips.describe(entry).stream()
             .anyMatch(line -> key(line).equals("gui.neoecoae.processing.progress_unavailable")));
+        assertTrue(row.text().contains(Component.translatable("gui.neoecoae.processing.state.unavailable").getString()));
+        assertFalse(row.text().contains(Component.translatable("gui.neoecoae.processing.state.queued").getString()));
+        var refreshing = drawTask(entry.withProcessing(ECOProcessingProgress.EMPTY.refreshing(true)));
+        assertTrue(refreshing.text().contains(Component.translatable("gui.neoecoae.processing.refreshing").getString()));
     }
 
     @Test void taskRowProgressRetainsRunningBlockedAndPausedColors() throws Exception {
