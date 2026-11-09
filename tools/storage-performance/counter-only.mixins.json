@@ -1,0 +1,8 @@
+{
+  "required": true,
+  "minVersion": "0.8.5",
+  "package": "cn.dancingsnow.neoecoae.mixins.ae2.storage",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": ["TerminalSnapshotCounterMixin"],
+  "injectors": {"defaultRequire": 1}
+}

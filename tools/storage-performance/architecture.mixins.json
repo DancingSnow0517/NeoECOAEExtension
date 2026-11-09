@@ -1,0 +1,17 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "cn.dancingsnow.neoecoae.mixins",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+    "ae2.key.DefaultKeyOwnerMixin",
+    "ae2.key.AEItemKeyFactoryMixin",
+    "ae2.key.AEFluidKeyFactoryMixin",
+    "ae2.storage.TerminalSnapshotCounterMixin",
+    "ae2.accessor.DelegatingMEInventoryAccessor",
+    "ae2.accessor.PrecisePriorityListAccessor",
+    "ae2.storage.DelegatingStorageListingMixin",
+    "ae2.storage.MEInventoryHandlerListingMixin"
+  ],
+  "injectors": { "defaultRequire": 1 }
+}
