@@ -12,12 +12,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-/** Per-key amounts and the table total cross long, U128 and BigInteger and must stay exact. */
+/** Per-key amounts and the table total cross long, U128 and segmented magnitudes and must stay exact. */
 class StorageAmountsTierTest {
     private static final BigInteger LONG_MAX = BigInteger.valueOf(Long.MAX_VALUE);
 
     @ParameterizedTest
-    @ValueSource(ints = {127, 128, 129})
+    @ValueSource(ints = {127, 128, 129, 192, 256, 1024, 4096})
     void mutableWordCarryBorrowAndSnapshotsStayExact(int bits) {
         var amounts = new StorageAmounts();
         AEKey key = mock(AEKey.class);

@@ -4,6 +4,7 @@ import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.storage.StoragePerformance;
 import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
 import cn.dancingsnow.neoecoae.storage.infinite.HugeAmount;
+import cn.dancingsnow.neoecoae.crafting.amount.UnsignedLongArray;
 import cn.dancingsnow.neoecoae.crafting.amount.U128;
 import it.unimi.dsi.fastutil.objects.AbstractObject2LongMap;
 import it.unimi.dsi.fastutil.objects.AbstractObjectSet;
@@ -404,24 +405,24 @@ public class StorageAmounts {
     private static final class WideAmount {
         long high;
         long low;
-        BigInteger big;
+        UnsignedLongArray big;
 
         void set(HugeAmount value) {
             U128 nativeValue = value.toU128();
-            big = nativeValue == null ? value.toBigInteger() : null;
+            big = nativeValue == null ? value.toUnsignedLongArray() : null;
             high = nativeValue == null ? 0L : nativeValue.highWord();
             low = nativeValue == null ? 0L : nativeValue.lowWord();
         }
 
         void add(long value) {
             if (big != null) {
-                big = big.add(BigInteger.valueOf(value));
+                big = big.add(value);
                 return;
             }
             long next = low + value;
             long carry = Long.compareUnsigned(next, low) < 0 ? 1 : 0;
             if (high == -1L && carry != 0L) {
-                big = exact().add(BigInteger.valueOf(value));
+                big = UnsignedLongArray.fromParts(high, low).add(value);
             } else {
                 high += carry;
                 low = next;
@@ -430,7 +431,9 @@ public class StorageAmounts {
 
         void subtract(long value) {
             if (big != null) {
-                set(HugeAmount.of(big.subtract(BigInteger.valueOf(value))));
+                UnsignedLongArray remaining = big.subtract(value);
+                if (remaining.bitLength() > 128) big = remaining;
+                else set(HugeAmount.of(remaining));
                 return;
             }
             high -= Long.compareUnsigned(low, value) < 0 ? 1 : 0;
@@ -440,7 +443,7 @@ public class StorageAmounts {
         boolean fitsLong() { return big == null && high == 0 && low >= 0; }
 
         BigInteger exact() {
-            return snapshot().toBigInteger();
+            return big == null ? snapshot().toBigInteger() : big.toBigInteger();
         }
 
         HugeAmount snapshot() {
