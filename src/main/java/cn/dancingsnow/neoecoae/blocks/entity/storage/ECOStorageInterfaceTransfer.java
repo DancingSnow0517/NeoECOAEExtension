@@ -47,8 +47,18 @@ final class ECOStorageInterfaceTransfer {
         var grid = storageInterface.getMainNode().getGrid();
         if (grid == null) return 0L;
 
+        long bulkMoved = 0;
+        if (storageInterface.isStorageInputMode() && host.isFormedInfiniteMode()
+                && host.canUseHostDomainStorage() && !host.isInfiniteExitRequested()
+                && host.getInfiniteEngine() instanceof cn.dancingsnow.neoecoae.storage.infinite.SavedDataInfiniteStorageEngine saved) {
+            bulkMoved = cn.dancingsnow.neoecoae.storage.transfer.GTLFastInfinityTransfer.transfer(
+                grid.getStorageService().getInventory(), host.infiniteDomainId(), saved,
+                storageInterface.isExcludingStorageBusContainers(), IActionSource.ofMachine(storageInterface),
+                storageInterface::acceptsStorageResource);
+        }
+
         MEStorage hostStorage = getStorageInterfaceHostStorage();
-        if (hostStorage == null) return 0L;
+        if (hostStorage == null) return bulkMoved;
 
         long moved = ioPortTransfer.transfer(
             grid,
@@ -59,6 +69,7 @@ final class ECOStorageInterfaceTransfer {
             IActionSource.ofMachine(storageInterface),
             storageInterface::acceptsStorageResource
         );
+        moved = bulkMoved > Long.MAX_VALUE - moved ? Long.MAX_VALUE : moved + bulkMoved;
         if (moved > 0L) {
             host.setChanged();
             host.markForUpdate();
