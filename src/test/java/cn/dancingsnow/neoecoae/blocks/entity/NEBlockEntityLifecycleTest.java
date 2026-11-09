@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import appeng.api.networking.IManagedGridNode;
+import appeng.api.networking.GridHelper;
+import appeng.blockentity.AEBaseBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
@@ -14,10 +16,51 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+
 class NEBlockEntityLifecycleTest {
     @BeforeAll
     static void bootstrap() {
         InventoryTestBootstrap.initialize();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void repeatedClearRemovedCallbacksDoNotRecreateLiveNode() throws Exception {
+        var fixture = member(false);
+        var ready = new AtomicBoolean();
+        when(fixture.node().isReady()).thenAnswer(call -> ready.get());
+        doAnswer(call -> {
+            if (ready.getAndSet(true)) {
+                throw new IllegalStateException("The node has already been initialized");
+            }
+            return null;
+        }).when(fixture.node()).create(fixture.level(), BlockPos.ZERO);
+        // Unlike an unloaded node, a fresh node accepts its initial exposed sides.
+        doReturn(fixture.node()).when(fixture.node()).setExposedOnSides(anySet());
+        var callbacks = new ArrayList<Consumer<AEBaseBlockEntity>>();
+        try (var gridHelper = mockStatic(GridHelper.class)) {
+            gridHelper.when(() -> GridHelper.onFirstTick(eq(fixture.host()), any()))
+                .thenAnswer(call -> {
+                    callbacks.add(call.getArgument(1));
+                    return null;
+                });
+            fixture.host().clearRemoved();
+            fixture.host().clearRemoved();
+            assertEquals(2, callbacks.size());
+            for (var callback : callbacks) {
+                assertDoesNotThrow(() -> callback.accept(fixture.host()));
+            }
+            // A later copy of an already ticking machine must also be harmless.
+            fixture.host().clearRemoved();
+            assertEquals(3, callbacks.size());
+            assertDoesNotThrow(() -> callbacks.get(2).accept(fixture.host()));
+        }
+        assertTrue(ready.get());
+        verify(fixture.node()).create(fixture.level(), BlockPos.ZERO);
+        verify(fixture.node()).setIdlePowerUsage(16);
     }
 
     @Test
@@ -70,6 +113,7 @@ class NEBlockEntityLifecycleTest {
         doReturn(null).when(host).getOrientation();
         var level = mock(Level.class);
         var state = mock(BlockState.class);
+        doReturn(state).when(host).getBlockState();
         var unformedState = mock(BlockState.class);
         when(level.hasChunkAt(BlockPos.ZERO)).thenReturn(true);
         when(level.getBlockState(BlockPos.ZERO)).thenReturn(state);

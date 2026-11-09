@@ -1,0 +1,16 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "cn.dancingsnow.neoecoae.mixins.compat.merequester",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+    "MERequesterPlanningMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "mixinextras": {
+    "minVersion": "0.5.3"
+  },
+  "refmap": "neoecoae.refmap.json"
+}
