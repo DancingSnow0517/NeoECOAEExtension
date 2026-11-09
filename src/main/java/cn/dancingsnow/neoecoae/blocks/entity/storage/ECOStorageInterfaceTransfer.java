@@ -19,6 +19,7 @@ import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.CombinedExactAmountSource;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountCollector;
 import cn.dancingsnow.neoecoae.storage.SaturatingStackAccumulator;
+import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.storage.transfer.ECOIOPortTransfer;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
@@ -30,6 +31,7 @@ final class ECOStorageInterfaceTransfer {
     private ECOInfiniteStorageEngine cachedStorageEngine;
     private MEStorage cachedInfiniteStorage;
     private CombinedStorage cachedCombinedStorage;
+    private final List<MEStorage> candidateCells = new ArrayList<>();
 
     ECOStorageInterfaceTransfer(ECOStorageSystemBlockEntity host) {
         this.host = host;
@@ -38,6 +40,9 @@ final class ECOStorageInterfaceTransfer {
     void invalidateInfiniteStorageView() {
         cachedStorageEngine = null;
         cachedInfiniteStorage = null;
+        cachedCombinedStorage = null;
+        candidateCells.clear();
+        ioPortTransfer.reset();
     }
 
     long transferStorageInterfaceContents(ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface) {
@@ -57,7 +62,7 @@ final class ECOStorageInterfaceTransfer {
             storageInterface.isIgnoringCreativeStorageInput(),
             storageInterface.isExcludingStorageBusContainers(),
             IActionSource.ofMachine(storageInterface),
-            storageInterface::acceptsStorageResource
+            storageInterface.storageResourceFilter()
         );
         if (moved > 0L) {
             host.setChanged();
@@ -73,7 +78,8 @@ final class ECOStorageInterfaceTransfer {
                 && (host.isInfiniteExitRequested() || !host.canUseHostDomainStorage())) {
             return null;
         }
-        List<MEStorage> cells = new ArrayList<>();
+        List<MEStorage> cells = candidateCells;
+        cells.clear();
         if (host.canUseHostDomainStorage()) {
             ECOInfiniteStorageEngine engine = host.getInfiniteEngine();
             if (engine != cachedStorageEngine) {
@@ -105,9 +111,37 @@ final class ECOStorageInterfaceTransfer {
 
     record CombinedStorage(List<MEStorage> inventories, net.minecraft.network.chat.Component description,
             BooleanSupplier allowAccess)
-        implements MEStorage, CombinedExactAmountSource {
+        implements MEStorage, CombinedExactAmountSource, cn.dancingsnow.neoecoae.storage.StorageListingDelta,
+            NetworkInventoryCache.Mounts {
+        CombinedStorage {
+            inventories = List.copyOf(inventories);
+        }
         CombinedStorage(List<MEStorage> inventories, net.minecraft.network.chat.Component description) {
             this(inventories, description, () -> true);
+        }
+
+        @Override public long neoecoae$mountGeneration() { return allowAccess.getAsBoolean() ? 0 : 1; }
+
+        @Override public boolean neoecoae$withMounts(java.util.function.Consumer<List<MEStorage>> action) {
+            action.accept(allowAccess.getAsBoolean() ? inventories : List.of());
+            return true;
+        }
+
+        @Override public long neoecoae$listingVersion() {
+            if (!allowAccess.getAsBoolean()) return -1;
+            return inventories.size() == 1 && inventories.get(0) instanceof cn.dancingsnow.neoecoae.storage.StorageListingVersion source
+                ? source.neoecoae$listingVersion() : UNKNOWN;
+        }
+
+        @Override public Object neoecoae$listingIdentity() {
+            return inventories.size() == 1 && inventories.get(0) instanceof cn.dancingsnow.neoecoae.storage.StorageListingVersion source
+                ? source.neoecoae$listingIdentity() : this;
+        }
+
+        @Override public boolean neoecoae$visitListingChanges(long since, long current, java.util.function.ObjLongConsumer<AEKey> visitor) {
+            return allowAccess.getAsBoolean() && since >= 0 && current >= 0 && inventories.size() == 1
+                && inventories.get(0) instanceof cn.dancingsnow.neoecoae.storage.StorageListingDelta source
+                && source.neoecoae$visitListingChanges(since,current,visitor);
         }
 
         @Override

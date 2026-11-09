@@ -17,6 +17,8 @@ public final class ECOCreativeExtractionFilter {
 
     private ECOCreativeExtractionFilter() {}
 
+    public static boolean isActive(Actionable mode) { return mode == Actionable.MODULATE && ACTIVE.get() != null; }
+
     public static long extract(MEStorage storage, AEKey key, long amount, IActionSource source) {
         State previous = ACTIVE.get();
         ACTIVE.set(new State());
@@ -33,6 +35,11 @@ public final class ECOCreativeExtractionFilter {
     public static long extractSource(MEStorage storage, AEKey key, Actionable mode, LongSupplier extraction) {
         State state = ACTIVE.get();
         if (state == null || mode != Actionable.MODULATE) return extraction.getAsLong();
+        // The transformed native network delegates this same scope to every physical mount.
+        if (storage.getClass() == appeng.me.storage.NetworkStorage.class
+            && storage instanceof cn.dancingsnow.neoecoae.storage.NetworkInventoryCache.Mounts) {
+            return extraction.getAsLong();
+        }
         long checkedBefore = state.checkedSources;
         ExactAmount before = storedAmount(storage, key);
         long extracted = extraction.getAsLong();
@@ -46,6 +53,8 @@ public final class ECOCreativeExtractionFilter {
 
     private static ExactAmount storedAmount(MEStorage storage, AEKey key) {
         if (storage instanceof ExactAmountSource source) {
+            ExactAmount direct = source.neoecoae$exactAmount(key);
+            if (direct != null) return direct;
             ExactAmount[] exact = {null};
             source.neoecoae$visitExactAmounts((what, amount) -> {
                 if (key.equals(what)) exact[0] = amount;
