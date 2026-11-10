@@ -41,11 +41,18 @@ class CraftConfirmPlanningRouteTest {
         var diagnostic = CraftConfirmMenuMixin.class.getDeclaredField("neoecoae$planningDiagnostic");
         diagnostic.setAccessible(true);
         diagnostic.set(menu, "previous attempt");
+        for (String name : java.util.List.of("neoecoae$hasByteEstimate", "neoecoae$completeByteEstimate")) {
+            var field = CraftConfirmMenuMixin.class.getDeclaredField(name);
+            field.setAccessible(true);
+            field.setBoolean(menu, true);
+        }
         nativeMethod.setAccessible(true);
         nativeMethod.invoke(menu, new org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Boolean>(
             "planJob", true));
         assertEquals("", menu.neoecoae$getPlanningDiagnostic());
         assertNull(menu.neoecoae$getPlanningStatus());
+        assertFalse(menu.neoecoae$hasByteEstimate());
+        assertFalse(menu.neoecoae$hasCompleteByteEstimate());
     }
 
     @Test

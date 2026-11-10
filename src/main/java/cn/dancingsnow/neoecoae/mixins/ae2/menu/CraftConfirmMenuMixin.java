@@ -14,6 +14,8 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.ISubMenuHost;
 import appeng.core.sync.packets.CraftConfirmPlanPacket;
+import appeng.core.sync.packets.GuiDataSyncPacket;
+import appeng.core.sync.network.NetworkHandler;
 import appeng.menu.guisync.GuiSync;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import appeng.menu.me.crafting.CraftingPlanSummary;
@@ -38,6 +40,7 @@ import cn.dancingsnow.neoecoae.platform.mixin.CraftConfirmPlanningBridge;
 import cn.dancingsnow.neoecoae.platform.mixin.RouteCraftingPlanning;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.CraftingPlanSummaryAccessor;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.CraftingPlanSummaryEntryAccessor;
+import cn.dancingsnow.neoecoae.mixins.ae2.accessor.AEBaseMenuAccessor;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import java.math.BigInteger;
@@ -70,7 +73,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
     @Unique
     private static final Logger NEOECOAE_LOGGER = LoggerFactory.getLogger("neoecoae");
 
-    // Reserve 12000..12014 for this menu's ECO fields. AE2 requires unique IDs across every
+    // Reserve 12000..12017 for this menu's ECO fields. AE2 requires unique IDs across every
     // merged field; keep our diagnostics separate from addons using the common low ID range.
     @Unique
     @GuiSync(12000)
@@ -130,10 +133,14 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
     @Unique @GuiSync(12012) private int neoecoae$optimizationState;
     @Unique @GuiSync(12013) private boolean neoecoae$exactPlanReady;
     @Unique @GuiSync(12014) private boolean neoecoae$provenInfeasible;
+    @Unique @GuiSync(12016) private boolean neoecoae$hasByteEstimate;
+    @Unique @GuiSync(12017) private boolean neoecoae$completeByteEstimate;
 
     @Override public int neoecoae$getOptimizationState() { return neoecoae$optimizationState; }
     @Override public boolean neoecoae$exactPlanReady() { return neoecoae$exactPlanReady; }
     @Override public boolean neoecoae$provenInfeasible() { return neoecoae$provenInfeasible; }
+    @Override public boolean neoecoae$hasByteEstimate() { return neoecoae$hasByteEstimate; }
+    @Override public boolean neoecoae$hasCompleteByteEstimate() { return neoecoae$completeByteEstimate; }
     @Override public long neoecoae$getDisplayedPlanRevision() {
         return neoecoae$receivedDiagnosticsVersion;
     }
@@ -232,6 +239,12 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
         // A changed plan invalidates the previous stream, even when its first chunks have already arrived.
         cn.dancingsnow.neoecoae.network.MenuDataTransport.cancel(player,
             cn.dancingsnow.neoecoae.network.MenuDataTransport.Channel.GRAPH);
+        // AE2 broadcasts fields before collecting the completed job. Flush that same delta synchronizer
+        // now, after the native plan packet and before encoding material pages, instead of waiting a tick.
+        var dataSync = ((AEBaseMenuAccessor) menu).neoecoae$getDataSync();
+        if (dataSync.hasChanges()) {
+            NetworkHandler.instance().sendTo(new GuiDataSyncPacket(menu.containerId, dataSync::writeUpdate), player);
+        }
         // Keep the exact table on the critical path, then send graph details after those rows have been sent.
         // Both payloads describe the same displayed plan, including its submission revision.
         neoecoae$graphPending = neoecoae$sendReport(player, neoecoae$craftingGraph.materialReport(), false);
@@ -486,6 +499,8 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
         neoecoae$ecoReportReady = false;
         neoecoae$calculationNanos = 0;
         neoecoae$theoreticalBytes = "0";
+        neoecoae$hasByteEstimate = false;
+        neoecoae$completeByteEstimate = false;
         neoecoae$planningStatusCode = 0;
         neoecoae$cycleItems = ECOCycleItemList.EMPTY;
         neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
@@ -683,6 +698,8 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
         neoecoae$planningDiagnostic = "";
         neoecoae$calculationNanos = 0;
         neoecoae$theoreticalBytes = "0";
+        neoecoae$hasByteEstimate = false;
+        neoecoae$completeByteEstimate = false;
         neoecoae$planningStatusCode = 0;
         neoecoae$exactPlanReady = false;
         neoecoae$provenInfeasible = false;
@@ -714,6 +731,8 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
             }
             CraftingGraphSnapshot snapshot = CraftingGraphSnapshotFactory.create(planningResult);
             neoecoae$craftingGraph = snapshot;
+            neoecoae$hasByteEstimate = snapshot.hasMaterialDetails();
+            neoecoae$completeByteEstimate = snapshot.hasCompleteByteEstimate();
             LinkedHashMap<AEKey, ECOCycleItemList.Entry> cycleItems = new LinkedHashMap<>();
             for (var cycle : snapshot.cycleGroups()) {
                 java.util.Map<AEKey, Long> seedParallelism = planningResult.components().stream()

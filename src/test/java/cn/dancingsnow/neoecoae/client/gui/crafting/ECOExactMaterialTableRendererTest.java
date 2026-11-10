@@ -201,8 +201,8 @@ class ECOExactMaterialTableRendererTest {
             renderer.getEntryDescription(node).get(0).getContents();
         assertEquals("gui.neoecoae.crafting_graph.details.requested", contents.getKey());
         assertArrayEquals(new Object[] {"5E"}, contents.getArgs());
-        assertFalse(ECOExactMaterialTableRenderer.hasMaterialDetails(snapshot));
-        assertFalse(ECOCraftReportHeaderRenderer.hasCompleteByteEstimate(snapshot));
+        assertFalse(snapshot.hasMaterialDetails());
+        assertFalse(snapshot.hasCompleteByteEstimate());
     }
 
     @Test
@@ -218,8 +218,8 @@ class ECOExactMaterialTableRendererTest {
             List.of(), List.of(), List.of(new CraftingGraphSnapshot.KeyAmount(seed, 1L)), List.of(), List.of());
         var snapshot = new CraftingGraphSnapshot(0, rows, List.of(), List.of(), List.of(cycle), List.of(),
             new CraftingGraphSnapshot.Summary("MISSING_ITEMS", 2, 0, 0, 1, 0));
-        assertTrue(ECOExactMaterialTableRenderer.hasMaterialDetails(snapshot));
-        assertFalse(ECOCraftReportHeaderRenderer.hasCompleteByteEstimate(snapshot),
+        assertTrue(snapshot.hasMaterialDetails());
+        assertFalse(snapshot.hasCompleteByteEstimate(),
             "An unknown firing vector has no full-order byte estimate");
     }
 
@@ -237,7 +237,7 @@ class ECOExactMaterialTableRendererTest {
                 var snapshot = new CraftingGraphSnapshot(0, List.of(node), List.of(), List.of(), List.of(cycle),
                     List.of(), new CraftingGraphSnapshot.Summary(status, 1, 0, 0, 1, 0));
                 assertEquals(knowledge == ExecutionCountKnowledge.EXACT && !status.equals("PARTIAL"),
-                    ECOCraftReportHeaderRenderer.hasCompleteByteEstimate(snapshot));
+                    snapshot.hasCompleteByteEstimate());
             }
         }
     }

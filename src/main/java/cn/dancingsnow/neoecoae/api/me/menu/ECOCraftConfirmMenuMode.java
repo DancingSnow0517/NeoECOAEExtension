@@ -35,6 +35,15 @@ public interface ECOCraftConfirmMenuMode {
 
     BigInteger neoecoae$getTheoreticalBytes();
 
+    /** Byte estimate metadata can arrive before the material rows of the same final plan. */
+    default boolean neoecoae$hasByteEstimate() {
+        return neoecoae$getCraftingGraphSnapshot().hasMaterialDetails();
+    }
+
+    default boolean neoecoae$hasCompleteByteEstimate() {
+        return neoecoae$getCraftingGraphSnapshot().hasCompleteByteEstimate();
+    }
+
     @Nullable PlanningStatus neoecoae$getPlanningStatus();
 
     default String neoecoae$getPlanningDiagnostic() { return ""; }

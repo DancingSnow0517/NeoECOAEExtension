@@ -55,6 +55,22 @@ public record CraftingGraphSnapshot(
             decoded.fuzzyPlanningItemIds, decoded.summary);
     }
 
+    /** The requested root alone is not a material calculation or a zero-byte estimate. */
+    public boolean hasMaterialDetails() {
+        return nodes.stream().anyMatch(node -> node.fromInventoryBigInteger().signum() > 0
+            || node.toCraftBigInteger().signum() > 0 || node.missingBigInteger().signum() > 0);
+    }
+
+    /** Shared by the early server summary and the detailed client report. */
+    public boolean hasCompleteByteEstimate() {
+        boolean materialShortage = summary.planningStatus().equals("MISSING_ITEMS")
+            || summary.planningStatus().equals("PLANNED_BUT_AMOUNT_UNREPRESENTABLE");
+        return hasMaterialDetails() && cycleGroups.stream().allMatch(cycle ->
+            cycle.status().equals("SOLVED") || cycle.status().equals("NOT_REQUIRED")
+                || materialShortage && cycle.status().equals("INSUFFICIENT_EXTERNAL_INPUT")
+                    && cycle.executionCountKnowledge() == ExecutionCountKnowledge.EXACT);
+    }
+
     /** Exact confirmation rows can arrive before the much larger recipe graph of the same plan revision. */
     public CraftingGraphSnapshot materialReport() {
         return new CraftingGraphSnapshot(rootNodeId, nodes, List.of(), List.of(), cycleGroups.stream()

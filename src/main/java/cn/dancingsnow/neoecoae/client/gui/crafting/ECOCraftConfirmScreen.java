@@ -92,7 +92,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private Language materialTooltipLanguage;
     private net.minecraft.client.gui.Font materialTooltipFont;
 
-    private record ReportSummaryState(@Nullable CraftingPlanSummary plan, boolean loadingDetails,
+    private record ReportSummaryState(@Nullable CraftingPlanSummary plan, boolean loadingSummary,
             long nanos, @Nullable BigInteger bytes, boolean incompleteBytes,
             @Nullable CraftingGraphSnapshot.Summary graphSummary, Language language,
             net.minecraft.client.gui.Font font) {}
@@ -294,26 +294,36 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 Component.translatable("gui.neoecoae.crafting_report.material_sync_failed"));
             return;
         }
-        boolean loadingDetails = false;
+        boolean loadingSummary = false;
+        boolean hasByteEstimate = materialData.hasMaterialDetails();
         BigInteger usedBytes = BigInteger.valueOf(plan == null ? 0L : Math.max(0L, plan.getUsedBytes()));
         long nanos = 0L;
         CraftingGraphSnapshot.Summary graphSummary = null;
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {
-            loadingDetails = !mode.neoecoae$diagnosticsReady();
+            boolean diagnosticsReady = mode.neoecoae$diagnosticsReady();
+            boolean summaryReady = mode.neoecoae$isEcoReportReady();
+            loadingSummary = !diagnosticsReady && !summaryReady;
             nanos = mode.neoecoae$getCalculationNanos();
-            var snapshot = mode.neoecoae$getCraftingGraphSnapshot();
-            if (!snapshot.summary().planningStatus().equals("EMPTY")) graphSummary = snapshot.summary();
+            // The byte estimate describes the final plan, independently of its paged material report.
+            if (summaryReady) {
+                hasByteEstimate = mode.neoecoae$hasByteEstimate();
+                incompleteBytes = !mode.neoecoae$hasCompleteByteEstimate();
+            }
+            if (diagnosticsReady) {
+                var snapshot = mode.neoecoae$getCraftingGraphSnapshot();
+                if (!snapshot.summary().planningStatus().equals("EMPTY")) graphSummary = snapshot.summary();
+            }
             BigInteger theoreticalBytes = mode.neoecoae$getTheoreticalBytes();
             if (theoreticalBytes.signum() > 0) usedBytes = theoreticalBytes;
         }
         // Retain calculated bytes for partial reports, but never invent a total from a diagnostic shell.
-        if (incompleteBytes && !materialData.hasMaterialDetails()) usedBytes = null;
-        var state = new ReportSummaryState(plan, loadingDetails, nanos, usedBytes, incompleteBytes,
+        if (incompleteBytes && !hasByteEstimate) usedBytes = null;
+        var state = new ReportSummaryState(plan, loadingSummary, nanos, usedBytes, incompleteBytes,
             graphSummary, Language.getInstance(), font);
         if (state.equals(reportSummaryState)) return;
         reportSummaryState = state;
         statisticsTooltip = null;
-        if (loadingDetails) {
+        if (loadingSummary) {
             reportSummary = ECOCraftReportHeaderRenderer.pending(
                 Component.translatable("gui.neoecoae.crafting_report.loading_details"));
         } else if (plan == null) {
@@ -385,7 +395,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             boolean exact = Screen.hasShiftDown();
             if (statisticsTooltip == null || statisticsTooltipExact != exact) {
                 var state = reportSummaryState;
-                var card = state == null || state.plan() == null || state.loadingDetails()
+                var card = state == null || state.plan() == null || state.loadingSummary()
                     ? ECOCraftReportTooltips.pending(reportSummary.elapsed())
                     : ECOCraftReportTooltips.statistics(state.nanos(), state.bytes(), !state.incompleteBytes(),
                         state.graphSummary(), exact);
