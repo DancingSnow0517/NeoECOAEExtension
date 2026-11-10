@@ -73,8 +73,8 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             sorted = sortMaterials(snapshot.nodes(), missingSeeds::contains);
             missing = sorted.stream().filter(node -> node.missingBigInteger().signum() > 0)
                 .map(CraftingGraphSnapshot.MaterialNode::key).toList();
-            materialDetails = ECOExactMaterialTableRenderer.hasMaterialDetails(snapshot);
-            completeByteEstimate = ECOCraftReportHeaderRenderer.hasCompleteByteEstimate(snapshot);
+            materialDetails = snapshot.hasMaterialDetails();
+            completeByteEstimate = snapshot.hasCompleteByteEstimate();
         }
 
         List<CraftingGraphSnapshot.MaterialNode> sorted() { return sorted; }
@@ -107,12 +107,6 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
         return (status == cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.MISSING_ITEMS
                 || status == cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.CYCLE_UNRESOLVED)
             && !snapshot.nodes().isEmpty();
-    }
-
-    /** The requested root alone is not a material calculation or a zero-byte estimate. */
-    static boolean hasMaterialDetails(CraftingGraphSnapshot snapshot) {
-        return snapshot.nodes().stream().anyMatch(node -> node.fromInventoryBigInteger().signum() > 0
-            || node.toCraftBigInteger().signum() > 0 || node.missingBigInteger().signum() > 0);
     }
 
     private static final int MISSING_OVERLAY = 0x1AFF0000;
