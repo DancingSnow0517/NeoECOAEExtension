@@ -12,10 +12,8 @@
     "light": "neoecoae:block/working_station/controller_formed/controller_formed_light_on",
     "screen": "neoecoae:block/working_station/controller_formed/controller_formed_screen_on",
     "particle": "neoecoae:block/working_station/casing",
-    "cooling_screen": "neoecoae:block/working_station/controller_formed/smart_cooling_module_front",
-    "cooling_side": "neoecoae:block/working_station/controller_formed/smart_cooling_module_side",
-    "cooling_screen_light": "neoecoae:block/working_station/controller_formed/smart_cooling_module_front_light",
-    "cooling_side_light": "neoecoae:block/working_station/controller_formed/smart_cooling_module_side_light"
+    "cooling_screen": "neoecoae:block/working_station/controller_formed/smart_cooling_controller_front",
+    "cooling_screen_light": "neoecoae:block/working_station/controller_formed/smart_cooling_controller_front_light"
   },
   "elements": [
     {
@@ -47,6 +45,20 @@
             0,
             6,
             4
+          ],
+          "texture": "#light",
+          "neoforge_data": {
+            "block_light": 15,
+            "sky_light": 15,
+            "ambient_occlusion": false
+          }
+        },
+        "east": {
+          "uv": [
+            6,
+            4,
+            10,
+            8
           ],
           "texture": "#light",
           "neoforge_data": {
@@ -165,6 +177,24 @@
             0,
             2,
             6,
+            4
+          ],
+          "texture": "#body"
+        },
+        "east": {
+          "uv": [
+            6,
+            6,
+            10,
+            8
+          ],
+          "texture": "#body"
+        },
+        "south": {
+          "uv": [
+            10,
+            2,
+            16,
             4
           ],
           "texture": "#body"
@@ -310,7 +340,7 @@
       }
     },
     {
-      "name": "body_c",
+      "name": "smart_cooling_controller",
       "from": [
         0,
         0,
@@ -333,12 +363,12 @@
       "faces": {
         "south": {
           "uv": [
-            12,
             0,
-            14,
-            2
+            0,
+            16,
+            16
           ],
-          "texture": "#body"
+          "texture": "#cooling_screen"
         },
         "up": {
           "uv": [
@@ -615,114 +645,25 @@
       }
     },
     {
-      "name": "light_east_upper",
-      "from": [
-        16,
-        0,
-        0
-      ],
-      "to": [
-        32,
-        16,
-        32
-      ],
-      "faces": {
-        "east": {
-          "uv": [
-            6,
-            4,
-            10,
-            6
-          ],
-          "texture": "#light",
-          "neoforge_data": {
-            "block_light": 15,
-            "sky_light": 15,
-            "ambient_occlusion": false
-          }
-        }
-      },
-      "shade": false
-    },
-    {
-      "name": "light_east_lower_other",
-      "from": [
-        16,
-        -16,
-        0
-      ],
-      "to": [
-        32,
-        0,
-        16
-      ],
-      "faces": {
-        "east": {
-          "uv": [
-            8,
-            6,
-            10,
-            8
-          ],
-          "texture": "#light",
-          "neoforge_data": {
-            "block_light": 15,
-            "sky_light": 15,
-            "ambient_occlusion": false
-          }
-        }
-      },
-      "shade": false
-    },
-    {
-      "name": "light_south_upper",
-      "from": [
-        -16,
-        0,
-        16
-      ],
-      "to": [
-        32,
-        16,
-        32
-      ],
-      "faces": {
-        "south": {
-          "uv": [
-            10,
-            0,
-            16,
-            2
-          ],
-          "texture": "#light",
-          "neoforge_data": {
-            "block_light": 15,
-            "sky_light": 15,
-            "ambient_occlusion": false
-          }
-        }
-      },
-      "shade": false
-    },
-    {
-      "name": "light_south_lower_other",
+      "name": "light_rear_lower",
+      "shade": false,
       "from": [
         -16,
         -16,
         16
       ],
       "to": [
-        16,
+        32,
         0,
         32
       ],
       "faces": {
         "south": {
           "uv": [
-            10,
-            2,
-            14,
-            4
+            10.0,
+            2.0,
+            16.0,
+            4.0
           ],
           "texture": "#light",
           "neoforge_data": {
@@ -730,119 +671,83 @@
             "sky_light": 15,
             "ambient_occlusion": false
           }
-        }
-      },
-      "shade": false
-    },
-    {
-      "name": "body_east_lower_other",
-      "from": [
-        16,
-        -16,
-        0
-      ],
-      "to": [
-        32,
-        0,
-        16
-      ],
-      "faces": {
-        "east": {
-          "uv": [
-            8,
-            6,
-            10,
-            8
-          ],
-          "texture": "#body"
         }
       }
     },
     {
-      "name": "body_south_lower_other",
+      "name": "light_rear_left",
+      "shade": false,
       "from": [
         -16,
-        -16,
+        0,
         16
       ],
       "to": [
-        16,
         0,
+        16,
         32
       ],
       "faces": {
         "south": {
           "uv": [
-            10,
-            2,
-            14,
-            4
+            10.0,
+            0.0,
+            12.0,
+            2.0
           ],
-          "texture": "#body"
+          "texture": "#light",
+          "neoforge_data": {
+            "block_light": 15,
+            "sky_light": 15,
+            "ambient_occlusion": false
+          }
         }
       }
     },
     {
-      "name": "input_hatch_exposed_faces",
-      "from": [
-        16,
-        -16,
-        16
-      ],
-      "to": [
-        32,
-        0,
-        32
-      ],
-      "faces": {
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": "#cooling_side"
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": "#cooling_screen"
-        }
-      }
-    },
-    {
-      "name": "input_hatch_light",
+      "name": "light_rear_right",
       "shade": false,
       "from": [
         16,
-        -16,
+        0,
         16
       ],
       "to": [
         32,
-        0,
+        16,
         32
       ],
       "faces": {
-        "east": {
+        "south": {
           "uv": [
-            0,
-            0,
-            16,
-            16
+            14.0,
+            0.0,
+            16.0,
+            2.0
           ],
-          "texture": "#cooling_side_light",
+          "texture": "#light",
           "neoforge_data": {
             "block_light": 15,
             "sky_light": 15,
             "ambient_occlusion": false
           }
-        },
+        }
+      }
+    },
+    {
+      "name": "smart_cooling_controller_light",
+      "shade": false,
+      "from": [
+        0,
+        0,
+        16
+      ],
+      "to": [
+        16,
+        16,
+        32
+      ],
+      "faces": {
         "south": {
           "uv": [
             0,

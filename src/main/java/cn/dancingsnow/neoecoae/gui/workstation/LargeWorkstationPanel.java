@@ -359,12 +359,14 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         return CraftingListCard.hover(energyCardBuilder().build());
     }
 
-    /** Energy card: last-second usage, Applied Flux FE settlement and the internal AE buffer. */
+    /** Energy card: last-second AE-equivalent usage, physical FE consumption and the internal buffer. */
     CraftingListCard.Builder energyCardBuilder() {
         long stored = (long) state.getDouble("energyStored"), capacity = (long) state.getDouble("energyCapacity");
         double fraction = capacity > 0 ? (double) stored / capacity : 0;
         return CraftingListCard.builder()
             .header(CraftingListCard.Glyph.BATTERY, card("energy_monitor"), card("last_second"), CraftingTooltipCard.MUTED)
+            .wrapped(CraftingListCard.Glyph.INFO, Component.translatable(state.getBoolean("fePreferred")
+                ? "gui.neoecoae.workstation.power_priority.fe" : "gui.neoecoae.workstation.power_priority.ae"), CraftingTooltipCard.PRIMARY)
             .metricUnit(card("actual_energy"), Component.literal(DisplayNumbers.compact(state.getDouble("energyUsage"))),
                 CraftingTooltipCard.PRIMARY, Component.literal("AE/t"), CraftingTooltipCard.WARN)
             .panel(null, Component.empty(), Component.empty(), CraftingTooltipCard.MUTED, List.of(

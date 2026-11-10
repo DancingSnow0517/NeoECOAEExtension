@@ -33,21 +33,38 @@ class SmartCoolingModelResourceTest {
     }
 
     @Test
-    void lightLayersCoverOnlyTheTwoInputFacesAndRetainFullBrightness() throws Exception {
+    void rearControllerUsesTheWhitePanelAndLeavesAllTopTexturesUnchanged() throws Exception {
         for (boolean working : new boolean[] {false, true}) {
             var smart = read("models/" + LargeWorkstationModule.REGULAR.modelPath(working, true) + ".json");
             var glow = smart.getAsJsonArray("elements").asList().stream().map(e -> e.getAsJsonObject())
-                .filter(e -> e.has("name") && e.get("name").getAsString().equals("input_hatch_light"))
+                .filter(e -> e.has("name") && e.get("name").getAsString().equals("smart_cooling_controller_light"))
                 .findFirst().orElseThrow();
             assertFalse(glow.get("shade").getAsBoolean());
-            assertEquals(JsonParser.parseString("[16,-16,16]"), glow.get("from"));
-            assertEquals(JsonParser.parseString("[32,0,32]"), glow.get("to"));
-            assertEquals(java.util.Set.of("east", "south"), glow.getAsJsonObject("faces").keySet());
+            assertEquals(JsonParser.parseString("[0,0,16]"), glow.get("from"));
+            assertEquals(JsonParser.parseString("[16,16,32]"), glow.get("to"));
+            assertEquals(java.util.Set.of("south"), glow.getAsJsonObject("faces").keySet());
+            var ordinary = read("models/" + LargeWorkstationModule.REGULAR.modelPath(working) + ".json");
+            var originalTop = ordinary.getAsJsonArray("elements").asList().stream().map(e -> e.getAsJsonObject())
+                .filter(e -> e.getAsJsonObject("faces").has("up"))
+                .map(e -> e.getAsJsonObject("faces").get("up")).toList();
+            var smartTop = smart.getAsJsonArray("elements").asList().stream().map(e -> e.getAsJsonObject())
+                .filter(e -> e.getAsJsonObject("faces").has("up"))
+                .map(e -> e.getAsJsonObject("faces").get("up")).toList();
+            assertEquals(originalTop, smartTop, "The original top must not gain any port icons");
             for (var face : glow.getAsJsonObject("faces").entrySet()) {
                 var light = face.getValue().getAsJsonObject().getAsJsonObject("neoforge_data");
                 assertEquals(15, light.get("block_light").getAsInt());
                 assertEquals(15, light.get("sky_light").getAsInt());
                 assertFalse(light.get("ambient_occlusion").getAsBoolean());
+            }
+        }
+        var casing = ImageIO.read(ROOT.resolve(TEXTURES + "controller_formed.png").toFile());
+        var front = ImageIO.read(ROOT.resolve(TEXTURES + "smart_cooling_controller_front.png").toFile());
+        var light = ImageIO.read(ROOT.resolve(TEXTURES + "smart_cooling_controller_front_light.png").toFile());
+        for (int y = 0; y < front.getHeight(); y++) for (int x = 0; x < front.getWidth(); x++) {
+            if (x < 3 || x >= 13 || y % 16 < 3 || y % 16 >= 13) {
+                assertEquals(casing.getRGB(96 + x, y % 16), front.getRGB(x, y));
+                assertEquals(0, light.getRGB(x, y) >>> 24, "The white body receives normal world lighting");
             }
         }
     }

@@ -1578,7 +1578,7 @@ class LargeWorkstationThermalControllerTest {
         }
     }
 
-    @Test void failedAeSubstitutionKeepsReservedFeAndProgressForTheNextAttempt() throws Exception {
+    @Test void insufficientCombinedSupplyLeavesNetworkFeAndProgressUntouchedUntilRetry() throws Exception {
         var batch = timedBatch(0, 5);
         var grid = mock(appeng.api.networking.IGrid.class, RETURNS_DEEP_STUBS);
         when(host.getMainNode().getGrid()).thenReturn(grid);
@@ -1596,7 +1596,8 @@ class LargeWorkstationThermalControllerTest {
             host.tickingRequest(mock(IGridNode.class), 1);
             assertEquals(0, value(batch, "progress"));
             assertEquals(0L, value(batch, "feRemainder"));
-            assertEquals(1L, value(host, "processingFeBuffer"));
+            assertEquals(0L, value(host, "processingFeBuffer"));
+            assertEquals(1L, remaining.get());
             assertFalse(((KeyCounter) value(batch, "inputTotal")).isEmpty());
             doAnswer(call -> {
                 double amount = call.getArgument(0);
@@ -1616,14 +1617,18 @@ class LargeWorkstationThermalControllerTest {
         when(host.getMainNode().getGrid()).thenReturn(grid);
         var storage = grid.getStorageService().getInventory();
         var paid = new java.util.concurrent.atomic.AtomicLong();
+        var remaining = new java.util.concurrent.atomic.AtomicLong(2);
         doAnswer(call -> call.getArgument(1) == Actionable.SIMULATE ? call.getArgument(0) : 0.0)
             .when(host).extractAEPower(anyDouble(), any(), any());
         try (var flux = mockStatic(cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy.class)) {
             flux.when(cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy::available).thenReturn(true);
             flux.when(() -> cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy.extract(eq(storage), anyLong(), any(), any()))
                 .thenAnswer(call -> {
-                    long amount = call.getArgument(1);
-                    if (call.getArgument(2) == Actionable.MODULATE) paid.addAndGet(amount);
+                    long amount = Math.min(call.<Long>getArgument(1), remaining.get());
+                    if (call.getArgument(2) == Actionable.MODULATE) {
+                        paid.addAndGet(amount);
+                        remaining.addAndGet(-amount);
+                    }
                     return amount;
                 });
             host.tickingRequest(mock(IGridNode.class), 1);
@@ -1632,7 +1637,7 @@ class LargeWorkstationThermalControllerTest {
             doAnswer(call -> call.getArgument(0)).when(host).extractAEPower(anyDouble(), any(), any());
             for (int i = 0; i < 4; i++) host.tickingRequest(mock(IGridNode.class), 1);
             assertEquals(4, value(batch, "progress"));
-            assertEquals(10, paid.get());
+            assertEquals(2, paid.get());
             assertEquals(0L, value(host, "processingFeBuffer"));
         }
     }
@@ -1882,7 +1887,7 @@ class LargeWorkstationThermalControllerTest {
         var hatch = mock(ECOLargeIntegratedWorkingStationInputHatchBlockEntity.class);
         when(hatch.isSmartCoolingModule()).thenReturn(true);
         when(hatch.getTargetTemperature()).thenReturn(target);
-        when(cluster.getInputHatch()).thenReturn(hatch);
+        when(cluster.getSmartCoolingController()).thenReturn(hatch);
         field(host, "cluster", cluster);
         return hatch;
     }
@@ -1914,6 +1919,149 @@ class LargeWorkstationThermalControllerTest {
         queue.add(batch);
         field(host, "pendingBatches", queue);
         return batch;
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,100,30", "true,30,100"})
+    void livePrioritySwitchCombinesGridAeAndDirectFeWithoutChangingBatchPrice(
+        boolean preferFe, double aeConsumed, double feConsumed) throws Exception {
+        var batch = timedBatch(130, 0); // 65 AE-equivalent per tick.
+        field(host, "fePreferred", preferFe);
+        var grid = mock(appeng.api.networking.IGrid.class, RETURNS_DEEP_STUBS);
+        when(host.getMainNode().getGrid()).thenReturn(grid);
+        var network = new java.util.concurrent.atomic.AtomicReference<>(100.0);
+        var direct = new java.util.concurrent.atomic.AtomicReference<>(100.0);
+        var energyService = grid.getEnergyService();
+        doAnswer(call -> takePower(network, call.getArgument(0), call.getArgument(1)))
+            .when(energyService).extractAEPower(anyDouble(), any(), any());
+        doAnswer(call -> takePower(direct, call.getArgument(0), call.getArgument(1)))
+            .when(host).extractAEPower(anyDouble(), any(), any());
+        host.tickingRequest(mock(IGridNode.class), 1);
+        host.tickingRequest(mock(IGridNode.class), 1);
+        assertEquals(2, value(batch, "progress"));
+        assertEquals(aeConsumed, 100 - network.get(), 1e-8);
+        assertEquals(feConsumed, 100 - direct.get(), 1e-8);
+        host.togglePowerPriority();
+        assertEquals(!preferFe, host.isFePreferred());
+        assertEquals(130L, value(batch, "energyPerCraft"));
+        assertEquals(0L, value(batch, "fePerCraft"));
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,50,0", "true,0,100"})
+    void gridFeAndAeRespectPriorityForAnAePricedRecipe(boolean preferFe, double paidAe, long paidFe) throws Exception {
+        var batch = timedBatch(100, 0);
+        field(host, "fePreferred", preferFe);
+        var grid = mock(appeng.api.networking.IGrid.class, RETURNS_DEEP_STUBS);
+        when(host.getMainNode().getGrid()).thenReturn(grid);
+        var network = new java.util.concurrent.atomic.AtomicReference<>(100.0);
+        var fluxStock = new java.util.concurrent.atomic.AtomicLong(200);
+        var energyService = grid.getEnergyService();
+        doAnswer(call -> takePower(network, call.getArgument(0), call.getArgument(1)))
+            .when(energyService).extractAEPower(anyDouble(), any(), any());
+        double oldAe = appeng.api.config.PowerUnit.AE.conversionRatio;
+        double oldFe = appeng.api.config.PowerUnit.FE.conversionRatio;
+        double oldMultiplier = appeng.api.config.PowerMultiplier.CONFIG.multiplier;
+        try (var flux = mockStatic(cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy.class)) {
+            appeng.api.config.PowerUnit.AE.conversionRatio = 1;
+            appeng.api.config.PowerUnit.FE.conversionRatio = 0.5;
+            appeng.api.config.PowerMultiplier.CONFIG.multiplier = 1;
+            flux.when(cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy::available).thenReturn(true);
+            flux.when(() -> cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy.extract(any(), anyLong(), any(), any()))
+                .thenAnswer(call -> {
+                    long amount = Math.min(call.<Long>getArgument(1), fluxStock.get());
+                    if (call.getArgument(2) == Actionable.MODULATE) fluxStock.addAndGet(-amount);
+                    return amount;
+                });
+            host.tickingRequest(mock(IGridNode.class), 1);
+            assertEquals(1, value(batch, "progress"));
+            assertEquals(paidAe, 100 - network.get(), 1e-8);
+            assertEquals(paidFe, 200 - fluxStock.get());
+        } finally {
+            appeng.api.config.PowerUnit.AE.conversionRatio = oldAe;
+            appeng.api.config.PowerUnit.FE.conversionRatio = oldFe;
+            appeng.api.config.PowerMultiplier.CONFIG.multiplier = oldMultiplier;
+        }
+    }
+
+    @Test
+    void fractionalFeAndPrioritySurviveReloadAndPayTheRemainingTicks() throws Exception {
+        var batch = timedBatch(1, 0); // Four payments of 0.5 AE; rate below makes each cost 0.25 FE.
+        field(host, "fePreferred", true);
+        var grid = mock(appeng.api.networking.IGrid.class, RETURNS_DEEP_STUBS);
+        when(host.getMainNode().getGrid()).thenReturn(grid);
+        var remaining = new java.util.concurrent.atomic.AtomicLong(1);
+        double oldAe = appeng.api.config.PowerUnit.AE.conversionRatio;
+        double oldFe = appeng.api.config.PowerUnit.FE.conversionRatio;
+        double oldMultiplier = appeng.api.config.PowerMultiplier.CONFIG.multiplier;
+        try (var flux = mockStatic(cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy.class);
+             var visuals = mockStatic(appeng.hooks.VisualStateSaving.class)) {
+            appeng.api.config.PowerUnit.AE.conversionRatio = 1;
+            appeng.api.config.PowerUnit.FE.conversionRatio = 2;
+            appeng.api.config.PowerMultiplier.CONFIG.multiplier = 1;
+            flux.when(cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy::available).thenReturn(true);
+            flux.when(() -> cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy.extract(any(), anyLong(), any(), any()))
+                .thenAnswer(call -> {
+                    long amount = Math.min(call.<Long>getArgument(1), remaining.get());
+                    if (call.getArgument(2) == Actionable.MODULATE) remaining.addAndGet(-amount);
+                    return amount;
+                });
+            host.tickingRequest(mock(IGridNode.class), 1);
+            assertEquals(1, value(batch, "progress"));
+            assertEquals(0.75, (double) value(host, "processingFeCredit"));
+            // Persist the actual controller with an empty task queue; the batch has its own existing round-trip tests.
+            var queue = (java.util.Deque<Object>) value(host, "pendingBatches");
+            queue.clear();
+            field(host, "configManager", mock(appeng.api.util.IConfigManager.class));
+            field(host, "upgrades", mock(appeng.api.upgrades.IUpgradeInventory.class));
+            field(host, "stored", new appeng.me.energy.StoredEnergyAmount(0, 16_000_000, event -> {}));
+            doReturn(appeng.api.inventories.InternalInventory.empty()).when(host).getInternalInventory();
+            var registries = net.minecraft.core.RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+            var saved = new net.minecraft.nbt.CompoundTag();
+            host.saveAdditional(saved, registries);
+            field(host, "fePreferred", false);
+            field(host, "processingFeCredit", 0.0);
+            host.loadTag(saved, registries);
+            assertTrue(host.isFePreferred());
+            assertEquals(0.75, (double) value(host, "processingFeCredit"));
+            queue.add(batch);
+            for (int i = 0; i < 3; i++) host.tickingRequest(mock(IGridNode.class), 1);
+            assertEquals(4, value(batch, "progress"));
+            assertEquals(0.0, (double) value(host, "processingFeCredit"));
+            assertEquals(0, remaining.get());
+        } finally {
+            appeng.api.config.PowerUnit.AE.conversionRatio = oldAe;
+            appeng.api.config.PowerUnit.FE.conversionRatio = oldFe;
+            appeng.api.config.PowerMultiplier.CONFIG.multiplier = oldMultiplier;
+        }
+    }
+
+    private static double takePower(java.util.concurrent.atomic.AtomicReference<Double> source, double amount, Actionable mode) {
+        double taken = Math.min(amount, source.get());
+        if (mode == Actionable.MODULATE) source.set(source.get() - taken);
+        return taken;
+    }
+
+    @Test
+    void ordinaryInletFeedsTheRearCoolingBufferWithoutLosingOverflowOrMixingMarkedFluids() throws Exception {
+        NEConfig.largeWorkstationTemperatureEnabled = false;
+        var smart = installSmartModule(80);
+        field(smart, "markedCoolant", FluidStack.EMPTY);
+        doCallRealMethod().when(smart).acceptsManualCoolant(any());
+        var inlet = mock(ECOLargeIntegratedWorkingStationInputHatchBlockEntity.class);
+        var manual = new FluidTank(10_000);
+        field(inlet, "tank", manual);
+        when(host.getCluster().getInputHatch()).thenReturn(inlet);
+        manual.setFluid(new FluidStack(Fluids.WATER, 1000));
+        input.setFluid(new FluidStack(Fluids.WATER, 99_750));
+        tick();
+        assertEquals(100_000, input.getFluidAmount());
+        assertEquals(750, manual.getFluidAmount());
+        input.drain(1000, net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE);
+        field(smart, "markedCoolant", new FluidStack(Fluids.LAVA, 1));
+        tick();
+        assertEquals(99_000, input.getFluidAmount());
+        assertEquals(750, manual.getFluidAmount());
     }
 
     private void coolant(Fluid fluid, int tier, FluidStack byproduct) {

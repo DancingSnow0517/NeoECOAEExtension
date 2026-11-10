@@ -327,6 +327,8 @@ root.addChild(priority.window()); // 客户端和服务端都添加到同一位�
 
 `ECOWorkstationRecipeAdapters.register(id, priority, sourceRecipeType, adapter)` 转换外部配方，保留源 ID/类型、输入输出、加工时间、AE/FE 与额外资源。不能准确表达时使该配方停用，不丢弃成本。`LargeWorkstationRecipe.processing(ticks, feEnergy, feAlternative)` 明确时间/FE 合同；`energy()` 是 AE 预算，两项非零且非 alternative 时同时支付，alternative 时二选一，FE-only 的 AE 设零。
 
+`isFePreferred()` 读取控制器保存的供能优先级，`togglePowerPriority()` 仅在所属服务器线程切换。付款先使用优先能源，缺口按 AE2 配置汇率由另一种补足；独立 AE/FE 预算相加，alternative 配方在接单时选择一项预算。切换优先级不重新定价已接批次。`NEIntegratedWorkingStationCluster.getInputHatch()` 仍返回下层普通输入仓，`getSmartCoolingController()` 返回主机正后方的可选上层控制器。两者可以同时存在，调用方均须保留判空。
+
 `ECOWorkstationModules.Module` 提供稳定 ID、升级卡、源类型、名称与可选外观。用 `getInstalledModuleId/getInstalledModuleDescription` 读取真实身份，不用旧枚举的 `OTHER` 区分自定义模块。图标 15×15、芯片图 28×28，模型按北向提供完整控制器外观。
 
 [LargeWorkstationRecipes](../src/main/java/cn/dancingsnow/neoecoae/recipe/LargeWorkstationRecipes.java) 的 `getAll` 返回展示代表，`getGroups/getGroup` 提供组，`getAvailable(level, moduleId)` 返回卡片合法变体。`availableVariants(moduleId)` 保留原始批量与费用；`findScaled` 的实际变体 ID 用于保存任务。展示代表不能代替执行权限或将大批量配方缩为任意小批量。适配器、模块与配方/标签重载会使相关缓存失效。
