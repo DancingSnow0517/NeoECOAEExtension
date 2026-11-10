@@ -25,6 +25,7 @@ import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -84,8 +85,10 @@ public final class CraftingGraphSnapshotFactory {
             materials.computeIfAbsent(edge.from(), MutableMaterial::new);
             materials.computeIfAbsent(edge.to(), MutableMaterial::new);
         }
+        var collectedPatterns = java.util.Collections.newSetFromMap(new IdentityHashMap<IPatternDetails, Boolean>());
         for (PlanTraceNode node : trace.nodes()) {
             if (node.kind() != PlanTraceNode.Kind.PATTERN || node.pattern() == null) continue;
+            if (!collectedPatterns.add(node.pattern())) continue;
             var view = PatternContractReader.read(node.pattern());
             for (GenericStack output : view.outputs()) materials.computeIfAbsent(output.what(), MutableMaterial::new);
             for (var input : view.inputs()) {
@@ -96,11 +99,10 @@ public final class CraftingGraphSnapshotFactory {
             for (AEKey key : cycle.members()) materials.computeIfAbsent(key, MutableMaterial::new).cycle = true;
             // Surface the deficit on the actual startup key. Projecting the aggregate seed deficit onto every
             // requested cycle output makes unrelated outputs appear to be missing the same startup material.
-            if (cycle.solveResult() != null && !cycle.solveResult().seedShortfall().isEmpty()) {
-                cycle.solveResult().seedShortfall().forEach((key, amount) -> {
+            if (cycle.solveResult() != null && !cycle.solveResult().exactSeedShortfall().isEmpty()) {
+                cycle.solveResult().exactSeedShortfall().forEach((key, amount) -> {
                     var material = materials.computeIfAbsent(key, MutableMaterial::new);
-                    PlannerAmount deficit = PlannerAmount.of(amount);
-                    material.exactMissing = material.exactMissing.max(deficit);
+                    material.exactMissing = material.exactMissing.max(amount);
                     material.missing = material.exactMissing.fitsLong() ? material.exactMissing.longValueExact() : Long.MAX_VALUE;
                 });
             }
@@ -117,6 +119,19 @@ public final class CraftingGraphSnapshotFactory {
 
     private static void appendTracedPatterns(ECOPlanTrace trace, Map<AEKey, Integer> nodeIds,
             List<PatternNode> patterns, List<Edge> edges, Map<IPatternDetails, Integer> patternIds) {
+        // A shared ingredient can have many traced candidates. Resolve its relationships and component once,
+        // instead of rescanning the entire trace for every occurrence in a large order.
+        Map<AEKey, List<Relationship>> inputsByOutput = new HashMap<>();
+        for (var edge : trace.edges()) {
+            Integer inputId = nodeIds.get(edge.to());
+            if (inputId != null) inputsByOutput.computeIfAbsent(edge.from(), ignored -> new ArrayList<>())
+                .add(new Relationship(inputId, PlannerAmount.of(edge.exactAmount())));
+        }
+        inputsByOutput.replaceAll((key, inputs) -> List.copyOf(inputs));
+        Map<AEKey, Integer> componentIds = new HashMap<>();
+        for (var component : trace.components()) {
+            for (AEKey key : component.members()) componentIds.putIfAbsent(key, component.componentId());
+        }
         ReferenceSet<IPatternDetails> cyclePatterns = new ReferenceOpenHashSet<>();
         for (var cycle : trace.cycles()) {
             for (var edge : cycle.internalEdges()) cyclePatterns.add(edge.pattern().details());
@@ -130,7 +145,7 @@ public final class CraftingGraphSnapshotFactory {
             if (outputId == null) continue;
             int patternNodeId = patternNodeId(patterns.size());
             patternIds.put(node.pattern(), patternNodeId);
-            List<Relationship> inputs = selectedInputs(node.key(), trace.edges(), nodeIds);
+            List<Relationship> inputs = inputsByOutput.getOrDefault(node.key(), List.of());
             if (inputs.isEmpty()) inputs = inputs(node.pattern(), nodeIds);
             List<Relationship> outputs = outputs(node.pattern(), nodeIds);
             if (outputs.stream().noneMatch(output -> output.materialNodeId() == outputId)) {
@@ -142,17 +157,17 @@ public final class CraftingGraphSnapshotFactory {
                 case REJECTED -> CandidateStatus.REJECTED;
                 default -> CandidateStatus.UNSUPPORTED;
             };
-            int componentId = componentFor(node.key(), trace.components());
+            int componentId = componentIds.getOrDefault(node.key(), -1);
             PatternNode pattern = new PatternNode(patternNodeId, displayIdentity(node.pattern()), inputs, outputs,
-                node.firingCount(), status, node.reason(), componentId);
+                PlannerAmount.of(node.exactFiringCount()), status, node.reason(), componentId);
             patterns.add(pattern);
             boolean selected = status == CandidateStatus.SELECTED;
             for (Relationship output : outputs) {
                 EdgeKind kind = output.materialNodeId() == outputId ? EdgeKind.PATTERN_OUTPUT : EdgeKind.BYPRODUCT;
-                edges.add(new Edge(output.materialNodeId(), patternNodeId, output.amount(), kind, selected));
+                edges.add(new Edge(output.materialNodeId(), patternNodeId, output.plannerAmount(), kind, selected));
             }
             for (Relationship input : inputs) {
-                edges.add(new Edge(patternNodeId, input.materialNodeId(), input.amount(), EdgeKind.PATTERN_INPUT,
+                edges.add(new Edge(patternNodeId, input.materialNodeId(), input.plannerAmount(), EdgeKind.PATTERN_INPUT,
                     selected));
             }
         }
@@ -173,25 +188,24 @@ public final class CraftingGraphSnapshotFactory {
                 List<Relationship> inputs = internalEdge.pattern().inputs().stream()
                     .map(input -> {
                         Integer inputId = nodeIds.get(input.key());
-                        return inputId == null || !input.amountPerPattern().fitsLong() ? null
-                            : new Relationship(inputId, input.amountPerPattern().longValueExact());
+                        return inputId == null ? null : new Relationship(inputId, input.amountPerPattern());
                     })
                     .filter(java.util.Objects::nonNull).toList();
-                List<Relationship> outputs = internalEdge.pattern().outputs().stream()
+                List<Relationship> outputs = internalEdge.pattern().grossOutputs().stream()
                     .filter(output -> nodeIds.containsKey(output.what()))
                     .map(output -> new Relationship(nodeIds.get(output.what()), output.amount())).toList();
-                long firingCount = cycle.solveResult() == null ? 0
-                    : cycle.solveResult().patternTimes().getOrDefault(details, 0L);
+                PlannerAmount firingCount = cycle.solveResult() == null ? PlannerAmount.ZERO
+                    : cycle.solveResult().exactPatternTimes().getOrDefault(details, PlannerAmount.ZERO);
                 patterns.add(new PatternNode(patternNodeId, displayIdentity(details), inputs, outputs, firingCount,
-                    firingCount > 0 ? CandidateStatus.SELECTED : CandidateStatus.REJECTED,
-                    firingCount > 0 ? null : "CYCLIC_CANDIDATE", cycle.componentId()));
+                    firingCount.signum() > 0 ? CandidateStatus.SELECTED : CandidateStatus.REJECTED,
+                    firingCount.signum() > 0 ? null : "CYCLIC_CANDIDATE", cycle.componentId()));
                 for (Relationship output : outputs) {
-                    edges.add(new Edge(output.materialNodeId(), patternNodeId, output.amount(), EdgeKind.PATTERN_OUTPUT,
-                        firingCount > 0));
+                    edges.add(new Edge(output.materialNodeId(), patternNodeId, output.plannerAmount(), EdgeKind.PATTERN_OUTPUT,
+                        firingCount.signum() > 0));
                 }
                 for (Relationship input : inputs) {
-                    edges.add(new Edge(patternNodeId, input.materialNodeId(), input.amount(), EdgeKind.PATTERN_INPUT,
-                        firingCount > 0));
+                    edges.add(new Edge(patternNodeId, input.materialNodeId(), input.plannerAmount(), EdgeKind.PATTERN_INPUT,
+                        firingCount.signum() > 0));
                 }
             }
             List<Integer> memberIds = cycle.members().stream().map(nodeIds::get).filter(java.util.Objects::nonNull)
@@ -201,41 +215,34 @@ public final class CraftingGraphSnapshotFactory {
                 Integer from = nodeIds.get(internalEdge.producer());
                 Integer to = nodeIds.get(internalEdge.requiredInput());
                 if (from != null && to != null) {
-                    if (internalEdge.input().amountPerPattern().fitsLong()) {
-                        internal.add(new Edge(from, to, internalEdge.input().amountPerPattern().longValueExact(),
-                            EdgeKind.CYCLE_INTERNAL, true));
-                    }
+                    internal.add(new Edge(from, to, internalEdge.input().amountPerPattern(), EdgeKind.CYCLE_INTERNAL, true));
                 }
             }
             for (var externalEdge : cycle.externalEdges()) {
                 Integer from = nodeIds.get(externalEdge.producer());
                 Integer to = nodeIds.get(externalEdge.requiredInput());
                 if (from != null && to != null) {
-                    if (externalEdge.input().amountPerPattern().fitsLong()) {
-                        edges.add(new Edge(from, to, externalEdge.input().amountPerPattern().longValueExact(),
-                            EdgeKind.PATTERN_INPUT, true));
-                    }
+                    edges.add(new Edge(from, to, externalEdge.input().amountPerPattern(), EdgeKind.PATTERN_INPUT, true));
                 }
             }
             var solve = cycle.solveResult();
-            Map<AEKey, Long> externalInputValues = new LinkedHashMap<>();
             Map<AEKey, PlannerAmount> exactExternalInputs = new LinkedHashMap<>();
             for (var edge : cycle.externalEdges()) {
                 if (edge.requiredInput() != null) {
                     exactExternalInputs.merge(edge.requiredInput(), edge.input().amountPerPattern(), PlannerAmount::add);
                 }
             }
-            exactExternalInputs.forEach((key, value) -> {
-                if (value.fitsLong()) externalInputValues.put(key, value.longValueExact());
-            });
-            if (solve != null) solve.externalDemand().forEach(externalInputValues::put);
-            List<KeyAmount> externalInputs = keyAmounts(externalInputValues);
+            if (solve != null) exactExternalInputs.putAll(solve.exactExternalDemand());
+            List<KeyAmount> externalInputs = plannerKeyAmounts(exactExternalInputs);
             CycleDiagnostic diagnostic = cycleIndex < result.cycles().size() ? result.cycles().get(cycleIndex) : null;
+            List<KeyAmount> requiredOutputs = result.components().stream().filter(component -> component.componentId() == cycle.componentId())
+                    .findFirst().map(component -> plannerKeyAmounts(component.plannerRequiredOutputs()))
+                    .orElseGet(() -> keyAmounts(cycle.requiredOutputs()));
             cycles.add(new CraftingGraphSnapshot.CycleGroup(cycle.componentId(), memberIds, internal,
-                cycle.status().name(), keyAmounts(cycle.requiredOutputs()),
+                cycle.status().name(), requiredOutputs,
                 externalInputs,
-                solve == null ? List.of() : keyAmounts(solve.requiredSeed()),
-                solve == null ? List.of() : solve.patternTimes().entrySet().stream()
+                solve == null ? List.of() : plannerKeyAmounts(solve.exactRequiredSeed()),
+                solve == null ? List.of() : solve.exactPatternTimes().entrySet().stream()
                     .filter(entry -> patternIds.containsKey(entry.getKey()))
                     .map(entry -> new PatternAmount(patternIds.get(entry.getKey()), entry.getValue())).toList(),
                 solve == null ? List.of() : solve.executionWitness().stream()
@@ -250,7 +257,10 @@ public final class CraftingGraphSnapshotFactory {
                     ? cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge.UNKNOWN
                     : diagnostic.executionCountKnowledge(),
                 diagnostic == null ? cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus.NOT_IMPLEMENTED
-                    : diagnostic.solveStatus()));
+                    : diagnostic.solveStatus(), cycle.status()
+                        == cn.dancingsnow.neoecoae.crafting.planner.result.CyclePlanningStatus.NOT_REQUIRED
+                            ? new CraftingGraphSnapshot.Recursion(List.of(), List.of(), true)
+                            : CycleRecursionPreview.create(solve, requiredOutputs, patternIds)));
         }
         return cycles;
     }
@@ -279,20 +289,9 @@ public final class CraftingGraphSnapshotFactory {
         for (var input : pattern.inputs()) {
             if (input.key() != null) materials.computeIfAbsent(input.key(), MutableMaterial::new);
         }
-        for (GenericStack output : pattern.outputs()) {
+        for (GenericStack output : pattern.grossOutputs()) {
             if (output != null && output.what() != null) materials.computeIfAbsent(output.what(), MutableMaterial::new);
         }
-    }
-
-    private static List<Relationship> selectedInputs(AEKey output, List<cn.dancingsnow.neoecoae.crafting.planner.trace.PlanTraceEdge> edges,
-            Map<AEKey, Integer> nodeIds) {
-        List<Relationship> result = new ArrayList<>();
-        for (var edge : edges) {
-            if (edge.from().equals(output) && nodeIds.containsKey(edge.to())) {
-                result.add(new Relationship(nodeIds.get(edge.to()), edge.amount()));
-            }
-        }
-        return result;
     }
 
     private static List<Relationship> outputs(IPatternDetails pattern, Map<AEKey, Integer> nodeIds) {
@@ -311,14 +310,9 @@ public final class CraftingGraphSnapshotFactory {
             GenericStack possible = input.primary();
             Integer id = nodeIds.get(possible.what());
             PlannerAmount amount = PlannerAmount.of(possible.amount()).multiply(input.multiplier());
-            if (id != null && amount.fitsLong()) result.add(new Relationship(id, amount.longValueExact()));
+            if (id != null) result.add(new Relationship(id, amount));
         }
         return result;
-    }
-
-    private static int componentFor(AEKey key, List<cn.dancingsnow.neoecoae.crafting.planner.trace.ComponentTrace> components) {
-        for (var component : components) if (component.members().contains(key)) return component.componentId();
-        return -1;
     }
 
     private static String displayIdentity(IPatternDetails pattern) {
@@ -332,6 +326,11 @@ public final class CraftingGraphSnapshotFactory {
         return values.entrySet().stream()
             .filter(entry -> entry.getKey() != null)
             .sorted(Comparator.comparing(entry -> entry.getKey().toString()))
+            .map(entry -> new KeyAmount(entry.getKey(), entry.getValue())).toList();
+    }
+
+    private static List<KeyAmount> plannerKeyAmounts(Map<AEKey, PlannerAmount> values) {
+        return values.entrySet().stream().sorted(Comparator.comparing(entry -> entry.getKey().toString()))
             .map(entry -> new KeyAmount(entry.getKey(), entry.getValue())).toList();
     }
 

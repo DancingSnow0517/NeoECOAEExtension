@@ -15,9 +15,12 @@ final class RouteAvailabilityProof {
         OptimisticSupplyModel model = OptimisticSupplyModel.compile(network, cancellation);
         if (model == null) return false;
         Set<AEKey> available = new HashSet<>(model.emitted);
-        for (var entry : stock.toKeyCounter()) {
+        stock.visitAmounts(cancellation, (key, amount) -> {
+            if (amount.signum() > 0) available.add(key);
+        });
+        for (AEKey key : stock.unboundedKeys()) {
             cancellation.checkpoint();
-            if (entry.getLongValue() > 0L) available.add(entry.getKey());
+            available.add(key);
         }
         if (available.contains(network.goal())) return false;
         record Slot(int recipe, int input) {}

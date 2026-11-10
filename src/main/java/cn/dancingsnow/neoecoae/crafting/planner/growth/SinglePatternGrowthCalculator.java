@@ -43,12 +43,12 @@ import java.util.Set;
  * <p>Everything outside that shape returns {@link SinglePatternGrowthStatus#NOT_APPLICABLE} with no side
  * effect: two or more transitions, more than one member key, more than one feedback key, zero or negative
  * growth, a pattern without {@link PatternCapability#NET_GROWTH_SAFE}, a required output this pattern does
- * not net-produce. Checked arithmetic that leaves the representable range returns
- * {@link SinglePatternGrowthStatus#UNREPRESENTABLE}. In that case the caller reports the exact boundary value;
- * other declined cases are handed to the bounded cycle solver.
+ * not net-produce. Numeric quantities retain exact values across all three arithmetic tiers;
+ * both the firing vector and compact witness remain available beyond the ordinary AE2 range.
+ * Other declined shapes are handed to the bounded cycle solver.
  *
- * <p>Cost depends only on the number of patterns (one) and keys in the contract. It is independent of the
- * firing count: planning a billion firings costs exactly what planning one firing costs.
+ * <p>The number of algebraic operations depends on the keys in the contract, without iterating over the
+ * firing count. Only the cost of exact integer arithmetic grows with the number of digits.
  */
 public final class SinglePatternGrowthCalculator {
     private final PatternProfileValidator validator;
@@ -118,7 +118,7 @@ public final class SinglePatternGrowthCalculator {
 
         ValidatedPatternProfile profile = validator.validate(only);
         SinglePatternGrowthResult result =
-            compute(profile, request.plannerRequiredOutputs(), request.availableRelevantStock());
+            compute(profile, request.plannerRequiredOutputs(), request.plannerRelevantStock());
         if (result.feedbackKey() != null && !member.equals(result.feedbackKey())) {
             return declined(SinglePatternGrowthResult.Reason.FEEDBACK_KEY_MISMATCH,
                 "The feedback key is not the component member");
@@ -127,8 +127,8 @@ public final class SinglePatternGrowthCalculator {
     }
 
     /**
-     * Pure algebraic entry point. Never throws: checked arithmetic that leaves the representable range comes
-     * back as {@link SinglePatternGrowthStatus#UNREPRESENTABLE} when its exact execution result cannot fit.
+     * Compatibility entry point for long-valued requests; the calculation and its result stay exact.
+     * Wider internal quantities are promoted without discarding the execution witness.
      *
      * @param requiredOutputs absolute on-hand targets per key, exactly as a cycle solve request states them
      * @param availableStock  the relevant stock snapshot the targets are measured against
@@ -139,7 +139,9 @@ public final class SinglePatternGrowthCalculator {
             Map<AEKey, PlannerAmount> exact = new LinkedHashMap<>();
             if (requiredOutputs != null) requiredOutputs.forEach((key, amount) ->
                 exact.put(key, PlannerAmount.of(amount == null ? 0L : amount)));
-            return compute(profile, exact, availableStock);
+            Map<AEKey, PlannerAmount> stock = new LinkedHashMap<>();
+            if (availableStock != null) availableStock.forEach((key, amount) -> stock.put(key, PlannerAmount.of(amount)));
+            return compute(profile, exact, stock);
         } catch (ArithmeticException overflow) {
             return SinglePatternGrowthResult.declined(SinglePatternGrowthStatus.NOT_APPLICABLE,
                 SinglePatternGrowthResult.Reason.INTERNAL_ERROR,
@@ -148,7 +150,7 @@ public final class SinglePatternGrowthCalculator {
     }
 
     private SinglePatternGrowthResult compute(ValidatedPatternProfile profile, Map<AEKey, PlannerAmount> requiredOutputs,
-            Map<AEKey, Long> availableStock) {
+            Map<AEKey, PlannerAmount> availableStock) {
         if (profile == null) {
             return declined(SinglePatternGrowthResult.Reason.MISSING_PROFILE, "No validated profile was supplied");
         }
@@ -157,7 +159,7 @@ public final class SinglePatternGrowthCalculator {
                 "The pattern is not tagged NET_GROWTH_SAFE (" + profile.netGrowthRejection() + ")");
         }
         Map<AEKey, PlannerAmount> required = requiredOutputs == null ? Map.of() : requiredOutputs;
-        Map<AEKey, Long> stock = availableStock == null ? Map.of() : availableStock;
+        Map<AEKey, PlannerAmount> stock = availableStock == null ? Map.of() : availableStock;
         if (required.isEmpty()) {
             return declined(SinglePatternGrowthResult.Reason.NO_REQUIRED_OUTPUT, "No required output was named");
         }
@@ -172,8 +174,8 @@ public final class SinglePatternGrowthCalculator {
                 "Stage one handles a single feedback key; this pattern feeds back " + feedbackCandidates.size());
         }
         AEKey feedback = feedbackCandidates.getFirst();
-        PlannerAmount consume = PlannerAmount.of(profile.consumptionOf(feedback));
-        PlannerAmount produce = PlannerAmount.of(profile.grossProductionOf(feedback));
+        PlannerAmount consume = profile.plannerConsumptionOf(feedback);
+        PlannerAmount produce = profile.plannerGrossProductionOf(feedback);
         PlannerAmount growth = produce.subtract(consume);
         if (growth.isZero()) {
             return declined(SinglePatternGrowthResult.Reason.ZERO_GROWTH,
@@ -188,10 +190,10 @@ public final class SinglePatternGrowthCalculator {
         for (Map.Entry<AEKey, PlannerAmount> entry : required.entrySet()) {
             PlannerAmount want = entry.getValue() == null ? PlannerAmount.ZERO : entry.getValue();
             if (want.signum() <= 0) continue;
-            PlannerAmount have = PlannerAmount.of(Math.max(0L, stock.getOrDefault(entry.getKey(), 0L)));
+            PlannerAmount have = stock.getOrDefault(entry.getKey(), PlannerAmount.ZERO);
             PlannerAmount outstanding = want.subtract(have);
             if (outstanding.signum() <= 0) continue;
-            PlannerAmount perFiring = PlannerAmount.of(profile.netDeltaPerFiring(entry.getKey()));
+            PlannerAmount perFiring = profile.plannerNetDeltaPerFiring(entry.getKey());
             if (perFiring.signum() <= 0) {
                 return declined(SinglePatternGrowthResult.Reason.REQUIRED_OUTPUT_NOT_PRODUCED,
                     "Required output " + entry.getKey() + " has no positive net production in this pattern");
@@ -205,14 +207,13 @@ public final class SinglePatternGrowthCalculator {
 
         // The loop is self-sustaining from the first firing onwards: starting at C, every firing leaves
         // C + Δ behind. The seed is therefore C, never firings · C.
-        PlannerAmount available = PlannerAmount.of(Math.max(0L, stock.getOrDefault(feedback, 0L)));
+        PlannerAmount available = stock.getOrDefault(feedback, PlannerAmount.ZERO);
         PlannerAmount shortfall = consume.subtract(available).max(PlannerAmount.ZERO);
 
         Map<AEKey, PlannerAmount> exactExternalDemand = new LinkedHashMap<>();
-        for (AEKey key : profile.consumption().keySet()) {
+        for (AEKey key : profile.touchedKeys()) {
             if (feedback.equals(key)) continue;
-            PlannerAmount netPerFiring = PlannerAmount.of(profile.consumptionOf(key))
-                .subtract(profile.remainderOf(key));
+            PlannerAmount netPerFiring = profile.plannerConsumptionOf(key).subtract(profile.plannerRemainderOf(key));
             if (netPerFiring.signum() <= 0) continue;
             exactExternalDemand.put(key, netPerFiring.multiply(firings));
         }
@@ -220,57 +221,42 @@ public final class SinglePatternGrowthCalculator {
         Map<AEKey, PlannerAmount> exactProducedOutputs = new LinkedHashMap<>();
         Map<AEKey, PlannerAmount> exactNetDelta = new LinkedHashMap<>();
         for (AEKey key : profile.touchedKeys()) {
-            PlannerAmount gross = PlannerAmount.of(profile.grossProductionOf(key));
+            PlannerAmount gross = profile.plannerGrossProductionOf(key);
             if (gross.signum() > 0) exactProducedOutputs.put(key, gross.multiply(firings));
-            PlannerAmount delta = PlannerAmount.of(profile.netDeltaPerFiring(key));
+            PlannerAmount delta = profile.plannerNetDeltaPerFiring(key);
             if (!delta.isZero()) exactNetDelta.put(key, delta.multiply(firings));
         }
 
         Map<AEKey, PlannerAmount> exactDeliverable = new LinkedHashMap<>();
         for (AEKey key : required.keySet()) {
-            PlannerAmount have = PlannerAmount.of(Math.max(0L, stock.getOrDefault(key, 0L)));
+            PlannerAmount have = stock.getOrDefault(key, PlannerAmount.ZERO);
             exactDeliverable.put(key, have.add(
-                PlannerAmount.of(profile.netDeltaPerFiring(key)).multiply(firings)));
+                profile.plannerNetDeltaPerFiring(key).multiply(firings)));
         }
 
-        boolean representable = firings.fitsLong() && shortfall.fitsLong() && allFit(exactExternalDemand)
-            && allFit(exactProducedOutputs) && allFit(exactNetDelta) && allFit(exactDeliverable);
-        long firingsLong = representable ? firings.longValueExact() : 0L;
-        SinglePatternGrowthStatus status = !representable ? SinglePatternGrowthStatus.UNREPRESENTABLE
-            : shortfall.signum() > 0
+        SinglePatternGrowthStatus status = shortfall.signum() > 0
             ? SinglePatternGrowthStatus.INSUFFICIENT_SEED
             : SinglePatternGrowthStatus.SUCCESS;
         String diagnostic = consume + " " + feedback + " -> " + produce + " " + feedback + " (delta +" + growth
             + "), " + firings + " firing(s), seed " + consume
             + (shortfall.signum() > 0 ? ", seed shortfall " + shortfall : " covered by stock");
-        SinglePatternGrowthResult.Reason reason = status == SinglePatternGrowthStatus.UNREPRESENTABLE
-            ? SinglePatternGrowthResult.Reason.AMOUNT_UNREPRESENTABLE : SinglePatternGrowthResult.Reason.NONE;
+        SinglePatternGrowthResult.Reason reason = SinglePatternGrowthResult.Reason.NONE;
         return new SinglePatternGrowthResult(status, reason, profile, feedback,
-            consume.longValueExact(), produce.longValueExact(), growth.longValueExact(), firingsLong,
-            Map.of(feedback, consume.longValueExact()),
-            shortfall.signum() > 0 && shortfall.fitsLong() ? Map.of(feedback, shortfall.longValueExact()) : Map.of(),
-            representableMap(exactExternalDemand), representableMap(exactProducedOutputs),
-            representableMap(exactNetDelta), representableMap(exactDeliverable),
-            representable ? List.of(new PatternRun(profile.pattern(), firingsLong)) : List.of(), diagnostic,
+            consume.longValueSaturated(), produce.longValueSaturated(), growth.longValueSaturated(), firings.longValueSaturated(),
+            Map.of(feedback, consume.longValueSaturated()),
+            shortfall.signum() > 0 ? Map.of(feedback, shortfall.longValueSaturated()) : Map.of(),
+            boundedMap(exactExternalDemand), boundedMap(exactProducedOutputs),
+            boundedMap(exactNetDelta), boundedMap(exactDeliverable),
+            List.of(new PatternRun(profile.pattern(), firings)), diagnostic,
             firings, Map.of(feedback, consume),
             shortfall.signum() > 0 ? Map.of(feedback, shortfall) : Map.of(), exactExternalDemand,
             exactProducedOutputs, exactNetDelta, exactDeliverable);
     }
 
-    private static boolean allFit(Map<AEKey, PlannerAmount> amounts) {
-        return amounts.values().stream().allMatch(PlannerAmount::fitsLong);
-    }
-
-    private static Map<AEKey, Long> toLongMap(Map<AEKey, PlannerAmount> amounts) {
-        Map<AEKey, Long> result = new LinkedHashMap<>();
-        amounts.forEach((key, amount) -> result.put(key, amount.longValueExact()));
-        return result;
-    }
-
-    private static Map<AEKey, Long> representableMap(Map<AEKey, PlannerAmount> amounts) {
+    private static Map<AEKey, Long> boundedMap(Map<AEKey, PlannerAmount> amounts) {
         Map<AEKey, Long> result = new LinkedHashMap<>();
         amounts.forEach((key, amount) -> {
-            if (amount.fitsLong()) result.put(key, amount.longValueExact());
+            result.put(key, amount.longValueSaturated());
         });
         return result;
     }

@@ -33,8 +33,8 @@ final class CycleCandidateSearch {
     record Candidate(CycleSolveResult result, Map<AEKey, PlannerAmount> targets) {}
 
     /** external.solved() means accepted; otherwise this is the first candidate's failure and complete says every alternative branch was closed by proof. */
-    record Supplied(CycleSolveResult result, Map<AEKey, PlannerAmount> targets, Map<AEKey, Long> initialReservations,
-            Map<AEKey, Long> additionalReservations, ExternalDemandPlanner.Outcome external,
+    record Supplied(CycleSolveResult result, Map<AEKey, PlannerAmount> targets, Map<AEKey, PlannerAmount> initialReservations,
+            Map<AEKey, PlannerAmount> additionalReservations, ExternalDemandPlanner.Outcome external,
             Map<AEKey, PlannerAmount> caps, boolean searched, boolean complete) {}
 
     private final CompiledNetwork network;
@@ -42,11 +42,11 @@ final class CycleCandidateSearch {
     private final Map<AEKey, Integer> choices;
     private final CycleComponent cycle;
     private final Map<AEKey, PlannerAmount> exactRequiredOutputs;
-    private final Map<AEKey, Long> stock;
-    private final Map<AEKey, Long> solveStock;
+    private final Map<AEKey, PlannerAmount> stock;
+    private final Map<AEKey, PlannerAmount> solveStock;
     private final Map<AEKey, PlannerAmount> stockReservations;
-    private final Map<AEKey, Long> plannedCycleInputs;
-    private final KeyCounter inventory;
+    private final Map<AEKey, PlannerAmount> plannedCycleInputs;
+    private final PlannerInventorySnapshot inventory;
     private final SolveState base;
     private final boolean ignorePatternSubstitutions;
     private final CycleFailureCache failures;
@@ -57,9 +57,9 @@ final class CycleCandidateSearch {
     private boolean complete;
 
     CycleCandidateSearch(CompiledNetwork network, CondensationGraph condensation, Map<AEKey, Integer> choices,
-            CycleComponent cycle, Map<AEKey, PlannerAmount> exactRequiredOutputs, Map<AEKey, Long> stock,
-            Map<AEKey, Long> solveStock, Map<AEKey, PlannerAmount> stockReservations, Map<AEKey, Long> plannedCycleInputs,
-            KeyCounter inventory, SolveState base, boolean ignorePatternSubstitutions, CycleFailureCache failures,
+            CycleComponent cycle, Map<AEKey, PlannerAmount> exactRequiredOutputs, Map<AEKey, PlannerAmount> stock,
+            Map<AEKey, PlannerAmount> solveStock, Map<AEKey, PlannerAmount> stockReservations, Map<AEKey, PlannerAmount> plannedCycleInputs,
+            PlannerInventorySnapshot inventory, SolveState base, boolean ignorePatternSubstitutions, CycleFailureCache failures,
             ExternalDemandPlanner externalDemandPlanner, ECOCancellation cancellation) {
         this.network = network;
         this.condensation = condensation;
@@ -127,12 +127,12 @@ final class CycleCandidateSearch {
 
     private Supplied attempt(CycleSolveResult result, Map<AEKey, PlannerAmount> targets,
             Map<AEKey, PlannerAmount> caps, ECOCancellation cancel) throws InterruptedException {
-        Map<AEKey, Long> initial = ComponentPlanner.cycleInitialReservations(exactRequiredOutputs, stock, result);
-        Map<AEKey, Long> additional = ComponentPlanner.reservationRemainder(initial, stockReservations);
-        Map<AEKey, Long> demands = ComponentPlanner.mergeDemands(result.positiveExternalDemand(), plannedCycleInputs);
+        Map<AEKey, PlannerAmount> initial = ComponentPlanner.cycleInitialReservations(exactRequiredOutputs, stock, result);
+        Map<AEKey, PlannerAmount> additional = ComponentPlanner.reservationRemainder(initial, stockReservations);
+        Map<AEKey, PlannerAmount> demands = ComponentPlanner.mergeDemands(result.positiveExactExternalDemand(), plannedCycleInputs);
         Set<AEKey> delegated = ComponentPlanner.delegatedCycleInputs(network, condensation, choices, cycle,
                 demands.keySet());
-        var external = externalDemandPlanner.solveDemands(network, cycle, demands, inventory, base, additional,
+        var external = externalDemandPlanner.solveExactDemands(network, cycle, demands, inventory, base, additional,
                 delegated, ignorePatternSubstitutions, cancel);
         return new Supplied(result, targets, initial, additional, external, caps, false, false);
     }
@@ -140,20 +140,18 @@ final class CycleCandidateSearch {
     /** Turns one failed vector into tighter global caps, or into one child branch per failing boundary key. */
     private void derive(Supplied failed, Map<AEKey, PlannerAmount> branch, ECOCancellation cancel)
             throws InterruptedException {
-        Map<AEKey, Long> demands = ComponentPlanner.mergeDemands(failed.result().positiveExternalDemand(),
+        Map<AEKey, PlannerAmount> demands = ComponentPlanner.mergeDemands(failed.result().positiveExactExternalDemand(),
                 plannedCycleInputs);
         Set<AEKey> delegated = ComponentPlanner.delegatedCycleInputs(network, condensation, choices, cycle,
                 demands.keySet());
-        Map<AEKey, Long> failing = new LinkedHashMap<>();
-        failed.result().positiveExternalDemand().forEach((key, amount) -> {
+        Map<AEKey, PlannerAmount> failing = new LinkedHashMap<>();
+        failed.result().positiveExactExternalDemand().forEach((key, amount) -> {
             if (delegated.contains(key) || plannedCycleInputs.containsKey(key)) return;
             // Uncapped demand includes all boundary fuel; a capped witness splits it into owned stock and
             // extra imports. Probe both portions together before subtracting owned stock from the cap.
-            long owned = Math.min(solveStock.getOrDefault(key, 0L),
-                    failed.result().requiredSeed().getOrDefault(key, 0L));
-            PlannerAmount total = PlannerAmount.of(amount).add(owned);
-            if (total.fitsLong()) failing.put(key, total.longValueExact());
-            else complete = false;
+            PlannerAmount owned = solveStock.getOrDefault(key, PlannerAmount.ZERO)
+                .min(failed.result().exactRequiredSeed().getOrDefault(key, PlannerAmount.ZERO));
+            failing.put(key, amount.add(owned));
         });
         if (failing.isEmpty()) {
             complete = false;
@@ -162,18 +160,18 @@ final class CycleCandidateSearch {
         boolean tightened = false;
         for (var entry : failing.entrySet()) {
             AEKey key = entry.getKey();
-            long demand = entry.getValue();
+            PlannerAmount demand = entry.getValue();
             var single = probe(Map.of(key, demand), cancel);
             if (single.solved()) continue;
             if (!closable(single.status())) {
                 complete = false;
                 continue;
             }
-            long lo = 0L;
-            long hi = demand;
+            PlannerAmount lo = PlannerAmount.ZERO;
+            PlannerAmount hi = demand;
             int probes = 0;
-            while (hi - lo > 1 && probes++ < MAX_CAP_PROBES) {
-                long mid = lo + (hi - lo) / 2;
+            while (hi.subtract(lo).compareTo(PlannerAmount.ONE) > 0 && probes++ < MAX_CAP_PROBES) {
+                PlannerAmount mid = lo.add(hi.subtract(lo).divide(PlannerAmount.of(2)));
                 var half = probe(Map.of(key, mid), cancel);
                 if (half.solved()) lo = mid;
                 else if (closable(half.status())) hi = mid;
@@ -182,7 +180,7 @@ final class CycleCandidateSearch {
                     break;
                 }
             }
-            knownCaps.merge(key, importLimit(key, hi - 1), PlannerAmount::min);
+            knownCaps.merge(key, importLimit(key, hi.subtract(PlannerAmount.ONE)), PlannerAmount::min);
             tightened = true;
         }
         if (tightened) {
@@ -196,21 +194,21 @@ final class CycleCandidateSearch {
         var keys = failing.keySet().toArray(new AEKey[0]);
         for (int i = keys.length - 1; i >= 0; i--) {
             Map<AEKey, PlannerAmount> child = new LinkedHashMap<>(branch);
-            child.merge(keys[i], importLimit(keys[i], failing.get(keys[i]) - 1), PlannerAmount::min);
+            child.merge(keys[i], importLimit(keys[i], failing.get(keys[i]).subtract(PlannerAmount.ONE)), PlannerAmount::min);
             pending.push(child);
         }
     }
 
     /** CycleSolveRequest caps only imports beyond the stock already present in its marking. */
-    private PlannerAmount importLimit(AEKey key, long totalSupply) {
-        return PlannerAmount.of(totalSupply).subtract(PlannerAmount.of(solveStock.getOrDefault(key, 0L)))
+    private PlannerAmount importLimit(AEKey key, PlannerAmount totalSupply) {
+        return totalSupply.subtract(solveStock.getOrDefault(key, PlannerAmount.ZERO))
                 .max(PlannerAmount.ZERO);
     }
 
     /** The external verdict for these demands alone: no cycle-owned reservations and no delegated suppliers. */
-    private ExternalDemandPlanner.Outcome probe(Map<AEKey, Long> demands, ECOCancellation cancel)
+    private ExternalDemandPlanner.Outcome probe(Map<AEKey, PlannerAmount> demands, ECOCancellation cancel)
             throws InterruptedException {
-        return externalDemandPlanner.solveDemands(network, cycle, demands, inventory, base, Map.of(), Set.of(),
+        return externalDemandPlanner.solveExactDemands(network, cycle, demands, inventory, base, Map.of(), Set.of(),
                 ignorePatternSubstitutions, cancel);
     }
 
@@ -223,8 +221,8 @@ final class CycleCandidateSearch {
     }
 
     private CycleSolveRequest request(Map<AEKey, PlannerAmount> targets) {
-        return new CycleSolveRequest(cycle, ComponentPlanner.representable(targets), targets, solveStock,
-                cycle.outgoingDependencies(), ComponentPlanner.cycleSolveOptions(cycle));
+        return new CycleSolveRequest(cycle, targets, solveStock, inventory.unboundedKeys(),
+                cycle.outgoingDependencies(), ComponentPlanner.cycleSolveOptions(cycle), Map.of());
     }
 
     private ECOPlanningBudget slice() {

@@ -13,6 +13,7 @@ public final class PlannerInventorySnapshot {
     private final AEKey[] keys;
     private final PlannerAmount[] amounts;
     private final java.util.Set<AEKey> unboundedKeys;
+    private volatile it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap<AEKey> lookup;
 
     private PlannerInventorySnapshot(AEKey[] keys, PlannerAmount[] amounts, java.util.Set<AEKey> unboundedKeys) {
         this.keys = keys;
@@ -75,6 +76,30 @@ public final class PlannerInventorySnapshot {
             amounts[index++] = entry.getValue();
         }
         return new PlannerInventorySnapshot(keys, amounts, unboundedKeys);
+    }
+
+    public java.util.Set<AEKey> unboundedKeys() { return unboundedKeys; }
+
+    /** Visit the owned arrays directly, preserving cancellation checks without copying a second amount map. */
+    public void visitAmounts(cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation cancellation,
+            java.util.function.BiConsumer<AEKey, PlannerAmount> visitor) throws InterruptedException {
+        for (int i = 0; i < keys.length; i++) {
+            cancellation.checkpoint();
+            visitor.accept(keys[i], amounts[i]);
+        }
+    }
+
+    /** Build a compact key index only for routes that need random stock access. */
+    public PlannerAmount amountOf(AEKey key) {
+        var index = lookup;
+        if (index == null) {
+            index = new it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap<>(keys.length);
+            index.defaultReturnValue(-1);
+            for (int i = 0; i < keys.length; i++) index.put(keys[i], i);
+            lookup = index;
+        }
+        int position = index.getInt(key);
+        return position < 0 ? PlannerAmount.ZERO : amounts[position];
     }
 
     void initialize(PlannerCounter target) {

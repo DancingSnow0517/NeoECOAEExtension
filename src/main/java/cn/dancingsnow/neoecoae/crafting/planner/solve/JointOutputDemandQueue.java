@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -23,10 +24,12 @@ final class JointOutputDemandQueue {
     private final Map<AEKey, Set<AEKey>> jointSources = new HashMap<>();
     private final Set<AEKey> queued = new LinkedHashSet<>();
     private final PriorityQueue<AEKey> ready = new PriorityQueue<>(Comparator.comparingInt(rank::get));
+    private final int initialRanks;
 
     JointOutputDemandQueue(List<AEKey> order, Map<AEKey, CompiledPattern> selected,
             Set<IPatternDetails> deferredPatterns, Set<AEKey> stockLeaves) {
         for (AEKey key : order) rank.putIfAbsent(key, rank.size());
+        initialRanks = rank.size();
         selected.forEach((key, pattern) -> {
             if (stockLeaves.contains(key) || deferredPatterns.contains(pattern.details())) return;
             for (var input : pattern.inputs()) {
@@ -48,6 +51,33 @@ final class JointOutputDemandQueue {
     }
 
     boolean isEmpty() { return ready.isEmpty(); }
+
+    /**
+     * Restore only queue operations, using this attempt's ranks and potential joint-output dependencies.
+     * Identical polls and compiled views prove a prefix executes in exactly the same queue order;
+     * input additions are replayed only for steps that actually expanded a recipe. No quantities or
+     * material allocations are recomputed here. The caller resets the queue if the prefix diverges.
+     */
+    boolean restorePrefix(List<AEKey> polled, BitSet expanded, Map<AEKey, CompiledPattern> previous,
+            Map<AEKey, CompiledPattern> selected, ECOCancellation cancellation)
+            throws InterruptedException {
+        for (int i = 0; i < polled.size(); i++) {
+            AEKey key = polled.get(i);
+            CompiledPattern pattern = previous.get(key);
+            if (pattern != selected.get(key) || !key.equals(poll(cancellation))) return false;
+            if (expanded.get(i)) for (var input : pattern.inputs()) {
+                if (!pattern.specialAnalysis().excludesFromCycleGraph(input)) add(input.key());
+            }
+        }
+        return true;
+    }
+
+    void reset(Set<AEKey> goals) {
+        ready.clear();
+        queued.clear();
+        if (rank.size() != initialRanks) rank.values().removeIf(value -> value >= initialRanks);
+        goals.forEach(this::add);
+    }
 
     AEKey poll(ECOCancellation cancellation) throws InterruptedException {
         List<AEKey> waiting = new ArrayList<>();

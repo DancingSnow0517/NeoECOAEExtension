@@ -85,9 +85,9 @@ final class CycleFailureCache {
 
     /** Structure part of the fingerprint: everything except amounts. */
     private record Structure(Set<AEKey> members, List<CompiledPattern> patterns, Set<CraftingGraphEdge> internalEdges,
-            Set<CraftingGraphEdge> boundaryEdges, CycleSolveLimits limits) {}
+            Set<CraftingGraphEdge> boundaryEdges, Set<AEKey> unboundedStock, CycleSolveLimits limits) {}
 
-    private record Proof(Map<AEKey, PlannerAmount> required, Map<AEKey, Long> stock,
+    private record Proof(Map<AEKey, PlannerAmount> required, Map<AEKey, PlannerAmount> stock,
             Map<AEKey, PlannerAmount> caps, CycleSolveResult result) {
         boolean dominates(Fingerprint request) {
             for (var entry : required.entrySet()) {
@@ -95,7 +95,7 @@ final class CycleFailureCache {
                 if (asked.compareTo(entry.getValue()) < 0) return false;
             }
             for (var entry : request.stock().entrySet()) {
-                if (entry.getValue() > stock.getOrDefault(entry.getKey(), 0L)) return false;
+                if (entry.getValue().compareTo(stock.getOrDefault(entry.getKey(), PlannerAmount.ZERO)) > 0) return false;
             }
             // An uncapped boundary key imports without limit; a request may only tighten what the proof allowed.
             for (var entry : caps.entrySet()) {
@@ -109,7 +109,7 @@ final class CycleFailureCache {
     /** Component numbering can change when unrelated routes change; it is not solver state. */
     private record Fingerprint(Set<AEKey> members, List<CompiledPattern> patterns,
             Set<CraftingGraphEdge> internalEdges, Set<CraftingGraphEdge> boundaryEdges,
-            Map<AEKey, PlannerAmount> required, Map<AEKey, Long> stock, CycleSolveLimits limits,
+            Map<AEKey, PlannerAmount> required, Map<AEKey, PlannerAmount> stock, Set<AEKey> unboundedStock, CycleSolveLimits limits,
             Map<AEKey, PlannerAmount> boundaryImportCaps) {
         static Fingerprint of(CycleSolveRequest request) {
             return new Fingerprint(new HashSet<>(request.component().members()),
@@ -117,12 +117,12 @@ final class CycleFailureCache {
                 new HashSet<>(request.component().internalEdges()),
                 request.externalResourceBoundary().stream().flatMap(edge -> edge.relationships().stream())
                     .collect(Collectors.toSet()),
-                request.plannerRequiredOutputs(), request.availableRelevantStock(), request.options().limits(),
+                request.plannerRequiredOutputs(), request.plannerRelevantStock(), request.unboundedStock(), request.options().limits(),
                 request.boundaryImportCaps());
         }
 
         Structure structure() {
-            return new Structure(members, patterns, internalEdges, boundaryEdges, limits);
+            return new Structure(members, patterns, internalEdges, boundaryEdges, unboundedStock, limits);
         }
     }
 }
