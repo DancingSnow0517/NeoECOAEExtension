@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineInterface;
 import cn.dancingsnow.neoecoae.blocks.NENetworkSwitchBlock;
 
+import appeng.api.ids.AETags;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
 import appeng.core.definitions.AEParts;
@@ -405,7 +406,7 @@ public class NEBlocks {
         .loot((prov, block) -> {
             prov.add(block, prov.createSingleItemTable(NEBlocks.FLAWED_BUDDING_ENERGIZED_CRYSTAL));
         })
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.BUDDING, cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_BLOCKS)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.BUDDING, cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_BLOCKS, AETags.GROWTH_ACCELERATABLE)
         .item()
         .tag(cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_ITEMS)
         .build()
@@ -429,7 +430,7 @@ public class NEBlocks {
                 Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL)
             );
         })
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.BUDDING, cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_BLOCKS)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.BUDDING, cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_BLOCKS, AETags.GROWTH_ACCELERATABLE)
         .item()
         .tag(cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_ITEMS)
         .build()
@@ -453,7 +454,7 @@ public class NEBlocks {
                 Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL)
             );
         })
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.BUDDING, cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_BLOCKS)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.BUDDING, cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_BLOCKS, AETags.GROWTH_ACCELERATABLE)
         .item()
         .tag(cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_ITEMS)
         .build()
@@ -477,7 +478,7 @@ public class NEBlocks {
                 Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL)
             );
         })
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.BUDDING, cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_BLOCKS)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.BUDDING, cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_BLOCKS, AETags.GROWTH_ACCELERATABLE)
         .item()
         .tag(cn.dancingsnow.neoecoae.platform.NEConventionTags.BUDDING_ITEMS)
         .build()
