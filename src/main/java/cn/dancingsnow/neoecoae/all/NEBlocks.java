@@ -612,7 +612,7 @@ public class NEBlocks {
         .register();
 
     public static final BlockEntry<ECOMachineCasing<NEIntegratedWorkingStationCluster>> LARGE_INTEGRATED_WORKING_STATION_CASING = REGISTRATE
-        .block("large_integrated_working_station_casing", ECOMachineCasing<NEIntegratedWorkingStationCluster>::new)
+        .<ECOMachineCasing<NEIntegratedWorkingStationCluster>>block("large_integrated_working_station_casing", ECOLargeIntegratedWorkingStationCasing::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(p -> p.strength(5.0F, 6.0F).requiresCorrectToolForDrops().noOcclusion())
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
@@ -649,7 +649,7 @@ public class NEBlocks {
                 .texture("top", prov.modLoc("block/working_station/smart_cooling_module_top"));
             prov.horizontalBlock(ctx.get(), model);
         })
-        .lang("Large Integrated Working Station Smart Cooling Module")
+        .lang("Large Integrated Working Station Smart Cooling Controller")
         .simpleItem()
         .register();
 

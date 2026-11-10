@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationOutputHatchBlockEntity;
@@ -410,7 +411,7 @@ public class NEBlockEntities {
         .<ECOMachineCasingBlockEntity<NEIntegratedWorkingStationCluster>, NEIntegratedWorkingStationCluster>blockEntityClusterElement(
             "large_integrated_working_station_casing",
             NEIntegratedWorkingStationClusterCalculator::new,
-            ECOMachineCasingBlockEntity::new
+            ECOLargeIntegratedWorkingStationCasingBlockEntity::new
         )
         .forBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_CASING)
         .validBlock(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_CASING)

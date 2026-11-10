@@ -216,6 +216,34 @@ class LargeWorkstationCoolantInputTest {
     }
 
     @Test
+    void unmarkedManualCoolantStaysAvailableAndChangingTheMarkCannotReturnFreshInletFluid() throws Exception {
+        var smart = smartHatch();
+        smart.tank.fill(new FluidStack(Fluids.WATER, 1000), FluidAction.EXECUTE);
+        assertTrue(smart.acceptsManualCoolant(new FluidStack(Fluids.WATER, 1)));
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        assertEquals(1000, smart.tank.getFluidAmount());
+        verifyNoInteractions(network);
+
+        var saved = new CompoundTag();
+        var registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+        try (var visuals = mockStatic(appeng.hooks.VisualStateSaving.class)) {
+            smart.saveAdditional(saved, registries);
+            smart.loadTag(saved, registries);
+        }
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        assertEquals(1000, smart.tank.getFluidAmount());
+        smart.setMarkedCoolant(new FluidStack(Fluids.WATER, 1));
+        assertFalse(smart.acceptsManualCoolant(new FluidStack(Fluids.LAVA, 1)));
+        smart.setMarkedCoolant(FluidStack.EMPTY);
+        assertFalse(smart.acceptsManualCoolant(new FluidStack(Fluids.WATER, 1)));
+        when(smart.getLevel().getGameTime()).thenReturn(200L);
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        assertTrue(smart.tank.isEmpty());
+        assertTrue(smart.acceptsManualCoolant(new FluidStack(Fluids.WATER, 1)));
+        verify(network).insert(eq(AEFluidKey.of(Fluids.WATER)), eq(1000L), eq(Actionable.MODULATE), any());
+    }
+
+    @Test
     void offlineNetworkAndStoppedCoolingKeepStockWithoutExtracting() {
         var smart = smartHatch();
         smart.tank.fill(new FluidStack(Fluids.WATER, 40_000), FluidAction.EXECUTE);
@@ -284,6 +312,7 @@ class LargeWorkstationCoolantInputTest {
             assertEquals(Fluids.WATER, restored.getMarkedCoolant().getFluid());
             assertEquals(16_000_000, restored.tank.getFluidAmount());
             saved.remove("markedCoolant");
+            saved.remove("returnUnmarkedCoolant");
             restored.loadTag(saved, registries);
             assertTrue(restored.getMarkedCoolant().isEmpty());
             assertEquals(16_000_000, restored.tank.getFluidAmount());

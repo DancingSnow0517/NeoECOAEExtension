@@ -202,15 +202,15 @@ public class GuiLangs {
         provider.add("gui.neoecoae.workstation.card.toggle_preheat", "toggle preheat");
         provider.add("gui.neoecoae.workstation.card.energy_monitor", "Energy monitor");
         provider.add("gui.neoecoae.workstation.card.last_second", "1 s average");
-        provider.add("gui.neoecoae.workstation.card.actual_energy", "Actual usage");
-        provider.add("gui.neoecoae.workstation.card.fe_usage", "Network FE usage");
+        provider.add("gui.neoecoae.workstation.card.actual_energy", "Total equivalent usage");
+        provider.add("gui.neoecoae.workstation.card.fe_usage", "FE consumed");
         provider.add("gui.neoecoae.workstation.card.fe_rate", "%s FE/t");
         provider.add("gui.neoecoae.workstation.card.fe_pending", "Pending FE");
         provider.add("gui.neoecoae.workstation.card.fe_amount", "%s FE");
         provider.add("gui.neoecoae.workstation.card.internal_storage", "Internal storage");
         provider.add("gui.neoecoae.workstation.card.ae_stored", "%s / %s AE");
         provider.add("gui.neoecoae.workstation.card.ae_amount", "%s AE");
-        provider.add("gui.neoecoae.workstation.card.energy_footer", "FE supply needs Applied Flux; equivalent AE covers it when FE is unavailable. Actual usage includes processing and preheating.");
+        provider.add("gui.neoecoae.workstation.card.energy_footer", "The selected source pays first; the other covers any shortfall. Direct FE input needs no addon. ME-stored FE needs Applied Flux. Total usage includes processing and temperature control, in AE equivalents.");
         provider.add("gui.neoecoae.workstation.card.installed_module", "Installed module");
         provider.add("gui.neoecoae.workstation.card.recipe_source", "Task recipe source");
         provider.add("gui.neoecoae.workstation.card.card_slot", "Upgrade card slot");

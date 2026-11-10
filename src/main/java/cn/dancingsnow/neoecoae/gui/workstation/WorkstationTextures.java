@@ -2,6 +2,9 @@ package cn.dancingsnow.neoecoae.gui.workstation;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationModule;
+import cn.dancingsnow.neoecoae.gui.theme.AETextures;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
+import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import net.minecraft.resources.ResourceLocation;
 
@@ -39,6 +42,10 @@ public final class WorkstationTextures {
 
     public static SpriteTexture toggle(boolean on, boolean hover) {
         return widget((on ? 0 : 30) + (hover ? 15 : 0), 135, 15, 26);
+    }
+
+    public static IGuiTexture powerPriority(boolean fePreferred) {
+        return AETextures.icon(fePreferred ? ECOIcon.POWER_UNIT_FE : ECOIcon.POWER_UNIT_AE);
     }
 
     public static SpriteTexture taskScrollThumb(boolean active) {

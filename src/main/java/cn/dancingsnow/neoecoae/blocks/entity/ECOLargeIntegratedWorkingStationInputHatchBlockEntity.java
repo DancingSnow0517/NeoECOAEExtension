@@ -6,6 +6,10 @@ import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.storage.StorageHelper;
+import appeng.api.orientation.BlockOrientation;
+import appeng.api.util.AECableType;
+import java.util.EnumSet;
+import java.util.Set;
 import cn.dancingsnow.neoecoae.blocks.ECOLargeIntegratedWorkingStationSmartCoolingModule;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.gui.common.FluidHatchUI;
@@ -34,6 +38,7 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
     public static final int SMART_COOLING_PULL_INTERVAL = 200;
     private int targetTemperature = 75;
     private FluidStack markedCoolant = FluidStack.EMPTY;
+    private boolean returnUnmarkedCoolant;
     private long nextCoolantPullTick;
 
     public boolean isSmartCoolingModule() {
@@ -54,11 +59,17 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
 
     public FluidStack getMarkedCoolant() { return markedCoolant.copy(); }
 
+    boolean acceptsManualCoolant(FluidStack fluid) {
+        return !returnUnmarkedCoolant && (markedCoolant.isEmpty()
+            || FluidStack.isSameFluidSameComponents(fluid, markedCoolant));
+    }
+
     public void setMarkedCoolant(FluidStack fluid) {
         if (!fluid.isEmpty() && !isCoolant(fluid)) return;
         FluidStack selected = fluid.isEmpty() ? FluidStack.EMPTY : fluid.copyWithAmount(1);
         if (FluidStack.matches(markedCoolant, selected)) return;
         markedCoolant = selected;
+        returnUnmarkedCoolant = selected.isEmpty() && !tank.isEmpty();
         setChanged();
         markForUpdate();
     }
@@ -78,6 +89,16 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
         BlockState blockState
     ) {
         super(type, pos, blockState, NEIntegratedWorkingStationClusterCalculator::new);
+    }
+
+    @Override
+    public Set<Direction> getGridConnectableSides(BlockOrientation orientation) {
+        return formed && cluster != null ? cluster.getInternalConnections(this) : EnumSet.noneOf(Direction.class);
+    }
+
+    @Override
+    public AECableType getCableConnectionType(Direction side) {
+        return AECableType.NONE;
     }
 
     private boolean isCoolant(FluidStack fluid) {
@@ -120,14 +141,18 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
     }
 
     private void pullNetworkCoolant() {
-        if (markedCoolant.isEmpty() && tank.isEmpty()) return;
+        if (returnUnmarkedCoolant && tank.isEmpty()) {
+            returnUnmarkedCoolant = false;
+            setChanged();
+        }
+        if (markedCoolant.isEmpty() && !returnUnmarkedCoolant) return;
         var cluster = getCluster();
         if (cluster == null || cluster.getController() == null || !getMainNode().isActive()) return;
         var controller = cluster.getController();
         var grid = getMainNode().getGrid();
         if (grid == null) return;
         var inventory = grid.getStorageService().getInventory();
-        if (!tank.isEmpty() && (markedCoolant.isEmpty()
+        if (!tank.isEmpty() && (returnUnmarkedCoolant
             || !FluidStack.isSameFluidSameComponents(tank.getFluid(), markedCoolant))) {
             // Return old stock before changing type, including when the mark was cleared.
             // A partial or rejected return must remain in the tank for the next attempt.
@@ -135,6 +160,10 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
                 Actionable.MODULATE, IActionSource.ofMachine(this));
             if (returned > 0) tank.drain((int) returned, IFluidHandler.FluidAction.EXECUTE);
             if (!tank.isEmpty()) return;
+        }
+        if (returnUnmarkedCoolant) {
+            returnUnmarkedCoolant = false;
+            setChanged();
         }
         if (markedCoolant.isEmpty() || !controller.isActiveCooling() || tank.getSpace() <= 0) return;
         AEFluidKey selected = ECOKeyFactory.fluid(markedCoolant);
@@ -158,6 +187,7 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
         tank.writeToNBT(registries, data);
         data.putInt("targetTemperature", targetTemperature);
         data.put("markedCoolant", markedCoolant.saveOptional(registries));
+        data.putBoolean("returnUnmarkedCoolant", returnUnmarkedCoolant);
     }
 
     @Override
@@ -168,6 +198,8 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
         // Old saves keep their real buffer but require an explicit mark before any new extraction.
         markedCoolant = FluidStack.parseOptional(registries, data.getCompound("markedCoolant"));
         if (!markedCoolant.isEmpty()) markedCoolant.setAmount(1);
+        returnUnmarkedCoolant = data.contains("returnUnmarkedCoolant") ? data.getBoolean("returnUnmarkedCoolant")
+            : markedCoolant.isEmpty() && !tank.isEmpty();
         nextCoolantPullTick = 0;
     }
 }

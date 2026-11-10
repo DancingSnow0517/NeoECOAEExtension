@@ -79,6 +79,34 @@ class WorkstationUIInteractionTest {
         "energy-label", "energy-value", "coolant-use-label", "coolant-use-value", "help", "help-warning");
 
     @Test
+    void powerPriorityButtonUsesTheNativeIconsAndUpdatesItsSyncedTooltip() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            var preferred = new java.util.concurrent.atomic.AtomicBoolean();
+            var button = LargeWorkstationUI.powerPriorityButton(preferred::get, () -> preferred.set(!preferred.get()));
+            var icon = button.selectId("power-priority-icon").findFirst().orElseThrow();
+            var root = new UIElement().layout(layout -> layout.width(253).height(214))
+                .addChild(HostSideButtonBar.left(button));
+            var ui = new ModularUI(UI.of(root));
+            ui.init(640, 480);
+            assertSame(AETextures.icon(ECOIcon.POWER_UNIT_AE), icon.getStyle().backgroundTexture());
+            var synced = (BindableValue<Boolean>) button.getChildren().stream()
+                .filter(child -> child instanceof BindableValue<?> value && value.getValue() instanceof Boolean)
+                .findFirst().orElseThrow();
+            for (boolean fe : new boolean[] {true, false}) {
+                synced.setValue(fe);
+                ui.init(640, 480);
+                assertSame(AETextures.icon(fe ? ECOIcon.POWER_UNIT_FE : ECOIcon.POWER_UNIT_AE), icon.getStyle().backgroundTexture());
+                UIEvent hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+                hover.target = button;
+                UIEventDispatcher.dispatchEvent(hover, false, false, false);
+                var title = (TranslatableContents) hover.hoverTooltips.tooltipTexts().getFirst().getContents();
+                assertEquals("gui.neoecoae.workstation.power_priority." + (fe ? "fe" : "ae"), title.getKey());
+            }
+        }
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void smartCoolingTextAndControlsStayInSeparateRegionsAfterStatusUpdatesAndResize() {
         try (var ldlib = mockStatic(LDLib2.class)) {
