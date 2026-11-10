@@ -362,7 +362,7 @@ public final class SmartCoolingModuleUI {
     static Phase phase(ECOLargeIntegratedWorkingStationInputHatchBlockEntity host) {
         var controller = controller(host);
         if (controller == null) return Phase.OFFLINE;
-        if (host.getMarkedCoolant().isEmpty()) return Phase.ALERT;
+        if (host.getMarkedCoolant().isEmpty() && host.tank.isEmpty()) return Phase.ALERT;
         if (!controller.isTemperatureEnabled()) return Phase.DISABLED;
         return controller.hasSmartCoolingProblem() ? Phase.ALERT : Phase.ACTIVE;
     }
@@ -382,7 +382,7 @@ public final class SmartCoolingModuleUI {
     static Component status(ECOLargeIntegratedWorkingStationInputHatchBlockEntity host) {
         var controller = controller(host);
         if (controller == null) return tr("unformed");
-        if (host.getMarkedCoolant().isEmpty()) return tr("unmarked");
+        if (host.getMarkedCoolant().isEmpty() && host.tank.isEmpty()) return tr("unmarked");
         if (!controller.isTemperatureEnabled()) return tr("disabled");
         return controller.getSmartCoolingStatusText();
     }

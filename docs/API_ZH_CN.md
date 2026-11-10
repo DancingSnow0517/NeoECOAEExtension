@@ -265,6 +265,10 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 
 附属驱动器可实现 [IECOConfigurableCellDrive](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOConfigurableCellDrive.java)，无需继承 ECO 方块实体。`getCellInteractionId()` 标识一次安装，换盘或重新加载时更新，并同步到 `StorageHostUI.CellEntry.atDrive(position, stack, reason, interactionId)`。`setConfiguredCellPriority` 必须保存、同步设置并刷新受影响的 AE2 挂载；有效挂载优先级使用 `StoragePriority.mountPriority(hostPriority, cellPriority)`，按有符号 int 饱和相加。
 
+要复用已安装盘的「配置」工作台，主机方块实体实现 [IECOConfigurableCellHost](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOConfigurableCellHost.java)，`getCellWorkbenchBlockEntity()` 返回自身，`getStorageDrivesForIntegration()` 仅返回当前所属驱动器；驱动器实现 [IECOCellWorkbenchDrive](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOCellWorkbenchDrive.java)，复用上述优先级接口和 `ICellHost`。`getCellInventory()` 返回当前挂载的库存，`getCellStack()` 必须返回同一活栈；`reloadCellConfiguration()` 保存内容、重建处理器并刷新挂载，不得更换活栈或安装 UUID。
+
+将 `CellActions.openConfiguration` 绑定为 `(pos, id) -> openCellConfiguration(player, pos, id)`，在所属服务器线程调用。共享 locator 与工作台负责检查主机身份、世界、结构、权限、驱动器归属、安装 UUID、单张盘及迁移锁；附属仍需实现 `isFormed/canPlayerInteract` 的实际规则。配置直接写入已安装盘，取盘确认移除成功后才转交鼠标；默认返回 LDLib 方块界面，其他菜单重写 `returnToCellWorkbenchHost(ServerPlayer)`。无需继承内置主机、驱动器或复制工作台。
+
 每台主机保存一个 [ECOStorageCellPriorities](../src/main/java/cn/dancingsnow/neoecoae/api/storage/ECOStorageCellPriorities.java)，传入当前所属驱动器的 supplier 和权限 predicate；predicate 应检查同一世界、结构形成、距离及玩家/网络权限。每次读写都会重新检查归属、位置、安装 UUID、移除状态、可取出性和盘的迁移/无限成员锁定。服务端操作在所属服务器线程执行。内置主机的 `getConfigurableCellDrives()` 同样返回此接口，原 `getStorageDrivesForIntegration()` 签名保留。
 
 在每次创建菜单时建立 [StorageCellPriorityUI](../src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageCellPriorityUI.java)，它封装客户端目标、服务端按玩家选择和菜单 RPC，无需附属复制这些逻辑：
@@ -324,6 +328,8 @@ root.addChild(priority.window()); // 客户端和服务端都添加到同一位�
 `ECOLargeIntegratedWorkingStationBlockEntity.getCluster()` 在结构拆除或断开时返回 `null`，附属调用必须保留判空。旧公开方法 `getSelectedTierText/getTemperatureText/getEnergyText/getRecipeText/returnStoredInputs` 自 21.2.15 标记为弃用，仍保留原签名和行为，未计划移除。新面板使用 `getCoolingTierText/getTemperature/getAECurrentPower/getAEMaxPower/getTask` 等对应数据入口；`returnStoredInputs` 暂无通用替代，仅供所属服务器线程恢复旧批次，拒收后仍须保留未退回资源。
 
 `ECOWorkstationRecipeAdapters.register(id, priority, sourceRecipeType, adapter)` 转换外部配方，保留源 ID/类型、输入输出、加工时间、AE/FE 与额外资源。不能准确表达时使该配方停用，不丢弃成本。`LargeWorkstationRecipe.processing(ticks, feEnergy, feAlternative)` 明确时间/FE 合同；`energy()` 是 AE 预算，两项非零且非 alternative 时同时支付，alternative 时二选一，FE-only 的 AE 设零。
+
+`isFePreferred()` 读取控制器保存的供能优先级，`togglePowerPriority()` 仅在所属服务器线程切换。付款先使用优先能源，缺口按 AE2 配置汇率由另一种补足；独立 AE/FE 预算相加，alternative 配方在接单时选择一项预算。切换优先级不重新定价已接批次。`NEIntegratedWorkingStationCluster.getInputHatch()` 仍返回下层普通输入仓，`getSmartCoolingController()` 返回主机正后方的可选上层控制器。两者可以同时存在，调用方均须保留判空。
 
 `ECOWorkstationModules.Module` 提供稳定 ID、升级卡、源类型、名称与可选外观。用 `getInstalledModuleId/getInstalledModuleDescription` 读取真实身份，不用旧枚举的 `OTHER` 区分自定义模块。图标 15×15、芯片图 28×28，模型按北向提供完整控制器外观。
 

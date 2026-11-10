@@ -68,6 +68,7 @@ class LargeWorkstationProgressTest {
         var cluster = mock(cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster.class);
         var hatch = mock(ECOLargeIntegratedWorkingStationInputHatchBlockEntity.class);
         when(cluster.getInputHatch()).thenReturn(hatch);
+        when(cluster.getSmartCoolingController()).thenReturn(smartCooling ? hatch : null);
         when(hatch.isSmartCoolingModule()).thenReturn(smartCooling);
         set(controller, "cluster", cluster);
         set(controller, "temperature", 100.0);

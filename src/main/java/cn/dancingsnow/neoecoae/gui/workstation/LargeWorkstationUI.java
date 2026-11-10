@@ -21,6 +21,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import java.util.ArrayList;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.BooleanSupplier;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import net.minecraft.core.HolderLookup;
@@ -48,11 +49,35 @@ public final class LargeWorkstationUI {
         ResourceLocation.fromNamespaceAndPath("neoecoae", "screens/workstation/large");
 
     public static ModularUI create(Config config, Player player) {
+        return create(config, player, () -> false, null);
+    }
+
+    public static ModularUI create(Config config, Player player, BooleanSupplier fePreferred, Runnable togglePriority) {
         UIElement root = WorkstationUiJson.load(JSON_LAYOUT, new JsonContext(config, player));
         root.setOverflowVisible(true);
-        root.addChild(HostSideButtonBar.left(GuideButton.create(player,
-            "neoecoae:neoecoae_intro/large_integrated_working_station.md")));
+        var guide = GuideButton.create(player, "neoecoae:neoecoae_intro/large_integrated_working_station.md");
+        root.addChild(togglePriority == null ? HostSideButtonBar.left(guide)
+            : HostSideButtonBar.left(guide, powerPriorityButton(fePreferred, togglePriority)));
         return ECOModularUI.create(root, player);
+    }
+
+    static Button powerPriorityButton(BooleanSupplier fePreferred, Runnable toggle) {
+        Button button = HostSideButtonBar.createButton().noText();
+        button.setId("large-workstation-power-priority");
+        var icon = new UIElement().style(style -> style.backgroundTexture(WorkstationTextures.powerPriority(fePreferred.getAsBoolean())));
+        icon.setId("power-priority-icon");
+        button.addChild(icon);
+        button.setOnServerClick(event -> { if (event.button == 0) toggle.run(); });
+        var synced = new BindableValue<>(fePreferred.getAsBoolean());
+        synced.bind(DataBindingBuilder.boolS2C(fePreferred::getAsBoolean).build());
+        synced.registerValueListener(value -> icon.style(style -> style.backgroundTexture(WorkstationTextures.powerPriority(Boolean.TRUE.equals(value)))));
+        synced.setDisplay(false);
+        button.addChild(synced);
+        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = HoverTooltips.empty().append(
+            Component.translatable(Boolean.TRUE.equals(synced.getValue())
+                ? "gui.neoecoae.workstation.power_priority.fe" : "gui.neoecoae.workstation.power_priority.ae"),
+            Component.translatable("gui.neoecoae.workstation.power_priority.hint")));
+        return button;
     }
 
     /** Advance before LDLib calculates transforms and resolves this frame's hovered element. */

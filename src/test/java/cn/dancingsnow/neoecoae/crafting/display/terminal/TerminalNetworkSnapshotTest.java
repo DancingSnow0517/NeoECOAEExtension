@@ -43,7 +43,7 @@ class TerminalNetworkSnapshotTest {
         source.engine.insert(huge, MAX.add(BigInteger.TEN), Actionable.MODULATE);
         var network = new Network(source);
         var before = viewerFirst ? network.sample(0, true) : null;
-        var grid = cn.dancingsnow.neoecoae.storage.StorageWorkloadBenchmark.grid(network);
+        var grid = grid(network);
         var first = cn.dancingsnow.neoecoae.crafting.planner.ECOPlannerInventory.capture(grid);
         source.engine.extract(stone, 10, Actionable.MODULATE);
         source.engine.insert(dirt, 5, Actionable.MODULATE);
@@ -72,7 +72,7 @@ class TerminalNetworkSnapshotTest {
         source.engine.insert(key, 10, Actionable.MODULATE);
         var network = new Network(source);
         var before = network.sample(0, true);
-        var grid = cn.dancingsnow.neoecoae.storage.StorageWorkloadBenchmark.grid(network);
+        var grid = grid(network);
         source.engine.insert(key, 2, Actionable.MODULATE);
         assertEquals(12, cn.dancingsnow.neoecoae.crafting.planner.ECOPlannerInventory.capture(grid).toKeyCounter().get(key));
         network.locked = true;
@@ -83,6 +83,15 @@ class TerminalNetworkSnapshotTest {
         assertEquals(12, after.inventory().get(key));
         assertEquals(10, before.inventory().get(key));
         assertNull(TerminalInventorySnapshot.changesBetween(before.inventory(), after.inventory()));
+    }
+
+    private static appeng.api.networking.IGrid grid(MEStorage storage) {
+        var grid = org.mockito.Mockito.mock(appeng.api.networking.IGrid.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+        org.mockito.Mockito.when(grid.getStorageService().getInventory()).thenReturn(storage);
+        org.mockito.Mockito.when(grid.getMachines(cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity.class))
+            .thenReturn(Set.of());
+        org.mockito.Mockito.when(grid.getMachineClasses()).thenReturn(Set.of());
+        return grid;
     }
 
     @Test void changedKeysAndUnchangedSnapshotsAreSharedWithoutRelistingTheDomain() {
