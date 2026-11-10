@@ -21,6 +21,11 @@ public interface ECOCraftConfirmMenuMode {
 
     default boolean neoecoae$bigOrderCpuAvailable() { return false; }
     default void neoecoae$startBigOrder(boolean forced) {}
+    default int neoecoae$getOptimizationState() { return 0; }
+    default boolean neoecoae$exactPlanReady() { return false; }
+    default boolean neoecoae$provenInfeasible() { return false; }
+    default long neoecoae$getDisplayedPlanRevision() { return -1L; }
+    default boolean neoecoae$lockDisplayedPlan(long revision) { return true; }
     /** Whether this menu's normal AE2 planning request was eligible for ECO. */
     boolean neoecoae$isEcoPlannerAvailable();
 
@@ -35,6 +40,15 @@ public interface ECOCraftConfirmMenuMode {
 
     BigInteger neoecoae$getTheoreticalBytes();
 
+    /** Byte estimate metadata can arrive before the material rows of the same final plan. */
+    default boolean neoecoae$hasByteEstimate() {
+        return neoecoae$getCraftingGraphSnapshot().hasMaterialDetails();
+    }
+
+    default boolean neoecoae$hasCompleteByteEstimate() {
+        return neoecoae$getCraftingGraphSnapshot().hasCompleteByteEstimate();
+    }
+
     @Nullable PlanningStatus neoecoae$getPlanningStatus();
 
     default String neoecoae$getPlanningDiagnostic() { return ""; }
@@ -43,5 +57,10 @@ public interface ECOCraftConfirmMenuMode {
 
     CraftingGraphSnapshot neoecoae$getCraftingGraphSnapshot();
     default void neoecoae$setDiagnostics(long version, CraftingGraphSnapshot graph, ECOCycleItemList cycles) {}
+    default void neoecoae$setMaterialReport(long version, CraftingGraphSnapshot report, ECOCycleItemList cycles) {
+        neoecoae$setDiagnostics(version, report, cycles);
+    }
     default boolean neoecoae$diagnosticsReady() { return true; }
+    default boolean neoecoae$graphReady() { return neoecoae$diagnosticsReady(); }
+    default int neoecoae$getReportSyncFailure() { return 0; }
 }
