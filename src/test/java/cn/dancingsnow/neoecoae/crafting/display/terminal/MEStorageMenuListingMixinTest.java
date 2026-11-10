@@ -40,10 +40,17 @@ class MEStorageMenuListingMixinTest {
             new ClassReader(stream).accept(mixin, 0);
         }
         Set<String> grouped = new java.util.HashSet<>();
+        Set<String> wrapped = new java.util.HashSet<>();
         for (var method : mixin.methods) {
             for (var annotations : java.util.Arrays.asList(method.visibleAnnotations, method.invisibleAnnotations)) {
                 if (annotations == null) continue;
                 for (var annotation : annotations) {
+                    if (annotation.desc.equals("Lcom/llamalad7/mixinextras/injector/wrapoperation/WrapOperation;")) {
+                        wrapped.add(method.name);
+                        assertEquals(java.util.List.of("broadcastChanges()V", "m_38946_()V"),
+                                annotation.values.get(annotation.values.indexOf("method") + 1),
+                                method.name + " must target both development and production AE2 names");
+                    }
                     if (!annotation.desc.equals("Lorg/spongepowered/asm/mixin/injection/Group;")) continue;
                     grouped.add(method.name);
                     assertEquals("neoecoae$inventoryChanges", annotation.values.get(annotation.values.indexOf("name") + 1));
@@ -54,6 +61,8 @@ class MEStorageMenuListingMixinTest {
         }
         assertEquals(Set.of("neoecoae$diffWithoutMutatingSnapshot", "neoecoae$skipSnapshotZeroRemoval",
             "neoecoae$reuseChangedKeys"), grouped, "all three replacements must apply together");
+        assertEquals(Set.of("neoecoae$collectExactAmounts", "neoecoae$diffWithoutMutatingSnapshot",
+                "neoecoae$skipSnapshotZeroRemoval", "neoecoae$reuseChangedKeys"), wrapped);
     }
 
     @Test void updateCollectsChangesWithoutReplacingOrMutatingTheSharedBaseline() throws Exception {
