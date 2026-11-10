@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.menu;
 
 import appeng.menu.locator.MenuHostLocator;
 import appeng.menu.locator.MenuLocators;
-import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
+import cn.dancingsnow.neoecoae.api.storage.IECOConfigurableCellHost;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.StorageCellWorkbench;
 import cn.dancingsnow.neoecoae.storage.ECOStorageCellSettings;
 import java.util.UUID;
@@ -23,7 +23,11 @@ public record StorageCellWorkbenchLocator(BlockPos controller, BlockPos drive, U
     @Override
     @Nullable
     public <T> T locate(Player player, Class<T> hostInterface) {
-        if (!(player.level().getBlockEntity(controller) instanceof ECOStorageSystemBlockEntity host)) return null;
+        if (controller == null || drive == null || installation == null) return null;
+        var blockEntity = player.level().getBlockEntity(controller);
+        if (!(blockEntity instanceof IECOConfigurableCellHost host)
+            || host.getCellWorkbenchBlockEntity() != blockEntity || blockEntity.isRemoved()
+            || blockEntity.getLevel() != player.level()) return null;
         if (!player.level().isClientSide && (!host.isFormed() || !host.canPlayerInteract(player)
             || host.getStorageDrivesForIntegration().stream().noneMatch(candidate ->
                 !candidate.isRemoved() && candidate.getBlockPos().equals(drive)

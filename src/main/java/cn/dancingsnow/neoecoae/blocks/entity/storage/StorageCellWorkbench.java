@@ -7,30 +7,34 @@ import appeng.blockentity.misc.CellWorkbenchBlockEntity;
 import appeng.core.definitions.AEBlockEntities;
 import appeng.core.definitions.AEBlocks;
 import appeng.menu.slot.AppEngSlot;
+import cn.dancingsnow.neoecoae.api.storage.IECOCellWorkbenchDrive;
+import cn.dancingsnow.neoecoae.api.storage.IECOConfigurableCellHost;
 import cn.dancingsnow.neoecoae.storage.ECOStorageCellSettings;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import java.util.Objects;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import org.jetbrains.annotations.Nullable;
 
 /** An AE2 workbench view of a drive's installed stack; it never owns a second physical cell. */
 public final class StorageCellWorkbench extends CellWorkbenchBlockEntity {
-    private final ECOStorageSystemBlockEntity controller;
+    private final IECOConfigurableCellHost host;
+    private final BlockEntity controller;
     private final BlockPos drivePosition;
     private final UUID installation;
     private final UUID viewer;
     private ItemStack configuration = ItemStack.EMPTY;
     private boolean extracted;
 
-    public StorageCellWorkbench(ECOStorageSystemBlockEntity controller, BlockPos drivePosition,
+    public StorageCellWorkbench(IECOConfigurableCellHost host, BlockPos drivePosition,
         UUID installation, Player player) {
-        super(AEBlockEntities.CELL_WORKBENCH.get(), controller.getBlockPos(),
+        super(AEBlockEntities.CELL_WORKBENCH.get(), host.getCellWorkbenchBlockEntity().getBlockPos(),
             AEBlocks.CELL_WORKBENCH.block().defaultBlockState());
-        this.controller = controller;
+        this.host = host;
+        this.controller = host.getCellWorkbenchBlockEntity();
         this.drivePosition = drivePosition.immutable();
         this.installation = installation;
         this.viewer = player.getUUID();
@@ -46,7 +50,7 @@ public final class StorageCellWorkbench extends CellWorkbenchBlockEntity {
         }
     }
 
-    public ECOStorageSystemBlockEntity controller() { return controller; }
+    public BlockEntity controller() { return controller; }
 
     @Nullable
     public cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell bulkCell() {
@@ -60,8 +64,8 @@ public final class StorageCellWorkbench extends CellWorkbenchBlockEntity {
     }
 
     @Nullable
-    private ECODriveBlockEntity drive() {
-        return controller.getStorageDrivesForIntegration().stream()
+    private IECOCellWorkbenchDrive drive() {
+        return host.getStorageDrivesForIntegration().stream()
             .filter(drive -> !drive.isRemoved() && drive.getBlockPos().equals(drivePosition)
                 && installation.equals(drive.getCellInteractionId()))
             .findFirst().orElse(null);
@@ -70,11 +74,11 @@ public final class StorageCellWorkbench extends CellWorkbenchBlockEntity {
     public boolean isValidFor(Player player) {
         if (extracted || !viewer.equals(player.getUUID()) || controller.isRemoved()
             || player.level() != controller.getLevel()
-            || !controller.canPlayerInteract(player)
+            || !host.canPlayerInteract(player)
             || player.level().getBlockEntity(controller.getBlockPos()) != controller) return false;
         if (player.level().isClientSide) return true;
         var drive = drive();
-        return controller.isFormed() && drive != null && drive.canExtractCell()
+        return host.isFormed() && drive != null && drive.canExtractCell()
             && drive.getCellStack() == stack() && stack().getCount() == 1
             && ECOStorageCellSettings.canConfigure(stack());
     }
@@ -100,7 +104,7 @@ public final class StorageCellWorkbench extends CellWorkbenchBlockEntity {
         if (drive.getCellStack() != null) return;
         extracted = true;
         // Opening another container disposes of its predecessor's cursor, so assign the cell afterwards.
-        BlockUIMenuType.openUI(serverPlayer, controller.getBlockPos());
+        host.returnToCellWorkbenchHost(serverPlayer);
         player.containerMenu.setCarried(cell);
         player.containerMenu.broadcastFullState();
     }

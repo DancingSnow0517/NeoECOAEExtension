@@ -23,6 +23,7 @@ import cn.dancingsnow.neoecoae.api.storage.IECOConfigurableCellDrive;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCellPriorities;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCellPriorities.Target;
 import cn.dancingsnow.neoecoae.api.storage.IECOStoragePriorityHost;
+import cn.dancingsnow.neoecoae.api.storage.IECOConfigurableCellHost;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
@@ -76,7 +77,7 @@ import org.slf4j.LoggerFactory;
 
 public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster, ECOStorageSystemBlockEntity>
         implements ISyncPersistRPCBlockEntity, InternalInventoryHost, IStorageProvider, MultiBlockBuildController.Host,
-        IECOStoragePriorityHost {
+        IECOStoragePriorityHost, IECOConfigurableCellHost {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOStorageSystemBlockEntity.class);
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
     private static final long STORAGE_INTERFACE_TRANSFER_NANOS_PER_TICK = 2_000_000L;
@@ -362,11 +363,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         cellPriorities.changePriority(player, new Target(position, expected), delta);
     }
 
-    private void openCellConfiguration(Player player, BlockPos position, UUID expected) {
-        if (level == null || level.isClientSide || !player.containerMenu.getCarried().isEmpty()
-            || cellPriorities.resolve(player, new Target(position, expected)) == null) return;
-        appeng.menu.MenuOpener.open(appeng.menu.implementations.CellWorkbenchMenu.TYPE, player,
-            new cn.dancingsnow.neoecoae.menu.StorageCellWorkbenchLocator(worldPosition, position, expected));
+    @Override
+    public net.minecraft.world.level.block.entity.BlockEntity getCellWorkbenchBlockEntity() {
+        return this;
     }
 
     private CompoundTag previewBulkCellMigration(Player player, BlockPos position) {

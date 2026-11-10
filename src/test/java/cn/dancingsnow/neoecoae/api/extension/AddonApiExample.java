@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.api.power.ECOPowerProfiles;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageChannelDisplays;
 import cn.dancingsnow.neoecoae.api.storage.INativeMEStorageRestrictedItem;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCellPriorities;
+import cn.dancingsnow.neoecoae.api.storage.IECOConfigurableCellHost;
 import cn.dancingsnow.neoecoae.gui.storage.StorageCellPriorityUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
@@ -26,6 +27,15 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 @SuppressWarnings("unused")
 public final class AddonApiExample {
     private AddonApiExample() {}
+
+    /** Implement the host and drive contracts to share the installed-cell workbench and its RPC. */
+    public static StorageHostUI.Config cellWorkbench(StorageHostUI.Config config,
+        IECOConfigurableCellHost host, net.minecraft.world.entity.player.Player player) {
+        var actions = config.cellActions();
+        return config.withCellActions(new StorageHostUI.CellActions(actions.migrateMarked(), actions.openPriority(),
+            actions.openCompressionDisplay(), actions.previewMigration(),
+            (position, installation) -> host.openCellConfiguration(player, position, installation)));
+    }
 
     /** The host owns priorities; construct this panel separately for every opened menu on both sides. */
     public static com.lowdragmc.lowdraglib2.gui.ui.UIElement storagePanel(StorageHostUI.Config baseConfig,
