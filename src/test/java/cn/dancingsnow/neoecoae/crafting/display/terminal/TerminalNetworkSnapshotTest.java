@@ -32,6 +32,59 @@ class TerminalNetworkSnapshotTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
     @AfterEach void clear() { TerminalInventorySnapshot.clear(); }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void planningCapturesPreservePendingViewerChangesAndOwnedQuantities(boolean viewerFirst) {
+        var stone = AEItemKey.of(Items.STONE);
+        var dirt = AEItemKey.of(Items.DIRT);
+        var huge = AEItemKey.of(Items.DIAMOND);
+        var source = new Domain();
+        source.engine.insert(stone, 10, Actionable.MODULATE);
+        source.engine.insert(huge, MAX.add(BigInteger.TEN), Actionable.MODULATE);
+        var network = new Network(source);
+        var before = viewerFirst ? network.sample(0, true) : null;
+        var grid = cn.dancingsnow.neoecoae.storage.StorageWorkloadBenchmark.grid(network);
+        var first = cn.dancingsnow.neoecoae.crafting.planner.ECOPlannerInventory.capture(grid);
+        source.engine.extract(stone, 10, Actionable.MODULATE);
+        source.engine.insert(dirt, 5, Actionable.MODULATE);
+        source.engine.insert(huge, 7, Actionable.MODULATE);
+        var second = cn.dancingsnow.neoecoae.crafting.planner.ECOPlannerInventory.capture(grid);
+        source.engine.insert(stone, 13, Actionable.MODULATE);
+        var after = network.sample(0, true);
+        assertEquals(10, first.toKeyCounter().get(stone));
+        assertEquals(0, first.toKeyCounter().get(dirt));
+        assertEquals(0, second.toKeyCounter().get(stone));
+        assertEquals(5, second.toKeyCounter().get(dirt));
+        assertEquals(13, after.inventory().get(stone));
+        assertEquals(5, after.inventory().get(dirt));
+        assertEquals(MAX.add(BigInteger.valueOf(17)), after.amounts().get(huge).value());
+        if (before != null) {
+            assertEquals(10, before.inventory().get(stone));
+            assertEquals(MAX.add(BigInteger.TEN), before.amounts().get(huge).value());
+            assertEquals(Set.of(stone, dirt), TerminalInventorySnapshot.changesBetween(before.inventory(), after.inventory()));
+        }
+        assertEquals(1, source.listings, "planning and viewers share the same incremental source mirror");
+    }
+
+    @Test void aPlannerFallbackRebuildsTheNextViewerFromAllCurrentAmounts() {
+        var key = AEItemKey.of(Items.STONE);
+        var source = new Domain();
+        source.engine.insert(key, 10, Actionable.MODULATE);
+        var network = new Network(source);
+        var before = network.sample(0, true);
+        var grid = cn.dancingsnow.neoecoae.storage.StorageWorkloadBenchmark.grid(network);
+        source.engine.insert(key, 2, Actionable.MODULATE);
+        assertEquals(12, cn.dancingsnow.neoecoae.crafting.planner.ECOPlannerInventory.capture(grid).toKeyCounter().get(key));
+        network.locked = true;
+        try {
+            assertEquals(12, cn.dancingsnow.neoecoae.crafting.planner.ECOPlannerInventory.capture(grid).toKeyCounter().get(key));
+        } finally { network.locked = false; }
+        var after = network.sample(0, true);
+        assertEquals(12, after.inventory().get(key));
+        assertEquals(10, before.inventory().get(key));
+        assertNull(TerminalInventorySnapshot.changesBetween(before.inventory(), after.inventory()));
+    }
+
     @Test void changedKeysAndUnchangedSnapshotsAreSharedWithoutRelistingTheDomain() {
         var key = AEItemKey.of(Items.STONE);
         var source = new Domain();
@@ -79,6 +132,40 @@ class TerminalNetworkSnapshotTest {
         assertEquals(10, ordinary.inventory().get(key));
         assertTrue(ordinary.amounts().isEmpty());
         assertEquals(1, source.listings);
+    }
+
+    @Test void fuzzyMaterializationAndMutableViewsCannotChangeOlderOrLaterPublications() {
+        var source = new Domain();
+        var variants = new ArrayList<AEKey>();
+        for (int damage = 1; damage <= 64; damage++) {
+            var stack = new net.minecraft.world.item.ItemStack(Items.IRON_PICKAXE);
+            stack.setDamageValue(damage);
+            var key = AEItemKey.of(stack);
+            variants.add(key);
+            source.engine.insert(key, damage, Actionable.MODULATE);
+        }
+        var network = new Network(source);
+        var first = network.sample(0, false);
+        var hot = variants.getFirst();
+        source.engine.insert(hot, 9, Actionable.MODULATE);
+        var second = network.sample(1, false);
+        assertEquals(64, second.inventory().findFuzzy(hot, appeng.api.config.FuzzyMode.IGNORE_ALL).size());
+        assertEquals(1, first.inventory().get(hot));
+        assertEquals(10, second.inventory().get(hot));
+        first.inventory().set(hot, 999);
+        for (var key : variants) source.engine.insert(key, 1, Actionable.MODULATE);
+        var dense = network.sample(2, false);
+        assertEquals(11, dense.inventory().get(hot));
+        assertEquals(10, second.inventory().get(hot));
+        source.engine.extract(hot, Long.MAX_VALUE, Actionable.MODULATE);
+        var removed = network.sample(3, false);
+        assertEquals(0, removed.inventory().get(hot));
+        assertEquals(11, dense.inventory().get(hot));
+        var mutable = new KeyCounter();
+        mutable.addAll(dense.inventory());
+        mutable.clear();
+        assertEquals(64, dense.inventory().size());
+        assertEquals(63, removed.inventory().findFuzzy(hot, appeng.api.config.FuzzyMode.IGNORE_ALL).size());
     }
 
     @Test void ordinaryContributionsOverflowExactlyAndUnmountingRemovesTheSideChannel() {

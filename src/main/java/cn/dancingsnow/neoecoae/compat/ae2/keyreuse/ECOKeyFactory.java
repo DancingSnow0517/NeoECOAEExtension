@@ -7,12 +7,14 @@ import appeng.api.stacks.GenericStack;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Item;
+import net.minecraft.core.component.PatchedDataComponentMap;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 
-/** Internal ECO entry points. AE2 and addon factories/decoders retain their original behavior. */
+/** Internal ECO entry points and the version-checked default-key factory bridge. Content equality is authoritative. */
 public final class ECOKeyFactory {
     private ECOKeyFactory() {}
 
@@ -24,24 +26,48 @@ public final class ECOKeyFactory {
     public static AEItemKey item(ItemStack stack) {
         Object epoch = KeyReuse.epoch();
         if (epoch == null || stack.isEmpty() || !plain(stack)) return AEItemKey.of(stack);
-        KeyReuseSlot slot = KeyReuse.itemSlot(epoch, stack.getItem());
-        if (slot == null) return AEItemKey.of(stack);
-        AEItemKey key = (AEItemKey) slot.get(epoch);
+        AEItemKey key = cachedItem(epoch, stack);
         if (key != null) return key;
-        synchronized (slot) {
-            key = (AEItemKey) slot.get(epoch);
-            if (key == null) {
-                key = AEItemKey.of(stack);
-                key.getReadOnlyStack().setCount(1);
-                key.getMaxStackSize();
-                slot.set(epoch, key);
-            }
-            return key;
-        }
+        // The public AE2 stack overload preserves count. ECO normalizes its own input before that boundary.
+        return publishItem(epoch, AEItemKey.of(stack.getCount() == 1 ? stack : stack.copyWithCount(1)));
     }
 
     public static AEItemKey item(ItemLike item) {
-        return item(item.asItem().getDefaultInstance());
+        Item resource = item.asItem();
+        if (resource.getClass() == Item.class) {
+            AEItemKey cached = cachedItem(KeyReuse.epoch(), resource);
+            if (cached != null) return cached;
+        }
+        return item(resource.getDefaultInstance());
+    }
+
+    public static AEItemKey cachedItem(Object epoch, Item item) {
+        KeyReuseSlot slot = KeyReuse.itemSlot(epoch, item);
+        return slot == null ? null : (AEItemKey) slot.get(epoch, item.components());
+    }
+
+    public static AEItemKey cachedItem(Object epoch, ItemStack stack) {
+        if (epoch == null || stack.isEmpty() || !plain(stack)) return null;
+        AEItemKey cached = cachedItem(epoch, stack.getItem());
+        // Empty patches created before ModifyDefaultComponentsEvent can still carry an older prototype.
+        return cached != null && ItemStack.isSameItemSameComponents(stack, cached.getReadOnlyStack()) ? cached : null;
+    }
+
+    /** Only freshly constructed factory results enter the shared slot; borrowed decoder keys do not. */
+    public static AEItemKey publishItem(Object epoch, AEItemKey key) {
+        if (epoch == null || key == null || key.getReadOnlyStack().getCount() != 1 || !plain(key.getReadOnlyStack())) return key;
+        Item item = key.getItem();
+        KeyReuseSlot slot = KeyReuse.itemSlot(epoch, item);
+        if (slot == null) return key;
+        synchronized (slot) {
+            var prototype = item.components();
+            AEItemKey cached = (AEItemKey) slot.get(epoch, prototype);
+            if (cached != null) return key.equals(cached) ? cached : key;
+            // PatchedDataComponentMap.equals compares both prototype and patch, exactly as ItemStack/AE2 do.
+            if (key.getReadOnlyStack().getComponents().equals(new PatchedDataComponentMap(prototype)))
+                slot.set(epoch, prototype, key);
+            return key;
+        }
     }
 
     private static boolean plain(ItemStack stack) { return stack.isComponentsPatchEmpty(); }
@@ -54,16 +80,25 @@ public final class ECOKeyFactory {
 
     public static AEFluidKey fluid(Fluid fluid) {
         Object epoch = KeyReuse.epoch();
+        AEFluidKey cached = cachedFluid(epoch, fluid);
+        return cached != null ? cached : publishFluid(epoch, AEFluidKey.of(fluid));
+    }
+
+    public static AEFluidKey cachedFluid(Object epoch, Fluid fluid) {
         KeyReuseSlot slot = KeyReuse.fluidSlot(epoch, fluid);
-        if (slot == null) return AEFluidKey.of(fluid);
-        AEFluidKey key = (AEFluidKey) slot.get(epoch);
-        if (key != null) return key;
+        return slot == null ? null : (AEFluidKey) slot.get(epoch);
+    }
+
+    /** Caller has already checked the input's empty component patch. */
+    public static AEFluidKey publishFluid(Object epoch, AEFluidKey key) {
+        if (epoch == null || key == null) return key;
+        if ((Object) key instanceof FluidKeyComponents components && components.neoecoae$hasComponentPatch()) return key;
+        KeyReuseSlot slot = KeyReuse.fluidSlot(epoch, key.getFluid());
+        if (slot == null) return key;
         synchronized (slot) {
-            key = (AEFluidKey) slot.get(epoch);
-            if (key == null) {
-                key = AEFluidKey.of(fluid);
-                if (key != null) slot.set(epoch, key);
-            }
+            AEFluidKey cached = (AEFluidKey) slot.get(epoch);
+            if (cached != null) return key.equals(cached) ? cached : key;
+            slot.set(epoch, key);
             return key;
         }
     }
@@ -72,22 +107,18 @@ public final class ECOKeyFactory {
     public static AEKey canonicalize(AEKey key) {
         if (key == null || KeyReuse.epoch() == null) return key;
         AEKey owned;
-        if (key instanceof AEItemKey || key instanceof AEFluidKey) {
-            Object epoch = KeyReuse.epoch();
-            KeyReuseSlot slot = key instanceof AEItemKey
-                    ? KeyReuse.itemSlot(epoch, key.getPrimaryKey()) : KeyReuse.fluidSlot(epoch, key.getPrimaryKey());
-            if (slot == null) return key;
-            AEKey cached = (AEKey) slot.get(epoch);
-            if (cached != null) return key.equals(cached) ? cached : key;
-        }
         if (key instanceof AEItemKey item) {
             ItemStack stack = item.getReadOnlyStack();
             if (!plain(stack)) return key;
+            AEItemKey cached = cachedItem(KeyReuse.epoch(), item.getItem());
+            if (cached != null) return key.equals(cached) ? cached : key;
             owned = item(stack);
         } else if (key instanceof AEFluidKey fluid) {
-            FluidStack stack = fluid.toStack(1);
-            if (!plain(stack)) return key;
-            owned = fluid(stack.getFluid());
+            if ((Object) fluid instanceof FluidKeyComponents components && components.neoecoae$hasComponentPatch()) return key;
+            AEFluidKey cached = cachedFluid(KeyReuse.epoch(), fluid.getFluid());
+            if (cached != null) return key.equals(cached) ? cached : key;
+            if (!((Object) fluid instanceof FluidKeyComponents) && !plain(fluid.toStack(1))) return key;
+            owned = fluid(fluid.getFluid());
         } else {
             return OptionalECOKeys.canonicalize(key);
         }

@@ -253,6 +253,8 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 
 ## 存储盘与精确数量
 
+增量列表读者同时记录 `StorageListingVersion.neoecoae$listingVersion()` 和 `neoecoae$listingIdentity()`。默认 identity 为源对象自身；委托库存、过滤视图或版本纪元改变时应更换 identity，无法安全版本化时返回 `UNKNOWN`。`StorageListingDelta` 保留原有只传 Key 的回调，该回调允许已报告部分 Key 后返回 false；新增的 `ObjLongConsumer<AEKey>` 重载报告非负的绝对列表数量（零表示删除），无法提供完整增量时必须在调用任何回调前返回 false。默认桥会暂存旧回调的 Key，原生实现可覆盖该重载以避免临时集合；这些游标不改变 AEKey 的内容相等语义。
+
 `ECOExactInventory.debitTransferred(key, accepted)` 扣除外部已确认接收的数量，先记账再通知观察者，通知失败不会回滚已交付资源；本地可回滚的预留继续使用 `debit(Map)`。空闲 ECO CPU 分批返还保留库存，存储异常或非法接收量会停止自动返还并保存诊断；附属不得向仍持有资源或报告永久错误的 CPU 提交新任务。
 
 终端精确数量源可以实现 `crafting.display.terminal.SparseExactAmountSource`，只报告普通 long 列表无法准确表达的资源；`neoecoae$exceptionalAmount(key)` 返回 `null` 表示普通列表已准确表达该资源，或资源当前不可见。稀疏查询与普通列表必须使用相同的过滤、访问和恢复锁规则。结合 `StorageListingDelta` 时，版本必须覆盖精确数量变化，即使 long 投影保持不变。已有 `ExactAmountSource` 与 `CombinedExactAmountSource` 实现继续有效；后者新增的三参数枚举重载允许可信的普通数量使用原始 long 回调，默认仍调用原有精确回调。

@@ -72,7 +72,10 @@ public final class KeyReuseAcceptance {
         ItemStack input = new ItemStack(Items.IRON_INGOT, 64);
         FluidStack fluid = new FluidStack(Fluids.WATER, 1000);
         check(AEItemKey.of(input) != AEItemKey.of(input), "upstream item factory remains independent with ECO reuse enabled");
-        check(AEFluidKey.of(fluid) != AEFluidKey.of(fluid), "upstream fluid factory remains independent with ECO reuse enabled");
+        AEFluidKey firstFluid = AEFluidKey.of(fluid);
+        check(firstFluid.equals(AEFluidKey.of(fluid)), "fluid factory preserves component equality");
+        if ((Object) firstFluid instanceof cn.dancingsnow.neoecoae.compat.ae2.keyreuse.FluidKeyComponents)
+            check(firstFluid == AEFluidKey.of(fluid), "checked default fluid factory reuses its owner slot");
         KeyReuse.configure(false);
         AEItemKey oldItem = ECOKeyFactory.item(input);
         AEFluidKey oldFluid = ECOKeyFactory.fluid(fluid);

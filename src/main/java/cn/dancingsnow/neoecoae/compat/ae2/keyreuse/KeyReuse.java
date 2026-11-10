@@ -38,28 +38,48 @@ public final class KeyReuse {
         if (enabled) epoch = new Generation();
     }
 
-    /** A generation owns its tables; no fields or caches are installed on Minecraft/addon resources. */
+    /** Tables are the bounded fallback when the version-checked owner bridge is unavailable. */
     private static final class Generation {
-        final OwnerSlots items = new OwnerSlots();
-        final OwnerSlots fluids = new OwnerSlots();
+        private volatile OwnerSlots items;
+        private volatile OwnerSlots fluids;
         final java.util.concurrent.ConcurrentMap<Object, OwnerSlots> tables =
             new java.util.concurrent.ConcurrentHashMap<>();
+
+        OwnerSlots items() {
+            OwnerSlots slots = items;
+            if (slots != null) return slots;
+            synchronized (this) {
+                if (items == null) items = new OwnerSlots();
+                return items;
+            }
+        }
+
+        OwnerSlots fluids() {
+            OwnerSlots slots = fluids;
+            if (slots != null) return slots;
+            synchronized (this) {
+                if (fluids == null) fluids = new OwnerSlots();
+                return fluids;
+            }
+        }
     }
 
-    static KeyReuseSlot itemSlot(Object generation, Object owner) {
-        return generation instanceof Generation active && generation == epoch && owner != null
-                ? active.items.get(owner) : null;
+    public static KeyReuseSlot itemSlot(Object generation, Object owner) {
+        if (!(generation instanceof Generation active) || generation != epoch
+                || !(owner instanceof net.minecraft.world.item.Item item) || !item.builtInRegistryHolder().isBound()) return null;
+        return owner instanceof DefaultKeyOwner resource ? resource.neoecoae$defaultKeySlot() : active.items().get(owner);
     }
 
-    static KeyReuseSlot fluidSlot(Object generation, Object owner) {
-        return generation instanceof Generation active && generation == epoch && owner != null
-                ? active.fluids.get(owner) : null;
+    public static KeyReuseSlot fluidSlot(Object generation, Object owner) {
+        if (!(generation instanceof Generation active) || generation != epoch
+                || !(owner instanceof net.minecraft.world.level.material.Fluid fluid) || !fluid.builtInRegistryHolder().isBound()) return null;
+        return owner instanceof DefaultKeyOwner resource ? resource.neoecoae$defaultKeySlot() : active.fluids().get(owner);
     }
 
     static KeyReuseSlot slot(Object generation, Object type, Object owner) {
         if (!(generation instanceof Generation active) || generation != epoch || owner == null) return null;
-        if (type == AEKeyType.items()) return active.items.get(owner);
-        if (type == AEKeyType.fluids()) return active.fluids.get(owner);
+        if (type == AEKeyType.items()) return itemSlot(generation, owner);
+        if (type == AEKeyType.fluids()) return fluidSlot(generation, owner);
         OwnerSlots table = active.tables.get(type);
         if (table == null) table = active.tables.computeIfAbsent(type, ignored -> new OwnerSlots());
         return table.get(owner);

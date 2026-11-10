@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
 import cn.dancingsnow.neoecoae.storage.StorageListingDelta;
 import cn.dancingsnow.neoecoae.storage.StorageListingVersion;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import java.math.BigInteger;
@@ -45,7 +46,7 @@ final class TerminalExactInventory {
 
     /** Captures legacy/nested exact values in the full traversal already required by the ordinary cache. */
     void list(MEStorage storage, KeyCounter out) {
-        if (!collecting || sparse(storage) != null) {
+        if (!collecting || ordinary(storage) || sparse(storage) != null) {
             listing.append(storage, out, storage::getAvailableStacks);
             return;
         }
@@ -66,7 +67,7 @@ final class TerminalExactInventory {
         }
     }
 
-    Map<AEKey, ExactAmount> sample(NetworkInventoryCache.Mounts storage, KeyCounter inventory,
+    Map<AEKey, ExactAmount> sample(NetworkInventoryCache.Mounts storage, Object2LongMap<AEKey> inventory,
             Map<AEKey, ExactAmount> previous) {
         Map<AEKey, ExactAmount> result = new HashMap<>();
         boolean locked = storage.neoecoae$withMounts(inventories -> {
@@ -77,11 +78,14 @@ final class TerminalExactInventory {
                 seen.add(source);
                 Mount mount = mounts.computeIfAbsent(source, ignored -> new Mount());
                 long version = network.mountedVersion(source);
+                Object identity = network.mountedIdentity(source);
+                boolean viewChanged = mount.identity != identity;
                 if (!captured.contains(source)
-                        && (remounted || version == StorageListingVersion.UNKNOWN || version != mount.version)) {
-                    refresh(source, mount, version, remounted);
+                        && (remounted || viewChanged || version == StorageListingVersion.UNKNOWN || version != mount.version)) {
+                    refresh(source, mount, version, remounted || viewChanged);
                 }
                 mount.version = version;
+                mount.identity = identity;
             }
             mounts.keySet().removeIf(source -> !seen.contains(source));
             generation = currentGeneration;
@@ -90,7 +94,7 @@ final class TerminalExactInventory {
             network.visitOversizedTotals((key, amount) -> exceptional.add(key));
             for (Mount mount : mounts.values()) exceptional.addAll(mount.values.keySet());
             for (AEKey key : exceptional) {
-                BigInteger total = network.listedTotal(key, inventory.get(key));
+                BigInteger total = network.listedTotal(key, inventory.getLong(key));
                 boolean infinite = false;
                 for (var entry : mounts.entrySet()) {
                     ExactAmount exact = entry.getValue().values.get(key);
@@ -103,7 +107,7 @@ final class TerminalExactInventory {
                             .add(exact.value());
                 }
                 ExactAmount exact = infinite ? ExactAmount.unbounded() : ExactAmount.finite(total);
-                if (differs(exact, inventory.get(key))) result.put(key, exact);
+                if (differs(exact, inventory.getLong(key))) result.put(key, exact);
             }
         });
         if (!locked) return null;
@@ -111,11 +115,16 @@ final class TerminalExactInventory {
     }
 
     private void refresh(MEStorage storage, Mount mount, long version, boolean remounted) {
+        if (ordinary(storage)) {
+            mount.values.clear();
+            return;
+        }
         SparseExactAmountSource source = sparse(storage);
         if (source == null) {
             scratch.clear();
             scratch.removeEmptySubmaps();
-            list(storage, scratch);
+            try { list(storage, scratch); }
+            finally { scratch.clear(); }
             return;
         }
         if (!source.neoecoae$mayHaveExceptionalAmounts()) {
@@ -143,6 +152,20 @@ final class TerminalExactInventory {
                 ? source : null;
     }
 
+    /** These exact classes cannot introduce amounts outside their nonnegative long listing. */
+    private static boolean ordinary(MEStorage storage) {
+        for (int depth = 0; depth < 16 && storage != null; depth++) {
+            Class<?> type = storage.getClass();
+            if (type == cn.dancingsnow.neoecoae.storage.ECOStorageCell.class) return true;
+            if (type != appeng.me.storage.DelegatingMEInventory.class
+                    && type != appeng.me.storage.MEInventoryHandler.class
+                    && type != appeng.me.storage.DriveWatcher.class) return false;
+            if (!(storage instanceof cn.dancingsnow.neoecoae.mixins.ae2.accessor.DelegatingMEInventoryAccessor wrapper)) return false;
+            storage = wrapper.neoecoae$getDelegate();
+        }
+        return false;
+    }
+
     private static boolean differs(ExactAmount exact, long visible) {
         return exact.infinite() || exact.value().bitLength() >= Long.SIZE || exact.value().longValue() != visible;
     }
@@ -150,5 +173,6 @@ final class TerminalExactInventory {
     private static final class Mount {
         final Map<AEKey, ExactAmount> values = new HashMap<>();
         long version = StorageListingVersion.UNKNOWN;
+        Object identity;
     }
 }

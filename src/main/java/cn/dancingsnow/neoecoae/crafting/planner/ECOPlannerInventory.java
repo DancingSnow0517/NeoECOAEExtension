@@ -20,9 +20,18 @@ public final class ECOPlannerInventory {
     private ECOPlannerInventory() {}
 
     public static PlannerInventorySnapshot capture(IGrid grid) {
-        var inventory = grid.getStorageService().getInventory().getAvailableStacks();
-        Set<AEKey> unbounded = collectUnboundedKeys(grid);
-        return PlannerInventorySnapshot.of(inventory, unbounded);
+        var storage = cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot.resolve(
+            grid.getStorageService().getInventory());
+        var server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        // Planning must observe writes made after a terminal sampled this same tick, including exact quantities.
+        return cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot.captureAmounts(
+            storage, server == null ? 0L : server.getTickCount(), storage::getAvailableStacks, (amounts, exact) -> {
+                Set<AEKey> unbounded = collectUnboundedKeys(grid);
+                exact.forEach((key, amount) -> {
+                    if (amount.infinite()) unbounded.add(key);
+                });
+                return PlannerInventorySnapshot.of(amounts, exact, unbounded);
+            });
     }
 
     /**

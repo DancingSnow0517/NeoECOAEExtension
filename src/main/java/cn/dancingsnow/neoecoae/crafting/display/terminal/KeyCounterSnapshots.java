@@ -56,6 +56,9 @@ public final class KeyCounterSnapshots {
     }
 
     private static KeyCounter nativeCopy(KeyCounter source) {
+        if (cn.dancingsnow.neoecoae.storage.StoragePerformance.ENABLED)
+            cn.dancingsnow.neoecoae.storage.StoragePerformance.add(
+                cn.dancingsnow.neoecoae.storage.StoragePerformance.Counter.TERMINAL_COPIED_KEYS, source.size());
         var copy = new KeyCounter();
         copy.addAll(source);
         return copy;

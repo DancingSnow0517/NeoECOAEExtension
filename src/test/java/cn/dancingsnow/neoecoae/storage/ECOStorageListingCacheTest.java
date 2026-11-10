@@ -10,6 +10,19 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class ECOStorageListingCacheTest {
+    @Test void aDifferentSourceAtTheSameRevisionCannotReuseThePreviousListing() {
+        var first = new Source();
+        var second = new Source();
+        var key = key(new Object());
+        first.stock.put(key, 10L);
+        second.stock.put(key, 20L);
+        var cache = new ECOStorageListingCache();
+        cache.append(first, new KeyCounter(), first::list);
+        var current = new KeyCounter();
+        cache.append(second, current, second::list);
+        assertEquals(20, current.get(key));
+    }
+
     private static AEKey key(Object primary) {
         AEKey key = mock(AEKey.class);
         when(key.getPrimaryKey()).thenReturn(primary);

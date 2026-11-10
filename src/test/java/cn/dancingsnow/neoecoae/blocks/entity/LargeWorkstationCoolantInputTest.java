@@ -37,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class LargeWorkstationCoolantInputTest {
+    private int previousRefillThreshold;
     private ECOLargeIntegratedWorkingStationInputHatchBlockEntity hatch;
     private RecipeManager recipes;
     private MEStorage network;
@@ -58,6 +59,11 @@ class LargeWorkstationCoolantInputTest {
 
     @BeforeEach
     void setup() {
+        previousRefillThreshold = cn.dancingsnow.neoecoae.config.NEConfig.smartCoolingRefillThresholdPercent;
+        setupFixture();
+    }
+
+    private void setupFixture() {
         var type = mock(BlockEntityType.class);
         when(type.isValid(any())).thenReturn(true);
         hatch = new ECOLargeIntegratedWorkingStationInputHatchBlockEntity(
@@ -78,6 +84,10 @@ class LargeWorkstationCoolantInputTest {
         when(level.getRecipeManager()).thenReturn(recipes);
         hatch.setLevel(level);
         when(recipes.getAllRecipesFor(NERecipeTypes.COOLING.get())).thenReturn(List.of(cooling(Fluids.WATER)));
+    }
+
+    @org.junit.jupiter.api.AfterEach void restoreRefillThreshold() {
+        cn.dancingsnow.neoecoae.config.NEConfig.smartCoolingRefillThresholdPercent = previousRefillThreshold;
     }
 
     @Test
@@ -154,6 +164,7 @@ class LargeWorkstationCoolantInputTest {
 
     @Test
     void smartModuleOnlyRefillsTheDeficitEveryTwoHundredTicks() {
+        cn.dancingsnow.neoecoae.config.NEConfig.smartCoolingRefillThresholdPercent = 100;
         var smart = smartHatch();
         smart.setMarkedCoolant(new FluidStack(Fluids.WATER, 1));
         when(smart.getLevel().getGameTime()).thenReturn(7L);
@@ -174,6 +185,21 @@ class LargeWorkstationCoolantInputTest {
         when(smart.getLevel().getGameTime()).thenReturn(407L);
         smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
         verifyNoInteractions(network);
+    }
+
+    @Test void thresholdSkipsSatisfiedStockAndRefillsOnlyTheActualDeficit() {
+        cn.dancingsnow.neoecoae.config.NEConfig.smartCoolingRefillThresholdPercent = 75;
+        var smart = smartHatch();
+        smart.setMarkedCoolant(new FluidStack(Fluids.WATER, 1));
+        int threshold = smart.tank.getCapacity() * 3 / 4;
+        smart.tank.fill(new FluidStack(Fluids.WATER, threshold), FluidAction.EXECUTE);
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        verifyNoInteractions(network);
+        smart.tank.drain(1, FluidAction.EXECUTE);
+        when(smart.getLevel().getGameTime()).thenReturn(200L);
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        assertEquals(smart.tank.getCapacity(), smart.tank.getFluidAmount());
+        verify(network).extract(any(), eq((long) smart.tank.getCapacity() - threshold + 1), eq(Actionable.MODULATE), any());
     }
 
     @Test
@@ -322,5 +348,88 @@ class LargeWorkstationCoolantInputTest {
     private static RecipeHolder<CoolingRecipe> cooling(net.minecraft.world.level.material.Fluid fluid) {
         var recipe = new CoolingRecipe(SizedFluidIngredient.of(fluid, 100), FluidStack.EMPTY, 1500, 2);
         return new RecipeHolder<>(ResourceLocation.parse("test:coolant"), recipe);
+    }
+
+    /** Offline request-count measurement, reusing the integration fixture and actual hatch/tank methods. */
+    public static void main(String[] args) throws Exception {
+        bootstrap();
+        cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse.configure(true);
+        java.lang.reflect.Field setting = null;
+        try { setting = cn.dancingsnow.neoecoae.config.NEConfig.class.getField("smartCoolingRefillThresholdPercent"); }
+        catch (NoSuchFieldException baseline) { /* The baseline always replenishes below 100%. */ }
+        var rows = new com.google.gson.JsonArray();
+        coolantTrajectory(setting, 100, 2000, 1024, false); // Shared warmup outside the reported trajectories.
+        for (int rate : new int[]{1024, 8192}) {
+            for (boolean outage : new boolean[]{false, true}) {
+                for (int threshold : setting == null ? new int[]{100} : new int[]{100, 75})
+                    rows.add(coolantTrajectory(setting, threshold, 40_000, rate, outage));
+            }
+        }
+        var report = new com.google.gson.JsonObject();
+        report.addProperty("kind", "Offline real cooling hatch/tank and saved-data engine; fixture supplies clock, recipes and node");
+        report.addProperty("pollIntervalTicks", 200);
+        report.add("results", rows);
+        java.nio.file.Files.writeString(java.nio.file.Path.of(args[0]),
+            new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(report));
+    }
+
+    private static com.google.gson.JsonObject coolantTrajectory(java.lang.reflect.Field setting, int threshold,
+            int ticks, int drainPerTick, boolean outage) throws Exception {
+        if (setting != null) setting.setInt(null, threshold);
+        var fixture = new LargeWorkstationCoolantInputTest();
+        fixture.setupFixture();
+        var smart = fixture.smartHatch();
+        var engine = new cn.dancingsnow.neoecoae.storage.infinite.SavedDataInfiniteStorageEngine(
+            cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageData.createNew());
+        var key = AEFluidKey.of(Fluids.WATER);
+        engine.insert(key, 1_000_000_000L, Actionable.MODULATE);
+        long[] now = {0}, requests = {0, 0};
+        when(smart.getLevel().getGameTime()).thenAnswer(call -> now[0]);
+        when(fixture.network.extract(any(), anyLong(), any(), any())).thenAnswer(call -> {
+            Actionable mode = call.getArgument(2);
+            requests[mode == Actionable.SIMULATE ? 0 : 1]++;
+            if (outage && now[0] >= 10_000 && now[0] < 12_000) return 0L;
+            return engine.extract(call.getArgument(0), call.getArgument(1), mode);
+        });
+        smart.setMarkedCoolant(new FluidStack(Fluids.WATER, 1));
+        smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+        int initial = smart.tank.getFluidAmount();
+        requests[0] = requests[1] = 0;
+        long consumed = 0, allocations = 0, cpu = 0;
+        int lowest = initial;
+        long[] durations = new long[ticks];
+        var meter = (com.sun.management.ThreadMXBean) java.lang.management.ManagementFactory.getThreadMXBean();
+        meter.setThreadAllocatedMemoryEnabled(true);
+        var grid = fixture.smartNode.getGrid();
+        Object[] recordedMocks = {fixture.recipes, fixture.network, fixture.controller, fixture.smartNode,
+            smart.getLevel(), smart.cluster, grid, grid.getStorageService(), grid.getEnergyService()};
+        for (int tick = 1; tick <= ticks; tick++) {
+            now[0] = tick;
+            consumed += smart.tank.drain(drainPerTick, FluidAction.EXECUTE).getAmount();
+            lowest = Math.min(lowest, smart.tank.getFluidAmount());
+            long beforeBytes = meter.getThreadAllocatedBytes(Thread.currentThread().threadId());
+            long beforeCpu = meter.getCurrentThreadCpuTime(), start = System.nanoTime();
+            smart.tick(smart.getLevel(), BlockPos.ZERO, smart.getBlockState());
+            durations[tick - 1] = System.nanoTime() - start;
+            cpu += meter.getCurrentThreadCpuTime() - beforeCpu;
+            allocations += meter.getThreadAllocatedBytes(Thread.currentThread().threadId()) - beforeBytes;
+            // Invocation history is not device state. Bound fixture-only retention outside the measured call.
+            if (tick % 200 == 0) clearInvocations(recordedMocks);
+        }
+        long pulled = 1_000_000_000L - engine.extract(key, Long.MAX_VALUE, Actionable.SIMULATE);
+        if (pulled != consumed + smart.tank.getFluidAmount()) throw new AssertionError("Coolant was lost or duplicated");
+        java.util.Arrays.sort(durations);
+        var row = new com.google.gson.JsonObject();
+        row.addProperty("thresholdPercent", threshold); row.addProperty("ticks", ticks);
+        row.addProperty("drainPerTick", drainPerTick); row.addProperty("outage", outage);
+        row.addProperty("simulateCalls", requests[0]); row.addProperty("modulateCalls", requests[1]);
+        row.addProperty("initialTank", initial); row.addProperty("finalTank", smart.tank.getFluidAmount());
+        row.addProperty("minimumTank", lowest); row.addProperty("consumed", consumed);
+        row.addProperty("totalPulled", pulled); row.addProperty("conservation", true);
+        row.addProperty("p50OfflineTickNs", durations[ticks / 2]);
+        row.addProperty("p95OfflineTickNs", durations[(int) (ticks * .95)]);
+        row.addProperty("p99OfflineTickNs", durations[(int) (ticks * .99)]);
+        row.addProperty("totalThreadCpuNs", cpu); row.addProperty("allocatedBytesPerTick", allocations / (double) ticks);
+        return row;
     }
 }

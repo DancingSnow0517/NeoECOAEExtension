@@ -132,6 +132,17 @@ class TerminalInventorySnapshotTest {
         assertEquals(2, exactListings.get());
     }
 
+    @Test void planningRefreshesExactAndVisibleStockAfterAWritingDeviceInTheSameTick() {
+        var first = TerminalInventorySnapshot.sample(storage, 50, true, this::list);
+        amount = 25;
+        extra = 2;
+        var planning = TerminalInventorySnapshot.sample(storage, 50, true, true, this::list);
+        assertEquals(27, planning.inventory().get(key));
+        assertTrue(planning.amounts().isEmpty());
+        assertEquals(Long.MAX_VALUE, first.inventory().get(key));
+        assertEquals(2, listings.get());
+    }
+
     private KeyCounter list() {
         listings.incrementAndGet();
         if (ExactAmountCollector.isActive()) exactListings.incrementAndGet();

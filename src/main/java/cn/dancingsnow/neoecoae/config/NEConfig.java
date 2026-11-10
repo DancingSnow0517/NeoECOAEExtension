@@ -90,6 +90,21 @@ public class NEConfig {
         .translation("neoecoae.configuration.infiniteMigrationKeysPerTick")
         .defineInRange("infiniteMigrationKeysPerTick", 512, 1, 1_000_000);
 
+    private static final ModConfigSpec.IntValue STORAGE_OUTPUT_TRANSFER_INTERVAL_TICKS = BUILDER
+        .comment("存储输出的小批量排出间隔；1 为每 tick，最高 20 tick。资源保留在宿主库存中。",
+            "Small-output interval in ticks; 1 transfers every tick, up to 20. Resources remain in the host inventory.")
+        .defineInRange("outputTransferIntervalTicks", 1, 1, 20);
+
+    private static final ModConfigSpec.LongValue STORAGE_OUTPUT_FLUSH_THRESHOLD = BUILDER
+        .comment("轮到排出的资源达到此数量时可提前输出；不改变每轮五种资源的公平预算。",
+            "A queued resource may flush early at this amount; the five-key round-robin budget remains unchanged.")
+        .defineInRange("outputFlushThreshold", 64L, 1L, Long.MAX_VALUE);
+
+    private static final ModConfigSpec.IntValue SMART_COOLING_REFILL_THRESHOLD_PERCENT = BUILDER
+        .comment("智能冷却低于此库存百分比时补满；100 保留每次轮询补满的策略。",
+            "Refill smart cooling below this stock percentage; 100 tops up on every poll.")
+        .defineInRange("smartCoolingRefillThresholdPercent", 100, 1, 100);
+
     static {
         BUILDER.pop();
     }
@@ -274,6 +289,9 @@ public class NEConfig {
     public static long megaBulkAutoMarkThreshold = 20_000L;
     public static int infiniteMigrationTickBudgetMicros = 2_000;
     public static int infiniteMigrationKeysPerTick = 512;
+    public static int storageOutputTransferIntervalTicks = 1;
+    public static long storageOutputFlushThreshold = 64;
+    public static int smartCoolingRefillThresholdPercent = 100;
     public static boolean postCraftingEvent;
     public static boolean largeWorkstationIgnoreUpgradeCards = false;
     public static boolean largeWorkstationTemperatureEnabled = true;
@@ -305,6 +323,9 @@ public class NEConfig {
         megaBulkAutoMarkThreshold = MEGA_BULK_AUTO_MARK_THRESHOLD.get();
         infiniteMigrationTickBudgetMicros = INFINITE_MIGRATION_TICK_BUDGET_MICROS.get();
         infiniteMigrationKeysPerTick = INFINITE_MIGRATION_KEYS_PER_TICK.get();
+        storageOutputTransferIntervalTicks = STORAGE_OUTPUT_TRANSFER_INTERVAL_TICKS.get();
+        storageOutputFlushThreshold = STORAGE_OUTPUT_FLUSH_THRESHOLD.get();
+        smartCoolingRefillThresholdPercent = SMART_COOLING_REFILL_THRESHOLD_PERCENT.get();
         postCraftingEvent = POST_CRAFTING_EVENT.get();
         largeWorkstationIgnoreUpgradeCards = LARGE_WORKSTATION_IGNORE_UPGRADE_CARDS.get();
         largeWorkstationTemperatureEnabled = LARGE_WORKSTATION_TEMPERATURE_ENABLED.get();

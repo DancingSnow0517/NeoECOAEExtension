@@ -22,6 +22,52 @@ class NetworkInventoryCacheTest {
     private final Map<AEKey, Long> notified = new LinkedHashMap<>();
     private final AEKey a = key(), b = key(), c = key();
 
+    @Test void fullRebuildPublishesBothViewsAndReleasesMountsBeforeNotifying() {
+        var source = network.add(new Versioned());
+        source.stock.put(a, 10L);
+        source.stock.put(b, 20L);
+        assertTrue(cache.refresh(network, published, amounts, (key, amount) -> {
+            assertFalse(network.inUse, "watchers may synchronously read or change mounts");
+            assertEquals(10, published.get(a));
+            assertEquals(20, amounts.getLong(b));
+            assertFalse(cache.refresh(network, published, amounts, (ignored, ignoredAmount) -> fail()),
+                "recursive refresh must not overwrite the notification batch");
+            notified.put(key, amount);
+        }));
+        assertEquals(Map.of(a, 10L, b, 20L), notified);
+    }
+
+    @Test void legacyPartialDeltaFailureFallsBackWithoutApplyingPartialChanges() {
+        var source = network.add(new LegacyDelta());
+        source.stock.put(a, 10L);
+        refresh();
+        source.stock.put(a, 30L);
+        source.stock.put(b, 7L);
+        source.version++;
+        source.failDelta = true;
+        refresh();
+        assertMatchesFullListing();
+        assertEquals(2, source.listings);
+        source.stock.put(a, 40L);
+        source.version++;
+        source.failDelta = false;
+        notified.clear();
+        refresh();
+        assertEquals(Map.of(a, 40L), notified);
+        assertEquals(2, source.listings);
+    }
+
+    @Test void viewIdentityInvalidatesAnUnchangedContentVersion() {
+        var source = network.add(new Versioned());
+        source.stock.put(a, 10L);
+        refresh();
+        source.stock.clear();
+        source.identity = new Object();
+        refresh();
+        assertTrue(published.isEmpty());
+        assertEquals(2, source.listings);
+    }
+
     @Test void observersSeeAllChangedQuantitiesBeforeTheFirstNotification() {
         var source = network.add(new Versioned());
         source.stock.put(a, 10L);
@@ -165,9 +211,26 @@ class NetworkInventoryCacheTest {
 
     private static final class Versioned extends Fake implements StorageListingVersion {
         long version;
+        Object identity = new Object();
 
         @Override
         public long neoecoae$listingVersion() { return version; }
+        @Override public Object neoecoae$listingIdentity() { return identity; }
+    }
+
+    private static final class LegacyDelta extends Fake implements StorageListingDelta {
+        long version;
+        boolean failDelta;
+        @Override public long neoecoae$listingVersion() { return version; }
+        @Override public long neoecoae$listedAmount(AEKey key) { return stock.getOrDefault(key, 0L); }
+        @Override public boolean neoecoae$visitListingChanges(long since, long current, Consumer<AEKey> changed) {
+            for (AEKey key : stock.keySet()) {
+                changed.accept(key);
+                if (failDelta) return false;
+                changed.accept(key);
+            }
+            return true;
+        }
     }
 
     private static final class Network implements NetworkInventoryCache.Mounts {
@@ -186,7 +249,9 @@ class NetworkInventoryCacheTest {
         @Override
         public boolean neoecoae$withMounts(Consumer<List<MEStorage>> action) {
             if (inUse) return false;
-            action.accept(list);
+            inUse = true;
+            try { action.accept(list); }
+            finally { inUse = false; }
             return true;
         }
     }

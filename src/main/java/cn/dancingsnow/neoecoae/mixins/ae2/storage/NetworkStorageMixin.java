@@ -83,6 +83,7 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, Netwo
             action.accept(neoecoae$mounted);
         } finally {
             mountsInUse = false;
+            flushQueuedOperations();
         }
         return true;
     }

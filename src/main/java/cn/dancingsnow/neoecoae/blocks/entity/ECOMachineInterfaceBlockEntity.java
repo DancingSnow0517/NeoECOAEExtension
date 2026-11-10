@@ -206,13 +206,17 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     public CompoundTag getStorageResourceFilters() { return storageResourceFilters.copy(); }
 
     public boolean acceptsStorageResource(AEKey key) {
+        return storageResourceFilter().test(key);
+    }
+
+    public StorageInterfaceFilter storageResourceFilter() {
         if (storageResourceFilter == null || cachedStorageResourceFilters != storageResourceFilters) {
             var registries = level == null ? net.minecraft.core.RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY)
                 : level.registryAccess();
             storageResourceFilter = new StorageInterfaceFilter(storageResourceFilters, registries);
             cachedStorageResourceFilters = storageResourceFilters;
         }
-        return storageResourceFilter.test(key);
+        return storageResourceFilter;
     }
 
     /** Menu RPCs validate the player and decode a complete AE key before reaching this setter. */

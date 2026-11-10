@@ -31,6 +31,38 @@ class StoredInputSnapshotTest {
     @BeforeAll
     static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
+    @org.junit.jupiter.api.Test
+    void terminalCaptureKeepsExactOverridesAndIsolatesEachConsumptionAttempt() {
+        var ordinary = AEItemKey.of(Items.STONE);
+        var large = AEItemKey.of(Items.DIRT);
+        var unlimited = AEItemKey.of(Items.DIAMOND);
+        var visible = new it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap<AEKey>();
+        visible.put(ordinary, 19);
+        visible.put(large, Long.MAX_VALUE);
+        visible.put(unlimited, Long.MAX_VALUE);
+        var huge = java.math.BigInteger.ONE.shiftLeft(140);
+        var exact = new java.util.HashMap<AEKey, cn.dancingsnow.neoecoae.crafting.amount.ExactAmount>();
+        exact.put(large, cn.dancingsnow.neoecoae.crafting.amount.ExactAmount.finite(huge));
+        exact.put(unlimited, cn.dancingsnow.neoecoae.crafting.amount.ExactAmount.unbounded());
+        var captured = PlannerInventorySnapshot.of(visible, exact, Set.of(unlimited));
+        visible.clear();
+        exact.clear();
+        var first = new PlannerCounter();
+        var second = new PlannerCounter();
+        captured.initialize(first);
+        captured.initialize(second);
+        first.remove(ordinary, PlannerAmount.of(7));
+        first.remove(large, PlannerAmount.ONE);
+        assertEquals(PlannerAmount.of(19), second.get(ordinary));
+        assertEquals(PlannerAmount.of(huge), second.get(large));
+        assertTrue(second.isUnbounded(unlimited));
+        var reserved = captured.withoutReserved(Map.of(large, PlannerAmount.of(5)));
+        var third = new PlannerCounter();
+        reserved.initialize(third);
+        assertEquals(PlannerAmount.of(huge.subtract(java.math.BigInteger.valueOf(5))), third.get(large));
+        assertEquals(Long.MAX_VALUE, captured.toKeyCounter().get(large));
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void fuzzyConsumptionKeepsAllRemovedVariantKeys(boolean special) throws Exception {

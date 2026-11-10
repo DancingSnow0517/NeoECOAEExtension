@@ -82,6 +82,16 @@ public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountS
     }
 
     @Override
+    public boolean neoecoae$visitListingChanges(long since, long current,
+            java.util.function.ObjLongConsumer<AEKey> visitor) {
+        if (engine.getClass() != SavedDataInfiniteStorageEngine.class)
+            return StorageListingDelta.super.neoecoae$visitListingChanges(since, current, visitor);
+        if (since < 0 || current < 0 || !allowInsert.getAsBoolean()) return false;
+        // This native ledger validates the complete window before visiting; legacy custom engines use staging.
+        return engine.visitListingChanges(since, current, key -> visitor.accept(key, engine.listedAmount(key)));
+    }
+
+    @Override
     public boolean isPreferredStorageFor(AEKey what, IActionSource source) {
         return what != null && allowInsert.getAsBoolean() && engine.contains(what);
     }

@@ -137,6 +137,8 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
             if (!tank.isEmpty()) return;
         }
         if (markedCoolant.isEmpty() || !controller.isActiveCooling() || tank.getSpace() <= 0) return;
+        int threshold = Math.clamp(cn.dancingsnow.neoecoae.config.NEConfig.smartCoolingRefillThresholdPercent, 1, 100);
+        if ((long) tank.getFluidAmount() * 100 >= (long) tank.getCapacity() * threshold) return;
         AEFluidKey selected = ECOKeyFactory.fluid(markedCoolant);
         int space = tank.fill(selected.toStack(tank.getSpace()), IFluidHandler.FluidAction.SIMULATE);
         if (space <= 0) return;

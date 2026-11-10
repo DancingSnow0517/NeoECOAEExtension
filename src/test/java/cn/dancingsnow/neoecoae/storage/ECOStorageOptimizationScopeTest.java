@@ -14,6 +14,22 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** Terminal/watcher sharing is global by design; FE factories and CPU return budgets remain ECO-owned. */
 class ECOStorageOptimizationScopeTest {
+    @Test void internalLayoutBridgesRequireTheCheckedAe2Version() {
+        var plugin = new cn.dancingsnow.neoecoae.mixins.ae2.storage.StoragePerformanceMixinPlugin();
+        try (var loading = org.mockito.Mockito.mockStatic(net.neoforged.fml.loading.LoadingModList.class)) {
+            var mods = org.mockito.Mockito.mock(net.neoforged.fml.loading.LoadingModList.class);
+            var ae2 = org.mockito.Mockito.mock(net.neoforged.fml.loading.moddiscovery.ModInfo.class);
+            loading.when(net.neoforged.fml.loading.LoadingModList::get).thenReturn(mods);
+            org.mockito.Mockito.when(mods.getMods()).thenReturn(List.of(ae2));
+            org.mockito.Mockito.when(ae2.getModId()).thenReturn("ae2");
+            org.mockito.Mockito.when(ae2.getVersion()).thenReturn(new org.apache.maven.artifact.versioning.DefaultArtifactVersion("19.2.18"));
+            assertTrue(plugin.shouldApplyMixin("appeng.api.stacks.KeyCounter", "example.KeyCounterSnapshotMixin"));
+            org.mockito.Mockito.when(ae2.getVersion()).thenReturn(new org.apache.maven.artifact.versioning.DefaultArtifactVersion("19.2.19"));
+            assertFalse(plugin.shouldApplyMixin("appeng.api.stacks.KeyCounter", "example.KeyCounterSnapshotMixin"));
+            assertTrue(plugin.shouldApplyMixin("appeng.me.storage.NetworkStorage", "example.NetworkStorageMixin"));
+        }
+    }
+
     private static final Set<String> SHARED_TARGETS = Set.of(
         "appeng.api.stacks.KeyCounter", "appeng.me.service.StorageService",
         "appeng.parts.automation.StorageLevelEmitterPart", "appeng.parts.automation.StorageLevelEmitterPart$1",

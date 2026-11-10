@@ -122,13 +122,13 @@ class StorageBusTransferTest {
 
     @Test void markerTargetAndNetworkCallSitesMatchTheActualAe2Dependency() throws Exception {
         String target = "appeng/parts/storagebus/StorageBusPart$StorageBusInventory";
-        ClassNode bus = bytecode(target);
+        ClassNode bus = dependencyBytecode(target);
         assertEquals("appeng/me/storage/MEInventoryHandler", bus.superName);
-        ClassNode part = bytecode("appeng/parts/storagebus/StorageBusPart");
+        ClassNode part = dependencyBytecode("appeng/parts/storagebus/StorageBusPart");
         assertTrue(part.methods.stream().filter(m -> m.name.equals("mountInventories"))
             .flatMap(m -> java.util.stream.StreamSupport.stream(m.instructions.spliterator(), false))
             .anyMatch(i -> i instanceof FieldInsnNode && ((FieldInsnNode) i).desc.equals("L" + target + ";")));
-        ClassNode network = bytecode(NetworkStorage.class.getName().replace('.', '/'));
+        ClassNode network = dependencyBytecode(NetworkStorage.class.getName().replace('.', '/'));
         for (String method : List.of("insert", "extract", "getAvailableStacks")) {
             long calls = network.methods.stream().filter(m -> m.name.equals(method))
                 .flatMap(m -> java.util.stream.StreamSupport.stream(m.instructions.spliterator(), false))
@@ -140,6 +140,20 @@ class StorageBusTransferTest {
         assertTrue(marker.interfaces.contains(StorageBusTransferFilter.StorageBusInventory.class.getName().replace('.', '/')));
         assertTrue(marker.invisibleAnnotations.stream().anyMatch(a -> a.desc.equals("Lorg/spongepowered/asm/mixin/Mixin;")
             && a.values.toString().contains(target.replace('/', '.'))));
+    }
+
+    /** Read the pinned, untransformed dependency even when the tests use a woven fixture. */
+    private static ClassNode dependencyBytecode(String name) throws Exception {
+        var path = java.nio.file.Path.of(MEStorage.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+        try (var jar = new java.util.jar.JarFile(path.toFile())) {
+            var entry = jar.getJarEntry(name + ".class");
+            assertNotNull(entry, name);
+            try (var stream = jar.getInputStream(entry)) {
+                ClassNode node = new ClassNode();
+                new ClassReader(stream).accept(node, 0);
+                return node;
+            }
+        }
     }
 
     private static ClassNode bytecode(String name) throws Exception {

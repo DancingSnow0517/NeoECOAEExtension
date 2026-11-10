@@ -13,8 +13,8 @@ public final class KeyReuseConfig {
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
     static { BUILDER.translation("neoecoae.configuration.keyReuse").push("keyReuse"); }
     private static final ModConfigSpec.BooleanValue ENABLED = BUILDER
-        .comment("Reuse plain resource keys inside ECO only. AE2/addon public factories are unchanged; existing saves remain compatible.",
-            "仅在 ECO 内部复用无额外数据的资源 key；不替换 AE2 或附属的公共工厂，保留值相等与旧存档格式。")
+        .comment("Reuse plain resource keys in ECO and checked AE2 default factories. Component equality and saved inventories stay compatible.",
+            "在 ECO 及已核对版本的 AE2 默认工厂中复用无额外数据的资源 key；保留组件内容相等与旧存档格式。")
         .translation("neoecoae.configuration.keyReuse.enabled")
         .define("enabled", true);
     static { BUILDER.pop(); }

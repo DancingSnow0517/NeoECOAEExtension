@@ -7,13 +7,16 @@ import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountCollector;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.StorageListingAccumulator;
 import cn.dancingsnow.neoecoae.storage.transfer.StorageBusTransferFilter;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.Object2LongMaps;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.BiConsumer;
@@ -22,8 +25,8 @@ import java.util.function.ObjLongConsumer;
 /**
  * Keeps AE2's per-grid cached inventory current by listing each mount separately and applying only
  * the per-key differences. A mount with an unchanged {@link StorageListingVersion} is not listed at all, and a
- * {@link StorageListingDelta} mount only re-reads the keys it reports as changed; every other mount, including all
- * third-party storage, is still listed on each refresh.
+ * {@link StorageListingDelta} mount reports only its changed keys; every other mount, including all third-party
+ * storage, is still listed on each refresh.
  * Server-thread owned, apart from {@link #invalidate()}.
  */
 public final class NetworkInventoryCache {
@@ -44,10 +47,11 @@ public final class NetworkInventoryCache {
     }
 
     private static final class Mount {
-        private KeyCounter content = new KeyCounter();
+        private Object2LongOpenHashMap<AEKey> content = new Object2LongOpenHashMap<>();
         private final StorageListingVersion versioned;
         private final StorageListingDelta delta;
         private long version;
+        private Object identity;
         private int epoch;
 
         Mount(MEStorage inventory) {
@@ -56,29 +60,42 @@ public final class NetworkInventoryCache {
         }
 
         long currentVersion() { return versioned == null ? StorageListingVersion.UNKNOWN : versioned.neoecoae$listingVersion(); }
+        Object currentIdentity() { return versioned == null ? this : versioned.neoecoae$listingIdentity(); }
     }
 
     private final Reference2ObjectOpenHashMap<MEStorage, Mount> mounts = new Reference2ObjectOpenHashMap<>();
     /** Exact network totals for keys whose sum exceeds {@code long}; their published amount saturates. */
-    private final Object2ObjectOpenHashMap<AEKey, BigInteger> oversized = new Object2ObjectOpenHashMap<>();
-    /** Published amount before the current refresh, for every key it touched. */
-    private final Object2LongOpenHashMap<AEKey> previous = new Object2LongOpenHashMap<>();
+    private final Object2ObjectOpenHashMap<AEKey, PlannerAmount> oversized = new Object2ObjectOpenHashMap<>();
+    /** Dense pending batches avoid hash-table scans and per-key linked-list maintenance. */
+    private final Object2IntOpenHashMap<AEKey> pendingEpochs = new Object2IntOpenHashMap<>();
+    private final ObjectArrayList<AEKey> pendingKeys = new ObjectArrayList<>();
+    /** Old totals during update/rollback, then committed totals during notification. */
+    private final LongArrayList pendingAmounts = new LongArrayList();
     private final ReferenceOpenHashSet<MEStorage> seen = new ReferenceOpenHashSet<>();
-    private final ObjectOpenHashSet<AEKey> changedKeys = new ObjectOpenHashSet<>();
     private final StorageListingAccumulator listing = new StorageListingAccumulator();
     private KeyCounter scratch = new KeyCounter();
+    private Object2LongOpenHashMap<AEKey> flatScratch = new Object2LongOpenHashMap<>();
     // Volatile: a stray off-thread AE2 refresh invalidates the server thread's per-mount state.
     private volatile boolean valid;
     private boolean refreshed;
+    private boolean refreshing;
     private long generation;
     private int epoch;
     private int refreshes;
     private final boolean repairPublished;
+    private final boolean allowBusScopedViews;
+    private boolean busScoped;
 
     public NetworkInventoryCache() { this(true); }
 
     /** Private working counters are never exposed to other callers and do not need periodic repair. */
-    public NetworkInventoryCache(boolean repairPublished) { this.repairPublished = repairPublished; }
+    public NetworkInventoryCache(boolean repairPublished) { this(repairPublished, false); }
+
+    /** A private IO-port cache may retain a bus-filtered view, but never share it with ordinary readers. */
+    public NetworkInventoryCache(boolean repairPublished, boolean allowBusScopedViews) {
+        this.repairPublished = repairPublished;
+        this.allowBusScopedViews = allowBusScopedViews;
+    }
 
     /** Forgets all per-mount state; the next refresh rebuilds everything. */
     public void invalidate() {
@@ -94,22 +111,38 @@ public final class NetworkInventoryCache {
         return refresh(storage, published, amounts, changes, null);
     }
 
+    /** Private IO consumers need quantities and changes, but no grouped/fuzzy counter. */
+    public boolean refresh(Mounts storage, Object2LongMap<AEKey> amounts, ObjLongConsumer<AEKey> changes) {
+        return refresh(storage, null, amounts, changes, null);
+    }
+
     /** An optional listing callback can collect exact values during the same required full traversal. */
     public boolean refresh(Mounts storage, KeyCounter published, Object2LongMap<AEKey> amounts,
             ObjLongConsumer<AEKey> changes, BiConsumer<MEStorage, KeyCounter> fullListing) {
+        if (refreshing) return false;
+        long measured = StoragePerformance.start();
         // Both scopes change what a listing returns for the current caller only.
-        if (ExactAmountCollector.isActive() || StorageBusTransferFilter.isActive()) {
+        boolean scoped = StorageBusTransferFilter.isActive();
+        if (ExactAmountCollector.isActive() || scoped && !allowBusScopedViews) {
+            StoragePerformance.count(StoragePerformance.Counter.CACHE_SCOPED_FALLBACK);
             valid = false;
             return false;
         }
+        if (scoped != busScoped) {
+            valid = false;
+            busScoped = scoped;
+        }
         refreshed = false;
-        boolean locked = storage.neoecoae$withMounts(inventories -> {
+        refreshing = true;
+        try {
+            boolean locked = storage.neoecoae$withMounts(inventories -> {
             if (!storage.neoecoae$distinctMountsGuaranteed() && !distinct(inventories)) return;
             long mountGeneration = storage.neoecoae$mountGeneration();
             if (!valid || repairPublished && ++refreshes >= FULL_REBUILD_INTERVAL) {
+                if (valid) StoragePerformance.count(StoragePerformance.Counter.CACHE_REPAIR);
                 valid = false;
                 refreshes = 0;
-                rebuild(inventories, published, amounts, changes, fullListing);
+                rebuild(inventories, published, amounts, fullListing);
             } else {
                 try {
                     update(inventories, mountGeneration != generation, amounts, fullListing);
@@ -118,14 +151,27 @@ public final class NetworkInventoryCache {
                     valid = false;
                     throw failure;
                 }
-                publish(published, amounts, changes);
+                publish(published, amounts);
             }
             generation = mountGeneration;
             valid = true;
             refreshed = true;
-        });
-        if (!locked || !refreshed) valid = false;
-        return locked && refreshed;
+            });
+            if (!locked || !refreshed) {
+                valid = false;
+                return false;
+            }
+            // Native StorageService notifies after listing releases the mount lock. Observers may
+            // query stock or remount storage; neither operation should be treated as recursive listing.
+            notifyChanges(changes, amounts.size(), pendingKeys.size());
+            return true;
+        } catch (RuntimeException | Error failure) {
+            valid = false;
+            throw failure;
+        } finally {
+            refreshing = false;
+            StoragePerformance.end(StoragePerformance.Phase.CACHE_REFRESH, measured);
+        }
     }
 
     private boolean distinct(List<MEStorage> inventories) {
@@ -141,144 +187,196 @@ public final class NetworkInventoryCache {
     }
 
     private void rebuild(List<MEStorage> inventories, KeyCounter published, Object2LongMap<AEKey> amounts,
-            ObjLongConsumer<AEKey> changes, BiConsumer<MEStorage, KeyCounter> fullListing) {
+            BiConsumer<MEStorage, KeyCounter> fullListing) {
         mounts.clear();
         oversized.clear();
-        previous.clear();
-        published.clear();
-        int current = ++epoch;
+        pendingKeys.clear();
+        pendingAmounts.clear();
+        Object2LongOpenHashMap<AEKey> totals = flatScratch;
+        totals.clear();
+        int current = nextEpoch();
         for (MEStorage inventory : inventories) {
             Mount mount = new Mount(inventory);
             mount.version = mount.currentVersion();
+            mount.identity = mount.currentIdentity();
             mount.epoch = current;
             list(inventory, mount.content, fullListing);
             mounts.put(inventory, mount);
-            for (var entry : mount.content) {
+            for (var entry : Object2LongMaps.fastIterable(mount.content)) {
                 AEKey key = entry.getKey();
-                published.set(key, combine(key, published.get(key), entry.getLongValue()));
+                totals.put(key, combine(key, totals.getLong(key), entry.getLongValue()));
             }
         }
-        published.removeEmptySubmaps();
 
-        // Same notifications as AE2's full refresh.
-        for (var entry : published) {
-            if (entry.getLongValue() != amounts.getLong(entry.getKey())) {
-                changes.accept(entry.getKey(), entry.getLongValue());
-            }
+        // Capture the old totals, then publish both representations before any watcher can reenter.
+        for (var entry : Object2LongMaps.fastIterable(totals)) {
+            long before = amounts.getLong(entry.getKey());
+            if (entry.getLongValue() != before) recordPending(entry.getKey(), entry.getLongValue());
         }
         for (AEKey key : amounts.keySet()) {
-            if (published.get(key) == 0) changes.accept(key, 0);
+            if (totals.getLong(key) == 0) recordPending(key, 0);
+        }
+        if (published != null) {
+            published.clear();
+            for (var entry : Object2LongMaps.fastIterable(totals)) published.set(entry.getKey(), entry.getLongValue());
+            published.removeEmptySubmaps();
         }
         amounts.clear();
-        for (var entry : published) amounts.put(entry.getKey(), entry.getLongValue());
+        amounts.putAll(totals);
+        totals.clear();
     }
 
     private void update(List<MEStorage> inventories, boolean remounted, Object2LongMap<AEKey> amounts,
             BiConsumer<MEStorage, KeyCounter> fullListing) {
-        int current = ++epoch;
+        int current = nextEpoch();
         for (MEStorage inventory : inventories) {
             Mount mount = mounts.get(inventory);
             boolean added = mount == null;
             if (added) mount = new Mount(inventory);
             long version = mount.currentVersion();
+            Object identity = mount.currentIdentity();
+            boolean viewChanged = !added && identity != mount.identity;
             if (added) {
                 list(inventory, mount.content, fullListing);
                 mounts.put(inventory, mount);
-                for (var entry : mount.content) adjust(amounts, entry.getKey(), entry.getLongValue());
-            } else if (remounted || version == StorageListingVersion.UNKNOWN || version != mount.version) {
-                if (!remounted && mount.delta != null
+                for (var entry : Object2LongMaps.fastIterable(mount.content)) adjust(amounts, entry.getKey(), entry.getLongValue());
+            } else if (remounted || viewChanged || version == StorageListingVersion.UNKNOWN || version != mount.version) {
+                if (remounted) StoragePerformance.count(StoragePerformance.Counter.CACHE_REMOUNT);
+                if (version == StorageListingVersion.UNKNOWN) StoragePerformance.count(StoragePerformance.Counter.CACHE_UNKNOWN_VERSION);
+                if (!remounted && !viewChanged && mount.delta != null
                         && applyChanges(mount.delta, mount, version, amounts)) {
                     mount.version = version;
                     mount.epoch = current;
                     continue;
                 }
-                KeyCounter fresh = scratch;
+                StoragePerformance.count(mount.delta == null ? StoragePerformance.Counter.CACHE_NO_DELTA
+                    : StoragePerformance.Counter.CACHE_EXPIRED_DELTA);
+                Object2LongOpenHashMap<AEKey> fresh = flatScratch;
                 fresh.clear();
                 list(inventory, fresh, fullListing);
-                KeyCounter old = mount.content;
+                Object2LongOpenHashMap<AEKey> old = mount.content;
                 // Contents never hold zeros, so a missing key reads as 0 on either side.
-                for (var entry : old) {
-                    long now = fresh.get(entry.getKey());
+                for (var entry : Object2LongMaps.fastIterable(old)) {
+                    long now = fresh.getLong(entry.getKey());
                     if (now != entry.getLongValue()) adjust(amounts, entry.getKey(), now - entry.getLongValue());
                 }
-                for (var entry : fresh) {
-                    if (old.get(entry.getKey()) == 0) adjust(amounts, entry.getKey(), entry.getLongValue());
+                for (var entry : Object2LongMaps.fastIterable(fresh)) {
+                    if (old.getLong(entry.getKey()) == 0) adjust(amounts, entry.getKey(), entry.getLongValue());
                 }
                 old.clear();
-                scratch = old;
+                flatScratch = old;
                 mount.content = fresh;
+            } else {
+                StoragePerformance.count(StoragePerformance.Counter.CACHE_UNCHANGED);
             }
             mount.version = version;
+            mount.identity = identity;
             mount.epoch = current;
         }
         if (mounts.size() != inventories.size()) {
             for (var iterator = mounts.values().iterator(); iterator.hasNext();) {
                 Mount mount = iterator.next();
                 if (mount.epoch == current) continue;
-                for (var entry : mount.content) adjust(amounts, entry.getKey(), -entry.getLongValue());
+                for (var entry : Object2LongMaps.fastIterable(mount.content)) adjust(amounts, entry.getKey(), -entry.getLongValue());
                 iterator.remove();
             }
         }
     }
 
-    /** Updates only the keys the inventory reports as changed; false leaves everything for a full listing. */
+    /** Applies a mount's reported key changes; false when it must be listed in full instead. */
     private boolean applyChanges(StorageListingDelta delta, Mount mount, long version, Object2LongMap<AEKey> amounts) {
-        if (version == StorageListingVersion.UNKNOWN || mount.version == StorageListingVersion.UNKNOWN) return false;
-        changedKeys.clear();
-        try {
-            if (!delta.neoecoae$visitListingChanges(mount.version, version, changedKeys::add)) return false;
-            for (AEKey key : changedKeys) {
-                long now = Math.max(0L, delta.neoecoae$listedAmount(key));
-                long old = mount.content.get(key);
-                if (now == old) continue;
-                // Both sides are in [0, Long.MAX_VALUE], so the difference cannot overflow.
-                adjust(amounts, key, now - old);
-                if (now == 0) mount.content.remove(key);
-                else mount.content.set(key, now);
-            }
-            return true;
-        } finally {
-            boolean large = changedKeys.size() > TRIM_THRESHOLD;
-            changedKeys.clear();
-            if (large) changedKeys.trim();
+        if (version < 0L || mount.version < 0L
+                || version < mount.version) {
+            return false;
         }
+        Object2LongOpenHashMap<AEKey> content = mount.content;
+        boolean applied = delta.neoecoae$visitListingChanges(mount.version, version, (key, now) -> {
+            StoragePerformance.count(StoragePerformance.Counter.CACHE_CHANGED_KEYS);
+            long before = content.getLong(key);
+            if (now == before) return;
+            adjust(amounts, key, now - before);
+            // Contents never hold zeros, matching a full listing after removeZeros().
+            if (now == 0L) content.removeLong(key);
+            else content.put(key, now);
+        });
+        if (applied) StoragePerformance.count(StoragePerformance.Counter.CACHE_DELTA);
+        return applied;
     }
 
-    private void publish(KeyCounter published, Object2LongMap<AEKey> amounts, ObjLongConsumer<AEKey> changes) {
+    private void publish(KeyCounter published, Object2LongMap<AEKey> amounts) {
         boolean removed = false;
-        int touched = previous.size();
-        for (var entry : Object2LongMaps.fastIterable(previous)) {
-            AEKey key = entry.getKey();
+        int touched = pendingKeys.size(), changed = 0;
+        for (int i = 0; i < touched; i++) {
+            AEKey key = pendingKeys.get(i);
             long next = amounts.getLong(key);
-            if (next == 0) {
+            if (next == pendingAmounts.getLong(i)) continue;
+            if (published != null && next == 0) {
                 published.remove(key);
                 removed = true;
-            } else {
+            } else if (published != null) {
                 published.set(key, next);
             }
+            pendingKeys.set(changed, key);
+            pendingAmounts.set(changed++, next);
         }
-        // Observers may query another changed key. Publish the entire inventory before any callback runs.
-        for (var entry : Object2LongMaps.fastIterable(previous)) {
-            long next = amounts.getLong(entry.getKey());
-            if (next != entry.getLongValue()) changes.accept(entry.getKey(), next);
-        }
-        previous.clear();
-        // A cleared open-hash table keeps its capacity, and iterating it would cost that much every tick.
-        if (touched > TRIM_THRESHOLD) previous.trim();
+        pendingKeys.size(changed);
+        pendingAmounts.size(changed);
         if (removed) published.removeEmptySubmaps();
+        // Notifications follow only after the entire batch is published and the mount lock is released.
+    }
+
+    private void notifyChanges(ObjLongConsumer<AEKey> changes, int liveResources, int touched) {
+        try {
+            for (int i = 0; i < pendingKeys.size(); i++) changes.accept(pendingKeys.get(i), pendingAmounts.getLong(i));
+        } catch (RuntimeException | Error failure) {
+            // The batch is already published. Do not reuse partially delivered notification state.
+            valid = false;
+            throw failure;
+        } finally {
+            clearPending(liveResources, touched);
+        }
     }
 
     private void revert(Object2LongMap<AEKey> amounts) {
-        for (var entry : Object2LongMaps.fastIterable(previous)) {
-            if (entry.getLongValue() == 0) amounts.removeLong(entry.getKey());
-            else amounts.put(entry.getKey(), entry.getLongValue());
+        int touched = pendingKeys.size();
+        for (int i = 0; i < touched; i++) {
+            long before = pendingAmounts.getLong(i);
+            if (before == 0) amounts.removeLong(pendingKeys.get(i));
+            else amounts.put(pendingKeys.get(i), before);
         }
-        previous.clear();
+        clearPending(amounts.size(), touched);
+    }
+
+    private void recordPending(AEKey key, long amount) {
+        if (pendingEpochs.put(key, epoch) == epoch) return;
+        pendingKeys.add(key);
+        pendingAmounts.add(amount);
+    }
+
+    private int nextEpoch() {
+        int current = ++epoch;
+        // The absent marker must differ even in the epoch that wraps through zero.
+        pendingEpochs.defaultReturnValue(current - 1);
+        if (current == 0) pendingEpochs.clear();
+        return current;
+    }
+
+    private void clearPending(int liveResources, int touched) {
+        pendingKeys.clear();
+        pendingAmounts.clear();
+        // Bound old epoch marks under key churn without clearing a large hash table every tick.
+        if (pendingEpochs.size() > Math.max((long) TRIM_THRESHOLD, 2L * liveResources) || liveResources == 0) {
+            pendingEpochs.clear();
+            pendingEpochs.trim();
+            int retained = liveResources == 0 ? 16 : Math.max(16, touched);
+            pendingKeys.trim(retained);
+            pendingAmounts.trim(retained);
+        }
     }
 
     private void adjust(Object2LongMap<AEKey> amounts, AEKey key, long delta) {
         long current = amounts.getLong(key);
-        if (!previous.containsKey(key)) previous.put(key, current);
+        recordPending(key, current);
         long next = combine(key, current, delta);
         if (next == 0) amounts.removeLong(key);
         else amounts.put(key, next);
@@ -286,25 +384,36 @@ public final class NetworkInventoryCache {
 
     /** Adds a mount's contribution to a nonnegative total, saturating the published value like a full listing. */
     private long combine(AEKey key, long current, long delta) {
-        BigInteger exact = oversized.isEmpty() ? null : oversized.get(key);
+        PlannerAmount exact = oversized.isEmpty() ? null : oversized.get(key);
         if (exact == null) {
             long next = current + delta;
             if (((current ^ next) & (delta ^ next)) >= 0) return next;
-            exact = BigInteger.valueOf(current);
+            exact = PlannerAmount.of(current);
         }
-        exact = exact.add(BigInteger.valueOf(delta));
-        if (exact.bitLength() < Long.SIZE) {
+        exact = exact.add(delta);
+        if (exact.fitsLong()) {
             oversized.remove(key);
-            return exact.longValue();
+            return exact.longValueExact();
         }
         oversized.put(key, exact);
         return Long.MAX_VALUE;
     }
 
-    private void list(MEStorage inventory, KeyCounter out, BiConsumer<MEStorage, KeyCounter> fullListing) {
-        if (fullListing == null) listing.append(inventory, out, inventory::getAvailableStacks);
-        else fullListing.accept(inventory, out);
-        out.removeZeros();
+    private void list(MEStorage inventory, Object2LongOpenHashMap<AEKey> out, BiConsumer<MEStorage, KeyCounter> fullListing) {
+        StoragePerformance.count(StoragePerformance.Counter.CACHE_FULL);
+        // Only the public listing boundary needs AE2's grouped/fuzzy counter. Mounts retain a flat long map.
+        scratch.clear();
+        try {
+            if (fullListing == null) listing.append(inventory, scratch, inventory::getAvailableStacks);
+            else fullListing.accept(inventory, scratch);
+            scratch.removeZeros();
+            out.clear();
+            for (var entry : scratch) out.put(entry.getKey(), entry.getLongValue());
+            if (StoragePerformance.ENABLED) StoragePerformance.add(StoragePerformance.Counter.CACHE_LISTED_KEYS, out.size());
+        } finally {
+            // Retain capacity only; a scratch native counter must not become a second lasting inventory mirror.
+            scratch.clear();
+        }
     }
 
     public long mountedVersion(MEStorage inventory) {
@@ -312,17 +421,22 @@ public final class NetworkInventoryCache {
         return mount == null ? StorageListingVersion.UNKNOWN : mount.version;
     }
 
+    public Object mountedIdentity(MEStorage inventory) {
+        Mount mount = mounts.get(inventory);
+        return mount == null ? null : mount.identity;
+    }
+
     public long mountedAmount(MEStorage inventory, AEKey key) {
         Mount mount = mounts.get(inventory);
-        return mount == null ? 0 : mount.content.get(key);
+        return mount == null ? 0 : mount.content.getLong(key);
     }
 
     public BigInteger listedTotal(AEKey key, long projection) {
-        BigInteger total = oversized.get(key);
-        return total == null ? BigInteger.valueOf(projection) : total;
+        PlannerAmount total = oversized.get(key);
+        return total == null ? BigInteger.valueOf(projection) : total.toBigInteger();
     }
 
     public void visitOversizedTotals(BiConsumer<AEKey, BigInteger> visitor) {
-        oversized.forEach(visitor);
+        oversized.forEach((key, amount) -> visitor.accept(key, amount.toBigInteger()));
     }
 }
