@@ -4,6 +4,7 @@ import appeng.client.gui.me.crafting.CraftingCPUScreen;
 import appeng.menu.me.crafting.CraftingStatusMenu;
 import appeng.menu.me.crafting.CraftingCPUMenu;
 import appeng.menu.me.crafting.CraftingStatus;
+import appeng.menu.me.crafting.CraftingStatusEntry;
 import appeng.client.gui.AEBaseScreen;
 import appeng.client.gui.Icon;
 import appeng.client.gui.style.ScreenStyle;
@@ -14,6 +15,7 @@ import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftingCpuControl;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import java.util.List;
+import java.util.Map;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -28,6 +30,24 @@ import net.minecraft.world.entity.player.Inventory;
 public abstract class CraftingCpuScreenMixin extends AEBaseScreen<CraftingCPUMenu> {
     @Shadow private CraftingStatus status;
     @Unique private ToggleButton neoecoae$pause;
+    @Unique private boolean neoecoae$warnedAboutMissingKey;
+
+    @WrapOperation(method = "postUpdate", at = @At(value = "INVOKE",
+        target = "Ljava/util/Map;put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"))
+    private Object neoecoae$putResolvedStatusEntry(Map<?, ?> entries, Object serial, Object value,
+            Operation<Object> original) {
+        // Check the merged entry: a normal delta omits its key and gets it from the existing row.
+        if (value instanceof CraftingStatusEntry entry && entry.getWhat() == null) {
+            if (!neoecoae$warnedAboutMissingKey) {
+                neoecoae$warnedAboutMissingKey = true;
+                org.slf4j.LoggerFactory.getLogger("neoecoae").warn(
+                    "Skipped unresolved crafting status entry: serial={}, stored={}, active={}, pending={}",
+                    entry.getSerial(), entry.getStoredAmount(), entry.getActiveAmount(), entry.getPendingAmount());
+            }
+            return entries.get(serial);
+        }
+        return original.call(entries, serial, value);
+    }
 
     protected CraftingCpuScreenMixin(CraftingCPUMenu menu, Inventory inventory, Component title, ScreenStyle style) {
         super(menu, inventory, title, style);
