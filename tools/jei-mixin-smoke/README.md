@@ -14,4 +14,4 @@
 .\build-local.ps1 -GradleArguments @('-I', 'tools/jei-mixin-smoke/verify.init.gradle', 'verifyJeiLayoutMixins', '-PjeiVersion=15.74.0.232', '--console=plain')
 ```
 
-成功时必须输出两条 `JEI_MIXIN_VERIFIED`，转换后的类位于 `build/jei-mixin-smoke/<JEI 版本>/`。该检查覆盖真实 Mixin 应用和 JVM 类验证；配方高度行为另由 `WorkstationRecipeHeightTest` 验证，游戏内操作仍需单独验证。
+成功时必须输出两条 `JEI_MIXIN_VERIFIED`，转换后的类位于 `build/jei-mixin-smoke/<JEI 版本>/`。该检查覆盖真实 Mixin 应用和 JVM 类验证；游戏内操作仍需单独验证。
