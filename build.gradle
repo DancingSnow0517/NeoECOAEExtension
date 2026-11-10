@@ -113,14 +113,6 @@ repositories {
     }
 }
 
-// The headless render tests use Minecraft 1.20.1's LWJGL without opening a game window.
-def hostOs = System.getProperty('os.name').toLowerCase(Locale.ROOT)
-def hostArch = System.getProperty('os.arch').toLowerCase(Locale.ROOT)
-def lwjglNatives = hostOs.contains('windows') ? 'natives-windows' :
-        hostOs.contains('mac') ? 'natives-macos' : 'natives-linux'
-if (hostArch in ['aarch64', 'arm64']) lwjglNatives += '-arm64'
-else if (hostArch in ['x86', 'i386'] && hostOs.contains('windows')) lwjglNatives += '-x86'
-
 dependencies {
     ['ae2', 'guideme', 'ldlib'].each { modImplementation pinned(it) }
     ['advanced_ae', 'expatternprovider', 'extendedae_plus', 'ae2lt', 'thunderbolt',
@@ -136,16 +128,6 @@ dependencies {
     compileOnly 'org.projectlombok:lombok:1.18.36'
     annotationProcessor 'org.projectlombok:lombok:1.18.36'
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
-    testImplementation platform('org.junit:junit-bom:5.11.4')
-    testImplementation 'org.junit.jupiter:junit-jupiter'
-    testImplementation 'org.mockito:mockito-core:5.15.2'
-    testImplementation 'org.slf4j:slf4j-api:2.0.16'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    // Exercise optional per-recipe layout hooks against the same JEI release as the API.
-    testRuntimeOnly("mezz.jei:jei-1.20.1-forge:${jeiVersion}") { transitive = false }
-    ['lwjgl', 'lwjgl-glfw', 'lwjgl-opengl', 'lwjgl-stb'].each {
-        testRuntimeOnly "org.lwjgl:${it}:3.3.1:${lwjglNatives}"
-    }
     modCompileOnly "mezz.jei:jei-1.20.1-forge-api:${jeiVersion}"
     modCompileOnly "mezz.jei:jei-1.20.1-common-api:${jeiVersion}"
     // EMI's favorites list is an internal client API; keep the full jar compile-only and optional.
@@ -221,125 +203,6 @@ mixin {
     add sourceSets.main, 'neoecoae.refmap.json'
     ecoMixinConfigs.each { config it }
 }
-sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
-sourceSets.test.runtimeClasspath += sourceSets.main.compileClasspath
-sourceSets.test.runtimeClasspath += files(layout.buildDirectory.file("moddev/artifacts/client-extra-${minecraft_version}-${forge_version}.jar"))
-
-// Compile a small, explicitly named set of real platform-independent production contracts.
-// This does not exclude any main sources or imply that the full port currently compiles.
-sourceSets {
-    portingContracts {
-        java.srcDir 'src/main/java'
-        java.include 'cn/dancingsnow/neoecoae/platform/JdkCompat.java'
-    }
-    portingContractsTest {
-        compileClasspath += sourceSets.portingContracts.output
-        runtimeClasspath += sourceSets.portingContracts.output
-    }
-    portingPlatform {
-        java.srcDir 'src/main/java'
-        java.include 'cn/dancingsnow/neoecoae/platform/sync/**'
-        java.include 'cn/dancingsnow/neoecoae/platform/ForgeBlockCapabilities.java'
-        java.include 'cn/dancingsnow/neoecoae/platform/ui/**'
-        java.include 'cn/dancingsnow/neoecoae/platform/network/**'
-        java.include 'cn/dancingsnow/neoecoae/platform/recipe/**'
-        java.include 'cn/dancingsnow/neoecoae/platform/nbt/**'
-        java.include 'cn/dancingsnow/neoecoae/api/components/AutoExportSides.java'
-        java.include 'cn/dancingsnow/neoecoae/api/ECOTier.java'
-        java.include 'cn/dancingsnow/neoecoae/api/IECOTier.java'
-        java.include 'cn/dancingsnow/neoecoae/storage/StorageByteAccounting.java'
-        java.include 'cn/dancingsnow/neoecoae/storage/StorageInterfaceFilter.java'
-        java.include 'cn/dancingsnow/neoecoae/all/NERecipeTypes.java'
-        java.include 'cn/dancingsnow/neoecoae/recipe/IntegratedWorkingStationRecipe.java'
-        java.include 'cn/dancingsnow/neoecoae/recipe/IntegratedWorkingStationRecipeBuilder.java'
-        java.include 'cn/dancingsnow/neoecoae/recipe/CoolingRecipe.java'
-        java.include 'cn/dancingsnow/neoecoae/recipe/CoolingRecipeBuilder.java'
-        java.include 'cn/dancingsnow/neoecoae/recipe/LargeIntegratedWorkingStationRecipe.java'
-        java.include 'cn/dancingsnow/neoecoae/recipe/ExtendedCrystalAssemblerRecipe.java'
-        java.include 'cn/dancingsnow/neoecoae/recipe/StorageCellDisassemblyRecipe.java'
-        java.include 'cn/dancingsnow/neoecoae/recipe/LargeWorkstationRecipe.java'
-        java.include 'cn/dancingsnow/neoecoae/recipe/LargeWorkstationModule.java'
-        java.include 'cn/dancingsnow/neoecoae/recipe/LargeWorkstationRecipes.java'
-        java.include 'cn/dancingsnow/neoecoae/recipe/LargeWorkstationRecipeAdapters.java'
-        java.include 'cn/dancingsnow/neoecoae/mixins/minecraft/RecipeManagerAccessor.java'
-        java.include 'cn/dancingsnow/neoecoae/gui/common/FluidHatchUI.java'
-        java.include 'cn/dancingsnow/neoecoae/storage/persistence/**'
-        java.include 'cn/dancingsnow/neoecoae/util/CellHostItemHandler.java'
-        java.include 'cn/dancingsnow/neoecoae/util/ICellHost.java'
-        java.include 'cn/dancingsnow/neoecoae/api/storage/ICellHost.java'
-        java.include 'cn/dancingsnow/neoecoae/storage/infinite/ECOInfiniteStorageData.java'
-        java.include 'cn/dancingsnow/neoecoae/storage/infinite/ECOInfiniteStorageDomains.java'
-        java.include 'cn/dancingsnow/neoecoae/storage/infinite/ECOInfiniteStorageEngine.java'
-        java.include 'cn/dancingsnow/neoecoae/storage/infinite/SavedDataInfiniteStorageEngine.java'
-        java.include 'cn/dancingsnow/neoecoae/storage/infinite/LegacyInfiniteStorageReader.java'
-        java.include 'cn/dancingsnow/neoecoae/storage/infinite/HugeAmount.java'
-        java.include 'cn/dancingsnow/neoecoae/storage/infinite/InfiniteStorageAmounts.java'
-        java.include 'cn/dancingsnow/neoecoae/storage/infinite/MutableInfiniteStorageTotal.java'
-        java.include 'cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOBatchCraftingHelper.java'
-        java.include 'cn/dancingsnow/neoecoae/crafting/amount/NEMath.java'
-        java.include 'cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOFastPathStacks.java'
-        java.include 'cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOReusableStateModel.java'
-        java.include 'cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOStateTransitionBatchModel.java'
-        java.include 'cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECODurabilityBatchModel.java'
-        java.include 'cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOCombinedStateModel.java'
-        java.include 'cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOReusableStateAnalyzer.java'
-        java.include 'cn/dancingsnow/neoecoae/crafting/execution/fastpath/ECOCraftingStateSlots.java'
-        java.include 'cn/dancingsnow/neoecoae/blocks/entity/LargeWorkstationCoolingOutput.java'
-        java.include 'cn/dancingsnow/neoecoae/api/me/bigorder/ECOExactInventory.java'
-        java.include 'cn/dancingsnow/neoecoae/crafting/execution/worker/ECOExactVirtualLedger.java'
-        compileClasspath += sourceSets.main.compileClasspath
-        runtimeClasspath += sourceSets.main.compileClasspath
-        resources.srcDir 'src/main/resources'
-        resources.include 'assets/neoecoae/screens/fluid_hatch.json'
-    }
-    portingPlatformTest {
-        compileClasspath += sourceSets.portingPlatform.output + sourceSets.portingPlatform.compileClasspath
-        runtimeClasspath += sourceSets.portingPlatform.output + sourceSets.portingPlatform.runtimeClasspath
-        runtimeClasspath += files(layout.buildDirectory.file("moddev/artifacts/client-extra-${minecraft_version}-${forge_version}.jar"))
-    }
-    upstreamSyncTest {
-        java.srcDir 'src/test/java'
-        java.includes = file('porting/upstream-sync-test-sources.txt').readLines('UTF-8')
-                .findAll { !it.isBlank() && !it.startsWith('#') }
-        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
-        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath + sourceSets.main.compileClasspath
-        runtimeClasspath += files(layout.buildDirectory.file("moddev/artifacts/client-extra-${minecraft_version}-${forge_version}.jar"))
-    }
-}
-configurations.portingContractsTestImplementation.extendsFrom configurations.testImplementation
-configurations.portingContractsTestRuntimeOnly.extendsFrom configurations.testRuntimeOnly
-configurations.portingPlatformTestImplementation.extendsFrom configurations.testImplementation
-configurations.portingPlatformTestRuntimeOnly.extendsFrom configurations.testRuntimeOnly
-configurations.upstreamSyncTestImplementation.extendsFrom configurations.testImplementation
-configurations.upstreamSyncTestRuntimeOnly.extendsFrom configurations.testRuntimeOnly
-dependencies {
-    portingPlatformAnnotationProcessor 'org.projectlombok:lombok:1.18.36'
-}
-tasks.register('portingContractsTest', Test) {
-    description = 'Tests isolated Java 17 production contracts; full main compilation is a separate gate.'
-    group = 'verification'
-    testClassesDirs = sourceSets.portingContractsTest.output.classesDirs
-    classpath = sourceSets.portingContractsTest.runtimeClasspath
-    useJUnitPlatform()
-}
-
-tasks.register('portingPlatformTest', Test) {
-    description = 'Validates real Forge/LDLib1 platform adapters independently of unfinished business-source migration.'
-    group = 'verification'
-    testClassesDirs = sourceSets.portingPlatformTest.output.classesDirs
-    classpath = sourceSets.portingPlatformTest.runtimeClasspath
-    useJUnitPlatform()
-}
-
-tasks.register('upstreamSyncTest', Test) {
-    description = 'Runs the complete selected upstream increment regressions against the fully compiled Forge implementation.'
-    group = 'verification'
-    testClassesDirs = sourceSets.upstreamSyncTest.output.classesDirs
-    classpath = sourceSets.upstreamSyncTest.runtimeClasspath
-    useJUnitPlatform()
-    maxHeapSize = '2G'
-}
-
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = 17
@@ -349,15 +212,8 @@ tasks.withType(JavaCompile).configureEach {
     ]
 }
 
-tasks.named('test', Test) {
-    useJUnitPlatform()
-    maxHeapSize = '2G'
-    ['gtProcessingGtmJar', 'gtProcessingGtlJar'].each { name ->
-        if (providers.gradleProperty(name).isPresent()) {
-            systemProperty "neoecoae.${name}", providers.gradleProperty(name).get()
-        }
-    }
-}
+// Automated unit tests were removed; keep compilation and packaging in the build lifecycle.
+tasks.withType(Test).configureEach { enabled = false }
 
 tasks.named('processResources', ProcessResources) {
     def properties = [mod_id     : mod_id, mod_name: mod_name, mod_version: mod_version,

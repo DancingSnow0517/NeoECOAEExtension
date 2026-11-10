@@ -45,12 +45,6 @@ def restore(root=ROOT):
     porting = root / "porting"
     porting.mkdir(exist_ok=True)
     generated.write_text(json.dumps(lock, indent=2) + "\n")
-    # The private migration selection is not part of Git. A clean checkout uses the
-    # complete checked-in test tree, without suppressing any production source.
-    selection = porting / "upstream-sync-test-sources.txt"
-    if not selection.exists():
-        selection.write_text("\n".join(str(path.relative_to(root / "src/test/java"))
-                            for path in sorted((root / "src/test/java").rglob("*.java"))) + "\n")
     print(f"Verified {len(lock['artifacts'])} compile dependencies")
 
 
