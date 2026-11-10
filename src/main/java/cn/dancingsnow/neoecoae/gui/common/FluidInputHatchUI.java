@@ -29,8 +29,6 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib.gui.widget.PhantomFluidWidget;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
@@ -39,6 +37,8 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.server.level.ServerPlayer;
+import cn.dancingsnow.neoecoae.menu.FluidHatchStockAmount;
 import net.minecraftforge.fluids.FluidStack;
 
 /** The input hatch's optional ME stocking mode, hosted by the existing LDLib1 menu. */
@@ -101,40 +101,12 @@ public final class FluidInputHatchUI {
                 .slotStyle(style -> style.slotOverlay(AETextures.icon(ECOIcon.BACKGROUND_UPGRADE))
                     .showSlotOverlayOnlyEmpty(true)), text("upgrade")))));
 
-        UIElement amountWindow = new UIElement();
-        amountWindow.setDisplay(false);
-        amountWindow.style(style -> style.zIndex(400).backgroundTexture(NETextures.BACKGROUND));
-        root.addChild(HostElements.absolute(amountWindow, 0, 0, 176, 72));
-        amountWindow.addChild(HostElements.absolute(new TextElement().setText(text("target_buckets")), 8, 8, 140, 10));
-        AE2TextField field = new AE2TextField();
-        field.textFieldStyle(style -> style.textColor(0xFFF2F2F2));
-        amountWindow.addChild(HostElements.absolute(field, 8, 27, 160, 14));
-        var submit = amountWindow.addRPCEvent(RPCEventBuilder.simple(String.class, value -> {
-            if (!canEdit(host, player, amountWindow) || !host.hasNetworkPullCard() || host.getMarkedFluid().isEmpty()
-                || value == null || value.length() > 32) return;
-            try {
-                // Decimal bucket input must remain exact even above Integer.MAX_VALUE mB.
-                BigDecimal buckets = new BigDecimal(value);
-                if (buckets.signum() < 0 || buckets.compareTo(BigDecimal.valueOf(Long.MAX_VALUE, 3)) > 0) return;
-                long amount = buckets.movePointRight(3).setScale(0, RoundingMode.UP).longValueExact();
-                host.setTargetAmount(amount);
-                if (amount == 0) host.setMarkedFluid(FluidStack.EMPTY);
-            } catch (NumberFormatException | ArithmeticException ignored) {
-                // Invalid or partial input keeps the previous target.
+        Button gear = new StockAmountButton().noText().setOnServerClick(event -> {
+            if (player instanceof ServerPlayer serverPlayer && canEdit(host, player, network)) {
+                FluidHatchStockAmount.open(host, serverPlayer);
             }
-        }));
-        amountWindow.addChild(HostElements.absolute(HostSubWindowControls.textButton(() -> appeng.core.localization.GuiText.Set.text())
-            .setOnClick(event -> {
-                submit.send(field.getValue());
-                amountWindow.setDisplay(false);
-            }), 110, 48, 58, 16));
-        amountWindow.addChild(HostElements.absolute(HostSubWindowControls.backButton(() -> amountWindow.setDisplay(false)), 153, 3, 20, 20));
-        Button gear = new StockAmountButton().noText()
-            .setOnClick(event -> {
-                field.setValue(BigDecimal.valueOf(state.getValue().getLong("target"), 3).stripTrailingZeros().toPlainString());
-                amountWindow.setDisplay(true);
-            });
-        HostElements.tooltips(gear, text("amount_hint"));
+        });
+        HostElements.tooltips(gear, appeng.core.localization.ButtonToolTips.InterfaceSetStockAmount.text());
         network.addChild(HostElements.absolute(gear, 80, 13, 16, 16));
 
         java.util.function.Consumer<CompoundTag> apply = value -> {
@@ -142,7 +114,6 @@ public final class FluidInputHatchUI {
             legacy.setDisplay(!installed);
             network.setDisplay(installed);
             gear.setDisplay(!FluidStack.loadFluidStackFromNBT(value.getCompound("marked")).isEmpty());
-            if (!installed) amountWindow.setDisplay(false);
             root.style(style -> style.backgroundTexture(installed ? SpriteTexture.of(
                 NeoECOAE.id("textures/guis/fluid_input_hatch.png")).setSprite(0, 0, 176, 159) : NETextures.BACKGROUND));
             inventory.apply(slot -> slot.style(style -> style.backgroundTexture(installed ? IGuiTexture.EMPTY : NETextures.ITEM_SLOT)));
