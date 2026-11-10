@@ -15,6 +15,39 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class NetworkInventoryCacheTest {
+    @Test void gtlSnapshotPublisherKeepsTheOriginalStorageUpdateWithoutLoadingOptionalClasses() throws Exception {
+        var pluginName = cn.dancingsnow.neoecoae.platform.mixin.CraftingMenuPlanningMixinPlugin.class.getName();
+        var parent = getClass().getClassLoader();
+        for (boolean gtlSnapshots : List.of(false, true)) {
+            var loader = new ClassLoader(parent) {
+                @Override public java.net.URL getResource(String name) {
+                    if (name.equals("org/gtlcore/gtlcore/integration/ae2/InventorySnapshotVersion.class")) {
+                        return gtlSnapshots ? parent.getResource(pluginName.replace('.', '/') + ".class") : null;
+                    }
+                    return super.getResource(name);
+                }
+                @Override protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+                    if (name.startsWith("org.gtlcore.")) throw new AssertionError("Must only inspect optional resources");
+                    if (!name.equals(pluginName)) return super.loadClass(name, resolve);
+                    try (var stream = parent.getResourceAsStream(name.replace('.', '/') + ".class")) {
+                        assertNotNull(stream);
+                        var bytes = stream.readAllBytes();
+                        return defineClass(name, bytes, 0, bytes.length);
+                    } catch (java.io.IOException failure) {
+                        throw new ClassNotFoundException(name, failure);
+                    }
+                }
+            };
+            var pluginClass = loader.loadClass(pluginName);
+            var plugin = pluginClass.getConstructor().newInstance();
+            var shouldApply = pluginClass.getMethod("shouldApplyMixin", String.class, String.class);
+            assertEquals(!gtlSnapshots, shouldApply.invoke(plugin, "appeng.me.service.StorageService",
+                "cn.dancingsnow.neoecoae.mixins.ae2.storage.StorageServiceMixin"));
+            assertEquals(true, shouldApply.invoke(plugin, "appeng.me.storage.NetworkStorage",
+                "cn.dancingsnow.neoecoae.mixins.ae2.storage.NetworkStorageMixin"));
+        }
+    }
+
     private final NetworkInventoryCache cache = new NetworkInventoryCache();
     private final Network network = new Network();
     private final KeyCounter published = new KeyCounter();
