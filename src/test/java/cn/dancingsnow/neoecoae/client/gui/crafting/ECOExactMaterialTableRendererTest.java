@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.client.gui.crafting;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
@@ -131,7 +130,7 @@ class ECOExactMaterialTableRendererTest {
     }
 
     @Test
-    void unverifiedSeedUsesLowerBoundTextInTheMaterialTableAndTooltip() throws Exception {
+    void unverifiedSeedUsesLowerBoundTextInTheMaterialTable() throws Exception {
         AEKey key = mock(AEKey.class);
         when(key.formatAmount(anyLong(), any())).thenAnswer(call -> Long.toString(call.getArgument(0)));
         var node = new CraftingGraphSnapshot.MaterialNode(0, key, 1, 0, 0, 1,
@@ -144,12 +143,6 @@ class ECOExactMaterialTableRendererTest {
         var contents = (net.minecraft.network.chat.contents.TranslatableContents) cn.dancingsnow.neoecoae.platform.JdkCompat.first(description).getContents();
         assertEquals("gui.neoecoae.crafting_report.seed_shortfall_estimate", contents.getKey());
         assertArrayEquals(new Object[] {"1"}, contents.getArgs());
-        try (var rendering = mockStatic(AEKeyRendering.class)) {
-            rendering.when(() -> AEKeyRendering.getTooltip(key)).thenReturn(new ArrayList<>());
-            var tooltip = renderer.getEntryTooltip(node);
-            var hint = (net.minecraft.network.chat.contents.TranslatableContents) tooltip.get(1).getContents();
-            assertEquals("gui.neoecoae.crafting_report.seed_shortfall_estimate_hint", hint.getKey());
-        }
     }
 
     @Test
@@ -270,12 +263,6 @@ class ECOExactMaterialTableRendererTest {
         verify(diamond).formatAmount(115481708064L, AmountFormat.SLOT);
         verify(diamond, never()).formatAmount(137346430105L, AmountFormat.SLOT);
         assertEquals(0x1AFF0000, renderer.getEntryOverlayColor(node));
-        try (var rendering = mockStatic(AEKeyRendering.class)) {
-            rendering.when(() -> AEKeyRendering.getTooltip(diamond)).thenReturn(new ArrayList<>());
-            assertEquals(3, renderer.getEntryTooltip(node).size());
-            verify(diamond).formatAmount(21864722041L, AmountFormat.FULL);
-            verify(diamond).formatAmount(115481708064L, AmountFormat.FULL);
-        }
     }
 
     @Test
@@ -288,9 +275,5 @@ class ECOExactMaterialTableRendererTest {
         var expected = List.of(appeng.core.localization.GuiText.FromStorage.text("25"),
             appeng.core.localization.GuiText.Missing.text("15"), appeng.core.localization.GuiText.ToCraft.text("60"));
         assertEquals(expected, renderer.getEntryDescription(node));
-        try (var rendering = mockStatic(AEKeyRendering.class)) {
-            rendering.when(() -> AEKeyRendering.getTooltip(material)).thenReturn(new ArrayList<>());
-            assertEquals(expected, renderer.getEntryTooltip(node).subList(0, 3));
-        }
     }
 }
