@@ -10,7 +10,6 @@ import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.core.sync.packets.CraftingStatusPacket;
-import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.menu.AEBaseMenu;
 import appeng.menu.me.common.IncrementalUpdateHelper;
 import appeng.menu.me.crafting.CraftingCPUMenu;
@@ -19,6 +18,8 @@ import appeng.menu.me.crafting.CraftingStatusEntry;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPULogic;
 import com.google.common.collect.ImmutableList;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -105,8 +106,6 @@ public class CraftingCpuMenuMixin extends AEBaseMenu implements cn.dancingsnow.n
     @Final
     @Shadow
     private IncrementalUpdateHelper incrementalUpdateHelper;
-    @Shadow
-    private CraftingCPUCluster cpu;
     @Unique
     private ECOCraftingCPU neoecoae$cpu = null;
     @Final
@@ -117,21 +116,19 @@ public class CraftingCpuMenuMixin extends AEBaseMenu implements cn.dancingsnow.n
     @Shadow
     public boolean cantStoreItems;
 
-    @Inject(
-        method = {"setCPU(Lappeng/api/networking/crafting/ICraftingCPU;)V"},
-        at = {@At("HEAD")},
-        cancellable = true
-    )
-    private void onSetCPU(ICraftingCPU c, CallbackInfo ci) {
-        if (this.neoecoae$cpu != null) {
+    @WrapMethod(method = "setCPU(Lappeng/api/networking/crafting/ICraftingCPU;)V")
+    private void onSetCPU(ICraftingCPU c, Operation<Void> original) {
+        boolean leavingEco = this.neoecoae$cpu != null;
+        if (leavingEco) {
             this.neoecoae$cpu.getLogic().removeListener(this.cpuChangeListener);
+            this.neoecoae$cpu = null;
         }
 
-        if (c instanceof ECOCraftingCPU ecoCPU) {
-            if (this.cpu != null) {
-                this.cpu.craftingLogic.removeListener(this.cpuChangeListener);
-            }
+        // Let AE2 clear its native CPU and let other addons detach their previous CPU first.
+        // Cancelling at HEAD left the old native reference behind and skipped addon cleanup.
+        original.call(c);
 
+        if (c instanceof ECOCraftingCPU ecoCPU) {
             this.incrementalUpdateHelper.reset();
             this.neoecoae$cpu = ecoCPU;
             KeyCounter allItems = new KeyCounter();
@@ -142,9 +139,10 @@ public class CraftingCpuMenuMixin extends AEBaseMenu implements cn.dancingsnow.n
             }
 
             this.neoecoae$cpu.getLogic().addListener(this.cpuChangeListener);
-            ci.cancel();
-        } else {
-            this.neoecoae$cpu = null;
+        } else if (leavingEco && c == null) {
+            // AE2 can return early here because its native CPU was already null during the ECO job.
+            this.incrementalUpdateHelper.reset();
+            this.sendPacketToClient(new CraftingStatusPacket(containerId, CraftingStatus.EMPTY));
         }
 
     }
