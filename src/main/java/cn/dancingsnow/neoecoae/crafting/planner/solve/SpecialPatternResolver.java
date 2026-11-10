@@ -40,6 +40,15 @@ public final class SpecialPatternResolver {
         this.ignorePatternSubstitutions = ignorePatternSubstitutions;
     }
 
+    /** Called only between complete material steps; recursion and owner/slot state have unwound. */
+    Map<AEKey, PlannerAmount> copyReservations() {
+        return new java.util.LinkedHashMap<>(reusableStock);
+    }
+
+    void restoreReservations(Map<AEKey, PlannerAmount> reservations) {
+        reusableStock.putAll(reservations);
+    }
+
     public static PlannerAmount requiredTools(PlannerAmount uses, int capacityPerTool) {
         if (capacityPerTool <= 0) throw new IllegalArgumentException("capacityPerTool must be positive");
         return uses.ceilDiv(PlannerAmount.of(capacityPerTool));

@@ -17,8 +17,23 @@ final class AcyclicSolveMetrics {
     long sccNanos;
     int condensationBuilds;
     long condensationNanos;
+    /** Complete material passes; resumed passes are counted by incrementalRestores. */
     int runOnceCalls;
     long runOnceNanos;
+    int incrementalRestores;
+    int incrementalFallbacks;
+    int checkpointCopies;
+    String checkpointBoundary = "NONE";
+    String checkpointDecision = "NOT_REQUESTED";
+    int checkpointPrefixSteps;
+    int checkpointPrefixExpansions;
+    long checkpointPrefixInputs;
+    long checkpointNanos;
+    long prefixCheckNanos;
+    long restoreNanos;
+    long retainedMaterialVisits;
+    long retainedPatternExpansions;
+    long retainedInputExpansions;
     long materialVisits;
     long patternExpansions;
     long inputExpansions;
@@ -41,6 +56,14 @@ final class AcyclicSolveMetrics {
                 + " sccPasses=" + sccPasses + " sccMs=" + sccNanos / 1_000_000.0D
                 + " condensationBuilds=" + condensationBuilds + " condensationMs=" + condensationNanos / 1_000_000.0D
                 + " runOnce=" + runOnceCalls + " runOnceMs=" + runOnceNanos / 1_000_000.0D
+                + " incrementalRestores=" + incrementalRestores + " incrementalFallbacks=" + incrementalFallbacks
+                + " checkpointCopies=" + checkpointCopies + " checkpointMs=" + checkpointNanos / 1_000_000.0D
+                + " checkpointBoundary=" + checkpointBoundary + " checkpointDecision=" + checkpointDecision
+                + " checkpointPrefixSteps=" + checkpointPrefixSteps
+                + " checkpointPrefixExpansions=" + checkpointPrefixExpansions + " checkpointPrefixInputs=" + checkpointPrefixInputs
+                + " prefixCheckMs=" + prefixCheckNanos / 1_000_000.0D + " restoreMs=" + restoreNanos / 1_000_000.0D
+                + " retainedMaterialVisits=" + retainedMaterialVisits
+                + " retainedPatternExpansions=" + retainedPatternExpansions + " retainedInputExpansions=" + retainedInputExpansions
                 + " materialVisits=" + materialVisits + " patternExpansions=" + patternExpansions
                 + " inputExpansions=" + inputExpansions
                 + " graphCacheHits=" + graphCacheHits + " graphInvalidations=" + graphInvalidations
