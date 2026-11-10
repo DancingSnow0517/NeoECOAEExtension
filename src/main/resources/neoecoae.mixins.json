@@ -10,6 +10,7 @@
     "ae2.key.AEItemKeyFactoryMixin",
     "ae2.key.AEFluidKeyFactoryMixin",
     "ae2.accessor.AECraftingPatternAccessor",
+    "ae2.accessor.AEBaseMenuAccessor",
     "ae2.accessor.CraftingPlanSummaryAccessor",
     "ae2.accessor.CraftingPlanSummaryEntryAccessor",
     "ae2.accessor.DelegatingMEInventoryAccessor",

@@ -26,6 +26,10 @@ public class CraftConfirmMenuSynchronizationTest {
         setEco(server, "neoecoae$exactPlanReady", true);
         setEco(server, "neoecoae$provenInfeasible", false);
         setEco(server, "neoecoae$reportSyncFailure", 2);
+        setEco(server, "neoecoae$theoreticalBytes", "9223372036854775808123");
+        setEco(server, "neoecoae$hasByteEstimate", true);
+        setEco(server, "neoecoae$completeByteEstimate", true);
+        setEco(server, "neoecoae$diagnosticsVersion", 7L);
         server.customProgress = 987654321L;
         server.customDiagnostic = "another addon diagnostic";
         server.customHighId = "another independently assigned range";
@@ -40,6 +44,12 @@ public class CraftConfirmMenuSynchronizationTest {
             assertEquals(1, getEco(client, "neoecoae$optimizationState"));
             assertEquals(true, getEco(client, "neoecoae$exactPlanReady"));
             assertEquals(2, client.neoecoae$getReportSyncFailure());
+            assertEquals(new java.math.BigInteger("9223372036854775808123"), client.neoecoae$getTheoreticalBytes());
+            assertTrue(client.neoecoae$hasByteEstimate());
+            assertTrue(client.neoecoae$hasCompleteByteEstimate());
+            assertEquals(7L, getEco(client, "neoecoae$diagnosticsVersion"));
+            assertSame(CraftingGraphSnapshot.EMPTY, client.neoecoae$craftingGraph,
+                "Byte metadata must not wait for material pages");
             assertEquals(server.customProgress, client.customProgress);
             assertEquals(server.customDiagnostic, client.customDiagnostic);
             assertEquals(server.customHighId, client.customHighId);
@@ -47,11 +57,17 @@ public class CraftConfirmMenuSynchronizationTest {
             buffer.clear();
             setEco(server, "neoecoae$planningStatusCode", 9);
             setEco(server, "neoecoae$optimizationState", 2);
+            setEco(server, "neoecoae$theoreticalBytes", "0");
+            setEco(server, "neoecoae$hasByteEstimate", false);
+            setEco(server, "neoecoae$completeByteEstimate", false);
             server.customDiagnostic = "updated addon diagnostic";
             serverSync.writeUpdate(buffer);
             clientSync.readUpdate(buffer);
             assertEquals(9, getEco(client, "neoecoae$planningStatusCode"));
             assertEquals(2, getEco(client, "neoecoae$optimizationState"));
+            assertEquals(java.math.BigInteger.ZERO, client.neoecoae$getTheoreticalBytes());
+            assertFalse(client.neoecoae$hasByteEstimate());
+            assertFalse(client.neoecoae$hasCompleteByteEstimate());
             assertEquals(1234567890123L, getEco(client, "neoecoae$calculationNanos"));
             assertEquals(server.customDiagnostic, client.customDiagnostic);
             assertEquals(987654321L, client.customProgress);

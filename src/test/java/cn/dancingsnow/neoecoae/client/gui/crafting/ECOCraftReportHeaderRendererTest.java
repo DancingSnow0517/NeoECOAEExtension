@@ -235,6 +235,57 @@ class ECOCraftReportHeaderRendererTest {
     }
 
     @Test
+    void finalBytesAppearBeforeMaterialPagesWithoutReusingOldGraphStatistics() throws Exception {
+        var menu = mock(CraftConfirmMenu.class, withSettings().extraInterfaces(ECOCraftConfirmMenuMode.class));
+        var mode = (ECOCraftConfirmMenuMode) menu;
+        var oldGraph = new CraftingGraphSnapshot(-1, List.of(), List.of(), List.of(), List.of(), List.of(),
+            new CraftingGraphSnapshot.Summary("SUCCESS", 12, 99, 0, 0, 0));
+        when(mode.neoecoae$getCraftingGraphSnapshot()).thenReturn(oldGraph);
+        when(mode.neoecoae$getTheoreticalBytes()).thenReturn(BigInteger.valueOf(512));
+        when(mode.neoecoae$getCalculationNanos()).thenReturn(2_000_000L);
+        var plan = new CraftingPlanSummary(512, false, List.of());
+        var screen = mock(ECOCraftConfirmScreen.class);
+        setField(net.minecraft.client.gui.screens.inventory.AbstractContainerScreen.class, screen, "menu", menu);
+        setField(Screen.class, screen, "font", mock(Font.class));
+        setField(ECOCraftConfirmScreen.class, screen, "materialData", new ECOExactMaterialTableRenderer.MaterialData());
+        var update = ECOCraftConfirmScreen.class.getDeclaredMethod(
+            "updateReportSummary", CraftingPlanSummary.class, boolean.class);
+        update.setAccessible(true);
+        var summaryField = ECOCraftConfirmScreen.class.getDeclaredField("reportSummary");
+        summaryField.setAccessible(true);
+
+        update.invoke(screen, plan, true);
+        assertTrue(isKey(((ECOCraftReportHeaderRenderer.Summary) summaryField.get(screen)).bytes(), "bytes_pending"));
+
+        when(mode.neoecoae$isEcoReportReady()).thenReturn(true);
+        when(mode.neoecoae$hasByteEstimate()).thenReturn(true);
+        when(mode.neoecoae$hasCompleteByteEstimate()).thenReturn(true);
+        update.invoke(screen, plan, true);
+        var summary = (ECOCraftReportHeaderRenderer.Summary) summaryField.get(screen);
+        assertTrue(isKey(summary.bytes(), "bytes_only"));
+        assertEquals("512 B", argument(summary.bytes()));
+        assertEquals("2.0000", argument(summary.elapsed()));
+        assertFalse(summary.tooltip().stream().anyMatch(line -> isKey(line, "total_patterns")),
+            "A previous revision's graph must not be combined with the new byte estimate");
+
+        when(mode.neoecoae$diagnosticsReady()).thenReturn(true);
+        when(mode.neoecoae$getCraftingGraphSnapshot()).thenReturn(new CraftingGraphSnapshot(-1,
+            List.of(), List.of(), List.of(), List.of(), List.of(),
+            new CraftingGraphSnapshot.Summary("SUCCESS", 2, 1, 0, 0, 0)));
+        update.invoke(screen, plan, false);
+        summary = (ECOCraftReportHeaderRenderer.Summary) summaryField.get(screen);
+        assertEquals("512 B", argument(summary.bytes()));
+        assertEquals("1", argument(summary.tooltip().stream()
+            .filter(line -> isKey(line, "total_patterns")).findFirst().orElseThrow()));
+
+        when(mode.neoecoae$isEcoReportReady()).thenReturn(false);
+        when(mode.neoecoae$diagnosticsReady()).thenReturn(false);
+        update.invoke(screen, plan, true);
+        assertTrue(isKey(((ECOCraftReportHeaderRenderer.Summary) summaryField.get(screen)).bytes(), "bytes_pending"),
+            "Replanning must not continue displaying the previous plan's byte estimate");
+    }
+
+    @Test
     void incompleteStressReportKeepsComputedBigIntegerBytesInTheScreenAndTooltip() throws Exception {
         BigInteger huge = BigInteger.TEN.pow(123).add(BigInteger.valueOf(987654321));
         var node = new CraftingGraphSnapshot.MaterialNode(0, mock(AEKey.class), 100, 0, 0, 100,
@@ -278,12 +329,30 @@ class ECOCraftReportHeaderRendererTest {
             .map(Component::getString).reduce("", String::concat);
         assertEquals(DisplayNumbers.grouped(huge.toString()) + " B", exact);
 
+        // The same partial total is useful before rows arrive, but must never become an exact total.
+        when(mode.neoecoae$isEcoReportReady()).thenReturn(true);
+        when(mode.neoecoae$hasByteEstimate()).thenReturn(true);
+        when(mode.neoecoae$diagnosticsReady()).thenReturn(false);
         data.update(CraftingGraphSnapshot.EMPTY, List.of());
         when(mode.neoecoae$getCraftingGraphSnapshot()).thenReturn(CraftingGraphSnapshot.EMPTY);
         update.invoke(screen, plan, true);
         summary = (ECOCraftReportHeaderRenderer.Summary) summaryField.get(screen);
+        assertTrue(isKey(summary.bytes(), "bytes_partial"));
+        assertEquals(exact, summary.tooltip().stream()
+            .filter(line -> !(line.getContents() instanceof TranslatableContents))
+            .map(Component::getString).reduce("", String::concat));
+
+        when(mode.neoecoae$hasByteEstimate()).thenReturn(false);
+        update.invoke(screen, plan, true);
+        summary = (ECOCraftReportHeaderRenderer.Summary) summaryField.get(screen);
         assertEquals("gui.neoecoae.crafting_report.bytes_unknown", key(summary.bytes()),
             "A diagnostic shell without material calculations must not display a byte total");
+
+        when(mode.neoecoae$getReportSyncFailure()).thenReturn(1);
+        update.invoke(screen, plan, true);
+        summary = (ECOCraftReportHeaderRenderer.Summary) summaryField.get(screen);
+        assertTrue(isKey(summary.elapsed(), "material_sync_failed"));
+        assertTrue(isKey(summary.bytes(), "bytes_pending"));
     }
 
     @Test
