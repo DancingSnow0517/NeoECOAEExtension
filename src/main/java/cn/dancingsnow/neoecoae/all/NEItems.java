@@ -63,6 +63,21 @@ public class NEItems {
         .lang("Phase-Change Air-Cooled Heat Sink")
         .register();
 
+    public static final ItemEntry<Item> NETWORK_PULL_CARD = REGISTRATE
+        .item("network_pull_card", Upgrades::createUpgradeCardItem)
+        .lang("Network Pull Card")
+        .model((ctx, prov) -> prov.generated(ctx::get, prov.modLoc("item/network_pull_card")))
+        .recipe((ctx, prov) -> ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+            .pattern("AWA").pattern("CSC").pattern("APA")
+            .define('A', NEItems.ALUMINUM_ALLOY_INGOT)
+            .define('W', AEItems.ADVANCED_CARD)
+            .define('C', AEItems.WIRELESS_RECEIVER)
+            .define('S', AEItems.SINGULARITY)
+            .define('P', NEItems.SUPERCONDUCTING_PROCESSOR)
+            .unlockedBy("has_singularity", RegistrateRecipeProvider.has(AEItems.SINGULARITY))
+            .save(prov))
+        .register();
+
     public static final ItemEntry<cn.dancingsnow.neoecoae.items.StructureTerminalItem> STRUCTURE_TERMINAL = REGISTRATE
         .item("structure_terminal", cn.dancingsnow.neoecoae.items.StructureTerminalItem::new)
         .lang("Structure Terminal")

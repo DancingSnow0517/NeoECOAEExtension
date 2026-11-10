@@ -1735,5 +1735,19 @@
   "gui.neoecoae.crafting_graph.details.target_label": "请求目标：",
   "gui.neoecoae.crafting_graph.recursion.no_output": "无需交付产物",
   "gui.neoecoae.crafting_graph.recursion.output_types": "交付 %s 种产物",
-  "gui.neoecoae.crafting_graph.recursion.module_target": "请求：%s"
+  "gui.neoecoae.crafting_graph.recursion.module_target": "请求：%s",
+  "item.neoecoae.network_pull_card": "网络拉取卡",
+  "gui.neoecoae.fluid_input_hatch.stock": "仓内缓存",
+  "gui.neoecoae.fluid_input_hatch.filter": "标记流体",
+  "gui.neoecoae.fluid_input_hatch.target": "目标量 (mB)",
+  "gui.neoecoae.fluid_input_hatch.stored": "已缓存：%s mB",
+  "gui.neoecoae.fluid_input_hatch.card_required": "安装网络拉取卡后启用自动补货",
+  "gui.neoecoae.fluid_input_hatch.online": "ME 在线 · 每秒补足目标库存",
+  "gui.neoecoae.fluid_input_hatch.offline": "ME 离线 · 等待网络连接",
+  "gui.neoecoae.fluid_input_hatch.upgrade": "升级槽：网络拉取卡（最多 1 张）",
+  "gui.neoecoae.fluid_input_hatch.filter_hint": "手持流体容器右键标记内部流体，或从 JEI/EMI 拖入冷却液；空手左键清除。标记不消耗流体。",
+  "gui.neoecoae.fluid_input_hatch.target_hint": "以桶（B）输入目标量，支持小数。每 20 tick 补足库存，超额退回网络；设为 0 清除标记并退回缓存。",
+  "gui.neoecoae.fluid_input_hatch.select_fluid": "点击或拖入要补充的冷却液",
+  "gui.neoecoae.fluid_input_hatch.amount_hint": "点击上方齿轮调整目标库存量；单位为桶（B）。",
+  "gui.neoecoae.fluid_input_hatch.target_buckets": "目标库存量 (B)"
 }
