@@ -129,7 +129,8 @@ public final class JointRouteOptimizer {
         // Presence closure removes seed-free and unavailable branches without asserting numeric feasibility.
         Set<AEKey> available = new LinkedHashSet<>(network.emittable());
         available.remove(network.goal());
-        for (var entry : inventory.toKeyCounter()) if (!entry.getKey().equals(network.goal())) available.add(entry.getKey());
+        for (AEKey key : inventory.amounts().keySet()) if (!key.equals(network.goal())) available.add(key);
+        for (AEKey key : inventory.unboundedKeys()) if (!key.equals(network.goal())) available.add(key);
         Set<CompiledPattern> reachable = new LinkedHashSet<>();
         boolean changed;
         do {
@@ -232,7 +233,7 @@ public final class JointRouteOptimizer {
             }
         }
         if (state == null
-                || ECOPlanMaterialValidator.firstDeficit(state, network.goal(), amount, inventory.toKeyCounter(), network) != null)
+                || ECOPlanMaterialValidator.firstDeficit(state, network.goal(), amount, null, network) != null)
             return null;
         state.executionProvenance().requireComplete();
         if (state.executionProvenance().hasPatternCycle(state.patternTimes.keySet(), cancellation)) return null;
@@ -263,7 +264,8 @@ public final class JointRouteOptimizer {
             Set<AEKey> goals, ECOCancellation cancellation) throws InterruptedException {
         Map<AEKey, Integer> ranks = new LinkedHashMap<>();
         network.emittable().forEach(key -> ranks.put(key, 0));
-        for (var entry : inventory.toKeyCounter()) if (entry.getLongValue() > 0) ranks.put(entry.getKey(), 0);
+        inventory.amounts().forEach((key, quantity) -> { if (quantity.signum() > 0) ranks.put(key, 0); });
+        inventory.unboundedKeys().forEach(key -> ranks.put(key, 0));
         boolean changed;
         do {
             changed = false;
@@ -366,7 +368,7 @@ public final class JointRouteOptimizer {
         state.provenance.allocate(goal, goal.key(), new MaterialSource.CycleOutput(0), goal.amount());
         state.bytes = PlannerAmount.of(demand.size()).multiply(8).add(cost(state));
         demand.forEach((key, count) -> state.bytes = state.bytes.add(PlannerAmount.stackBytes(count, key.getAmountPerByte())));
-        if (ECOPlanMaterialValidator.firstDeficit(state, network.goal(), amount, inventory.toKeyCounter(), network) != null) return null;
+        if (ECOPlanMaterialValidator.firstDeficit(state, network.goal(), amount, null, network) != null) return null;
         state.executionProvenance().requireComplete();
         var result = new ComponentPlanningResult(Map.of(network.goal(), PlannerAmount.of(amount)), state.usedAmounts(),
             0, ComponentPlanningResult.Type.CYCLIC, ComponentPlanningResult.Status.PLANNED, firings.keySet(), firings.keySet(),
