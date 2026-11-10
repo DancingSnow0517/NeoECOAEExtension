@@ -7,6 +7,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.crafting.IPatternDetails;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningStageLogger;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
@@ -97,6 +98,21 @@ public final class AcyclicCraftingSolver {
             Map<AEKey, PlannerAmount> goals, boolean additionalGoal, Map<AEKey, Integer> initialChoices,
             Set<IPatternDetails> deferredPatterns, boolean ignorePatternSubstitutions,
             ECOCancellation cancellation) throws InterruptedException {
+        AcyclicSolveMetrics metrics = ECOPlanningStageLogger.isEnabled() ? new AcyclicSolveMetrics() : null;
+        try {
+            Outcome outcome = solveGoals(network, inventory, goals, additionalGoal, initialChoices,
+                deferredPatterns, ignorePatternSubstitutions, cancellation, metrics);
+            if (metrics != null) metrics.status = outcome.status().name();
+            return outcome;
+        } finally {
+            if (metrics != null) metrics.finish();
+        }
+    }
+
+    private Outcome solveGoals(CompiledNetwork network, PlannerInventorySnapshot inventory,
+            Map<AEKey, PlannerAmount> goals, boolean additionalGoal, Map<AEKey, Integer> initialChoices,
+            Set<IPatternDetails> deferredPatterns, boolean ignorePatternSubstitutions,
+            ECOCancellation cancellation, AcyclicSolveMetrics metrics) throws InterruptedException {
         PlannerAmount amount = goals.getOrDefault(network.goal(), PlannerAmount.ZERO);
         ECOPlanTrace trace = new ECOPlanTrace();
         if (goals.values().stream().anyMatch(value -> value.signum() <= 0)) {
@@ -104,36 +120,43 @@ public final class AcyclicCraftingSolver {
             return new Outcome(PlanningStatus.AMOUNT_OVERFLOW, new SolveState(inventory), trace);
         }
         Map<AEKey, Integer> choices = new HashMap<>(initialChoices);
+        SolveWorkspace workspace = new SolveWorkspace(inventory, choices);
         int retryBudget = Math.max(1, network.reachablePatternCount() + 1);
         SolveState state = null;
         SolveState missingRoute = null;
         cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingDependencyGraph universe = null;
+        ActiveRouteSelector.RetryCheck retryCheck = null;
         for (int attempt = 0; attempt < retryBudget; attempt++) {
             cancellation.checkpoint();
+            if (metrics != null) metrics.attempts++;
             if (attempt > 0) {
                 // The caller classified the initial route. A numeric retry can add feedback through
                 // secondary outputs even when its ordinary input edges still look like a DAG.
                 if (universe == null) {
-                    universe = new cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingGraphBuilder()
-                        .build(network, cancellation);
+                    long started = metrics == null ? 0L : System.nanoTime();
+                    try {
+                        if (metrics != null) metrics.universeBuilds++;
+                        universe = new cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingGraphBuilder()
+                            .build(network, cancellation);
+                    } finally {
+                        if (metrics != null) metrics.universeNanos += System.nanoTime() - started;
+                    }
                 }
-                var selected = new ActiveRouteSelector().selectWithChoices(universe, choices, cancellation);
-                if (selected.cyclicComponents().stream()
-                        .filter(cycle -> cycle.patterns().stream().anyMatch(pattern -> pattern.outputs().stream()
-                            .anyMatch(output -> !output.what().equals(pattern.producedKey()))))
-                        .flatMap(cycle -> cycle.patterns().stream())
-                        .anyMatch(pattern -> !deferredPatterns.contains(pattern.details()))) {
+                if (retryCheck == null) {
+                    retryCheck = new ActiveRouteSelector.RetryCheck(universe, deferredPatterns, metrics, cancellation);
+                }
+                if (retryCheck.requiresCycle(choices, cancellation)) {
                     return cyclicRouteOutcome(network, inventory, choices, trace);
                 }
             }
             List<AEKey> currentRoute = selectedRoute(
                 network, choices, deferredPatterns, Set.of(), goals.keySet(), cancellation);
             state = currentRoute == null
-                ? solveStockBackedRoute(network, inventory, choices, goals, additionalGoal, deferredPatterns,
-                    ignorePatternSubstitutions, cancellation)
+                ? solveStockBackedRoute(network, workspace, goals, additionalGoal, deferredPatterns,
+                    ignorePatternSubstitutions, cancellation, metrics)
                 : runOnce(network, new AcyclicRoutePlan(currentRoute),
-                    new SolveWorkspace(inventory, choices), goals, additionalGoal,
-                    deferredPatterns, Set.of(), ignorePatternSubstitutions, cancellation);
+                    workspace, goals, additionalGoal,
+                    deferredPatterns, Set.of(), ignorePatternSubstitutions, cancellation, metrics);
             if (state == null) {
                 return cyclicRouteOutcome(network, inventory, choices, trace);
             }
@@ -166,6 +189,8 @@ public final class AcyclicCraftingSolver {
                 return new Outcome(PlanningStatus.MISSING_ITEMS, state, trace);
             }
             if (state.unsupported.isEmpty()) missingRoute = state;
+            workspace.enableExpansionCache();
+            if (metrics != null) metrics.candidateSwitches++;
             for (var rejected : state.selected.entrySet()) {
                 trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.PATTERN, rejected.getKey(),
                     rejected.getValue().details(), 0, 0, 0, 0,
@@ -194,22 +219,24 @@ public final class AcyclicCraftingSolver {
      * Try stocked keys as leaves, then reopen any leaf whose aggregated demand exceeds supply.
      * Each retry uses fresh inventory and removes at least one leaf; a remaining cycle still falls back.
      */
-    private static SolveState solveStockBackedRoute(CompiledNetwork network, PlannerInventorySnapshot inventory,
-            Map<AEKey, Integer> choices, Map<AEKey, PlannerAmount> goals, boolean additionalGoal,
+    private static SolveState solveStockBackedRoute(CompiledNetwork network, SolveWorkspace workspace,
+            Map<AEKey, PlannerAmount> goals, boolean additionalGoal,
             Set<IPatternDetails> deferredPatterns,
-            boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
+            boolean ignorePatternSubstitutions, ECOCancellation cancellation, AcyclicSolveMetrics metrics) throws InterruptedException {
         PlannerCounter stock = new PlannerCounter();
-        inventory.initialize(stock);
+        workspace.inventory().initialize(stock);
         Set<AEKey> stockLeaves = new LinkedHashSet<>(stock.asMap().keySet());
         if (additionalGoal) stockLeaves.remove(network.goal());
         while (!stockLeaves.isEmpty()) {
             cancellation.checkpoint();
-            List<AEKey> route = selectedRoute(network, choices, deferredPatterns, stockLeaves, goals.keySet(), cancellation);
+            List<AEKey> route = selectedRoute(network, workspace.candidateChoice(), deferredPatterns,
+                stockLeaves, goals.keySet(), cancellation);
             if (route == null) return null;
             SolveState state = runOnce(network, new AcyclicRoutePlan(route),
-                new SolveWorkspace(inventory, choices), goals, additionalGoal, deferredPatterns, stockLeaves,
-                ignorePatternSubstitutions, cancellation);
+                workspace, goals, additionalGoal, deferredPatterns, stockLeaves,
+                ignorePatternSubstitutions, cancellation, metrics);
             if (!stockLeaves.removeAll(state.unsupported)) return state;
+            workspace.enableExpansionCache();
         }
         return null;
     }
@@ -286,8 +313,22 @@ public final class AcyclicCraftingSolver {
             Map<AEKey, PlannerAmount> goals, boolean additionalGoal,
             Set<IPatternDetails> deferredPatterns, Set<AEKey> stockLeaves,
             boolean ignorePatternSubstitutions,
-            ECOCancellation cancellation)
+            ECOCancellation cancellation, AcyclicSolveMetrics metrics)
             throws InterruptedException {
+        long started = metrics == null ? 0L : System.nanoTime();
+        try {
+            if (metrics != null) metrics.runOnceCalls++;
+            return expandDemands(network, route, workspace, goals, additionalGoal, deferredPatterns,
+                stockLeaves, ignorePatternSubstitutions, cancellation, metrics);
+        } finally {
+            if (metrics != null) metrics.runOnceNanos += System.nanoTime() - started;
+        }
+    }
+
+    private static SolveState expandDemands(CompiledNetwork network, AcyclicRoutePlan route, SolveWorkspace workspace,
+            Map<AEKey, PlannerAmount> goals, boolean additionalGoal, Set<IPatternDetails> deferredPatterns,
+            Set<AEKey> stockLeaves, boolean ignorePatternSubstitutions,
+            ECOCancellation cancellation, AcyclicSolveMetrics metrics) throws InterruptedException {
         SolveState state = new SolveState(workspace.inventory());
         if (additionalGoal) state.stored.set(network.goal(), PlannerAmount.ZERO);
         goals.forEach((key, amount) -> {
@@ -314,6 +355,7 @@ public final class AcyclicCraftingSolver {
             AEKey key = pending.poll(cancellation);
             PlannerAmount requested = state.provenance.pendingAmount(key);
             if (requested.signum() <= 0) continue;
+            if (metrics != null) metrics.materialVisits++;
             state.bytes = state.bytes.add(PlannerAmount.stackBytes(requested, key.getAmountPerByte()));
             boolean ignoreComponents = false;
             IPatternDetails.IInput matchingInput = null;
@@ -371,14 +413,13 @@ public final class AcyclicCraftingSolver {
             }
             state.provenance.allocatePending(key, key, new MaterialSource.PatternOutput(pattern.details(), true), requested);
             PlannerAmount times = requested.ceilDiv(pattern.outputPerPattern());
+            if (metrics != null) metrics.patternExpansions++;
             PlannerAmount oldTimes = state.patternTimes.getOrDefault(pattern.details(), PlannerAmount.ZERO);
             state.patternTimes.put(pattern.details(), oldTimes.add(times));
             state.bytes = state.bytes.add(times);
-            Map<AEKey, PlannerAmount> produced = new LinkedHashMap<>();
-            for (var output : pattern.outputs()) {
-                PlannerAmount total = PlannerAmount.of(output.amount()).multiply(times);
-                produced.put(output.what(), produced.getOrDefault(output.what(), PlannerAmount.ZERO).add(total));
-            }
+            SolveWorkspace.Expansion expansion = workspace.cachedExpansion(pattern, times, metrics);
+            Map<AEKey, PlannerAmount> produced = expansion == null
+                ? SolveWorkspace.outputAmounts(pattern, times) : expansion.outputs();
             for (var output : produced.entrySet()) {
                 PlannerAmount available = output.getValue();
                 if (output.getKey().equals(key)) available = available.subtract(requested);
@@ -388,10 +429,10 @@ public final class AcyclicCraftingSolver {
             for (int slot = 0; slot < pattern.inputs().size(); slot++) {
                 CompiledInput input = pattern.inputs().get(slot);
                 if (pattern.specialAnalysis().excludesFromCycleGraph(input)) continue;
+                if (metrics != null) metrics.inputExpansions++;
                 // Legacy semantic adapters may still express reusable stock without the special analyzer.
-                PlannerAmount required = input.reusable()
-                    ? input.amountPerPattern()
-                    : input.amountPerPattern().multiply(times);
+                PlannerAmount required = expansion == null
+                    ? SolveWorkspace.inputAmount(input, times) : expansion.inputAmount(slot);
                 MaterialDemand inputDemand = MaterialDemand.input(pattern.details(), slot, input.key(), required);
                 state.provenance.register(inputDemand);
                 if (input.ignoresComponents() && input.key() instanceof AEItemKey) {

@@ -47,6 +47,19 @@ public final class ECOPlanningStageLogger {
         return System.nanoTime();
     }
 
+    public static boolean isEnabled() {
+        return CURRENT.get() != null;
+    }
+
+    /** Numeric summaries are emitted once per solve and must not lose counters to diagnostic truncation. */
+    public static void statistics(String stage, long startedNanos, String counters) {
+        Context context = CURRENT.get();
+        if (context == null) return;
+        LOGGER.info("[ECO-PLANNER-STATS] request={} stage={} elapsedMs={} {} goal={} amount={} simulation={}",
+            context.requestId(), stage, (System.nanoTime() - startedNanos) / 1_000_000.0D, counters,
+            context.goal(), context.amount(), context.simulation());
+    }
+
     public static void finish(String stage, long startedNanos, boolean success, @Nullable String reason) {
         Context context = CURRENT.get();
         if (context == null) return;
