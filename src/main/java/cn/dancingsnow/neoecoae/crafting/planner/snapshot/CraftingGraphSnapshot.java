@@ -452,10 +452,10 @@ public record CraftingGraphSnapshot(
     /** Bounded, exact checkpoints of the selected recipe order, including a conditional material-shortage plan. */
     public record Recursion(List<KeyAmount> initialInventory, List<RecursionLayer> layers, boolean complete) {
         public static final Recursion EMPTY = new Recursion(List.of(), List.of(), false);
-        private static Recursion read(FriendlyByteBuf data) {
+        private static Recursion read(RegistryFriendlyByteBuf data) {
             return new Recursion(readList(data, KeyAmount::read), readList(data, RecursionLayer::read), data.readBoolean());
         }
-        private void write(FriendlyByteBuf data) {
+        private void write(RegistryFriendlyByteBuf data) {
             writeList(data, initialInventory, KeyAmount::write);
             writeList(data, layers, RecursionLayer::write);
             data.writeBoolean(complete);
@@ -464,11 +464,11 @@ public record CraftingGraphSnapshot(
 
     public record RecursionLayer(List<KeyAmount> addedInputs, List<KeyAmount> inventory,
             List<PatternAmount> patternTimes, boolean folded) {
-        private static RecursionLayer read(FriendlyByteBuf data) {
+        private static RecursionLayer read(RegistryFriendlyByteBuf data) {
             return new RecursionLayer(readList(data, KeyAmount::read), readList(data, KeyAmount::read),
                 readList(data, PatternAmount::read), data.readBoolean());
         }
-        private void write(FriendlyByteBuf data) {
+        private void write(RegistryFriendlyByteBuf data) {
             writeList(data, addedInputs, KeyAmount::write);
             writeList(data, inventory, KeyAmount::write);
             writeList(data, patternTimes, PatternAmount::write);
