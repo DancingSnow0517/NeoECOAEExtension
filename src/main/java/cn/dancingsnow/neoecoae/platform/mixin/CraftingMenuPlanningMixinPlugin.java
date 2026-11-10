@@ -14,6 +14,12 @@ public final class CraftingMenuPlanningMixinPlugin implements IMixinConfigPlugin
     }
     @Override public String getRefMapperConfig() { return null; }
     @Override public boolean shouldApplyMixin(String target, String mixin) {
+        if (mixin.endsWith(".ae2.storage.StorageServiceMixin")) {
+            // GTL publishes its crafting inventory snapshot from the original update's watcher calls.
+            // Our cache replaces that body and would leave the snapshot empty while AE's cache fills.
+            return getClass().getClassLoader().getResource(
+                "org/gtlcore/gtlcore/integration/ae2/InventorySnapshotVersion.class") == null;
+        }
         if (mixin.endsWith(".DelegatingStorageListingMixin") || mixin.endsWith(".MEInventoryHandlerListingMixin")
                 || mixin.endsWith(".TerminalSnapshotCounterMixin") || mixin.endsWith(".PrecisePriorityListAccessor")
                 || mixin.contains(".ae2.key.")) {
