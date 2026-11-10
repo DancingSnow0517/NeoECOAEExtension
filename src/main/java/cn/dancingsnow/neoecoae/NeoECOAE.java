@@ -221,6 +221,7 @@ public class NeoECOAE {
         event.enqueueWork(() -> {
             String storageCellGroup = GuiText.StorageCells.getTranslationKey();
 
+            Upgrades.add(NEItems.NETWORK_PULL_CARD, NEBlocks.INPUT_HATCH.get(), 1);
             Upgrades.add(AEItems.SPEED_CARD, NEBlocks.INTEGRATED_WORKING_STATION.get(), 4);
             Upgrades.add(AEItems.CAPACITY_CARD, NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE.get(), 4);
 
