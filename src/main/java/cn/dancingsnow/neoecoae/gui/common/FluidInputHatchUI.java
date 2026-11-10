@@ -129,7 +129,7 @@ public final class FluidInputHatchUI {
                 amountWindow.setDisplay(false);
             }), 110, 48, 58, 16));
         amountWindow.addChild(HostElements.absolute(HostSubWindowControls.backButton(() -> amountWindow.setDisplay(false)), 153, 3, 20, 20));
-        Button gear = new Button().noText().addPostIcon(AETextures.icon(ECOIcon.COG))
+        Button gear = new StockAmountButton().noText()
             .setOnClick(event -> {
                 field.setValue(BigDecimal.valueOf(state.getValue().getLong("target"), 3).stripTrailingZeros().toPlainString());
                 amountWindow.setDisplay(true);
@@ -150,6 +150,15 @@ public final class FluidInputHatchUI {
         state.registerValueListener(apply);
         apply.accept(state.getValue());
         return ECOModularUI.create(root, player);
+    }
+
+    /** Same borderless idle/hover artwork as the 1.21.1 stock amount control. */
+    private static final class StockAmountButton extends Button {
+        @Override public void drawBackgroundAdditional(GUIContext context) {}
+        @Override public void drawContents(GUIContext context) {
+            context.drawTexture(AETextures.icon(getState() == State.DEFAULT ? ECOIcon.COG_DISABLED : ECOIcon.COG),
+                getPositionX(), getPositionY(), 16, 16);
+        }
     }
 
     private static final class MarkedSlot extends UIElement {
