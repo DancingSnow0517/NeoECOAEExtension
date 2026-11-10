@@ -23,6 +23,30 @@ import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.Test;
 
 class RouteAvailabilityPruningTest {
+    @Test void availabilityReadsExactUnboundedAndReservedStock() throws Exception {
+        InventoryTestBootstrap.initialize();
+        var goal = AEItemKey.of(Items.DIAMOND);
+        var input = AEItemKey.of(Items.IRON_INGOT);
+        var recipe = pattern(goal, input);
+        var service = mock(ICraftingService.class);
+        when(service.getCraftingFor(any())).thenAnswer(call -> goal.equals(call.getArgument(0))
+            ? List.of(recipe) : List.of());
+        var network = new cn.dancingsnow.neoecoae.crafting.planner.compile.CraftingNetworkCompiler()
+            .compile(service, goal, ECOCancellation.NONE);
+        var large = PlannerAmount.of(Long.MAX_VALUE).add(PlannerAmount.ONE);
+        var finite = PlannerInventorySnapshot.exact(java.util.Map.of(input, large), java.util.Set.of());
+        assertFalse(RouteAvailabilityProof.goalUnreachable(network, finite, ECOCancellation.NONE));
+        assertTrue(RouteAvailabilityProof.goalUnreachable(network,
+            finite.withoutReserved(java.util.Map.of(input, large)), ECOCancellation.NONE));
+        assertEquals(large, finite.amountOf(input));
+        for (var amounts : List.of(java.util.Map.<AEKey, PlannerAmount>of(),
+                java.util.Map.<AEKey, PlannerAmount>of(input, PlannerAmount.ZERO))) {
+            var unlimited = PlannerInventorySnapshot.exact(amounts, java.util.Set.of(input));
+            assertFalse(RouteAvailabilityProof.goalUnreachable(network,
+                unlimited.withoutReserved(java.util.Map.of(input, large)), ECOCancellation.NONE));
+        }
+    }
+
     @Test void progressiveMissingReportDoesNotReleaseTheAlternativeSearchBudget() throws Exception {
         InventoryTestBootstrap.initialize();
         var keys = List.of(Items.STONE, Items.DIRT, Items.SAND, Items.GLASS, Items.COBBLESTONE,
