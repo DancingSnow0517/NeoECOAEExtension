@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.client.gui.graph;
 
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import appeng.api.client.AEKeyRendering;
 import cn.dancingsnow.neoecoae.crafting.graph.ClientCraftingGraph;
 import cn.dancingsnow.neoecoae.crafting.graph.CompactTreeNode;
@@ -58,7 +59,7 @@ public final class CompactTreeRenderer {
         }
     }
 
-    private static void drawRowFrame(GuiGraphics graphics, float left, float top, float right, float bottom,
+    static void drawRowFrame(GuiGraphics graphics, float left, float top, float right, float bottom,
             float cameraX, float cameraY, float zoom) {
         int x = screen(cameraX, left, zoom);
         int y = screen(cameraY, top, zoom);
@@ -99,6 +100,7 @@ public final class CompactTreeRenderer {
             route = verticalRoute(from, to);
         }
         drawRoute(graphics, route, color, cameraX, cameraY, zoom);
+        if (layout.box(link.toId()) == null) return;
         var end = route.getLast();
         int endX = screen(cameraX, end.x(), zoom);
         int endY = screen(cameraY, end.y(), zoom);
@@ -181,21 +183,22 @@ public final class CompactTreeRenderer {
                 AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, iconX, iconY, material.key());
             }
             if (material != null && material.key() != null && bottom - y >= 24
-                    && (material.consumedBigInteger().signum() > 0 || material.producedBigInteger().signum() > 0
+                    && (node.recursion() != null || material.consumedBigInteger().signum() > 0 || material.producedBigInteger().signum() > 0
                         || material.requestedBigInteger().signum() > 0)) {
-                drawAmount(graphics, font, flowText(material),
+                drawAmount(graphics, font, materialAmount(node),
                     x, y + 20, right, bottom);
             }
         } else if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) {
             var cycle = node.cycle();
-            String label = cycle == null ? node.label() : "↻ 循环 #" + cycle.componentId();
+            String label = cycle == null ? node.label() : GraphRenderer.recursionText("module", cycle.componentId()).getString();
             graphics.drawString(font, fit(font, label, Math.max(20, right - x - 24)), x + 6, y + 5, TEXT, false);
-            if (cycle != null) graphics.drawString(font, cycle.memberNodeIds().size() + " 个成员", x + 6, y + 19,
-                MUTED, false);
+            if (cycle != null) graphics.drawString(font,
+                fit(font, GraphRenderer.recursiveModuleSummary(cycle).getString(), Math.max(1, right - x - 12)),
+                x + 6, y + 19, MUTED, false);
             graphics.drawString(font, "↻", right - 14, y + 9, border, false);
         } else if (node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER) {
             var cluster = node.cluster();
-            String label = cluster == null ? node.label() : "◎ 循环簇 #" + cluster.clusterId();
+            String label = cluster == null ? node.label() : GraphRenderer.recursionText("modules", cluster.clusterId()).getString();
             graphics.drawString(font, fit(font, label, Math.max(20, right - x - 24)), x + 6, y + 5, TEXT, false);
             if (cluster != null) graphics.drawString(font, cluster.componentIds().size() + " 个循环", x + 6,
                 y + 19, MUTED, false);
@@ -229,43 +232,41 @@ public final class CompactTreeRenderer {
             if (folder == null) return List.of(Component.literal(node.label()));
             List<Component> result = new ArrayList<>();
             result.add(Component.literal(node.label()));
-            result.add(Component.literal("hidden nodes: " + folder.hiddenNodeCount()));
-            result.add(Component.literal("hidden layers: " + folder.hiddenDepth()));
-            result.add(Component.literal("missing: " + folder.containsMissing() + ", unsupported: "
-                + folder.containsUnsupported() + ", cycle: " + folder.containsCycle()));
-            result.add(Component.literal("click: expand one level, right click: expand all"));
+            result.add(Component.translatable("gui.neoecoae.crafting_graph.details.hidden_nodes", folder.hiddenNodeCount()));
+            result.add(Component.translatable("gui.neoecoae.crafting_graph.details.hidden_layers", folder.hiddenDepth()));
+            result.add(Component.translatable("gui.neoecoae.crafting_graph.details.missing", yesNo(folder.containsMissing())));
+            result.add(Component.translatable("gui.neoecoae.crafting_graph.details.unsupported", yesNo(folder.containsUnsupported())));
+            result.add(Component.translatable("gui.neoecoae.crafting_graph.details.cycle", yesNo(folder.containsCycle())));
+            result.add(Component.translatable("gui.neoecoae.crafting_graph.action.expand_hint"));
             return result;
         }
         if (node.kind() == ClientCraftingGraph.Kind.REFERENCE) {
             var treeNode = graph.compactTreeNode(node.id());
-            return List.of(Component.literal(node.label()), Component.literal("shared dependency reference"),
-                Component.literal(treeNode == null ? "" : "source id: " + treeNode.sourceId()));
+            return List.of(Component.literal(node.label()), Component.translatable("gui.neoecoae.crafting_graph.reference.description"),
+                treeNode == null ? Component.empty()
+                    : Component.translatable("gui.neoecoae.crafting_graph.reference.source", treeNode.sourceId()));
         }
         if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP && node.cycle() != null) {
             var cycle = node.cycle();
-            return List.of(Component.literal("循环 #" + cycle.componentId()),
-                Component.literal("成员：" + cycle.memberNodeIds().size()),
-                Component.literal("状态：" + cycle.status()),
-                Component.literal("双击：打开循环详情"));
+            return List.of(GraphRenderer.recursionText("module", cycle.componentId()),
+                GraphRenderer.recursiveModuleSummary(cycle),
+                GraphRenderer.recursionText("open"));
         }
         if (node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER && node.cluster() != null) {
             var cluster = node.cluster();
-            return List.of(Component.literal("循环簇 #" + cluster.clusterId()),
-                Component.literal("独立循环：" + cluster.componentIds().size()),
-                Component.literal("跨环物料流：" + cluster.flows().size()),
-                Component.literal("双击：打开循环簇"));
+            return List.of(GraphRenderer.recursionText("modules", cluster.clusterId()),
+                Component.translatable("gui.neoecoae.crafting_graph.details.cluster_cycles", cluster.componentIds().size()),
+                Component.translatable("gui.neoecoae.crafting_graph.details.cluster_flows", cluster.flows().size()),
+                GraphRenderer.recursionText("open_modules"));
         }
         if (node.material() != null) {
-            var material = node.material();
-            return List.of(Component.literal(node.label()), Component.literal("requested: " + HostText.ae2Amount(material.exactRequested())),
-                Component.literal("inventory: " + HostText.ae2Amount(material.exactFromInventory())),
-                Component.literal("to craft: " + HostText.ae2Amount(material.exactToCraft())),
-                Component.literal("missing: " + HostText.ae2Amount(material.exactMissing())),
-                Component.literal("consumed: " + HostText.ae2Amount(material.exactConsumed())),
-                Component.literal("produced: " + HostText.ae2Amount(material.exactProduced())),
-                Component.literal("status: " + material.status()));
+            return GraphMaterialCard.builder(graph, node, false).texts();
         }
         return List.of(Component.literal(node.label()));
+    }
+
+    private static Component yesNo(boolean value) {
+        return Component.translatable("gui.neoecoae.common." + (value ? "yes" : "no"));
     }
 
     private static int nodeBorder(ClientCraftingGraph graph, ClientCraftingGraph.Node node) {
@@ -306,9 +307,15 @@ public final class CompactTreeRenderer {
         if (material.consumedBigInteger().signum() == 0 && material.producedBigInteger().signum() == 0) {
             return HostText.ae2Amount(material.exactRequested());
         }
-        java.math.BigInteger delta = material.producedBigInteger().subtract(material.consumedBigInteger());
-        String amount = HostText.ae2Amount(delta.abs());
+        PlannerAmount delta = PlannerAmount.of(material.producedBigInteger()).subtract(PlannerAmount.of(material.consumedBigInteger()));
+        String amount = HostText.ae2Amount(delta.abs().toBigInteger());
         return delta.signum() > 0 ? "+" + amount : delta.signum() < 0 ? "-" + amount : "0";
+    }
+
+    /** Recursive occurrences show their own checkpoint stock/input, never the complete order's net change. */
+    static String materialAmount(ClientCraftingGraph.Node node) {
+        return node.recursion() == null ? flowText(node.material())
+            : GraphRenderer.formatMagnitude(node.key(), node.recursion().amount());
     }
 
     static boolean showsPendingCraftLabel(CraftingGraphSnapshot.MaterialNode material) {

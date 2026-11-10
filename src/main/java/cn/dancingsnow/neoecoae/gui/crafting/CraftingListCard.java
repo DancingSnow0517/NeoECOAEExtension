@@ -47,6 +47,7 @@ public final class CraftingListCard extends UIElement {
 
     /** Pixel glyphs, one string per row, '#' marks a filled pixel. */
     public enum Glyph {
+        SPARKLE("...#...", "...#...", "..###..", "#######", "..###..", "...#...", "...#..."),
         DOTS(".##..##.", "########", "########", ".##..##."),
         STACK(".#######.", ".#######.", ".........", "#########", ".........", ".#######.", ".#######."),
         BOLT("....##", "...##.", "..##..", ".#####", "...##.", "..##..", ".##..."),
@@ -110,7 +111,7 @@ public final class CraftingListCard extends UIElement {
         void draw(GuiGraphics graphics, Font font, int x, int y, int width);
     }
 
-    private record Header(Glyph glyph, Component title, Component right, int rightColor) implements Entry {
+    private record Header(Glyph glyph, Component title, Component right, int rightColor, Glyph rightGlyph) implements Entry {
         Component line() {
             MutableComponent line = Component.empty().append(title.copy().withColor(CraftingTooltipCard.ACCENT));
             if (!right.getString().isEmpty()) line.append("  ").append(right.copy().withColor(rightColor));
@@ -118,7 +119,8 @@ public final class CraftingListCard extends UIElement {
         }
 
         public int width(Font font) {
-            return (glyph == null ? 0 : ICON_SPACE) + font.width(title) + gap(font, right) + font.width(right);
+            return (glyph == null ? 0 : ICON_SPACE) + font.width(title) + gap(font, right) + font.width(right)
+                + (rightGlyph == null ? 0 : GAP + GLYPH_SPACE);
         }
 
         public int height() {
@@ -128,15 +130,17 @@ public final class CraftingListCard extends UIElement {
         public void draw(GuiGraphics graphics, Font font, int x, int y, int width) {
             int textX = x;
             if (glyph != null) {
-                glyph.draw(graphics, x, y, CraftingTooltipCard.ACCENT);
+                glyph.draw(graphics, x, y, title.getStyle().getColor() == null
+                    ? CraftingTooltipCard.ACCENT : title.getStyle().getColor().getValue() | 0xff000000);
                 textX += ICON_SPACE;
             }
             graphics.drawString(font, title, textX, y, CraftingTooltipCard.ACCENT, true);
             drawRight(graphics, font, right, x + width, y, rightColor);
+            if (rightGlyph != null) rightGlyph.draw(graphics, x + width - font.width(right) - GLYPH_SPACE, y, rightColor);
         }
     }
 
-    private record Divider() implements Entry {
+    private record Divider(int color) implements Entry {
         public int width(Font font) {
             return 0;
         }
@@ -146,8 +150,13 @@ public final class CraftingListCard extends UIElement {
         }
 
         public void draw(GuiGraphics graphics, Font font, int x, int y, int width) {
-            graphics.fill(x, y + 3, x + width, y + 4, DIVIDER);
+            graphics.fill(x, y + 3, x + width, y + 4, color);
         }
+    }
+
+    private record Space(int height) implements Entry {
+        public int width(Font font) { return 0; }
+        public void draw(GuiGraphics graphics, Font font, int x, int y, int width) {}
     }
 
     private record Section(Component label, Component right, int rightColor) implements Entry {
@@ -330,12 +339,13 @@ public final class CraftingListCard extends UIElement {
      * label/headline pair or a small note on the headline line.
      */
     private record Metric(Component label, Component value, int valueColor, Component unit, int unitColor,
-                          Component rightLabel, Component rightValue, int rightColor, boolean rightLarge) implements Entry {
+                          Component rightLabel, Component rightValue, int rightColor, boolean rightLarge,
+                          boolean equalColumns) implements Entry {
         public int width(Font font) {
             int unitWidth = font.width(unit);
             int left = Math.max(font.width(label), scaled(font, value) + (unitWidth == 0 ? 0 : 3 + unitWidth));
             int right = Math.max(font.width(rightLabel), rightLarge ? scaled(font, rightValue) : font.width(rightValue));
-            return left + (right == 0 ? 0 : GAP) + right;
+            return equalColumns ? Math.max(left, right) * 2 + GAP : left + (right == 0 ? 0 : GAP) + right;
         }
 
         public int height() {
@@ -348,7 +358,9 @@ public final class CraftingListCard extends UIElement {
 
         public void draw(GuiGraphics graphics, Font font, int x, int y, int width) {
             graphics.drawString(font, label, x, y, CraftingTooltipCard.MUTED, true);
-            drawRight(graphics, font, rightLabel, x + width, y, CraftingTooltipCard.MUTED);
+            int rightX = x + (width + GAP) / 2;
+            if (equalColumns) graphics.drawString(font, rightLabel, rightX, y, CraftingTooltipCard.MUTED, true);
+            else drawRight(graphics, font, rightLabel, x + width, y, CraftingTooltipCard.MUTED);
             int valueY = y + LINE + 2;
             drawScaled(graphics, font, value, x, valueY, valueColor);
             if (font.width(unit) > 0) {
@@ -356,7 +368,7 @@ public final class CraftingListCard extends UIElement {
                     valueY + Math.round(LINE * METRIC_SCALE) - LINE, unitColor, true);
             }
             if (rightLarge) {
-                drawScaled(graphics, font, rightValue, x + width - scaled(font, rightValue), valueY, rightColor);
+                drawScaled(graphics, font, rightValue, equalColumns ? rightX : x + width - scaled(font, rightValue), valueY, rightColor);
             } else {
                 drawRight(graphics, font, rightValue, x + width, valueY + 1, rightColor);
             }
@@ -526,11 +538,10 @@ public final class CraftingListCard extends UIElement {
     private final int width;
     private final int[] heights;
 
-    private CraftingListCard(List<Entry> entries, Font font, Component title) {
+    private CraftingListCard(List<Entry> entries, Font font, Component title, int minimumWidth) {
         this.font = font;
         this.entries = List.copyOf(entries);
-        // The vanilla header is unscaled, so the scaled body must still span its full width.
-        int content = Math.max(MIN_WIDTH, (int) Math.ceil(font.width(title) / CraftingTooltipCard.CONTENT_SCALE));
+        int content = Math.max(Math.max(MIN_WIDTH, minimumWidth), (int) Math.ceil(font.width(title) / CraftingTooltipCard.CONTENT_SCALE));
         for (Entry entry : this.entries) content = Math.max(content, entry.width(font));
         width = content;
         heights = new int[this.entries.size()];
@@ -582,16 +593,35 @@ public final class CraftingListCard extends UIElement {
 
     public static final class Builder {
         private final List<Entry> entries = new ArrayList<>();
+        private int minimumWidth = MIN_WIDTH;
 
         private Builder() {}
 
         public Builder header(Glyph glyph, Component title, Component right, int rightColor) {
-            entries.add(new Header(glyph, title.copy().withStyle(ChatFormatting.BOLD), right, rightColor));
+            return header(glyph, title, right, rightColor, null);
+        }
+
+        public Builder header(Glyph glyph, Component title, Component right, int rightColor, Glyph rightGlyph) {
+            entries.add(new Header(glyph, title.copy().withStyle(ChatFormatting.BOLD), right, rightColor, rightGlyph));
             return this;
         }
 
         public Builder divider() {
-            entries.add(new Divider());
+            return divider(DIVIDER);
+        }
+
+        public Builder divider(int color) {
+            entries.add(new Divider(color));
+            return this;
+        }
+
+        public Builder space(int height) {
+            if (height > 0) entries.add(new Space(height));
+            return this;
+        }
+
+        public Builder minimumWidth(int width) {
+            minimumWidth = Math.max(MIN_WIDTH, width);
             return this;
         }
 
@@ -644,7 +674,7 @@ public final class CraftingListCard extends UIElement {
         /** A muted label over a large value, with a small right-aligned note on the value line. */
         public Builder metric(Component label, Component value, int valueColor, Component note, int noteColor) {
             entries.add(new Metric(label, value, valueColor, Component.empty(), 0, Component.empty(), note, noteColor,
-                false));
+                false, false));
             return this;
         }
 
@@ -652,14 +682,22 @@ public final class CraftingListCard extends UIElement {
         public Builder metrics(Component label, Component value, int valueColor,
                                Component rightLabel, Component rightValue, int rightColor) {
             entries.add(new Metric(label, value, valueColor, Component.empty(), 0, rightLabel, rightValue, rightColor,
-                true));
+                true, false));
+            return this;
+        }
+
+        /** Two equally wide metric columns with both labels and values aligned to each column's left edge. */
+        public Builder metricColumns(Component label, Component value, int valueColor,
+                                     Component rightLabel, Component rightValue, int rightColor) {
+            entries.add(new Metric(label, value, valueColor, Component.empty(), 0, rightLabel, rightValue, rightColor,
+                true, true));
             return this;
         }
 
         /** A muted label over a large value followed by a small unit, such as {@code 0.0 AE/t}. */
         public Builder metricUnit(Component label, Component value, int valueColor, Component unit, int unitColor) {
             entries.add(new Metric(label, value, valueColor, unit, unitColor, Component.empty(), Component.empty(), 0,
-                false));
+                false, false));
             return this;
         }
 
@@ -764,6 +802,12 @@ public final class CraftingListCard extends UIElement {
             }
         }
 
+        /** A complete card for graph panels that provide their own frame and placement. */
+        public ModularUITooltipComponent buildComponent() {
+            return new ModularUITooltipComponent(new CraftingListCard(entries, Minecraft.getInstance().font,
+                Component.empty(), minimumWidth));
+        }
+
         /** LDLib2 2.2.x needs a vanilla text line: the leading header becomes that line, the rest is the card. */
         public List<Object> build() {
             Font font = Minecraft.getInstance().font;
@@ -777,7 +821,7 @@ public final class CraftingListCard extends UIElement {
                 title = header.title();
                 body.set(0, new IconHeader(header.icon(), header.subtitle(), Component.empty()));
             }
-            return List.of(title, new ModularUITooltipComponent(new CraftingListCard(body, font, title)));
+            return List.of(title, new ModularUITooltipComponent(new CraftingListCard(body, font, title, minimumWidth)));
         }
     }
 

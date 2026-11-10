@@ -10,7 +10,9 @@ import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot;
 import cn.dancingsnow.neoecoae.crafting.graph.InterCycleFlow;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -18,6 +20,7 @@ import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,6 +42,7 @@ public final class GraphRenderer implements AutoCloseable {
     private boolean cachedView;
     private ClientCraftingGraph tooltipGraph;
     private ClientCraftingGraph.Node tooltipNode;
+    private Language tooltipLanguage;
     private List<Component> tooltipLines = List.of();
 
     public static void resourcesReloaded() { GraphViewportCache.resourcesReloaded(); }
@@ -91,9 +95,10 @@ public final class GraphRenderer implements AutoCloseable {
             frame = new Frame(hovered, List.of());
         }
         // Hover text contains exact amount formatting; keep it off the stationary-frame hot path.
-        if (tooltipGraph != graph || tooltipNode != frame.hovered()) {
+        if (tooltipGraph != graph || tooltipNode != frame.hovered() || tooltipLanguage != Language.getInstance()) {
             tooltipGraph = graph;
             tooltipNode = frame.hovered();
+            tooltipLanguage = Language.getInstance();
             tooltipLines = graph.isCompactTree() ? CompactTreeRenderer.tooltip(graph, tooltipNode)
                 : tooltip(graph, tooltipNode);
         }
@@ -107,6 +112,7 @@ public final class GraphRenderer implements AutoCloseable {
         visibility.clear();
         tooltipGraph = null;
         tooltipNode = null;
+        tooltipLanguage = null;
         tooltipLines = List.of();
         cachedView = false;
     }
@@ -123,20 +129,25 @@ public final class GraphRenderer implements AutoCloseable {
         List<ClientCraftingGraph.Link> links = visible.edges();
         Set<Integer> neighborhood = selectedId == null ? Set.of() : graph.neighborhood(selectedId);
 
+        if (graph.isRecursiveCycle()) {
+            var area = viewport(cameraX, cameraY, zoom, screenWidth, screenHeight);
+            for (var region : layout.recursionRegions()) {
+                if (region.bounds().padded(180).intersects(area)) {
+                    RecursiveCycleRenderer.drawRegion(graphics, region, cameraX, cameraY, zoom);
+                }
+            }
+        }
         for (var link : links) {
             drawLink(graphics, graph, layout, link, selectedId, neighborhood, cameraX, cameraY, zoom);
         }
         // Amount labels go on top of every line so a later edge never paints over an earlier label.
-        if (graph.view() != ClientCraftingGraph.View.MAIN && zoom >= 0.55f) {
+        if (graph.view() != ClientCraftingGraph.View.MAIN && !graph.isRecursiveCycle() && zoom >= 0.55f) {
             for (var link : links) {
                 drawEdgeAmount(graphics, graph, link, layout.edgePoints(link), cameraX, cameraY, zoom);
             }
         }
-        if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) {
+        if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS && !graph.isRecursiveCycle()) {
             drawCycleOutputArrow(graphics, graph, layout, cameraX, cameraY, zoom);
-        }
-        if (graph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER) {
-            drawClusterLabels(graphics, graph, layout, cameraX, cameraY, zoom);
         }
         ClientCraftingGraph.Node hovered = null;
         float worldMouseX = (mouseX - cameraX) / zoom;
@@ -161,19 +172,22 @@ public final class GraphRenderer implements AutoCloseable {
                 if (layout.linkBounds(link).intersects(area)) {
                     drawCachedLink(graphics, graph, layout, link, zoom, 0xfff6c453);
                     int neighbor = link.fromId() == selectedId ? link.toId() : link.fromId();
-                    drawOutline(graphics, layout.box(neighbor), area, 0xff83c5be, 1 / zoom);
+                    drawOutline(graphics, graph, layout.box(neighbor), area, 0xff83c5be, 1 / zoom);
                 }
             }
         }
-        if (selectedId != null) drawOutline(graphics, layout.box(selectedId), area, 0xfff6c453, 2 / zoom);
+        if (selectedId != null) drawOutline(graphics, graph, layout.box(selectedId), area, 0xfff6c453, 2 / zoom);
         if (hovered != null && (selectedId == null || selectedId != hovered.id())) {
-            drawOutline(graphics, layout.box(hovered.id()), area, 0xff83c5be, 1 / zoom);
+            drawOutline(graphics, graph, layout.box(hovered.id()), area, 0xff83c5be, 1 / zoom);
         }
     }
 
-    private static void drawOutline(GuiGraphics graphics, @Nullable GraphLayoutSnapshot.Box box,
+    private static void drawOutline(GuiGraphics graphics, ClientCraftingGraph graph, @Nullable GraphLayoutSnapshot.Box box,
             GraphLayoutSnapshot.Bounds area, int color, float thickness) {
         if (box == null || !box.intersects(area.left(), area.top(), area.right(), area.bottom())) return;
+        var node = graph.nodes().get(box.nodeId());
+        if (node != null && node.recursion() != null
+                && node.recursion().role() == cn.dancingsnow.neoecoae.crafting.graph.RecursiveCycleNode.Role.STEP) return;
         float x = box.x(), y = box.y(), right = x + box.width(), bottom = y + box.height();
         GraphDraw.line(graphics, x, y, right, y, color, thickness / 2);
         GraphDraw.line(graphics, right, y, right, bottom, color, thickness / 2);
@@ -183,6 +197,11 @@ public final class GraphRenderer implements AutoCloseable {
 
     private static void drawCachedLink(GuiGraphics graphics, ClientCraftingGraph graph, GraphLayoutSnapshot layout,
             ClientCraftingGraph.Link link, double pixelsPerUnit, int color) {
+        if (graph.isRecursiveCycle()) {
+            RecursiveCycleRenderer.drawLink(graphics, graph, layout, link, 0, 0, 1,
+                color == 0xfff6c453 ? color : null);
+            return;
+        }
         var route = layout.edgePoints(link);
         if (route.size() < 2) {
             var from = layout.box(link.fromId());
@@ -208,7 +227,8 @@ public final class GraphRenderer implements AutoCloseable {
             var to = route.get(i);
             GraphDraw.line(graphics, from.x(), from.y(), to.x(), to.y(), color, half);
         }
-        if (graph.isCompactTree()) {
+        if (graph.isCompactTree() || graph.isRecursiveCycle()) {
+            if (layout.box(link.toId()) == null) return;
             var end = route.get(route.size() - 1);
             GraphDraw.fill(graphics, end.x() - 3, end.y() - 2, end.x() + 1, end.y() + 3, color);
         } else {
@@ -226,7 +246,8 @@ public final class GraphRenderer implements AutoCloseable {
         private final List<ClientCraftingGraph.Link> links;
         private final List<GraphLayoutSnapshot.Box> nodes;
         private final List<GraphLayoutSnapshot.Bounds> rows;
-        private int linkCursor, nodeCursor, rowCursor, missingCursor;
+        private final List<GraphLayoutSnapshot.RecursionRegion> regions;
+        private int linkCursor, nodeCursor, rowCursor, missingCursor, regionCursor;
         private boolean finished;
 
         TilePainter(ClientCraftingGraph graph, GraphLayoutSnapshot layout, GraphLayoutSnapshot.Bounds area,
@@ -237,13 +258,16 @@ public final class GraphRenderer implements AutoCloseable {
             links = layout.queryLinks(area);
             nodes = layout.query(area, Integer.MAX_VALUE);
             rows = graph.isCompactTree() ? layout.queryRowFrames(area) : List.of();
+            regions = layout.recursionRegions().stream().filter(region -> region.bounds().padded(180).intersects(area)).toList();
         }
 
         @Override
         public boolean advance(GuiGraphics graphics, long deadline) {
             int work = 0;
             do {
-                if (linkCursor < links.size()) {
+                if (regionCursor < regions.size()) {
+                    RecursiveCycleRenderer.drawRegion(graphics, regions.get(regionCursor++), 0, 0, 1);
+                } else if (linkCursor < links.size()) {
                     var link = links.get(linkCursor++);
                     drawCachedLink(graphics, graph, layout, link, pixelsPerUnit,
                         link.selected() ? 0xff8293a4 : 0xff66505a);
@@ -270,10 +294,9 @@ public final class GraphRenderer implements AutoCloseable {
                         CompactTreeRenderer.drawNodeFrame(graphics, box, 0xffcf5e5e, 0, 0, 1);
                     }
                 } else if (!finished) {
-                    if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) {
+                    if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS && !graph.isRecursiveCycle()) {
                         drawCycleOutputArrow(graphics, graph, layout, 0, 0, 1);
                     }
-                    if (graph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER) drawClusterLabels(graphics, graph, layout, 0, 0, 1);
                     finished = true;
                     return true;
                 } else return true;
@@ -285,6 +308,11 @@ public final class GraphRenderer implements AutoCloseable {
     private static void drawLink(GuiGraphics graphics, ClientCraftingGraph graph, GraphLayoutSnapshot layout,
             ClientCraftingGraph.Link link,
             @Nullable Integer selected, Set<Integer> neighborhood, float cameraX, float cameraY, float zoom) {
+        if (graph.isRecursiveCycle()) {
+            RecursiveCycleRenderer.drawLink(graphics, graph, layout, link, cameraX, cameraY, zoom,
+                selected != null && (link.fromId() == selected || link.toId() == selected) ? 0xfff6c453 : null);
+            return;
+        }
         var from = layout.box(link.fromId());
         var to = layout.box(link.toId());
         if (from == null || to == null) return;
@@ -430,9 +458,8 @@ public final class GraphRenderer implements AutoCloseable {
             key = graph.source().nodes().stream().filter(node -> node.nodeId() == link.materialNodeId())
                 .map(CraftingGraphSnapshot.MaterialNode::key).findFirst().orElse(null);
         }
-        if (key == null) return "×" + link.amount();
-        long magnitude = link.amount() == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(link.amount());
-        return "×" + key.formatAmount(magnitude, AmountFormat.SLOT);
+        if (key == null) return "×" + compactAmount(link.plannerAmount().toString());
+        return "×" + formatMagnitude(key, link.plannerAmount());
     }
 
     private static void drawClusterLabels(GuiGraphics graphics, ClientCraftingGraph graph,
@@ -517,9 +544,12 @@ public final class GraphRenderer implements AutoCloseable {
         int bottom = screen(cameraY, box.y() + box.height(), zoom);
         int pixelWidth = right - x;
         int pixelHeight = bottom - y;
+        if (node.recursion() != null) {
+            RecursiveCycleRenderer.drawNode(graphics, graph, node, box, selected, adjacent, cameraX, cameraY, zoom);
+            return;
+        }
         int border = selected ? 0xfff6c453 : adjacent ? 0xff83c5be : border(graph, node);
-        if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS
-                || graph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER) {
+        if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) {
             drawCompactCycleNode(graphics, graph, node, box, border, selected, x, y, right, bottom,
                 pixelWidth, pixelHeight, cameraY, zoom);
             return;
@@ -569,33 +599,33 @@ public final class GraphRenderer implements AutoCloseable {
                     y + Math.max(3, pixelHeight >= 28 ? 6 : 2), border);
                 if (pixelHeight >= 28 && pixelWidth >= 32) {
                     graphics.drawCenteredString(font,
-                        fit(font, "× " + HostText.ae2Amount(pattern.firingCount()), pixelWidth - 6),
+                        fit(font, "× " + HostText.ae2Amount(pattern.plannerFiringCount().toBigInteger()), pixelWidth - 6),
                         (x + right) / 2, y + 18, TEXT);
                 }
             }
             case CYCLE_GROUP -> {
                 var cycle = node.cycle();
-                drawFitted(graphics, font, "↻  循环 #" + cycle.componentId(), x + 7, y + 7,
+                drawFitted(graphics, font, recursionText("module", cycle.componentId()).getString(), x + 7, y + 7,
                     pixelWidth - 14, border);
                 if (zoom >= 0.6f && pixelHeight >= 38) {
-                    drawFitted(graphics, font, cycle.memberNodeIds().size() + " 个成员 · " + cycle.status(),
+                    drawFitted(graphics, font, recursiveModuleSummary(cycle).getString(),
                         x + 7, y + 23, pixelWidth - 14, TEXT);
                     String required = cycle.requiredOutputs().isEmpty() ? "变化：-"
                         : "所需产物：" + cycle.requiredOutputs().size();
                     if (pixelHeight >= 55) drawFitted(graphics, font, required, x + 7, y + 40,
                         pixelWidth - 14, MUTED);
-                    if (pixelHeight >= 68) drawFitted(graphics, font, "双击查看内部图", x + 7, y + 54,
+                    if (pixelHeight >= 68) drawFitted(graphics, font, recursionText("open").getString(), x + 7, y + 54,
                         pixelWidth - 14, MUTED);
                 }
             }
             case CYCLE_CLUSTER -> {
                 var cluster = node.cluster();
-                drawFitted(graphics, font, "◎  循环簇 #" + cluster.clusterId(), x + 7, y + 7,
+                drawFitted(graphics, font, recursionText("modules", cluster.clusterId()).getString(), x + 7, y + 7,
                     pixelWidth - 14, border);
                 if (zoom >= 0.6f && pixelHeight >= 38) {
                     drawFitted(graphics, font, cluster.componentIds().size() + " 个独立循环 · "
                         + cluster.flows().size() + " 条跨环流", x + 7, y + 23, pixelWidth - 14, TEXT);
-                    if (pixelHeight >= 55) drawFitted(graphics, font, "双击查看循环簇", x + 7, y + 40,
+                    if (pixelHeight >= 55) drawFitted(graphics, font, recursionText("open_modules").getString(), x + 7, y + 40,
                         pixelWidth - 14, MUTED);
                 }
             }
@@ -603,6 +633,19 @@ public final class GraphRenderer implements AutoCloseable {
             case REFERENCE -> { }
         }
     }
+
+
+    static Component recursionText(String suffix, Object... args) {
+        return Component.translatable("gui.neoecoae.crafting_graph.recursion." + suffix, args);
+    }
+
+    static Component recursiveModuleSummary(CraftingGraphSnapshot.CycleGroup cycle) {
+        if (cycle.requiredOutputs().isEmpty()) return recursionText("no_output");
+        if (cycle.requiredOutputs().size() > 1) return recursionText("output_types", cycle.requiredOutputs().size());
+        var output = cycle.requiredOutputs().get(0);
+        return recursionText("module_target", formatMagnitude(output.key(), output.plannerAmount()));
+    }
+
 
     private static void drawCompactCycleNode(GuiGraphics graphics, ClientCraftingGraph graph,
             ClientCraftingGraph.Node node, GraphLayoutSnapshot.Box box, int border, boolean selected, int x, int y,
@@ -654,7 +697,7 @@ public final class GraphRenderer implements AutoCloseable {
 
     private static CompactCycleValue compactCycleValue(ClientCraftingGraph graph, ClientCraftingGraph.Node node) {
         if (node.kind() == ClientCraftingGraph.Kind.PATTERN && node.pattern() != null) {
-            return new CompactCycleValue(HostText.ae2Amount(node.pattern().firingCount()), TEXT);
+            return new CompactCycleValue(HostText.ae2Amount(node.pattern().plannerFiringCount().toBigInteger()), TEXT);
         }
         if (node.material() == null) return new CompactCycleValue("-", MUTED);
         var cycle = graph.source().cycleGroups().stream()
@@ -663,9 +706,8 @@ public final class GraphRenderer implements AutoCloseable {
                 : value.memberNodeIds().contains(node.material().nodeId()))
             .findFirst().orElse(null);
         if (cycle == null) return new CompactCycleValue("-", MUTED);
-        BigInteger consumed = node.material().consumedBigInteger();
-        BigInteger produced = node.material().producedBigInteger();
-        BigInteger delta = produced.subtract(consumed);
+        PlannerAmount delta = PlannerAmount.of(node.material().producedBigInteger())
+            .subtract(PlannerAmount.of(node.material().consumedBigInteger()));
         String text = signedTaskChange(node.material());
         int color = delta.signum() > 0 ? 0xff75c48b : delta.signum() < 0 ? 0xffe07a7a : MUTED;
         return new CompactCycleValue(text, color);
@@ -693,8 +735,8 @@ public final class GraphRenderer implements AutoCloseable {
     }
 
     private static String signedTaskChange(CraftingGraphSnapshot.MaterialNode material) {
-        BigInteger delta = material.producedBigInteger().subtract(material.consumedBigInteger());
-        String magnitude = HostText.ae2Amount(delta.abs());
+        PlannerAmount delta = PlannerAmount.of(material.producedBigInteger()).subtract(PlannerAmount.of(material.consumedBigInteger()));
+        String magnitude = HostText.ae2Amount(delta.abs().toBigInteger());
         return delta.signum() > 0 ? "+" + magnitude : delta.signum() < 0 ? "-" + magnitude : "0";
     }
 
@@ -716,11 +758,12 @@ public final class GraphRenderer implements AutoCloseable {
 
     private static List<Component> tooltip(ClientCraftingGraph graph, @Nullable ClientCraftingGraph.Node node) {
         if (node == null) return List.of();
+        if (node.recursion() != null) return RecursiveCycleRenderer.tooltip(graph, node);
         if (node.kind() == ClientCraftingGraph.Kind.PATTERN) {
             var pattern = node.pattern();
             var lines = new ArrayList<Component>();
             lines.add(Component.literal(pattern.displayIdentity()));
-            lines.add(Component.literal("执行次数：" + HostText.ae2Amount(pattern.firingCount())));
+            lines.add(Component.literal("执行次数：" + HostText.ae2Amount(pattern.plannerFiringCount().toBigInteger())));
             lines.add(Component.literal("状态：" + pattern.status().name()));
             lines.add(Component.literal("输入：" + relationshipText(graph, pattern.inputs())));
             lines.add(Component.literal("输出：" + relationshipText(graph, pattern.outputs())));
@@ -729,15 +772,18 @@ public final class GraphRenderer implements AutoCloseable {
         }
         if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) {
             var cycle = node.cycle();
-            return List.of(Component.literal("循环 #" + cycle.componentId()), Component.literal(cycle.status()),
-                Component.literal("成员：" + cycle.memberNodeIds().size()),
-                Component.literal("所需产物：" + cycle.requiredOutputs().size()),
-                Component.literal("外部输入：" + cycle.externalInputs().size()),
-                Component.literal("所需种子：" + cycle.requiredSeed().size()));
+            var lines = new ArrayList<Component>();
+            lines.add(recursionText("module", cycle.componentId()));
+            for (var output : cycle.requiredOutputs()) {
+                lines.add(output.key().getDisplayName().copy().append(" × "
+                    + formatMagnitude(output.key(), output.plannerAmount())));
+            }
+            lines.add(recursionText("open"));
+            return lines;
         }
         if (node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER) {
             var cluster = node.cluster();
-            return List.of(Component.literal("循环簇 #" + cluster.clusterId()),
+            return List.of(recursionText("modules", cluster.clusterId()), recursionText("open_modules"),
                 Component.literal("独立 SCC：" + cluster.componentIds().size()),
                 Component.literal("跨环物料流：" + cluster.flows().size()),
                 Component.literal("循环：" + cluster.componentIds()));
@@ -772,6 +818,7 @@ public final class GraphRenderer implements AutoCloseable {
         return lines;
     }
 
+
     private static int border(ClientCraftingGraph graph, ClientCraftingGraph.Node node) {
         if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) return 0xffd59b45;
         if (node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER) return 0xffcf8f45;
@@ -802,7 +849,7 @@ public final class GraphRenderer implements AutoCloseable {
     }
 
     /** Draws a tangent-aligned triangle so curved cycle arrows do not snap to four directions. */
-    private static void drawArrowHead(GuiGraphics graphics, List<GraphLayoutSnapshot.Point> route, int color,
+    static void drawArrowHead(GuiGraphics graphics, List<GraphLayoutSnapshot.Point> route, int color,
             float cameraX, float cameraY, float zoom) {
         drawArrowHead(graphics, route, color, cameraX, cameraY, zoom, 1);
     }
@@ -840,7 +887,7 @@ public final class GraphRenderer implements AutoCloseable {
 
     private static String amountText(List<CraftingGraphSnapshot.KeyAmount> values, AEKey key) {
         return values.stream().filter(value -> value.key().equals(key)).findFirst()
-            .map(value -> formatMagnitude(key, value.amount())).orElse("-");
+            .map(value -> formatMagnitude(key, value.plannerAmount())).orElse("-");
     }
 
     private static String relationshipText(ClientCraftingGraph graph,
@@ -850,7 +897,7 @@ public final class GraphRenderer implements AutoCloseable {
             var node = graph.nodes().get(relationship.materialNodeId());
             String label = node == null || node.key() == null ? "#" + relationship.materialNodeId()
                 : node.key().getDisplayName().getString();
-            return label + " ×" + HostText.ae2Amount(relationship.amount());
+            return label + " ×" + HostText.ae2Amount(relationship.plannerAmount().toBigInteger());
         }).reduce((left, right) -> left + ", " + right).orElse("-");
     }
 
@@ -874,6 +921,12 @@ public final class GraphRenderer implements AutoCloseable {
     private static String formatMagnitude(AEKey key, long amount) {
         long magnitude = amount == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(amount);
         return cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers.grouped(key.formatAmount(magnitude, AmountFormat.SLOT));
+    }
+
+    static String formatMagnitude(AEKey key, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount amount) {
+        return amount.fitsLong() ? formatMagnitude(key, amount.longValueExact())
+            : cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter.format(
+                amount.abs().toBigInteger(), key.getAmountPerUnit(), false);
     }
 
 }
