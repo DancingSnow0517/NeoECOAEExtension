@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me.bigorder;
 
 import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
@@ -16,8 +17,7 @@ import net.minecraft.nbt.Tag;
 
 /** Exact-order inventory. The inherited counter is a saturated compatibility window, never overflow storage. */
 public final class ECOExactInventory extends ListCraftingInventory {
-    private static final BigInteger MAX = BigInteger.valueOf(Long.MAX_VALUE);
-    private final Map<AEKey, BigInteger> excess = new LinkedHashMap<>();
+    private final Map<AEKey, PlannerAmount> wideAmounts = new LinkedHashMap<>();
     private final ChangeListener listener;
     private boolean enabled;
 
@@ -30,28 +30,47 @@ public final class ECOExactInventory extends ListCraftingInventory {
 
     public void setEnabled(boolean enabled) {
         // Cancelled big orders still own their leftovers until the network accepts every window.
-        this.enabled = enabled || !excess.isEmpty();
+        this.enabled = enabled || !wideAmounts.isEmpty();
     }
 
     public BigInteger amount(AEKey key) {
-        return BigInteger.valueOf(Math.max(0L, list.get(key))).add(excess.getOrDefault(key, BigInteger.ZERO));
+        return quantity(key).toBigInteger();
+    }
+
+    public PlannerAmount quantity(AEKey key) {
+        PlannerAmount wide = wideAmounts.get(key);
+        return wide == null ? PlannerAmount.of(Math.max(0L, list.get(key))) : wide;
     }
 
     public static BigInteger amount(ListCraftingInventory inventory, AEKey key) {
+        return quantity(inventory, key).toBigInteger();
+    }
+
+    public static PlannerAmount quantity(ListCraftingInventory inventory, AEKey key) {
         return inventory instanceof ECOExactInventory exact && exact.isEnabled()
-            ? exact.amount(key) : BigInteger.valueOf(Math.max(0L, inventory.list.get(key)));
+            ? exact.quantity(key) : PlannerAmount.of(Math.max(0L, inventory.list.get(key)));
     }
 
     public Map<AEKey, BigInteger> snapshot() {
-        var result = new LinkedHashMap<AEKey, BigInteger>();
-        for (var entry : list) if (entry.getLongValue() > 0) result.put(entry.getKey(), amount(entry.getKey()));
+        return toBigIntegers(snapshotQuantities());
+    }
+
+    public Map<AEKey, PlannerAmount> snapshotQuantities() {
+        var result = new LinkedHashMap<AEKey, PlannerAmount>();
+        for (var entry : list) if (entry.getLongValue() > 0) result.put(entry.getKey(), quantity(entry.getKey()));
         return result;
     }
 
-    private void set(AEKey key, BigInteger amount) {
-        long window = amount.min(MAX).longValueExact();
+    public PlannerAmount totalQuantity() {
+        PlannerAmount total = PlannerAmount.ZERO;
+        for (var entry : list) if (entry.getLongValue() > 0) total = total.add(quantity(entry.getKey()));
+        return total;
+    }
+
+    private void set(AEKey key, PlannerAmount amount) {
+        long window = amount.longValueSaturated();
         if (window == 0) list.remove(key); else list.set(key, window);
-        if (amount.compareTo(MAX) > 0) excess.put(key, amount.subtract(MAX)); else excess.remove(key);
+        if (amount.fitsLong()) wideAmounts.remove(key); else wideAmounts.put(key, amount);
     }
 
     @Override public void insert(AEKey key, long amount, Actionable mode) {
@@ -59,8 +78,8 @@ public final class ECOExactInventory extends ListCraftingInventory {
         if (amount < 0) throw new IllegalArgumentException("Negative inventory insertion");
         if (mode == Actionable.MODULATE && amount > 0) {
             long current = Math.max(0L, list.get(key));
-            if (!excess.containsKey(key) && amount <= Long.MAX_VALUE - current) list.set(key, current + amount);
-            else set(key, amount(key).add(BigInteger.valueOf(amount)));
+            if (!wideAmounts.containsKey(key) && amount <= Long.MAX_VALUE - current) list.set(key, current + amount);
+            else set(key, quantity(key).add(amount));
             listener.onChange(key);
         }
     }
@@ -71,7 +90,7 @@ public final class ECOExactInventory extends ListCraftingInventory {
         long current = Math.max(0L, list.get(key));
         long extracted = Math.min(current, requested);
         if (mode == Actionable.MODULATE && extracted > 0) {
-            if (excess.containsKey(key)) set(key, amount(key).subtract(BigInteger.valueOf(extracted)));
+            if (wideAmounts.containsKey(key)) set(key, quantity(key).subtract(extracted));
             else if (extracted == current) list.remove(key);
             else list.set(key, current - extracted);
             listener.onChange(key);
@@ -90,44 +109,72 @@ public final class ECOExactInventory extends ListCraftingInventory {
 
     /** Validate all keys first, then change all keys before publishing notifications. */
     public boolean debit(Map<AEKey, BigInteger> inputs) {
+        return debitQuantities(fromBigIntegers(inputs));
+    }
+
+    public boolean debitQuantities(Map<AEKey, PlannerAmount> inputs) {
         if (!enabled) throw new IllegalStateException("Exact inventory is disabled");
         for (var entry : inputs.entrySet()) {
             if (entry.getValue().signum() <= 0) throw new IllegalArgumentException("Invalid exact input");
-            if (amount(entry.getKey()).compareTo(entry.getValue()) < 0) return false;
+            if (quantity(entry.getKey()).compareTo(entry.getValue()) < 0) return false;
         }
-        inputs.forEach((key, value) -> set(key, amount(key).subtract(value)));
+        inputs.forEach((key, value) -> set(key, quantity(key).subtract(value)));
         try {
             inputs.keySet().forEach(listener::onChange);
         } catch (RuntimeException failure) {
-            inputs.forEach((key, value) -> set(key, amount(key).add(value)));
+            inputs.forEach((key, value) -> set(key, quantity(key).add(value)));
             throw failure;
         }
         return true;
     }
 
     public void restore(Map<AEKey, BigInteger> inputs) {
+        restoreQuantities(fromBigIntegers(inputs));
+    }
+
+    public void restoreQuantities(Map<AEKey, PlannerAmount> inputs) {
         if (!enabled) throw new IllegalStateException("Exact inventory is disabled");
         for (var amount : inputs.values()) if (amount.signum() <= 0) throw new IllegalArgumentException("Invalid exact input");
-        inputs.forEach((key, value) -> set(key, amount(key).add(value)));
+        inputs.forEach((key, value) -> set(key, quantity(key).add(value)));
         inputs.keySet().forEach(listener::onChange);
     }
 
     public static Map<AEKey, BigInteger> totals(List<GenericStack> stacks, long copies) {
-        return totals(stacks, BigInteger.valueOf(copies));
+        return toBigIntegers(totalsQuantities(stacks, PlannerAmount.of(copies)));
     }
 
     public static Map<AEKey, BigInteger> totals(List<GenericStack> stacks, BigInteger copies) {
-        var result = new LinkedHashMap<AEKey, BigInteger>();
+        return toBigIntegers(totalsQuantities(stacks, PlannerAmount.of(copies)));
+    }
+
+    public static Map<AEKey, PlannerAmount> totalsQuantities(List<GenericStack> stacks, long copies) {
+        return totalsQuantities(stacks, PlannerAmount.of(copies));
+    }
+
+    public static Map<AEKey, PlannerAmount> totalsQuantities(List<GenericStack> stacks, PlannerAmount copies) {
+        var result = new LinkedHashMap<AEKey, PlannerAmount>();
         if (copies.signum() <= 0) throw new IllegalArgumentException("Invalid copies");
         for (var stack : stacks) {
             if (stack.amount() <= 0) throw new IllegalArgumentException("Invalid stack");
-            result.merge(stack.what(), BigInteger.valueOf(stack.amount()).multiply(copies), BigInteger::add);
+            result.merge(stack.what(), copies.multiply(stack.amount()), PlannerAmount::add);
         }
         return result;
     }
 
+    public static <K extends AEKey> Map<K, PlannerAmount> fromBigIntegers(Map<K, BigInteger> amounts) {
+        var result = new LinkedHashMap<K, PlannerAmount>();
+        amounts.forEach((key, value) -> result.put(key, PlannerAmount.of(value)));
+        return result;
+    }
+
+    public static <K extends AEKey> Map<K, BigInteger> toBigIntegers(Map<K, PlannerAmount> amounts) {
+        var result = new LinkedHashMap<K, BigInteger>();
+        amounts.forEach((key, value) -> result.put(key, value.toBigInteger()));
+        return result;
+    }
+
     @Override public void clear() {
-        excess.clear();
+        wideAmounts.clear();
         super.clear();
     }
 
@@ -138,7 +185,7 @@ public final class ECOExactInventory extends ListCraftingInventory {
             if (entry.getLongValue() <= 0) continue;
             var tag = entry.getKey().toTagGeneric(registries);
             tag.putLong("#", entry.getLongValue());
-            if (excess.containsKey(entry.getKey())) tag.putString("ecoExactAmount", amount(entry.getKey()).toString());
+            if (wideAmounts.containsKey(entry.getKey())) tag.putString("ecoExactAmount", quantity(entry.getKey()).toString());
             result.add(tag);
         }
         return result;
@@ -148,10 +195,10 @@ public final class ECOExactInventory extends ListCraftingInventory {
         if (!enabled) {
             boolean exactData = false;
             for (int i = 0; i < data.size(); i++) exactData |= data.getCompound(i).contains("ecoExactAmount", Tag.TAG_STRING);
-            if (!exactData) { excess.clear(); super.readFromNBT(data, registries); return; }
+            if (!exactData) { wideAmounts.clear(); super.readFromNBT(data, registries); return; }
         }
         // Decode into a temporary ledger first. Invalid exact data must not silently become a long window.
-        var restored = new LinkedHashMap<AEKey, BigInteger>();
+        var restored = new LinkedHashMap<AEKey, PlannerAmount>();
         boolean hasExact = false;
         for (int i = 0; i < data.size(); i++) {
             var tag = data.getCompound(i);
@@ -161,16 +208,16 @@ public final class ECOExactInventory extends ListCraftingInventory {
                 if (exact) throw new IllegalArgumentException("Unknown key in exact inventory");
                 continue;
             }
-            var count = exact ? new BigInteger(tag.getString("ecoExactAmount")) : BigInteger.valueOf(tag.getLong("#"));
+            var count = exact ? PlannerAmount.parse(tag.getString("ecoExactAmount")) : PlannerAmount.of(tag.getLong("#"));
             if (count.signum() < 0) throw new IllegalArgumentException("Negative saved inventory");
-            restored.merge(key, count, BigInteger::add);
+            restored.merge(key, count, PlannerAmount::add);
             hasExact |= exact;
         }
         list.clear();
-        excess.clear();
+        wideAmounts.clear();
         enabled |= hasExact;
         restored.forEach(this::set);
-        enabled |= !excess.isEmpty();
+        enabled |= !wideAmounts.isEmpty();
         restored.keySet().forEach(listener::onChange);
     }
 }

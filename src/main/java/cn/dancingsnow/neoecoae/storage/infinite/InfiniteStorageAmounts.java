@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.storage.infinite;
 
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.crafting.amount.U126;
+import cn.dancingsnow.neoecoae.crafting.amount.U128;
 import cn.dancingsnow.neoecoae.crafting.amount.UnsignedLongArray;
 import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
@@ -248,13 +248,12 @@ final class InfiniteStorageAmounts {
 
     /** Allocated once on promotion. The two words are mutable only inside the server-owned ledger. */
     private static final class WideAmount {
-        private static final long HIGH_LIMIT = 1L << 62;
         long high;
         long low;
         UnsignedLongArray big;
 
         void set(HugeAmount value) {
-            U126 nativeValue = value.toU126();
+            U128 nativeValue = value.toU128();
             big = nativeValue == null ? value.toUnsignedLongArray() : null;
             high = nativeValue == null ? 0L : nativeValue.highWord();
             low = nativeValue == null ? 0L : nativeValue.lowWord();
@@ -267,7 +266,7 @@ final class InfiniteStorageAmounts {
             }
             long next = low + value;
             long carry = Long.compareUnsigned(next, low) < 0 ? 1 : 0;
-            if (high + carry == HIGH_LIMIT) {
+            if (high == -1L && carry != 0L) {
                 big = UnsignedLongArray.fromParts(high, low).add(value);
             } else {
                 high += carry;
@@ -278,7 +277,7 @@ final class InfiniteStorageAmounts {
         void subtract(long value) {
             if (big != null) {
                 UnsignedLongArray remaining = big.subtract(value);
-                if (remaining.bitLength() > 126) big = remaining;
+                if (remaining.bitLength() > 128) big = remaining;
                 else set(HugeAmount.of(remaining));
                 return;
             }
@@ -290,13 +289,11 @@ final class InfiniteStorageAmounts {
 
         BigInteger exact() {
             if (big != null) return big.toBigInteger();
-            BigInteger lower = BigInteger.valueOf(low & Long.MAX_VALUE);
-            if (low < 0) lower = lower.setBit(63);
-            return high == 0 ? lower : BigInteger.valueOf(high).shiftLeft(64).or(lower);
+            return U128.ofParts(high, low).toBigInteger();
         }
 
         HugeAmount snapshot() {
-            return big == null ? HugeAmount.of(U126.ofParts(high, low)) : HugeAmount.of(big);
+            return big == null ? HugeAmount.of(U128.ofParts(high, low)) : HugeAmount.of(big);
         }
     }
 }

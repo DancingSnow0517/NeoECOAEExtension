@@ -1,24 +1,25 @@
 package cn.dancingsnow.neoecoae.storage.infinite;
 
-import cn.dancingsnow.neoecoae.crafting.amount.U126;
+import cn.dancingsnow.neoecoae.crafting.amount.U128;
 import cn.dancingsnow.neoecoae.crafting.amount.UnsignedLongArray;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.math.BigInteger;
 import java.util.Objects;
 import net.minecraft.nbt.CompoundTag;
 
 /**
- * Non-negative exact amount in three tiers, normalized to the smallest that fits: {@code long}, {@link U126} below
- * 2^126, and {@link UnsignedLongArray} beyond that. BigInteger APIs and the serialized form are unchanged.
+ * Non-negative exact amount in three tiers, normalized to the smallest that fits: {@code long}, {@link U128} below
+ * 2^128, and {@link UnsignedLongArray} beyond that. BigInteger APIs and the serialized form are unchanged.
  */
 public final class HugeAmount implements Comparable<HugeAmount> {
     public static final HugeAmount ZERO = new HugeAmount(0L, null, null);
 
     private final long longValue;
-    /** Middle tier: above Long.MAX_VALUE, below 2^126. */
-    private final U126 wideValue;
+    /** Middle tier: above Long.MAX_VALUE, below 2^128. */
+    private final U128 wideValue;
     private final UnsignedLongArray bigValue;
 
-    private HugeAmount(long longValue, U126 wideValue, UnsignedLongArray bigValue) {
+    private HugeAmount(long longValue, U128 wideValue, UnsignedLongArray bigValue) {
         this.longValue = longValue;
         this.wideValue = wideValue;
         this.bigValue = bigValue;
@@ -39,12 +40,12 @@ public final class HugeAmount implements Comparable<HugeAmount> {
         if (value.bitLength() < Long.SIZE) {
             return of(value.longValue());
         }
-        U126 wide = U126.of(value);
+        U128 wide = U128.of(value);
         return wide != null ? new HugeAmount(0L, wide, null)
             : new HugeAmount(0L, null, UnsignedLongArray.fromBigInteger(value));
     }
 
-    public static HugeAmount of(U126 value) {
+    public static HugeAmount of(U128 value) {
         Objects.requireNonNull(value, "value");
         return value.fitsLong() ? of(value.longValue()) : new HugeAmount(0L, value, null);
     }
@@ -53,7 +54,7 @@ public final class HugeAmount implements Comparable<HugeAmount> {
     public static HugeAmount of(UnsignedLongArray value) {
         Objects.requireNonNull(value, "value");
         if (value.bitLength() < Long.SIZE) return of(value.toLongSaturated());
-        if (value.bitLength() <= 126) return of(U126.ofParts(value.limb(1), value.limb(0)));
+        if (value.bitLength() <= 128) return of(U128.ofParts(value.limb(1), value.limb(0)));
         return new HugeAmount(0L, null, value);
     }
 
@@ -88,7 +89,7 @@ public final class HugeAmount implements Comparable<HugeAmount> {
             return of(longValue + other.longValue);
         }
         if (bigValue == null && other.bigValue == null) {
-            U126 sum = toU126().add(other.toU126());
+            U128 sum = toU128().add(other.toU128());
             if (sum != null) return of(sum);
         }
         return of(toUnsignedLongArray().add(other.toUnsignedLongArray()));
@@ -105,7 +106,7 @@ public final class HugeAmount implements Comparable<HugeAmount> {
             return of(longValue + other);
         }
         if (bigValue == null) {
-            U126 sum = toU126().add(other);
+            U128 sum = toU128().add(other);
             if (sum != null) return of(sum);
         }
         return of(toUnsignedLongArray().add(other));
@@ -122,7 +123,7 @@ public final class HugeAmount implements Comparable<HugeAmount> {
             return of(longValue - other.longValue);
         }
         if (bigValue == null && other.bigValue == null) {
-            return of(toU126().subtract(other.toU126()));
+            return of(toU128().subtract(other.toU128()));
         }
         return of(toUnsignedLongArray().subtract(other.toUnsignedLongArray()));
     }
@@ -161,10 +162,10 @@ public final class HugeAmount implements Comparable<HugeAmount> {
         return isBig() ? Long.MAX_VALUE : longValue;
     }
 
-    /** {@code null} only for values of 2^126 and above. */
-    public U126 toU126() {
+    /** {@code null} only for values of 2^128 and above. */
+    public U128 toU128() {
         if (bigValue != null) return null;
-        return wideValue != null ? wideValue : U126.of(longValue);
+        return wideValue != null ? wideValue : U128.of(longValue);
     }
 
     public BigInteger toBigInteger() {
@@ -179,6 +180,12 @@ public final class HugeAmount implements Comparable<HugeAmount> {
             : UnsignedLongArray.fromParts(wideValue.highWord(), wideValue.lowWord());
     }
 
+    /** Native arithmetic view for byte accounting and mixed quantity calculations. */
+    public PlannerAmount quantity() {
+        if (bigValue != null) return PlannerAmount.of(bigValue.toBigInteger());
+        return wideValue != null ? PlannerAmount.of(wideValue) : PlannerAmount.of(longValue);
+    }
+
     @Override
     public int compareTo(HugeAmount other) {
         if (other == null) {
@@ -190,7 +197,7 @@ public final class HugeAmount implements Comparable<HugeAmount> {
         if (isBig() != other.isBig()) {
             return isBig() ? 1 : -1;
         }
-        // Normalized tiers: every segmented value is larger than every U126 value.
+        // Normalized tiers: every segmented value is larger than every U128 value.
         if ((bigValue == null) != (other.bigValue == null)) {
             return bigValue != null ? 1 : -1;
         }
@@ -204,7 +211,8 @@ public final class HugeAmount implements Comparable<HugeAmount> {
 
     @Override
     public int hashCode() {
-        return bigValue == null ? toBigInteger().hashCode() : bigValue.hashCode();
+        if (bigValue != null) return bigValue.hashCode();
+        return wideValue == null ? U128.hashWords(0L, longValue) : wideValue.hashCode();
     }
 
     @Override
