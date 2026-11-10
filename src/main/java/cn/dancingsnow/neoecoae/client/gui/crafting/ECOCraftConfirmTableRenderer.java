@@ -1,13 +1,13 @@
 package cn.dancingsnow.neoecoae.client.gui.crafting;
 
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
-import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
 import appeng.client.gui.AEBaseScreen;
 import appeng.client.gui.me.crafting.AbstractTableRenderer;
 import appeng.core.localization.GuiText;
 import appeng.menu.me.crafting.CraftingPlanSummaryEntry;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
@@ -46,14 +46,10 @@ final class ECOCraftConfirmTableRenderer extends AbstractTableRenderer<CraftingP
     @Override protected AEKey getEntryStack(CraftingPlanSummaryEntry entry) { return entry.getWhat(); }
 
     @Override protected List<Component> getEntryTooltip(CraftingPlanSummaryEntry entry) {
-        List<Component> lines = AEKeyRendering.getTooltip(entry.getWhat());
-        if (entry.getStoredAmount() > 0) lines.add(GuiText.FromStorage.text(
-            DisplayNumbers.grouped(entry.getWhat().formatAmount(entry.getStoredAmount(), AmountFormat.FULL))));
-        if (entry.getMissingAmount() > 0) lines.add(GuiText.Missing.text(
-            DisplayNumbers.grouped(entry.getWhat().formatAmount(entry.getMissingAmount(), AmountFormat.FULL))));
-        if (entry.getCraftAmount() > 0) lines.add(GuiText.ToCraft.text(
-            DisplayNumbers.grouped(entry.getWhat().formatAmount(entry.getCraftAmount(), AmountFormat.FULL))));
-        return lines;
+        ((ECOCraftConfirmScreen) screen).queueMaterialTooltip(new ECOCraftReportTooltips.Material(entry.getWhat(),
+            BigInteger.valueOf(entry.getStoredAmount()), BigInteger.valueOf(entry.getMissingAmount()),
+            BigInteger.valueOf(entry.getCraftAmount()), null, false, false));
+        return List.of();
     }
 
     @Override protected int getEntryOverlayColor(CraftingPlanSummaryEntry entry) {

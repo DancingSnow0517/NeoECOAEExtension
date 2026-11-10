@@ -4,9 +4,13 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import appeng.api.stacks.AEKey;
+import appeng.api.client.AEKeyRendering;
+import appeng.client.gui.me.crafting.AbstractTableRenderer;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import appeng.menu.me.crafting.CraftingPlanSummary;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.utils.ModularUITooltipComponent;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -16,8 +20,10 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.world.item.ItemStack;
 import org.joml.Matrix4f;
 import org.junit.jupiter.api.Test;
 
@@ -38,24 +44,92 @@ class ECOCraftReportHeaderRendererTest {
 
     @Test
     void byteTooltipUsesScreenCoordinatesAndChecksEveryHoverBoundary() throws Exception {
-        for (int[] origin : List.of(new int[] {0, 0}, new int[] {37, 61}, new int[] {241, 133})) {
-            var screen = mock(ECOCraftConfirmScreen.class);
-            var graphics = mock(GuiGraphics.class);
-            var summary = ECOCraftReportHeaderRenderer.pending(Component.literal("Calculating..."));
-            setField(net.minecraft.client.gui.screens.inventory.AbstractContainerScreen.class, screen, "leftPos", origin[0]);
-            setField(net.minecraft.client.gui.screens.inventory.AbstractContainerScreen.class, screen, "topPos", origin[1]);
-            setField(ECOCraftConfirmScreen.class, screen, "reportSummary", summary);
-            doCallRealMethod().when(screen).renderReportTooltip(any(), anyInt(), anyInt());
-            screen.renderReportTooltip(graphics, origin[0] + 70, origin[1] + 12);
-            verify(screen).drawTooltipWithHeader(graphics, origin[0] + 70, origin[1] + 12, summary.tooltip());
+        try (var modifiers = mockStatic(Screen.class)) {
+            for (int[] origin : List.of(new int[] {0, 0}, new int[] {37, 61}, new int[] {241, 133})) {
+                var screen = mock(ECOCraftConfirmScreen.class);
+                var graphics = mock(GuiGraphics.class);
+                var card = new ModularUITooltipComponent(mock(UIElement.class));
+                var font = mock(Font.class);
+                setField(Screen.class, screen, "font", font);
+                setField(Screen.class, screen, "width", 960);
+                setField(Screen.class, screen, "height", 540);
+                setField(net.minecraft.client.gui.screens.inventory.AbstractContainerScreen.class, screen, "leftPos", origin[0]);
+                setField(net.minecraft.client.gui.screens.inventory.AbstractContainerScreen.class, screen, "topPos", origin[1]);
+                setField(ECOCraftConfirmScreen.class, screen, "statisticsTooltip", card);
+                doCallRealMethod().when(screen).renderReportTooltip(any(), anyInt(), anyInt());
+                screen.renderReportTooltip(graphics, origin[0] + 70, origin[1] + 12);
+                verify(graphics).renderComponentTooltipFromElements(eq(font), argThat(elements ->
+                    elements.size() == 1 && elements.get(0).right().orElseThrow() == card),
+                    eq(origin[0] + 70), eq(origin[1] + 12), eq(ItemStack.EMPTY));
 
-            clearInvocations(screen);
-            for (int[] outside : List.of(new int[] {52, 12}, new int[] {155, 12},
-                    new int[] {70, 4}, new int[] {70, 20})) {
-                screen.renderReportTooltip(graphics, origin[0] + outside[0], origin[1] + outside[1]);
+                clearInvocations(graphics);
+                for (int[] outside : List.of(new int[] {52, 12}, new int[] {155, 12},
+                        new int[] {70, 4}, new int[] {70, 20})) {
+                    screen.renderReportTooltip(graphics, origin[0] + outside[0], origin[1] + outside[1]);
+                }
+                verifyNoInteractions(graphics);
             }
-            verify(screen, never()).drawTooltipWithHeader(any(), anyInt(), anyInt(), anyList());
         }
+    }
+
+    @Test
+    void statisticsCardDistinguishesPartialAndCompleteCyclesAndExpandsExactBytes() {
+        var bytes = new BigInteger("541857662145037064009951989");
+        var summary = new CraftingGraphSnapshot.Summary("CYCLE_UNRESOLVED", 1, 197577, 0, 3, 0);
+        var compact = ECOCraftReportTooltips.statistics(4_051_933_800L, bytes, false, summary, false).texts();
+        assertTrue(compact.stream().anyMatch(text -> text.getString().equals("4,051.934 ms")));
+        assertTrue(compact.stream().anyMatch(text -> text.getString().equals("541.858 Y B")));
+        assertTrue(compact.stream().anyMatch(text -> text.getString().equals("197,577")));
+        assertTrue(compact.stream().anyMatch(text -> text.getString().equals("3")));
+        assertTrue(compact.stream().anyMatch(text -> isKey(text, "card.incomplete")));
+        var full = ECOCraftReportTooltips.statistics(4_051_933_800L, bytes, true, summary, true).texts();
+        assertTrue(full.stream().anyMatch(text -> text.getString().equals(DisplayNumbers.grouped(bytes) + " B")));
+        assertTrue(full.stream().anyMatch(text -> text.getString().equals("4,051.9338 ms")));
+        assertFalse(full.stream().anyMatch(text -> isKey(text, "card.incomplete")));
+        assertTrue(full.stream().anyMatch(text -> isKey(text, "cycle_planning_enabled")),
+            "Solved cycles must keep their cycle badge without an incomplete-calculation warning");
+    }
+
+    @Test
+    void materialTooltipDefersRenderingAndPreservesExactRequestsAndSeedWarnings() throws Exception {
+        var water = mock(appeng.api.stacks.AEFluidKey.class);
+        when(water.getDisplayName()).thenReturn(Component.literal("Water"));
+        when(water.getAmountPerUnit()).thenReturn(1000);
+        when(water.getUnitSymbol()).thenReturn("B");
+        var stored = new BigInteger("9239216116402315807");
+        var missing = new BigInteger("1615731987272067141027365754");
+        var requested = new BigInteger("1516093235626081346596415521");
+        var node = new CraftingGraphSnapshot.MaterialNode(0, water, Long.MAX_VALUE, Long.MAX_VALUE, 60, Long.MAX_VALUE,
+            CraftingGraphSnapshot.MaterialStatus.MISSING, requested.toString(), stored.toString(), "60", missing.toString(), "0", "0");
+        var screen = mock(ECOCraftConfirmScreen.class);
+        var renderer = mock(ECOExactMaterialTableRenderer.class, CALLS_REAL_METHODS);
+        setField(AbstractTableRenderer.class, renderer, "screen", screen);
+        setField(ECOExactMaterialTableRenderer.class, renderer, "estimatedStartupSeed", (java.util.function.Predicate<AEKey>) key -> true);
+        assertEquals(List.of(), renderer.getEntryTooltip(node), "The translated AE2 foreground must not draw a text tooltip");
+        var queued = org.mockito.ArgumentCaptor.forClass(ECOCraftReportTooltips.Material.class);
+        verify(screen).queueMaterialTooltip(queued.capture());
+        assertEquals(requested, queued.getValue().requested());
+        assertEquals(missing, queued.getValue().missing());
+        assertEquals(BigInteger.valueOf(60), queued.getValue().craft());
+        assertTrue(queued.getValue().estimatedSeed());
+        try (var rendering = mockStatic(AEKeyRendering.class)) {
+            rendering.when(() -> AEKeyRendering.getTooltip(water)).thenReturn(List.of(Component.literal("Water"), Component.literal("Minecraft")));
+            var compact = ECOCraftReportTooltips.material(queued.getValue(), false).texts();
+            assertTrue(compact.stream().anyMatch(text -> text.getString().equals("9.239 P B")));
+            assertTrue(compact.stream().anyMatch(text -> text.getString().equals("1.616 Y B")));
+            assertTrue(compact.stream().anyMatch(text -> text.getString().equals("1.516 Y B")),
+                "The requested amount uses buckets, just like stored and missing amounts");
+            assertTrue(compact.stream().anyMatch(text -> isKey(text, "seed_shortfall_estimate_hint")));
+            var exact = ECOCraftReportTooltips.material(queued.getValue(), true).texts();
+            assertTrue(exact.stream().anyMatch(text -> text.getString().equals("9,239,216,116,402,315.807 B")));
+            assertTrue(exact.stream().anyMatch(text -> text.getString().equals("0.06 B")), "Fractional buckets remain exact");
+            assertTrue(exact.stream().anyMatch(text -> isKey(text, "seed_shortfall_estimate_hint")));
+        }
+    }
+
+    private static boolean isKey(Component component, String suffix) {
+        return component.getContents() instanceof TranslatableContents text
+            && text.getKey().equals("gui.neoecoae.crafting_report." + suffix);
     }
 
     private static void setField(Class<?> owner, Object target, String name, Object value) throws Exception {

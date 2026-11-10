@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.crafting.display.format;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.MathContext;
 import java.math.RoundingMode;
 
 /** Shared display format for exact amounts that can exceed AE2's extended units. */
@@ -40,5 +41,19 @@ public final class BigNumberFormatter {
             .setScale(0, RoundingMode.HALF_UP)
             .stripTrailingZeros();
         return DisplayNumbers.grouped(display.toPlainString());
+    }
+
+    /** Report tooltips retain fractional display units and never shorten an explicitly requested exact value. */
+    public static String formatTooltipAmount(BigInteger amount, int amountPerUnit, boolean exact) {
+        BigInteger safe = amount == null || amount.signum() < 0 ? BigInteger.ZERO : amount;
+        int unit = Math.max(1, amountPerUnit);
+        BigDecimal display;
+        try {
+            display = new BigDecimal(safe).divide(BigDecimal.valueOf(unit));
+        } catch (ArithmeticException repeatingFraction) {
+            if (exact) return DisplayNumbers.grouped(safe) + " / " + DisplayNumbers.grouped(unit);
+            display = new BigDecimal(safe).divide(BigDecimal.valueOf(unit), MathContext.DECIMAL128);
+        }
+        return exact ? DisplayNumbers.grouped(display) : DisplayNumbers.compactTooltip(display);
     }
 }

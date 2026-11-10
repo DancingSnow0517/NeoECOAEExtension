@@ -38,6 +38,33 @@ public final class DisplayNumbers {
             + ExtendedDecimalUnits.suffix(group);
     }
 
+    /** Readable tooltip values: three decimal places, spaced prefixes through Y, then scientific notation. */
+    public static String compactTooltip(Number value) {
+        BigDecimal decimal = decimalValue(value).stripTrailingZeros();
+        if (decimal.abs().compareTo(BigDecimal.valueOf(1000)) < 0) {
+            BigDecimal rounded = decimal.setScale(3, RoundingMode.HALF_UP);
+            if (rounded.abs().compareTo(BigDecimal.valueOf(1000)) < 0)
+                return grouped(rounded.signum() == 0 ? decimal : rounded);
+        }
+        int exponent = decimal.precision() - decimal.scale() - 1;
+        int group = exponent / 3;
+        BigDecimal scaled = decimal.movePointLeft(group * 3).setScale(3, RoundingMode.HALF_UP);
+        if (scaled.abs().compareTo(BigDecimal.valueOf(1000)) >= 0) {
+            group++;
+            scaled = scaled.movePointLeft(3);
+        }
+        if (group <= 8) return grouped(scaled) + " " + ExtendedDecimalUnits.suffix(group);
+
+        BigDecimal mantissa = decimal.movePointLeft(exponent).setScale(3, RoundingMode.HALF_UP);
+        if (mantissa.abs().compareTo(BigDecimal.TEN) >= 0) {
+            exponent++;
+            mantissa = mantissa.movePointLeft(1);
+        }
+        StringBuilder power = new StringBuilder();
+        for (char digit : Integer.toString(exponent).toCharArray()) power.append("⁰¹²³⁴⁵⁶⁷⁸⁹".charAt(digit - '0'));
+        return grouped(mantissa) + " × 10" + power;
+    }
+
     /** Fixed decimal precision for temperatures, percentages and other values whose unit must not scale. */
     public static String decimal(double value, int decimals) {
         return grouped(decimalValue(value).setScale(Math.max(0, decimals), RoundingMode.HALF_UP).toPlainString());
