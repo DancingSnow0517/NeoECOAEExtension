@@ -39,6 +39,29 @@ class DisplayNumbersTest {
     }
 
     @Test
+    void tooltipValuesRoundThreeDecimalsAndCarryAcrossPrefixAndScientificBoundaries() {
+        assertEquals("541.858 Y", DisplayNumbers.compactTooltip(new BigInteger("541857662145037064009951989")));
+        assertEquals("1.516 × 10²⁷", DisplayNumbers.compactTooltip(new BigInteger("1516093235626081346596415521")));
+        assertEquals("1 M", DisplayNumbers.compactTooltip(999_999.5));
+        assertEquals("1 K", DisplayNumbers.compactTooltip(999.9995));
+        assertEquals("1 × 10²⁷", DisplayNumbers.compactTooltip(new BigDecimal("9.999999E26")));
+        assertEquals("1 × 10²⁸", DisplayNumbers.compactTooltip(new BigDecimal("9.999999E27")));
+        assertEquals("12.346", DisplayNumbers.compactTooltip(new BigDecimal("12.34567")));
+        assertEquals("0.000001", DisplayNumbers.compactTooltip(new BigDecimal("0.000001")));
+    }
+
+    @Test
+    void tooltipAmountsUseTheSameFluidUnitInCompactAndExactModesWithoutLosingDigits() {
+        var water = new BigInteger("9239216116402315807");
+        assertEquals("9.239 P", BigNumberFormatter.formatTooltipAmount(water, 1000, false));
+        assertEquals("9,239,216,116,402,315.807", BigNumberFormatter.formatTooltipAmount(water, 1000, true));
+        assertEquals("0.001", BigNumberFormatter.formatTooltipAmount(BigInteger.ONE, 1000, true));
+        var huge = BigInteger.TEN.pow(123).add(BigInteger.valueOf(987654321));
+        assertEquals(DisplayNumbers.grouped(huge), BigNumberFormatter.formatTooltipAmount(huge, 1, true));
+        assertEquals("1 / 3", BigNumberFormatter.formatTooltipAmount(BigInteger.ONE, 3, true));
+    }
+
+    @Test
     void decimalDisplaysGroupIntegerDigitsAndKeepTheirRequiredPrecision() {
         assertEquals("1,234,567.50", DisplayNumbers.decimal(1_234_567.5, 2));
         assertEquals("0.0", DisplayNumbers.decimal(0, 1));
