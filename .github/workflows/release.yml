@@ -105,8 +105,6 @@ jobs:
         with:
           name: release-verification-${{ steps.release.outputs.version }}
           path: |
-            build/reports/tests/test/
-            build/test-results/test/
             build/compat-build-evidence/
             build/reports/profile/
             build/reports/problems/
