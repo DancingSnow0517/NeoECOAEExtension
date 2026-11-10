@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.api.multiblock.ECOMachineKind;
 import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockDefinitions;
 import cn.dancingsnow.neoecoae.api.power.ECOPowerRole;
 
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.IGrid;
@@ -1020,7 +1021,8 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             for (int index = 0; index < packed.size(); index++) {
                 CraftingOutputDisplay shown = packed.get(index);
                 if (ItemStack.isSameItemSameComponents(shown.item(), output.item())) {
-                    packed.set(index, new CraftingOutputDisplay(shown.item(), shown.amount().add(output.amount())));
+                    packed.set(index, new CraftingOutputDisplay(shown.item(), PlannerAmount.of(shown.amount())
+                        .add(PlannerAmount.of(output.amount())).toBigInteger()));
                     break;
                 }
             }

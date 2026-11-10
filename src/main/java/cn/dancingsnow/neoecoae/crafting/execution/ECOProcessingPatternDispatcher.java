@@ -6,6 +6,7 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.KeyCounter;
+import appeng.api.stacks.GenericStack;
 import appeng.crafting.pattern.AEProcessingPattern;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.PatternProviderLogicAccessor;
@@ -198,6 +199,8 @@ final class ECOProcessingPatternDispatcher {
         long limit = request.allowedCrafts();
         var ramp = state.beginRun(tick, SCALE_PROBE_INTERVAL_TICKS);
         var planning = ECOBatchDispatchPlanning.prepare(request, provider);
+        var outputsPerCraft = ECOFastPathStacks.copyCounter(request.outputs());
+        var remaindersPerCraft = ECOFastPathStacks.copyCounter(request.remainders());
         IPatternDetails cachedExecutionPattern = null;
         long cachedCopies = 0;
         int visitAttempts = 0;
@@ -250,20 +253,24 @@ final class ECOProcessingPatternDispatcher {
             }
             try {
                 overload.registerAccepted(admission.acceptedCrafts());
-                accounting.apply(request, scaledResult(request, admission.acceptedCrafts()), () -> {}, provider);
+                accounting.apply(request, scaledResult(outputsPerCraft, remaindersPerCraft,
+                        admission.acceptedCrafts()), () -> {}, provider);
             } catch (RuntimeException failure) {
                 request.job().failPermanently("POST_ACCEPT_PROCESSING_ACCOUNTING_FAILURE");
                 throw failure;
             }
             if (!ramp.record(offer, admission.acceptedCrafts(), admission.canContinue(), tick)) break;
         }
-        return ramp.owned > 0 ? scaledResult(request, ramp.owned) : null;
+        // Every accepted chunk is already settled. The caller only consumes the accepted count;
+        // rebuilding aggregate long stacks here would overflow perfectly valid exact orders.
+        return ramp.owned > 0 ? ECOCraftingDispatchResult.batch(ramp.owned, List.of(), List.of()) : null;
     }
 
-    private static ECOCraftingDispatchResult scaledResult(ECOCraftingDispatchRequest request, long copies) {
+    private static ECOCraftingDispatchResult scaledResult(List<GenericStack> outputsPerCraft,
+            List<GenericStack> remaindersPerCraft, long copies) {
         return ECOCraftingDispatchResult.batch(copies,
-                ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.outputs()), copies),
-                ECOBatchCraftingHelper.multiply(ECOFastPathStacks.copyCounter(request.remainders()), copies));
+                ECOBatchCraftingHelper.multiply(outputsPerCraft, copies),
+                ECOBatchCraftingHelper.multiply(remaindersPerCraft, copies));
     }
 
     private static boolean fullyInserted(Object logic) {

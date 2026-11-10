@@ -45,16 +45,16 @@ final class ECOCraftingDispatchAccounting {
             Runnable beforeNotifications, ICraftingProvider provider) {
         var job = request.job();
         if (!job.exactOrder) throw new IllegalStateException("Exact dispatch requires a big order");
-        audit(request, batch.craftCount(), batch.outputs(), batch.remainders(), "exact-batch", () -> {
+        audit(request, batch.craftQuantity(), batch.outputQuantities(), batch.remainderQuantities(), "exact-batch", () -> {
             var waiting = (cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) job.waitingFor;
-            waiting.restore(batch.outputs());
-            waiting.restore(batch.remainders());
-            batch.remainders().forEach((key, amount) -> job.timeTracker.addMaxItems(amount, key.getType()));
-            job.tasks.get(request.pattern()).accept(batch.craftCount());
+            waiting.restoreQuantities(batch.outputQuantities());
+            waiting.restoreQuantities(batch.remainderQuantities());
+            batch.remainderQuantities().forEach((key, amount) -> job.timeTracker.addMaxItems(amount, key.getType()));
+            job.tasks.get(request.pattern()).accept(batch.craftQuantity());
             if (job.executionRuntime != null)
-                job.executionRuntime.onAcceptedExact(request.candidate(), batch.craftCount(), request.inputs());
-            if (batch.craftCount().compareTo(java.math.BigInteger.ONE) > 0) {
-                batch.outputs().forEach((key, amount) -> {
+                job.executionRuntime.onAcceptedExact(request.candidate(), batch.craftQuantity(), request.inputs());
+            if (batch.craftQuantity().compareTo(cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.ONE) > 0) {
+                batch.outputQuantities().forEach((key, amount) -> {
                     if (amount.signum() > 0) job.batchedOutputs.add(key);
                 });
             }
@@ -62,8 +62,8 @@ final class ECOCraftingDispatchAccounting {
             dispatchEvent.accept(new ECOCraftingDispatchEvent(contextFactory.apply(job), request.pattern(),
                 batch.craftCount(), provider));
             cn.dancingsnow.neoecoae.compat.omnisequence.ECOOmniSequenceDirectDispatch.flushAfterCpuAccounting(provider);
-            batch.outputs().keySet().forEach(postChange);
-            batch.remainders().keySet().forEach(postChange);
+            batch.outputQuantities().keySet().forEach(postChange);
+            batch.remainderQuantities().keySet().forEach(postChange);
             markDirty.run();
         });
     }

@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
 /** Destination records survive reload; all live progress is read-only and refreshed only by an open view. */
 public final class ECOProcessingMonitor implements ECOCraftingJobAttachment {
     private static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath("neoecoae", "workstation_processing_monitor");
-    static final int READS_PER_CPU_TICK = 32, READS_PER_SERVER_TICK = 256, REFRESH_INTERVAL = 10;
+    static final int READS_PER_CPU_TICK = 32, READS_PER_SERVER_TICK = 256, REFRESH_INTERVAL = 5;
     private static final Map<MinecraftServer, Budget> SERVER_BUDGETS = new WeakHashMap<>();
     private final Map<AEKey, LinkedHashSet<Target>> targets = new LinkedHashMap<>();
     private final Map<AEKey, Survey> surveys = new LinkedHashMap<>();
@@ -110,7 +110,19 @@ public final class ECOProcessingMonitor implements ECOCraftingJobAttachment {
             survey.queued = true;
         }
         advance(level, tick);
-        return survey.published.refreshing(survey.scan != null);
+        // First observations are useful before a large traversal finishes. Later refreshes keep the last
+        // complete sample, rather than replacing it with a smaller, potentially unrelated subset.
+        if (survey.scan != null && !survey.hasCompleteSample && survey.previewTick != tick) {
+            survey.published = ECOProcessingProgress.summarize(survey.scan.machines());
+            survey.previewTick = tick;
+        }
+        return cachedProgress(output);
+    }
+
+    /** Task ordering may consult known state without queuing a world scan for every item in the job. */
+    public ECOProcessingProgress cachedProgress(AEKey output) {
+        var survey = surveys.get(output);
+        return survey == null ? ECOProcessingProgress.EMPTY : survey.published.refreshing(survey.scan != null);
     }
 
     /** Actual recipe controllers resolved by the same budgeted status scan, never the pattern holder or input bus. */
@@ -145,6 +157,7 @@ public final class ECOProcessingMonitor implements ECOCraftingJobAttachment {
                 if (survey.scan.complete()) {
                     survey.machineTargets = survey.scan.machineTargets();
                     survey.published = ECOProcessingProgress.summarize(survey.scan.machines());
+                    survey.hasCompleteSample = true;
                     survey.scan = null;
                     survey.nextTick = tick + REFRESH_INTERVAL;
                 } else {
@@ -229,8 +242,8 @@ public final class ECOProcessingMonitor implements ECOCraftingJobAttachment {
         ECOWorkstationMachineStatus.Scan scan;
         ECOProcessingProgress published = ECOProcessingProgress.EMPTY;
         List<Target> machineTargets = List.of();
-        long nextTick, requestedTick;
-        boolean queued;
+        long nextTick, requestedTick, previewTick = Long.MIN_VALUE;
+        boolean queued, hasCompleteSample;
         Survey(AEKey output) { this.output = output; }
     }
 

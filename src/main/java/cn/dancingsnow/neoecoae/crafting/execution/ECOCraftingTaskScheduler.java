@@ -272,7 +272,7 @@ final class ECOCraftingTaskScheduler {
                         ? 0L : current.executionRuntime.startupSeedGeneration();
                 long reloadGenerationBeforeResolve = AE2PatternIntrospection.reloadGeneration();
                 var protectedStartupSeed = current.executionRuntime == null
-                        ? java.util.Map.<AEKey, Long>of()
+                        ? java.util.Map.<AEKey, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount>of()
                         : current.executionRuntime.protectedStartupSeed(candidate);
                 var inputInventory = current.executionRuntime == null && current.fuzzyPlanningItemIds.isEmpty()
                         ? new ECOCraftingInputPreview(inventory, inputTemplateCache)

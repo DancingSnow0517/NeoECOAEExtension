@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
 import java.util.List;
 import java.util.Map;
 import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
 import java.util.UUID;
@@ -78,8 +79,8 @@ public final class ECOStatefulBatchPlanner {
             ECOStatefulBatchCalculator.BatchContract statefulBatch = null;
             if (statefulCalculator == null) {
                 if (exactInputs) {
-                    for (var input : perCopy) requested = ECOExactInventory.amount(inventory, input.what())
-                        .divide(BigInteger.valueOf(input.amount())).min(BigInteger.valueOf(requested)).longValueExact();
+                    for (var input : perCopy) requested = ECOExactInventory.quantity(inventory, input.what())
+                        .divide(PlannerAmount.of(input.amount())).min(PlannerAmount.of(requested)).longValueExact();
                 } else {
                     requested = ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, perCopy, requested);
                 }

@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.crafting.execution;
 
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
 
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+
 import cn.dancingsnow.neoecoae.api.me.attachment.ECOCraftingJobAttachments;
 import cn.dancingsnow.neoecoae.api.me.completion.ECOVirtualCraftingCompletionSink;
 import cn.dancingsnow.neoecoae.api.me.dispatch.ECOCraftingCpuContext;
@@ -687,12 +689,11 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
     public java.util.Map<AEKey, java.math.BigInteger> getExactPendingPreview() {
         if (job != null && job.exactOrder) {
-            var amounts = new java.util.HashMap<AEKey, java.math.BigInteger>();
+            var amounts = new java.util.HashMap<AEKey, PlannerAmount>();
             job.tasks.forEach((pattern, progress) -> pattern.getOutputs().forEach(output ->
-                amounts.merge(output.what(), progress.remainingExact().multiply(
-                    java.math.BigInteger.valueOf(output.amount())), java.math.BigInteger::add)));
-            job.deferredEmitted.forEach((key, amount) -> amounts.merge(key, amount, java.math.BigInteger::add));
-            return amounts;
+                amounts.merge(output.what(), progress.remainingQuantity().multiply(output.amount()), PlannerAmount::add)));
+            job.deferredEmitted.forEach((key, amount) -> amounts.merge(key, amount, PlannerAmount::add));
+            return cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory.toBigIntegers(amounts);
         }
         return bigOrder.exactPendingPreview();
     }
@@ -722,24 +723,24 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         }
         for (var entry : job.deferredStock.entrySet()) {
             var generated = cn.dancingsnow.neoecoae.storage.ECOCreativeSupply.extract(
-                grid, entry.getKey(), entry.getValue(), source);
+                grid, entry.getKey(), entry.getValue().toBigInteger(), source);
             if (generated.signum() > 0) {
                 ((cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) inventory)
-                    .restore(java.util.Map.of(entry.getKey(), generated));
-                entry.setValue(entry.getValue().subtract(generated));
+                    .restoreQuantities(java.util.Map.of(entry.getKey(), PlannerAmount.of(generated)));
+                entry.setValue(entry.getValue().subtract(PlannerAmount.of(generated)));
                 taskScheduler.recordPhysicalInsert(entry.getKey());
                 postChange(entry.getKey());
                 markCpuDirty();
                 continue;
             }
             // Finite storage retains one network call per key/tick.
-            long wanted = cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan.bounded(entry.getValue());
+            long wanted = entry.getValue().longValueSaturated();
             if (wanted <= 0) continue;
             long extracted = grid.getStorageService().getInventory().extract(entry.getKey(), wanted,
                 appeng.api.config.Actionable.MODULATE, source);
             if (extracted > 0) {
                 inventory.insert(entry.getKey(), extracted, appeng.api.config.Actionable.MODULATE);
-                entry.setValue(entry.getValue().subtract(java.math.BigInteger.valueOf(extracted)));
+                entry.setValue(entry.getValue().subtract(extracted));
                 taskScheduler.recordPhysicalInsert(entry.getKey());
                 postChange(entry.getKey());
                 markCpuDirty();
@@ -748,8 +749,8 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         job.deferredStock.values().removeIf(amount -> amount.signum() == 0);
         for (var entry : job.deferredEmitted.entrySet()) {
             ((cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) job.waitingFor)
-                .restore(java.util.Map.of(entry.getKey(), entry.getValue()));
-            entry.setValue(java.math.BigInteger.ZERO);
+                .restoreQuantities(java.util.Map.of(entry.getKey(), entry.getValue()));
+            entry.setValue(PlannerAmount.ZERO);
             postChange(entry.getKey());
             markCpuDirty();
         }

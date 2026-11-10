@@ -1,5 +1,8 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
+
 import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
 
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderProgress;
@@ -35,7 +38,7 @@ final class ECOBigOrderController {
     private long safeRevision = Long.MIN_VALUE;
     private long planningRevision = Long.MIN_VALUE;
     // Display-only parent forecast. Never inserted into the child's execution or inventory ledger.
-    private java.util.Map<AEKey, java.math.BigInteger> pendingPreview = java.util.Map.of();
+    private java.util.Map<AEKey, PlannerAmount> pendingPreview = java.util.Map.of();
 
     ECOBigOrderController(ECOCraftingCPULogic host) { this.host = host; }
 
@@ -44,16 +47,16 @@ final class ECOBigOrderController {
         this.goal = admission.goal();
         this.options = admission.options();
         this.source = source;
-        this.pendingPreview = admission.pendingPreview();
+        this.pendingPreview = ECOExactInventory.fromBigIntegers(admission.pendingPreview());
         bindStandaloneLink();
     }
 
     long pendingPreview(AEKey key) {
         if (order == null || host.getJob() == null || order.terminal()
                 || order.state() == ECOBigOrderState.RUNNING_CHILD) return 0;
-        var amount = pendingPreview.getOrDefault(key, java.math.BigInteger.ZERO);
-        if (key.equals(goal)) amount = amount.max(order.remaining());
-        return amount.min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).longValueExact();
+        var amount = pendingPreview.getOrDefault(key, PlannerAmount.ZERO);
+        if (key.equals(goal)) amount = amount.max(order.remainingQuantity());
+        return amount.longValueSaturated();
     }
 
     void collectPendingPreview(appeng.api.stacks.KeyCounter out) {
@@ -222,8 +225,8 @@ final class ECOBigOrderController {
         if (order == null || host.getJob() == null || order.terminal()
                 || order.state() == ECOBigOrderState.RUNNING_CHILD) return java.util.Map.of();
         var result = new java.util.HashMap<>(pendingPreview);
-        result.merge(goal, order.remaining(), java.math.BigInteger::max);
-        return result;
+        result.merge(goal, order.remainingQuantity(), PlannerAmount::max);
+        return ECOExactInventory.toBigIntegers(result);
     }
 
     /** Called after actual final output delivery, before any child-level terminal side effects. */
@@ -350,11 +353,11 @@ final class ECOBigOrderController {
         order = restored;
         var forecast = tag.getList("pendingPreview", 10);
         if (forecast.size() > 100000) throw new IllegalArgumentException("Too many forecast items");
-        var amounts = new java.util.HashMap<AEKey, java.math.BigInteger>();
+        var amounts = new java.util.HashMap<AEKey, PlannerAmount>();
         for (int i = 0; i < forecast.size(); i++) {
             var entry = forecast.getCompound(i);
             var stack = ECOKeyFactory.readTag(registries, entry.getCompound("key"));
-            if (stack != null) amounts.put(stack.what(), ECOBigCraftingOrder.decode(entry.getString("amount")));
+            if (stack != null) amounts.put(stack.what(), PlannerAmount.of(ECOBigCraftingOrder.decode(entry.getString("amount"))));
         }
         pendingPreview = amounts;
         bindStandaloneLink();
