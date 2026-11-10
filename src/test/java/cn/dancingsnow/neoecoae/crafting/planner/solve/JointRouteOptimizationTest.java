@@ -61,6 +61,33 @@ class JointRouteOptimizationTest {
                 Map.of(expensive, 5L, smelt, 5L));
     }
 
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void jointRecoveryPreservesExactUnlimitedAndZeroStock(boolean ordered) throws Exception {
+        var a = pattern(List.of(stack(iron, Long.MAX_VALUE)), stack(goal, 1));
+        var b = pattern(List.of(stack(copper, 1)), stack(goal, 1));
+        var network = new CraftingNetworkCompiler().compile(service(false, a, b), goal, ECOCancellation.NONE);
+        var large = PlannerAmount.of(Long.MAX_VALUE).multiply(2);
+        var finite = PlannerInventorySnapshot.exact(Map.of(iron, large, copper, PlannerAmount.of(3),
+            ingot, PlannerAmount.ZERO), Set.of());
+        var result = new JointRouteOptimizer().optimize(network, finite, 5, null, ordered, ECOCancellation.NONE);
+        assertNotNull(result);
+        assertEquals(Map.of(a, PlannerAmount.of(2), b, PlannerAmount.of(3)), result.state().plannerPatternTimes());
+        assertEquals(large, result.state().usedAmounts().get(iron));
+        assertTrue(result.state().missingAmounts().isEmpty());
+        result.state().executionProvenance().requireComplete();
+        assertNull(ECOPlanMaterialValidator.firstDeficit(result.state(), goal, 5, null, network));
+        assertNull(new JointRouteOptimizer().optimize(network, finite.withoutReserved(Map.of(iron, large)),
+            5, null, ordered, ECOCancellation.NONE));
+
+        var unlimited = PlannerInventorySnapshot.exact(Map.of(copper, PlannerAmount.ZERO), Set.of(iron));
+        var infiniteResult = new JointRouteOptimizer().optimize(network, unlimited,
+            5, null, ordered, ECOCancellation.NONE);
+        assertNotNull(infiniteResult);
+        assertEquals(Map.of(a, PlannerAmount.of(5)), infiniteResult.state().plannerPatternTimes());
+        infiniteResult.state().executionProvenance().requireComplete();
+        assertNull(ECOPlanMaterialValidator.firstDeficit(infiniteResult.state(), goal, 5, null, network));
+    }
+
     @Test void keepsTheCheaperValidatedCandidateWhenTheShortOptimizationWindowEnds() throws Exception {
         var expensive = pattern(List.of(stack(ingot, 1)), stack(goal, 1));
         var smelt = pattern(List.of(stack(iron, 1)), stack(ingot, 1));
