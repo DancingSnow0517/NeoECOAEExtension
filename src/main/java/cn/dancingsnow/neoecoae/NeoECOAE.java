@@ -227,7 +227,6 @@ public class NeoECOAE {
 
             List<ItemEntry<ECOStorageCellItem>> cells = List.of(
                 NEItems.ECO_ITEM_CELL_16M, NEItems.ECO_ITEM_CELL_64M, NEItems.ECO_ITEM_CELL_256M,
-                NEItems.ECO_BULK_ITEM_CELL_16M, NEItems.ECO_BULK_ITEM_CELL_64M, NEItems.ECO_BULK_ITEM_CELL_256M,
                 NEItems.ECO_FLUID_CELL_16M, NEItems.ECO_FLUID_CELL_64M, NEItems.ECO_FLUID_CELL_256M
             );
             for (ItemEntry<ECOStorageCellItem> cell : cells) {

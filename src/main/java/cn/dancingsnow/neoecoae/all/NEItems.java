@@ -910,14 +910,6 @@ public class NEItems {
         .model(ItemModelUtil.importedCellModel("eco_item_cell_housing"))
         .register();
 
-    public static final ItemEntry<MaterialItem> ECO_BULK_ITEM_CELL_HOUSING = REGISTRATE
-        .item("eco_bulk_item_cell_housing", MaterialItem::new)
-        // Retain the legacy registry entry for existing saves, without a crafting recipe.
-        .lang("ECO Storage Matrix Housing (Bulk Item)")
-        .model(ItemModelUtil.importedCellModel("eco_bulk_item_cell_housing"))
-        .removeTab(NECreativeTabs.ECO.getKey())
-        .register();
-
     public static final ItemEntry<MaterialItem> ECO_FLUID_CELL_HOUSING = REGISTRATE
         .item("eco_fluid_cell_housing", MaterialItem::new)
         .recipe((ctx, prov) -> {
@@ -996,28 +988,6 @@ public class NEItems {
         .lang("ECO - LE9 Storage Matrix (Item)")
         .model(ItemModelUtil.cellModel("item", "256m"))
         .register();
-
-    public static final ItemEntry<ECOStorageCellItem> ECO_BULK_ITEM_CELL_16M = bulkItemCell(
-        "eco_bulk_item_cell_16m", ECOTier.L4, "16m", Rarity.UNCOMMON);
-    public static final ItemEntry<ECOStorageCellItem> ECO_BULK_ITEM_CELL_64M = bulkItemCell(
-        "eco_bulk_item_cell_64m", ECOTier.L6, "64m", Rarity.RARE);
-    public static final ItemEntry<ECOStorageCellItem> ECO_BULK_ITEM_CELL_256M = bulkItemCell(
-        "eco_bulk_item_cell_256m", ECOTier.L9, "256m", Rarity.EPIC);
-
-    private static ItemEntry<ECOStorageCellItem> bulkItemCell(
-        String name, ECOTier tier, String size, Rarity rarity
-    ) {
-        long capacity = tier.getStorageTotalBytes();
-        String level = tier.name().substring(1);
-        return REGISTRATE.item(name, p -> new ECOStorageCellItem(
-                p.stacksTo(1).rarity(rarity), tier, AEKeyType.items(), NECellTypes.BULK_ITEM,
-                capacity, Math.toIntExact(capacity), (double) capacity / (1L << 20)))
-            // Legacy cells remain loadable; datagen must not restore their removed recipes.
-            .lang("ECO - LE" + level + " Storage Matrix (Bulk Item)")
-            .model(ItemModelUtil.cellModel("bulk_item", size))
-            .removeTab(NECreativeTabs.ECO.getKey())
-            .register();
-    }
 
     /**
      * ECO infinite base resource storage matrix: an unbounded source and sink for a hard-locked set
