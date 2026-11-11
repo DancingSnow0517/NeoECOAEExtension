@@ -176,6 +176,9 @@ dependencies {
     // All storage-cell integrations share the same development client.
     devMods("maven.modrinth:applied-replicatics:nQ4pLTkV") { transitive = false } // 21.1-1.2.1
     devMods("maven.modrinth:replication:XfQXDcjc") { transitive = false } // 1.21.1-1.2.7
+    devMods("curse.maven:replication-ae2-bridge-1264781:9550315") { transitive = false } // 3.2.0.2.1
+    devMods("curse.maven:iskanderts-library-1516512:9496117") { transitive = false } // 1.14.0.0.0, required by the bridge
+    devMods("curse.maven:another-config-manager-1719301:9018479") { transitive = false } // 1.0.0.0.0, required by Iskandert's Library
     devMods("maven.modrinth:kotlin-for-forge:uhJhCT7X") { transitive = false } // 5.12.0
     devMods("maven.modrinth:applied-create:2bWngfNH") { transitive = false } // 1.1.7
     createDevMod("maven.modrinth:create:UjX6dr61") { transitive = false } // 6.0.10, embeds Flywheel/Ponder
