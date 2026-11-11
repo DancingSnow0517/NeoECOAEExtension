@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -65,6 +66,41 @@ public final class ECOInfiniteStorageData extends SavedData {
     // Last sequence of the retired write-ahead journal already folded into this snapshot.
     private long journalSequence;
     private KeyCodec codec;
+    private Path persistenceTarget;
+    private HolderLookup.Provider persistenceRegistries;
+    private long writeVersion;
+    private volatile long savedVersion = -1L;
+    private long visibilityVersion = -1L;
+    private CompletableFuture<Void> checkpoint;
+    private long checkpointVersion = -1L;
+
+    void bindPersistence(Path target, HolderLookup.Provider registries) {
+        persistenceTarget = target;
+        persistenceRegistries = registries;
+    }
+
+    /** Migration credits and finalized restores must not become usable before their snapshot is acknowledged. */
+    void requireDurableVisibility() {
+        if (persistenceTarget != null) visibilityVersion = writeVersion;
+    }
+
+    private boolean hasDurableVisibility() {
+        return visibilityVersion <= savedVersion;
+    }
+
+    CompletableFuture<ECOInfiniteStorageEngine.CommitResult> checkpoint() {
+        if (persistenceTarget == null || persistenceRegistries == null) {
+            return CompletableFuture.completedFuture(new ECOInfiniteStorageEngine.CommitResult(false, revision,
+                    "Infinite domain has no persistence target"));
+        }
+        if (checkpoint == null || checkpointVersion < writeVersion || checkpoint.isCompletedExceptionally()) {
+            checkpointVersion = writeVersion;
+            checkpoint = writeSnapshot(persistenceTarget.toFile(), persistenceRegistries);
+        }
+        long capturedRevision = revision;
+        return checkpoint.handle((ignored, failure) -> new ECOInfiniteStorageEngine.CommitResult(
+                failure == null, capturedRevision, failure == null ? null : failure.toString()));
+    }
 
     public static ECOInfiniteStorageData createNew() {
         return new ECOInfiniteStorageData();
@@ -235,13 +271,20 @@ public final class ECOInfiniteStorageData extends SavedData {
     public void save(File file, HolderLookup.Provider registries) {
         if (unreadable || incompleteLegacy) return;
         if (!isDirty() && writeFailure == null) return;
+        writeSnapshot(file, registries);
+    }
+
+    private CompletableFuture<Void> writeSnapshot(File file, HolderLookup.Provider registries) {
+        if (!canWrite()) return CompletableFuture.failedFuture(new IllegalStateException("Infinite domain is not writable"));
+        long snapshotVersion = writeVersion;
+        var completion = new CompletableFuture<Void>();
         CompoundTag root = new CompoundTag();
         try {
             root.put("data", save(new CompoundTag(), registries));
         } catch (RuntimeException e) {
             LoggerFactory.getLogger(ECOInfiniteStorageData.class).error("Cannot serialize infinite domain {}", file, e);
             writeFailure = e.toString();
-            return;
+            return CompletableFuture.failedFuture(e);
         }
         NbtUtils.addCurrentDataVersion(root);
         Path target = file.toPath();
@@ -251,13 +294,23 @@ public final class ECOInfiniteStorageData extends SavedData {
                 // The snapshot records journalSequence, so a journal left behind by a crash here is harmless.
                 Files.deleteIfExists(journalPath(target.toAbsolutePath()));
                 writeFailure = null;
+                savedVersion = Math.max(savedVersion, snapshotVersion);
+                completion.complete(null);
             } catch (IOException | RuntimeException e) {
                 if (writeFailure == null)
                     LoggerFactory.getLogger(ECOInfiniteStorageData.class).error("Cannot save infinite domain {}", file, e);
                 writeFailure = e.toString();
+                completion.completeExceptionally(e);
             }
         });
         setDirty(false);
+        return completion;
+    }
+
+    @Override
+    public void setDirty(boolean dirty) {
+        if (dirty) writeVersion++;
+        super.setDirty(dirty);
     }
 
     /** Structural change: also advances {@link #revision()} so revision-keyed caches refresh. */
@@ -289,7 +342,7 @@ public final class ECOInfiniteStorageData extends SavedData {
         mountedStorageAvailable = canWrite() && restores.isEmpty();
     }
 
-    boolean canUseMountedStorage() { return mountedStorageAvailable; }
+    boolean canUseMountedStorage() { return mountedStorageAvailable && hasDurableVisibility(); }
 
     public long revision() {
         return revision;
@@ -297,7 +350,7 @@ public final class ECOInfiniteStorageData extends SavedData {
 
     /** Advances whenever the visible listing may change, including plain quantity changes. */
     public long listingVersion() {
-        return amounts.changes();
+        return hasDurableVisibility() ? amounts.changes() : cn.dancingsnow.neoecoae.storage.StorageListingVersion.UNKNOWN;
     }
 
     public String lastFailureReason() {
@@ -314,7 +367,7 @@ public final class ECOInfiniteStorageData extends SavedData {
     }
 
     public boolean canRead() {
-        return !unreadable;
+        return !unreadable && hasDurableVisibility();
     }
 
     public boolean canRead(AEKey key) {
@@ -326,16 +379,24 @@ public final class ECOInfiniteStorageData extends SavedData {
     }
 
     public boolean canWrite(AEKey key) {
+        return hasDurableVisibility() && canWriteForMigration(key);
+    }
+
+    boolean canWriteForMigration(AEKey key) {
         return canWrite() && (restores.isEmpty() || !restores.containsKey(key));
     }
 
     public boolean canExitOrRestore() {
         // Leaving infinite mode relies on the next snapshot landing; wait until a failed write has recovered.
+        return canTransfer() && hasDurableVisibility();
+    }
+
+    private boolean canTransfer() {
         return canWrite() && writeFailure == null && rawEntries.isEmpty() && unresolvedMetadata.isEmpty();
     }
 
     public boolean canMigrate() {
-        return canExitOrRestore();
+        return canTransfer() && restores.isEmpty();
     }
 
     /** The reason {@link #canMigrate()} is false, or {@code null} when it is true. */
@@ -352,6 +413,8 @@ public final class ECOInfiniteStorageData extends SavedData {
             return block(ECOInfiniteStorageEngine.MigrationBlock.Kind.UNRESOLVED_METADATA,
                     String.join(", ", unresolvedMetadata.getAllKeys()));
         }
+        if (!restores.isEmpty()) return block(ECOInfiniteStorageEngine.MigrationBlock.Kind.NOT_WRITABLE,
+                "A restore transaction is still active");
         return null;
     }
 

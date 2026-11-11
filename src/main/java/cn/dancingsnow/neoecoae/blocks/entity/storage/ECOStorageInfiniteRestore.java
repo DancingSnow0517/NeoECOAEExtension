@@ -38,6 +38,12 @@ final class ECOStorageInfiniteRestore {
     private long extractionCheckTick = Long.MIN_VALUE;
     private String extractionCheckReason;
     private RestorePlan activeRestorePlan;
+    private boolean targetsPrepared;
+    private boolean restoresReserved;
+    private boolean needsDomainCheckpoint;
+    private java.util.concurrent.CompletableFuture<ECOInfiniteStorageEngine.CommitResult> domainCheckpoint;
+    private java.util.concurrent.CompletableFuture<Void> targetCheckpoint;
+    private Map<AEKey, UUID> pendingCompletions = Map.of();
     private final java.util.ArrayDeque<AEKey> restoreQueue = new java.util.ArrayDeque<>();
 
     private final ECOStorageSystemBlockEntity host;
@@ -91,6 +97,7 @@ final class ECOStorageInfiniteRestore {
         }
         java.util.Set<UUID> targetIds = new java.util.HashSet<>();
         for (RestoreTarget target : targets) {
+            if (target.identity == null) return RestorePlan.blocked("restore target identity is not initialized yet");
             if (!targetIds.add(target.identity)) return RestorePlan.blocked("duplicate restore target identity");
         }
 
@@ -192,7 +199,23 @@ final class ECOStorageInfiniteRestore {
             return;
         }
         ECOInfiniteStorageEngine engine = host.getInfiniteEngine();
-        if (engine == null || engine.isEmpty()) {
+        if (engine == null) return;
+        if (needsDomainCheckpoint) {
+            if (domainCheckpoint == null) domainCheckpoint = engine.checkpoint();
+            if (!domainCheckpoint.isDone()) return;
+            var result = domainCheckpoint.getNow(null);
+            domainCheckpoint = null;
+            if (!result.successful()) {
+                host.storageFaults().report("restore", result.failure(), host.getLevel().getGameTime());
+                return;
+            }
+            needsDomainCheckpoint = false;
+        }
+        if (engine.isEmpty()) {
+            activeRestorePlan = null;
+            targetsPrepared = false;
+            restoresReserved = false;
+            restoreQueue.clear();
             host.exitInfiniteModeIfSafe();
             return;
         }
@@ -206,16 +229,56 @@ final class ECOStorageInfiniteRestore {
             if (drive.isRemoved() || host.getCluster() == null || !host.getCluster().getDrives().contains(drive)
                     || serverLevel.getBlockEntity(drive.getBlockPos()) != drive
                     || !ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), host.infiniteDomainId())
-                    || !target.identity.equals(ECOInfiniteStorageMember.identity(drive.getCellStack()))
+                    || !ECOInfiniteStorageMember.getIdentity(drive.getCellStack()).filter(target.identity::equals).isPresent()
                     || !targetIds.add(target.identity)) {
                 activeRestorePlan = null;
+                targetsPrepared = false;
+                restoresReserved = false;
+                targetCheckpoint = null;
+                pendingCompletions = Map.of();
                 host.refreshInfiniteStorageAccess();
                 restoreQueue.clear();
                 host.storageFaults().report("restore", "Restore target changed; waiting for original sealed matrices", host.getLevel().getGameTime());
                 return;
             }
         }
-        if (activeRestorePlan == null) {
+        if (!targetsPrepared) {
+            activeRestorePlan = plan;
+            if (targetCheckpoint == null) {
+                // Persist member identities and the restoring host before a domain snapshot can name these targets.
+                for (RestoreTarget target : plan.targets()) {
+                    ((IECOStorageMigrationCell) target.drive().getCellInventory()).persistMigrationContents(serverLevel);
+                }
+                targetCheckpoint = ECOStorageChunkPersistence.checkpoint(host,
+                        plan.targets().stream().map(RestoreTarget::drive).toList());
+                return;
+            }
+            if (!targetCheckpoint.isDone()) return;
+            try {
+                targetCheckpoint.getNow(null);
+            } catch (java.util.concurrent.CompletionException failure) {
+                targetCheckpoint = null;
+                host.storageFaults().report("restore", failure.toString(), host.getLevel().getGameTime());
+                return;
+            }
+            targetCheckpoint = null;
+            targetsPrepared = true;
+            // Other hosts could change the domain while target preparation was writing. Re-plan and reserve now.
+            activeRestorePlan = null;
+            plan = createInfiniteRestorePlan();
+            if (!plan.canRestore()) {
+                targetsPrepared = false;
+                host.storageFaults().report("restore", plan.reason(), host.getLevel().getGameTime());
+                return;
+            }
+            activeRestorePlan = plan;
+            if (!targetIds.equals(plan.targets().stream().map(target -> target.identity)
+                    .collect(java.util.stream.Collectors.toSet()))) {
+                targetsPrepared = false;
+                return;
+            }
+        }
+        if (!restoresReserved) {
             KeyCounter pending = new KeyCounter();
             engine.getRestoreStacks(pending);
             Map<AEKey, UUID> transactions = new HashMap<>();
@@ -247,8 +310,32 @@ final class ECOStorageInfiniteRestore {
             restoreQueue.clear();
             for (var entry : pending) restoreQueue.addLast(entry.getKey());
             activeRestorePlan = plan;
+            restoresReserved = true;
+            needsDomainCheckpoint = true;
+            domainCheckpoint = engine.checkpoint();
             host.refreshInfiniteStorageAccess();
             IStorageProvider.requestUpdate(host.getMainNode());
+            return;
+        }
+        if (targetCheckpoint != null) {
+            if (!targetCheckpoint.isDone()) return;
+            try {
+                targetCheckpoint.getNow(null);
+            } catch (java.util.concurrent.CompletionException failure) {
+                targetCheckpoint = null;
+                pendingCompletions = Map.of();
+                host.storageFaults().report("restore", failure.toString(), host.getLevel().getGameTime());
+                return;
+            }
+            if (!engine.finishRestores(pendingCompletions)) return;
+            restoreQueue.removeIf(pendingCompletions::containsKey);
+            targetCheckpoint = null;
+            pendingCompletions = Map.of();
+            needsDomainCheckpoint = true;
+            domainCheckpoint = engine.checkpoint();
+            host.storageFaults().recovered("restore");
+            IStorageProvider.requestUpdate(host.getMainNode());
+            return;
         }
         while (!restoreQueue.isEmpty() && engine.getRestoreAmount(restoreQueue.peekFirst()).isZero())
             restoreQueue.removeFirst();
@@ -275,18 +362,19 @@ final class ECOStorageInfiniteRestore {
         }
         if (!completed.isEmpty()) {
             for (var cell : changedCells) cell.persistMigrationContents(serverLevel);
-            // Mark the target chunks unsaved; the vanilla world save persists them with the domain.
             for (RestoreTarget target : plan.targets()) {
                 if (changedCells.contains(target.drive().getCellInventory())) target.drive().setChanged();
             }
             host.setChanged();
-            if (!engine.finishRestores(completed)) return;
-            restoreQueue.removeIf(completed::containsKey);
-            host.storageFaults().recovered("restore");
-            IStorageProvider.requestUpdate(host.getMainNode());
+            pendingCompletions = Map.copyOf(completed);
+            targetCheckpoint = ECOStorageChunkPersistence.checkpoint(host,
+                    plan.targets().stream().map(RestoreTarget::drive).toList());
+            return;
         }
         if (restoreQueue.isEmpty()) {
             activeRestorePlan = null;
+            targetsPrepared = false;
+            restoresReserved = false;
             host.refreshInfiniteStorageAccess();
             host.exitInfiniteModeIfSafe();
         }
@@ -335,8 +423,7 @@ final class ECOStorageInfiniteRestore {
             this.drive = drive;
             this.simulatedCell = cell;
             this.simulatedContents = contents;
-            this.identity = ECOInfiniteStorageMember.identity(drive.getCellStack());
-            drive.setChanged();
+            this.identity = ECOInfiniteStorageMember.getIdentity(drive.getCellStack()).orElse(null);
             for (var entry : contents) {
                 if (entry.getLongValue() > 0L) {
                     simulatedTypes++;

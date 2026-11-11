@@ -307,6 +307,8 @@ root.addChild(priority.window()); // Add at the same location on client and serv
 
 Native restrictions do not remove existing cells, affect other mods' drives or supply ECO storage. Infinite cells still need complete migration support and explicit eligibility.
 
+Infinite transfers keep cells sealed across ordered persistence checkpoints. `IECOStorageMigrationCell.persistMigrationContents(level)` must flush the current contents before returning; a backend stored outside the item must confirm its own file write or throw, rather than only mark data dirty. ECO separately awaits the vanilla chunk write and domain snapshot without blocking a server tick. Simulation and preview methods must not assign identities or modify the live stack.
+
 ## Addon extension registration
 
 Query these feature names with `ECOAddonApi.supports(name)`:

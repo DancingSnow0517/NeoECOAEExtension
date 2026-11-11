@@ -109,6 +109,8 @@ class ECOInfiniteStorageMigrationControllerTest {
         field(host, "interfaceTransfer", new ECOStorageInterfaceTransfer(host));
         field(host, "infiniteMemberIds", new HashSet<UUID>());
         field(host, "infiniteMigrationSourceIds", new HashSet<UUID>());
+        field(host, "invalidInfiniteMemberIds", new ListTag());
+        field(host, "invalidInfiniteMigrationSourceIds", new ListTag());
         field(host, "stageRunner", new ECOStorageStageRunner(host));
         doReturn(Blocks.STONE.defaultBlockState()).when(host).getBlockState();
         doReturn(false).when(host).isStorageServerStopping();
@@ -132,6 +134,131 @@ class ECOInfiniteStorageMigrationControllerTest {
         field(controller, "mountedDomainId", domain);
     }
 
+    private static ECOInfiniteStorageEngine memoryEngine() {
+        var engine = spy(new SavedDataInfiniteStorageEngine(ECOInfiniteStorageData.createNew()));
+        doAnswer(ignored -> java.util.concurrent.CompletableFuture.completedFuture(engine.commit())).when(engine).checkpoint();
+        return engine;
+    }
+
+    @Test void sourceSealMustReachDiskBeforeAnyDomainCredit() throws Exception {
+        UUID domain = UUID.randomUUID();
+        var tick = new AtomicLong(1);
+        var source = drive(domain, 0, 0, 1);
+        var host = host(domain, tick, List.of(source));
+        var controller = controller(host);
+        controller.migrationClock = () -> 0L;
+        var engine = memoryEngine();
+        mount(controller, domain, engine);
+        var seal = new java.util.concurrent.CompletableFuture<Void>();
+        try (var providers = mockStatic(IStorageProvider.class);
+             var chunks = mockStatic(ECOStorageChunkPersistence.class)) {
+            chunks.when(() -> ECOStorageChunkPersistence.checkpoint(eq(host), anyCollection())).thenReturn(seal);
+            for (int i = 0; i < 3; i++) {
+                controller.update();
+                tick.incrementAndGet();
+            }
+            verify(engine, never()).insertOnce(anySet(), any(AEKey.class), anyLong());
+            assertTrue(completions.isEmpty());
+            seal.complete(null);
+            controller.update();
+            assertEquals(List.of("x0"), completions);
+        }
+    }
+
+    @Test void restoreKeepsItsPlanUntilTargetWritesAndFinalDomainSnapshotSucceed() throws Exception {
+        UUID domain = UUID.randomUUID();
+        var tick = new AtomicLong(1);
+        var target = drive(domain, 0, 0, 0);
+        ECOInfiniteStorageMember.markMember(target.stack(), domain);
+        var host = host(domain, tick, List.of(target));
+        field(host, "hostMode", ECOStorageHostMode.RESTORING_TO_NORMAL);
+        doNothing().when(host).refreshInfiniteStorageAccess();
+        doNothing().when(host).exitInfiniteModeIfSafe();
+        when(host.getLevel().getBlockEntity(target.entity().getBlockPos())).thenReturn(target.entity());
+        var engine = memoryEngine();
+        var key = key(1);
+        engine.insert(key, 10, appeng.api.config.Actionable.MODULATE);
+        mount(controller(host), domain, engine);
+        var planSaved = new java.util.concurrent.CompletableFuture<ECOInfiniteStorageEngine.CommitResult>();
+        var finalSaved = new java.util.concurrent.CompletableFuture<ECOInfiniteStorageEngine.CommitResult>();
+        doReturn(planSaved, finalSaved).when(engine).checkpoint();
+        var actual = (IECOStorageMigrationCell) target.entity().getCellInventory();
+        var quantity = new AtomicLong();
+        when(actual.getMigrationAmount(key)).thenAnswer(ignored -> quantity.get());
+        when(actual.insertForMigration(eq(key), anyLong(), eq(appeng.api.config.Actionable.MODULATE), any()))
+                .thenAnswer(call -> { long amount = call.getArgument(1); quantity.addAndGet(amount); return amount; });
+        var simulated = mock(IECOStorageMigrationCell.class);
+        var targetTier = actual.getTier();
+        when(simulated.getTier()).thenReturn(targetTier);
+        when(simulated.isInfiniteStorageEligible()).thenReturn(true);
+        when(simulated.simulateInsertForMigration(eq(key), anyLong(), any(), anyLong(), anyLong()))
+                .thenAnswer(call -> call.<Long>getArgument(1));
+        var sealSaved = new java.util.concurrent.CompletableFuture<Void>();
+        var failedTarget = new java.util.concurrent.CompletableFuture<Void>();
+        var retryTarget = java.util.concurrent.CompletableFuture.<Void>completedFuture(null);
+        try (var providers = mockStatic(IStorageProvider.class);
+             var cells = mockStatic(cn.dancingsnow.neoecoae.api.storage.ECOStorageCells.class);
+             var chunks = mockStatic(ECOStorageChunkPersistence.class)) {
+            cells.when(() -> cn.dancingsnow.neoecoae.api.storage.ECOStorageCells.getCellInventory(any(), isNull()))
+                    .thenReturn(simulated);
+            chunks.when(() -> ECOStorageChunkPersistence.checkpoint(eq(host), anyCollection()))
+                    .thenReturn(sealSaved, failedTarget, retryTarget);
+            var restore = host.infiniteRestore();
+            restore.restoreInfiniteDomainToNormalStorageIfPossible();
+            assertFalse(engine.hasPendingRestore());
+            assertEquals(0, quantity.get());
+            sealSaved.complete(null);
+            restore.restoreInfiniteDomainToNormalStorageIfPossible();
+            assertTrue(engine.hasPendingRestore());
+            assertEquals(0, quantity.get());
+            restore.restoreInfiniteDomainToNormalStorageIfPossible();
+            assertEquals(0, quantity.get(), "a pending domain plan must not touch the destination");
+            planSaved.complete(new ECOInfiniteStorageEngine.CommitResult(true, 1, null));
+            restore.restoreInfiniteDomainToNormalStorageIfPossible();
+            assertEquals(10, quantity.get());
+            assertEquals(10, engine.getRestoreAmount(key).toLongSaturated());
+            failedTarget.completeExceptionally(new java.io.IOException("disk full"));
+            restore.restoreInfiniteDomainToNormalStorageIfPossible();
+            assertTrue(engine.hasPendingRestore());
+            assertEquals(10, engine.getRestoreAmount(key).toLongSaturated());
+            restore.restoreInfiniteDomainToNormalStorageIfPossible();
+            restore.restoreInfiniteDomainToNormalStorageIfPossible();
+            assertEquals(0, engine.getRestoreAmount(key).toLongSaturated());
+            verify(host, never()).exitInfiniteModeIfSafe();
+            finalSaved.complete(new ECOInfiniteStorageEngine.CommitResult(true, 2, null));
+            restore.restoreInfiniteDomainToNormalStorageIfPossible();
+            verify(host).exitInfiniteModeIfSafe();
+            verify(actual, times(1)).insertForMigration(eq(key), eq(10L), eq(appeng.api.config.Actionable.MODULATE), any());
+            assertEquals(10, quantity.get(), "retrying the failed target write must not insert the same items again");
+        }
+    }
+
+    @Test void restorePreviewDoesNotCreateAnIdentityOrDirtyTheDrive() throws Exception {
+        UUID domain = UUID.randomUUID();
+        var target = drive(domain, 0, 0, 0);
+        var tag = new CompoundTag();
+        tag.putBoolean("neoecoae_infinite_member", true);
+        tag.putUUID("neoecoae_infinite_domain", domain);
+        target.stack().set(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
+                net.minecraft.world.item.component.CustomData.of(tag));
+        var before = target.stack().copy();
+        var host = host(domain, new AtomicLong(1), List.of(target));
+        var engine = memoryEngine();
+        engine.insert(key(1), 10, appeng.api.config.Actionable.MODULATE);
+        mount(controller(host), domain, engine);
+        var preview = ECOStorageInfiniteRestore.class.getDeclaredMethod("createInfiniteRestorePlan");
+        preview.setAccessible(true);
+        try (var cells = mockStatic(cn.dancingsnow.neoecoae.api.storage.ECOStorageCells.class)) {
+            var inventory = target.entity().getCellInventory();
+            cells.when(() -> cn.dancingsnow.neoecoae.api.storage.ECOStorageCells.getCellInventory(any(), isNull()))
+                    .thenReturn(inventory);
+            assertDoesNotThrow(() -> preview.invoke(host.infiniteRestore()));
+        }
+        assertTrue(ItemStack.matches(before, target.stack()));
+        assertTrue(ECOInfiniteStorageMember.getIdentity(target.stack()).isEmpty());
+        verify(target.entity(), never()).setChanged();
+    }
+
     @Test void sourcesMigrateInPositionOrderSharingOneBudgetWithMonotonicProgress() throws Exception {
         NEConfig.infiniteMigrationKeysPerTick = 4;
         UUID domain = UUID.randomUUID();
@@ -143,12 +270,14 @@ class ECOInfiniteStorageMigrationControllerTest {
         var host = host(domain, tick, List.of(c, b, a));
         var controller = controller(host);
         controller.migrationClock = () -> 0L;
-        var engine = new SavedDataInfiniteStorageEngine(ECOInfiniteStorageData.createNew());
+        var engine = memoryEngine();
         mount(controller, domain, engine);
 
         double last = controller.migrationProgress();
         List<Double> progress = new ArrayList<>();
-        try (var providers = mockStatic(IStorageProvider.class)) {
+        try (var providers = mockStatic(IStorageProvider.class);
+             var chunks = mockStatic(ECOStorageChunkPersistence.class,
+                     ignored -> java.util.concurrent.CompletableFuture.completedFuture(null))) {
             for (int i = 0; i < 10 && host.storageHostMode() == ECOStorageHostMode.MIGRATING_TO_INFINITE; i++) {
                 controller.update();
                 tick.incrementAndGet();
@@ -162,8 +291,9 @@ class ECOInfiniteStorageMigrationControllerTest {
         }
         assertEquals(ECOStorageHostMode.FORMED_INFINITE, host.storageHostMode());
         assertEquals(List.of("x0", "x1", "x2"), completions);
-        // Tick 1: A (3 types) completes and B starts with the remaining budget, so progress is already visible.
-        assertEquals((1 + 1.0D / 5) / 3, progress.getFirst(), 1e-9);
+        // The first tick persists seals; the next one shares its type budget between A and B.
+        assertEquals(0D, progress.getFirst(), 1e-9);
+        assertEquals((1 + 1.0D / 5) / 3, progress.get(1), 1e-9);
         assertTrue(host.storageFaults().snapshot().isEmpty());
         for (Drive drive : List.of(a, b, c)) assertTrue(ECOInfiniteStorageMember.isMemberOf(drive.stack(), domain));
     }
@@ -185,7 +315,9 @@ class ECOInfiniteStorageMigrationControllerTest {
         mount(controller, domain,
             new SavedDataInfiniteStorageEngine(ECOInfiniteStorageData.load(snapshot, RegistryAccess.EMPTY)));
 
-        try (var providers = mockStatic(IStorageProvider.class)) {
+        try (var providers = mockStatic(IStorageProvider.class);
+             var chunks = mockStatic(ECOStorageChunkPersistence.class,
+                     ignored -> java.util.concurrent.CompletableFuture.completedFuture(null))) {
             controller.update();
             tick.incrementAndGet();
             var block = host.getInfiniteMigrationBlock();
@@ -198,7 +330,9 @@ class ECOInfiniteStorageMigrationControllerTest {
             assertEquals(ECOStorageHostMode.MIGRATING_TO_INFINITE, host.storageHostMode());
             assertTrue(completions.isEmpty());
 
-            mount(controller, domain, new SavedDataInfiniteStorageEngine(ECOInfiniteStorageData.createNew()));
+            mount(controller, domain, memoryEngine());
+            controller.update();
+            tick.incrementAndGet();
             controller.update();
             tick.incrementAndGet();
             assertNull(host.getInfiniteMigrationBlock());

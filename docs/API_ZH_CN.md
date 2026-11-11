@@ -305,6 +305,8 @@ root.addChild(priority.window()); // 客户端和服务端都添加到同一位�
 | [IECOBulkDisplayCell](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOBulkDisplayCell.java) | 提供完整压缩链与实际生效的显示截止等级 |
 | [INativeMEStorageRestrictedItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/INativeMEStorageRestrictedItem.java) | 默认禁止原版 ME 驱动器/箱子插入；false 仅继续原校验，不保证接受 |
 
+无限域迁移会在有序的持久化检查点之间保持盘封印。`IECOStorageMigrationCell.persistMigrationContents(level)` 返回前必须写出当前内容；库存保存在物品之外的后端，需要确认自己的文件写入完成或抛出异常，不能只标脏。ECO 另行等待原版区块写入与域快照完成，不阻塞服务器 tick。模拟与预览方法不得分配身份或修改实际物品栈。
+
 原版插入限制不清理已有盘，不影响其他 Mod 的驱动器，也不提供 ECO 后端。无限盘仍须具备完整迁移实现与明确资格。
 
 ## 附属扩展注册

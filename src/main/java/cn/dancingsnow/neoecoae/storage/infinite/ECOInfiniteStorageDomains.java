@@ -105,6 +105,7 @@ public final class ECOInfiniteStorageDomains {
         Path legacyFile = dataDir.resolve(legacyName + ".dat");
         ECOInfiniteStorageData data = overworld.getDataStorage().computeIfAbsent(
                 ECOInfiniteStorageData.factory(dataFile, () -> importLegacy(overworld, domainId, legacyFile)), dataName);
+        data.bindPersistence(dataFile, overworld.registryAccess());
         if (data.status() != ECOInfiniteStorageData.DomainStatus.HEALTHY) {
             LOGGER.warn("ECO domain {} opened with status {}: {}", domainId, data.status(), data.failures());
         }

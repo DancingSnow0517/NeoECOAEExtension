@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.LongSupplier;
@@ -41,6 +42,8 @@ final class ECOInfiniteStorageModeController {
     private final ECOStorageSystemBlockEntity host;
     private final ECOInfiniteStorageTransfer transfer = new ECOInfiniteStorageTransfer();
     private final Set<UUID> preparedSourceSeals = new HashSet<>();
+    private final Map<UUID, java.util.concurrent.CompletableFuture<Void>> pendingSourceSeals = new java.util.HashMap<>();
+    private java.util.concurrent.CompletableFuture<ECOInfiniteStorageEngine.CommitResult> exitCheckpoint;
 
     private boolean targetInfiniteMode;
     private boolean updating;
@@ -89,6 +92,11 @@ final class ECOInfiniteStorageModeController {
 
     private void processMode() {
         host.rememberInfiniteMembers();
+        if (host.hasInvalidInfiniteMembers()) {
+            host.storageFaults().report("members", "Invalid saved infinite member identity; original data retained",
+                    host.getLevel().getGameTime());
+            return;
+        }
         if (!host.isFormed() || host.getCluster() == null) {
             if (!host.storageHostMode().isInfiniteState()) {
                 host.setStorageHostMode(ECOStorageHostMode.UNFORMED);
@@ -387,7 +395,19 @@ final class ECOInfiniteStorageModeController {
     }
 
     private void sealTransferSources(ServerLevel serverLevel, UUID domainId) {
+        for (var iterator = pendingSourceSeals.entrySet().iterator(); iterator.hasNext();) {
+            var entry = iterator.next();
+            if (!entry.getValue().isDone()) continue;
+            try {
+                entry.getValue().getNow(null);
+                preparedSourceSeals.add(entry.getKey());
+            } catch (java.util.concurrent.CompletionException failure) {
+                host.storageFaults().report("migration seal", failure.toString(), host.getLevel().getGameTime());
+            }
+            iterator.remove();
+        }
         Set<UUID> prepared = new HashSet<>();
+        List<ECODriveBlockEntity> sealedDrives = new ArrayList<>();
         for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
             if (prepared.size() >= ECOInfiniteStorageTransfer.SEALS_PER_TICK) break;
             String stage = "migration drive " + drive.getBlockPos();
@@ -405,7 +425,7 @@ final class ECOInfiniteStorageModeController {
                 if (host.infiniteMigrationSourceIds().add(migration)) {
                     host.setChanged();
                 }
-                if (preparedSourceSeals.contains(migration)) {
+                if (preparedSourceSeals.contains(migration) || pendingSourceSeals.containsKey(migration)) {
                     continue;
                 }
                 drive.flushPendingCellWrites();
@@ -413,15 +433,16 @@ final class ECOInfiniteStorageModeController {
                 drive.setChanged();
                 IStorageProvider.requestUpdate(drive.getMainNode());
                 prepared.add(migration);
+                sealedDrives.add(drive);
             } catch (RuntimeException exception) {
                 host.storageStageRetryTicks().put(stage, host.getLevel().getGameTime() + 200L);
                 host.storageFaults().report(stage, exception.toString(), host.getLevel().getGameTime(), exception);
             }
         }
         if (!prepared.isEmpty()) {
-            // Chunks and the domain are saved together by the next vanilla world save; receipts make a replay safe.
             host.setChanged();
-            preparedSourceSeals.addAll(prepared);
+            var checkpoint = ECOStorageChunkPersistence.checkpoint(host, sealedDrives);
+            for (UUID migration : prepared) pendingSourceSeals.put(migration, checkpoint);
         }
     }
 
@@ -442,7 +463,13 @@ final class ECOInfiniteStorageModeController {
             return;
         }
         ECOInfiniteStorageEngine engine = getEngine();
-        if (engine == null || !engine.canExitOrRestore() || !engine.isEmpty() || !engine.commit().successful()) {
+        if (engine == null || !engine.canExitOrRestore() || !engine.isEmpty()) {
+            return;
+        }
+        if (exitCheckpoint == null) exitCheckpoint = engine.checkpoint();
+        if (!exitCheckpoint.isDone()) return;
+        if (!exitCheckpoint.getNow(null).successful()) {
+            exitCheckpoint = null;
             return;
         }
         UUID domainId = host.infiniteDomainId();
@@ -491,6 +518,8 @@ final class ECOInfiniteStorageModeController {
         hostAccess = false;
         transfer.reset();
         preparedSourceSeals.clear();
+        pendingSourceSeals.clear();
+        exitCheckpoint = null;
         if (mountedServer != null && mountedDomainId != null) {
             ECOInfiniteStorageDomains.release(mountedServer, mountedDomainId);
         }

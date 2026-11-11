@@ -124,14 +124,20 @@ public interface ECOInfiniteStorageEngine {
     }
 
     /**
-     * Marks a migration boundary: inventory, receipts and restore plans have advanced together and are handed to the
-     * vanilla SavedData cycle, which writes them in one snapshot on the next world save. No I/O happens here;
-     * {@code successful} only reports whether the domain accepts the change.
+     * Result of a migration boundary. {@link #commit()} only accepts the in-memory change for a later world save;
+     * it does not perform I/O. A successful {@link #checkpoint()} instead acknowledges that inventory, receipts
+     * and restore plans have been written together, so a transfer may advance past that boundary.
      */
     record CommitResult(boolean successful, long revision, String failure) {
     }
 
     CommitResult commit();
+
+    /** Asynchronously saves inventory and transfer metadata; callers must await success before discarding a source. */
+    default java.util.concurrent.CompletableFuture<CommitResult> checkpoint() {
+        return java.util.concurrent.CompletableFuture.completedFuture(
+                new CommitResult(false, revision(), "Storage engine does not provide durable checkpoints"));
+    }
 
     default long revision() {
         return 0L;

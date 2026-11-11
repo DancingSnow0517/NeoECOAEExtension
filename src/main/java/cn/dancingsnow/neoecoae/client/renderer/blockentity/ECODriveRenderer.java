@@ -5,7 +5,6 @@ import appeng.client.render.tesr.CellLedRenderer;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.client.rendering.IFixedBlockEntityRenderer;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
@@ -35,8 +34,7 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
 
     @Override
     public void render(ECODriveBlockEntity blockEntity, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay) {
-        ItemStack cellStack = blockEntity.getCellStack();
-        if (ECOInfiniteStorageMember.isMember(cellStack)) {
+        if (blockEntity.isInfiniteMember()) {
             renderLed(blockEntity, poseStack, bufferSource, FastColor.ARGB32.color(255, INFINITE_MEMBER_LED_COLOR));
             return;
         }

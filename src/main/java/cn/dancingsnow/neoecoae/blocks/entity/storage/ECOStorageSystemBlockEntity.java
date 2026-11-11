@@ -124,11 +124,13 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
      * Migration ids which must be seen and completed before the host may enter FORMED_INFINITE.
      */
     private final java.util.Set<UUID> infiniteMigrationSourceIds = new java.util.HashSet<>();
+    // Preserve unknown roster entries verbatim; dropping one would falsely authorize leaving the domain.
+    private final net.minecraft.nbt.ListTag invalidInfiniteMemberIds = new net.minecraft.nbt.ListTag();
+    private final net.minecraft.nbt.ListTag invalidInfiniteMigrationSourceIds = new net.minecraft.nbt.ListTag();
 
     @Persisted(key = INFINITE_COMPONENT_INVENTORY_PERSIST_KEY)
-    // Keep the component inventory persisted and exposed to the regular UI container, but do not include
-    // every ItemStack in LDLib's descriptive/advanced-data synchronization packet. A populated infinite
-    // component inventory can exceed the packet's fixed 2392-byte buffer before the UI is even opened.
+    @com.lowdragmc.lowdraglib2.syncdata.annotation.LazyManaged
+    // Inventory callbacks mark it dirty on the server; the UI container synchronizes its slot separately.
     private final AppEngInternalInventory infiniteComponentInventory = new AppEngInternalInventory(this, 1, INFINITE_COMPONENT_REQUIRED);
     // Keep LDLib-managed fields on the block entity; delegate domain-specific behavior and caches.
     private final ECOStorageHostStatistics statistics = new ECOStorageHostStatistics(this);
@@ -292,7 +294,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             return;
         }
         performanceAverageNanos = nextAverageNanos;
-        setChanged();
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
@@ -721,7 +722,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     public int getMissingInfiniteMembers() {
         if (!isInfiniteMode()) return 0;
-        rememberInfiniteMembers();
         java.util.Set<UUID> missing = new java.util.HashSet<>(infiniteMemberIds);
         if (cluster != null && infiniteDomainId != null) {
             for (ECODriveBlockEntity drive : cluster.getDrives()) {
@@ -730,29 +730,45 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 }
             }
         }
-        return missing.size();
+        return missing.size() + invalidInfiniteMemberIds.size() + invalidInfiniteMigrationSourceIds.size();
+    }
+
+    boolean hasInvalidInfiniteMembers() {
+        return !invalidInfiniteMemberIds.isEmpty() || !invalidInfiniteMigrationSourceIds.isEmpty();
     }
 
     private void saveInfiniteMembers(CompoundTag tag) {
         net.minecraft.nbt.ListTag ids = new net.minecraft.nbt.ListTag();
         for (UUID id : infiniteMemberIds) ids.add(net.minecraft.nbt.StringTag.valueOf(id.toString()));
+        invalidInfiniteMemberIds.forEach(value -> ids.add(value.copy()));
         tag.put("infiniteMemberIds", ids);
         net.minecraft.nbt.ListTag migrations = new net.minecraft.nbt.ListTag();
         for (UUID id : infiniteMigrationSourceIds) {
             migrations.add(net.minecraft.nbt.StringTag.valueOf(id.toString()));
         }
+        invalidInfiniteMigrationSourceIds.forEach(value -> migrations.add(value.copy()));
         tag.put("infiniteMigrationSourceIds", migrations);
     }
 
     private void loadInfiniteMembers(CompoundTag tag) {
         infiniteMembersDirty = true;
         infiniteMemberIds.clear();
+        invalidInfiniteMemberIds.clear();
         for (var value : tag.getList("infiniteMemberIds", net.minecraft.nbt.Tag.TAG_STRING)) {
-            infiniteMemberIds.add(UUID.fromString(value.getAsString()));
+            try {
+                infiniteMemberIds.add(UUID.fromString(value.getAsString()));
+            } catch (IllegalArgumentException invalid) {
+                invalidInfiniteMemberIds.add(value.copy());
+            }
         }
         infiniteMigrationSourceIds.clear();
+        invalidInfiniteMigrationSourceIds.clear();
         for (var value : tag.getList("infiniteMigrationSourceIds", net.minecraft.nbt.Tag.TAG_STRING)) {
-            infiniteMigrationSourceIds.add(UUID.fromString(value.getAsString()));
+            try {
+                infiniteMigrationSourceIds.add(UUID.fromString(value.getAsString()));
+            } catch (IllegalArgumentException invalid) {
+                invalidInfiniteMigrationSourceIds.add(value.copy());
+            }
         }
     }
 

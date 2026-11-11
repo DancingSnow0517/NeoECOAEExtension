@@ -107,6 +107,99 @@ class ECOInfiniteStorageDurabilityTest {
     }
 
     @Test
+    void migrationCreditsWaitForTheirOwnAcknowledgedSnapshot(@TempDir Path directory) throws Exception {
+        var live = fresh();
+        var file = directory.resolve("domain.dat");
+        live.bindPersistence(file, RegistryAccess.EMPTY);
+        var engine = new SavedDataInfiniteStorageEngine(live);
+        var stone = AEItemKey.of(Items.STONE);
+        var dirt = AEItemKey.of(Items.DIRT);
+        UUID receipt = UUID.randomUUID();
+        var release = new java.util.concurrent.CountDownLatch(1);
+        IOUtilities.withIOWorker(() -> {
+            try {
+                if (!release.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("Test writer timed out");
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(interrupted);
+            }
+        });
+        java.util.concurrent.CompletableFuture<ECOInfiniteStorageEngine.CommitResult> first;
+        try {
+            assertEquals(10, engine.insertOnce(receipt, stone, 10));
+            first = engine.checkpoint();
+            assertFalse(first.isDone());
+            assertFalse(engine.canUseMountedStorage());
+            assertEquals(0, engine.extract(stone, 10, Actionable.MODULATE));
+            assertEquals(20, engine.insertOnce(UUID.randomUUID(), dirt, 20));
+        } finally {
+            release.countDown();
+        }
+        assertTrue(first.get(10, java.util.concurrent.TimeUnit.SECONDS).successful());
+        assertFalse(engine.canUseMountedStorage(), "an older snapshot must not release newer migration credits");
+        assertEquals(HugeAmount.of(10), readBack(file).getAmount(stone));
+        assertEquals(HugeAmount.ZERO, readBack(file).getAmount(dirt));
+        assertTrue(engine.checkpoint().get(10, java.util.concurrent.TimeUnit.SECONDS).successful());
+        assertTrue(engine.canUseMountedStorage());
+        var reloaded = new SavedDataInfiniteStorageEngine(readBack(file));
+        assertEquals(10, reloaded.insertOnce(receipt, stone, 10));
+        assertEquals(HugeAmount.of(10), reloaded.getAmount(stone), "replaying the sealed source does not duplicate it");
+        assertEquals(HugeAmount.of(20), reloaded.getAmount(dirt));
+    }
+
+    @Test
+    void failedMigrationCheckpointRetainsCreditsAndRetriesWithoutReinsertion(@TempDir Path directory) throws Exception {
+        var live = fresh();
+        var parent = directory.resolve("blocked");
+        Files.writeString(parent, "occupied");
+        var target = parent.resolve("domain.dat");
+        live.bindPersistence(target, RegistryAccess.EMPTY);
+        var engine = new SavedDataInfiniteStorageEngine(live);
+        var stone = AEItemKey.of(Items.STONE);
+        var receipt = UUID.randomUUID();
+        assertEquals(64, engine.insertOnce(receipt, stone, 64));
+        assertFalse(engine.checkpoint().get(10, java.util.concurrent.TimeUnit.SECONDS).successful());
+        assertEquals(HugeAmount.of(64), live.getAmount(stone));
+        assertEquals(0, engine.extract(stone, 64, Actionable.MODULATE));
+        assertFalse(engine.canExitOrRestore());
+        Files.delete(parent);
+        Files.createDirectory(parent);
+        assertTrue(engine.checkpoint().get(10, java.util.concurrent.TimeUnit.SECONDS).successful());
+        assertEquals(64, engine.insertOnce(receipt, stone, 64));
+        assertEquals(HugeAmount.of(64), readBack(target).getAmount(stone));
+        assertEquals(64, engine.extract(stone, 64, Actionable.SIMULATE));
+    }
+
+    @Test
+    void restoreReservationAndFinalizationSurviveSeparateSnapshots(@TempDir Path directory) throws Exception {
+        var file = directory.resolve("domain.dat");
+        var live = fresh();
+        live.bindPersistence(file, RegistryAccess.EMPTY);
+        var engine = new SavedDataInfiniteStorageEngine(live);
+        var key = AEItemKey.of(Items.STONE);
+        engine.insert(key, 10, Actionable.MODULATE);
+        var transaction = UUID.randomUUID();
+        var target = UUID.randomUUID();
+        var goal = new ECOInfiniteStorageEngine.RestoreTargetAmounts(0, 10, 10);
+        assertTrue(engine.reserveRestores(Map.of(key, transaction), Set.of(target), Map.of(key, Map.of(target, goal))));
+        assertTrue(engine.checkpoint().get(10, java.util.concurrent.TimeUnit.SECONDS).successful());
+        var reserved = readBack(file);
+        assertEquals(HugeAmount.of(10), reserved.getAmount(key));
+        assertEquals(Map.of(target, goal), reserved.restorePlan(key));
+        assertEquals(transaction, reserved.restoreTransaction(key));
+
+        // The controller calls finish only after the target chunk's contents and receipt have been acknowledged.
+        assertTrue(engine.finishRestores(Map.of(key, transaction)));
+        assertFalse(engine.canExitOrRestore());
+        assertEquals(Map.of(target, goal), readBack(file).restorePlan(key), "the old snapshot remains replayable");
+        assertTrue(engine.checkpoint().get(10, java.util.concurrent.TimeUnit.SECONDS).successful());
+        var completed = readBack(file);
+        assertEquals(HugeAmount.ZERO, completed.getAmount(key));
+        assertFalse(completed.hasPendingRestore());
+        assertTrue(engine.canExitOrRestore());
+    }
+
+    @Test
     void quantityChangesDoNotAdvanceRevisionButNewKeysDo() {
         var stone = AEItemKey.of(Items.STONE);
         var dirt = AEItemKey.of(Items.DIRT);

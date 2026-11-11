@@ -59,10 +59,11 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         if (key == null || amount <= 0 || !data.canMigrate()) return 0;
         if (transaction == null) return insert(key, amount, Actionable.MODULATE);
         if (data.hasMigrationReceipt(transaction)) return amount;
-        if (!data.canWrite(key)) return 0;
+        if (!data.canWriteForMigration(key)) return 0;
         insertAmount(key, amount);
         // Quantity and receipt share an atomic snapshot; a sealed source can safely retry after a restart.
         data.addMigrationReceipt(transaction);
+        data.requireDurableVisibility();
         return amount;
     }
 
@@ -71,9 +72,10 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         if (key == null || amount <= 0 || !data.canMigrate()) return 0;
         if (transactions == null || transactions.isEmpty()) return insert(key, amount, Actionable.MODULATE);
         if (transactions.stream().anyMatch(data::hasMigrationReceipt)) return amount;
-        if (!data.canWrite(key)) return 0;
+        if (!data.canWriteForMigration(key)) return 0;
         insertAmount(key, amount);
         data.addMigrationReceipts(transactions);
+        data.requireDurableVisibility();
         return amount;
     }
 
@@ -282,6 +284,11 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         return new CommitResult(data.canWrite(), data.revision(), data.lastFailureReason());
     }
 
+    @Override
+    public java.util.concurrent.CompletableFuture<CommitResult> checkpoint() {
+        return data.checkpoint();
+    }
+
     public List<String> failures() {
         return data.failures();
     }
@@ -357,7 +364,9 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
             }
         }
         statisticsDirty = true;
-        return commit().successful();
+        var result = commit();
+        data.requireDurableVisibility();
+        return result.successful();
     }
 
     @Override

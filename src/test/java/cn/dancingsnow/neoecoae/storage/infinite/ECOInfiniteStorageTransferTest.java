@@ -81,8 +81,14 @@ class ECOInfiniteStorageTransferTest {
         }
     }
 
+    private static ECOInfiniteStorageEngine memoryEngine() {
+        var engine = spy(new SavedDataInfiniteStorageEngine(ECOInfiniteStorageData.createNew()));
+        doAnswer(ignored -> java.util.concurrent.CompletableFuture.completedFuture(engine.commit())).when(engine).checkpoint();
+        return engine;
+    }
+
     @Test void timeBudgetStopsAtTheDeadlineButEveryTickAdvancesAtLeastOneType() {
-        var engine = new SavedDataInfiniteStorageEngine(ECOInfiniteStorageData.createNew());
+        var engine = memoryEngine();
         var source = new Source(keys(40, 0), 1L);
         var transfer = new ECOInfiniteStorageTransfer();
         var now = new AtomicLong();
@@ -118,7 +124,7 @@ class ECOInfiniteStorageTransferTest {
     }
 
     @Test void typeCapIsSharedAcrossSourcesThatCompleteInOrder() {
-        var engine = new SavedDataInfiniteStorageEngine(ECOInfiniteStorageData.createNew());
+        var engine = memoryEngine();
         List<AEKey> firstKeys = keys(3, 0);
         var first = new Source(firstKeys, 1L);
         var second = new Source(keys(5, 10), 2L);
@@ -148,7 +154,8 @@ class ECOInfiniteStorageTransferTest {
             receipts.add(Set.copyOf(call.<Set<UUID>>getArgument(0)));
             return call.<Long>getArgument(2);
         });
-        when(engine.commit()).thenReturn(new ECOInfiniteStorageEngine.CommitResult(true, 1, null));
+        when(engine.checkpoint()).thenReturn(java.util.concurrent.CompletableFuture.completedFuture(
+                new ECOInfiniteStorageEngine.CommitResult(true, 1, null)));
         var source = new Source(List.of(key), 0x1234_5678_9ABCL);
         var result = source.step(new ECOInfiniteStorageTransfer(), engine,
             new ECOInfiniteStorageTransfer.Budget(() -> 0L, 1_000_000L, 512));
@@ -202,8 +209,9 @@ class ECOInfiniteStorageTransferTest {
         // A refused commit is a block too: the source is not cleared until the domain accepts it.
         var engine = mock(ECOInfiniteStorageEngine.class);
         when(engine.insertOnce(anySet(), any(AEKey.class), anyLong())).thenAnswer(call -> call.<Long>getArgument(2));
-        when(engine.commit()).thenReturn(new ECOInfiniteStorageEngine.CommitResult(false, 0, "disk full"),
-            new ECOInfiniteStorageEngine.CommitResult(true, 1, null));
+        when(engine.checkpoint()).thenReturn(java.util.concurrent.CompletableFuture.completedFuture(
+                new ECOInfiniteStorageEngine.CommitResult(false, 0, "disk full")),
+                java.util.concurrent.CompletableFuture.completedFuture(new ECOInfiniteStorageEngine.CommitResult(true, 1, null)));
         result = source.step(transfer, engine, budget);
         assertEquals(ECOInfiniteStorageEngine.MigrationBlock.Kind.COMMIT_FAILED, result.block().kind());
         assertEquals("disk full", result.block().detail());
@@ -214,12 +222,32 @@ class ECOInfiniteStorageTransferTest {
         // A rejected insert keeps the cursor on that type until the domain accepts it.
         var rejecting = mock(ECOInfiniteStorageEngine.class);
         when(rejecting.insertOnce(anySet(), any(AEKey.class), anyLong())).thenReturn(0L, 1L);
-        when(rejecting.commit()).thenReturn(new ECOInfiniteStorageEngine.CommitResult(true, 1, null));
+        when(rejecting.checkpoint()).thenReturn(java.util.concurrent.CompletableFuture.completedFuture(
+                new ECOInfiniteStorageEngine.CommitResult(true, 1, null)));
         var retried = new Source(List.of(stone), 2L);
         result = retried.step(transfer, rejecting, budget);
         assertEquals(ECOInfiniteStorageEngine.MigrationBlock.Kind.INSERT_REJECTED, result.block().kind());
         assertEquals(ECOInfiniteStorageTransfer.State.COMPLETED, retried.step(transfer, rejecting, budget).state());
         verify(rejecting, times(2)).insertOnce(anySet(), eq(stone), eq(1L));
+    }
+
+    @Test void pendingCheckpointNeverClearsOrReinsertsTheSource() {
+        var engine = memoryEngine();
+        var checkpoint = new java.util.concurrent.CompletableFuture<ECOInfiniteStorageEngine.CommitResult>();
+        doReturn(checkpoint).when(engine).checkpoint();
+        var source = new Source(List.of(key(Items.STONE)), 1L);
+        var transfer = new ECOInfiniteStorageTransfer();
+        for (int tick = 0; tick < 3; tick++) {
+            assertEquals(ECOInfiniteStorageTransfer.State.IN_PROGRESS, source.step(transfer, engine,
+                    new ECOInfiniteStorageTransfer.Budget(() -> 0L, 1_000_000L, 512)).state());
+            assertEquals(0, source.completed.get());
+        }
+        verify(engine, times(1)).insertOnce(anySet(), any(AEKey.class), anyLong());
+        verify(engine, times(1)).checkpoint();
+        checkpoint.complete(new ECOInfiniteStorageEngine.CommitResult(true, 1L, null));
+        assertEquals(ECOInfiniteStorageTransfer.State.COMPLETED, source.step(transfer, engine,
+                new ECOInfiniteStorageTransfer.Budget(() -> 0L, 1_000_000L, 512)).state());
+        assertEquals(1, source.completed.get());
     }
 
     @Test void migrationBlockMirrorsMigrationAdmission() {

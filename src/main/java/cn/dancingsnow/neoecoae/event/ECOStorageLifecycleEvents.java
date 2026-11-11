@@ -12,10 +12,16 @@ import net.minecraft.server.level.ServerLevel;
 import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 public final class ECOStorageLifecycleEvents {
     private ECOStorageLifecycleEvents() {
+    }
+
+    public static void onServerStopping(ServerStoppingEvent event) {
+        ECOCellMutationBatch.clearThreadState();
+        ECOCellMutationBatch.drainRetries();
     }
 
     /**
@@ -28,9 +34,8 @@ public final class ECOStorageLifecycleEvents {
         NELogicalNetworkManager.clearAll();
         ECOPlanningResultRegistry.clear();
         NetGrowthPatternValidationRegistry.clear();
-        ECOCellMutationBatch.clearThreadState();
-        ECOCellMutationBatch.drainRetries();
         ECOStorageCells.clearRuntimeState();
+        ECOCellMutationBatch.clearAfterServerStop();
         ECOInfiniteStorageDomains.onServerStopped(server);
     }
 

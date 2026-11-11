@@ -128,6 +128,7 @@ public class NeoECOAE {
         NeoForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
         NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onLevelUnload);
         NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopped);
+        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopping);
         NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerTick);
     }
 

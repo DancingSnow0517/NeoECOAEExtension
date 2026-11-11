@@ -44,8 +44,9 @@ public final class ECOInfiniteStorageMember {
     }
 
     public static UUID identity(ItemStack stack) {
+        var existing = getIdentity(stack);
+        if (existing.isPresent()) return existing.get();
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        if (tag.hasUUID(IDENTITY_TAG)) return tag.getUUID(IDENTITY_TAG);
         UUID identity = UUID.randomUUID();
         tag.putUUID(IDENTITY_TAG, identity);
         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
