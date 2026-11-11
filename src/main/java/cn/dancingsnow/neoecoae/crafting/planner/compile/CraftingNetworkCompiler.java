@@ -5,6 +5,7 @@ import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
+import cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapters;
@@ -96,12 +97,14 @@ public final class CraftingNetworkCompiler {
                 }
                 List<CompiledPattern> compiled = new ArrayList<>();
                 if (liteCrafting) {
-                    // Keep the first exact producer in the service's order. No alternative-route search,
-                    // component matching, semantic callbacks, or byproduct-only producer discovery.
-                    for (IPatternDetails details : service.getCraftingFor(key)) {
+                    // Keep one producer in AE2 priority order, widening only explicitly marked item IDs.
+                    // No alternative-route search, semantic callbacks, or byproduct-only discovery.
+                    boolean componentInsensitiveOutput = !key.equals(goal) && ignoresComponents(key, ignoredItemIds);
+                    for (IPatternDetails details : craftingFor(service, key, componentInsensitiveOutput)) {
                         cancellation.checkpoint();
-                        if (!yields(details, key, false)) continue;
-                        CompiledPattern pattern = compileLitePattern(nextPatternId++, details, key);
+                        if (!yields(details, key, componentInsensitiveOutput)) continue;
+                        CompiledPattern pattern = compileLitePattern(nextPatternId++, details, key,
+                            componentInsensitiveOutput, ignoredItemIds);
                         compiled.add(pattern);
                         edgeCount += enqueue(pattern, queued, work);
                         break;
@@ -259,7 +262,8 @@ public final class CraftingNetworkCompiler {
     private record PatternDefinition(Class<?> implementation, AEItemKey definition) {}
 
     /** GTNH lite contract: encoded primary inputs, one matching output, no remainder analysis. */
-    private static CompiledPattern compileLitePattern(int id, IPatternDetails details, AEKey producedKey) {
+    private static CompiledPattern compileLitePattern(int id, IPatternDetails details, AEKey producedKey,
+            boolean componentInsensitiveOutput, Set<ResourceLocation> fuzzyPlanningItemIds) {
         List<CompiledInput> inputs = new ArrayList<>();
         List<PatternSemantics.Input> consumed = new ArrayList<>();
         List<GenericStack> outputs = new ArrayList<>();
@@ -270,8 +274,9 @@ public final class CraftingNetworkCompiler {
                 if (output == null || output.what() == null || output.amount() <= 0L) {
                     throw new IllegalArgumentException("Invalid pattern output");
                 }
-                if (producedKey.equals(output.what())) {
-                    outputs.add(output);
+                if (producedKey.equals(output.what())
+                        || componentInsensitiveOutput && sameItem(producedKey, output.what())) {
+                    outputs.add(new GenericStack(producedKey, output.amount()));
                     outputAmount = outputAmount.add(PlannerAmount.of(output.amount()));
                 }
             }
@@ -285,7 +290,7 @@ public final class CraftingNetworkCompiler {
                 GenericStack primary = possible[0];
                 PlannerAmount amount = PlannerAmount.of(primary.amount()).multiply(input.getMultiplier());
                 inputs.add(new CompiledInput(input, primary.what(), amount, true, "", null,
-                    PlannerAmount.ZERO, false));
+                    PlannerAmount.ZERO, ECOProcessingComponentMatching.enabled(details, primary.what(), fuzzyPlanningItemIds)));
                 consumed.add(new PatternSemantics.Input(input, primary.what(), amount, null, PlannerAmount.ZERO));
             }
         } catch (RuntimeException failure) {

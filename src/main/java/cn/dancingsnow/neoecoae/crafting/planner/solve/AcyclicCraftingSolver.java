@@ -43,8 +43,8 @@ public final class AcyclicCraftingSolver {
 
     /**
      * GTNH's lite traversal on the existing compiled graph and exact material ledger. Each key is visited once;
-     * stock is shared across branches, and cyclic leftovers receive one final exact-stock draw. There is no
-     * candidate retry, returned-container/tool analysis, byproduct credit, or cycle-growth solving.
+     * stock is shared across branches, and cyclic leftovers receive one final stock draw honoring input ID rules.
+     * There is no candidate retry, returned-container/tool analysis, byproduct credit, or cycle-growth solving.
      */
     public Outcome solveLite(CompiledNetwork network,
             cn.dancingsnow.neoecoae.crafting.planner.graph.CondensationGraph condensation,
@@ -53,16 +53,19 @@ public final class AcyclicCraftingSolver {
         ECOPlanTrace trace = new ECOPlanTrace();
         if (amount <= 0L) return new Outcome(PlanningStatus.AMOUNT_OVERFLOW, state, trace);
         PlannerAmount goalAmount = PlannerAmount.of(amount);
-        state.stored.set(network.goal(), PlannerAmount.ZERO);
         state.demand.put(network.goal(), goalAmount);
         state.provenance.register(MaterialDemand.goal(network.goal(), goalAmount));
         state.bytes = PlannerAmount.of(network.keys().size()).multiply(8L);
 
+        Map<IPatternDetails, List<CompiledInput>> inputsByPattern = new java.util.IdentityHashMap<>();
         Map<AEKey, Integer> inDegree = new HashMap<>();
         for (var patterns : network.producers().values()) {
             cancellation.checkpoint();
-            if (!patterns.isEmpty()) for (CompiledInput input : patterns.get(0).inputs()) {
-                inDegree.merge(input.key(), 1, Integer::sum);
+            if (!patterns.isEmpty()) {
+                inputsByPattern.put(patterns.get(0).details(), patterns.get(0).inputs());
+                for (CompiledInput input : patterns.get(0).inputs()) {
+                    inDegree.merge(input.key(), 1, Integer::sum);
+                }
             }
         }
         Set<AEKey> looping = new LinkedHashSet<>();
@@ -86,7 +89,8 @@ public final class AcyclicCraftingSolver {
             }
             PlannerAmount requested = state.provenance.pendingAmount(key);
             state.bytes = state.bytes.add(PlannerAmount.stackBytes(requested, key.getAmountPerByte()));
-            requested = requested.subtract(consumeStoredForInput(state, key, requested, false, null, null, null));
+            consumeLiteStock(state, key, inputsByPattern);
+            requested = state.provenance.pendingAmount(key);
             if (requested.isZero()) continue;
             if (pattern == null) continue;
             if (!pattern.fastSupported()) {
@@ -107,11 +111,11 @@ public final class AcyclicCraftingSolver {
             }
         }
         // A loop may add a demand after that material's visit. Do not expand it a second time or borrow outputs
-        // from an unexecuted cycle; only the remaining captured stock may close it.
+        // from an unexecuted cycle; only the remaining captured stock may close it, using each input's matching rule.
         for (AEKey key : state.demand.keySet()) {
             cancellation.checkpoint();
+            consumeLiteStock(state, key, inputsByPattern);
             PlannerAmount pending = state.provenance.pendingAmount(key);
-            pending = pending.subtract(consumeStoredForInput(state, key, pending, false, null, null, null));
             if (pending.signum() > 0) state.missing.add(key, pending);
         }
         addTrace(network, state, goalAmount, trace);
@@ -124,6 +128,21 @@ public final class AcyclicCraftingSolver {
         return new Outcome(state.missing.isEmpty() ? PlanningStatus.SUCCESS : PlanningStatus.MISSING_ITEMS, state, trace);
     }
 
+
+    /** Reserve exact demands first; an ID override belongs to its processing input, never to the final goal. */
+    private static void consumeLiteStock(SolveState state, AEKey key,
+            Map<IPatternDetails, List<CompiledInput>> inputsByPattern) {
+        List<MaterialDemand> pending = state.provenance.pendingDemands(key);
+        for (boolean fuzzy : new boolean[] {false, true}) {
+            for (MaterialDemand demand : pending) {
+                if (demand.kind() != MaterialDemand.Kind.INPUT) continue;
+                CompiledInput input = inputsByPattern.get(demand.consumer()).get(demand.inputSlot());
+                if (input.ignoresComponents() != fuzzy) continue;
+                consumeStoredForInput(state, key, state.provenance.remaining(demand), fuzzy,
+                    demand, demand.consumer(), input.source());
+            }
+        }
+    }
 
     public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, KeyCounter inventory, long amount,
             ECOCancellation cancellation) throws InterruptedException {

@@ -140,7 +140,7 @@ Built-in bridges explicitly select ECO planning for AE2 crafting cards (includin
 | Option | Contract |
 | --- | --- |
 | `cyclePlanningEnabled` | Allow unavoidable cyclic components into the solver |
-| `ignorePatternSubstitutions` | Legacy API name for default-enabled lite crafting: one exact producer per material, no route retries, substitutions, remainder or byproduct reuse; explicit cycle and component-matching policies take priority on relevant dependency chains |
+| `ignorePatternSubstitutions` | Legacy API name for default-enabled lite crafting: one producer per material, no route retries, substitutions, remainder or byproduct reuse; cycles keep the single pass and close against stock, while marked processing inputs match by item ID without switching to full planning |
 | `fuzzyPlanningItemIds` | Ignore components for selected items during planning; actual inputs must still pass pattern validation |
 | `planningLogEnabled` | Legacy compatibility field; logging uses the global Calculating debug configuration |
 

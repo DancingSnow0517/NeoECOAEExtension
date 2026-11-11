@@ -150,7 +150,7 @@ class CompiledStructureCacheTest {
         verify(service, times(2)).getCraftingFor(goal);
     }
 
-    @Test void enabledCyclePlanningOverridesLiteAndSurvivesStructureReuse() throws Exception {
+    @Test void cyclePoliciesKeepLiteAndSurviveStructureReuse() throws Exception {
         var seed = AEItemKey.of(Items.IRON_NUGGET);
         var root = pattern(goal, 1, new GenericStack(raw, 1));
         var grow = pattern(raw, 2, new GenericStack(seed, 1));
@@ -160,20 +160,18 @@ class CompiledStructureCacheTest {
         stock.add(seed, 1);
         var planner = new ECOCraftingPlannerService();
         for (boolean cycles : new boolean[] {false, true, false, true}) {
-            var result = planner.createSession(service, goal, stock, cycles, true)
-                .plan(10, false, ECOCancellation.NONE);
-            assertEquals(cycles ? PlanningStatus.SUCCESS : PlanningStatus.MISSING_ITEMS, result.status(),
-                result.trace().diagnostics().toString());
-            assertEquals(!cycles, result.liteCraftingMode());
-            if (cycles) {
-                assertTrue(result.exactMissingItems().isEmpty());
-                assertNull(result.executionPlanError());
-                assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.CyclePlanningStatus.SOLVED,
-                    result.trace().cycles().getFirst().status());
+            var session = planner.createSession(service, goal, stock, cycles, true);
+            for (long amount : new long[] {2L, 10L}) {
+                var result = session.plan(amount, false, ECOCancellation.NONE);
+                assertEquals(amount == 2L ? PlanningStatus.SUCCESS : PlanningStatus.MISSING_ITEMS, result.status(),
+                    result.trace().diagnostics().toString());
+                assertTrue(result.liteCraftingMode());
+                if (amount == 2L) assertNull(result.executionPlanError());
+                else assertFalse(result.exactMissingItems().isEmpty(), "Lite must not grow the seed through retries");
             }
             assertEquals(1, stock.get(seed), "Planning must preserve the captured startup stock");
         }
-        verify(service, times(3)).getCraftingFor(goal);
+        verify(service, times(2)).getCraftingFor(goal);
     }
 
     @Test void unrelatedComponentOverridesKeepTheRequestedLitePass() throws Exception {
@@ -262,6 +260,21 @@ class CompiledStructureCacheTest {
         assertEquals(PlanningStatus.MISSING_ITEMS, missing.status());
         assertEquals(java.math.BigInteger.ONE, missing.exactMissingItems().get(raw).toBigInteger());
         assertEquals(3, missing.exactPatternTimes().size());
+    }
+
+    @Test void liteCanReserveFinalProductStockAsCycleSeedWithoutSkippingProduction() throws Exception {
+        var recipe = pattern(goal, 2, new GenericStack(goal, 1));
+        var service = routes(java.util.Map.of(goal, List.of(recipe)));
+        var inventory = new KeyCounter();
+        inventory.add(goal, 1);
+        var funded = lite(service, inventory, 1);
+        assertEquals(PlanningStatus.SUCCESS, funded.status());
+        assertEquals(java.math.BigInteger.ONE, funded.exactUsedItems().get(goal).toBigInteger());
+        assertEquals(java.math.BigInteger.ONE, funded.exactPatternTimes().get(recipe).toBigInteger());
+        assertNull(funded.executionPlanError());
+        var missing = lite(service, new KeyCounter(), 1);
+        assertEquals(PlanningStatus.MISSING_ITEMS, missing.status());
+        assertEquals(java.math.BigInteger.ONE, missing.exactMissingItems().get(goal).toBigInteger());
     }
 
     @Test void liteKeepsLargeIntermediateRequirementsExact() throws Exception {

@@ -248,7 +248,7 @@ class ECOProcessingComponentMatchingTest {
         assertTrue(result.plan().missingItems().isEmpty());
         assertSame(pattern, result.plan().patternTimes().keySet().iterator().next());
         assertEquals(MARKED, result.executionContract().fuzzyPlanningItemIds());
-        assertFalse(result.liteCraftingMode(), "Explicit component matching uses full planning");
+        assertEquals(lite, result.liteCraftingMode(), "ID matching preserves the requested planner mode");
 
         var level = mock(Level.class);
         var cpu = mock(ECOCraftingCPU.class);
@@ -295,6 +295,42 @@ class ECOProcessingComponentMatchingTest {
         verify(rejected).pushPattern(eq(pattern), any());
         assertFalse(ECOProcessingComponentMatching.pushInputs(pattern, new KeyCounter[] {stock}, (key, amount) ->
             fail("Dispatch scope leaked")));
+    }
+
+    @Test void liteKeepsExactAndIdMatchedDemandsSeparateForTheSameMaterial() throws Exception {
+        var expected = pickaxe(0);
+        var actual = pickaxe(131);
+        var strictOutput = AEItemKey.of(Items.GOLD_INGOT);
+        var fuzzyOutput = AEItemKey.of(Items.DIAMOND);
+        var root = pattern(new GenericStack(strictOutput, 1), new GenericStack(fuzzyOutput, 1));
+        var fuzzy = patternWithOutput(new GenericStack(fuzzyOutput, 1), new GenericStack(expected, 1));
+        var input = mock(IPatternDetails.IInput.class);
+        when(input.getPossibleInputs()).thenReturn(new GenericStack[] {new GenericStack(expected, 1)});
+        when(input.getMultiplier()).thenReturn(1L);
+        when(input.isValid(eq(expected), any())).thenReturn(true);
+        var strict = mock(IPatternDetails.class);
+        when(strict.getInputs()).thenReturn(new IPatternDetails.IInput[] {input});
+        when(strict.getOutputs()).thenReturn(List.of(new GenericStack(strictOutput, 1)));
+        var routes = Map.<AEKey, List<IPatternDetails>>of(root.getPrimaryOutput().what(), List.of(root),
+            strictOutput, List.of(strict), fuzzyOutput, List.of(fuzzy));
+        var service = mock(CraftingService.class);
+        when(service.getCraftingFor(any(AEKey.class))).thenAnswer(call ->
+            routes.getOrDefault(call.getArgument(0), List.of()));
+        var stock = new KeyCounter();
+        stock.add(actual, 2);
+        var planner = new ECOCraftingPlannerService();
+        var missing = planner.createSession(service, root.getPrimaryOutput().what(), stock, false, true, MARKED)
+            .plan(1, false, ECOCancellation.NONE);
+        assertEquals(PlanningStatus.MISSING_ITEMS, missing.status());
+        assertTrue(missing.liteCraftingMode());
+        assertEquals(java.math.BigInteger.ONE, missing.exactMissingItems().get(expected).toBigInteger());
+        assertEquals(java.math.BigInteger.ONE, missing.exactUsedItems().get(actual).toBigInteger());
+        stock.add(expected, 1);
+        var funded = planner.createSession(service, root.getPrimaryOutput().what(), stock, false, true, MARKED)
+            .plan(1, false, ECOCancellation.NONE);
+        assertEquals(PlanningStatus.SUCCESS, funded.status());
+        assertTrue(funded.liteCraftingMode());
+        assertNull(funded.executionPlanError());
     }
 
     @ParameterizedTest @ValueSource(booleans = {false, true})
