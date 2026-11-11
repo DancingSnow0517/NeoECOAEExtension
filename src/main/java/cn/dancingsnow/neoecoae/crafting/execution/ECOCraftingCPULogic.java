@@ -192,6 +192,10 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         if (job == null || job.suspended) {
             return;
         }
+        inventoryReturn.returnReleasedSeeds(job, currentTick);
+        if (job.suspended) {
+            return;
+        }
         planUpdater.tick(currentTick);
         Level level = cpu.getLevel();
         if (level == null) {

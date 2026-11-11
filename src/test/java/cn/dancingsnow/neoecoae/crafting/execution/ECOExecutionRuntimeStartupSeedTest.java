@@ -110,6 +110,106 @@ class ECOExecutionRuntimeStartupSeedTest {
             new KeyCounter(), new KeyCounter(), new ECOCraftingRemainderCache()));
     }
 
+    @Test
+    void releasedSeedSurplusKeepsWhatUnfinishedTasksStillNeed() {
+        var f = new ReturnFixture();
+        var runtime = f.job.executionRuntime;
+        var inventory = new ListCraftingInventory(ignored -> {});
+        inventory.insert(f.seed, 10L, Actionable.MODULATE);
+
+        // The cycle still owns the seed.
+        assertEquals(Map.of(), runtime.releasedSeedSurplus(inventory));
+        f.completeCycle();
+        // Two later firings each take one seed; the other eight are only held until the job ends.
+        assertEquals(Map.of(f.seed, PlannerAmount.of(8L)), runtime.releasedSeedSurplus(inventory));
+    }
+
+    @Test
+    void runningJobReturnsOnlyTheAcceptedReleasedSeed() {
+        var f = new ReturnFixture();
+        var storage = f.grid.getStorageService().getInventory();
+        when(storage.insert(eq(f.seed), anyLong(), any(), any())).thenReturn(5L, 3L, 0L);
+        var seedReturn = f.logic.inventoryReturnForPersistence();
+
+        seedReturn.returnReleasedSeeds(f.job, 0L);
+        verify(storage, never()).insert(any(), anyLong(), any(), any());
+        f.completeCycle();
+        seedReturn.returnReleasedSeeds(f.job, 100L);
+        verify(storage).insert(eq(f.seed), eq(8L), eq(Actionable.MODULATE), any());
+        assertEquals(5L, f.logic.getInventory().list.get(f.seed));
+        seedReturn.returnReleasedSeeds(f.job, 200L);
+        verify(storage).insert(eq(f.seed), eq(3L), eq(Actionable.MODULATE), any());
+        assertEquals(2L, f.logic.getInventory().list.get(f.seed));
+        // What the remaining firings need never leaves the CPU.
+        seedReturn.returnReleasedSeeds(f.job, 300L);
+        verify(storage, times(2)).insert(any(), anyLong(), any(), any());
+        assertNull(f.job.permanentExecutionError);
+    }
+
+    @Test
+    void uncertainSeedReturnStopsTheJobWithoutReplay() {
+        var f = new ReturnFixture();
+        var storage = f.grid.getStorageService().getInventory();
+        when(storage.insert(eq(f.seed), anyLong(), any(), any())).thenThrow(new IllegalStateException("unknown"));
+        var seedReturn = f.logic.inventoryReturnForPersistence();
+        f.completeCycle();
+
+        seedReturn.returnReleasedSeeds(f.job, 100L);
+        assertEquals("SEED_RETURN_UNCERTAIN", f.job.permanentExecutionError);
+        assertEquals("SEED_RETURN_UNCERTAIN", seedReturn.failure());
+        assertEquals(10L, f.logic.getInventory().list.get(f.seed));
+        seedReturn.returnReleasedSeeds(f.job, 200L);
+        verify(storage, times(1)).insert(any(), anyLong(), any(), any());
+    }
+
+    /** A finished seed-borrowing cycle followed by a DAG phase that consumes two of the seed. */
+    private static final class ReturnFixture {
+        final AEKey seed = AEFluidKey.of(Fluids.WATER);
+        final AEKey product = AEFluidKey.of(Fluids.LAVA);
+        final IPatternDetails cycle = pattern(mock(AEKey.class));
+        final IPatternDetails consumer = pattern(seed, product, 1L);
+        final appeng.api.networking.IGrid grid = mock(appeng.api.networking.IGrid.class, RETURNS_DEEP_STUBS);
+        final ECOCraftingCPULogic logic;
+        final ExecutingCraftingJob job;
+
+        ReturnFixture() {
+            var tasks = List.of(
+                new ECOExecutionPlan.TaskSpec(0, PlanIdentity.patternIdentityFor(cycle), cycle,
+                    ECOExecutionPlan.PatternRuntimeInfo.from(cycle), 2L, 0, ECOExecutionPlan.TaskKind.CYCLE_ORDERED),
+                new ECOExecutionPlan.TaskSpec(1, PlanIdentity.patternIdentityFor(consumer), consumer,
+                    ECOExecutionPlan.PatternRuntimeInfo.from(consumer), 2L, 1, ECOExecutionPlan.TaskKind.DAG));
+            var phases = List.of(
+                new ECOExecutionPlan.PhaseSpec(0, 0, ECOExecutionSchedule.Type.CYCLE, List.of(0),
+                    List.of(new ECOExecutionPlan.ExecutionStep(0, 2)), List.of(), Map.of(), Map.of(seed, 5L)),
+                new ECOExecutionPlan.PhaseSpec(1, 1, ECOExecutionSchedule.Type.DAG, List.of(1),
+                    List.of(), List.of(0), Map.of(), Map.of()));
+            var plan = new ECOExecutionPlan(
+                new PlanIdentity.Signature(product, 2, Map.of(), Map.of(), Map.of(), Map.of()),
+                ExecutionMode.ORDERED_CYCLE, tasks, phases, new ECOExecutionSchedule(List.of()));
+            var shell = mock(appeng.api.networking.crafting.ICraftingPlan.class);
+            when(shell.finalOutput()).thenReturn(new GenericStack(product, 2));
+            when(shell.emittedItems()).thenReturn(new KeyCounter());
+            when(shell.patternTimes()).thenReturn(Map.of(cycle, 2L, consumer, 2L));
+            var cpu = mock(ECOCraftingCPU.class);
+            when(cpu.getGrid()).thenReturn(grid);
+            logic = new ECOCraftingCPULogic(cpu);
+            try (var trackers = mockConstruction(ElapsedTimeTracker.class)) {
+                var link = mock(appeng.crafting.CraftingLink.class);
+                when(link.getCraftingID()).thenReturn(java.util.UUID.randomUUID());
+                job = new ExecutingCraftingJob(shell, plan, ignored -> {}, link, null);
+                logic.setJobFromPersistence(job);
+            }
+            logic.getInventory().insert(seed, 10L, Actionable.MODULATE);
+        }
+
+        void completeCycle() {
+            var candidate = job.executionRuntime.candidates().getFirst();
+            assertEquals(0, candidate.taskId());
+            job.tasks.get(cycle).accept(2L);
+            job.executionRuntime.onAccepted(candidate, 2L, new KeyCounter[0]);
+        }
+    }
+
     private record Setup(ECOExecutionRuntime runtime, ExecutingCraftingJob.TaskProgress[] progress) {
         ExecutingCraftingJob.TaskProgress progress(int taskId) {
             return progress[taskId];
