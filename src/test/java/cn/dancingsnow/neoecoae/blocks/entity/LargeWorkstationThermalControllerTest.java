@@ -1444,8 +1444,27 @@ class LargeWorkstationThermalControllerTest {
         var tag = (net.minecraft.nbt.CompoundTag) snapshot.invoke(host, 0);
         assertEquals(0, tag.getDouble("processingHeatPerSecond"));
         assertEquals(6.727 * 0.25 / 20, tag.getDouble("preheatPerSecond"), 1e-12);
+        assertEquals(250, tag.getDouble("energyPeak"));
+        assertEquals(12.5, tag.getDouble("energyUsage"));
         assertEquals(0.005, tag.getDouble("naturalCoolingPerSecond"), 1e-12);
         assertEquals(host.getTemperature() - 10, tag.getDouble("temperatureChangePerSecond"), 1e-12);
+    }
+
+    @Test
+    void energyPeakCombinesPaymentsWithinOneTickAndExpiresAfterOneSecond() {
+        var usage = new LargeWorkstationEnergyUsage();
+        usage.record(1, 120);
+        usage.record(1, 80);
+        usage.record(2, 90);
+        assertEquals(0, usage.peak(0));
+        assertEquals(200, usage.peak(1));
+        assertEquals(200, usage.peak(20));
+        assertEquals(90, usage.peak(21));
+        assertEquals(0, usage.peak(22));
+        usage.record(22, 30);
+        usage.record(22, Double.NaN);
+        usage.record(22, -10);
+        assertEquals(30, usage.peak(22));
     }
 
     @Test

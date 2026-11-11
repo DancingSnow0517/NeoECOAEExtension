@@ -79,31 +79,98 @@ class WorkstationUIInteractionTest {
         "energy-label", "energy-value", "coolant-use-label", "coolant-use-value", "help", "help-warning");
 
     @Test
-    void powerPriorityButtonUsesTheNativeIconsAndUpdatesItsSyncedTooltip() {
-        try (var ldlib = mockStatic(LDLib2.class)) {
+    void powerPriorityButtonUsesTheNativeIconsAndUpdatesItsSyncedCard() throws ReflectiveOperationException {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(net.minecraft.client.Minecraft.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
+            installFont(minecraft);
             var preferred = new java.util.concurrent.atomic.AtomicBoolean();
-            var button = LargeWorkstationUI.powerPriorityButton(preferred::get, () -> preferred.set(!preferred.get()));
+            var snapshot = new CompoundTag();
+            snapshot.putDouble("energyPeak", 12_500);
+            snapshot.putLong("networkFE", Long.MAX_VALUE);
+            snapshot.putDouble("networkAE", 16_000_000);
+            var button = LargeWorkstationUI.powerPriorityButton(preferred::get,
+                () -> preferred.set(!preferred.get()), () -> snapshot);
             var icon = button.selectId("power-priority-icon").findFirst().orElseThrow();
             var root = new UIElement().layout(layout -> layout.width(253).height(214))
                 .addChild(HostSideButtonBar.left(button));
             var ui = new ModularUI(UI.of(root));
             ui.init(640, 480);
             assertSame(AETextures.icon(ECOIcon.POWER_UNIT_AE), icon.getStyle().backgroundTexture());
-            var synced = (BindableValue<Boolean>) button.getChildren().stream()
-                .filter(child -> child instanceof BindableValue<?> value && value.getValue() instanceof Boolean)
+            var synced = (BindableValue<net.minecraft.nbt.Tag>) button.getChildren().stream()
+                .filter(child -> child instanceof BindableValue<?> value && value.getValue() instanceof CompoundTag)
                 .findFirst().orElseThrow();
             for (boolean fe : new boolean[] {true, false}) {
-                synced.setValue(fe);
+                synced.setValue(priorityState(fe, 0));
                 ui.init(640, 480);
                 assertSame(AETextures.icon(fe ? ECOIcon.POWER_UNIT_FE : ECOIcon.POWER_UNIT_AE), icon.getStyle().backgroundTexture());
                 UIEvent hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
                 hover.target = button;
                 UIEventDispatcher.dispatchEvent(hover, false, false, false);
-                var title = (TranslatableContents) hover.hoverTooltips.tooltipTexts().getFirst().getContents();
-                assertEquals("gui.neoecoae.workstation.power_priority." + (fe ? "fe" : "ae"), title.getKey());
+                assertEquals(1, hover.hoverTooltips.tooltipTexts().size());
+                assertTrue(hover.hoverTooltips.tooltipTexts().getFirst().getString().contains(
+                    Component.translatable("gui.neoecoae.workstation.power_priority.title").getString()));
+                assertNotNull(hover.hoverTooltips.tooltipComponent());
             }
+            var texts = new LargeWorkstationPowerPriorityCard(false).builder(snapshot).texts();
+            assertEquals("12.5K", translatable(texts, "gui.neoecoae.workstation.card.ae_rate").getArgs()[0]);
+            assertEquals("9.22E", translatable(texts, "gui.neoecoae.workstation.card.fe_amount").getArgs()[0]);
+            assertEquals("16M", translatable(texts, "gui.neoecoae.workstation.card.ae_amount").getArgs()[0]);
+            assertEquals(3, new LargeWorkstationPowerPriorityCard(false).builder(new CompoundTag()).texts().stream()
+                .filter(text -> "—".equals(text.getString())).count());
         }
+    }
+
+    @Test
+    void prioritySwapPreservesMotionAcrossReversalsAndPendingClickAcknowledgements() throws ReflectiveOperationException {
+        var card = new LargeWorkstationPowerPriorityCard(false);
+        card.click();
+        card.advance(0.12);
+        double before = card.position();
+        assertTrue(before > 0 && before < 1);
+        card.click();
+        assertEquals(before, card.position(), "Changing direction must preserve the current position");
+        card.receive(priorityState(true, 1));
+        assertFalse(card.fePreferred(), "The first acknowledgement must preserve the second pending click");
+        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(net.minecraft.client.Minecraft.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            installFont(minecraft);
+            card.builder(new CompoundTag()).build();
+            card.builder(new CompoundTag()).build();
+        }
+        assertEquals(before, card.position(), "Rebuilding the tooltip must not reset the animation");
+        card.advance(0.001);
+        assertTrue(card.position() > before, "Momentum remains continuous before reversing smoothly");
+        card.advance(1);
+        assertEquals(0, card.position());
+        card.receive(priorityState(false, 2));
+        assertFalse(card.fePreferred());
+        assertEquals(0, card.position());
+    }
+
+    @Test
+    void prioritySwapTimingDoesNotDependOnTheRenderingFrameRate() {
+        var reference = new LargeWorkstationPowerPriorityCard(false);
+        reference.click();
+        reference.advance(0.5);
+        double first = reference.position();
+        reference.click();
+        reference.advance(0.5);
+        for (int frames : new int[] {15, 30, 72}) {
+            var card = new LargeWorkstationPowerPriorityCard(false);
+            card.click();
+            for (int frame = 0; frame < frames; frame++) card.advance(0.5 / frames);
+            assertEquals(first, card.position(), 1e-10);
+            card.click();
+            for (int frame = 0; frame < frames; frame++) card.advance(0.5 / frames);
+            assertEquals(reference.position(), card.position(), 1e-10);
+        }
+    }
+
+    private static CompoundTag priorityState(boolean fePreferred, long acknowledgedClicks) {
+        var state = new CompoundTag();
+        state.putBoolean("fePreferred", fePreferred);
+        state.putLong("acknowledgedClicks", acknowledgedClicks);
+        return state;
     }
 
     @Test
@@ -493,7 +560,7 @@ class WorkstationUIInteractionTest {
                 assertEquals(List.of("large-workstation-overclock", "large-workstation-cooling"),
                     controls.stream().map(UIElement::getId).toList());
                 for (int index = 0; index < controls.size(); index++) {
-                    assertEquals(root.getPositionX() + List.of(102, 146).get(index), controls.get(index).getPositionX());
+                    assertEquals(root.getPositionX() + List.of(102, 120).get(index), controls.get(index).getPositionX());
                     assertEquals(root.getPositionY() + 89, controls.get(index).getPositionY());
                 }
                 for (String id : List.of("temperature-setting", "temperature-info", "cooling-info", "overclock-info")) {

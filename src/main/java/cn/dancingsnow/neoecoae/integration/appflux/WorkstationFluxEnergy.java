@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.integration.appflux;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
+import appeng.api.networking.storage.IStorageService;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.MEStorage;
 import net.neoforged.fml.ModList;
@@ -20,6 +21,10 @@ public final class WorkstationFluxEnergy {
 
     public static long extract(MEStorage storage, long amount, Actionable mode, IActionSource source) {
         return amount <= 0 || !available() ? 0 : storage.extract(Access.KEY, amount, mode, source);
+    }
+
+    public static long stored(IStorageService storage) {
+        return !available() ? 0 : storage.getCachedInventory().get(Access.KEY);
     }
 
     private static final class Access {

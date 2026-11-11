@@ -818,12 +818,20 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         snapshot.putDouble("naturalCoolingPerSecond", thermalRates.naturalCooling());
         snapshot.putDouble("temperatureChangePerSecond", thermalRates.net());
         snapshot.putDouble("energyUsage", uiEnergyUsage.average(level == null ? 0 : level.getGameTime()));
+        snapshot.putDouble("energyPeak", uiEnergyUsage.peak(level == null ? 0 : level.getGameTime()));
         snapshot.putDouble("feUsage", uiFluxUsage.average(level == null ? 0 : level.getGameTime()));
         snapshot.putLong("feBuffer", processingFeBuffer);
         snapshot.putBoolean("appliedFlux", WorkstationFluxEnergy.available());
         snapshot.putDouble("energyStored", getAECurrentPower());
         snapshot.putDouble("energyCapacity", getAEMaxPower());
         snapshot.putDouble("energyScale", Math.max(1.0, getAEMaxPower()));
+        IGrid grid = getMainNode().getGrid();
+        if (grid != null) {
+            snapshot.putDouble("networkAE", grid.getEnergyService().getStoredPower());
+            if (WorkstationFluxEnergy.available()) {
+                snapshot.putLong("networkFE", WorkstationFluxEnergy.stored(grid.getStorageService()));
+            }
+        }
         PendingBatch head = pendingBatches.peekFirst();
         snapshot.putLong("parallelUsed", head == null ? 0 : head.segmented
             ? Math.min(LargeWorkstationOverclock.BASE_PARALLELISM, head.craftCount) : head.craftCount);

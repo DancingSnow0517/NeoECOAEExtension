@@ -103,6 +103,12 @@ public final class CraftingListCard extends UIElement {
         void paint(GuiGraphics graphics, int x, int y);
     }
 
+    /** A live visual within the card's normal layout, scaling and tooltip frame. */
+    @FunctionalInterface
+    public interface ContentPainter {
+        void paint(GuiGraphics graphics, Font font, int x, int y, int width);
+    }
+
     private interface Entry {
         int width(Font font);
 
@@ -157,6 +163,13 @@ public final class CraftingListCard extends UIElement {
     private record Space(int height) implements Entry {
         public int width(Font font) { return 0; }
         public void draw(GuiGraphics graphics, Font font, int x, int y, int width) {}
+    }
+
+    private record Content(int minimumWidth, int height, ContentPainter painter, List<Component> texts) implements Entry {
+        public int width(Font font) { return minimumWidth; }
+        public void draw(GuiGraphics graphics, Font font, int x, int y, int width) {
+            painter.paint(graphics, font, x, y, width);
+        }
     }
 
     private record Section(Component label, Component right, int rightColor) implements Entry {
@@ -620,6 +633,11 @@ public final class CraftingListCard extends UIElement {
             return this;
         }
 
+        public Builder content(int width, int height, ContentPainter painter, Component... texts) {
+            entries.add(new Content(width, height, painter, List.of(texts)));
+            return this;
+        }
+
         public Builder minimumWidth(int width) {
             minimumWidth = Math.max(MIN_WIDTH, width);
             return this;
@@ -790,6 +808,7 @@ public final class CraftingListCard extends UIElement {
                     }
                     case Scale scale -> texts.addAll(scale.ticks());
                     case Tiles tiles -> tiles.tiles().forEach(tile -> add(texts, tile.heading(), tile.value(), tile.caption()));
+                    case Content content -> texts.addAll(content.texts());
                     default -> {}
                 }
             }

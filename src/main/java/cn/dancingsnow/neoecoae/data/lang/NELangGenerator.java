@@ -46,6 +46,14 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.smart_cooling.title", "Smart Cooling Controller");
         provider.add("gui.neoecoae.workstation.power_priority.ae", "Power priority: AE, then FE");
         provider.add("gui.neoecoae.workstation.power_priority.fe", "Power priority: FE, then AE");
+        provider.add("gui.neoecoae.workstation.power_priority.title", "Power priority");
+        provider.add("gui.neoecoae.workstation.power_priority.peak", "Peak usage (last second)");
+        provider.add("gui.neoecoae.workstation.power_priority.network_fe", "Network FE total");
+        provider.add("gui.neoecoae.workstation.power_priority.network_ae", "Network AE total");
+        provider.add("gui.neoecoae.workstation.power_priority.primary", "Primary");
+        provider.add("gui.neoecoae.workstation.power_priority.backup", "Backup");
+        provider.add("gui.neoecoae.workstation.power_priority.fallback_hint", "Use the selected source first; the backup automatically covers any shortfall.");
+        provider.add("gui.neoecoae.workstation.power_priority.switch_hint", "Left-click to switch");
         provider.add("gui.neoecoae.workstation.power_priority.hint", "Left-click to switch. The other source covers any shortfall. All four top sockets accept AE2 connections and FE input.");
         provider.add("gui.neoecoae.smart_cooling.subtitle", "Workstation Thermal Control");
         provider.add("gui.neoecoae.smart_cooling.badge.offline", "Offline");
