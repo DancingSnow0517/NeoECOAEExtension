@@ -643,14 +643,10 @@ public class NEBlocks {
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate((ctx, prov) -> {
             BlockModelBuilder model = prov.models().withExistingParent(ctx.getName(),
-                prov.modLoc("block/smart_cooling_module_base"))
-                .texture("side", prov.modLoc("block/working_station/smart_cooling_module_side"))
-                .texture("front", prov.modLoc("block/working_station/smart_cooling_module_front"))
-                .texture("bottom", prov.modLoc("block/working_station/smart_cooling_module_side"))
-                .texture("top", prov.modLoc("block/working_station/smart_cooling_module_top"));
+                prov.modLoc("block/large_integrated_working_station_cooling_controller"));
             prov.horizontalBlock(ctx.get(), model);
         })
-        .lang("Large Integrated Working Station Smart Cooling Module")
+        .lang("Large Integrated Working Station Smart Cooling Controller")
         .simpleItem()
         .register();
 

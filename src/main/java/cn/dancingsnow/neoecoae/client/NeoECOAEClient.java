@@ -47,6 +47,7 @@ public class NeoECOAEClient {
     }
 
     public static void initialize(IEventBus modBus) {
+        cn.dancingsnow.neoecoae.client.texture.WorkstationSpriteSource.initialize();
         if (!net.minecraftforge.fml.loading.FMLEnvironment.production && Boolean.getBoolean("neoecoae.clientSmoke")) {
             net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
                 cn.dancingsnow.neoecoae.client.diagnostics.ClientStartupProbe::tick);
