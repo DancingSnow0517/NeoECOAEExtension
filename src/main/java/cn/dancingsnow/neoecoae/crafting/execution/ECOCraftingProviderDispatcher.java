@@ -141,12 +141,10 @@ final class ECOCraftingProviderDispatcher {
                         return Result.accepted(scaledProcessingResult.acceptedCrafts(), true);
                     }
                     if (request.job().suspended) return Result.none();
+                    if (processing.isScaledFallbackDeferred(request, provider)) continue;
                 }
-                // A scaled adapter is an optimization boundary.  Its eligibility can be
-                // valid while the live target rejects the current offer (stale target,
-                // backpressure, or a version-specific transport mismatch).  Do not let
-                // that rejection suppress AE2's ordinary one-copy transaction; otherwise
-                // an overloaded provider becomes completely undispatchable.
+                // A definite size rejection may still use AE2's ordinary one-copy contract.
+                // Scheduling/resource pauses cannot bypass their gate through that fallback.
             }
 
             var fastResult = blocking ? null : fastPath.tryDispatch(
@@ -215,6 +213,7 @@ final class ECOCraftingProviderDispatcher {
                 throw failure;
             }
             if (admission.status() != ECOBatchAdmission.Status.ACCEPTED) {
+                if (scaledProvider) processing.deferRejectedFallback(request, provider);
                 diagnostics.pushRejected(request.pattern(), provider);
                 continue;
             }

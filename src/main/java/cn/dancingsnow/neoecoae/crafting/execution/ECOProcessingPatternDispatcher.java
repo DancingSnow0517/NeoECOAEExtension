@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
 import cn.dancingsnow.neoecoae.crafting.execution.batch.*;
+import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission.StopReason;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
@@ -108,6 +109,12 @@ final class ECOProcessingPatternDispatcher {
         var state = byPattern == null ? null : byPattern.get(request.pattern());
         return state != null && tick < state.nextFallbackTick;
     }
+
+    void deferRejectedFallback(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
+        var byPattern = states.get(provider);
+        var state = byPattern == null ? null : byPattern.get(request.pattern());
+        if (state != null) state.nextFallbackTick = Math.max(tick + 1, state.nextDispatchTick);
+    }
     boolean supportsScaledDispatchCached(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
         Reference2ObjectOpenHashMap<IPatternDetails, Eligibility> byPattern = eligibility.computeIfAbsent(provider,
                 ignored -> new Reference2ObjectOpenHashMap<>());
@@ -212,7 +219,7 @@ final class ECOProcessingPatternDispatcher {
             long offer = Math.min(ramp.offer(limit - ramp.owned), transportLimit);
             var plan = planning.plan(offer, limit - ramp.owned, onePower, service, ECOBatchMode.LINEAR);
             if (plan == null) {
-                state.nextDispatchTick = tick + 1;
+                ramp.pause(tick);
                 break;
             }
             offer = plan.craftCount();
@@ -232,13 +239,17 @@ final class ECOProcessingPatternDispatcher {
                             if (direct != null) return direct.submit(request.pattern(), request.inputs(), batch.craftCount());
                             // Only this external API boundary needs an AE2 pattern-shaped execution view.
                             // The task, plan and accounting retain the original pattern identity.
-                            if (executionPattern == null) return ECOBatchAdmission.rejected();
+                            if (executionPattern == null) return ECOBatchAdmission.rejected(StopReason.TARGET_UNAVAILABLE);
                             var scaledRequest = new ECOCraftingDispatchRequest(request.job(), request.candidate(), executionPattern,
                                     batch.inputCounters(), batch.outputCounter(), batch.remainderCounter(),
                                     batch.craftCount(), request.inventory(), request.level());
-                            return normalPush.push(scaledRequest, provider)
-                                    ? ECOBatchAdmission.accepted(batch.craftCount(), fullyInserted(logic))
-                                    : ECOBatchAdmission.rejected();
+                            if (!normalPush.push(scaledRequest, provider)) {
+                                return ECOBatchAdmission.rejected(provider.isBusy()
+                                        ? StopReason.TARGET_UNAVAILABLE : StopReason.CAPACITY);
+                            }
+                            boolean inserted = fullyInserted(logic);
+                            return ECOBatchAdmission.accepted(batch.craftCount(), inserted ? batch.craftCount() : 0L,
+                                    inserted ? StopReason.NONE : StopReason.BUFFERED);
                         });
             } catch (ECOIndeterminateBatchException failure) {
                 request.job().failPermanently("AMBIGUOUS_SCALED_PROVIDER_OWNERSHIP");
@@ -248,7 +259,7 @@ final class ECOProcessingPatternDispatcher {
                 throw failure;
             }
             if (admission.status() != ECOBatchAdmission.Status.ACCEPTED) {
-                if (ramp.record(offer, 0, false, tick)) continue;
+                if (ramp.record(offer, admission, tick)) continue;
                 break;
             }
             try {
@@ -259,7 +270,7 @@ final class ECOProcessingPatternDispatcher {
                 request.job().failPermanently("POST_ACCEPT_PROCESSING_ACCOUNTING_FAILURE");
                 throw failure;
             }
-            if (!ramp.record(offer, admission.acceptedCrafts(), admission.canContinue(), tick)) break;
+            if (!ramp.record(offer, admission, tick)) break;
         }
         // Every accepted chunk is already settled. The caller only consumes the accepted count;
         // rebuilding aggregate long stacks here would overflow perfectly valid exact orders.
@@ -411,45 +422,75 @@ final class ECOProcessingPatternDispatcher {
 
             long offer(long remaining) { return Math.min(next, remaining); }
 
-            /** Returns whether this visit should try another chunk. */
-            boolean record(long offered, long accepted, boolean fullyInserted, long currentTick) {
-                if (accepted <= 0) {
+            /** Pausing transport cannot consume or postpone an outstanding growth probe. */
+            void pause(long currentTick) {
+                nextDispatchTick = currentTick + 1;
+                nextFallbackTick = currentTick + 1;
+            }
+
+            /** Settled ownership, physical proof and the reason for stopping are independent. */
+            boolean record(long offered, ECOBatchAdmission admission, long currentTick) {
+                long accepted = admission.acceptedCrafts();
+                long inserted = admission.fullyInsertedCrafts();
+                long previous = remembered;
+                boolean hadSuccess = owned > 0;
+                boolean growthAttempt = growing && !backingOff && offered > previous;
+                boolean initialProof = growing && !backingOff && !probed && offered == next;
+                boolean capacityFailure = admission.stopReason() == StopReason.CAPACITY
+                        || (admission.stopReason() == StopReason.BUFFERED && inserted < accepted);
+
+                owned += accepted;
+                if (inserted > 0) {
+                    probed = true;
+                    // Never sum separate submissions into a fabricated large-batch proof.
+                    remembered = Math.max(remembered, inserted);
+                }
+                if (growthAttempt && capacityFailure && inserted != offered) {
                     nextProbeTick = currentTick + probeInterval;
-                    // A target filled by earlier chunks cannot prove that those chunks were too large.
-                    if (owned > 0 || offered < next) {
-                        nextDispatchTick = currentTick + 1;
-                        if (owned > 0) nextFallbackTick = currentTick + 1;
+                }
+
+                if (accepted <= 0) {
+                    if (!capacityFailure) {
+                        pause(currentTick);
                         return false;
                     }
-                    remembered = next = Math.max(1, offered / 2);
+                    // A target filled by earlier chunks cannot prove that those chunks were too large.
+                    if (hadSuccess || offered < next) {
+                        nextDispatchTick = currentTick + 1;
+                        if (hadSuccess) nextFallbackTick = currentTick + 1;
+                        return false;
+                    }
+                    // A failed expansion has not disproved the previous refill size.
+                    next = growthAttempt ? previous : Math.max(1, offered / 2);
+                    if (!growthAttempt) remembered = next;
                     backingOff = true;
                     if (offered > 1 && recoveryRetries++ < MAX_RECOVERY_RETRIES) return true;
                     nextDispatchTick = currentTick + probeInterval;
-                    nextProbeTick = currentTick + 2 * probeInterval;
                     return false;
                 }
-                if (accepted != offered || !fullyInserted) {
-                    if (owned == 0 && offered == next) {
-                        remembered = Math.min(remembered, Math.max(1, Math.min(accepted, offered / 2)));
+                if (inserted != offered) {
+                    if (capacityFailure && !hadSuccess && !growthAttempt && offered == next) {
+                        remembered = Math.max(inserted,
+                                Math.min(previous, Math.max(1, Math.min(accepted, offered / 2))));
                     }
-                    owned += accepted;
-                    nextProbeTick = currentTick + probeInterval;
-                    nextDispatchTick = currentTick + 1;
-                    nextFallbackTick = currentTick + 1;
+                    pause(currentTick);
                     return false;
                 }
-                owned += accepted;
-                probed = true;
                 if (backingOff) {
                     remembered = offered;
+                    if (!admission.canContinue()) pause(currentTick);
                     return false;
                 }
-                remembered = Math.max(remembered, offered);
-                if (growing && offered == next) {
+                if (growthAttempt || initialProof) {
                     nextProbeTick = currentTick + 1;
                     next = doubled(offered);
-                } else {
+                } else if (!growing) {
                     next = remembered;
+                }
+                // A clipped refill leaves the larger candidate due, including within this visit.
+                if (!admission.canContinue()) {
+                    pause(currentTick);
+                    return false;
                 }
                 return true;
             }

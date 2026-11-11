@@ -28,14 +28,14 @@ public final class ECOBatchExecutor {
     public static ECOBatchAdmission execute(ECOBatchPlan plan, KeyCounter[] inputs, KeyCounter outputs,
             KeyCounter remainders, ListCraftingInventory inventory, Level level, UUID jobId,
             Supplier<? extends LinearEnergy> reserve, ECOBatchProvider provider) {
-        if (plan == null) return ECOBatchAdmission.rejected();
+        if (plan == null) return ECOBatchAdmission.rejected(ECOBatchAdmission.StopReason.RESOURCES);
         var energy = reserve.get();
-        if (energy == null) return ECOBatchAdmission.rejected();
+        if (energy == null) return ECOBatchAdmission.rejected(ECOBatchAdmission.StopReason.RESOURCES);
         ECOBatchMaterialized batch = null;
         boolean retained = false;
         try {
             batch = MATERIALIZER.materialize(plan, inputs, outputs, remainders, inventory, level);
-            if (batch == null) return ECOBatchAdmission.rejected();
+            if (batch == null) return ECOBatchAdmission.rejected(ECOBatchAdmission.StopReason.RESOURCES);
             var request = new ECOBatchDispatchRequest(plan.identity(), batch.executionView(),
                     batch.inputCounters(), batch.outputCounter(), batch.remainderCounter(),
                     plan.craftCount(), level, jobId);

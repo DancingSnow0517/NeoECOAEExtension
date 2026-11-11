@@ -52,6 +52,7 @@ final class LargeWorkstationPowerPriorityCard {
     void advance(double seconds) {
         if (!Double.isFinite(seconds) || seconds <= 0) return;
         double target = fePreferred ? 1 : 0;
+        if (position == target && velocity == 0) return;
         double displacement = position - target;
         double decay = Math.exp(-RESPONSE * seconds);
         double step = (velocity + RESPONSE * displacement) * seconds;
@@ -92,7 +93,7 @@ final class LargeWorkstationPowerPriorityCard {
         lastFrame = now;
         float progress = (float) position;
         float centerX = x + width / 2f, centerY = y + HEIGHT / 2f;
-        float arc = 28 * (float) Math.sin(Math.PI * progress);
+        float arc = progress == 0 || progress == 1 ? 0 : 28 * (float) Math.sin(Math.PI * progress);
         graphics.drawString(font, "→", Math.round(centerX) - font.width("→") / 2,
             Math.round(centerY) - 4, CraftingTooltipCard.MUTED, false);
         drawSource(graphics, font, "AE", AE, 1 - progress,

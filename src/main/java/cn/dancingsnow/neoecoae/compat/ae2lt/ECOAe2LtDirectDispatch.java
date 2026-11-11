@@ -6,6 +6,7 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.KeyCounter;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission;
+import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission.StopReason;
 import cn.dancingsnow.neoecoae.compat.processing.ProcessingReflection;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ReferenceSet;
@@ -86,40 +87,54 @@ public final class ECOAe2LtDirectDispatch {
         }
 
         public ECOBatchAdmission submit(IPatternDetails pattern, KeyCounter[] prototype, long copies) {
-            if (copies <= 0 || !allowsBatch()) return ECOBatchAdmission.rejected();
+            if (copies <= 0) return ECOBatchAdmission.rejected(StopReason.TRANSPORT_LIMIT);
+            if (!allowsBatch()) return ECOBatchAdmission.rejected(StopReason.TARGET_UNAVAILABLE);
             try {
                 // Flush old custody before accepting anything new, just like the native entry point.
                 a.flush.invoke(logic);
                 a.flushLocal.invoke(logic);
                 var node = (IManagedGridNode) a.node.get(logic);
-                if (!node.isActive() || (boolean) a.localOverflow.invoke(logic)
-                        || !((List<?>) a.sendList.invoke(logic)).isEmpty()
-                        || !a.lock.invoke(logic).toString().equals("NONE")) return ECOBatchAdmission.rejected();
+                if (!node.isActive() || !a.lock.invoke(logic).toString().equals("NONE")) {
+                    return ECOBatchAdmission.rejected(StopReason.TARGET_UNAVAILABLE);
+                }
+                if ((boolean) a.localOverflow.invoke(logic) || !((List<?>) a.sendList.invoke(logic)).isEmpty()) {
+                    return ECOBatchAdmission.rejected(StopReason.BUFFERED);
+                }
                 Object canonical = a.resolve.invoke(a.catalog.get(logic), pattern);
-                if (canonical == null) return ECOBatchAdmission.rejected();
+                if (canonical == null) return ECOBatchAdmission.rejected(StopReason.TARGET_UNAVAILABLE);
                 Object host = a.host.get(logic);
-                if (!(a.level.invoke(host) instanceof ServerLevel level)) return ECOBatchAdmission.rejected();
+                if (!(a.level.invoke(host) instanceof ServerLevel level)) {
+                    return ECOBatchAdmission.rejected(StopReason.TARGET_UNAVAILABLE);
+                }
                 boolean wireless = a.mode.invoke(host).toString().equals("WIRELESS");
                 Object overflow = a.overflow.get(logic);
                 a.refresh.invoke(overflow);
-                if (wireless && (boolean) a.backpressure.invoke(overflow)) return ECOBatchAdmission.rejected();
+                if (wireless && (boolean) a.backpressure.invoke(overflow)) {
+                    return ECOBatchAdmission.rejected(StopReason.BUFFERED);
+                }
                 // Directional inventory transactions have per-face overflow ownership. Reuse the
                 // existing one-copy transaction rather than multiplying its routed buffers.
                 if (directional(pattern)) {
                     long accepted = 0;
-                    while (accepted < copies && allowsBatch()
-                            && ((ICraftingProvider) logic).pushPattern(pattern, copy(prototype))) {
+                    long inserted = 0;
+                    StopReason reason = StopReason.NONE;
+                    while (accepted < copies) {
+                        if (!allowsBatch()) { reason = StopReason.TARGET_UNAVAILABLE; break; }
+                        if (!((ICraftingProvider) logic).pushPattern(pattern, copy(prototype))) {
+                            reason = StopReason.CAPACITY;
+                            break;
+                        }
                         accepted++;
-                        if (!drained()) break;
+                        if (!drained()) { reason = StopReason.BUFFERED; break; }
+                        inserted++;
                     }
                     if (accepted > 0) a.save.invoke(logic);
-                    return accepted == 0 ? ECOBatchAdmission.rejected()
-                            : ECOBatchAdmission.accepted(accepted, accepted == copies && drained());
+                    return receipt(accepted, inserted, reason);
                 }
                 List<?> targets = wireless ? (List<?>) a.connections.invoke(logic, level, level.getGameTime())
                         : (List<?>) a.directions.invoke(logic);
                 double cost = ((Number) a.cost.invoke(null, (Object) prototype)).doubleValue();
-                if (targets.isEmpty()) return ECOBatchAdmission.rejected();
+                if (targets.isEmpty()) return ECOBatchAdmission.rejected(StopReason.TARGET_UNAVAILABLE);
                 if (!wireless) {
                     var resolved = new ArrayList<Target>();
                     for (Object direction : (List<?>) a.normalOrder.invoke(a.normalDispatch.get(logic), targets)) {
@@ -157,15 +172,22 @@ public final class ECOAe2LtDirectDispatch {
                 long copies, double cost, ServerLevel level, List<Target> targets, @Nullable Object pass)
                 throws ReflectiveOperationException {
             int targetCount = pass == null ? targets.size() : ((Number) a.fairSize.invoke(pass)).intValue();
+            if (targetCount == 0) return ECOBatchAdmission.rejected(
+                    pass == null ? StopReason.TARGET_UNAVAILABLE : StopReason.FAIRNESS);
             long accepted = 0;
-            boolean complete = true;
+            long inserted = 0;
+            StopReason reason = StopReason.NONE;
             for (int i = 0; i < targetCount && accepted < copies; i++) {
                 Object connection = pass == null ? null : a.fairPoll.invoke(pass);
-                if (pass != null && connection == null) break;
+                if (pass != null && connection == null) { reason = StopReason.FAIRNESS; break; }
                 Target target = pass == null ? targets.get(i) : wirelessTarget(level, connection, pattern);
                 if (target == null) {
-                    a.fairCooldown.invoke(pass, connection, level.getGameTime() + 1L);
-                    complete = false;
+                    if ((boolean) a.contains.invoke(a.overflow.get(logic), connection)) {
+                        a.pauseTarget.invoke(a.wirelessDispatch.get(logic), connection);
+                    } else {
+                        a.fairCooldown.invoke(pass, connection, level.getGameTime() + 1L);
+                    }
+                    reason = StopReason.TARGET_UNAVAILABLE;
                     continue;
                 }
                 long remaining = copies - accepted;
@@ -180,17 +202,35 @@ public final class ECOAe2LtDirectDispatch {
                 Chunk chunk = pushChunk(target, pattern, canonical, prototype, share, cost, pass != null);
                 if (!chunk.valid()) return ECOBatchAdmission.indeterminate();
                 accepted += chunk.accepted;
-                complete &= chunk.accepted == chunk.offered && chunk.inserted && !chunk.abort;
+                if (chunk.inserted) inserted += chunk.accepted;
                 if (pass != null) {
                     if (chunk.accepted > 0) a.fairSuccess.invoke(pass, connection, chunk.accepted);
-                    else a.fairCooldown.invoke(pass, connection, level.getGameTime() + 1L);
+                    else if (chunk.reason != StopReason.RESOURCES) {
+                        a.fairCooldown.invoke(pass, connection, level.getGameTime() + 1L);
+                    }
+                    // Native flushing resumes this target after its owned bucket drains.
+                    if ((boolean) a.contains.invoke(a.overflow.get(logic), connection)) {
+                        a.pauseTarget.invoke(a.wirelessDispatch.get(logic), connection);
+                    }
                 }
+                if (chunk.reason == StopReason.RESOURCES) { reason = StopReason.RESOURCES; break; }
                 // In particular, a local send list belongs to the last target's send direction.
                 // Never switch that direction while the provider still owns buffered inputs.
-                if (chunk.abort || !drained()) break;
+                // Wireless buckets belong to their own targets. An older bucket must not
+                // stop the other targets from completing this request's equal shares.
+                if (chunk.reason == StopReason.BUFFERED || !localDrained()) { reason = StopReason.BUFFERED; break; }
+                if (chunk.reason == StopReason.TARGET_UNAVAILABLE) reason = StopReason.TARGET_UNAVAILABLE;
+                else if (chunk.reason == StopReason.CAPACITY && reason != StopReason.TARGET_UNAVAILABLE) {
+                    reason = StopReason.CAPACITY;
+                } else if (chunk.reason == StopReason.TRANSPORT_LIMIT && reason == StopReason.NONE) {
+                    reason = StopReason.TRANSPORT_LIMIT;
+                }
             }
-            return accepted == 0 ? ECOBatchAdmission.rejected()
-                    : ECOBatchAdmission.accepted(accepted, accepted == copies && complete && drained());
+            // A failed target cannot veto a complete physical proof from the other targets.
+            // Old buffers can still pause this visit without erasing that proof.
+            if (accepted == copies && inserted == copies && reason != StopReason.BUFFERED
+                    && reason != StopReason.RESOURCES) reason = drained() ? StopReason.NONE : StopReason.BUFFERED;
+            return receipt(accepted, inserted, reason);
         }
 
         private ECOBatchAdmission submitSingleTarget(IPatternDetails pattern, Object canonical, KeyCounter[] prototype,
@@ -201,11 +241,15 @@ public final class ECOAe2LtDirectDispatch {
             Object attempt = Proxy.newProxyInstance(callback.getClassLoader(), new Class<?>[]{callback},
                     (proxy, method, arguments) -> {
                         Target target = wirelessTarget(level, arguments[0], pattern);
-                        if (target == null) return a.hardFail;
+                        if (target == null) {
+                            receipt[0] = new Chunk(0, 0, false, StopReason.TARGET_UNAVAILABLE);
+                            return a.hardFail;
+                        }
                         Chunk chunk = pushChunk(target, pattern, canonical, prototype, copies, cost, true);
                         receipt[0] = chunk;
                         if (!chunk.valid()) return a.globalAbort;
-                        return chunk.accepted > 0 ? a.success : chunk.abort ? a.globalAbort : a.softFail;
+                        return chunk.accepted > 0 ? a.success
+                                : chunk.reason == StopReason.RESOURCES ? a.globalAbort : a.softFail;
                     });
             java.util.function.Predicate<Object> alive = connection -> {
                 try {
@@ -220,11 +264,11 @@ public final class ECOAe2LtDirectDispatch {
             };
             a.single.invoke(scheduler, mode, canonical, level.getGameTime(), fast, targets, attempt, alive, removed);
             Chunk chunk = receipt[0];
-            if (chunk == null) return ECOBatchAdmission.rejected();
+            if (chunk == null) return ECOBatchAdmission.rejected(StopReason.TARGET_UNAVAILABLE);
             if (!chunk.valid()) return ECOBatchAdmission.indeterminate();
-            return chunk.accepted == 0 ? ECOBatchAdmission.rejected()
-                    : ECOBatchAdmission.accepted(chunk.accepted,
-                            chunk.accepted == copies && chunk.inserted && !chunk.abort && drained());
+            StopReason reason = chunk.reason;
+            if (chunk.accepted > 0 && !drained()) reason = StopReason.BUFFERED;
+            return receipt(chunk.accepted, chunk.inserted ? chunk.accepted : 0L, reason);
         }
 
         @Nullable private Target wirelessTarget(ServerLevel level, Object connection, IPatternDetails pattern)
@@ -240,8 +284,9 @@ public final class ECOAe2LtDirectDispatch {
         private Chunk pushChunk(Target target, IPatternDetails pattern, Object canonical, KeyCounter[] prototype,
                 long copies, double cost, boolean wireless) throws ReflectiveOperationException {
             int count = (int) Math.min(Integer.MAX_VALUE, copies);
-            if (!allowsBatch()) return new Chunk(count, 0, false, false);
-            if ((boolean) a.blocked.invoke(logic, target.context, canonical)) return new Chunk(count, 0, false, false);
+            if (!allowsBatch() || (boolean) a.blocked.invoke(logic, target.context, canonical)) {
+                return new Chunk(count, 0, false, StopReason.TARGET_UNAVAILABLE);
+            }
             a.before.invoke(a.autoReturn.get(logic), target.level, target.address);
             // A machine lacking a counted transport can only own one physical transaction.
             if (!(boolean) a.supportsBatch.invoke(target.address, target.level, pattern)) count = 1;
@@ -250,7 +295,12 @@ public final class ECOAe2LtDirectDispatch {
                 Object receipt = a.chunk.invoke(logic, target.context, pattern, canonical,
                         copy(prototype), count, cost, a.complete);
                 long accepted = ((Number) a.owned.invoke(receipt)).longValue();
-                var chunk = new Chunk(count, accepted, (boolean) a.inserted.invoke(receipt), (boolean) a.abort.invoke(receipt));
+                boolean inserted = (boolean) a.inserted.invoke(receipt);
+                StopReason reason = (boolean) a.abort.invoke(receipt) ? StopReason.RESOURCES
+                        : accepted < count ? StopReason.CAPACITY
+                        : !inserted ? StopReason.BUFFERED
+                        : count < copies ? StopReason.TRANSPORT_LIMIT : StopReason.NONE;
+                var chunk = new Chunk(count, accepted, inserted, reason);
                 if (chunk.valid() && accepted > 0) {
                     if (!wireless) {
                         a.sendDirection.invoke(logic, ((Direction) a.face.invoke(target.address)).getOpposite());
@@ -266,13 +316,21 @@ public final class ECOAe2LtDirectDispatch {
         }
 
         private record Target(ServerLevel level, Object address, Object context) {}
-        private record Chunk(int offered, long accepted, boolean inserted, boolean abort) {
+        private record Chunk(int offered, long accepted, boolean inserted, StopReason reason) {
             boolean valid() { return accepted >= 0 && accepted <= offered; }
         }
 
+        private static ECOBatchAdmission receipt(long accepted, long inserted, StopReason reason) {
+            return accepted == 0 ? ECOBatchAdmission.rejected(reason)
+                    : ECOBatchAdmission.accepted(accepted, inserted, reason);
+        }
+
         private boolean drained() throws ReflectiveOperationException {
+            return localDrained() && (boolean) a.empty.invoke(a.overflow.get(logic));
+        }
+
+        private boolean localDrained() throws ReflectiveOperationException {
             return ((List<?>) a.sendList.invoke(logic)).isEmpty()
-                    && (boolean) a.empty.invoke(a.overflow.get(logic))
                     && !(boolean) a.localOverflow.invoke(logic);
         }
     }
@@ -302,7 +360,7 @@ public final class ECOAe2LtDirectDispatch {
                 connections, directions, cost, contains, dimension, pos, canAccept, normalTarget, contextTarget,
                 blocked, before, supportsBatch, chunk, owned, abort, inserted, sendDirection, face, send, wake, save, empty, setBypass,
                 normalOrder, dispatchMode, speed, prepare, fairPass, fairSize, fairPoll, fairAllowance, fairRaise, fairSuccess,
-                fairCooldown, closePass, single, alive;
+                fairCooldown, pauseTarget, closePass, single, alive;
         Access(Class<?> type) throws ReflectiveOperationException {
             node = field(type, "gridNode"); host = field(type, "overloadedHost");
             Method optionalBlockingMode;
@@ -328,6 +386,7 @@ public final class ECOAe2LtDirectDispatch {
             fairSize = method(passType, "activeTargetsAtStart", 0); fairPoll = method(passType, "poll", 0);
             fairAllowance = method(passType, "allowance", 1); fairRaise = method(passType, "raiseAllowance", 2);
             fairSuccess = method(passType, "success", 2); fairCooldown = method(passType, "cooldown", 2);
+            pauseTarget = method(wirelessDispatch.getType(), "pauseTarget", 1);
             closePass = method(passType, "close", 0);
             single = method(wirelessDispatch.getType(), "dispatchSingleCopy", 8);
             Class<?> outcome = method(single.getParameterTypes()[5], "push", 1).getReturnType();

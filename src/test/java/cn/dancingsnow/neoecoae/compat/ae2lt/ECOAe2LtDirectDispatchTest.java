@@ -10,6 +10,7 @@ import appeng.api.networking.IGrid;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.*;
 import cn.dancingsnow.neoecoae.compat.ae2.ECOExternalProviderBlocking;
+import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission.StopReason;
 import com.moakiee.ae2lt.blockentity.OverloadedPatternProviderBlockEntity;
 import com.moakiee.ae2lt.logic.provider.OverloadedPatternProviderLogic;
 import com.moakiee.ae2lt.logic.provider.ProviderTarget;
@@ -34,6 +35,7 @@ class ECOAe2LtDirectDispatchTest {
             assertEquals(Integer.MAX_VALUE, session.maxBatchSize(f.pattern));
             var receipt = session.submit(f.pattern, f.inputs, 8);
             assertEquals(8, receipt.acceptedCrafts());
+            assertEquals(8, receipt.fullyInsertedCrafts());
             assertTrue(receipt.canContinue());
             verify(f.host, never()).isAdaptiveBatchEnabled();
             verify(f.logic, never()).getBatchCapacity(any());
@@ -47,6 +49,8 @@ class ECOAe2LtDirectDispatchTest {
             var f = new Fixture(false, buffered ? 8 : 3, buffered);
             var receipt = Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic)).submit(f.pattern, f.inputs, 8);
             assertEquals(buffered ? 8 : 3, receipt.acceptedCrafts());
+            assertEquals(0, receipt.fullyInsertedCrafts());
+            assertEquals(buffered ? StopReason.BUFFERED : StopReason.CAPACITY, receipt.stopReason());
             assertFalse(receipt.canContinue());
             assertEquals(List.of(8), f.offers);
         }
@@ -109,6 +113,8 @@ class ECOAe2LtDirectDispatchTest {
             var receipt = Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic))
                     .submit(f.pattern, f.inputs, 12);
             assertEquals(12, receipt.acceptedCrafts());
+            assertEquals(12, receipt.fullyInsertedCrafts());
+            assertTrue(receipt.canContinue(), "Another target's rejection cannot veto the aggregate proof");
             assertArrayEquals(new long[]{0, 6, 6}, f.received);
         }
     }
@@ -120,6 +126,7 @@ class ECOAe2LtDirectDispatchTest {
             var receipt = Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic))
                     .submit(f.pattern, f.inputs, 12);
             assertEquals(12, receipt.acceptedCrafts());
+            assertEquals(10, receipt.fullyInsertedCrafts(), "Only fully inserted target chunks are proven");
             assertFalse(receipt.canContinue(), "A partial target cannot prove a larger batch is safe");
             assertArrayEquals(new long[]{2, 5, 5}, f.received);
         }
@@ -131,6 +138,8 @@ class ECOAe2LtDirectDispatchTest {
             var receipt = Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic))
                     .submit(f.pattern, f.inputs, 12);
             assertEquals(4, receipt.acceptedCrafts());
+            assertEquals(0, receipt.fullyInsertedCrafts());
+            assertEquals(StopReason.BUFFERED, receipt.stopReason());
             assertFalse(receipt.canContinue());
             assertArrayEquals(new long[]{4, 0, 0}, f.received);
         }
@@ -156,6 +165,8 @@ class ECOAe2LtDirectDispatchTest {
             var receipt = Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic))
                     .submit(f.pattern, f.inputs, 12);
             assertEquals(4, receipt.acceptedCrafts());
+            assertEquals(4, receipt.fullyInsertedCrafts());
+            assertEquals(StopReason.RESOURCES, receipt.stopReason());
             assertFalse(receipt.canContinue());
             assertArrayEquals(new long[]{4, 0, 0}, f.received);
         }
@@ -168,6 +179,8 @@ class ECOAe2LtDirectDispatchTest {
             var receipt = Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic))
                     .submit(f.pattern, f.inputs, 12);
             assertEquals(3, receipt.acceptedCrafts());
+            assertEquals(3, receipt.fullyInsertedCrafts());
+            assertEquals(StopReason.TRANSPORT_LIMIT, receipt.stopReason());
             assertFalse(receipt.canContinue());
             assertArrayEquals(new long[]{1, 1, 1}, f.received);
         }
@@ -182,6 +195,74 @@ class ECOAe2LtDirectDispatchTest {
                 .submit(otherPattern, f.inputs, 1).acceptedCrafts());
         assertArrayEquals(new long[]{2, 0, 0}, f.received,
                 "A different recipe must not inherit the first recipe's target counts");
+    }
+
+    @Test void oneRejectedTargetAmongSevenDoesNotSuppressCapacityProof() throws Exception {
+        var f = new Fixture(false, Integer.MAX_VALUE, false, true, 7);
+        f.capacities[0] = 0;
+        for (int step = 0; step < 8; step++) {
+            f.tick(100 + step);
+            long copies = 1L << step;
+            var receipt = Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic))
+                    .submit(f.pattern, f.inputs, copies);
+            assertEquals(copies, receipt.acceptedCrafts());
+            assertEquals(copies, receipt.fullyInsertedCrafts());
+            assertTrue(receipt.canContinue());
+        }
+        assertEquals(0, f.received[0]);
+        assertEquals(255, Arrays.stream(f.received).sum());
+    }
+
+    @Test void sharedCooldownReturnsAPauseWithoutAnotherPhysicalAttempt() throws Exception {
+        var f = new Fixture(false, 0, false, true, 7);
+        var first = Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic)).submit(f.pattern, f.inputs, 8);
+        assertEquals(StopReason.CAPACITY, first.stopReason());
+        assertEquals(7, f.offers.size());
+        var paused = Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic)).submit(f.pattern, f.inputs, 4);
+        assertEquals(StopReason.FAIRNESS, paused.stopReason());
+        assertEquals(0, paused.acceptedCrafts());
+        assertEquals(7, f.offers.size(), "A second CPU/session must not bypass target cooldown");
+        Arrays.fill(f.capacities, 8);
+        f.tick(101);
+        var recovered = Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic)).submit(f.pattern, f.inputs, 8);
+        assertEquals(8, recovered.fullyInsertedCrafts());
+        assertTrue(recovered.canContinue());
+    }
+
+    @Test void independentSessionsShareFairnessForTheSameCanonicalRecipe() throws Exception {
+        var f = new Fixture(false, Integer.MAX_VALUE, false, true, 3);
+        var equivalent = mock(IPatternDetails.class);
+        f.canonicalPatterns.put(equivalent, f.pattern);
+        var first = Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic));
+        var second = Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic));
+        for (int i = 0; i < 12; i++) {
+            assertEquals(1, first.submit(f.pattern, f.inputs, 1).acceptedCrafts());
+            assertEquals(1, second.submit(equivalent, f.inputs, 1).acceptedCrafts());
+        }
+        assertArrayEquals(new long[]{8, 8, 8}, f.received);
+    }
+
+    @Test void anOlderWirelessBufferDoesNotInterruptTheOtherTargetsShares() throws Exception {
+        var f = new Fixture(false, Integer.MAX_VALUE, false, true, 3);
+        f.bufferedTargets[0] = true;
+        var session = Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic));
+        assertEquals(StopReason.BUFFERED, session.submit(f.pattern, f.inputs, 1).stopReason());
+        var receipt = session.submit(f.pattern, f.inputs, 8);
+        assertEquals(8, receipt.acceptedCrafts());
+        assertEquals(8, receipt.fullyInsertedCrafts());
+        assertEquals(StopReason.BUFFERED, receipt.stopReason(), "Old custody may pause subsequent submissions");
+        assertArrayEquals(new long[]{1, 4, 4}, f.received);
+    }
+
+    @Test void aPowerAbortDoesNotPutTheTargetInRejectionCooldown() throws Exception {
+        var f = new Fixture(false, 8, false, true, 1);
+        when(f.energy.extractAEPower(anyDouble(), eq(appeng.api.config.Actionable.SIMULATE), any())).thenReturn(0D);
+        var session = Objects.requireNonNull(ECOAe2LtDirectDispatch.open(f.logic));
+        assertEquals(StopReason.RESOURCES, session.submit(f.pattern, f.inputs, 8).stopReason());
+        assertTrue(f.offers.isEmpty());
+        when(f.energy.extractAEPower(anyDouble(), eq(appeng.api.config.Actionable.SIMULATE), any()))
+                .thenAnswer(call -> call.getArgument(0));
+        assertEquals(8, session.submit(f.pattern, f.inputs, 8).fullyInsertedCrafts());
     }
 
     @Test void directionalBatchesPreserveOneCopyRoutingAndStopOnFirstRejection() throws Exception {
@@ -310,11 +391,13 @@ class ECOAe2LtDirectDispatchTest {
         final List<Integer> offers = new ArrayList<>();
         final List<ProviderTarget> targets = new ArrayList<>();
         final IEnergyService energy = mock(IEnergyService.class);
+        final ServerLevel level = mock(ServerLevel.class);
         final Map<IPatternDetails, IPatternDetails> canonicalPatterns = new IdentityHashMap<>();
         final ReferenceSet<IPatternDetails> blockedPatterns = new ReferenceOpenHashSet<>();
         final List<BlockingCheck> blockingChecks = new ArrayList<>();
         final long[] capacities;
         final long[] received;
+        final boolean[] bufferedTargets;
         Fixture(boolean enabled, long accepted, boolean buffered) throws Exception {
             this(enabled, accepted, buffered, false);
         }
@@ -325,9 +408,10 @@ class ECOAe2LtDirectDispatchTest {
             capacities = new long[targetCount];
             Arrays.fill(capacities, accepted);
             received = new long[targetCount];
+            bufferedTargets = new boolean[targetCount];
+            Arrays.fill(bufferedTargets, buffered);
             logic = mock(OverloadedPatternProviderLogic.class, withSettings().extraInterfaces(PatternProviderLogicAccessor.class));
             var accessor = (PatternProviderLogicAccessor) logic;
-            var level = mock(ServerLevel.class);
             when(host.getLevel()).thenReturn(level);
             when(host.getProviderMode()).thenReturn(wireless ? OverloadedPatternProviderBlockEntity.ProviderMode.WIRELESS
                     : OverloadedPatternProviderBlockEntity.ProviderMode.NORMAL);
@@ -350,7 +434,7 @@ class ECOAe2LtDirectDispatchTest {
                 return null;
             }).when(accessor).invokeAddToSendList(any(), anyLong());
             var directions = List.of(Direction.NORTH, Direction.EAST, Direction.SOUTH,
-                    Direction.WEST, Direction.UP, Direction.DOWN).subList(0, targetCount);
+                    Direction.WEST, Direction.UP, Direction.DOWN).subList(0, Math.min(targetCount, 6));
             when(accessor.invokeGetActiveSides()).thenReturn(new LinkedHashSet<>(directions));
             set(logic, "gridNode", node); set(logic, "overloadedHost", host);
             set(logic, "wirelessOverflow", mock(field(logic, "wirelessOverflow").getType(), call ->
@@ -387,7 +471,7 @@ class ECOAe2LtDirectDispatchTest {
                             Class<?> receipt = call.getMethod().getReturnType();
                             yield mock(receipt, r -> switch (r.getMethod().getName()) {
                                 case "acceptedCopies" -> owned;
-                                case "overflow" -> buffered
+                                case "overflow" -> bufferedTargets[targetIndex]
                                         ? List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 1)) : List.of();
                                 default -> RETURNS_DEFAULTS.answer(r);
                             });
@@ -419,6 +503,11 @@ class ECOAe2LtDirectDispatchTest {
             }
             inputs[0].add(AEItemKey.of(Items.IRON_INGOT), 2);
             inputs[1].add(AEItemKey.of(Items.GOLD_INGOT), 3);
+        }
+
+        void tick(long tick) throws Exception {
+            when(level.getGameTime()).thenReturn(tick);
+            set(logic, "validConnectionsCacheTick", tick);
         }
     }
     private static Field field(Object target, String name) throws Exception {

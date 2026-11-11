@@ -90,9 +90,19 @@ class ECOBatchExecutorTest {
         var result = ECOBatchExecutor.execute(plan, new KeyCounter[]{input}, new KeyCounter(), new KeyCounter(),
                 inventory, level, UUID.randomUUID(), () -> energy, provider);
         assertEquals(ECOBatchAdmission.Status.REJECTED, result.status());
+        assertEquals(ECOBatchAdmission.StopReason.RESOURCES, result.stopReason());
         assertEquals(1, inventory.list.get(key));
         verifyNoInteractions(provider);
         verify(energy).refund();
+    }
+
+    @Test void failedEnergyReservationIsNotAProviderCapacityFailure() {
+        var provider = mock(ECOBatchProvider.class);
+        var result = ECOBatchExecutor.execute(plan(10), new KeyCounter[]{input}, new KeyCounter(), new KeyCounter(),
+                inventory, level, UUID.randomUUID(), () -> null, provider);
+        assertEquals(ECOBatchAdmission.StopReason.RESOURCES, result.stopReason());
+        assertEquals(100, inventory.list.get(key));
+        verifyNoInteractions(provider);
     }
 
     @Test void overlappingSlotsAreDebitedAndRefundedExactlyOnce() {
