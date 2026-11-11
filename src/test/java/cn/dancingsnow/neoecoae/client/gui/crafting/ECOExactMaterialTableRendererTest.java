@@ -74,6 +74,8 @@ class ECOExactMaterialTableRendererTest {
         assertEquals(List.of(fuelNode, seedNode), data.sorted());
         assertFalse(data.isMissingStartupSeed(seed));
         assertFalse(data.hasEstimatedStartupSeed());
+        assertTrue(data.isCycleSeed(seed));
+        assertFalse(data.isCycleSeed(fuel));
 
         var suppliedFuel = new CraftingGraphSnapshot.MaterialNode(1, fuel, 700, 700, 0, 0,
             CraftingGraphSnapshot.MaterialStatus.SATISFIED);

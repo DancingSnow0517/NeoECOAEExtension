@@ -836,6 +836,7 @@
   "gui.neoecoae.crafting_report.cycle_planning_enabled": "存在迴圈",
   "gui.neoecoae.crafting_report.cycle_planning_disabled": "未開啟迴圈規劃",
   "gui.neoecoae.crafting_report.missing_startup_seed": "缺少啟動種子",
+  "gui.neoecoae.crafting_report.cycle_seed": "迴圈種子：借用後歸還，不計入消耗",
   "gui.neoecoae.crafting_graph.open": "規劃圖",
   "gui.neoecoae.crafting_graph.title": "ECO 合成規劃圖",
   "gui.neoecoae.crafting_graph.search": "搜尋",

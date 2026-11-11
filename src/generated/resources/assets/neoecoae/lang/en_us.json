@@ -667,6 +667,7 @@
   "gui.neoecoae.crafting_report.cycle_not_detected_preview": "No cycles yet",
   "gui.neoecoae.crafting_report.cycle_planning_disabled": "Cycles off",
   "gui.neoecoae.crafting_report.cycle_planning_enabled": "Cycle found",
+  "gui.neoecoae.crafting_report.cycle_seed": "Cycle seed: borrowed and returned, not consumed",
   "gui.neoecoae.crafting_report.cycle_unsupported": "A cyclic recipe cannot be handled by the current solver.",
   "gui.neoecoae.crafting_report.elapsed": "Time: %s ms",
   "gui.neoecoae.crafting_report.exact_incomplete": "Execution plan incomplete; see CPU details",

@@ -96,11 +96,11 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     public ECOCraftConfirmScreen(CraftConfirmMenu menu, Inventory playerInventory, Component title,
             ScreenStyle style) {
         super(menu, playerInventory, title, style);
-        table = new ECOCraftConfirmTableRenderer(this, 9, 27, this::isCycleParticipant,
+        table = new ECOCraftConfirmTableRenderer(this, 9, 27, this::isCycleParticipant, this::isCycleSeed,
             this::isFuzzyPlanningItem);
-        exactTable = new ECOExactMaterialTableRenderer(this, 9, 27, this::isCycleParticipant,
+        exactTable = new ECOExactMaterialTableRenderer(this, 9, 27, this::isCycleParticipant, this::isCycleSeed,
             this::isMissingStartupSeed, this::isEstimatedStartupSeed, this::isFuzzyPlanningItem);
-        cycleItems = new ECOCycleItemListRenderer(this, 237, 27, this::isMissingStartupSeed);
+        cycleItems = new ECOCycleItemListRenderer(this, 237, 27, this::isCycleSeed, this::isMissingStartupSeed);
         scrollbar = widgets.addScrollBar("scrollbar", Scrollbar.BIG);
         cycleScrollbar = widgets.addScrollBar("cycleScrollbar", Scrollbar.BIG);
         start = widgets.addButton("start", GuiText.Start.text(), this::start);
@@ -726,6 +726,10 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
     private boolean isCycleParticipant(AEKey key) {
         return materialData.isCycleParticipant(key);
+    }
+
+    private boolean isCycleSeed(AEKey key) {
+        return materialData.isCycleSeed(key);
     }
 
     private boolean isMissingStartupSeed(AEKey key) {
