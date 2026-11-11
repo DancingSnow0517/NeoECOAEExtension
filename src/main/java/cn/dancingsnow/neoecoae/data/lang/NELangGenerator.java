@@ -11,7 +11,7 @@ public class NELangGenerator {
         provider.add("neoecoae.configuration.keyReuse.enabled.tooltip", "Reuse immutable keys for resources without extra components or NBT. Resources with additional data keep their original factory behavior.");
 
         provider.add("gui.neoecoae.smart_cooling.target", "Target temperature (0-99%)");
-        provider.add("gui.neoecoae.smart_cooling.control", "Automatic temperature control, target %s%%; configure by right-clicking the module");
+        provider.add("gui.neoecoae.smart_cooling.control", "Automatic temperature control, target %s%%; configure by right-clicking the controller");
         provider.add("gui.neoecoae.smart_cooling.status", "Temperature: %s%% | %s");
         provider.add("gui.neoecoae.smart_cooling.running", "Automatic cooling requested");
         provider.add("gui.neoecoae.smart_cooling.standby", "Standby");
@@ -19,8 +19,19 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.smart_cooling.cooling", "Cooling to target");
         provider.add("gui.neoecoae.smart_cooling.holding", "Holding target");
         provider.add("gui.neoecoae.smart_cooling.unformed", "Waiting for a formed workstation");
-        provider.add("gui.neoecoae.smart_cooling.coolant_mode", "Coolant mode: fed by ME");
-        provider.add("gui.neoecoae.smart_cooling.title", "Smart Cooling Module");
+        provider.add("gui.neoecoae.smart_cooling.coolant_mode", "Coolant mode: pipe or ME supply");
+        provider.add("gui.neoecoae.smart_cooling.title", "Smart Cooling Controller");
+        provider.add("gui.neoecoae.workstation.power_priority.ae", "Power priority: AE, then FE");
+        provider.add("gui.neoecoae.workstation.power_priority.fe", "Power priority: FE, then AE");
+        provider.add("gui.neoecoae.workstation.power_priority.title", "Power priority");
+        provider.add("gui.neoecoae.workstation.power_priority.peak", "Peak usage (last second)");
+        provider.add("gui.neoecoae.workstation.power_priority.network_fe", "Network FE total");
+        provider.add("gui.neoecoae.workstation.power_priority.network_ae", "Network AE total");
+        provider.add("gui.neoecoae.workstation.power_priority.primary", "Primary");
+        provider.add("gui.neoecoae.workstation.power_priority.backup", "Backup");
+        provider.add("gui.neoecoae.workstation.power_priority.fallback_hint", "Use the selected source first; the backup automatically covers any shortfall.");
+        provider.add("gui.neoecoae.workstation.power_priority.switch_hint", "Left-click to switch");
+        provider.add("gui.neoecoae.workstation.power_priority.hint", "Left-click to switch. The other source covers any shortfall. All four top sockets accept AE2 connections and FE input.");
         provider.add("gui.neoecoae.smart_cooling.subtitle", "Workstation Thermal Control");
         provider.add("gui.neoecoae.smart_cooling.badge.offline", "Offline");
         provider.add("gui.neoecoae.smart_cooling.badge.disabled", "Off");
@@ -43,7 +54,7 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.smart_cooling.buffer_target", "of %s mB");
         provider.add("gui.neoecoae.smart_cooling.buffer_hint", "Refills the marked coolant from ME every 10 seconds, up to %s mB");
         provider.add("gui.neoecoae.smart_cooling.marked_coolant", "Marked coolant");
-        provider.add("gui.neoecoae.smart_cooling.unmarked", "Mark a coolant first");
+        provider.add("gui.neoecoae.smart_cooling.unmarked", "Supply or mark coolant");
         provider.add("gui.neoecoae.smart_cooling.mark_hint", "Right-click with a fluid container, or drag coolant from JEI/EMI. Empty left-click clears the mark. No fluid is consumed. Old stock returns to ME before switching; overheat recovery requires marking cryotheum.");
         provider.add("gui.neoecoae.smart_cooling.energy", "Energy per tick");
         provider.add("gui.neoecoae.smart_cooling.energy_value", "%s AE/t");

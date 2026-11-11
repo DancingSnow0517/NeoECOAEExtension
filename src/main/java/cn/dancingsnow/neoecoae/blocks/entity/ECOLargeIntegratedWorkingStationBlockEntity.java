@@ -11,6 +11,7 @@ import appeng.api.config.Actionable;
 import cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy;
 import cn.dancingsnow.neoecoae.recipe.WorkstationEnergy;
 import appeng.api.config.PowerMultiplier;
+import appeng.api.config.PowerUnits;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridMultiblock;
@@ -56,6 +57,9 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
 import cn.dancingsnow.neoecoae.platform.sync.NEManagedBlockEntity;
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -125,6 +129,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     @Persisted
     @DescSynced
     private boolean activeCooling;
+    @DescSynced
+    private boolean fePreferred;
     private int preheatTargetTier = 2;
     /** A paid overclocked work tick awaiting thermal settlement; never persisted or replayed. */
     private boolean pendingProcessingHeat;
@@ -152,6 +158,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     private final LargeWorkstationEnergyUsage uiFluxUsage = new LargeWorkstationEnergyUsage();
     /** FE already withdrawn from ME but not yet committed; retained if AE/coolant payment fails. */
     private long processingFeBuffer;
+    /** Already withdrawn fractional FE; retained so AE-priced ticks never round FE away. */
+    private double processingFeCredit;
     private LargeWorkstationThermalUsage uiThermalUsage = new LargeWorkstationThermalUsage();
 
     public ECOLargeIntegratedWorkingStationBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
@@ -168,19 +176,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     @Override
     public Set<Direction> getGridConnectableSides(BlockOrientation orientation) {
         if (!formed) return EnumSet.allOf(Direction.class);
-        // Keep physical links to this structure's members, so the communication interface
-        // can still supply the controller's grid services without exposing any cable ports.
-        EnumSet<Direction> sides = EnumSet.noneOf(Direction.class);
-        if (cluster != null && level != null) {
-            for (Direction side : Direction.values()) {
-                BlockPos adjacent = worldPosition.relative(side);
-                if (level.hasChunkAt(adjacent)
-                    && cluster.containsBlockEntity(level.getBlockEntity(adjacent))) {
-                    sides.add(side);
-                }
-            }
-        }
-        return sides;
+        return cluster == null ? EnumSet.noneOf(Direction.class) : cluster.getInternalConnections(this);
     }
 
     @Override
@@ -371,6 +367,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     @Override
     protected FluidTank getInputTank() {
+        if (hasSmartCoolingModule()) return cluster.getSmartCoolingController().tank;
         return cluster == null || cluster.getInputHatch() == null ? super.getInputTank() : cluster.getInputHatch().tank;
     }
 
@@ -422,10 +419,19 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         return activeCooling;
     }
 
+    public boolean isFePreferred() {
+        return fePreferred;
+    }
+
+    public void togglePowerPriority() {
+        fePreferred = !fePreferred;
+        settingsChanged();
+    }
+
     public boolean isOverheated() { return isTemperatureEnabled() && overheated; }
 
     private boolean hasSmartCoolingModule() {
-        return cluster != null && cluster.getInputHatch() != null && cluster.getInputHatch().isSmartCoolingModule();
+        return cluster != null && cluster.getSmartCoolingController() != null;
     }
 
     public int getCoolantPerTick() {
@@ -437,7 +443,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     public Component getSmartCoolingStatusText() {
         if (coolingProblemId > 0) return Component.translatable(PauseReason.values()[coolingProblemId].translationKey);
         if (overheated) return Component.translatable(PauseReason.OVERHEATED.translationKey);
-        int target = cluster == null || cluster.getInputHatch() == null ? 75 : cluster.getInputHatch().getTargetTemperature();
+        int target = hasSmartCoolingModule() ? cluster.getSmartCoolingController().getTargetTemperature() : 75;
         return Component.translatable(temperature < target ? "gui.neoecoae.smart_cooling.heating"
             : temperature > target ? "gui.neoecoae.smart_cooling.cooling" : "gui.neoecoae.smart_cooling.holding");
     }
@@ -784,7 +790,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         snapshot.putBoolean("overclocked", overclocked);
         snapshot.putBoolean("activeCooling", activeCooling);
         snapshot.putBoolean("smartCooling", hasSmartCoolingModule());
-        if (hasSmartCoolingModule()) snapshot.putInt("coolingTarget", cluster.getInputHatch().getTargetTemperature());
+        snapshot.putBoolean("fePreferred", fePreferred);
+        if (hasSmartCoolingModule()) snapshot.putInt("coolingTarget", cluster.getSmartCoolingController().getTargetTemperature());
         snapshot.putBoolean("temperatureEnabled", isTemperatureEnabled());
         snapshot.putBoolean("preheating", isTemperatureEnabled() && preheating);
         snapshot.putBoolean("overheated", isTemperatureEnabled() && overheated);
@@ -805,12 +812,20 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         snapshot.putDouble("naturalCoolingPerSecond", thermalRates.naturalCooling());
         snapshot.putDouble("temperatureChangePerSecond", thermalRates.net());
         snapshot.putDouble("energyUsage", uiEnergyUsage.average(level == null ? 0 : level.getGameTime()));
+        snapshot.putDouble("energyPeak", uiEnergyUsage.peak(level == null ? 0 : level.getGameTime()));
         snapshot.putDouble("feUsage", uiFluxUsage.average(level == null ? 0 : level.getGameTime()));
         snapshot.putLong("feBuffer", processingFeBuffer);
         snapshot.putBoolean("appliedFlux", WorkstationFluxEnergy.available());
         snapshot.putDouble("energyStored", getAECurrentPower());
         snapshot.putDouble("energyCapacity", getAEMaxPower());
         snapshot.putDouble("energyScale", Math.max(1.0, getAEMaxPower()));
+        IGrid grid = getMainNode().getGrid();
+        if (grid != null) {
+            snapshot.putDouble("networkAE", grid.getEnergyService().getStoredPower());
+            if (WorkstationFluxEnergy.available()) {
+                snapshot.putLong("networkFE", WorkstationFluxEnergy.stored(grid.getStorageService()));
+            }
+        }
         PendingBatch head = pendingBatches.peekFirst();
         snapshot.putLong("parallelUsed", head == null ? 0 : head.segmented
             ? Math.min(LargeWorkstationOverclock.BASE_PARALLELISM, head.craftCount) : head.craftCount);
@@ -947,6 +962,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     public void saveAdditional(CompoundTag data) {
         super.saveAdditional(data);
         data.putLong("processingFeBuffer", processingFeBuffer);
+        data.putDouble("processingFeCredit", processingFeCredit);
+        data.putBoolean("fePreferred", fePreferred);
         data.put("workstationModule", moduleInventory.serializeNBT());
         CompoundTag thermal = new CompoundTag();
         LargeWorkstationThermal.save(thermalState(), thermal);
@@ -964,6 +981,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     public void loadTag(CompoundTag data) {
         super.loadTag(data);
         processingFeBuffer = Math.max(0, data.getLong("processingFeBuffer"));
+        double restoredCredit = data.getDouble("processingFeCredit");
+        processingFeCredit = Double.isFinite(restoredCredit) ? cn.dancingsnow.neoecoae.platform.JdkCompat.clamp(restoredCredit, 0, Math.nextDown(1.0)) : 0;
+        fePreferred = data.getBoolean("fePreferred");
         uiThermalUsage = new LargeWorkstationThermalUsage();
         moduleInventory.deserializeNBT(data.getCompound("workstationModule"));
         var thermal = LargeWorkstationThermal.load(data.getCompound("largeWorkstationThermal"));
@@ -1266,39 +1286,19 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             setPauseReason(PauseReason.FE_MISSING);
             return TickRateModulation.SLOWER;
         }
-        if (flux.amount() > processingFeBuffer) {
-            IGrid grid = getMainNode().getGrid();
-            if (grid != null && WorkstationFluxEnergy.available()) {
-                MEStorage storage = grid.getStorageService().getInventory();
-                var actionSource = IActionSource.ofMachine(this);
-                long missing = flux.amount() - processingFeBuffer;
-                long offered = WorkstationFluxEnergy.extract(storage, missing, Actionable.SIMULATE, actionSource);
-                if (offered > 0) {
-                    processingFeBuffer += WorkstationFluxEnergy.extract(storage, Math.min(missing, offered), Actionable.MODULATE, actionSource);
-                    setChanged();
-                }
-            }
+        ProcessingEnergySource paymentSource;
+        try {
+            paymentSource = processingEnergySource(required, flux.amount());
+            required = paymentSource.requiredAE;
+        } catch (IllegalArgumentException invalidConversion) {
+            setPauseReason(PauseReason.POWER_MISSING);
+            return TickRateModulation.SLOWER;
         }
-        long consumedFe = Math.min(flux.amount(), processingFeBuffer);
-        long substituteFe = flux.amount() - consumedFe;
-        if (substituteFe > 0) {
-            try {
-                required += WorkstationEnergy.aeEquivalent(substituteFe).doubleValue();
-            } catch (IllegalArgumentException invalidConversion) {
-                setPauseReason(PauseReason.POWER_MISSING);
-                return TickRateModulation.SLOWER;
-            }
-            if (!Double.isFinite(required)) {
-                setPauseReason(PauseReason.POWER_MISSING);
-                return TickRateModulation.SLOWER;
-            }
-            source = processingEnergySource(required);
-            if (source.extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG) + 0.001D < required) {
-                setPauseReason(PauseReason.POWER_MISSING);
-                return TickRateModulation.SLOWER;
-            }
+        if (!Double.isFinite(required)
+            || paymentSource.extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG) + 0.001D < required) {
+            setPauseReason(PauseReason.POWER_MISSING);
+            return TickRateModulation.SLOWER;
         }
-        IEnergySource paymentSource = source;
         CoolingTickPlan coolantPayment = legacyCooling;
         LargeWorkstationTickPayment.Result payment = LargeWorkstationTickPayment.commit(
             paymentSource,
@@ -1312,9 +1312,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             return TickRateModulation.SLOWER;
         }
 
-        processingFeBuffer -= consumedFe;
         batch.feRemainder = flux.remainder();
-        if (level != null && consumedFe > 0) uiFluxUsage.record(level.getGameTime(), consumedFe);
+        paymentSource.recordUsage();
         recordUiEnergy(required);
         recordSmartCoolingPayment(operatingPower);
         preheating = false;
@@ -1359,16 +1358,107 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         return TickRateModulation.URGENT;
     }
 
-    private IEnergySource processingEnergySource(double required) {
-        IEnergySource source = this;
-        double available = source.extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG);
-        if (required > 0 && available + 0.001D < required) {
+    private ProcessingEnergySource processingEnergySource(double ae) {
+        return processingEnergySource(ae, 0);
+    }
+
+    private ProcessingEnergySource processingEnergySource(double ae, long fe) {
+        return new ProcessingEnergySource(ae, fe);
+    }
+
+    /** One payment combines the selected source with its fallback and remembers each debit for rollback. */
+    private final class ProcessingEnergySource implements IEnergySource {
+        private final IEnergyService network;
+        private final MEStorage storage;
+        private final boolean preferFe = fePreferred;
+        private final BigDecimal requiredFe;
+        private final double requiredAE;
+        private double networkPaid;
+        private double localPaid;
+        private long fluxDebited;
+        private final double previousCredit = processingFeCredit;
+        private double fluxPaid;
+
+        private ProcessingEnergySource(double ae, long fe) {
+            if (!Double.isFinite(ae) || ae < 0 || fe < 0) throw new IllegalArgumentException("Invalid energy budget");
+            double ratio = PowerUnits.AE.convertTo(PowerUnits.FE, PowerMultiplier.CONFIG.multiply(1));
+            if (!Double.isFinite(ratio) || ratio <= 0) throw new IllegalArgumentException("Invalid FE conversion");
+            requiredFe = BigDecimal.valueOf(ae).multiply(BigDecimal.valueOf(ratio)).add(BigDecimal.valueOf(fe));
+            requiredAE = ae + WorkstationEnergy.aeEquivalent(fe).doubleValue();
             IGrid grid = getMainNode().getGrid();
-            if (grid != null && grid.getEnergyService().extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG) > available) {
-                source = grid.getEnergyService();
-            }
+            network = grid == null ? null : grid.getEnergyService();
+            storage = grid == null || !WorkstationFluxEnergy.available() ? null : grid.getStorageService().getInventory();
         }
-        return source;
+
+        @Override
+        public double extractAEPower(double amount, Actionable mode, PowerMultiplier multiplier) {
+            if (!Double.isFinite(amount) || amount <= 0) return 0;
+            // All workstation callers use CONFIG. Keep the source contract valid for other multipliers as well.
+            BigDecimal ratio = BigDecimal.valueOf(PowerUnits.AE.convertTo(PowerUnits.FE, multiplier.multiply(1)));
+            BigDecimal requested = multiplier == PowerMultiplier.CONFIG && amount == requiredAE
+                ? requiredFe : BigDecimal.valueOf(amount).multiply(ratio);
+            BigDecimal remaining = requested;
+            if (!preferFe) remaining = drawAe(network, remaining, ratio, mode, multiplier);
+            remaining = drawFlux(remaining, mode);
+            remaining = drawAe(ECOLargeIntegratedWorkingStationBlockEntity.this, remaining, ratio, mode, multiplier);
+            if (preferFe) remaining = drawAe(network, remaining, ratio, mode, multiplier);
+            if (remaining.signum() == 0) return amount;
+            return Math.min(amount, requested.subtract(remaining).divide(ratio, MathContext.DECIMAL128).doubleValue());
+        }
+
+        private BigDecimal drawAe(@Nullable IEnergySource source, BigDecimal remaining, BigDecimal ratio,
+            Actionable mode, PowerMultiplier multiplier) {
+            if (source == null || remaining.signum() <= 0) return remaining;
+            double wanted = remaining.divide(ratio, MathContext.DECIMAL128).doubleValue();
+            double paid = source.extractAEPower(wanted, mode, multiplier);
+            if (!Double.isFinite(paid) || paid <= 0) return remaining;
+            paid = Math.min(wanted, paid);
+            if (mode == Actionable.MODULATE) {
+                // Keep raw AE here; the configured multiplier is applied exactly once by the source.
+                if (source == network) networkPaid += multiplier.multiply(paid);
+                else localPaid += multiplier.multiply(paid);
+                setChanged();
+            }
+            return paid >= wanted ? BigDecimal.ZERO
+                : remaining.subtract(BigDecimal.valueOf(paid).multiply(ratio)).max(BigDecimal.ZERO);
+        }
+
+        private BigDecimal drawFlux(BigDecimal remaining, Actionable mode) {
+            if (remaining.signum() <= 0) return remaining;
+            BigDecimal credit = BigDecimal.valueOf(processingFeCredit);
+            long whole = remaining.subtract(credit).max(BigDecimal.ZERO).setScale(0, RoundingMode.CEILING)
+                .min(BigDecimal.valueOf(Long.MAX_VALUE)).longValueExact();
+            long buffered = Math.min(whole, processingFeBuffer);
+            long missing = whole - buffered;
+            long offered = missing == 0 || storage == null ? 0
+                : cn.dancingsnow.neoecoae.platform.JdkCompat.clamp(WorkstationFluxEnergy.extract(storage, missing, mode, IActionSource.ofMachine(ECOLargeIntegratedWorkingStationBlockEntity.this)), 0, missing);
+            long debit = buffered + offered;
+            BigDecimal paid = remaining.min(credit.add(BigDecimal.valueOf(debit)));
+            if (mode == Actionable.MODULATE && paid.signum() > 0) {
+                // Unused withdrawals remain owned here after a failed coolant/energy transaction.
+                processingFeBuffer += offered;
+                processingFeBuffer -= debit;
+                fluxDebited += debit;
+                processingFeCredit = credit.add(BigDecimal.valueOf(debit)).subtract(paid).doubleValue();
+                fluxPaid += paid.doubleValue();
+                setChanged();
+            }
+            return remaining.subtract(paid);
+        }
+
+        private void refund() {
+            processingFeBuffer += fluxDebited;
+            processingFeCredit = previousCredit;
+            if (networkPaid > 0) refundRawPower(network, networkPaid);
+            if (localPaid > 0) refundRawPower(ECOLargeIntegratedWorkingStationBlockEntity.this, localPaid);
+            networkPaid = localPaid = fluxPaid = 0;
+            fluxDebited = 0;
+            setChanged();
+        }
+
+        private void recordUsage() {
+            if (level != null) uiFluxUsage.record(level.getGameTime(), fluxPaid + PowerUnits.AE.convertTo(PowerUnits.FE, localPaid));
+        }
     }
 
     /** Fill from ready, equivalent owned work within the same job without replaying paid progress. */
@@ -1465,19 +1555,12 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         try {
             long flux = LargeWorkstationProcessing.fluxPayment(batch.fePerCraft, work,
                 batch.processingTicks, batch.feRemainder).amount();
-            long missingFlux = Math.max(0, flux - processingFeBuffer);
-            IGrid grid = getMainNode().getGrid();
-            if (missingFlux > 0 && grid != null && WorkstationFluxEnergy.available()) {
-                long offered = WorkstationFluxEnergy.extract(grid.getStorageService().getInventory(),
-                    missingFlux, Actionable.SIMULATE, IActionSource.ofMachine(this));
-                missingFlux -= cn.dancingsnow.neoecoae.platform.JdkCompat.clamp(offered, 0, missingFlux);
-            }
-            if (missingFlux > 0) required += WorkstationEnergy.aeEquivalent(missingFlux).doubleValue();
+            var source = processingEnergySource(required, flux);
+            return Double.isFinite(source.requiredAE) && source.extractAEPower(source.requiredAE,
+                Actionable.SIMULATE, PowerMultiplier.CONFIG) + 0.001D >= source.requiredAE;
         } catch (ArithmeticException | IllegalArgumentException invalid) {
             return false;
         }
-        return Double.isFinite(required) && processingEnergySource(required)
-            .extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG) + 0.001D >= required;
     }
 
     /** Finish just one portion; remaining inputs, outputs and paid craft steps stay on the same task. */
@@ -1532,6 +1615,14 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     private void refundProcessingPower(IEnergySource source, double amount) {
+        if (source instanceof ProcessingEnergySource payment) {
+            payment.refund();
+            return;
+        }
+        refundRawPower(source, PowerMultiplier.CONFIG.multiply(amount));
+    }
+
+    private void refundRawPower(IEnergySource source, double amount) {
         double remaining = source instanceof IEnergyService network
             ? network.injectPower(amount, Actionable.MODULATE)
             : injectAEPower(amount, Actionable.MODULATE);
@@ -1584,6 +1675,12 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (tickLevel.isClientSide) return;
         double processingLoad = pendingProcessingHeat ? 1 : 0;
         pendingProcessingHeat = false;
+        if (formed && hasSmartCoolingModule() && cluster.getInputHatch() != null) {
+            var manual = cluster.getInputHatch().tank;
+            if (cluster.getSmartCoolingController().acceptsManualCoolant(manual.getFluid())) {
+                transferStoredFluid(manual, getInputTank());
+            }
+        }
         updateSmartCooling();
         if (!isTemperatureEnabled()) {
             uiThermalUsage.clear();
@@ -1617,13 +1714,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 double fraction = Math.min(1, (target - temperature)
                     * LargeWorkstationThermal.TICKS_PER_SECOND / LargeWorkstationThermal.preheatPerSecond(temperature));
                 double required = LargeWorkstationThermal.PREHEAT_AE_PER_TICK * fraction;
-                IEnergySource source = this;
-                IGrid grid = getMainNode().getGrid();
-                if (grid != null && grid.getEnergyService().extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG)
-                    > source.extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG)) {
-                    source = grid.getEnergyService();
-                }
+                ProcessingEnergySource source = processingEnergySource(required);
                 double paid = source.extractAEPower(required, Actionable.MODULATE, PowerMultiplier.CONFIG);
+                source.recordUsage();
                 recordUiEnergy(paid);
                 preheatFraction = JdkCompat.clamp(paid / LargeWorkstationThermal.PREHEAT_AE_PER_TICK, 0, fraction);
             }
@@ -1672,19 +1765,20 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             coolingProblemId = PauseReason.COOLANT_TIER_LOW.ordinal();
         } else {
             var regulation = LargeWorkstationThermal.regulate(before, processingLoad,
-                cluster.getInputHatch().getTargetTemperature(), holder.maxOverclock(),
+                cluster.getSmartCoolingController().getTargetTemperature(), holder.maxOverclock(),
                 COOLANT_PER_PROCESSING_TICK * SMART_COOLING_COOLANT_MULTIPLIER);
             smartCoolingCoolantDemand = regulation.coolantAmount();
             CoolingTickPlan coolant = prepareCoolingTick(holder, regulation.coolantAmount());
             if (coolant != null) {
                 double required = smartCoolingOperatingPower();
-                IEnergySource source = processingEnergySource(required);
+                ProcessingEnergySource source = processingEnergySource(required);
                 if (source.extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG) + 0.001D < required) {
                     coolingProblemId = PauseReason.POWER_MISSING.ordinal();
                 } else {
                     var payment = LargeWorkstationTickPayment.commit(source, required,
                         () -> consumeCoolingTick(coolant), amount -> refundProcessingPower(source, amount));
                     if (payment == LargeWorkstationTickPayment.Result.PAID) {
+                        source.recordUsage();
                         recordUiEnergy(required);
                         recordSmartCoolingPayment(required);
                         result = regulation.result();
@@ -1959,16 +2053,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             // Temporary runtime override; preserve recipe durations shown by JEI/EMI.
             processingTicks = 1;
             if (adapted.feAlternative()) {
-                // Prefer AE; choose FE only at acceptance, then preserve this choice across shortages/reloads.
-                IGrid grid = getMainNode().getGrid();
-                double firstTick = (double) energyPerCraft * craftCount / processingTicks;
-                double available = extractAEPower(firstTick, Actionable.SIMULATE, PowerMultiplier.CONFIG);
-                if (grid != null) available = Math.max(available,
-                    grid.getEnergyService().extractAEPower(firstTick, Actionable.SIMULATE, PowerMultiplier.CONFIG));
-                long firstFe = LargeWorkstationProcessing.fluxPayment(fePerCraft, craftCount, processingTicks, 0).amount();
-                if (available + 0.001 < firstTick && WorkstationFluxEnergy.available() && grid != null
-                    && WorkstationFluxEnergy.extract(grid.getStorageService().getInventory(), firstFe,
-                        Actionable.SIMULATE, IActionSource.ofMachine(this)) >= firstFe) energyPerCraft = 0;
+                // Select the ledger once. Later priority changes only change who pays, never the saved price.
+                if (fePreferred) energyPerCraft = 0;
                 else fePerCraft = 0;
             }
             outputTotal = scaleCounter(outputPerCraft, craftCount);
@@ -2154,7 +2240,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         return LargeWorkstationUI.create(new LargeWorkstationUI.Config(
             getFluidCombined(), this::getUiSnapshot, () -> level.registryAccess(), this::returnTaskInputs,
             this::toggleOverclocked, this::toggleActiveCooling,
-            this::togglePreheating, moduleInventory), holder.player);
+            this::togglePreheating, moduleInventory), holder.player, this::isFePreferred, this::togglePowerPriority);
     }
 
     /** Returns inputs still owned by incomplete batches to the ME network; retained for legacy callers. */

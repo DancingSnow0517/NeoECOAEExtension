@@ -308,3 +308,5 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 报告兼容问题时保留实际 JAR/依赖版本、动作来源、请求选项、规划状态、提交结果与供应器接收/交付日志。签名和契约测试验证调用关系；真实机器的事务、资源外观与整合包联动需要实际运行验证。
 
 本分支的专项记录：[ECO CPU 提交反馈排查](diagnostics/ECO_CPU_SUBMISSION_INVESTIGATION_ZH_CN.md)、[GTLCore 样板供应器兼容](compatibility/GTLCore_PATTERN_PROVIDER_ZH_CN.md)。其中的验证结论仅对应记录时的版本和环境，不代表任意整合包均已验收。
+
+`isFePreferred()` 读取控制器保存的供能优先级，`togglePowerPriority()` 仅在所属服务器线程切换。付款先使用优先能源，缺口按 AE2 配置汇率由另一种补足；独立 AE/FE 预算相加，alternative 配方在接单时选择一项预算。切换优先级不重新定价已接批次。`NEIntegratedWorkingStationCluster.getInputHatch()` 仍返回下层普通输入仓，`getSmartCoolingController()` 返回主机正后方的可选上层控制器。两者可以同时存在，调用方均须保留判空。

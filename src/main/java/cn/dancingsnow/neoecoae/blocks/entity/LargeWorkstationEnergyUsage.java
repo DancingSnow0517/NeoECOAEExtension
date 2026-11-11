@@ -26,4 +26,12 @@ final class LargeWorkstationEnergyUsage {
         }
         return total / 20;
     }
+
+    double peak(long now) {
+        double peak = 0;
+        for (int i = 0; i < ticks.length; i++) {
+            if (ticks[i] <= now && ticks[i] > now - 20) peak = Math.max(peak, paid[i]);
+        }
+        return peak;
+    }
 }

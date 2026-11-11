@@ -38,7 +38,9 @@ Compared with the single-block station, the large workstation:
 
 - accepts jobs, pulls materials and delivers products through the ME network, with no manual loading;
 - runs 256 parallel operations per batch normally, and up to 262,144 once heated;
-- can process recipes from Advanced AE, Extended AE, Crystal Science and Lightning Tech with the matching upgrade module.
+- can process recipes from Advanced AE, Extended AE, Crystal Science, and Lightning Tech with the matching upgrade module.
+
+The four upper corner casings accept AE2 connections and direct FE input on their side faces. The two middle positions (workstation controller and smart cooling controller) do not expose external connections. The communication interface still accepts patterns and ME connections. The left-side AE/FE button switches and displays power priority; the machine retains its original top textures.
 
 ## Building the structure
 
@@ -71,11 +73,11 @@ The structure has a front and back row on two layers. Drag the scenes below to r
     **Communication interface**: in the middle of the back row; connects to the ME network and holds patterns.
   </BlockAnnotation>
   <BlockAnnotation x="2" y="0" z="1" color="#66bb6a">
-    **Coolant input hatch**: on the right when viewed from behind; can be replaced by a smart cooling module.
+    **Coolant input hatch**: on the right when viewed from behind; keep its pipes connected after installing smart cooling.
   </BlockAnnotation>
 </GameScene>
 
-**Step 2: upper layer.** Place the Integrated Working Station **in the middle of the upper front row**, facing outward, with one casing on each side and three casings behind it.
+**Step 2: upper layer.** Place the Integrated Working Station **in the middle of the upper front row**, facing outward, with one casing on each side and three casings behind it. The middle rear casing, directly behind the controller, can be replaced with a smart cooling controller.
 
 <GameScene interactive={true} zoom="3">
   <Block id="neoecoae:large_integrated_working_station_casing" x="0" y="0" z="0"></Block>
@@ -221,7 +223,7 @@ Stronger coolant removes more heat, which can also push temperature below a tier
 
 Stronger coolant can lower temperature. At 80%, continuous overclocked processing adds **0.784 percentage points/s**; Cryotheum Solution removes 0.6, leaving a net gain of **0.184 percentage points/s**. Continuous processing with Cryotheum takes about **4 minutes 10 seconds** to go from 80% to 100%. Working for only half the ticks generates about **0.392 percentage points/s** of processing heat, with additional natural cooling during idle ticks, so the same coolant can lower temperature. Small batches processed every tick still use the continuous processing heat rate. Falling below the highest-tier requirement switches the existing task to 256-craft portions, while new batches follow the current temperature band.
 
-With manual control, aim to keep temperature within the tier you need and below 100%. For automatic regulation, use the smart cooling module below.
+With manual control, aim to keep temperature within the tier you need and below 100%. For automatic regulation, use the smart cooling controller below.
 
 Cooling does nothing, and consumes nothing, while coolant is missing or the output hatch is full. Keep the output hatch drained when using a coolant with byproducts.
 
@@ -239,9 +241,9 @@ Temperature then drops to 0% and the lock clears; hover the information button o
 
 Recovery must be **uninterrupted**. Disabling cooling, running out of coolant, a blocked output, breaking the structure or reloading resets the timer to 100%. Water, sodium, other coolants, toggling overclocking or simply waiting cannot clear the lock.
 
-## Smart cooling module
+## Smart cooling controller
 
-The <ItemLink id="neoecoae:large_integrated_working_station_smart_cooling_module" /> takes the place of the coolant input hatch, and the workstation switches to its cooling-module model:
+The <ItemLink id="neoecoae:large_integrated_working_station_smart_cooling_module" /> replaces the upper casing directly behind the workstation controller. The lower coolant input hatch stays in place, and the formed model shows the cooling controller at the rear:
 
 <GameScene interactive={true} zoom="3">
   <Block id="neoecoae:large_integrated_working_station_casing" p:formed="true" p:invisible="true" x="0" y="0" z="0"></Block>
@@ -252,17 +254,17 @@ The <ItemLink id="neoecoae:large_integrated_working_station_smart_cooling_module
   <Block id="neoecoae:large_integrated_working_station_casing" p:formed="true" p:invisible="true" x="2" y="1" z="0"></Block>
   <Block id="neoecoae:large_integrated_working_station_output_hatch" p:formed="true" x="0" y="0" z="1"></Block>
   <Block id="neoecoae:large_integrated_working_station_interface" p:formed="true" x="1" y="0" z="1"></Block>
-  <Block id="neoecoae:large_integrated_working_station_smart_cooling_module" p:formed="true" p:facing="south" x="2" y="0" z="1"></Block>
+  <Block id="neoecoae:large_integrated_working_station_input_hatch" p:formed="true" x="2" y="0" z="1"></Block>
   <Block id="neoecoae:large_integrated_working_station_casing" p:formed="true" p:invisible="true" x="0" y="1" z="1"></Block>
-  <Block id="neoecoae:large_integrated_working_station_casing" p:formed="true" p:invisible="true" x="1" y="1" z="1"></Block>
+  <Block id="neoecoae:large_integrated_working_station_smart_cooling_module" p:formed="true" p:facing="south" x="1" y="1" z="1"></Block>
   <Block id="neoecoae:large_integrated_working_station_casing" p:formed="true" p:invisible="true" x="2" y="1" z="1"></Block>
   <IsometricCamera yaw="45" pitch="30" />
-  <BlockAnnotation x="2" y="0" z="1" color="#66bb6a">
-    **Smart cooling module**: replaces the coolant input hatch; right-click it to set a target temperature.
+  <BlockAnnotation x="1" y="1" z="1" color="#66bb6a">
+    **Smart cooling controller**: directly behind the workstation controller; right-click to set the target temperature. The lower input hatch keeps its pipe connection.
   </BlockAnnotation>
 </GameScene>
 
-Replace the coolant input hatch in its original position with a **Large Integrated Working Station Smart Cooling Module**. Right-click to set a target temperature from 0 to 99% (default 75%) and mark coolant in the slot at the top right of the buffer card. Right-click with a fluid container or drag from JEI/EMI; left-click with an empty cursor to clear. Marking consumes no fluid. Both settings are saved. The module only extracts the marked fluid from the same ME network, without choosing or switching tiers automatically. Every **200 ticks (10 seconds)**, it replenishes the deficit up to its **16,384,000 mB** capacity without scanning network stock. Byproducts still go to the output hatch.
+Replace the upper rear middle casing with a **Large Integrated Working Station Smart Cooling Controller**, directly behind the workstation controller. Keep the coolant input hatch in its original position. Right-click to set a target temperature from 0 to 99% (default 75%) and mark coolant in the slot at the top right of the buffer card. Right-click with a fluid container or drag from JEI/EMI; left-click with an empty cursor to clear. Marking consumes no fluid. Both settings are saved. The module only extracts the marked fluid from the same ME network, without choosing or switching tiers automatically. Every **200 ticks (10 seconds)**, it replenishes the deficit up to its **16,384,000 mB** capacity without scanning network stock. Byproducts still go to the output hatch. The ordinary inlet feeds the controller buffer: while a coolant is marked it accepts that type, and with no mark it can run on coolant supplied directly by pipes.
 
 The panel has no player inventory. Hold a fluid container in your main hand before opening the module, then right-click the marker slot; the container is not consumed. A container already on the cursor takes precedence.
 
@@ -272,7 +274,7 @@ The module automatically heats, cools and holds its target, **including while id
 
 Each successfully regulated tick costs a fixed **100,000 AE**, including holding and idle operation. Module heating is included; recipe energy is separate, and the operating cost is charged at most once per tick. Coolant circulation consumes at least **300 mB/t**, three times an ordinary hatch, and increases as needed to remove processing heat. Byproducts scale with the actual fluid consumed. Missing power or coolant, or blocked coolant outputs, pauses active regulation without freezing natural temperature changes; regulation resumes when resources return. Existing stock remains usable while ME is offline; refills resume on the normal interval after reconnection. Disabling temperature mechanics disables target regulation and retains coolant mode at 300 mB per tick of actual overclocked progress.
 
-This mod provides no crafting recipe for the smart cooling module by default; obtain it in Creative or through a recipe added by your modpack.
+Craft the smart cooling controller in the Large Integrated Working Station using 12 ingredient types and 512 buckets of Cryotheum Solution. See JEI/EMI for the full ingredient list.
 
 ## Disabling temperature: coolant mode
 
@@ -285,16 +287,16 @@ The server option `largeWorkstationTemperatureEnabled` defaults to `true`. Set i
 | Sodium | 65,536 |
 | Cryotheum Solution | 262,144 |
 
-Both **Overclock** and **Active Cooling** must be on. An overclocked batch consumes 100 mB of coolant per processing tick that actually advances (300 mB with the smart cooling module); idle, unpowered and paused machines consume none. Insufficient coolant, a coolant tier below the batch's requirement or blocked byproducts pause the batch without losing materials or progress. Higher-tier coolant can keep lower-tier batches running.
+Both **Overclock** and **Active Cooling** must be on. An overclocked batch consumes 100 mB of coolant per processing tick that actually advances (300 mB with the smart cooling controller); idle, unpowered and paused machines consume none. Insufficient coolant, a coolant tier below the batch's requirement or blocked byproducts pause the batch without losing materials or progress. Higher-tier coolant can keep lower-tier batches running.
 
 Switching modes never discards accepted batches. Saved temperature and overheat state are kept while disabled and checked again when temperature mode returns, so an overheated machine still needs Cryotheum recovery.
 
 ## Processing time and energy
 
 - **Processing time.** Newly accepted batches currently process in **one tick**. Parallelism determines simultaneous operations, and total per-craft costs stay unchanged. JEI / EMI retain the converted source-recipe duration as a reference rather than the workstation's actual runtime; the source duration's 200-tick cap and integration-specific timing references do not limit new batches. Multiplied patterns scale materials and costs proportionally; new batches still process in one tick. Waiting for output space does not charge processing energy; energy or cooling shortages preserve progress. Previously accepted tasks retain their recorded duration, costs and paid progress without being repriced during processing.
-- **FE recipes.** Lightning Tech and other FE-priced routes keep their original FE cost. With Applied Flux installed the workstation draws FE from ME storage; any shortfall, or a missing Applied Flux, is paid with equivalent AE using AE2's current conversion settings.
-- **Advanced AE Reaction Chamber** routes can pay with AE or FE, preferring AE when accepted; they pause only when neither can pay.
-- Preheating and smart regulation always use AE. Energy never substitutes for lightning or other additional resources.
+- **Power priority.** The left-side AE/FE button switches between AE first with FE fallback and FE first with AE fallback. AE comes from the ME grid; FE enters directly through the four top sockets, or from ME storage with Applied Flux installed. Shortfalls use AE2's current conversion settings. Switching never changes accepted recipe prices or paid progress.
+- **Advanced AE Reaction Chamber** routes use AE or FE according to the selected priority. Recipes with two independent energy costs still pay the sum of both.
+- Preheating and smart regulation follow the same priority. Energy never substitutes for lightning or other additional resources.
 
 JEI / EMI list energy, processing time and any additional requirements below each recipe; FE recipes show FE when Applied Flux is installed and equivalent AE otherwise.
 
@@ -306,6 +308,6 @@ JEI / EMI list energy, processing time and any additional requirements below eac
 | Overclocking is on but capacity is still 256 | Temperature is below 20%; let recipes run or right-click Overclock to preheat |
 | A task only uses 256 after cooling down | Temporary portion mode; it recovers once overclocked and back at its original threshold |
 | Temperature keeps rising with cooling on | Heating exceeds cooling; use a stronger coolant or check the coolant level and output hatch |
-| With Cryotheum, temperature keeps falling and drops a tier | Cooling exceeds heating; use a weaker coolant or the smart cooling module |
+| With Cryotheum, temperature keeps falling and drops a tier | Cooling exceeds heating; use a weaker coolant or the smart cooling controller |
 | Compatible recipe patterns are unavailable | Check the installed upgrade module and that the request meets the route's minimum batch |
 | Overheat recovery doesn't advance or resets | Supply real Cryotheum Solution with Active Cooling on and a clear output hatch, without interruptions or reloads |
