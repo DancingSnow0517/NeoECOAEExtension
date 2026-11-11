@@ -185,6 +185,13 @@ file="META-INF/accesstransformer.cfg"
     side="BOTH"
 
 [[dependencies.${mod_id}]]
+    modId="rep_ae2_bridge"
+    type="optional"
+    versionRange="[3.2.0.0.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
     modId="bigger_ae2"
     type="optional"
     versionRange="[21.2.3,)"

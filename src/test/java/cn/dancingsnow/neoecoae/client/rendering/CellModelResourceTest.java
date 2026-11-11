@@ -107,7 +107,7 @@ class CellModelResourceTest {
         for (String level : List.of("l4", "l6", "l9")) {
             for (String family : List.of("item", "fluid", "fe", "chemical", "mana", "source", "data",
                 "air", "soul", "experience", "lightning", "omni", "complex_omni", "quantum_omni",
-                "neuclear_waste", "matter", "radioactive_chemical", "su")) {
+                "neuclear_waste", "matter", "rep_matter", "radioactive_chemical", "su")) {
                 requireModel("block/cell/storage_cell_" + level + "_" + family);
             }
         }
@@ -156,6 +156,7 @@ class CellModelResourceTest {
         for (String size : List.of("16m", "64m", "256m")) {
             assertHousing(models, "eco_stress_cell_" + size, "applied_create/andesite_cell_housing");
             assertHousing(models, "eco_matter_cell_" + size, "apprep/matter_cell_housing");
+            assertHousing(models, "eco_rep_matter_cell_" + size, "rep_ae2_bridge/rep_matter_cell_housing");
             assertHousing(models, "eco_radioactive_chemical_cell_" + size,
                 "megacells/radioactive_chemical_cell_housing");
             for (String family : List.of("omni", "complex_omni", "quantum_omni")) {

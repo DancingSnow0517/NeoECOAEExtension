@@ -211,6 +211,11 @@ public class NELangGenerator {
         provider.add("item.neoecoae.eco_radioactive_chemical_cell_256m", "ECO - LE9 Storage Matrix (Radioactive Chemical)");
         provider.add("item.neoecoae.mega_matter_cell_housing", "ECO MEGA Storage Matrix Housing (Matter)");
         provider.add("item.neoecoae.eco_mega_matter_cell_4g", "ECO - LE9 Storage Matrix (Mega Matter)");
+        provider.add("cell_type.neoecoae.rep_matter", "Replication Matter");
+        provider.add("item.neoecoae.eco_rep_matter_cell_housing", "ECO Storage Matrix Housing (Replication Matter)");
+        provider.add("item.neoecoae.eco_rep_matter_cell_16m", "ECO - LE4 Storage Matrix (Replication Matter)");
+        provider.add("item.neoecoae.eco_rep_matter_cell_64m", "ECO - LE6 Storage Matrix (Replication Matter)");
+        provider.add("item.neoecoae.eco_rep_matter_cell_256m", "ECO - LE9 Storage Matrix (Replication Matter)");
         provider.add("cell_type.neoecoae.complex_omni", "Complex Omni");
         provider.add("cell_type.neoecoae.lightning", "Lightning");
         provider.add("cell_type.neoecoae.data", "Data");
