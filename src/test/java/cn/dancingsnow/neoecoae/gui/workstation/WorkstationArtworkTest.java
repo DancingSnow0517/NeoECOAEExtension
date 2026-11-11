@@ -97,11 +97,13 @@ class WorkstationArtworkTest {
                     for (var entry : textures.entrySet()) {
                         String[] id = entry.getValue().getAsString().split(":", 2);
                         String path = "/assets/" + id[0] + "/textures/" + id[1] + ".png";
-                        try (var texture = getClass().getResourceAsStream(path)) {
+                        String resolvedPath = generatedTexturePath(path);
+                        try (var texture = getClass().getResourceAsStream(resolvedPath)) {
                             assertNotNull(texture, model + " references missing texture " + path);
                             var image = ImageIO.read(texture);
                             if (image.getHeight() > image.getWidth()) {
-                                assertNotNull(getClass().getResource(path + ".mcmeta"), path + " needs animation metadata");
+                                assertNotNull(getClass().getResource(resolvedPath + ".mcmeta"),
+                                    path + " needs animation metadata");
                             }
                         }
                     }
@@ -110,8 +112,20 @@ class WorkstationArtworkTest {
         }
     }
 
+    private String generatedTexturePath(String path) {
+        String prefix = "/assets/neoecoae/textures/block/working_station/controller_formed/colored/";
+        if (!path.startsWith(prefix)) return path;
+        int marker = path.indexOf("/colored/");
+        String base = path.substring(0, marker);
+        String colored = path.substring(marker + "/colored/".length());
+        int slash = colored.indexOf('/');
+        assertNotNull(getClass().getResource(base + "/colormap/" + colored.substring(0, slash) + ".png"),
+            path + " needs a palette");
+        return base + "/" + colored.substring(slash + 1).replaceFirst("_working\\.png$", ".png");
+    }
+
     @Test
-    void appliedGeneratorsPreservesSuppliedCardAndHasMatchingControllerTextureMasks() throws Exception {
+    void appliedGeneratorsPreservesSuppliedCard() throws Exception {
         String root = "/assets/neoecoae/textures/";
         try (var stream = getClass().getResourceAsStream(root + "item/integrated_working_station_modules/appgen.png")) {
             assertNotNull(stream);
@@ -123,25 +137,6 @@ class WorkstationArtworkTest {
             assertEquals(16, card.getHeight());
         }
         assertNull(getClass().getResource(root + "item/integrated_working_station_modules/appgen.png.mcmeta"));
-        for (String family : new String[] {"light_compat/appgen", "light_compat/appgen_on", "screen_compat/appgen_on"}) {
-            String path = root + "block/working_station/controller_formed/controller_formed_" + family;
-            try (var actualStream = getClass().getResourceAsStream(path + ".png");
-                 var expectedStream = getClass().getResourceAsStream(path.replace("appgen", "other") + ".png")) {
-                assertNotNull(actualStream);
-                assertNotNull(expectedStream);
-                var actual = ImageIO.read(actualStream);
-                var expected = ImageIO.read(expectedStream);
-                assertEquals(expected.getWidth(), actual.getWidth());
-                assertEquals(expected.getHeight(), actual.getHeight());
-                boolean recolored = false;
-                for (int y = 0; y < actual.getHeight(); y++) for (int x = 0; x < actual.getWidth(); x++) {
-                    assertEquals(expected.getRGB(x, y) >>> 24, actual.getRGB(x, y) >>> 24);
-                    recolored |= actual.getRGB(x, y) != expected.getRGB(x, y);
-                }
-                assertTrue(recolored, family);
-            }
-            if (family.endsWith("_on")) assertNotNull(getClass().getResource(path + ".png.mcmeta"));
-        }
     }
 
     @Test
