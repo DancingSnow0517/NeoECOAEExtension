@@ -12,7 +12,6 @@ import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.crafting.planner.component.ComponentDependency;
 import cn.dancingsnow.neoecoae.crafting.planner.component.CycleComponent;
 import cn.dancingsnow.neoecoae.crafting.planner.graph.CraftingGraphEdge;
-import cn.dancingsnow.neoecoae.crafting.planner.growth.SinglePatternGrowthCycleSolver;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import java.math.BigInteger;
 import java.time.Duration;
@@ -131,7 +130,7 @@ class CycleResourceRegressionTest {
         result.patternTimes().values().forEach(count -> assertEquals(10L, count));
     }
 
-    @Test void closedFormGrowthRunsThroughBothEntrypointsAndBooksFiniteFuel() throws Exception {
+    @Test void closedFormGrowthBooksFiniteFuel() throws Exception {
         AEKey a = mock(AEKey.class), fuel = mock(AEKey.class);
         var grow = pattern(0, Map.of(a, 9L, fuel, 2L), Map.of(a, 10L), true);
         var edge = new CraftingGraphEdge(a, a, grow, grow.inputs().getFirst());
@@ -139,20 +138,16 @@ class CycleResourceRegressionTest {
         long target = 1_000_000_000_009L;
         var request = new CycleSolveRequest(cycle, Map.of(a, target), Map.of(a, 9L, fuel, 2_000_000_000_000L),
             List.of(), new CycleSolveRequest.PlannerOptions());
-        var wrapper = new SinglePatternGrowthCycleSolver((ignored, cancel) -> {
-            fail("The closed form must be used before the fallback"); return null;
-        });
-        for (CycleSolver solver : List.of(new BoundedCycleSolver(), wrapper)) {
-            var result = solver.solve(request, ECOCancellation.NONE);
-            assertEquals(CycleSolveStatus.SUCCESS, result.status(), result.summary());
-            assertEquals(1, result.executionPlan().size());
-            assertEquals(1_000_000_000_000L, result.patternTimes().get(grow.details()));
-            assertEquals(2_000_000_000_000L, result.requiredSeed().get(fuel));
-            assertTrue(result.externalDemand().isEmpty());
-            assertTrue(result.diagnostics().stream().anyMatch(d -> d.code() == CycleSolveDiagnostic.Code.SINGLE_PATTERN_NET_GROWTH));
-        }
+        var solver = new BoundedCycleSolver();
+        var result = solver.solve(request, ECOCancellation.NONE);
+        assertEquals(CycleSolveStatus.SUCCESS, result.status(), result.summary());
+        assertEquals(1, result.executionPlan().size());
+        assertEquals(1_000_000_000_000L, result.patternTimes().get(grow.details()));
+        assertEquals(2_000_000_000_000L, result.requiredSeed().get(fuel));
+        assertTrue(result.externalDemand().isEmpty());
+        assertTrue(result.diagnostics().stream().anyMatch(d -> d.code() == CycleSolveDiagnostic.Code.SINGLE_PATTERN_NET_GROWTH));
         var shortFuel = new CycleSolveRequest(cycle, Map.of(a, target), Map.of(a, 9L, fuel, 2L), List.of(), null);
-        var missing = wrapper.solve(shortFuel, ECOCancellation.NONE);
+        var missing = solver.solve(shortFuel, ECOCancellation.NONE);
         assertEquals(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, missing.status());
         assertEquals(1_999_999_999_998L, missing.seedShortfall().get(fuel));
         assertTrue(missing.externalDemand().isEmpty());
@@ -166,7 +161,7 @@ class CycleResourceRegressionTest {
         var cycle = new CycleComponent(0, List.of(a), List.of(grow), List.of(edge), List.of(), boundary);
         BigInteger target = BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.TEN);
         var request = new CycleSolveRequest(cycle, Map.of(), Map.of(a, PlannerAmount.of(target)), Map.of(a, 9L), boundary, null);
-        var result = SinglePatternGrowthCycleSolver.overBoundedSolver().solve(request, ECOCancellation.NONE);
+        var result = new BoundedCycleSolver().solve(request, ECOCancellation.NONE);
         assertEquals(CycleSolveStatus.SUCCESS, result.status());
         assertFalse(result.exactExternalDemand().isEmpty());
         assertEquals(target.subtract(BigInteger.valueOf(9)), result.exactPatternTimes().get(grow.details()).toBigInteger());

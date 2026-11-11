@@ -128,14 +128,8 @@ public final class ECOPlanningResult {
 
     public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,
             List<CycleDiagnostic> cycles, List<ComponentPlanningResult> components,
-            List<Integer> executionComponentOrder, long calculationNanos, UUID planningId) {
-        this(status, plan, trace, cycles, components, executionComponentOrder, calculationNanos, planningId, null);
-    }
-
-    public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,
-            List<CycleDiagnostic> cycles, List<ComponentPlanningResult> components,
             List<Integer> executionComponentOrder, long calculationNanos) {
-        this(status, plan, trace, cycles, components, executionComponentOrder, calculationNanos, UUID.randomUUID());
+        this(status, plan, trace, cycles, components, executionComponentOrder, calculationNanos, UUID.randomUUID(), null);
     }
 
     public ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,

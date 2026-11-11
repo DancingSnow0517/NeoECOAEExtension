@@ -127,24 +127,7 @@ public final class AcyclicCraftingSolver {
 
     public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, KeyCounter inventory, long amount,
             ECOCancellation cancellation) throws InterruptedException {
-        return solve(network, route, inventory, amount, Map.of(), cancellation);
-    }
-
-    public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, KeyCounter inventory, long amount,
-            Map<AEKey, Integer> initialChoices, ECOCancellation cancellation) throws InterruptedException {
-        return solve(network, route, inventory, amount, initialChoices, Set.of(), cancellation);
-    }
-
-    /**
-     * Patterns owned by a cyclic component are selected to preserve route identity, but their arithmetic is
-     * deferred wholesale to that component. This prevents one self-growing transition from being planned once
-     * for an acyclic byproduct and a second time for its feedback member.
-     */
-    public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, KeyCounter inventory, long amount,
-            Map<AEKey, Integer> initialChoices, Set<IPatternDetails> deferredPatterns,
-            ECOCancellation cancellation) throws InterruptedException {
-        return solve(network, route, inventory, amount, initialChoices, deferredPatterns,
-            false, cancellation);
+        return solve(network, route, inventory, amount, Map.of(), Set.of(), false, cancellation);
     }
 
     public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, KeyCounter inventory, long amount,
@@ -154,6 +137,10 @@ public final class AcyclicCraftingSolver {
             deferredPatterns, ignorePatternSubstitutions, cancellation);
     }
 
+    /**
+     * Patterns owned by a cyclic component retain route identity, but their arithmetic is deferred to that
+     * component so feedback and acyclic byproducts cannot charge the same firing twice.
+     */
     public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, PlannerInventorySnapshot inventory,
             long amount, Map<AEKey, Integer> initialChoices, Set<IPatternDetails> deferredPatterns,
             boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {

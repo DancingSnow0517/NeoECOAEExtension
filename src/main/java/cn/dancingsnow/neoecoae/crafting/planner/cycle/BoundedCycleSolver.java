@@ -95,23 +95,6 @@ public final class BoundedCycleSolver implements CycleSolver {
             throw new IllegalArgumentException("Heuristic limits must be positive");
     }
 
-    /** Returns null for other shapes. Never trusts the calculator's legacy stock/import projections. */
-    public static @Nullable CycleSolveResult solveGrowth(CycleSolveRequest request,
-            SinglePatternGrowthCalculator calculator, ECOCancellation cancellation) throws InterruptedException {
-        if (!(cancellation instanceof ECOPlanningBudget)) cancellation = new ECOPlanningBudget(cancellation);
-        cancellation.checkpoint();
-        SinglePatternGrowthResult growth = calculator.evaluate(request);
-        if (growth.exactFirings().signum() <= 0) return null;
-        try {
-            Object prepared = prepare(request, request.options().limits(), cancellation, new CycleMemoryBudget());
-            if (prepared instanceof CycleSolveResult rejected) return rejected;
-            return new BoundedCycleSolver().growthWitness((Model) prepared, growth);
-        } catch (CycleMemoryBudget.Exhausted exhausted) {
-            return CycleSolveResult.failure(CycleSolveStatus.UNKNOWN_BUDGET,
-                CycleSolveDiagnostic.Code.MEMORY_BUDGET_EXHAUSTED, exhausted.getMessage());
-        }
-    }
-
     private @Nullable CycleSolveResult growthWitness(Model model, SinglePatternGrowthResult growth) {
         if (model.transitionCount() != 1 || !supportsRecipeCircuits(model)
                 || growth.exactFirings().signum() <= 0) return null;
