@@ -323,6 +323,7 @@ final class ECOStorageHostStatistics {
             case "mega_mana" -> "mana";
             case "mega_source", "bigger_ae2_source" -> "source";
             case "mega_matter" -> "matter";
+            case "mega_rep_matter" -> "rep_matter";
             case "mega_stress" -> "stress";
             case "mega_data" -> "data";
             default -> null;

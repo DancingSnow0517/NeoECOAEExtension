@@ -112,6 +112,9 @@ public final class MegaCellsIntegration {
         if (ModList.get().isLoaded("apprep")) {
             addExternalCells("matter", NEMegaExternalItems.registerMatter());
         }
+        if (ModList.get().isLoaded("rep_ae2_bridge")) {
+            addExternalCells("rep_matter", NEMegaExternalItems.registerRepMatter());
+        }
         if (ModList.get().isLoaded("appliedcreate")) {
             addExternalCells("stress", NEMegaExternalItems.registerStress());
         }

@@ -112,7 +112,7 @@ class CellModelResourceTest {
             }
         }
         for (String family : List.of("item", "fluid", "fe", "chemical", "air", "experience", "soul",
-            "mana", "source", "matter", "data")) {
+            "mana", "source", "matter", "rep_matter", "data")) {
             requireModel("block/cell/storage_cell_mega_l9_" + family);
         }
         requireModel("block/cell/storage_cell_l9_mega_su");
@@ -166,6 +166,7 @@ class CellModelResourceTest {
         }
         assertHousing(models, "eco_mega_stress_cell_4g", "applied_create/brass_cell_housing");
         assertHousing(models, "eco_mega_matter_cell_4g", "megacells/mega_matter_cell_housing");
+        assertHousing(models, "eco_mega_rep_matter_cell_4g", "megacells/mega_rep_matter_cell_housing");
         assertHousing(models, "eco_mega_data_cell_4g", "megacells/mega_data_cell_housing");
     }
 

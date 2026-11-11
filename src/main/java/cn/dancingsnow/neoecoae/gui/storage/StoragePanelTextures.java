@@ -154,7 +154,7 @@ final class StoragePanelTextures {
             case "neoecoae:radioactive_chemical" -> RADIOACTIVE_SWATCH;
             case "neoecoae:stress", "neoecoae:mega_stress", "appliedcreate:stress" -> STRESS_SWATCH;
             case "neoecoae:matter", "neoecoae:mega_matter", "apprep:m",
-                "neoecoae:rep_matter", "rep_ae2_bridge:matter" -> MATTER_SWATCH;
+                "neoecoae:rep_matter", "neoecoae:mega_rep_matter", "rep_ae2_bridge:matter" -> MATTER_SWATCH;
             default -> FALLBACK_SWATCH;
         };
     }
