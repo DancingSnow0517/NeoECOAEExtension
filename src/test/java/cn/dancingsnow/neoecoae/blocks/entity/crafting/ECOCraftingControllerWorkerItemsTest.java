@@ -5,6 +5,7 @@ import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOExactVirtualLedger;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
@@ -43,12 +44,12 @@ class ECOCraftingControllerWorkerItemsTest {
         when(active.getDisplayedOutputKey()).thenReturn(AEItemKey.of(Items.DIAMOND));
         when(later.getDisplayedOutputKey()).thenReturn(AEItemKey.of(Items.EMERALD));
         for (var thread : List.of(idle, active, later, sameItem)) {
-            lenient().when(thread.getDisplayedItemAmount(any())).thenAnswer(call -> {
+            lenient().when(thread.getDisplayedItemQuantity(any())).thenAnswer(call -> {
                 var key = call.getArgument(0);
-                if (thread == active && key.equals(AEItemKey.of(Items.DIAMOND))) return BigInteger.valueOf(512);
-                if (thread == sameItem && key.equals(AEItemKey.of(Items.DIAMOND))) return BigInteger.valueOf(32);
-                if (thread == later && key.equals(AEItemKey.of(Items.EMERALD))) return BigInteger.valueOf(2000);
-                return BigInteger.ZERO;
+                if (thread == active && key.equals(AEItemKey.of(Items.DIAMOND))) return PlannerAmount.of(512);
+                if (thread == sameItem && key.equals(AEItemKey.of(Items.DIAMOND))) return PlannerAmount.of(32);
+                if (thread == later && key.equals(AEItemKey.of(Items.EMERALD))) return PlannerAmount.of(2000);
+                return PlannerAmount.ZERO;
             });
         }
         when(worker.getCraftingDisplayItem()).thenCallRealMethod();
@@ -143,6 +144,7 @@ class ECOCraftingControllerWorkerItemsTest {
         setField(thread, "batchOutputItems", List.of(new GenericStack(diamond, 512),
             new GenericStack(AEFluidKey.of(Fluids.WATER), 1000), new GenericStack(AEItemKey.of(Items.EMERALD), 2000)));
         when(thread.getDisplayedItemAmount(any())).thenCallRealMethod();
+        when(thread.getDisplayedItemQuantity(any())).thenCallRealMethod();
         assertEquals(BigInteger.valueOf(544), thread.getDisplayedItemAmount(diamond));
 
         var crafts = BigInteger.TEN.pow(30);

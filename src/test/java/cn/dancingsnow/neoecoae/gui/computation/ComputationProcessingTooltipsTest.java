@@ -90,11 +90,10 @@ class ComputationProcessingTooltipsTest {
         }
     }
 
-    @Test void summaryOnlyAndRefreshingSnapshotsExplainWhyDetailsAreAbsent() {
+    @Test void summaryOnlySnapshotsExplainMissingDetailsWithoutShowingEmptyRefreshNoise() {
         var progress = ECOProcessingProgress.summarize(List.of(machine(0, 100, State.RUNNING, Component.empty())));
         assertTrue(ComputationProcessingTooltips.rows(progress.page(-1)).toString().contains("processing.loading_details"));
-        assertTrue(ComputationProcessingTooltips.rows(ECOProcessingProgress.EMPTY.refreshing(true))
-            .toString().contains("processing.refreshing"));
+        assertTrue(ComputationProcessingTooltips.rows(ECOProcessingProgress.EMPTY.refreshing(true)).isEmpty());
     }
 
     @Test void routineJobAssociationIsHiddenWhileRealReasonsAndSharedMachineWarningsRemain() {

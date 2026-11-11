@@ -145,7 +145,7 @@ class ComputationAe2LtStatusTest {
             assertEquals("returning", ComputationCpuEntry.sample(cpu, 1).status());
             upstream.when(() -> BigCraftingStatus.create(cpu)).thenReturn(CraftingStatus.EMPTY);
             when(cpu.isBusy()).thenReturn(false);
-            fixture.tick.addAndGet(3);
+            fixture.tick.addAndGet(10);
             var finished = fixture.snapshot();
             assertEquals(0, finished.getInt("itemTotal"));
             assertEquals(0, finished.getInt("taskTotal"));
@@ -246,7 +246,7 @@ class ComputationAe2LtStatusTest {
                 cpuReads++;
                 return this.cpus;
             },
-                ignored -> {}, ICraftingCPU::cancelJob, null);
+                ignored -> {}, ICraftingCPU::cancelJob, () -> {});
             var type = Class.forName(ComputationCpuStatusPanel.class.getName() + "$ServerState");
             var constructor = type.getDeclaredConstructor(ComputationCpuStatusPanel.Source.class, CpuSelectionState.Identities.class);
             constructor.setAccessible(true);
