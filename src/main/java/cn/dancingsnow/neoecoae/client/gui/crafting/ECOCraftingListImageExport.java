@@ -43,6 +43,7 @@ final class ECOCraftingListImageExport {
     private static final int MAX_STRIP_HEIGHT = 1024;
     // Render directly at higher resolution to preserve detail in the table's small text and icons.
     private static final int SCALE = 4;
+    private static final long MAX_IMAGE_PIXELS = 64L * 1024 * 1024;
     private static final int LINE_HEIGHT = 11;
 
     record Entry(AEKey key, List<Component> description, int overlay) {}
@@ -67,6 +68,11 @@ final class ECOCraftingListImageExport {
             int rowsPerPanel = (rows + panels - 1) / panels;
             int entriesPerPanel = Math.multiplyExact(rowsPerPanel, COLUMNS);
             Layout layout = layout(entriesPerPanel, headerHeight, maxHeight);
+            long imageWidth = WIDTH + (long) (panels - 1) * PANEL_STRIDE;
+            if (imageWidth * SCALE * layout.height() * SCALE > MAX_IMAGE_PIXELS) {
+                throw new IllegalArgumentException(Component.translatable(
+                    "gui.neoecoae.crafting_report.export_too_large").getString());
+            }
             Path directory = client.gameDirectory.toPath().resolve("screenshots");
             Files.createDirectories(directory);
             Path file = directory.resolve("neoecoae-plan-"
@@ -122,13 +128,13 @@ final class ECOCraftingListImageExport {
         Matrix4f projection = new Matrix4f(RenderSystem.getProjectionMatrix());
         VertexSorting sorting = RenderSystem.getVertexSorting();
         var modelView = RenderSystem.getModelViewStack();
-        modelView.pushPose();
+        modelView.pushMatrix();
         GuiGraphics graphics = new GuiGraphics(client, client.renderBuffers().bufferSource());
         graphics.flush();
         int imageWidth = Math.addExact(WIDTH, Math.multiplyExact(panels - 1, PANEL_STRIDE));
         try (NativeImage image = new NativeImage(Math.multiplyExact(imageWidth, SCALE),
                 Math.multiplyExact(layout.height(), SCALE), false)) {
-            modelView.setIdentity();
+            modelView.identity();
             modelView.translate(0, 0, -2000);
             RenderSystem.applyModelViewMatrix();
             for (int panel = 0; panel < panels; panel++) {
@@ -152,7 +158,7 @@ final class ECOCraftingListImageExport {
         } finally {
             client.getMainRenderTarget().bindWrite(true);
             RenderSystem.setProjectionMatrix(projection, sorting);
-            modelView.popPose();
+            modelView.popMatrix();
             RenderSystem.applyModelViewMatrix();
             RenderSystem.setShaderColor(1, 1, 1, 1);
         }

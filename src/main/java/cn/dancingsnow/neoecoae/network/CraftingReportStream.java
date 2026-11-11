@@ -59,7 +59,7 @@ public final class CraftingReportStream {
         INCOMING.remove(menu);
         // Composite wrapping avoids a second full-size copy of a large report.
         var raw = new RegistryFriendlyByteBuf(Unpooled.wrappedBuffer(incoming.pages.size(),
-            incoming.pages.toArray(byte[][]::new)), menu.registryAccess());
+            incoming.pages.toArray(byte[][]::new)), buf.registryAccess());
         try {
             var graph = CraftingGraphSnapshot.readUncompressed(raw);
             var cycles = new ECOCycleItemList(raw);

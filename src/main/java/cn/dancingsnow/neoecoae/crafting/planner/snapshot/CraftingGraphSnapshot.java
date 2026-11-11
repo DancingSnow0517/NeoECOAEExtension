@@ -97,7 +97,7 @@ public record CraftingGraphSnapshot(
     }
 
     /** Each page is compressed independently and fits the existing queued menu transport. */
-    public void writeToPages(net.minecraft.core.HolderLookup.Provider registries, PacketWritable trailer, Consumer<Page> output) {
+    public void writeToPages(net.minecraft.core.RegistryAccess registries, PacketWritable trailer, Consumer<Page> output) {
         var raw = new RegistryFriendlyByteBuf(Unpooled.buffer(256, MAX_UNCOMPRESSED_BYTES), registries);
         try {
             writeRaw(raw);

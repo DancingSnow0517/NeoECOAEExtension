@@ -47,7 +47,22 @@ class CycleStripLayoutTest {
             List.of());
         var snapshot = new CraftingGraphSnapshot(CRYSTAL, materials, List.of(grow, makeSeed), List.of(),
             List.of(cycle), List.of(), new CraftingGraphSnapshot.Summary("OK", 5, 2, 0, 1, 0));
-        return ClientCraftingGraph.cycle(snapshot, 7, false);
+        // Keep the public legacy layout independent of the new recursive snapshot projection.
+        var nodes = new java.util.LinkedHashMap<Integer, ClientCraftingGraph.Node>();
+        for (var material : materials) nodes.put(material.nodeId(), new ClientCraftingGraph.Node(
+            material.nodeId(), ClientCraftingGraph.Kind.MATERIAL, material.key().getDisplayName().getString(),
+            material.key(), material, null, cycle));
+        var links = new ArrayList<ClientCraftingGraph.Link>();
+        for (var pattern : List.of(grow, makeSeed)) {
+            nodes.put(pattern.patternNodeId(), new ClientCraftingGraph.Node(pattern.patternNodeId(),
+                ClientCraftingGraph.Kind.PATTERN, pattern.displayIdentity(), null, null, pattern, cycle));
+            for (var input : pattern.inputs()) links.add(new ClientCraftingGraph.Link(input.materialNodeId(),
+                pattern.patternNodeId(), input.amount(), CraftingGraphSnapshot.EdgeKind.PATTERN_INPUT, true));
+            for (var output : pattern.outputs()) links.add(new ClientCraftingGraph.Link(pattern.patternNodeId(),
+                output.materialNodeId(), output.amount(), CraftingGraphSnapshot.EdgeKind.PATTERN_OUTPUT, true));
+        }
+        return ClientCraftingGraph.recursive(snapshot, 7, CRYSTAL, null, nodes, links,
+            java.util.Set.of(DUST, WATER), java.util.Set.of(BYPRODUCT));
     }
 
     @Test

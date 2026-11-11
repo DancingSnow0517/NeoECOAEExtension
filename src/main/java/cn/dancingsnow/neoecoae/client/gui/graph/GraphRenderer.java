@@ -458,7 +458,7 @@ public final class GraphRenderer implements AutoCloseable {
             key = graph.source().nodes().stream().filter(node -> node.nodeId() == link.materialNodeId())
                 .map(CraftingGraphSnapshot.MaterialNode::key).findFirst().orElse(null);
         }
-        if (key == null) return "×" + compactAmount(link.plannerAmount().toString());
+        if (key == null) return "×" + HostText.ae2Amount(link.plannerAmount().toBigInteger());
         return "×" + formatMagnitude(key, link.plannerAmount());
     }
 
