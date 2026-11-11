@@ -336,9 +336,6 @@ Build definitions resolve through the registry, `IECOTier.getBuildDefinition(kin
 Roles provide classification/ordering, not execution backends; cores and drives still require compatible entities/calculators. `IECOComputationCellItem` reports nonnegative bytes per actual stack; adapt external Items without caching dynamic capacity by Item. `IECOTier.supportsFeature(ECOFeature)` declares eligibility without bypassing physical, material or recovery requirements.
 
 `ECOStorageChannelDisplays.Display` aliases merge display channels, never distinct AEKey inventories. Names, colors and texture IDs travel in server snapshots; statistics stay exact. Icons/bars use separate 8×8 images with bar borders.
-
-[AddonApiExample.java](../src/test/java/cn/dancingsnow/neoecoae/api/extension/AddonApiExample.java) provides a compilable registration skeleton; replace IDs, blocks, entities and recipe adapters with registered addon objects.
-
 ### Workstation recipes and modules
 
 `ECOLargeIntegratedWorkingStationBlockEntity.getCluster()` returns `null` when the structure is dismantled or disconnected; addon callers must retain their null checks. The legacy public methods `getSelectedTierText/getTemperatureText/getEnergyText/getRecipeText/returnStoredInputs` are deprecated since 21.2.15, with their signatures and behavior retained and no removal planned. New panels should use the corresponding data from `getCoolingTierText/getTemperature/getAECurrentPower/getAEMaxPower/getTask`. There is no general replacement for `returnStoredInputs`: legacy callers must run it on the owning server thread and retain any resources the network rejects for a later recovery attempt.

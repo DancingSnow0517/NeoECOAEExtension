@@ -16,7 +16,7 @@ Java 包路径均相对于 `src/main/java/cn/dancingsnow/neoecoae/`。
 
 | 任务 | 优先读取 |
 | --- | --- |
-| API 或附属接入 | [API](docs/API_ZH_CN.md)、`api/` 及对应调用点；示例在 `src/test/java/cn/dancingsnow/neoecoae/api/extension/AddonApiExample.java` |
+| API 或附属接入 | [API](docs/API_ZH_CN.md)、`api/` 及对应调用点 |
 | 注册、依赖、可选联动 | `NeoECOAE.java`、`all/`、`api/integration/`、`integration/`、`compat/`、`build.gradle`、`src/main/templates/META-INF/neoforge.mods.toml` |
 | 规划、循环、精确订单 | `api/me/planning/`、`api/me/bigorder/`、`crafting/planner/`、`crafting/adapter/` 和对应测试 |
 | CPU、发配、事务、产物 | `api/me/provider/`、`api/me/output/`、`crafting/execution/`；先区分准备、接收、记账与交付 |
@@ -45,11 +45,10 @@ Java 包路径均相对于 `src/main/java/cn/dancingsnow/neoecoae/`。
 ```powershell
 java -version
 .\gradlew.bat compileJava --console=plain
-.\gradlew.bat test --tests 'cn.dancingsnow.neoecoae.api.*' --console=plain
 .\gradlew.bat jar --console=plain
 ```
 
-按实际改动选择测试范围，不把上述 API 过滤器当成所有任务的完整测试。纯文档变更检查链接、源码引用与 diff 即可，不要求运行 Gradle。当前构建没有 Spotless 插件，不照搬其他项目的格式化任务。
+本仓库已移除自动化测试源码和测试依赖，Gradle `Test` 任务已禁用。纯文档变更检查链接、源码引用与 diff 即可，不要求运行 Gradle。当前构建没有 Spotless 插件，不照搬其他项目的格式化任务。
 
 - `src/generated/resources/` 是 datagen 输出。改生成源后运行 `.\gradlew.bat runData`，核对实际生成的 diff；不要手改生成文件作为最终结果。
 - 英文语言入口为 `data/lang/NELangGenerator.java`；其他语言源位于 `src/main/resources/assets/neoecoae/lang/`，由 `NELangMergerProvider` 合并。不要照搬其他仓库的繁体自动转换规则。

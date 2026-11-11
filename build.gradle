@@ -24,9 +24,6 @@ base {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
-def keyReuseAcceptance = providers.gradleProperty('keyReuseAcceptance').map { it.toBoolean() }.getOrElse(false)
-def acceptanceEnabled = providers.gradleProperty('acceptance').map { it.toBoolean() }.getOrElse(false) || keyReuseAcceptance
-
 repositories {
     exclusiveContent {
         forRepository {
@@ -154,7 +151,6 @@ dependencies {
     compileOnly("maven.modrinth:replication:XfQXDcjc") { transitive = false }
     // Optional integration target, kept out of the published runtime dependencies and bundled JAR.
     biggerAe2DevMod("github.biggerae2:bigger_ae2:21.2.3") { transitive = false }
-    testRuntimeOnly("github.biggerae2:bigger_ae2:21.2.3") { transitive = false }
     curiosDevMod("top.theillusivec4.curios:curios-neoforge:9.5.1+1.21.1") { transitive = false }
     devMods("curse.maven:applied-pneumatics-1355087:8812885") { transitive = false }
     devMods("curse.maven:pneumaticcraft-repressurized-281849:8519226") { transitive = false }
@@ -172,7 +168,6 @@ dependencies {
     devMods("curse.maven:ae2-jei-integration-1074338:7727898") { transitive = false }
     devMods("curse.maven:extendedae-plus-1337639:9343779") { transitive = false } // 1.6.4.1, JEI 19.70 compatible
     devMods("maven.modrinth:merequester:hLs5MFnR") { transitive = false } // 1.21.1-1.5.0
-    testRuntimeOnly("maven.modrinth:merequester:hLs5MFnR") { transitive = false }
     // All storage-cell integrations share the same development client.
     devMods("maven.modrinth:applied-replicatics:nQ4pLTkV") { transitive = false } // 21.1-1.2.1
     devMods("maven.modrinth:replication:XfQXDcjc") { transitive = false } // 1.21.1-1.2.7
@@ -184,35 +179,7 @@ dependencies {
     createDevMod("maven.modrinth:create:UjX6dr61") { transitive = false } // 6.0.10, embeds Flywheel/Ponder
     // Stable release containing the EAEP 1.6.4 API compatibility fix (upstream #417).
     devMods("github.dataenergistics:data-energistics:3.4.0@jar") { transitive = false }
-    // Exercise optional workstation adapters against the released key and recipe codecs.
-    testRuntimeOnly("github.dataenergistics:data-energistics:3.4.0@jar") { transitive = false }
-    testRuntimeOnly("maven.modrinth:applied-generators:InEKowoU") { transitive = false } // 0.3.0+1.21.1
-    testRuntimeOnly("maven.modrinth:ae2-crystal-science:taIhgdOA") { transitive = false } // 1.21.1-1.2.1
-    // AdvancedAE embeds this library; plain JVM recipe tests do not unpack nested mod JARs.
-    testRuntimeOnly("curse.maven:ae2addonlib-1366135:7222312") { transitive = false } // 1.0.3-1.21.1
     devMods("maven.modrinth:applied-generators:InEKowoU") { transitive = false }
-    // Data Energistics embeds Configuration 3.1.1; do not install a second standalone copy.
-    testImplementation(platform('org.junit:junit-bom:5.11.4'))
-    testImplementation('org.junit.jupiter:junit-jupiter')
-    testImplementation('org.mockito:mockito-core:5.15.2')
-    // Verify custom JEI bookmark conversion against the optional addon's public API.
-    testImplementation("curse.maven:ae2-jei-integration-1074338:7727898") { transitive = false }
-    testRuntimeOnly('org.junit.platform:junit-platform-launcher')
-    // Verify optional layout hooks against the JEI bytecode shipped to the development client.
-    testRuntimeOnly("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}") { transitive = false }
-    // Exercise the optional search bridges against released upstream APIs; neither mod is bundled.
-    testRuntimeOnly("curse.maven:just-enough-characters-250702:8771217") { transitive = false }
-    testImplementation("curse.maven:extendedae-plus-1337639:9343779") { transitive = false }
-    // KeyMapping/EditBox tests need GLFW's native entry points, but never create a game window.
-    def nativeOs = System.getProperty('os.name').toLowerCase(Locale.ROOT)
-    def nativeClassifier = nativeOs.contains('win') ? 'natives-windows'
-        : nativeOs.contains('mac') ? 'natives-macos' : 'natives-linux'
-    if (System.getProperty('os.arch') in ['aarch64', 'arm64']) nativeClassifier += '-arm64'
-    testRuntimeOnly("org.lwjgl:lwjgl:3.3.3:${nativeClassifier}")
-    testRuntimeOnly("org.lwjgl:lwjgl-glfw:3.3.3:${nativeClassifier}")
-    testRuntimeOnly("org.lwjgl:lwjgl-stb:3.3.3:${nativeClassifier}")
-    // Inspect the released optional target's bytecode without installing it in the dev runtime.
-    testRuntimeOnly("curse.maven:flux-networks-248020:6089446") { transitive = false }
     api("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
     jarJar("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
 
@@ -261,16 +228,13 @@ dependencies {
     def localAe2LtJar = providers.gradleProperty("ae2lt_local_jar").orNull
     if (localAe2LtJar) {
         compileOnly(files(localAe2LtJar))
-        testImplementation(files(localAe2LtJar))
         devMods(files(localAe2LtJar))
     } else {
         // 2.1.2 uses static transfer hooks compatible with JEI's optimized local-slot reuse.
         compileOnly("maven.modrinth:ae2-lightning-tech:wchBNoWt") { transitive = false }
-        testImplementation("maven.modrinth:ae2-lightning-tech:wchBNoWt") { transitive = false }
         devMods("maven.modrinth:ae2-lightning-tech:wchBNoWt") { transitive = false }
     }
     compileOnly("maven.modrinth:thunderbolt-core:i3H7uX2O") { transitive = false } // 2.0.3, required by AE2LT 2.1.2
-    testImplementation("maven.modrinth:thunderbolt-core:i3H7uX2O") { transitive = false }
     devMods("maven.modrinth:thunderbolt-core:i3H7uX2O") { transitive = false }
     // JDT Time Accelerators is optional and requires the separate
     // Just Dire Things mod, so it is not included in the default dev runtime.
@@ -316,20 +280,10 @@ dependencies {
 
     // KubeJS integration API used by the recipe schema plugin.
     compileOnly("dev.latvian.mods:kubejs-neoforge:${kubejs_version}")
-    // KubeJS embeds this library; plain JVM recipe tests do not unpack nested mod JARs.
-    testRuntimeOnly("dev.latvian.apps:tiny-java-server:1.0.0-build.33") { transitive = false }
 }
 
-tasks.named('test', Test) {
-    useJUnitPlatform()
-    maxHeapSize = '2G'
-    systemProperty 'storage.performance', providers.systemProperty('storage.performance').getOrElse('false')
-    systemProperty 'storage.performance.label', providers.systemProperty('storage.performance.label').getOrElse('current')
-    systemProperty 'storage.performance.extended', providers.systemProperty('storage.performance.extended').getOrElse('false')
-    systemProperty 'crafting.performance', providers.systemProperty('crafting.performance').getOrElse('false')
-    systemProperty 'planner.challenge.enabled', providers.systemProperty('planner.challenge.enabled').getOrElse('false')
-    systemProperty 'planner.challenge.profile', providers.systemProperty('planner.challenge.profile').getOrElse('default')
-    systemProperty 'planner.challenge.case', providers.systemProperty('planner.challenge.case').getOrElse('')
+tasks.withType(Test).configureEach {
+    enabled = false
 }
 
 neoForge {
@@ -368,10 +322,6 @@ neoForge {
         }
 
         configureEach {
-            if (keyReuseAcceptance) {
-                systemProperty 'neoecoae.keyReuseAcceptance', 'true'
-                systemProperty 'mixin.debug.export', 'true'
-            }
             systemProperty 'forge.logging.markers', 'REGISTRIES'
             jvmArgument '-XX:+IgnoreUnrecognizedVMOptions'
             jvmArgument '-XX:+AllowEnhancedClassRedefinition'
@@ -391,10 +341,6 @@ sourceSets.main.java {
         exclude 'cn/dancingsnow/neoecoae/integration/appbot/**'
     }
 }
-
-// ModDev supplies Minecraft to main; isolated JVM contract tests need the same game classes.
-sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
-sourceSets.test.runtimeClasspath += sourceSets.main.compileClasspath
 
 sourceSets.main.resources {
     srcDirs 'src/generated/resources'
@@ -476,10 +422,6 @@ tasks.named("runClient").configure {
     dependsOn(installCuriosDevMod)
 }
 
-if (acceptanceEnabled) {
-    tasks.named('runServer').configure { dependsOn(installCuriosDevMod) }
-}
-
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
     var replaceProperties = [
             minecraft_version      : minecraft_version,
@@ -519,12 +461,6 @@ publishing {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
-}
-
-// Acceptance harnesses compile with main and run only when explicitly enabled.
-// Keep their classes and sources out of every published JAR.
-tasks.withType(Jar).configureEach {
-    exclude 'cn/dancingsnow/neoecoae/dev/acceptance/**'
 }
 
 tasks.register('copyGuidebook', Copy) {

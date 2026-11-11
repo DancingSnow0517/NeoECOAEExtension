@@ -336,9 +336,6 @@ root.addChild(priority.window()); // 客户端和服务端都添加到同一位�
 部件角色用于识别与排序，不自行创建执行后端；对应核心、驱动器仍须使用兼容实体/计算器。`IECOComputationCellItem` 按实际栈返回非负字节容量，外部 Item 可注册适配器，不按 Item 缓存动态容量。`IECOTier.supportsFeature(ECOFeature)` 声明高级资格，不能绕过结构、材料或恢复要求。
 
 `ECOStorageChannelDisplays.Display` 的别名只合并展示通道，不合并不同 AEKey 的真实库存。名称/颜色/纹理随服务端快照发送，统计保持精确数量。图标与色条为独立 8×8 图，色条两端保留边框。
-
-可编译的附属注册骨架见 [AddonApiExample.java](../src/test/java/cn/dancingsnow/neoecoae/api/extension/AddonApiExample.java)；其中 ID、方块、实体与配方适配器均须替换为附属实际注册对象。
-
 ### 工作站配方与模块
 
 `ECOLargeIntegratedWorkingStationBlockEntity.getCluster()` 在结构拆除或断开时返回 `null`，附属调用必须保留判空。旧公开方法 `getSelectedTierText/getTemperatureText/getEnergyText/getRecipeText/returnStoredInputs` 自 21.2.15 标记为弃用，仍保留原签名和行为，未计划移除。新面板使用 `getCoolingTierText/getTemperature/getAECurrentPower/getAEMaxPower/getTask` 等对应数据入口；`returnStoredInputs` 暂无通用替代，仅供所属服务器线程恢复旧批次，拒收后仍须保留未退回资源。
