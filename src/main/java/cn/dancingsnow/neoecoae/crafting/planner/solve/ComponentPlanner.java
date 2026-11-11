@@ -94,6 +94,26 @@ public final class ComponentPlanner {
         this.maxRouteAttempts = maxRouteAttempts;
     }
 
+    /** The lite pass emits ordinary tasks; structural cycles do not request the full cycle solver. */
+    public Outcome planLite(CompiledNetwork network, CondensationGraph condensation,
+            PlannerInventorySnapshot inventory, long amount, ECOCancellation cancellation) throws InterruptedException {
+        var solved = acyclicSolver.solveLite(network, condensation, inventory, amount, cancellation);
+        var physical = Set.copyOf(solved.state().plannerPatternTimes().keySet());
+        var component = new ComponentPlanningResult(Map.of(network.goal(), PlannerAmount.of(Math.max(0L, amount))),
+            Map.of(), 0, ComponentPlanningResult.Type.ACYCLIC, ComponentPlanningResult.Status.PLANNED,
+            physical, physical, null, null, Map.of(), null, null, CycleExecutionDisposition.NOT_REQUIRED);
+        solved.trace().addComponent(new ComponentTrace(0, ComponentTrace.Type.ACYCLIC, List.copyOf(network.keys())));
+        List<CycleDiagnostic> cycles = new ArrayList<>();
+        for (CycleComponent cycle : condensation.cycles()) {
+            cancellation.checkpoint();
+            solved.trace().addCycle(new CycleTrace(cycle.componentId(), cycle.members(), cycle.internalEdges(),
+                Map.of(), CyclePlanningStatus.NOT_REQUIRED));
+            cycles.add(new CycleDiagnostic(cycle.members(), cycle.patterns().stream().map(CompiledPattern::details).toList(),
+                Map.of(), Map.of()));
+        }
+        return new Outcome(solved.status(), solved.state(), solved.trace(), cycles, List.of(component), List.of(0));
+    }
+
     public Outcome plan(CompiledNetwork network, CondensationGraph condensation, KeyCounter inventory,
                         long amount, boolean cyclePlanningEnabled, ECOCancellation cancellation) throws InterruptedException {
         return plan(network, condensation, inventory, PlannerInventorySnapshot.of(inventory), amount,

@@ -137,11 +137,11 @@ Consume a completed Future from a server tick, call `submit` once, then check `I
 | Option | Contract |
 | --- | --- |
 | `cyclePlanningEnabled` | Allow unavoidable cyclic components into the solver |
-| `ignorePatternSubstitutions` | Plan only the encoded preferred input |
+| `ignorePatternSubstitutions` | Legacy API name for default-enabled lite crafting: one exact producer per material, no route retries, substitutions, remainder or byproduct reuse; explicit cycle and component-matching policies take priority on relevant dependency chains |
 | `fuzzyPlanningItemIds` | Ignore NBT for selected items during planning; actual inputs must still pass pattern validation |
 | `planningLogEnabled` | Legacy compatibility field; logging uses the global Calculating debug configuration |
 
-`ECOPlannerOptions.from(settings)` captures current options. `from(null)` disables cycle planning and ignored substitutions and uses an empty fuzzy set. Mutating shared grid settings requires authorization. Check source-specific eligibility with `neoecoae$hasComputationHost(source)`.
+`ECOPlannerOptions.from(settings)` captures current options. `from(null)` enables lite crafting, disables cycle planning, and uses an empty fuzzy set. Mutating shared grid settings requires authorization. Check source-specific eligibility with `neoecoae$hasComputationHost(source)`.
 
 `REPORT_MISSING_ITEMS` retains the original request and shortage report. `CRAFT_LESS` may return a smaller amount; read `plan.finalOutput().amount()`. A non-null plan can be a simulation report. Read status, `exactMissingItems()`, `theoreticalBytes()` and `trace().diagnostics()` through [ECOCraftingPlanDiagnostics](../src/main/java/cn/dancingsnow/neoecoae/api/me/diagnostics/ECOCraftingPlanDiagnostics.java) or [ECOPlanningResultRegistry.find](../src/main/java/cn/dancingsnow/neoecoae/api/me/planning/ECOPlanningResultRegistry.java); verify `resolveContract(...).executable()` before submission. Do not assume every plan provides stage `executionPlan()` metadata.
 
@@ -295,7 +295,7 @@ Blocks implement `IHostPanelTextureProvider.getPanelTexture(BlockState, Part)` f
 | `COMPUTATION_STATUS` | 12×12 |
 | `COMPUTATION_SWITCH/CRAFTING_MODE` | 15×26 |
 
-Status indices 0–5 represent connection, substitutions, cycles, fast planning, normal switch and high-energy switch; hovered is false. The high-energy blue state uses column 5, its pink state column 4. Computation switch indices 0–2 are substitutions/cycles/fast planning; crafting indices 0–1 are active cooling/overclock, with active/hovered selecting state images.
+Status indices 0–5 represent connection, lite crafting, cycles, fast planning, normal switch and high-energy switch; hovered is false. The high-energy blue state uses column 5, its pink state column 4. Computation switch indices 0–2 are lite crafting/cycles/fast planning; crafting indices 0–1 are active cooling/overclock, with active/hovered selecting state images.
 
 When constructing panels such as [StorageHostUI](../src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageHostUI.java), use overloads accepting `Supplier<IECOTier>` and `Supplier<BlockState>`. The server captures placed-state texture IDs for synchronization; old factory signatures remain available.
 

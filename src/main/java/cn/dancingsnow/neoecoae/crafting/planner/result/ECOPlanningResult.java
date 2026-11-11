@@ -23,6 +23,7 @@ public final class ECOPlanningResult {
     private final List<ComponentPlanningResult> components;
     private final List<Integer> executionComponentOrder;
     private long calculationNanos;
+    private boolean liteCraftingMode;
     private PlannerAmount theoreticalBytes = PlannerAmount.ZERO;
     private java.util.Map<IPatternDetails, PlannerAmount> exactPatternTimes;
     private java.util.Map<appeng.api.stacks.AEKey, PlannerAmount> exactUsedItems = java.util.Map.of();
@@ -148,6 +149,8 @@ public final class ECOPlanningResult {
     public List<ComponentPlanningResult> components() { return components; }
     public List<Integer> executionComponentOrder() { return executionComponentOrder; }
     public long calculationNanos() { return calculationNanos; }
+    public boolean liteCraftingMode() { return liteCraftingMode; }
+    public void setLiteCraftingMode(boolean enabled) { liteCraftingMode = enabled; }
     /** Record total elapsed time before final publication without rebuilding the validated execution plan. */
     public void finishCalculation(long elapsedNanos) { calculationNanos = Math.max(calculationNanos, elapsedNanos); }
     public BigInteger theoreticalBytes() { return theoreticalBytes.toBigInteger(); }

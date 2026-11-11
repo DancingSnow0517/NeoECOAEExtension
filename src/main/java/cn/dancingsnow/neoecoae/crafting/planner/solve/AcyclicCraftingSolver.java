@@ -41,6 +41,90 @@ public final class AcyclicCraftingSolver {
     }
     private final CandidateResolver candidates = new CandidateResolver();
 
+    /**
+     * GTNH's lite traversal on the existing compiled graph and exact material ledger. Each key is visited once;
+     * stock is shared across branches, and cyclic leftovers receive one final exact-stock draw. There is no
+     * candidate retry, returned-container/tool analysis, byproduct credit, or cycle-growth solving.
+     */
+    public Outcome solveLite(CompiledNetwork network,
+            cn.dancingsnow.neoecoae.crafting.planner.graph.CondensationGraph condensation,
+            PlannerInventorySnapshot inventory, long amount, ECOCancellation cancellation) throws InterruptedException {
+        SolveState state = new SolveState(inventory);
+        ECOPlanTrace trace = new ECOPlanTrace();
+        if (amount <= 0L) return new Outcome(PlanningStatus.AMOUNT_OVERFLOW, state, trace);
+        PlannerAmount goalAmount = PlannerAmount.of(amount);
+        state.stored.set(network.goal(), PlannerAmount.ZERO);
+        state.demand.put(network.goal(), goalAmount);
+        state.provenance.register(MaterialDemand.goal(network.goal(), goalAmount));
+        state.bytes = PlannerAmount.of(network.keys().size()).multiply(8L);
+
+        Map<AEKey, Integer> inDegree = new HashMap<>();
+        for (var patterns : network.producers().values()) {
+            cancellation.checkpoint();
+            if (!patterns.isEmpty()) for (CompiledInput input : patterns.get(0).inputs()) {
+                inDegree.merge(input.key(), 1, Integer::sum);
+            }
+        }
+        Set<AEKey> looping = new LinkedHashSet<>();
+        for (var cycle : condensation.cycles()) {
+            if (cycle.members().size() > 1) looping.addAll(cycle.members());
+        }
+        ArrayDeque<AEKey> ready = new ArrayDeque<>();
+        ArrayDeque<AEKey> loopCandidates = new ArrayDeque<>();
+        Set<AEKey> visited = new LinkedHashSet<>();
+        ready.add(network.goal());
+        while (!ready.isEmpty() || !loopCandidates.isEmpty()) {
+            cancellation.checkpoint();
+            AEKey key = ready.isEmpty() ? loopCandidates.removeFirst() : ready.removeFirst();
+            if (!visited.add(key)) continue;
+            var patterns = network.producersOf(key);
+            CompiledPattern pattern = patterns.isEmpty() ? null : patterns.get(0);
+            // Even a stock-satisfied branch releases its dependency edges, just as in GTNH.
+            if (pattern != null) for (CompiledInput input : pattern.inputs()) {
+                if (inDegree.merge(input.key(), -1, Integer::sum) == 0) ready.addLast(input.key());
+                if (looping.contains(input.key())) loopCandidates.addLast(input.key());
+            }
+            PlannerAmount requested = state.provenance.pendingAmount(key);
+            state.bytes = state.bytes.add(PlannerAmount.stackBytes(requested, key.getAmountPerByte()));
+            requested = requested.subtract(consumeStoredForInput(state, key, requested, false, null, null, null));
+            if (requested.isZero()) continue;
+            if (pattern == null) continue;
+            if (!pattern.fastSupported()) {
+                state.unsupported.add(key);
+                continue;
+            }
+            state.selected.put(key, pattern);
+            PlannerAmount times = requested.ceilDiv(pattern.outputPerPattern());
+            state.patternTimes.merge(pattern.details(), times, PlannerAmount::add);
+            state.bytes = state.bytes.add(times);
+            state.provenance.allocatePending(key, key, new MaterialSource.PatternOutput(pattern.details(), true), requested);
+            for (int slot = 0; slot < pattern.inputs().size(); slot++) {
+                cancellation.checkpoint();
+                CompiledInput input = pattern.inputs().get(slot);
+                PlannerAmount required = input.amountPerPattern().multiply(times);
+                state.provenance.register(MaterialDemand.input(pattern.details(), slot, input.key(), required));
+                state.demand.merge(input.key(), required, PlannerAmount::add);
+            }
+        }
+        // A loop may add a demand after that material's visit. Do not expand it a second time or borrow outputs
+        // from an unexecuted cycle; only the remaining captured stock may close it.
+        for (AEKey key : state.demand.keySet()) {
+            cancellation.checkpoint();
+            PlannerAmount pending = state.provenance.pendingAmount(key);
+            pending = pending.subtract(consumeStoredForInput(state, key, pending, false, null, null, null));
+            if (pending.signum() > 0) state.missing.add(key, pending);
+        }
+        addTrace(network, state, goalAmount, trace);
+        if (!state.unsupported.isEmpty()) return new Outcome(PlanningStatus.PARTIAL_UNSUPPORTED, state, trace);
+        if (addExecutionRepresentabilityDiagnostics(state, trace)) {
+            return new Outcome(PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE, state, trace);
+        }
+        trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.FAST_DAG,
+            "Lite crafting: one exact producer per material, one topological pass"));
+        return new Outcome(state.missing.isEmpty() ? PlanningStatus.SUCCESS : PlanningStatus.MISSING_ITEMS, state, trace);
+    }
+
+
     public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, KeyCounter inventory, long amount,
             ECOCancellation cancellation) throws InterruptedException {
         return solve(network, route, inventory, amount, Map.of(), cancellation);

@@ -92,8 +92,8 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     }
 
     @Unique
-    private static final String NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY =
-            "neoecoaeIgnorePatternSubstitutions";
+    private static final String NEOECOAE_LITE_CRAFTING_MODE_KEY =
+            "neoecoaeLiteCraftingMode";
     @Unique
     private static final Comparator<NEComputationCluster> NE_FAST_FIRST_COMPARATOR = Comparator.comparingInt(
                     NEComputationCluster::getPooledParallelism)
@@ -183,7 +183,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     }
 
     @Unique
-    private boolean neoecoae$ignorePatternSubstitutions;
+    private boolean neoecoae$liteCraftingMode = true;
     @Unique
     private boolean neoecoae$planningModeInitialized;
     @Unique
@@ -270,9 +270,9 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     private void onAddNode(IGridNode gridNode, CompoundTag savedData, CallbackInfo ci) {
         if (!neoecoae$planningModeInitialized
                 && savedData != null
-                && savedData.contains(NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY, Tag.TAG_BYTE)) {
-            neoecoae$ignorePatternSubstitutions = savedData.getBoolean(
-                    NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY);
+                && savedData.contains(NEOECOAE_LITE_CRAFTING_MODE_KEY, Tag.TAG_BYTE)) {
+            neoecoae$liteCraftingMode = savedData.getBoolean(
+                    NEOECOAE_LITE_CRAFTING_MODE_KEY);
             neoecoae$planningModeInitialized = true;
         }
         if (gridNode.getOwner() instanceof NEBlockEntity<?, ?> blockEntity
@@ -311,17 +311,17 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     @Override
     public void saveNodeData(IGridNode gridNode, CompoundTag savedData) {
         savedData.putBoolean(
-                NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY,
-                neoecoae$ignorePatternSubstitutions);
+                NEOECOAE_LITE_CRAFTING_MODE_KEY,
+                neoecoae$liteCraftingMode);
     }
 
     @Unique
     private void neoecoae$initializeOrSyncPlanningMode(boolean persistedValue, java.util.function.Consumer<Boolean> apply) {
         if (!neoecoae$planningModeInitialized) {
-            neoecoae$ignorePatternSubstitutions = persistedValue;
+            neoecoae$liteCraftingMode = persistedValue;
             neoecoae$planningModeInitialized = true;
         } else {
-            apply.accept(neoecoae$ignorePatternSubstitutions);
+            apply.accept(neoecoae$liteCraftingMode);
         }
     }
 
@@ -348,13 +348,13 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
 
     @Override
     public boolean neoecoae$isIgnoringPatternSubstitutions() {
-        return neoecoae$ignorePatternSubstitutions;
+        return neoecoae$liteCraftingMode;
     }
 
     @Override
     public void neoecoae$setIgnoringPatternSubstitutions(boolean ignoringPatternSubstitutions) {
         neoecoae$planningModeInitialized = true;
-        neoecoae$ignorePatternSubstitutions = ignoringPatternSubstitutions;
+        neoecoae$liteCraftingMode = ignoringPatternSubstitutions;
         for (ECOCraftingSystemBlockEntity host : NEMachineLookup.getMachines(grid, ECOCraftingSystemBlockEntity.class)) {
             host.applyNetworkIgnoringPatternSubstitutions(ignoringPatternSubstitutions);
         }

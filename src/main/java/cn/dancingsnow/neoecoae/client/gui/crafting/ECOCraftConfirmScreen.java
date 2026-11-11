@@ -93,7 +93,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private net.minecraft.client.gui.Font materialTooltipFont;
 
     private record ReportSummaryState(@Nullable CraftingPlanSummary plan, boolean loadingSummary,
-            long nanos, @Nullable BigInteger bytes, boolean incompleteBytes,
+            long nanos, @Nullable BigInteger bytes, boolean incompleteBytes, boolean liteCrafting,
             @Nullable CraftingGraphSnapshot.Summary graphSummary, Language language,
             net.minecraft.client.gui.Font font) {}
 
@@ -295,12 +295,14 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             return;
         }
         boolean loadingSummary = false;
+        boolean liteCrafting = false;
         boolean hasByteEstimate = materialData.hasMaterialDetails();
         BigInteger usedBytes = BigInteger.valueOf(plan == null ? 0L : Math.max(0L, plan.getUsedBytes()));
         long nanos = 0L;
         CraftingGraphSnapshot.Summary graphSummary = null;
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {
             boolean diagnosticsReady = mode.neoecoae$diagnosticsReady();
+            liteCrafting = mode.neoecoae$isLiteCraftingMode();
             boolean summaryReady = mode.neoecoae$isEcoReportReady();
             loadingSummary = !diagnosticsReady && !summaryReady;
             nanos = mode.neoecoae$getCalculationNanos();
@@ -318,7 +320,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         }
         // Retain calculated bytes for partial reports, but never invent a total from a diagnostic shell.
         if (incompleteBytes && !hasByteEstimate) usedBytes = null;
-        var state = new ReportSummaryState(plan, loadingSummary, nanos, usedBytes, incompleteBytes,
+        var state = new ReportSummaryState(plan, loadingSummary, nanos, usedBytes, incompleteBytes, liteCrafting,
             graphSummary, Language.getInstance(), font);
         if (state.equals(reportSummaryState)) return;
         reportSummaryState = state;
@@ -396,9 +398,10 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             if (statisticsTooltip == null || statisticsTooltipExact != exact) {
                 var state = reportSummaryState;
                 var card = state == null || state.plan() == null || state.loadingSummary()
-                    ? ECOCraftReportTooltips.pending(reportSummary.elapsed())
+                    ? ECOCraftReportTooltips.pending(reportSummary.elapsed(),
+                        (Object) menu instanceof ECOCraftConfirmMenuMode mode && mode.neoecoae$isLiteCraftingMode())
                     : ECOCraftReportTooltips.statistics(state.nanos(), state.bytes(), !state.incompleteBytes(),
-                        state.graphSummary(), exact);
+                        state.graphSummary(), exact, state.liteCrafting());
                 statisticsTooltip = card.build();
                 statisticsTooltipExact = exact;
             }
