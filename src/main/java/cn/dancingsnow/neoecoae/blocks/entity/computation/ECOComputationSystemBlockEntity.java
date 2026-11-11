@@ -73,7 +73,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     @DescSynced
     private int networkFrequency = NEFrequencyAllocator.DEFAULT_FREQUENCY;
     @Persisted
-    private boolean ignorePatternSubstitutions;
+    private boolean liteCraftingMode = true;
     @Persisted
     @DescSynced
     private boolean fastCraftingPlannerEnabled = true;
@@ -252,12 +252,12 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
     }
 
     public boolean isLocallyIgnoringPatternSubstitutions() {
-        return ignorePatternSubstitutions;
+        return liteCraftingMode;
     }
 
     public void applyNetworkIgnoringPatternSubstitutions(boolean value) {
-        if (ignorePatternSubstitutions == value) return;
-        ignorePatternSubstitutions = value;
+        if (liteCraftingMode == value) return;
+        liteCraftingMode = value;
         setChanged();
         markForUpdate();
     }
@@ -266,7 +266,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         ECOCraftingNetworkSettings settings = ECOCraftingNetworkSettings.of(getMainNode().getGrid());
         return settings != null
                 ? settings.neoecoae$isIgnoringPatternSubstitutions()
-                : ignorePatternSubstitutions;
+                : liteCraftingMode;
     }
 
     private int getSubstitutionPatternCount() {
@@ -281,7 +281,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
             settings.neoecoae$setIgnoringPatternSubstitutions(
                     !settings.neoecoae$isIgnoringPatternSubstitutions());
         } else {
-            applyNetworkIgnoringPatternSubstitutions(!ignorePatternSubstitutions);
+            applyNetworkIgnoringPatternSubstitutions(!liteCraftingMode);
         }
     }
 

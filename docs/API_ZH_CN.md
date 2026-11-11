@@ -137,11 +137,11 @@ public final class EcoApiExample {
 | 选项 | 约定 |
 | --- | --- |
 | `cyclePlanningEnabled` | 允许不可避开的循环组件进入求解 |
-| `ignorePatternSubstitutions` | 仅按编码首选输入规划 |
+| `ignorePatternSubstitutions` | 兼容旧 API 名称的轻量合成开关，默认开启；每种材料固定一个精确样板，不回溯路线、不计替代或返还与副产物复用，当前合成链涉及已启用的循环或 NBT 忽略规则时，改用完整规划处理这些规则 |
 | `fuzzyPlanningItemIds` | 对指定物品忽略 NBT 规划，实际输入仍须通过样板校验 |
 | `planningLogEnabled` | 旧兼容字段；日志由全局 Calculating 调试配置控制 |
 
-`ECOPlannerOptions.from(settings)` 捕获当前选项；`from(null)` 关闭循环与忽略替代模式，模糊集合为空。共享网络设置的修改仍须鉴权。使用带动作来源的 `neoecoae$hasComputationHost(source)` 检查玩家/自动任务资格。
+`ECOPlannerOptions.from(settings)` 捕获当前选项；`from(null)` 开启轻量合成、关闭循环规划，模糊集合为空。共享网络设置的修改仍须鉴权。使用带动作来源的 `neoecoae$hasComputationHost(source)` 检查玩家/自动任务资格。
 
 `REPORT_MISSING_ITEMS` 保留原请求及完整缺料报告；`CRAFT_LESS` 可能返回较小数量，读取 `plan.finalOutput().amount()`。非空计划可能只是模拟报告，不能直接提交。通过 [ECOCraftingPlanDiagnostics](../src/main/java/cn/dancingsnow/neoecoae/api/me/diagnostics/ECOCraftingPlanDiagnostics.java) 或 [ECOPlanningResultRegistry.find](../src/main/java/cn/dancingsnow/neoecoae/api/me/planning/ECOPlanningResultRegistry.java) 读取状态、`exactMissingItems()`、`theoreticalBytes()` 与 `trace().diagnostics()`；提交前检查 `resolveContract(...).executable()`。不假定每份计划都有阶段 `executionPlan()`。
 

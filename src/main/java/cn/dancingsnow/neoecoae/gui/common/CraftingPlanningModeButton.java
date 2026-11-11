@@ -48,19 +48,14 @@ public final class CraftingPlanningModeButton {
         syncedMode.setDisplay(false);
         button.addChild(syncedMode);
 
-        BindableValue<Integer> syncedPatternCount = new BindableValue<>(substitutionPatternCount.getAsInt());
-        syncedPatternCount.bind(DataBindingBuilder.intValS2C(substitutionPatternCount::getAsInt).build());
-        syncedPatternCount.setDisplay(false);
-        button.addChild(syncedPatternCount);
-
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
             event.hoverTooltips = new HoverTooltips(List.of(
+                Component.translatable("gui.neoecoae.computation.settings.substitutions"),
                 Component.translatable(Boolean.TRUE.equals(syncedMode.getValue())
-                    ? "gui.neoecoae.crafting.planning.ignore_substitutions.on"
-                    : "gui.neoecoae.crafting.planning.ignore_substitutions.off"),
-                Component.translatable(
-                    "gui.neoecoae.crafting.planning.substitution_pattern_count",
-                    Math.max(0, syncedPatternCount.getValue() == null ? 0 : syncedPatternCount.getValue()))
+                    ? "gui.neoecoae.computation.ui.switch.on" : "gui.neoecoae.computation.ui.switch.off")
+                    .withStyle(Boolean.TRUE.equals(syncedMode.getValue())
+                        ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.GRAY),
+                Component.translatable("gui.neoecoae.computation.ui.switch.substitutions.desc")
             ), null, null, null));
         return button;
     }

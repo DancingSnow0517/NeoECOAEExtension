@@ -474,14 +474,15 @@ public class GuiLangs {
         provider.add("gui.neoecoae.computation.pause", "Pause");
         provider.add("gui.neoecoae.computation.resume", "Resume");
         provider.add("gui.neoecoae.computation.settings.cpu_mode", "CPU Selection Mode");
-        provider.add("gui.neoecoae.computation.settings.substitutions", "Use substitution patterns in planning");
+        provider.add("gui.neoecoae.computation.settings.substitutions", "Lite Crafting Mode");
+        provider.add("gui.neoecoae.crafting_report.card.lite_mode", "Lite Crafting Mode");
         provider.add("gui.neoecoae.computation.settings.cycle_planning", "Enable cycle planning");
         provider.add("gui.neoecoae.computation.settings.fast_planner", "Enable ECO fast planning");
         provider.add("gui.neoecoae.computation.settings.frequency", "Network frequency: %s / %s");
         provider.add("gui.neoecoae.computation.settings.back", "Back to CPU List");
         provider.add("gui.neoecoae.computation.status.time", "Time: %s");
         provider.add("gui.neoecoae.computation.ui.control_heading", "Controls");
-        provider.add("gui.neoecoae.computation.ui.switch.substitutions", "Swap");
+        provider.add("gui.neoecoae.computation.ui.switch.substitutions", "Lite");
         provider.add("gui.neoecoae.computation.ui.switch.cycle_planning", "Cycle");
         provider.add("gui.neoecoae.computation.ui.switch.fast_planner", "Fast");
         provider.add("gui.neoecoae.computation.ui.cpu", "CPU");
@@ -504,7 +505,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.computation.ui.stat.offline", "Off");
         provider.add("gui.neoecoae.computation.ui.switch.on", "Enabled");
         provider.add("gui.neoecoae.computation.ui.switch.off", "Disabled");
-        provider.add("gui.neoecoae.computation.ui.switch.substitutions.desc", "Lets planning use patterns that allow substitutions.");
+        provider.add("gui.neoecoae.computation.ui.switch.substitutions.desc", "Disables some pattern features for much faster crafting calculations.");
         provider.add("gui.neoecoae.computation.ui.switch.cycle_planning.desc", "Lets planning solve recipe routes that contain cycles.");
         provider.add("gui.neoecoae.computation.ui.switch.fast_planner.desc", "Handles crafting requests with the ECO fast planner.");
         provider.add("gui.neoecoae.computation.ui.switch.smart_doubling.limit", "Per-dispatch cap when disabled");
@@ -745,9 +746,9 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.active_cooling.on", "Disable Active Cooling");
         provider.add("gui.neoecoae.crafting.active_cooling.off", "Enable Active Cooling");
         provider.add("gui.neoecoae.crafting.planning.ignore_substitutions.on",
-            "Disable Ignore Pattern Substitutions");
+            "Disable Lite Crafting Mode");
         provider.add("gui.neoecoae.crafting.planning.ignore_substitutions.off",
-            "Enable Ignore Pattern Substitutions");
+            "Enable Lite Crafting Mode");
         provider.add("gui.neoecoae.crafting.planning.substitution_pattern_count",
             "Currently %d substitution-enabled patterns");
         provider.add("gui.neoecoae.host.network_frequency.cycle", "Cycle Network Frequency (Current: %d)");
