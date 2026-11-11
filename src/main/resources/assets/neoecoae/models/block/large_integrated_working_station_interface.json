@@ -1,38 +1,3 @@
 {
-	"format_version": "1.9.2",
-	"credit": "Made with Blockbench",
-	"parent": "block/block",
-	"render_type": "cutout",
-	"textures": {
-		"particle": "neoecoae:block/working_station/interface",
-		"block": "neoecoae:block/working_station/interface",
-		"lights": "neoecoae:block/working_station/interface_light"
-	},
-	"elements": [
-		{
-			"from": [0, 0, 0],
-			"to": [16, 16, 16],
-			"shade": false,
-			"faces": {
-				"north": {"uv": [0, 0, 16, 16], "texture": "#lights", "forge_data": {"block_light": 15, "sky_light": 15, "ambient_occlusion": false}},
-				"east": {"uv": [0, 0, 16, 16], "texture": "#lights", "forge_data": {"block_light": 15, "sky_light": 15, "ambient_occlusion": false}},
-				"south": {"uv": [0, 0, 16, 16], "texture": "#lights", "forge_data": {"block_light": 15, "sky_light": 15, "ambient_occlusion": false}},
-				"west": {"uv": [0, 0, 16, 16], "texture": "#lights", "forge_data": {"block_light": 15, "sky_light": 15, "ambient_occlusion": false}},
-				"up": {"uv": [0, 0, 16, 16], "texture": "#lights", "forge_data": {"block_light": 15, "sky_light": 15, "ambient_occlusion": false}},
-				"down": {"uv": [0, 0, 16, 16], "texture": "#lights", "forge_data": {"block_light": 15, "sky_light": 15, "ambient_occlusion": false}}
-			}
-		},
-		{
-			"from": [0, 0, 0],
-			"to": [16, 16, 16],
-			"faces": {
-				"north": {"uv": [0, 0, 16, 16], "texture": "#block"},
-				"east": {"uv": [0, 0, 16, 16], "texture": "#block"},
-				"south": {"uv": [0, 0, 16, 16], "texture": "#block"},
-				"west": {"uv": [0, 0, 16, 16], "texture": "#block"},
-				"up": {"uv": [0, 0, 16, 16], "texture": "#block"},
-				"down": {"uv": [0, 0, 16, 16], "texture": "#block"}
-			}
-		}
-	]
+  "parent": "neoecoae:block/large_integrated_working_station_pattern_provider"
 }

@@ -1,0 +1,7 @@
+{
+  "parent": "neoecoae:block/large_integrated_working_station_off_smart",
+  "textures": {
+    "light_light": "neoecoae:block/working_station/controller_formed/colored/ae2lt/controller_formed_light/dark",
+    "light_dark": "neoecoae:block/working_station/controller_formed/colored/ae2lt/controller_formed_light/light"
+  }
+}

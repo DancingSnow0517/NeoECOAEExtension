@@ -58,6 +58,7 @@
     "minecraft.ServerPlayerRemoteMachineReachMixin"
   ],
   "client": [
+    "client.minecraft.SpriteSourcesAccessor",
     "client.jei.RecipeLayoutMixin",
     "client.jei.MultiblockRecipesGuiMixin",
     "client.jei.RecipeLayoutBuilderMixin",
