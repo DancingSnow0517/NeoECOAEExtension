@@ -207,7 +207,7 @@ public final class ComputationControllerUI {
         Runnable action;
         switch (key) {
             case "substitutions" -> {
-                enabled = () -> !config.ignoringPatternSubstitutions().getAsBoolean();
+                enabled = config.ignoringPatternSubstitutions();
                 action = config.toggleIgnoringPatternSubstitutions();
             }
             case "cycle_planning" -> {
@@ -230,8 +230,6 @@ public final class ComputationControllerUI {
         textures.onChange(() -> switchTexture(button, Boolean.TRUE.equals(value.getValue()), index, panelTier, textures.get()));
         value.setDisplay(false);
         button.addChild(value);
-        BindableValue<Integer> count = "substitutions".equals(key)
-            ? syncedPatternCount(button, config.substitutionPatternCount()) : null;
         switchTexture(button, enabled.getAsBoolean(), index, panelTier, textures.get());
         button.setOnServerClick(event -> action.run());
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
@@ -242,21 +240,9 @@ public final class ComputationControllerUI {
                 ? "gui.neoecoae.computation.ui.switch.on"
                 : "gui.neoecoae.computation.ui.switch.off").withColor(on ? 0x55FF55 : 0xAAAAAA));
             lines.add(Component.translatable("gui.neoecoae.computation.ui.switch." + key + ".desc").withColor(0xAAAAAA));
-            if (count != null) {
-                lines.add(Component.translatable("gui.neoecoae.crafting.planning.substitution_pattern_count",
-                    Math.max(0, count.getValue() == null ? 0 : count.getValue())));
-            }
             event.hoverTooltips = new HoverTooltips(lines, null, null, null);
         });
         return button;
-    }
-
-    private static BindableValue<Integer> syncedPatternCount(Button button, IntSupplier count) {
-        BindableValue<Integer> synced = new BindableValue<>(count.getAsInt());
-        synced.bind(DataBindingBuilder.intValS2C(count::getAsInt).build());
-        synced.setDisplay(false);
-        button.addChild(synced);
-        return synced;
     }
 
     private static void switchTexture(Button button, boolean enabled, int index, Supplier<IECOTier> tier,

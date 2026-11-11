@@ -10,6 +10,10 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Options captured for one explicit ECO planning request.
  *
+ * <p>The legacy {@code ignorePatternSubstitutions} name now selects GTNH-style lite crafting:
+ * one exact producer per material, without route retries, fuzzy inputs, remainder reuse, or byproduct credit.
+ * Lite mode takes precedence over cycle planning and component-insensitive matching.</p>
+ *
  * <p>The legacy {@code planningLogEnabled} component remains for compatibility, but stage logging is now controlled
  * by the global {@code Debug > Calculating} configuration.</p>
  */
@@ -26,7 +30,7 @@ public record ECOPlannerOptions(boolean cyclePlanningEnabled, boolean ignorePatt
 
     public static ECOPlannerOptions from(@Nullable ECOCraftingNetworkSettings settings) {
         if (settings == null) {
-            return new ECOPlannerOptions(false, false, Set.of());
+            return new ECOPlannerOptions(false, true, Set.of());
         }
         return new ECOPlannerOptions(settings.neoecoae$isCyclePlanningEnabled(),
                 settings.neoecoae$isIgnoringPatternSubstitutions(), settings.neoecoae$getFuzzyPlanningItemIds());

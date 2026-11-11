@@ -19,7 +19,6 @@ import cn.dancingsnow.neoecoae.crafting.planner.solve.PlannerInventorySnapshot;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -28,39 +27,21 @@ import net.minecraft.world.item.Items;
 class ECOProgressivePlanningTest {
     @BeforeAll static void bootstrap() { cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize(); }
 
-    @Test void foregroundCompletesWhileImprovementIsStillBlockedAndCanBeCancelledAfterGet() throws Exception {
+    @Test void finalConfirmationRetainsRemainingWorkContextWithoutLaunchingAnotherSearch() throws Exception {
         var session = mock(ECOCraftingPlannerService.Session.class);
-        var optimizer = mock(ECOCraftingPlannerService.Session.class);
         var first = result(8);
-        var entered = new CountDownLatch(1);
-        var released = new CountDownLatch(1);
-        var interrupted = new CountDownLatch(1);
         when(session.isStructureCurrent()).thenReturn(true);
-        when(session.initialInventory()).thenReturn(PlannerInventorySnapshot.of(new KeyCounter()));
-        when(session.plan(eq(8L), eq(false), any())).thenAnswer(call -> {
-            assertFalse(((ECOCancellation) call.getArgument(2)).improveCompletedPlans());
-            return first;
-        });
-        when(session.fork(any(), any(), eq(false))).thenReturn(optimizer);
-        when(optimizer.plan(eq(8L), eq(false), any())).thenAnswer(call -> {
-            entered.countDown();
-            try { released.await(); }
-            catch (InterruptedException cancelled) { interrupted.countDown(); throw cancelled; }
-            return result(4);
-        });
-        var future = ECOPlanningService.begin(session, 8, CalculationStrategy.REPORT_MISSING_ITEMS);
-        try {
-            assertSame(first.plan(), future.get(5, TimeUnit.SECONDS));
-            assertTrue(entered.await(5, TimeUnit.SECONDS));
-            assertNotNull(first.improvements());
-            assertNull(first.improvements().latest(first));
-            future.cancel(true); // AE2 discards the foreground future after get; closing still stops optional work.
-            assertTrue(interrupted.await(5, TimeUnit.SECONDS));
-            assertNull(first.improvements().latest(first));
-        } finally {
-            released.countDown();
-            future.cancel(true);
-        }
+
+        var context = ECOPlanningService.startImprovements(session, first);
+
+        assertNotNull(context);
+        assertSame(context, first.improvements());
+        assertSame(context, ECOPlanningService.startImprovements(session, first));
+        assertNull(context.latest(first));
+        verify(session, never()).fork(any(), any(), anyBoolean());
+        verify(session, never()).plan(anyLong(), anyBoolean(), any());
+        verify(session, never()).plan(anyLong(), anyBoolean(), any(), any());
+        context.close();
     }
 
     @Test void onlyCompleteBetterCurrentResultsCanReplaceTheDisplayedPlan() {

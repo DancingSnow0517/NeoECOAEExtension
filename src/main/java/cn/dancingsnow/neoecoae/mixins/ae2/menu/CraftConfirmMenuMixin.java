@@ -71,32 +71,32 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     private static final Logger NEOECOAE_LOGGER = LoggerFactory.getLogger("neoecoae");
     // Additional report fields use 12012..12017, retaining the existing ECO field ids.
     @Unique
-    @GuiSync(99)
+    @GuiSync(12000)
     private boolean neoecoae$showFastPlannerReport;
 
     @Unique
-    @GuiSync(106)
+    @GuiSync(12005)
     private boolean neoecoae$ecoPlannerAvailable;
 
     @Unique
-    @GuiSync(107)
+    @GuiSync(12006)
     private boolean neoecoae$ecoReportReady;
 
     @Unique
-    @GuiSync(104)
+    @GuiSync(12003)
     private boolean neoecoae$cyclePlanningEnabled;
 
     @Unique
-    @GuiSync(100)
+    @GuiSync(12001)
     private long neoecoae$calculationNanos;
 
     @Unique
-    @GuiSync(105)
+    @GuiSync(12004)
     private String neoecoae$theoreticalBytes = "0";
 
     /** Zero means absent; otherwise this is {@code PlanningStatus.ordinal() + 1}. */
     @Unique
-    @GuiSync(101)
+    @GuiSync(12002)
     private int neoecoae$planningStatusCode;
 
     @Unique
@@ -109,12 +109,15 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Unique
     private @Nullable ECOPlanningResult neoecoae$confirmedPlanningResult;
     @Unique private ECOPlannerOptions neoecoae$originalOptions;
-    @Unique @GuiSync(108) private boolean neoecoae$bigOrderCpu;
-    @Unique @GuiSync(109) private String neoecoae$planningDiagnostic = "";
-    @Unique @GuiSync(111) private int neoecoae$selectedCpuTier = -1;
-    @Unique @GuiSync(112) private boolean neoecoae$selectedCpuEco;
+    @Unique @GuiSync(12018) private boolean neoecoae$liteCraftingMode;
 
-    @Unique @GuiSync(110) private long neoecoae$diagnosticsVersion;
+    @Override public boolean neoecoae$isLiteCraftingMode() { return neoecoae$liteCraftingMode; }
+    @Unique @GuiSync(12007) private boolean neoecoae$bigOrderCpu;
+    @Unique @GuiSync(12008) private String neoecoae$planningDiagnostic = "";
+    @Unique @GuiSync(12010) private int neoecoae$selectedCpuTier = -1;
+    @Unique @GuiSync(12011) private boolean neoecoae$selectedCpuEco;
+
+    @Unique @GuiSync(12009) private long neoecoae$diagnosticsVersion;
     @Unique private long neoecoae$receivedDiagnosticsVersion = -1;
     @Unique private long neoecoae$receivedGraphVersion = -1;
     @Unique private CraftingGraphSnapshot neoecoae$sentGraph;
@@ -511,6 +514,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
         neoecoae$confirmedPlanningResult = null;
         neoecoae$originalOptions = null;
+        neoecoae$liteCraftingMode = false;
         neoecoae$lastStartDiagnostic = null;
         neoecoae$nextStartDiagnosticTick = 0;
     }
@@ -587,9 +591,11 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         }
         if (useEco) {
             neoecoae$originalOptions = ECOPlannerOptions.from(settings);
-            neoecoae$planningRequest = ECOPlanningService.begin(level, getGrid(), requester.getActionSource(), what,
+            neoecoae$liteCraftingMode = neoecoae$originalOptions.ignorePatternSubstitutions();
+            var planning = ECOPlanningService.begin(level, getGrid(), requester.getActionSource(), what,
                 amount, strategy, neoecoae$originalOptions);
-            return neoecoae$planningRequest;
+            neoecoae$planningRequest = planning instanceof ECOPlanningService.Request request ? request : null;
+            return planning;
         }
         return original.call(service, level, requester, what, amount, strategy);
     }
@@ -732,6 +738,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$craftingGraph = CraftingGraphSnapshot.EMPTY;
         ECOPlanningResult planningResult = neoecoae$resolveOwnedPlanningResult(diagnosticPlan);
         if (planningResult != null) {
+            neoecoae$liteCraftingMode = planningResult.liteCraftingMode();
             neoecoae$confirmedPlanningResult = planningResult;
             neoecoae$calculationNanos = planningResult.calculationNanos();
             neoecoae$theoreticalBytes = planningResult.theoreticalBytes().toString();

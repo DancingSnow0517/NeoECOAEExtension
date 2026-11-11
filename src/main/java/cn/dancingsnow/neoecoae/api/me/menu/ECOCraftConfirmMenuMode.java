@@ -36,6 +36,9 @@ public interface ECOCraftConfirmMenuMode {
 
     boolean neoecoae$isCyclePlanningEnabled();
 
+    /** Mode captured by the calculation displayed by this menu. */
+    default boolean neoecoae$isLiteCraftingMode() { return false; }
+
     long neoecoae$getCalculationNanos();
 
     BigInteger neoecoae$getTheoreticalBytes();

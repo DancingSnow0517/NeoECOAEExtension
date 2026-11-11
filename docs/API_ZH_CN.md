@@ -140,15 +140,27 @@ public final class EcoApiExample {
 | 选项 | 约定 |
 | --- | --- |
 | `cyclePlanningEnabled` | 允许不可避开的循环组件进入求解 |
-| `ignorePatternSubstitutions` | 仅按编码首选输入规划 |
+| `ignorePatternSubstitutions` | 兼容旧 API 名称的轻量合成开关，默认开启；每种材料固定一个精确样板，不回溯路线、不计替代或返还与副产物复用，优先于循环与模糊匹配设置 |
 | `fuzzyPlanningItemIds` | 对指定物品忽略组件规划，实际输入仍须通过样板校验 |
 | `planningLogEnabled` | 旧兼容字段；日志由全局 Calculating 调试配置控制 |
 
-`ECOPlannerOptions.from(settings)` 捕获当前选项；`from(null)` 关闭循环与忽略替代模式，模糊集合为空。共享网络设置的修改仍须鉴权。使用带动作来源的 `neoecoae$hasComputationHost(source)` 检查玩家/自动任务资格。
+`ECOPlannerOptions.from(settings)` 捕获当前选项；`from(null)` 开启轻量合成、关闭循环规划，模糊集合为空。共享网络设置的修改仍须鉴权。使用带动作来源的 `neoecoae$hasComputationHost(source)` 检查玩家/自动任务资格。
 
 `REPORT_MISSING_ITEMS` 保留原请求及完整缺料报告；`CRAFT_LESS` 可能返回较小数量，读取 `plan.finalOutput().amount()`。非空计划可能只是模拟报告，不能直接提交。通过 [ECOCraftingPlanDiagnostics](../src/main/java/cn/dancingsnow/neoecoae/api/me/diagnostics/ECOCraftingPlanDiagnostics.java) 或 [ECOPlanningResultRegistry.find](../src/main/java/cn/dancingsnow/neoecoae/api/me/planning/ECOPlanningResultRegistry.java) 读取状态、`exactMissingItems()`、`theoreticalBytes()` 与 `trace().diagnostics()`；提交前检查 `resolveContract(...).executable()`。不假定每份计划都有阶段 `executionPlan()`。
 
 `withSubmissionAlias` 只在同步提交回调期间绑定元数据；保持同一计划的执行身份，不复制或缩放任务向量来复用元数据。该注册表有容量与有效期限制，不用于持久化。
+
+`ECOPlanningService.begin` 仍返回 `Future<ICraftingPlan>`。候选方案保留在请求内部，有限优化结束后只完成一次；已返回的确认结果不会被后台候选替换。附属继续通过 Future 的完成与取消合同管理请求。
+
+精确材料与配方次数使用 [PlannerAmount](../src/main/java/cn/dancingsnow/neoecoae/crafting/amount/PlannerAmount.java)：小数量使用 long，中间层使用带独立符号的 U128 幅值，超出 128 位后自动使用 BigInteger。U128 的有限范围为 `0` 至 `2^128-1`，不代表无限供应，也不是精确订单的总量上限。读取 `exactUsedItems()`、`exactEmittedItems()`、`exactMissingItems()` 与 `exactPatternTimes()`，需要 BigInteger 时调用 `toBigInteger()`；不得用 AE2 的有界 long 投影覆盖精确账本。
+
+### 确认菜单报告
+
+[ECOCraftConfirmMenuMode](../src/main/java/cn/dancingsnow/neoecoae/api/me/menu/ECOCraftConfirmMenuMode.java) 区分材料就绪 `neoecoae$diagnosticsReady()` 与图就绪 `neoecoae$graphReady()`。`neoecoae$hasByteEstimate()` 表示已有字节估算，`neoecoae$hasCompleteByteEstimate()` 才表示完整估算。自定义界面按对应就绪状态启用操作，不把部分估算显示为完整成本。
+
+材料与图属于同一个 `neoecoae$getDisplayedPlanRevision()`。材料阶段由 `neoecoae$setMaterialReport(version, report, cycles)` 接收，完整图由 `neoecoae$setDiagnostics(version, graph, cycles)` 接收；提交前使用 `neoecoae$lockDisplayedPlan(revision)` 核对已显示的版本，返回 false 时重新读取状态。`neoecoae$getReportSyncFailure()` 的 1、2 分别表示材料、图同步失败。
+
+[CraftingGraphSnapshot](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/snapshot/CraftingGraphSnapshot.java) 的 `materialReport()` 只提供材料阶段的数据。完整图中 `CycleGroup.recursion()` 提供初始库存和有界的精确检查点；`RecursionLayer` 的投入、库存和配方次数均使用 PlannerAmount，`folded` 表示折叠了重复步骤。`Recursion.complete()` 也可描述补足缺料后的条件执行过程，不代替提交合同的可执行判定。报告线协议现为 7，服务器与客户端必须使用匹配协议。
 
 ### 精确父订单
 
@@ -256,6 +268,8 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 增量列表读者同时记录 `StorageListingVersion.neoecoae$listingVersion()` 和 `neoecoae$listingIdentity()`。默认 identity 为源对象自身；委托库存、过滤视图或版本纪元改变时应更换 identity，无法安全版本化时返回 `UNKNOWN`。`StorageListingDelta` 保留原有只传 Key 的回调，该回调允许已报告部分 Key 后返回 false；新增的 `ObjLongConsumer<AEKey>` 重载报告非负的绝对列表数量（零表示删除），无法提供完整增量时必须在调用任何回调前返回 false。默认桥会暂存旧回调的 Key，原生实现可覆盖该重载以避免临时集合；这些游标不改变 AEKey 的内容相等语义。
 
 `ECOExactInventory.debitTransferred(key, accepted)` 扣除外部已确认接收的数量，先记账再通知观察者，通知失败不会回滚已交付资源；本地可回滚的预留继续使用 `debit(Map)`。空闲 ECO CPU 分批返还保留库存，存储异常或非法接收量会停止自动返还并保存诊断；附属不得向仍持有资源或报告永久错误的 CPU 提交新任务。
+
+`ECOExactInventory.quantity(key)`、`snapshotQuantities()`、`debitQuantities(Map)` 和 `restoreQuantities(Map)` 直接使用 PlannerAmount，避免热路径反复转换；原有 BigInteger 入口继续保留。两组入口共享同一账本，`list` 中的 long 数量仅用于 AE2 兼容访问。
 
 终端精确数量源可以实现 `crafting.display.terminal.SparseExactAmountSource`，只报告普通 long 列表无法准确表达的资源；`neoecoae$exceptionalAmount(key)` 返回 `null` 表示普通列表已准确表达该资源，或资源当前不可见。稀疏查询与普通列表必须使用相同的过滤、访问和恢复锁规则。结合 `StorageListingDelta` 时，版本必须覆盖精确数量变化，即使 long 投影保持不变。已有 `ExactAmountSource` 与 `CombinedExactAmountSource` 实现继续有效；后者新增的三参数枚举重载允许可信的普通数量使用原始 long 回调，默认仍调用原有精确回调。
 

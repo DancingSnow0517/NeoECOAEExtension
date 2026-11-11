@@ -45,6 +45,9 @@ class CycleStartupRecoveryTest {
         assertTrue(outcome.state().usedItems().isEmpty());
         assertEquals(CycleExternalDemandStatus.MISSING, outcome.components().stream()
             .filter(c -> c.type() == ComponentPlanningResult.Type.CYCLIC).findFirst().orElseThrow().externalDemandStatus());
+        var cycle = outcome.trace().cycles().get(0).solveResult();
+        assertEquals(CycleSolveStatus.SUCCESS, cycle.status());
+        assertTrue(cycle.exactSeedShortfall().isEmpty(), "An externally craftable seed must not remain missing");
     }
 
     @Test
@@ -149,7 +152,7 @@ class CycleStartupRecoveryTest {
     }
 
     @Test
-    void accumulatedStartupPrefixBeyondLongIsARepresentabilityResult() throws Exception {
+    void accumulatedStartupPrefixBeyondLongKeepsTheRealRawMaterialShortage() throws Exception {
         var inventory = new KeyCounter(); inventory.add(raw, Long.MAX_VALUE);
         var calls = new AtomicInteger();
         CycleSolver solver = (request, cancellation) -> {
@@ -165,9 +168,8 @@ class CycleStartupRecoveryTest {
                 CycleSolveMetrics.NONE);
         };
         var outcome = plan(new ComponentPlanner(new AcyclicCraftingSolver(), solver), inventory);
-        assertEquals(PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE, outcome.status());
-        assertTrue(outcome.trace().diagnostics().stream()
-            .anyMatch(diagnostic -> diagnostic.message().contains("9223372036854775808")));
+        assertEquals(PlanningStatus.MISSING_ITEMS, outcome.status());
+        assertEquals(PlannerAmount.ONE, outcome.state().missingAmounts().get(raw), outcome.trace().diagnostics().toString());
         assertTrue(outcome.state().patternTimes().isEmpty());
         assertTrue(outcome.state().usedItems().isEmpty());
         assertEquals(Long.MAX_VALUE, inventory.get(raw));
@@ -189,7 +191,7 @@ class CycleStartupRecoveryTest {
         CycleSolver solver = (request, cancellation) -> calls.getAndIncrement() == 0
             ? result(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, Map.of(), Map.of(), Map.of(seed, 1L)) : recovered;
         var outcome = plan(new ComponentPlanner(new AcyclicCraftingSolver(), solver), inventory);
-        assertEquals(2, calls.get());
+        assertTrue(calls.get() >= 2, "The supplied startup seed must be verified before boundary planning");
         return outcome;
     }
 

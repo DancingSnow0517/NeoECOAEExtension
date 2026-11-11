@@ -140,15 +140,27 @@ Built-in bridges explicitly select ECO planning for AE2 crafting cards (includin
 | Option | Contract |
 | --- | --- |
 | `cyclePlanningEnabled` | Allow unavoidable cyclic components into the solver |
-| `ignorePatternSubstitutions` | Plan only the encoded preferred input |
+| `ignorePatternSubstitutions` | Legacy API name for default-enabled lite crafting: one exact producer per material, no route retries, substitutions, remainder or byproduct reuse; takes precedence over cycle and fuzzy settings |
 | `fuzzyPlanningItemIds` | Ignore components for selected items during planning; actual inputs must still pass pattern validation |
 | `planningLogEnabled` | Legacy compatibility field; logging uses the global Calculating debug configuration |
 
-`ECOPlannerOptions.from(settings)` captures current options. `from(null)` disables cycle planning and ignored substitutions and uses an empty fuzzy set. Mutating shared grid settings requires authorization. Check source-specific eligibility with `neoecoae$hasComputationHost(source)`.
+`ECOPlannerOptions.from(settings)` captures current options. `from(null)` enables lite crafting, disables cycle planning, and uses an empty fuzzy set. Mutating shared grid settings requires authorization. Check source-specific eligibility with `neoecoae$hasComputationHost(source)`.
 
 `REPORT_MISSING_ITEMS` retains the original request and shortage report. `CRAFT_LESS` may return a smaller amount; read `plan.finalOutput().amount()`. A non-null plan can be a simulation report. Read status, `exactMissingItems()`, `theoreticalBytes()` and `trace().diagnostics()` through [ECOCraftingPlanDiagnostics](../src/main/java/cn/dancingsnow/neoecoae/api/me/diagnostics/ECOCraftingPlanDiagnostics.java) or [ECOPlanningResultRegistry.find](../src/main/java/cn/dancingsnow/neoecoae/api/me/planning/ECOPlanningResultRegistry.java); verify `resolveContract(...).executable()` before submission. Do not assume every plan provides stage `executionPlan()` metadata.
 
 `withSubmissionAlias` binds metadata only during a synchronous submission callback. Keep execution identity intact; do not copy or scale task vectors to reuse another plan's metadata. The registry is bounded and expiring, not persistent storage.
+
+`ECOPlanningService.begin` still returns `Future<ICraftingPlan>`. Candidates remain private until bounded optimization selects one final result. A completed confirmation result is never replaced by a later background candidate. Addons continue to manage requests through the Future completion and cancellation contract.
+
+Exact materials and recipe counts use [PlannerAmount](../src/main/java/cn/dancingsnow/neoecoae/crafting/amount/PlannerAmount.java): long for small values, a U128 magnitude with a separate sign for the middle tier, and BigInteger beyond 128 bits. U128 covers finite values from `0` to `2^128-1`; it does not indicate unlimited supply or cap the total of an exact order. Read `exactUsedItems()`, `exactEmittedItems()`, `exactMissingItems()` and `exactPatternTimes()`, calling `toBigInteger()` when needed. Never replace the exact ledger with AE2's bounded long projections.
+
+### Confirmation reports
+
+[ECOCraftConfirmMenuMode](../src/main/java/cn/dancingsnow/neoecoae/api/me/menu/ECOCraftConfirmMenuMode.java) separates material readiness through `neoecoae$diagnosticsReady()` from graph readiness through `neoecoae$graphReady()`. `neoecoae$hasByteEstimate()` indicates an available estimate; only `neoecoae$hasCompleteByteEstimate()` indicates a complete estimate. Custom screens enable actions according to these states and label partial costs accordingly.
+
+Materials and the graph share `neoecoae$getDisplayedPlanRevision()`. Receive material data with `neoecoae$setMaterialReport(version, report, cycles)` and the complete graph with `neoecoae$setDiagnostics(version, graph, cycles)`. Before submission, call `neoecoae$lockDisplayedPlan(revision)` for the displayed revision; reread the state if it returns false. `neoecoae$getReportSyncFailure()` values 1 and 2 indicate material and graph synchronization failures respectively.
+
+[CraftingGraphSnapshot](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/snapshot/CraftingGraphSnapshot.java) exposes material-stage data through `materialReport()`. In a complete graph, `CycleGroup.recursion()` provides initial stock and bounded exact checkpoints. Each `RecursionLayer` carries PlannerAmount inputs, inventory and firing counts; `folded` marks repeated steps represented together. `Recursion.complete()` may describe execution conditional on supplying missing materials and does not replace the submission contract's executability check. The report wire protocol is now 7; server and client protocols must match.
 
 ### Exact parent orders
 
@@ -256,6 +268,8 @@ Claim external candidates under an owner UUID and release claims on every exit p
 Incremental listing readers track both `StorageListingVersion.neoecoae$listingVersion()` and `neoecoae$listingIdentity()`. The default identity is the source itself; replace it when a delegate, filter view or revision epoch changes, and return `UNKNOWN` when the listing cannot be versioned safely. `StorageListingDelta` retains the original key-only callback, which may return false after reporting some keys. Its new `ObjLongConsumer<AEKey>` overload reports absolute nonnegative listed amounts (zero means deletion) and must return false without calling the visitor when a complete delta is unavailable. The default bridge stages the old callback safely; a native implementation can override it to avoid that temporary collection. These cursors do not change AEKey content equality.
 
 `ECOExactInventory.debitTransferred(key, accepted)` removes an acknowledged external delivery. Its observer callbacks run after the debit and cannot roll it back; use `debit(Map)` for a local reversible reservation instead. Idle ECO CPUs return retained inventory over bounded passes. A storage exception or invalid acceptance stops automatic return and persists the diagnostic; integrations must not resubmit work to a CPU that still owns items or reports a permanent error.
+
+`ECOExactInventory.quantity(key)`, `snapshotQuantities()`, `debitQuantities(Map)` and `restoreQuantities(Map)` use PlannerAmount directly to avoid repeated conversion on hot paths. Existing BigInteger entry points remain available. Both use the same ledger; the long quantities in `list` are projections for AE2 compatibility.
 
 Terminal exact-amount sources may implement `crafting.display.terminal.SparseExactAmountSource` to report only resources that the ordinary long listing cannot represent faithfully. `neoecoae$exceptionalAmount(key)` returns `null` when the ordinary listing is exact for that key, or the key is currently hidden. Sparse and ordinary queries must use identical visibility, access and restore-lock rules. When combined with `StorageListingDelta`, its version must cover exact changes even when the long projection is unchanged. Existing `ExactAmountSource` and `CombinedExactAmountSource` implementations remain valid; the latter's new three-argument listing overload accepts primitive long callbacks for faithful ordinary quantities and defaults to the original exact callback.
 
@@ -386,7 +400,7 @@ Blocks implement `IHostPanelTextureProvider.getPanelTexture(BlockState, Part)` f
 | `COMPUTATION_STATUS` | 12×12 |
 | `COMPUTATION_SWITCH/CRAFTING_MODE` | 15×26 |
 
-Status indices 0–5 represent connection, substitutions, cycles, fast planning, normal switch and high-energy switch; hovered is false. The high-energy blue state uses column 5, its pink state column 4. Computation switch indices 0–2 are substitutions/cycles/fast planning; crafting indices 0–1 are active cooling/overclock, with active/hovered selecting state images.
+Status indices 0–5 represent connection, lite crafting, cycles, fast planning, normal switch and high-energy switch; hovered is false. The high-energy blue state uses column 5, its pink state column 4. Computation switch indices 0–2 are lite crafting/cycles/fast planning; crafting indices 0–1 are active cooling/overclock, with active/hovered selecting state images.
 
 When constructing panels such as [StorageHostUI](../src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageHostUI.java), use overloads accepting `Supplier<IECOTier>` and `Supplier<BlockState>`. The server captures placed-state texture IDs for synchronization; old factory signatures remain available.
 

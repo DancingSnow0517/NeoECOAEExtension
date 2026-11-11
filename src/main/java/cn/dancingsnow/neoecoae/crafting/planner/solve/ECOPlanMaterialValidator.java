@@ -29,6 +29,11 @@ public final class ECOPlanMaterialValidator {
      */
     public static @Nullable Issue firstDeficit(SolveState state, AEKey finalGoal, long finalAmount,
             KeyCounter initialInventory, @Nullable CompiledNetwork network) {
+        return firstDeficit(state, finalGoal, finalAmount, initialInventory, network, false);
+    }
+
+    public static @Nullable Issue firstDeficit(SolveState state, AEKey finalGoal, long finalAmount,
+            KeyCounter initialInventory, @Nullable CompiledNetwork network, boolean liteCrafting) {
         if (state == null || finalGoal == null || finalAmount <= 0L) {
             return new Issue(null, PlannerAmount.ZERO, PlannerAmount.ZERO, "INVALID_PLAN_ARGUMENT");
         }
@@ -78,7 +83,7 @@ public final class ECOPlanMaterialValidator {
                         return new Issue(null, PlannerAmount.ZERO, PlannerAmount.ZERO, "INVALID_PATTERN_INPUT");
                     }
                     GenericStack primary = possible[0];
-                    AEKey remaining = input.getRemainingKey(primary.what());
+                    AEKey remaining = liteCrafting ? null : input.getRemainingKey(primary.what());
                     if (sameItemStateTransition(primary.what(), remaining)) {
                         // The special resolver reserves/manufactures working stock once. Charging the source and
                         // returned damage/component keys per firing would recreate the false material cycle.

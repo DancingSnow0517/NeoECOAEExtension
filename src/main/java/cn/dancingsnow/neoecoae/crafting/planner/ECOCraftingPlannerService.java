@@ -81,9 +81,10 @@ public final class ECOCraftingPlannerService {
             this.goal = goal;
             this.inventorySnapshot = inventory;
             this.inventory = inventorySnapshot.toKeyCounter();
-            this.cyclePlanningEnabled = cyclePlanningEnabled;
+            this.cyclePlanningEnabled = cyclePlanningEnabled && !ignorePatternSubstitutions;
             this.ignorePatternSubstitutions = ignorePatternSubstitutions;
-            this.fuzzyPlanningItemIds = fuzzyPlanningItemIds == null ? Set.of() : Set.copyOf(fuzzyPlanningItemIds);
+            this.fuzzyPlanningItemIds = ignorePatternSubstitutions || fuzzyPlanningItemIds == null
+                ? Set.of() : Set.copyOf(fuzzyPlanningItemIds);
         }
 
         public ECOPlanningResult plan(long amount, boolean simulation, ECOCancellation cancellation)
@@ -113,48 +114,52 @@ public final class ECOCraftingPlannerService {
                     ComponentPlanner.Outcome solved;
                     long componentStarted = ECOPlanningStageLogger.start();
                     try {
-                        if (activeSelection == null) synchronized (initializationLock) {
-                            if (activeSelection == null) {
-                                budgetStage = "route_selection";
-                                activeSelection = componentPlanner.selectRoutes(condensation, cyclePlanningEnabled, cancellation);
+                        if (ignorePatternSubstitutions) {
+                            solved = componentPlanner.planLite(compiled, condensation, inventorySnapshot, amount, cancellation);
+                        } else {
+                            if (activeSelection == null) synchronized (initializationLock) {
+                                if (activeSelection == null) {
+                                    budgetStage = "route_selection";
+                                    activeSelection = componentPlanner.selectRoutes(condensation, cyclePlanningEnabled, cancellation);
+                                }
                             }
-                        }
-                        budgetStage = "component_planning";
-                        solved = componentPlanner.planWithRouteFallback(compiled, condensation, activeSelection,
-                                inventory, inventorySnapshot, amount, cyclePlanningEnabled, ignorePatternSubstitutions, cancellation,
-                                candidate -> {
-                                    ECOCancellation candidateCancellation = accepted[0] == null
-                                        ? callerCancellation : searchCancellation;
-                                    ECOPlanningResult ready = buildResult(candidate, amount, simulation, startedNanos,
-                                        candidateCancellation);
-                                    candidateCancellation.checkpoint();
-                                    if (!ready.executable()) {
-                                        if (onReady != null && accepted[0] == null && !reportedMissing[0]
-                                                && !ready.exactMissingItems().isEmpty()
-                                                && (ready.status() == PlanningStatus.MISSING_ITEMS
-                                                    || ready.status() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE)) {
-                                            callerCancellation.checkpoint();
-                                            attach(ready);
-                                            reportedMissing[0] = true;
-                                            onReady.accept(ready);
-                                            ECOPlanningStageLogger.finish("first_material_report", startedNanos, true,
-                                                "MISSING_ITEMS; alternative routes remain unproven");
+                            budgetStage = "component_planning";
+                            solved = componentPlanner.planWithRouteFallback(compiled, condensation, activeSelection,
+                                    inventory, inventorySnapshot, amount, cyclePlanningEnabled, ignorePatternSubstitutions, cancellation,
+                                    candidate -> {
+                                        ECOCancellation candidateCancellation = accepted[0] == null
+                                            ? callerCancellation : searchCancellation;
+                                        ECOPlanningResult ready = buildResult(candidate, amount, simulation, startedNanos,
+                                            candidateCancellation);
+                                        candidateCancellation.checkpoint();
+                                        if (!ready.executable()) {
+                                            if (onReady != null && accepted[0] == null && !reportedMissing[0]
+                                                    && !ready.exactMissingItems().isEmpty()
+                                                    && (ready.status() == PlanningStatus.MISSING_ITEMS
+                                                        || ready.status() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE)) {
+                                                callerCancellation.checkpoint();
+                                                attach(ready);
+                                                reportedMissing[0] = true;
+                                                onReady.accept(ready);
+                                                ECOPlanningStageLogger.finish("first_material_report", startedNanos, true,
+                                                    "MISSING_ITEMS; alternative routes remain unproven");
+                                            }
+                                            return false;
                                         }
-                                        return false;
-                                    }
-                                    attach(ready);
-                                    candidateCancellation.checkpoint();
-                                    boolean first = accepted[0] == null;
-                                    accepted[0] = ready;
-                                    if (onReady != null) {
-                                        sharedBudget.beginOptimization();
-                                        onReady.accept(ready);
-                                    }
-                                    ECOPlanningStageLogger.finish(first ? "first_executable" : "improved_executable",
-                                        startedNanos, true, "backend=" + (ready.status() == PlanningStatus.SUCCESS
-                                            ? "AE2_LONG" : "ECO_EXACT"));
-                                    return true;
-                                }, onReady != null);
+                                        attach(ready);
+                                        candidateCancellation.checkpoint();
+                                        boolean first = accepted[0] == null;
+                                        accepted[0] = ready;
+                                        if (onReady != null) {
+                                            sharedBudget.beginOptimization();
+                                            onReady.accept(ready);
+                                        }
+                                        ECOPlanningStageLogger.finish(first ? "first_executable" : "improved_executable",
+                                            startedNanos, true, "backend=" + (ready.status() == PlanningStatus.SUCCESS
+                                                ? "AE2_LONG" : "ECO_EXACT"));
+                                        return true;
+                                    }, onReady != null);
+                        }
                     } catch (InterruptedException | RuntimeException e) {
                         ECOPlanningStageLogger.finish("component_planning", componentStarted, false,
                                 ECOPlanningStageLogger.exceptionReason(e));
@@ -286,7 +291,7 @@ public final class ECOCraftingPlannerService {
                 }
                 long providerRevision = CompiledStructureCache.revision(craftingService);
                 var cached = CompiledStructureCache.get(craftingService, providerRevision, contractGeneration, goal,
-                        cyclePlanningEnabled, fuzzyPlanningItemIds);
+                        cyclePlanningEnabled, ignorePatternSubstitutions, fuzzyPlanningItemIds);
                 if (cached != null) {
                     compiled = cached.network();
                     condensation = cached.condensation();
@@ -300,7 +305,7 @@ public final class ECOCraftingPlannerService {
                     long stageStarted = ECOPlanningStageLogger.start();
                     try {
                         compiled = compiler.compile(craftingService, goal, cyclePlanningEnabled,
-                                fuzzyPlanningItemIds, cancellation);
+                                ignorePatternSubstitutions, fuzzyPlanningItemIds, cancellation);
                         ECOPlanningStageLogger.finish("network_compile", stageStarted, true, null);
                     } catch (InterruptedException | RuntimeException e) {
                         ECOPlanningStageLogger.finish("network_compile", stageStarted, false,
@@ -327,7 +332,7 @@ public final class ECOCraftingPlannerService {
                 compiledContractGeneration = contractGeneration;
                 compiledProviderRevision = providerRevision;
                 CompiledStructureCache.put(craftingService, providerRevision, contractGeneration, goal, cyclePlanningEnabled,
-                        fuzzyPlanningItemIds, new CompiledStructureCache.Structure(compiled, condensation));
+                        ignorePatternSubstitutions, fuzzyPlanningItemIds, new CompiledStructureCache.Structure(compiled, condensation));
             }
         }
 
@@ -388,7 +393,8 @@ public final class ECOCraftingPlannerService {
 
         private ComponentPlanner.Outcome rejectUnclosedSuccess(ComponentPlanner.Outcome solved, long amount) {
             if (solved.status() != PlanningStatus.SUCCESS && !solved.completeCandidate()) return solved;
-            var issue = ECOPlanMaterialValidator.firstDeficit(solved.state(), goal, amount, inventory, compiled);
+            var issue = ECOPlanMaterialValidator.firstDeficit(solved.state(), goal, amount, inventory, compiled,
+                ignorePatternSubstitutions);
             if (issue == null) return solved;
 
             String key = issue.key() == null ? "<plan>" : issue.key().toString();
@@ -411,6 +417,7 @@ public final class ECOCraftingPlannerService {
         }
 
         private void attach(ECOPlanningResult result) {
+            result.setLiteCraftingMode(ignorePatternSubstitutions);
             if ((Object) result.plan() instanceof ECOCraftingPlanDiagnostics diagnostics) {
                 diagnostics.neoecoae$setPlanningResult(result);
             }

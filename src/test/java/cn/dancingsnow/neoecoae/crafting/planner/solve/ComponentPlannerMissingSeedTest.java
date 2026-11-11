@@ -37,6 +37,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class ComponentPlannerMissingSeedTest {
     @Test
@@ -66,8 +68,9 @@ class ComponentPlannerMissingSeedTest {
             .findFirst().orElseThrow().getMissingAmount());
     }
 
-    @Test
-    void missingSeedDoesNotHideTheWholeOrdersExternalIngredients() throws Exception {
+    @ParameterizedTest
+    @ValueSource(longs = {100L, 5_000_000_000_000_000_000L})
+    void missingSeedReportsOnlyStartupQuantityAlongsideWholeOrderExternalIngredients(long amount) throws Exception {
         AEKey seed = mock(AEKey.class, "seed"), fuel = mock(AEKey.class, "fuel");
         for (AEKey key : List.of(seed, fuel)) when(key.getAmountPerByte()).thenReturn(8);
         var growth = staticPattern(0, seed, 2L, new GenericStack(seed, 1L), new GenericStack(fuel, 7L));
@@ -77,13 +80,95 @@ class ComponentPlannerMissingSeedTest {
         var condensation = CondensationGraph.build(graph,
             new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
         var stock = new KeyCounter(); stock.add(fuel, 3L);
-        var outcome = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver())
-            .plan(network, condensation, stock, 100L, true, ECOCancellation.NONE);
-        assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.MISSING_ITEMS,
+        var planner = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver());
+        var outcome = planner.planWithCycleFallback(network, condensation,
+            planner.selectRoutes(condensation, true, ECOCancellation.NONE), stock,
+            PlannerInventorySnapshot.of(stock), amount, false, ECOCancellation.NONE);
+        var fuelMissing = PlannerAmount.of(amount).multiply(7).subtract(PlannerAmount.of(3));
+        assertEquals(fuelMissing.fitsLong()
+                ? cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.MISSING_ITEMS
+                : cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE,
             outcome.status(), outcome.trace().diagnostics().toString());
-        assertEquals(1L, outcome.state().missingItems().get(seed));
-        assertEquals(697L, outcome.state().missingItems().get(fuel));
+        assertEquals(Map.of(seed, PlannerAmount.ONE, fuel, fuelMissing), outcome.state().missingAmounts(),
+            "The seed deficit is one startup item; fuel covers the entire requested order");
+        assertEquals(PlannerAmount.ONE, outcome.trace().cycles().get(0).solveResult().exactRequiredSeed().get(seed));
         assertTrue(outcome.state().patternTimes().isEmpty());
+    }
+
+    @Test
+    void hugeSeededCircuitExpandsRawShortageAndReachesTheRequestedAmountWhenSupplied() throws Exception {
+        AEKey seed = mock(AEKey.class, "seed"), carrier = mock(AEKey.class, "carrier");
+        AEKey fuel = mock(AEKey.class, "fuel"), raw = mock(AEKey.class, "raw");
+        for (AEKey key : List.of(seed, carrier, fuel, raw)) when(key.getAmountPerByte()).thenReturn(8);
+        var finish = staticPattern(0, seed, 2L, carrier, 1L);
+        var prepare = staticPattern(1, carrier, 1L,
+            new GenericStack(seed, 1L), new GenericStack(fuel, 1L));
+        var refine = staticPattern(2, fuel, 1L, raw, 2L);
+        var network = new CompiledNetwork(seed, Map.of(seed, List.of(finish), carrier, List.of(prepare),
+            fuel, List.of(refine), raw, List.of()), Set.of(), 3, 4);
+        var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
+        var condensation = CondensationGraph.build(graph,
+            new TarjanSccAnalyzer().analyze(graph, ECOCancellation.NONE), ECOCancellation.NONE);
+        var planner = new ComponentPlanner(new AcyclicCraftingSolver(), new BoundedCycleSolver());
+        var selection = planner.selectRoutes(condensation, true, ECOCancellation.NONE);
+        long amount = 5_000_000_000_000_000_000L;
+        var stock = new KeyCounter(); stock.add(seed, 1L); stock.add(fuel, 3L); stock.add(raw, 5L);
+        var outcome = planner.planWithCycleFallback(network, condensation, selection, stock,
+            PlannerInventorySnapshot.of(stock), amount, false, ECOCancellation.NONE);
+        var rawRequired = PlannerAmount.of(amount).subtract(PlannerAmount.of(3)).multiply(2);
+        var missing = rawRequired.subtract(PlannerAmount.of(5));
+
+        assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE,
+            outcome.status(), outcome.trace().diagnostics().toString());
+        assertEquals(Map.of(raw, missing), outcome.state().missingAmounts());
+        assertFalse(outcome.cycles().isEmpty(), "The report must retain the loop that was expanded");
+        assertTrue(outcome.trace().diagnostics().stream().anyMatch(d -> d.code()
+            == cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic.Code.ROUTE_QUANTITY_BOUND),
+            "The quantity bound should still prune alternative routes after material expansion");
+        assertTrue(outcome.state().patternTimes().isEmpty(), "A deficit report must not commit cycle work");
+        assertEquals(5L, stock.get(raw));
+        var plan = new AE2CraftingPlanBridge().partial(seed, amount, false, outcome.state());
+        var result = new cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult(
+            outcome.status(), plan, outcome.trace(), outcome.cycles(), outcome.components(),
+            outcome.executionComponentOrder(), 0L);
+        result.setExactMaterials(outcome.state().usedAmounts(), outcome.state().emittedAmounts(),
+            outcome.state().missingAmounts());
+        var snapshot = cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshotFactory.create(result);
+        var goal = snapshot.nodes().stream().filter(node -> node.key().equals(seed)).findFirst().orElseThrow();
+        var recursion = snapshot.cycleGroups().get(0).recursion();
+        assertTrue(recursion.complete(), "The real solver's huge missing-material plan retains its recursive growth");
+        assertTrue(recursion.layers().size() <= 64);
+        var finalInventory = recursion.layers().get(recursion.layers().size() - 1).inventory();
+        assertTrue(finalInventory.stream().anyMatch(value -> value.key().equals(seed)
+            && value.plannerAmount().compareTo(PlannerAmount.of(amount)) >= 0));
+        assertEquals(java.math.BigInteger.valueOf(amount), goal.requestedBigInteger());
+        assertEquals(java.math.BigInteger.ZERO, goal.missingBigInteger());
+        assertEquals(missing.toBigInteger(), snapshot.nodes().stream().filter(node -> node.key().equals(raw))
+            .findFirst().orElseThrow().missingBigInteger());
+        var rawNode = snapshot.nodes().stream().filter(node -> node.key().equals(raw)).findFirst().orElseThrow();
+        assertEquals(java.math.BigInteger.valueOf(5), rawNode.fromInventoryBigInteger());
+        assertEquals(rawRequired.toBigInteger(), rawNode.requestedBigInteger());
+        var fuelNode = snapshot.nodes().stream().filter(node -> node.key().equals(fuel)).findFirst().orElseThrow();
+        assertEquals(java.math.BigInteger.valueOf(3), fuelNode.fromInventoryBigInteger());
+        assertEquals(java.math.BigInteger.valueOf(amount - 3), fuelNode.toCraftBigInteger());
+        assertTrue(outcome.state().usedAmounts().isEmpty(), "Preview stock must not authorize an uncommitted cycle");
+
+        var suppliedStock = PlannerInventorySnapshot.exact(Map.of(seed, PlannerAmount.ONE,
+            fuel, PlannerAmount.of(3), raw, rawRequired), Set.of());
+        var supplied = planner.planWithCycleFallback(network, condensation, selection, suppliedStock.toKeyCounter(),
+            suppliedStock, amount, false, ECOCancellation.NONE);
+        assertTrue(supplied.completeCandidate(), supplied.trace().diagnostics().toString());
+        assertTrue(supplied.state().missingAmounts().isEmpty());
+        assertEquals(PlannerAmount.of(amount), supplied.state().plannerPatternTimes().get(finish.details()));
+        assertEquals(PlannerAmount.of(amount), supplied.state().plannerPatternTimes().get(prepare.details()));
+        assertEquals(rawRequired, supplied.state().usedAmounts().get(raw));
+        supplied.state().executionProvenance().requireComplete();
+        assertEquals(supplied.state().plannerBytes(), outcome.state().plannerBytes(),
+            "The same expanded route has the same byte estimate when only its raw-stock deficit changes");
+        assertTrue(outcome.state().plannerBytes().compareTo(PlannerAmount.of(outcome.state().bytes())) > 0,
+            "Uncommitted external work still contributes to the preview byte estimate");
+        assertEquals(outcome.state().plannerBytes(), outcome.state().copy().plannerBytes(),
+            "Retaining a candidate must preserve its material-preview byte estimate");
     }
 
     @Test
@@ -352,7 +437,8 @@ class ComponentPlannerMissingSeedTest {
             .filter(candidate -> candidate.type()
                 == cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Type.CYCLIC)
             .findFirst().orElseThrow().cycleResult();
-        assertEquals(CycleSolveStatus.UNREPRESENTABLE, cycle.status(), cycle.diagnostics().toString());
+        assertEquals(CycleSolveStatus.SUCCESS, cycle.status(), cycle.diagnostics().toString());
+        assertFalse(cycle.executionPlan().isEmpty());
         assertTrue(cycle.seedShortfall().isEmpty(), cycle.diagnostics().toString());
         assertTrue(cycle.diagnostics().stream().anyMatch(diagnostic ->
             diagnostic.code() == cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveDiagnostic.Code.SEED_COVERED_BY_STOCK));
@@ -619,6 +705,8 @@ class ComponentPlannerMissingSeedTest {
             var snapshot = cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshotFactory.create(result);
             assertEquals(java.math.BigInteger.valueOf(28L - storedDiamonds), snapshot.nodes().stream()
                 .filter(node -> node.key().equals(diamond)).findFirst().orElseThrow().missingBigInteger());
+            assertEquals(java.math.BigInteger.valueOf(storedDiamonds), snapshot.nodes().stream()
+                .filter(node -> node.key().equals(diamond)).findFirst().orElseThrow().fromInventoryBigInteger());
             assertEquals(java.math.BigInteger.valueOf(4L), snapshot.nodes().stream()
                 .filter(node -> node.key().equals(netherrack)).findFirst().orElseThrow().missingBigInteger());
         }

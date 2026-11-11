@@ -32,7 +32,7 @@ class ExternalDemandReservationTest {
         var result = new ExternalDemandPlanner(new AcyclicCraftingSolver()).solveDemands(network, cycle,
             Map.of(), inventory, new SolveState(inventory), Map.of(material, 5L), Set.of(), ECOCancellation.NONE);
         assertEquals(CycleExternalDemandStatus.MISSING, result.status());
-        assertEquals(Map.of(material, 2L), result.missingLeaves());
+        assertEquals(Map.of(material, PlannerAmount.of(2L)), result.missingLeaves());
         assertEquals(3L, inventory.get(material));
     }
 
@@ -44,8 +44,25 @@ class ExternalDemandReservationTest {
         var result = new ExternalDemandPlanner(new AcyclicCraftingSolver()).solveDemands(network, cycle,
             Map.of(material, 100L), inventory, base, Map.of(), Set.of(), ECOCancellation.NONE);
         assertEquals(CycleExternalDemandStatus.SOLVED, result.status());
-        assertEquals(100L, result.directReservations().get(material));
+        assertEquals(PlannerAmount.of(100L), result.directReservations().get(material));
         assertTrue(result.states().isEmpty());
+    }
+
+    @Test void unboundedExternalDagKeepsCumulativeAmountsBeyondLongAsSolved() throws Exception {
+        AEKey raw = key(), output = key();
+        var supplier = pattern(output, List.of(new GenericStack(raw, Long.MAX_VALUE)), new GenericStack(output, 1));
+        var graph = new CompiledNetwork(output, Map.of(output, List.of(supplier), raw, List.of()), Set.of(), 1, 1);
+        var stock = new KeyCounter();
+        var base = new SolveState(PlannerInventorySnapshot.of(stock, Set.of(raw)));
+
+        var result = new ExternalDemandPlanner(new AcyclicCraftingSolver()).solveDemands(graph, cycle,
+                Map.of(output, 3L), stock, base, Map.of(), Set.of(), ECOCancellation.NONE);
+
+        assertTrue(result.solved(), result.diagnostic());
+        var state = result.states().getFirst();
+        assertEquals(PlannerAmount.of(Long.MAX_VALUE).multiply(3), state.usedAmounts().get(raw));
+        assertTrue(state.missingAmounts().isEmpty());
+        state.executionProvenance().requireComplete();
     }
 
     @Test void boundaryRootsShareAnUnadvertisedByproductWithoutRepeatingThePhysicalPattern() throws Exception {
@@ -74,7 +91,7 @@ class ExternalDemandReservationTest {
         var result = new ExternalDemandPlanner(new AcyclicCraftingSolver()).solveDemands(graph, cycle,
             Map.of(a, 1L, b, 1L), stock, base, Map.of(), Set.of(), ECOCancellation.NONE);
         assertEquals(CycleExternalDemandStatus.MISSING, result.status());
-        assertEquals(1L, result.missingLeaves().get(raw));
+        assertEquals(PlannerAmount.ONE, result.missingLeaves().get(raw));
         assertTrue(base.patternTimes().isEmpty());
         assertTrue(base.usedItems().isEmpty());
     }

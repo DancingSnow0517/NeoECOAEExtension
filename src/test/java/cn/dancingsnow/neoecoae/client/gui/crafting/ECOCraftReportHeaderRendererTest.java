@@ -18,6 +18,34 @@ import org.junit.jupiter.api.Test;
 
 class ECOCraftReportHeaderRendererTest {
     @Test
+    void liteStatisticsReplaceIncompleteWarningWithTheModeFooter() throws Exception {
+        cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize();
+        try (var mods = mockStatic(net.neoforged.fml.ModList.class)) {
+            var modList = mock(net.neoforged.fml.ModList.class);
+            when(modList.getAllScanData()).thenReturn(List.of());
+            mods.when(net.neoforged.fml.ModList::get).thenReturn(modList);
+            Class.forName(cn.dancingsnow.neoecoae.NeoECOAE.class.getName());
+            com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries.init();
+        }
+        var summary = new cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot.Summary(
+            "MISSING_ITEMS", 4, 3, 2, 1, 0);
+        for (boolean exact : new boolean[] {false, true}) {
+            var lite = ECOCraftReportTooltips.statistics(123_000L, BigInteger.TEN, false, summary, exact, true).texts();
+            assertEquals("gui.neoecoae.crafting_report.card.lite_mode", key(lite.getLast()));
+            assertFalse(lite.stream().filter(line -> line.getContents() instanceof TranslatableContents)
+                .anyMatch(line -> "gui.neoecoae.crafting_report.card.incomplete".equals(key(line))));
+            var full = ECOCraftReportTooltips.statistics(123_000L, BigInteger.TEN, false, summary, exact, false).texts();
+            assertTrue(full.stream().filter(line -> line.getContents() instanceof TranslatableContents)
+                .anyMatch(line -> "gui.neoecoae.crafting_report.card.incomplete".equals(key(line))));
+            assertFalse(full.stream().filter(line -> line.getContents() instanceof TranslatableContents)
+                .anyMatch(line -> "gui.neoecoae.crafting_report.card.lite_mode".equals(key(line))));
+        }
+        var pending = ECOCraftReportTooltips.pending(Component.literal("Loading"), true).texts();
+        assertEquals("gui.neoecoae.crafting_report.card.lite_mode", key(pending.getLast()));
+    }
+
+
+    @Test
     void byteRowAndProgressStayInsideTheTextAreaWhenTheWindowMoves() {
         for (int[] origin : List.of(new int[] {37, 61}, new int[] {241, 133})) {
             var graphics = mock(GuiGraphics.class);
@@ -99,7 +127,7 @@ class ECOCraftReportHeaderRendererTest {
     @Test
     void hugeByteCountsRemainExactInTheTooltipAndFitTheMeasuredRow() {
         BigInteger huge = BigInteger.TEN.pow(123).add(BigInteger.valueOf(987654321));
-        var summary = ECOCraftReportHeaderRenderer.completed(543_210L, huge,
+        var summary = ECOCraftReportHeaderRenderer.completed(543_210L, huge, true,
             text -> ("字节：" + argument(text)).length() * 9);
 
         assertEquals("0.54321", argument(summary.elapsed()));
@@ -116,14 +144,24 @@ class ECOCraftReportHeaderRendererTest {
     @Test
     void pendingAndUnknownByteCountsAreDistinctAndZeroRetainsElapsedTooltip() {
         var pending = ECOCraftReportHeaderRenderer.pending(Component.literal("计算中…"));
-        var unknown = ECOCraftReportHeaderRenderer.completed(0, null, text -> 0);
-        var zero = ECOCraftReportHeaderRenderer.completed(0, BigInteger.ZERO, text -> 0);
+        var unknown = ECOCraftReportHeaderRenderer.completed(0, null, true, text -> 0);
+        var zero = ECOCraftReportHeaderRenderer.completed(0, BigInteger.ZERO, true, text -> 0);
         assertEquals("gui.neoecoae.crafting_report.bytes_pending", key(pending.bytes()));
         assertEquals("gui.neoecoae.crafting_report.bytes_unknown", key(unknown.bytes()));
         assertEquals("0.0000", argument(zero.elapsed()));
         assertEquals("0 B", argument(zero.bytes()));
         assertEquals("0.0000010000", ECOCraftReportHeaderRenderer.formatMillis(1));
         assertFalse(ECOCraftReportHeaderRenderer.isHovered(155, 20));
+    }
+
+    @Test
+    void partialByteEstimateKeepsItsExactLowerBoundAndCannotClaimZeroCost() {
+        var partial = ECOCraftReportHeaderRenderer.completed(100, BigInteger.valueOf(123), false, text -> 0);
+        assertEquals("gui.neoecoae.crafting_report.bytes_partial", key(partial.bytes()));
+        assertEquals("123 B", argument(partial.tooltip().get(1)));
+        assertEquals("gui.neoecoae.crafting_report.bytes_partial_hint", key(partial.tooltip().getLast()));
+        var unknown = ECOCraftReportHeaderRenderer.completed(100, BigInteger.ZERO, false, text -> 0);
+        assertEquals("gui.neoecoae.crafting_report.bytes_unknown", key(unknown.bytes()));
     }
 
     private static String key(Component component) {

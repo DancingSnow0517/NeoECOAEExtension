@@ -28,11 +28,22 @@ final class ECOCraftReportTooltips {
                     @Nullable BigInteger requested, boolean startupSeed, boolean estimatedSeed) {}
 
     static CraftingListCard.Builder pending(Component status) {
-        return statisticsHeader(null).divider().wrapped(null, status, CraftingTooltipCard.MUTED);
+        return pending(status, false);
+    }
+
+    static CraftingListCard.Builder pending(Component status, boolean liteCrafting) {
+        var card = statisticsHeader(null).divider().wrapped(null, status, CraftingTooltipCard.MUTED);
+        if (liteCrafting) card.divider().wrapped(Glyph.INFO, text("lite_mode"), CraftingTooltipCard.OK);
+        return card;
     }
 
     static CraftingListCard.Builder statistics(long nanos, @Nullable BigInteger usedBytes, boolean complete,
             @Nullable CraftingGraphSnapshot.Summary summary, boolean exact) {
+        return statistics(nanos, usedBytes, complete, summary, exact, false);
+    }
+
+    static CraftingListCard.Builder statistics(long nanos, @Nullable BigInteger usedBytes, boolean complete,
+            @Nullable CraftingGraphSnapshot.Summary summary, boolean exact, boolean liteCrafting) {
         var card = statisticsHeader(summary).divider();
         BigDecimal millis = BigDecimal.valueOf(Math.max(0, nanos), 6);
         String elapsed = exact ? DisplayNumbers.grouped(millis)
@@ -50,9 +61,11 @@ final class ECOCraftReportTooltips {
             card.row(null, CraftingTooltipCard.MUTED, text("patterns"),
                     Component.literal(DisplayNumbers.grouped(summary.patternNodes())), CraftingTooltipCard.PRIMARY)
                 .row(null, CraftingTooltipCard.MUTED, text("cycles"), Component.literal(DisplayNumbers.grouped(summary.cycleGroups())),
-                    summary.cycleGroups() > 0 ? CraftingTooltipCard.WARN : CraftingTooltipCard.PRIMARY);
+                    summary.cycleGroups() > 0 ? CraftingTooltipCard.CYAN : CraftingTooltipCard.PRIMARY);
         }
-        if (!complete) {
+        if (liteCrafting) {
+            card.divider().wrapped(Glyph.INFO, text("lite_mode"), CraftingTooltipCard.OK);
+        } else if (!complete) {
             card.divider().wrapped(Glyph.INFO, text("incomplete"), CraftingTooltipCard.WARN)
                 .wrapped(null, text("incomplete_hint"), CraftingTooltipCard.MUTED);
         }
@@ -63,7 +76,7 @@ final class ECOCraftReportTooltips {
         boolean cycles = summary != null && summary.cycleGroups() > 0;
         return CraftingListCard.builder().header(Glyph.CHIP, text("title"),
             cycles ? Component.translatable("gui.neoecoae.crafting_report.cycle_planning_enabled") : Component.empty(),
-            CraftingTooltipCard.WARN, cycles ? Glyph.WARNING : null);
+            CraftingTooltipCard.CYAN, cycles ? Glyph.NODES : null);
     }
 
     static CraftingListCard.Builder material(Material material, boolean exact) {

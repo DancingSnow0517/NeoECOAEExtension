@@ -31,11 +31,27 @@ item_ids:
 
 The ECO Computation System is a powerful multiblock crafting CPU cluster that provides massive parallel crafting capabilities for your ME Network.
 
+## Lite Crafting Mode
+
+The computation host's **Lite** switch is enabled by default. It follows GTNH's lite crafting rules: choose one exact pattern per material and aggregate demand in one dependency pass, without alternative-route retries, substitutions, tool or container returns, or byproduct reuse. Cycles are expanded once; remaining demand must come from storage. Disabling lite mode restores full planning with the selected cycle and fuzzy-matching settings.
+
+Calculation statistics show **Lite Crafting Mode** in green at the bottom. This mode omits the incomplete-calculation notice, while material shortages remain visible and detected cycles are shown as information.
+
 ## Continuous Pattern Dispatch
 
 Within a crafting job, the current pattern keeps dispatch priority while its inputs are available and providers keep accepting it. There is no consecutive-success cap. Missing inputs, unavailable providers, task completion, suspension, or dependency and cycle constraints allow other legal patterns to run.
 
 Per-tick execution and probe budgets still apply. Processing batches spend that budget per provider submission, not per copy: each CPU makes at most 64 submissions per tick and one pattern uses at most half of them. A provider that accepts whole batches receives every copy that materials, energy, cycle seeds and its own capacity allow in one submission. A budget pause is not a provider failure and retains the current pattern for the next tick. Batches consume inputs and record expected outputs according to the amount actually accepted.
+
+## Crafting Reports and Recursive Graphs
+
+After calculation, the confirmation page shows the final selected plan. The summary and material list arrive first, followed by the graph. Material cells show stock, amounts to craft, and shortages. Outside lite mode, a partial byte estimate is labelled as incomplete.
+
+Open the graph from the left toolbar and expand a recursive module to inspect its startup seeds, material additions, inventory after each layer, final delivery, and retained materials. Large cycles fold repeated steps. An unfinished search displays unknown stages and does not imply that the plan can execute.
+
+Hold **Shift** while hovering over a material or recursive node to see its full exact quantities. Values remain exact beyond the ordinary integer range, and missing startup seeds are distinguished from ingredients required for the whole order.
+
+Once the material list has loaded, use the image export button on the left toolbar to save the complete list in the game's `screenshots` folder. Large lists use multiple columns in one PNG. Click the filename in chat to open it.
 
 ## Overview
 

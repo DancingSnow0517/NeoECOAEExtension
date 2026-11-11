@@ -113,7 +113,7 @@ class ComputationControllerUITest {
     }
 
     @Test
-    void switchTooltipListsNameStateDescriptionAndCount() {
+    void switchTooltipListsNameStateAndDescription() {
         try (var ldlib = mockStatic(LDLib2.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             UIElement root = ComputationControllerUI.create(
@@ -126,7 +126,9 @@ class ComputationControllerUITest {
             tooltip.target = substitutions;
             UIEventDispatcher.dispatchEvent(tooltip, false, false, false);
             assertNotNull(tooltip.hoverTooltips);
-            assertEquals(4, tooltip.hoverTooltips.tooltipTexts().size());
+            assertEquals(3, tooltip.hoverTooltips.tooltipTexts().size());
+            assertEquals("gui.neoecoae.computation.ui.switch.off",
+                ((net.minecraft.network.chat.contents.TranslatableContents) tooltip.hoverTooltips.tooltipTexts().get(1).getContents()).getKey());
         }
     }
 
@@ -293,8 +295,9 @@ class ComputationControllerUITest {
                 var button = (com.lowdragmc.lowdraglib2.gui.ui.elements.Button) find(root, "computation_switch_"
                     + List.of("substitutions", "cycle_planning", "fast_planner").get(index));
                 button.getStyleBag().compute(0);
-                assertEquals("addon:state_" + index + "_true_false.png", ((SpriteTexture) button.getButtonStyle().baseTexture()).getImageLocation().toString());
-                assertEquals("addon:state_" + index + "_true_true.png", ((SpriteTexture) button.getButtonStyle().hoverTexture()).getImageLocation().toString());
+                boolean enabled = index != 0; // This fixture disables lite mode and enables cycle/fast planning.
+                assertEquals("addon:state_" + index + "_" + enabled + "_false.png", ((SpriteTexture) button.getButtonStyle().baseTexture()).getImageLocation().toString());
+                assertEquals("addon:state_" + index + "_" + enabled + "_true.png", ((SpriteTexture) button.getButtonStyle().hoverTexture()).getImageLocation().toString());
                 assertEquals(15, ((SpriteTexture) button.getButtonStyle().baseTexture()).spriteSize.width);
                 assertEquals(26, ((SpriteTexture) button.getButtonStyle().baseTexture()).spriteSize.height);
             }
