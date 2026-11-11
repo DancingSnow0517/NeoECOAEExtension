@@ -18,7 +18,12 @@ public final class CompiledStructureCache {
     private static final List<Entry> ENTRIES = new ArrayList<>();
 
     public record Structure(CompiledNetwork network, CondensationGraph condensation,
-            long contractGeneration, long providerRevision) {}
+            long contractGeneration, long providerRevision, boolean liteCraftingMode) {
+        public Structure(CompiledNetwork network, CondensationGraph condensation,
+                long contractGeneration, long providerRevision) {
+            this(network, condensation, contractGeneration, providerRevision, false);
+        }
+    }
     private record Entry(WeakReference<ICraftingService> owner, long revision, long contractGeneration, AEKey goal,
             boolean cycles, boolean liteCrafting, Set<ResourceLocation> fuzzyItems, Structure structure, int weight) {}
 

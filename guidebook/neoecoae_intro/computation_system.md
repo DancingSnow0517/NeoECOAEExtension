@@ -33,9 +33,9 @@ The ECO Computation System is a powerful multiblock crafting CPU cluster that pr
 
 ## Lite Crafting Mode
 
-The computation host's **Lite** switch is enabled by default. It follows GTNH's lite crafting rules: choose one exact pattern per material and aggregate demand in one dependency pass, without alternative-route retries, substitutions, tool or container returns, or byproduct reuse. Cycles are expanded once; remaining demand must come from storage. Disabling lite mode restores full planning with the selected cycle and fuzzy-matching settings.
+The computation host's **Lite** switch is enabled by default. Ordinary orders follow GTNH's lite rules: one exact pattern per material and one dependency pass, without alternative-route retries, substitutions, tool or container returns, or byproduct reuse. Explicit cycle and NBT/component-ignore settings remain effective: orders whose dependency chain needs either policy use full planning. Unrelated marked items keep the lite pass. Disabling lite mode always uses full planning.
 
-Calculation statistics show **Lite Crafting Mode** in green at the bottom. This mode omits the incomplete-calculation notice, while material shortages remain visible and detected cycles are shown as information.
+Calculation statistics show **Lite Crafting Mode** in green when the lite pass was actually used. It omits the incomplete-calculation notice; orders using full planning retain its diagnostics. Material shortages remain visible and detected cycles are shown as information.
 
 ## Continuous Pattern Dispatch
 

@@ -150,6 +150,44 @@ class CompiledStructureCacheTest {
         verify(service, times(2)).getCraftingFor(goal);
     }
 
+    @Test void enabledCyclePlanningOverridesLiteAndSurvivesStructureReuse() throws Exception {
+        var seed = AEItemKey.of(Items.IRON_NUGGET);
+        var root = pattern(goal, 1, new GenericStack(raw, 1));
+        var grow = pattern(raw, 2, new GenericStack(seed, 1));
+        var recover = pattern(seed, 1, new GenericStack(raw, 1));
+        var service = routes(java.util.Map.of(goal, List.of(root), raw, List.of(grow), seed, List.of(recover)));
+        var stock = new KeyCounter();
+        stock.add(seed, 1);
+        var planner = new ECOCraftingPlannerService();
+        for (boolean cycles : new boolean[] {false, true, false, true}) {
+            var result = planner.createSession(service, goal, stock, cycles, true)
+                .plan(10, false, ECOCancellation.NONE);
+            assertEquals(cycles ? PlanningStatus.SUCCESS : PlanningStatus.MISSING_ITEMS, result.status(),
+                result.trace().diagnostics().toString());
+            assertEquals(!cycles, result.liteCraftingMode());
+            if (cycles) {
+                assertTrue(result.exactMissingItems().isEmpty());
+                assertNull(result.executionPlanError());
+                assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.CyclePlanningStatus.SOLVED,
+                    result.trace().cycles().getFirst().status());
+            }
+            assertEquals(1, stock.get(seed), "Planning must preserve the captured startup stock");
+        }
+        verify(service, times(3)).getCraftingFor(goal);
+    }
+
+    @Test void unrelatedComponentOverridesKeepTheRequestedLitePass() throws Exception {
+        var recipe = pattern(goal, 1, new GenericStack(raw, 1));
+        var service = routes(java.util.Map.of(goal, List.of(recipe)));
+        var unrelated = Set.of(BuiltInRegistries.ITEM.getKey(Items.GOLD_INGOT));
+        var result = new ECOCraftingPlannerService().createSession(service, goal, stock(1), true, true, unrelated)
+            .plan(1, false, ECOCancellation.NONE);
+        assertEquals(PlanningStatus.SUCCESS, result.status());
+        assertTrue(result.liteCraftingMode());
+        assertEquals(unrelated, result.fuzzyPlanningItemIds());
+        assertNull(result.executionPlanError());
+    }
+
     @Test void liteAggregatesSharedIngredientsBeforeRoundingPatternCounts() throws Exception {
         var other = AEItemKey.of(Items.GOLD_INGOT);
         var shared = AEItemKey.of(Items.IRON_NUGGET);
@@ -199,7 +237,7 @@ class CompiledStructureCacheTest {
             service, goal, true, true, Set.of(), ECOCancellation.NONE);
         verify(input, never()).getRemainingKey(any());
         var result = new ECOCraftingPlannerService().createSession(service,
-            goal, inventory, true, true, Set.of(BuiltInRegistries.ITEM.getKey(Items.RAW_IRON)))
+            goal, inventory, false, true, Set.of())
             .plan(32, false, ECOCancellation.NONE);
         assertEquals(PlanningStatus.MISSING_ITEMS, result.status());
         assertEquals(java.math.BigInteger.ONE, result.exactMissingItems().get(raw).toBigInteger());
@@ -237,7 +275,7 @@ class CompiledStructureCacheTest {
 
     private static cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult lite(
             ICraftingService service, KeyCounter inventory, long amount) throws Exception {
-        return new ECOCraftingPlannerService().createSession(service, goal, inventory, true, true)
+        return new ECOCraftingPlannerService().createSession(service, goal, inventory, false, true)
             .plan(amount, false, ECOCancellation.NONE);
     }
 

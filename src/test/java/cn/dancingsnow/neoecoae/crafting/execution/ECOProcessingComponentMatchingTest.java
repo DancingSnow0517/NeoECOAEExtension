@@ -224,24 +224,31 @@ class ECOProcessingComponentMatchingTest {
 
     private static ECOPlanningResult plan(AEProcessingPattern pattern, KeyCounter stock,
             Set<ResourceLocation> marked, long count) throws Exception {
+        return plan(pattern, stock, marked, count, false);
+    }
+
+    private static ECOPlanningResult plan(AEProcessingPattern pattern, KeyCounter stock,
+            Set<ResourceLocation> marked, long count, boolean lite) throws Exception {
         return new ECOCraftingPlannerService().createSession(service(pattern),
-            pattern.getOutputs().getFirst().what(), stock, false, false, marked)
+            pattern.getOutputs().getFirst().what(), stock, false, lite, marked)
             .plan(count, false, ECOCancellation.NONE);
     }
 
-    @Test void markedDamagedPickaxePlansAndDispatchesItsActualComponents() throws Exception {
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void markedDamagedPickaxePlansAndDispatchesItsActualComponents(boolean lite) throws Exception {
         var expected = pickaxe(0);
         var actual = pickaxe(131); // Remaining durability 119/250, as in the reported screenshot.
         var pattern = pattern(new GenericStack(expected, 1));
         assertFalse(pattern.getInputs()[0].isValid(actual, null));
         var stock = new KeyCounter(); stock.add(actual, 1);
-        var result = plan(pattern, stock, MARKED, 1);
+        var result = plan(pattern, stock, MARKED, 1, lite);
         assertEquals(PlanningStatus.SUCCESS, result.status());
         assertEquals(1, result.plan().usedItems().get(actual));
         assertEquals(0, result.plan().usedItems().get(expected));
         assertTrue(result.plan().missingItems().isEmpty());
         assertSame(pattern, result.plan().patternTimes().keySet().iterator().next());
         assertEquals(MARKED, result.executionContract().fuzzyPlanningItemIds());
+        assertFalse(result.liteCraftingMode(), "Explicit component matching uses full planning");
 
         var level = mock(Level.class);
         var cpu = mock(ECOCraftingCPU.class);
@@ -290,12 +297,13 @@ class ECOProcessingComponentMatchingTest {
             fail("Dispatch scope leaked")));
     }
 
-    @Test void unmarkedItemsAndOtherToolTypesStayExact() throws Exception {
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void unmarkedItemsAndOtherToolTypesStayExact(boolean lite) throws Exception {
         var pattern = pattern(new GenericStack(pickaxe(0), 1));
         var stock = new KeyCounter(); stock.add(pickaxe(131), 1);
-        assertNotEquals(PlanningStatus.SUCCESS, plan(pattern, stock, Set.of(), 1).status());
+        assertNotEquals(PlanningStatus.SUCCESS, plan(pattern, stock, Set.of(), 1, lite).status());
         stock.clear(); stock.add(AEItemKey.of(Items.DIAMOND_PICKAXE), 1);
-        assertNotEquals(PlanningStatus.SUCCESS, plan(pattern, stock, MARKED, 1).status());
+        assertNotEquals(PlanningStatus.SUCCESS, plan(pattern, stock, MARKED, 1, lite).status());
     }
 
     @ParameterizedTest
@@ -343,7 +351,8 @@ class ECOProcessingComponentMatchingTest {
         assertEquals(1, inventory.list.get(actual));
     }
 
-    @Test void finalRequestedOutputStillRequiresItsExactComponents() throws Exception {
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void finalRequestedOutputStillRequiresItsExactComponents(boolean lite) throws Exception {
         var pattern = pattern(new GenericStack(pickaxe(0), 1));
         var named = new ItemStack(Items.IRON_BLOCK);
         named.set(DataComponents.CUSTOM_NAME, Component.literal("Exact requested result"));
@@ -351,18 +360,19 @@ class ECOProcessingComponentMatchingTest {
         var marked = Set.of(ResourceLocation.parse("minecraft:iron_pickaxe"),
             ResourceLocation.parse("minecraft:iron_block"));
         var result = new ECOCraftingPlannerService().createSession(service(pattern), AEItemKey.of(named),
-            stock, false, false, marked).plan(1, false, ECOCancellation.NONE);
+            stock, false, lite, marked).plan(1, false, ECOCancellation.NONE);
         assertNotEquals(PlanningStatus.SUCCESS, result.status());
     }
 
-    @Test void intermediateProducerMayReturnAnotherComponentVariant() throws Exception {
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void intermediateProducerMayReturnAnotherComponentVariant(boolean lite) throws Exception {
         var actual = pickaxe(131);
         var ingot = AEItemKey.of(Items.IRON_INGOT);
         var producer = patternWithOutput(new GenericStack(actual, 1), new GenericStack(ingot, 1));
         var consumer = pattern(new GenericStack(pickaxe(0), 1));
         var stock = new KeyCounter(); stock.add(ingot, 1);
         var result = new ECOCraftingPlannerService().createSession(service(producer, consumer),
-            AEItemKey.of(Items.IRON_BLOCK), stock, false, false, MARKED)
+            AEItemKey.of(Items.IRON_BLOCK), stock, false, lite, MARKED)
             .plan(1, false, ECOCancellation.NONE);
         assertEquals(PlanningStatus.SUCCESS, result.status());
         assertEquals(Map.of(producer, 1L, consumer, 1L), result.plan().patternTimes());
@@ -389,14 +399,15 @@ class ECOProcessingComponentMatchingTest {
         }
     }
 
-    @Test void multipleComponentVariantsSupplyTheFullProcessingAmount() throws Exception {
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void multipleComponentVariantsSupplyTheFullProcessingAmount(boolean lite) throws Exception {
         var expected = pickaxe(0);
         var named = new ItemStack(Items.IRON_PICKAXE);
         named.set(DataComponents.CUSTOM_NAME, Component.literal("My pickaxe"));
         var actual = AEItemKey.of(named);
         var pattern = pattern(new GenericStack(expected, 2));
         var stock = new KeyCounter(); stock.add(actual, 1); stock.add(pickaxe(131), 1);
-        var result = plan(pattern, stock, MARKED, 1);
+        var result = plan(pattern, stock, MARKED, 1, lite);
         assertEquals(PlanningStatus.SUCCESS, result.status());
         var inventory = new ListCraftingInventory(ignored -> {});
         inventory.insert(actual, 1, Actionable.MODULATE);

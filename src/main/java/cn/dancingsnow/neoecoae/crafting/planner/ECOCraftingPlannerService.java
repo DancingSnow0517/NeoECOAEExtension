@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.planner;
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
+import cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching;
 import cn.dancingsnow.neoecoae.crafting.planner.bridge.AE2CraftingPlanBridge;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
@@ -59,6 +60,7 @@ public final class ECOCraftingPlannerService {
         private final PlannerInventorySnapshot inventorySnapshot;
         private final boolean cyclePlanningEnabled;
         private final boolean ignorePatternSubstitutions;
+        private volatile boolean liteCraftingMode;
         private final Set<ResourceLocation> fuzzyPlanningItemIds;
         private final long planningRequestId = ECOPlanningStageLogger.nextRequestId();
         private ECOPlanningBudget planningBudget;
@@ -80,9 +82,10 @@ public final class ECOCraftingPlannerService {
             this.goal = goal;
             this.inventorySnapshot = inventory;
             this.inventory = inventorySnapshot.toKeyCounter();
-            this.cyclePlanningEnabled = cyclePlanningEnabled && !ignorePatternSubstitutions;
+            this.cyclePlanningEnabled = cyclePlanningEnabled;
             this.ignorePatternSubstitutions = ignorePatternSubstitutions;
-            this.fuzzyPlanningItemIds = ignorePatternSubstitutions || fuzzyPlanningItemIds == null
+            this.liteCraftingMode = ignorePatternSubstitutions;
+            this.fuzzyPlanningItemIds = fuzzyPlanningItemIds == null
                 ? Set.of() : Set.copyOf(fuzzyPlanningItemIds);
         }
 
@@ -115,7 +118,7 @@ public final class ECOCraftingPlannerService {
                     ComponentPlanner.Outcome solved;
                     long componentStarted = ECOPlanningStageLogger.start();
                     try {
-                        if (ignorePatternSubstitutions) {
+                        if (liteCraftingMode) {
                             solved = COMPONENT_PLANNER.planLite(compiled, condensation, inventorySnapshot, amount, cancellation);
                         } else {
                             if (activeSelection == null) synchronized (initializationLock) {
@@ -268,6 +271,24 @@ public final class ECOCraftingPlannerService {
             return result;
         }
 
+        /** Explicit interface policies need the existing full template and solver only on relevant branches. */
+        private boolean requiresFullPlanning(CompiledNetwork network, CondensationGraph graph,
+                ECOCancellation cancellation) throws InterruptedException {
+            if (cyclePlanningEnabled && !graph.cycles().isEmpty()) return true;
+            if (fuzzyPlanningItemIds.isEmpty()) return false;
+            for (var patterns : network.producers().values()) {
+                for (var pattern : patterns) {
+                    cancellation.checkpoint();
+                    for (var input : pattern.inputs()) {
+                        if (ECOProcessingComponentMatching.enabled(pattern.details(), input.key(), fuzzyPlanningItemIds)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
         private CompiledStructureCache.Structure ensureCompiled(ECOCancellation cancellation) throws InterruptedException {
             synchronized (initializationLock) {
                 long contractGeneration = AE2PatternIntrospection.reloadGeneration();
@@ -284,34 +305,42 @@ public final class ECOCraftingPlannerService {
                         cyclePlanningEnabled, ignorePatternSubstitutions, fuzzyPlanningItemIds);
                 if (cached != null) {
                     structure = cached;
+                    liteCraftingMode = cached.liteCraftingMode();
                     ECOPlanningStageLogger.finish("structural_initialization", ECOPlanningStageLogger.start(),
                             true, "CACHED_PROVIDER_REVISION=" + providerRevision);
                     return cached;
                 }
-                long stageStarted = ECOPlanningStageLogger.start();
                 CompiledNetwork compiled;
-                try {
-                    compiled = COMPILER.compile(craftingService, goal, cyclePlanningEnabled,
-                            ignorePatternSubstitutions, fuzzyPlanningItemIds, cancellation);
-                    ECOPlanningStageLogger.finish("network_compile", stageStarted, true, null);
-                } catch (InterruptedException | RuntimeException e) {
-                    ECOPlanningStageLogger.finish("network_compile", stageStarted, false,
-                            ECOPlanningStageLogger.exceptionReason(e));
-                    throw e;
+                CondensationGraph condensation;
+                liteCraftingMode = ignorePatternSubstitutions;
+                while (true) {
+                    long stageStarted = ECOPlanningStageLogger.start();
+                    try {
+                        compiled = COMPILER.compile(craftingService, goal, cyclePlanningEnabled,
+                                liteCraftingMode, fuzzyPlanningItemIds, cancellation);
+                        ECOPlanningStageLogger.finish("network_compile", stageStarted, true, null);
+                    } catch (InterruptedException | RuntimeException e) {
+                        ECOPlanningStageLogger.finish("network_compile", stageStarted, false,
+                                ECOPlanningStageLogger.exceptionReason(e));
+                        throw e;
+                    }
+                    long graphStarted = ECOPlanningStageLogger.start();
+                    var graph = GRAPH_BUILDER.build(compiled, cancellation);
+                    ECOPlanningStageLogger.finish("graph_build", graphStarted, true, null);
+                    long sccStarted = ECOPlanningStageLogger.start();
+                    var sccs = SCC_ANALYZER.analyze(graph, cancellation);
+                    ECOPlanningStageLogger.finish("scc_analysis", sccStarted, true, null);
+                    long condensationStarted = ECOPlanningStageLogger.start();
+                    condensation = CondensationGraph.build(graph, sccs, cancellation);
+                    ECOPlanningStageLogger.finish("condensation_graph", condensationStarted, true, null);
+                    if (!liteCraftingMode || !requiresFullPlanning(compiled, condensation, cancellation)) break;
+                    // Recompile once with the existing semantics before solving an explicitly enabled policy.
+                    liteCraftingMode = false;
                 }
-                long graphStarted = ECOPlanningStageLogger.start();
-                var graph = GRAPH_BUILDER.build(compiled, cancellation);
-                ECOPlanningStageLogger.finish("graph_build", graphStarted, true, null);
-                long sccStarted = ECOPlanningStageLogger.start();
-                var sccs = SCC_ANALYZER.analyze(graph, cancellation);
-                ECOPlanningStageLogger.finish("scc_analysis", sccStarted, true, null);
-                long condensationStarted = ECOPlanningStageLogger.start();
-                var condensation = CondensationGraph.build(graph, sccs, cancellation);
-                ECOPlanningStageLogger.finish("condensation_graph", condensationStarted, true, null);
                 if (contractGeneration != AE2PatternIntrospection.reloadGeneration()) {
                     throw new IllegalStateException("PATTERN_CONTRACT_CHANGED_DURING_COMPILATION");
                 }
-                current = new CompiledStructureCache.Structure(compiled, condensation, contractGeneration, providerRevision);
+                current = new CompiledStructureCache.Structure(compiled, condensation, contractGeneration, providerRevision, liteCraftingMode);
                 CompiledStructureCache.put(craftingService, providerRevision, contractGeneration, goal, cyclePlanningEnabled,
                         ignorePatternSubstitutions, fuzzyPlanningItemIds, current);
                 structure = current;
@@ -330,7 +359,8 @@ public final class ECOCraftingPlannerService {
             fork.structure = remaining ? new CompiledStructureCache.Structure(
                     new CompiledNetwork(goal, compiled.producers(), Set.of(),
                             compiled.reachablePatternCount(), compiled.edgeCount()),
-                    current.condensation(), current.contractGeneration(), current.providerRevision()) : current;
+                    current.condensation(), current.contractGeneration(), current.providerRevision(), liteCraftingMode) : current;
+            fork.liteCraftingMode = liteCraftingMode;
             fork.planningBudget = new ECOPlanningBudget(cancellation,
                     ECOPlanningImprovements.MAX_WORK, ECOPlanningImprovements.MAX_NANOS, System::nanoTime);
             return fork;
@@ -383,7 +413,7 @@ public final class ECOCraftingPlannerService {
                 CompiledNetwork compiled) {
             if (solved.status() != PlanningStatus.SUCCESS && !solved.completeCandidate()) return solved;
             var issue = ECOPlanMaterialValidator.firstDeficit(solved.state(), goal, amount, inventory, compiled,
-                ignorePatternSubstitutions);
+                liteCraftingMode);
             if (issue == null) return solved;
 
             String key = issue.key() == null ? "<plan>" : issue.key().toString();
@@ -406,7 +436,7 @@ public final class ECOCraftingPlannerService {
         }
 
         private void attach(ECOPlanningResult result) {
-            result.setLiteCraftingMode(ignorePatternSubstitutions);
+            result.setLiteCraftingMode(liteCraftingMode);
             if ((Object) result.plan() instanceof ECOCraftingPlanDiagnostics diagnostics) {
                 diagnostics.neoecoae$setPlanningResult(result);
             }
