@@ -86,7 +86,6 @@ final class ECOCraftingJobLifecycleController {
             job.improvements = attachedPlanningResult.improvements();
             if (job.improvements != null && !job.improvements.belongsTo(grid.getCraftingService()))
                 job.improvements = null;
-            if (job.improvements != null) job.improvements.close();
         }
         if (plan instanceof cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan exact)
             job.fuzzyPlanningItemIds = exact.fuzzyPlanningItemIds();

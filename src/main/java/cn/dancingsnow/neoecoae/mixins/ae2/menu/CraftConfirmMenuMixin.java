@@ -50,7 +50,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.CompletableFuture;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -497,7 +496,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
 
     @Unique
     private void neoecoae$resetPlannerDiagnostics() {
-        neoecoae$closePlanImprovements();
         neoecoae$stopOptimization();
         neoecoae$displayedPlans.clear();
         neoecoae$exactPlanReady = false;
@@ -517,23 +515,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$liteCraftingMode = false;
         neoecoae$lastStartDiagnostic = null;
         neoecoae$nextStartDiagnosticTick = 0;
-    }
-
-    @Inject(method = "removed", at = @At("HEAD"))
-    private void neoecoae$cancelPlanImprovements(Player player, CallbackInfo ci) {
-        neoecoae$closePlanImprovements();
-    }
-
-    @Inject(method = "startJob", at = @At("HEAD"))
-    private void neoecoae$freezeDisplayedPlan(CallbackInfo ci) {
-        if (!((CraftConfirmMenu) (Object) this).isClientSide()) neoecoae$closePlanImprovements();
-    }
-
-    @Unique
-    private void neoecoae$closePlanImprovements() {
-        var owned = neoecoae$resolveOwnedPlanningResult(result);
-        if (owned == null) owned = neoecoae$confirmedPlanningResult;
-        if (owned != null && owned.improvements() != null) owned.improvements().close();
     }
 
     /**

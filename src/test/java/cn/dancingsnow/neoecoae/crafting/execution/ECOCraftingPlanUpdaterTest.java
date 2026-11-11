@@ -149,7 +149,7 @@ class ECOCraftingPlanUpdaterTest {
         assertEquals(8, f.job.tasks.get(f.first).value);
     }
 
-    @Test void submissionTransfersOnlyTheMatchingGridsContextAndFreezesConfirmationWork() {
+    @Test void submissionTransfersTheMatchingGridsContext() {
         var f = new Fixture();
         var grid = mock(appeng.api.networking.IGrid.class, RETURNS_DEEP_STUBS);
         when(f.cpu.isActive()).thenReturn(true);
@@ -164,7 +164,6 @@ class ECOCraftingPlanUpdaterTest {
             assertTrue(f.host.trySubmitJob(grid, f.candidate.plan(),
                     appeng.api.networking.security.IActionSource.empty(), null).successful());
             assertSame(f.context, f.host.getJob().improvements);
-            verify(f.context).close();
         }
     }
 

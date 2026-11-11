@@ -7,6 +7,7 @@ import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningImprovements;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
+import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import java.math.BigInteger;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -73,7 +74,8 @@ final class ECOCraftingPlanUpdater {
     boolean install(ExecutingCraftingJob job, Snapshot expected, @Nullable ECOPlanningResult candidate) {
         if (host.getJob() != job || !quiescent(job) || !expected.matches(job, host.getInventory().list)
                 || job.improvements == null || !job.improvements.isCurrent()
-                || !ECOPlanningImprovements.executable(candidate)) return false;
+                || candidate == null || !candidate.executable()
+                || candidate.status() != PlanningStatus.SUCCESS) return false;
         var plan = candidate.plan();
         if (!plan.finalOutput().equals(new GenericStack(job.finalOutput.what(), job.remainingAmount))
                 || plan.bytes() > job.reservedBytes || !plan.emittedItems().isEmpty()

@@ -23,15 +23,13 @@ import net.minecraft.world.level.Level;
  * {@code ICraftingService.beginCraftingCalculation}, keeping this request outside other planner wrappers.
  */
 public final class ECOPlanningService {
-    private static final ECOCraftingPlannerService PLANNER = new ECOCraftingPlannerService();
-
     private ECOPlanningService() {
     }
 
     public static Future<ICraftingPlan> begin(Level level, IGrid grid, IActionSource source, AEKey goal,
                                               long amount, CalculationStrategy strategy, ECOPlannerOptions options) {
         var inventory = ECOPlannerInventory.capture(grid);
-        ECOCraftingPlannerService.Session session = PLANNER.createSession(grid.getCraftingService(), goal, inventory,
+        ECOCraftingPlannerService.Session session = ECOCraftingPlannerService.INSTANCE.createSession(grid.getCraftingService(), goal, inventory,
                 options.cyclePlanningEnabled(), options.ignorePatternSubstitutions(), options.fuzzyPlanningItemIds());
         return begin(session, goal, amount, strategy);
     }
@@ -58,7 +56,7 @@ public final class ECOPlanningService {
             ECOPlanningResult result) {
         if (!result.executable() || !session.isStructureCurrent()) return null;
         if (result.improvements() != null) return result.improvements();
-        var context = new ECOPlanningImprovements(session, result);
+        var context = new ECOPlanningImprovements(session);
         result.setImprovements(context);
         return context;
     }
@@ -77,7 +75,7 @@ public final class ECOPlanningService {
 
         ECOPlanningResult exact = onReady == null ? session.plan(requestedAmount, false, cancellation)
             : session.plan(requestedAmount, false, cancellation, onReady);
-        if (isExecutableSuccess(exact)) {
+        if (exact.executable()) {
             return exact.plan();
         }
 
@@ -91,7 +89,7 @@ public final class ECOPlanningService {
                     continue;
                 }
                 ECOPlanningResult probe = session.plan(candidate, false, cancellation);
-                if (isExecutableSuccess(probe)) {
+                if (probe.executable()) {
                     bestAmount = candidate;
                     bestPlan = probe.plan();
                 }
@@ -109,10 +107,6 @@ public final class ECOPlanningService {
 
         ECOPlanningResult report = session.plan(requestedAmount, true, cancellation);
         return report.plan();
-    }
-
-    private static boolean isExecutableSuccess(ECOPlanningResult result) {
-        return result.executable();
     }
 
     /** Candidates remain private until the worker selects one final plan for the confirmation page. */

@@ -40,6 +40,21 @@ class ECOBigOrderPlannerTest {
         assertTrue(unsupported.fatal());
     }
 
+    @Test void infeasibilityDiagnosticPreventsSubmittingAnApparentlySuccessfulSegment() throws Exception {
+        var rejected = result(PlanningStatus.SUCCESS, 8);
+        rejected.trace().addDiagnostic(new cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic(
+                cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic.Code.PLAN_MATERIAL_CLOSURE_INVALID,
+                "Candidate does not conserve materials"));
+        var probes = new ArrayList<Long>();
+        var answer = ECOBigOrderPlanner.search(64, 100, amount -> {
+            probes.add(amount);
+            return rejected;
+        });
+        assertTrue(answer.fatal());
+        assertSame(rejected, answer.result());
+        assertEquals(List.of(64L), probes);
+    }
+
     @Test void aNewSearchUsesNewInventoryAndGraphResults() throws Exception {
         var unavailable = ECOBigOrderPlanner.search(64, 100, amount -> result(PlanningStatus.MISSING_ITEMS, 0));
         assertEquals(PlanningStatus.MISSING_ITEMS, unavailable.result().status());

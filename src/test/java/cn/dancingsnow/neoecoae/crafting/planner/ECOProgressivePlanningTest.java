@@ -37,33 +37,9 @@ class ECOProgressivePlanningTest {
         assertNotNull(context);
         assertSame(context, first.improvements());
         assertSame(context, ECOPlanningService.startImprovements(session, first));
-        assertNull(context.latest(first));
         verify(session, never()).fork(any(), any(), anyBoolean());
         verify(session, never()).plan(anyLong(), anyBoolean(), any());
         verify(session, never()).plan(anyLong(), anyBoolean(), any(), any());
-        context.close();
-    }
-
-    @Test void onlyCompleteBetterCurrentResultsCanReplaceTheDisplayedPlan() {
-        var session = mock(ECOCraftingPlannerService.Session.class);
-        when(session.isStructureCurrent()).thenReturn(true);
-        var first = result(8);
-        var handle = new ECOPlanningImprovements(session, first);
-        var better = result(4, first.plan().finalOutput().what());
-        assertTrue(handle.offer(better));
-        assertSame(better, handle.latest(first));
-        assertEquals(8L, first.plan().patternTimes().values().iterator().next());
-        assertFalse(handle.offer(result(9, first.plan().finalOutput().what())));
-        var failed = new ECOPlanningResult(PlanningStatus.CYCLE_UNRESOLVED, better.plan(),
-                new ECOPlanTrace(), List.of(), 0);
-        assertFalse(handle.offer(failed));
-        when(session.isStructureCurrent()).thenReturn(false);
-        assertNull(handle.latest(first));
-        assertFalse(handle.offer(result(1, first.plan().finalOutput().what())));
-        when(session.isStructureCurrent()).thenReturn(true);
-        handle.close();
-        assertFalse(handle.offer(result(1, first.plan().finalOutput().what())));
-        assertNull(handle.latest(first));
     }
 
     @Test void firstSolutionPolicySurvivesNestedAllowances() {
@@ -73,7 +49,7 @@ class ECOProgressivePlanningTest {
         assertTrue(new ECOPlanningBudget(ECOCancellation.NONE).improveCompletedPlans());
     }
 
-    @Test void realSessionPreservesProducerOrderInConfirmationAndRemainingWorkSearches() throws Exception {
+    @Test void realSessionPreservesProducerOrderInForksAndRemainingWorkSearches() throws Exception {
         AEKey raw = AEItemKey.of(Items.RAW_IRON), ingot = AEItemKey.of(Items.IRON_INGOT);
         AEKey copper = AEItemKey.of(Items.COPPER_INGOT), goal = AEItemKey.of(Items.GOLD_INGOT);
         var smelt = pattern(raw, ingot);
@@ -90,11 +66,8 @@ class ECOProgressivePlanningTest {
                 .plan(10, false, ECOCancellation.NONE);
         assertEquals(PlanningStatus.SUCCESS, improved.status(), improved.trace().diagnostics().toString());
         assertEquals(Map.of(smelt, 10L, finish, 10L), improved.plan().patternTimes());
-        var handle = new ECOPlanningImprovements(session, first);
-        assertFalse(handle.offer(improved));
-        assertNull(handle.latest(first));
+        var handle = new ECOPlanningImprovements(session);
         assertEquals(Map.of(smelt, 10L, finish, 10L), first.plan().patternTimes());
-        handle.close();
         var owned = new KeyCounter(); owned.add(raw, 8);
         var remaining = handle.remaining(owned, 8).get(5, TimeUnit.SECONDS);
         assertEquals(PlanningStatus.SUCCESS, remaining.status(), remaining.trace().diagnostics().toString());
@@ -103,7 +76,7 @@ class ECOProgressivePlanningTest {
         assertEquals(8, remaining.plan().usedItems().get(raw));
         assertTrue(remaining.plan().emittedItems().isEmpty());
         when(((ECOCraftingProviderRevision) service).neoecoae$getProviderRevision()).thenReturn(8L);
-        assertNull(handle.latest(first));
+        assertNull(handle.remaining(owned, 8));
         assertThrows(IllegalStateException.class, () -> session.fork(session.initialInventory(), ECOCancellation.NONE, false));
     }
 
@@ -120,17 +93,6 @@ class ECOProgressivePlanningTest {
                 .plan(10, false, ECOCancellation.NONE);
         assertNotEquals(PlanningStatus.SUCCESS, remaining.status());
         assertTrue(remaining.plan().emittedItems().isEmpty());
-    }
-
-    @Test
-    void seedRetentionCannotReplaceAStockUsingPlanWithMoreWork() {
-        var direct = result(1000);
-        var replenishing = result(2714, direct.plan().finalOutput().what());
-        replenishing.trace().addDiagnostic(new cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic(
-                cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic.Code.CYCLE_SEED_RETAINED,
-                "Stock replenished by extra seed crafting"));
-        assertFalse(ECOPlanningImprovements.better(replenishing, direct));
-        assertTrue(ECOPlanningImprovements.better(direct, replenishing));
     }
 
     private static ICraftingService service(Map<AEKey, List<IPatternDetails>> index) {
