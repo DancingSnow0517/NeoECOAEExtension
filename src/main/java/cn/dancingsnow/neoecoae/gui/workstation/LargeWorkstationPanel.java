@@ -134,7 +134,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         overclock = toggle("overclock", 102, config.toggleOverclocked(), config.togglePreheating(),
             () -> overclockCard(true));
         addChild(overclock);
-        cooling = toggle("cooling", 146, config.toggleActiveCooling(), null, () -> coolingCard(true));
+        cooling = toggle("cooling", 120, config.toggleActiveCooling(), null, () -> coolingCard(true));
         addChild(cooling);
         addChild(cardRegion("module-logo", 6, 6, 15, 15, this::moduleCard));
         addChild(region("machine-title", 25, 6, 115, 14, () -> List.of(
@@ -363,12 +363,14 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         return CraftingListCard.hover(energyCardBuilder().build());
     }
 
-    /** Energy card: last-second usage, Applied Flux FE settlement and the internal AE buffer. */
+    /** Energy card: last-second AE-equivalent usage, physical FE consumption and the internal buffer. */
     CraftingListCard.Builder energyCardBuilder() {
         long stored = (long) state.getDouble("energyStored"), capacity = (long) state.getDouble("energyCapacity");
         double fraction = capacity > 0 ? (double) stored / capacity : 0;
         return CraftingListCard.builder()
             .header(CraftingListCard.Glyph.BATTERY, card("energy_monitor"), card("last_second"), CraftingTooltipCard.MUTED)
+            .wrapped(CraftingListCard.Glyph.INFO, Component.translatable(state.getBoolean("fePreferred")
+                ? "gui.neoecoae.workstation.power_priority.fe" : "gui.neoecoae.workstation.power_priority.ae"), CraftingTooltipCard.PRIMARY)
             .metricUnit(card("actual_energy"), Component.literal(DisplayNumbers.compact(state.getDouble("energyUsage"))),
                 CraftingTooltipCard.PRIMARY, Component.literal("AE/t"), CraftingTooltipCard.WARN)
             .panel(null, Component.empty(), Component.empty(), CraftingTooltipCard.MUTED, List.of(
@@ -624,7 +626,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         if (parallelWidth > 0) sprite(context, WorkstationTextures.widget(18, 161, parallelWidth, 7), 103, 59, parallelWidth, 7);
         text(context, tr("controls_heading"), 102, 72, 59, 0.7f, TEXT);
         centeredText(context, tr("overclock_short"), 102, 82, 15, 0.65f, TEXT);
-        centeredText(context, tr("cooling"), 140, 82, 27, 0.65f, TEXT);
+        centeredText(context, tr("cooling"), 120, 82, 15, 0.65f, TEXT);
         drawControlReadout(context);
         centeredText(context, temperatureEnabled() ? tr("current_band", temperatureBandName())
             : tr("coolant_mode"), 99, 119, 64, 0.65f, MUTED);
@@ -656,10 +658,10 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
 
     private void drawControlReadout(GUIContext context) {
         boolean enabled = state.getBoolean("overclocked");
-        // Center the readout in the 29-pixel gap between the unchanged toggle slots.
-        fill(context, 119, 90, 25, 24, 0xFF9B9EB0);
-        fill(context, 120, 91, 23, 10, enabled ? 0xFFD4E6DE : 0xFFD5D6DF);
-        fill(context, 120, 102, 23, 11, 0xFFDADBE4);
+        // Keep the readout in the free space to the right of the adjacent toggle slots.
+        fill(context, 137, 90, 25, 24, 0xFF9B9EB0);
+        fill(context, 138, 91, 23, 10, enabled ? 0xFFD4E6DE : 0xFFD5D6DF);
+        fill(context, 138, 102, 23, 11, 0xFFDADBE4);
         controlReadoutText(context, tr(enabled ? "enabled" : "disabled"), 94, 0.6f, enabled ? SUCCESS : MUTED);
         controlReadoutText(context, tr(temperatureEnabled() ? "thermal_mode" : "coolant_mode"), 105, 0.55f, MUTED);
     }
@@ -667,7 +669,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     private void controlReadoutText(GUIContext context, Component value, int y, float scale, int color) {
         // Fit translated mode names inside the inset without clipping or an ellipsis.
         int width = Minecraft.getInstance().font.width(value.getString());
-        centeredText(context, value, 120, y, 23, Math.min(scale, 22f / Math.max(1, width)), color);
+        centeredText(context, value, 138, y, 23, Math.min(scale, 22f / Math.max(1, width)), color);
     }
 
     private void drawTask(GUIContext context, Task task, int row) {

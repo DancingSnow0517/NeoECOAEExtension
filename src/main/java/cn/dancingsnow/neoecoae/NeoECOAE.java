@@ -208,6 +208,10 @@ public class NeoECOAE {
             NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
             ECOLargeIntegratedWorkingStationBlockEntity::getEnergyStorage
         );
+        ForgeBlockCapabilities.register(ForgeCapabilities.ENERGY,
+            NEBlockEntities.LARGE_INTEGRATED_WORKING_STATION_CASING.get(),
+            (be, side) -> be instanceof cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationCasingBlockEntity port
+                ? port.getEnergyStorage(side) : null);
     }
 
     private static void initUIFactories(FMLCommonSetupEvent event) {
