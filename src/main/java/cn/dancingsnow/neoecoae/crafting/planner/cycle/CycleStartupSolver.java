@@ -37,8 +37,8 @@ final class CycleStartupSolver {
         Limit() { super(null, null, false, false); }
     }
 
-    private final long[][] consumed;
-    private final long[][] produced;
+    private final PlannerAmount[][] consumed;
+    private final PlannerAmount[][] produced;
     private final boolean[] suppliable;
     private final PlannerAmount[] counts;
     private final PlannerAmount[] stock;
@@ -46,7 +46,7 @@ final class CycleStartupSolver {
     private final CycleMemoryBudget memory;
     private int components, orderingKeys, states, entries;
 
-    private CycleStartupSolver(long[][] consumed, long[][] produced, boolean[] suppliable,
+    private CycleStartupSolver(PlannerAmount[][] consumed, PlannerAmount[][] produced, boolean[] suppliable,
             PlannerAmount[] counts, PlannerAmount[] stock, ECOCancellation cancellation, CycleMemoryBudget memory) {
         this.consumed = consumed;
         this.produced = produced;
@@ -58,6 +58,16 @@ final class CycleStartupSolver {
     }
 
     static Result solve(long[][] consumed, long[][] produced, boolean[] suppliable, PlannerAmount[] counts,
+            PlannerAmount[] stock, ECOCancellation cancellation, CycleMemoryBudget memory) throws InterruptedException {
+        return solve(amounts(consumed), amounts(produced), suppliable, counts, stock, cancellation, memory);
+    }
+
+    private static PlannerAmount[][] amounts(long[][] values) {
+        return Arrays.stream(values).map(row -> Arrays.stream(row).mapToObj(PlannerAmount::of)
+            .toArray(PlannerAmount[]::new)).toArray(PlannerAmount[][]::new);
+    }
+
+    static Result solve(PlannerAmount[][] consumed, PlannerAmount[][] produced, boolean[] suppliable, PlannerAmount[] counts,
             PlannerAmount[] stock, ECOCancellation cancellation, CycleMemoryBudget memory) throws InterruptedException {
         var solver = new CycleStartupSolver(consumed, produced, suppliable, counts, stock, cancellation, memory);
         long before = memory.retainedBytes();
@@ -74,8 +84,8 @@ final class CycleStartupSolver {
         if (result.status() == Status.FEASIBLE) {
             long bytes = 32L + 8L * result.witness().size();
             for (BatchFiring run : result.witness()) {
-                bytes += 64L + CycleMemoryBudget.integerBytes(run.exactCount().toBigInteger())
-                    + CycleMemoryBudget.integerBytes(run.repetitions().toBigInteger());
+                bytes += 64L + CycleMemoryBudget.integerBytes(run.exactCount())
+                    + CycleMemoryBudget.integerBytes(run.repetitions());
             }
             try {
                 memory.retain(bytes);
@@ -101,24 +111,24 @@ final class CycleStartupSolver {
             if (suppliable[key]) continue; // Unlimited boundary inputs are still charged by physical replay.
             int size = 0;
             boolean neutral = true, sink = true, source = true;
-            long maximumInput = 0;
+            PlannerAmount maximumInput = PlannerAmount.ZERO;
             for (int t = 0; t < counts.length; t++) {
                 if ((t & 31) == 0) cancellation.checkpoint();
-                if (counts[t].isZero() || consumed[t][key] == 0 && produced[t][key] == 0) continue;
+                if (counts[t].isZero() || consumed[t][key].isZero() && produced[t][key].isZero()) continue;
                 participants[size++] = t;
-                neutral &= consumed[t][key] == produced[t][key];
-                sink &= produced[t][key] == 0;
-                source &= consumed[t][key] == 0;
-                maximumInput = Math.max(maximumInput, consumed[t][key]);
+                neutral &= consumed[t][key].equals(produced[t][key]);
+                sink &= produced[t][key].isZero();
+                source &= consumed[t][key].isZero();
+                maximumInput = maximumInput.max(consumed[t][key]);
             }
             if (size == 0) continue;
             PlannerAmount fixed = null;
             if (size == 1) {
                 int t = participants[0];
-                fixed = PlannerAmount.of(consumed[t][key]).add(counts[t].subtract(PlannerAmount.ONE)
-                    .multiply(Math.max(0L, consumed[t][key] - produced[t][key])));
+                fixed = consumed[t][key].add(counts[t].subtract(PlannerAmount.ONE)
+                    .multiply(consumed[t][key].subtract(produced[t][key]).max(PlannerAmount.ZERO)));
             } else if (neutral) {
-                fixed = PlannerAmount.of(maximumInput);
+                fixed = maximumInput;
             } else if (source) {
                 fixed = PlannerAmount.ZERO;
             } else if (sink) {
@@ -217,8 +227,8 @@ final class CycleStartupSolver {
                     for (int k = 0; k < needed.length; k++) {
                         if ((k & 31) == 0) cancellation.checkpoint();
                         int key = group.keys.get(k);
-                        needed[k] = tail.required()[k].subtract(produced[t][key] - consumed[t][key])
-                            .max(PlannerAmount.of(consumed[t][key]));
+                        needed[k] = tail.required()[k].subtract(produced[t][key].subtract(consumed[t][key]))
+                            .max(consumed[t][key]);
                     }
                     memory.check(CycleMemoryBudget.markingBytes(needed));
                     boolean dominated = false;
@@ -269,12 +279,12 @@ final class CycleStartupSolver {
             for (int k = 0; k < size; k++) {
                 if ((k & 31) == 0) cancellation.checkpoint();
                 int key = group.keys.get(k);
-                if (consumed[t][key] > 0) {
-                    if (consumed[t][key] != 1 || source >= 0) return null;
+                if (consumed[t][key].signum() > 0) {
+                    if (!consumed[t][key].equals(PlannerAmount.ONE) || source >= 0) return null;
                     source = k;
                 }
-                if (produced[t][key] > 0) {
-                    if (produced[t][key] != 1 || target >= 0) return null;
+                if (produced[t][key].signum() > 0) {
+                    if (!produced[t][key].equals(PlannerAmount.ONE) || target >= 0) return null;
                     target = k;
                 }
             }

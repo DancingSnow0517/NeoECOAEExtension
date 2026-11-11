@@ -84,7 +84,8 @@ class CycleResourceRegressionTest {
         var result = new BoundedCycleSolver().solve(new CycleSolveRequest(cycle, Map.of(),
             Map.of(cycle.members().getFirst(), PlannerAmount.of(target)),
             Map.of(cycle.members().getFirst(), 1L), List.of(), null), ECOCancellation.NONE);
-        assertEquals(CycleSolveStatus.UNREPRESENTABLE, result.status(), result.summary());
+        assertEquals(CycleSolveStatus.SUCCESS, result.status(), result.summary());
+        assertFalse(result.executionPlan().isEmpty());
         assertTrue(result.hasExactExecutionCounts());
         result.exactPatternTimes().values().forEach(count -> assertEquals(target.subtract(BigInteger.ONE), count.toBigInteger()));
         assertTrue(result.diagnostics().stream().anyMatch(d -> d.code() == CycleSolveDiagnostic.Code.STATE_EQUATION_WITNESS));
@@ -166,7 +167,8 @@ class CycleResourceRegressionTest {
         BigInteger target = BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.TEN);
         var request = new CycleSolveRequest(cycle, Map.of(), Map.of(a, PlannerAmount.of(target)), Map.of(a, 9L), boundary, null);
         var result = SinglePatternGrowthCycleSolver.overBoundedSolver().solve(request, ECOCancellation.NONE);
-        assertEquals(CycleSolveStatus.UNREPRESENTABLE, result.status());
+        assertEquals(CycleSolveStatus.SUCCESS, result.status());
+        assertFalse(result.exactExternalDemand().isEmpty());
         assertEquals(target.subtract(BigInteger.valueOf(9)), result.exactPatternTimes().get(grow.details()).toBigInteger());
         assertTrue(result.seedShortfall().isEmpty());
     }

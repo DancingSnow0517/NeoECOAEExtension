@@ -106,7 +106,7 @@ final class ECOCraftingFastPathDispatcher {
                 + " energy=" + energyAllowance + " material=" + materialAllowance[0]);
         var registration = ECOUselessDynamicOutputBridge.prepareExact(dynamicOutputOwner, request.pattern(), batch.craftCount());
         if (registration == null) {
-            exactDiagnostic(request, provider, "dynamic-output-registration-is-long-only", batch.craftCount());
+            exactDiagnostic(request, provider, "dynamic-output-registration-is-long-only", batch.craftQuantity());
             return null;
         }
         var energy = energyTransaction.reserve(energyService, singlePower, batch.craftCount());

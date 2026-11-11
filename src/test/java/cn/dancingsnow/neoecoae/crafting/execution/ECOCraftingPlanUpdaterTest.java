@@ -9,6 +9,7 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import appeng.api.stacks.AEKeyTypes;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
@@ -141,7 +142,7 @@ class ECOCraftingPlanUpdaterTest {
     @Test void startupReservationsCannotDisappearWhenTheSuffixIsRebound() {
         var f = new Fixture();
         var runtime = mock(ECOExecutionRuntime.class);
-        when(runtime.protectedStartupSeed(null)).thenReturn(Map.of(raw, 1L));
+        when(runtime.protectedStartupSeed(null)).thenReturn(Map.of(raw, PlannerAmount.ONE));
         f.job.executionRuntime = runtime;
         assertFalse(f.install());
         assertSame(runtime, f.job.executionRuntime);

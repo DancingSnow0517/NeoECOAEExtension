@@ -11,6 +11,7 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingLink;
@@ -450,7 +451,7 @@ class ECOProcessingComponentMatchingTest {
         var inventory = new ListCraftingInventory(ignored -> {});
         inventory.insert(actual, 2, Actionable.MODULATE);
         var inputs = ECOCraftingInputResolver.extractPatternInputsFromDisposablePreview(pattern,
-            new ECOCraftingInputPreview(inventory, pattern, Map.of(actual, 1L), new ECOCraftingRemainderCache(), MARKED),
+            new ECOCraftingInputPreview(inventory, pattern, Map.of(actual, PlannerAmount.ONE), new ECOCraftingRemainderCache(), MARKED),
             null, new KeyCounter(), new KeyCounter(), new ECOCraftingRemainderCache());
         assertNull(inputs);
         assertEquals(2, inventory.list.get(actual));

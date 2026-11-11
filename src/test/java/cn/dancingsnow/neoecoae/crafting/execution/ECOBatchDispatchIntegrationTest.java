@@ -10,6 +10,7 @@ import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
@@ -310,10 +311,10 @@ class ECOBatchDispatchIntegrationTest {
         var provider = mock(ICraftingProvider.class);
         var plan = ECOBatchDispatchPlanning.plan(request, provider, 100, 100, 1, energy, ECOBatchMode.LINEAR);
         assertEquals(2, plan.craftCount());
-        when(request.job().executionRuntime.protectedStartupSeed(null)).thenReturn(Map.of(input, 98L));
+        when(request.job().executionRuntime.protectedStartupSeed(null)).thenReturn(Map.of(input, PlannerAmount.of(98L)));
         plan = ECOBatchDispatchPlanning.plan(request, provider, 100, 100, 1, energy, ECOBatchMode.LINEAR);
         assertEquals(1, plan.craftCount());
-        when(request.job().executionRuntime.protectedStartupSeed(null)).thenReturn(Map.of(input, 100L));
+        when(request.job().executionRuntime.protectedStartupSeed(null)).thenReturn(Map.of(input, PlannerAmount.of(100L)));
         assertNull(ECOBatchDispatchPlanning.plan(request, provider, 100, 100, 1, energy, ECOBatchMode.LINEAR));
         assertEquals(100, inventory.list.get(input));
         verify(energy, never()).extractAEPower(anyDouble(), eq(Actionable.MODULATE), any());
@@ -328,7 +329,7 @@ class ECOBatchDispatchIntegrationTest {
         assertEquals(1, prepared.plan(10, 10, 1, energy, ECOBatchMode.LINEAR).craftCount());
         inventory.insert(input, 2, Actionable.MODULATE);
         assertEquals(2, prepared.plan(10, 10, 1, energy, ECOBatchMode.LINEAR).craftCount());
-        when(request.job().executionRuntime.protectedStartupSeed(null)).thenReturn(Map.of(input, 6L));
+        when(request.job().executionRuntime.protectedStartupSeed(null)).thenReturn(Map.of(input, PlannerAmount.of(6L)));
         assertNull(prepared.plan(10, 10, 1, energy, ECOBatchMode.LINEAR));
     }
 
@@ -351,7 +352,7 @@ class ECOBatchDispatchIntegrationTest {
                 request.outputs(), request.remainders(), 10, exact, request.level());
         var prepared = ECOBatchDispatchPlanning.prepare(exactRequest, mock(ICraftingProvider.class));
         assertEquals(10, prepared.plan(10, 10, 1, energy, ECOBatchMode.LINEAR).craftCount());
-        when(request.job().executionRuntime.protectedStartupSeed(null)).thenReturn(Map.of(input, Long.MAX_VALUE));
+        when(request.job().executionRuntime.protectedStartupSeed(null)).thenReturn(Map.of(input, PlannerAmount.of(Long.MAX_VALUE)));
         assertEquals(5, prepared.plan(10, 10, 1, energy, ECOBatchMode.LINEAR).craftCount());
     }
 }

@@ -103,7 +103,7 @@ public final class ECOExactInventory extends ListCraftingInventory {
         if (accepted == null || accepted.signum() <= 0) throw new IllegalArgumentException("Invalid transfer debit");
         BigInteger current = amount(key);
         if (current.compareTo(accepted) < 0) throw new IllegalStateException("Transfer exceeds retained inventory");
-        set(key, current.subtract(accepted));
+        set(key, PlannerAmount.of(current).subtract(PlannerAmount.of(accepted)));
         listener.onChange(key);
     }
 

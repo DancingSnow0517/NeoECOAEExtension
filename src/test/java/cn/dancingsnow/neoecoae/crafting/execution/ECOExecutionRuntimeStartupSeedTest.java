@@ -7,6 +7,7 @@ import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
@@ -37,9 +38,9 @@ class ECOExecutionRuntimeStartupSeedTest {
         var firstCandidate = new ECOExecutionRuntime.DispatchCandidate(0, 0, first, 2L, true);
         var secondCandidate = new ECOExecutionRuntime.DispatchCandidate(1, 1, second, 2L, true);
 
-        assertEquals(Map.of(seed, 12L), runtime.protectedStartupSeed(null));
-        assertEquals(Map.of(seed, 7L), runtime.protectedStartupSeed(firstCandidate));
-        assertEquals(Map.of(seed, 5L), runtime.protectedStartupSeed(secondCandidate));
+        assertEquals(Map.of(seed, PlannerAmount.of(12L)), runtime.protectedStartupSeed(null));
+        assertEquals(Map.of(seed, PlannerAmount.of(7L)), runtime.protectedStartupSeed(firstCandidate));
+        assertEquals(Map.of(seed, PlannerAmount.of(5L)), runtime.protectedStartupSeed(secondCandidate));
         // Dispatch asks for the same snapshot once per candidate, so it must not be rebuilt while nothing moved.
         assertSame(runtime.protectedStartupSeed(firstCandidate), runtime.protectedStartupSeed(firstCandidate));
 
@@ -47,14 +48,14 @@ class ECOExecutionRuntimeStartupSeedTest {
         inputs.add(seed, 1L);
         setup.progress(0).accept(1L);
         runtime.onAccepted(firstCandidate, 1L, new KeyCounter[] {inputs});
-        assertEquals(Map.of(seed, 11L), runtime.protectedStartupSeed(null));
-        assertEquals(Map.of(seed, 7L), runtime.protectedStartupSeed(firstCandidate));
-        assertEquals(Map.of(seed, 4L), runtime.protectedStartupSeed(secondCandidate));
+        assertEquals(Map.of(seed, PlannerAmount.of(11L)), runtime.protectedStartupSeed(null));
+        assertEquals(Map.of(seed, PlannerAmount.of(7L)), runtime.protectedStartupSeed(firstCandidate));
+        assertEquals(Map.of(seed, PlannerAmount.of(4L)), runtime.protectedStartupSeed(secondCandidate));
 
         // The final step completes phase 0, which releases whatever seed it still owned.
         setup.progress(0).accept(1L);
         runtime.onAccepted(firstCandidate, 1L, new KeyCounter[0]);
-        assertEquals(Map.of(seed, 7L), runtime.protectedStartupSeed(null));
+        assertEquals(Map.of(seed, PlannerAmount.of(7L)), runtime.protectedStartupSeed(null));
         assertEquals(Map.of(), runtime.protectedStartupSeed(secondCandidate));
     }
 
@@ -98,7 +99,7 @@ class ECOExecutionRuntimeStartupSeedTest {
 
         var candidates = runtime.candidates();
         assertEquals(0, candidates.getFirst().taskId(), "fixture must put the consumer first");
-        assertEquals(Map.of(seed, 1L), runtime.protectedStartupSeed(candidates.getFirst()));
+        assertEquals(Map.of(seed, PlannerAmount.of(1L)), runtime.protectedStartupSeed(candidates.getFirst()));
         assertEquals(Map.of(), runtime.protectedStartupSeed(candidates.get(1)));
 
         var inventory = new ListCraftingInventory(ignored -> {});

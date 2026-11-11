@@ -55,10 +55,15 @@ public class ElapsedTimeTracker {
         readLongByTypeMap(data.getCompound(NBT_STARTED_WORK), startedWorkByType);
         readLongByTypeMap(data.getCompound(NBT_COMPLETED_WORK), completedWorkByType);
         exact = data.getBoolean("exactWork");
-        if (exact) for (var type : AEKeyTypes.getAll()) {
-            String id = type.getId().toString();
-            exactStarted.put(type, PlannerAmount.parse(data.getCompound("exactStarted").getString(id)));
-            exactCompleted.put(type, PlannerAmount.parse(data.getCompound("exactCompleted").getString(id)));
+        if (exact) {
+            var started = data.getCompound("exactStarted");
+            var completed = data.getCompound("exactCompleted");
+            for (var type : AEKeyTypes.getAll()) {
+                String id = type.getId().toString();
+                // A key type added after the save has no historical work. Existing malformed values still fail.
+                exactStarted.put(type, started.contains(id) ? PlannerAmount.parse(started.getString(id)) : PlannerAmount.ZERO);
+                exactCompleted.put(type, completed.contains(id) ? PlannerAmount.parse(completed.getString(id)) : PlannerAmount.ZERO);
+            }
         }
     }
 
@@ -131,8 +136,8 @@ public class ElapsedTimeTracker {
             var done = completed.get(type);
             var total = totals.get(type);
             if (exact) {
-                exactCompleted.put(type, done);
-                exactStarted.put(type, total);
+                exactCompleted.put(type, PlannerAmount.of(done));
+                exactStarted.put(type, PlannerAmount.of(total));
             }
             startedWorkByType.put(type,
                     cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan.bounded(total));

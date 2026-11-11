@@ -137,7 +137,7 @@ public final class KeyReuseAcceptance {
         ECOInfiniteStorageData loaded = ECOInfiniteStorageData.load(NbtIo.readCompressed(snapshot, NbtAccounter.unlimitedHeap()), registries);
         SavedDataInfiniteStorageEngine engine = new SavedDataInfiniteStorageEngine(loaded);
         check(engine.getAmount(refreshed).toBigInteger().equals(huge.add(BigInteger.valueOf(17))), "old 10^40 item quantity survives real key codec and disk reload");
-        check(engine.getAmount(ECOKeyFactory.fluid(fluid)).toBigInteger().equals(BigInteger.ONE.shiftLeft(100)), "old U126 fluid quantity survives reload");
+        check(engine.getAmount(ECOKeyFactory.fluid(fluid)).toBigInteger().equals(BigInteger.ONE.shiftLeft(100)), "legacy exact fluid quantity survives reload");
         check(engine.insertOnce(receipt, refreshed, 17) == 17
             && engine.getAmount(refreshed).toBigInteger().equals(huge.add(BigInteger.valueOf(17))),
             "migration receipt prevents duplicate import after reload");

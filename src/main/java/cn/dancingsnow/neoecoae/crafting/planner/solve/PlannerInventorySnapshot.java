@@ -80,6 +80,37 @@ public final class PlannerInventorySnapshot {
 
     public java.util.Set<AEKey> unboundedKeys() { return unboundedKeys; }
 
+    /** Read-only map view over the captured arrays; no second quantity map is materialized. */
+    public java.util.Map<AEKey, PlannerAmount> amounts() {
+        return new java.util.AbstractMap<>() {
+            @Override public int size() { return keys.length; }
+            @Override public PlannerAmount get(Object key) {
+                int index = key instanceof AEKey value ? indexOf(value) : -1;
+                return index < 0 ? null : amounts[index];
+            }
+            @Override public boolean containsKey(Object key) { return key instanceof AEKey value && indexOf(value) >= 0; }
+            @Override public void forEach(java.util.function.BiConsumer<? super AEKey, ? super PlannerAmount> action) {
+                for (int i = 0; i < keys.length; i++) action.accept(keys[i], amounts[i]);
+            }
+            @Override public java.util.Set<java.util.Map.Entry<AEKey, PlannerAmount>> entrySet() {
+                return new java.util.AbstractSet<>() {
+                    @Override public int size() { return keys.length; }
+                    @Override public java.util.Iterator<java.util.Map.Entry<AEKey, PlannerAmount>> iterator() {
+                        return new java.util.Iterator<>() {
+                            private int index;
+                            @Override public boolean hasNext() { return index < keys.length; }
+                            @Override public java.util.Map.Entry<AEKey, PlannerAmount> next() {
+                                if (!hasNext()) throw new java.util.NoSuchElementException();
+                                int current = index++;
+                                return java.util.Map.entry(keys[current], amounts[current]);
+                            }
+                        };
+                    }
+                };
+            }
+        };
+    }
+
     /** Visit the owned arrays directly, preserving cancellation checks without copying a second amount map. */
     public void visitAmounts(cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation cancellation,
             java.util.function.BiConsumer<AEKey, PlannerAmount> visitor) throws InterruptedException {
@@ -91,6 +122,11 @@ public final class PlannerInventorySnapshot {
 
     /** Build a compact key index only for routes that need random stock access. */
     public PlannerAmount amountOf(AEKey key) {
+        int position = indexOf(key);
+        return position < 0 ? PlannerAmount.ZERO : amounts[position];
+    }
+
+    private int indexOf(AEKey key) {
         var index = lookup;
         if (index == null) {
             index = new it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap<>(keys.length);
@@ -98,8 +134,7 @@ public final class PlannerInventorySnapshot {
             for (int i = 0; i < keys.length; i++) index.put(keys[i], i);
             lookup = index;
         }
-        int position = index.getInt(key);
-        return position < 0 ? PlannerAmount.ZERO : amounts[position];
+        return index.getInt(key);
     }
 
     void initialize(PlannerCounter target) {

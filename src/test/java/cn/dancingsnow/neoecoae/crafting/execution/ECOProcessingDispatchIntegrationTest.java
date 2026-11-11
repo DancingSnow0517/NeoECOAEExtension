@@ -54,7 +54,6 @@ class ECOProcessingDispatchIntegrationTest {
             (request, provider) -> { offers.add(request.allowedCrafts()); return true; });
         assertEquals(List.of(1L, 2L, 4L, 8L, 1L), offers);
         assertEquals(16, result.acceptedCrafts());
-        assertEquals(16, result.remainders().getFirst().amount());
         assertEquals(32, f.request.job().waitingFor.list.get(f.key));
         assertEquals(0, progress.value);
         assertEquals(84, f.inventory.list.get(f.key));

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.execution.CraftingCpuHelper;
@@ -141,7 +142,7 @@ class ECOCraftingInputCachingTest {
         when(pattern.getInputs()).thenReturn(new IPatternDetails.IInput[] {input});
         var inventory = new ListCraftingInventory(ignored -> {});
         inventory.insert(key, 11L, Actionable.MODULATE);
-        var preview = new ECOCraftingInputPreview(inventory, pattern, Map.of(key, 5L),
+        var preview = new ECOCraftingInputPreview(inventory, pattern, Map.of(key, PlannerAmount.of(5L)),
             new ECOCraftingRemainderCache());
         assertEquals(2L, preview.extractTemplates(new InputTemplate(key, 3L), 10L));
         assertEquals(0L, preview.extractTemplates(new InputTemplate(key, 1L), 1L));
