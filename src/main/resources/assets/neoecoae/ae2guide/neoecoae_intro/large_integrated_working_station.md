@@ -277,7 +277,7 @@ The module automatically heats, cools and holds its target, **including while id
 
 Each successfully regulated tick costs a fixed **100,000 AE**, including holding and idle operation. Module heating is included; recipe energy is separate, and the operating cost is charged at most once per tick. Coolant circulation consumes at least **300 mB/t**, three times an ordinary hatch, and increases as needed to remove processing heat. Byproducts scale with the actual fluid consumed. Missing power or coolant, or blocked coolant outputs, pauses active regulation without freezing natural temperature changes; regulation resumes when resources return. Existing stock remains usable while ME is offline; refills resume on the normal interval after reconnection. Disabling temperature mechanics disables target regulation and retains coolant mode at 300 mB per tick of actual overclocked progress.
 
-This mod provides no crafting recipe for the smart cooling controller by default; obtain it in Creative or through a recipe added by your modpack.
+Craft the smart cooling controller in the Large Integrated Working Station using 12 ingredient types and 512 buckets of Cryotheum Solution. See JEI/EMI for the full ingredient list.
 
 ## Disabling temperature: coolant mode
 
