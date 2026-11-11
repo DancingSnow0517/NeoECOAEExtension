@@ -1,0 +1,16 @@
+{
+  "sources": [
+    {
+      "type": "neoecoae:workstation_palette",
+      "palettes": {
+        "normal": "neoecoae:block/working_station/controller_formed/colormap/normal",
+        "advanced_ae": "neoecoae:block/working_station/controller_formed/colormap/advanced_ae",
+        "extendedae": "neoecoae:block/working_station/controller_formed/colormap/extendedae",
+        "ae2cs": "neoecoae:block/working_station/controller_formed/colormap/ae2cs",
+        "ae2lt": "neoecoae:block/working_station/controller_formed/colormap/ae2lt",
+        "data_energistics": "neoecoae:block/working_station/controller_formed/colormap/data_energistics",
+        "appgen": "neoecoae:block/working_station/controller_formed/colormap/appgen"
+      }
+    }
+  ]
+}

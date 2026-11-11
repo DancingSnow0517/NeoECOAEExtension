@@ -1,7 +1,10 @@
 {
   "parent": "neoecoae:block/large_integrated_working_station_on",
   "textures": {
-    "screen": "neoecoae:block/working_station/controller_formed/controller_formed_screen_compat/other_on",
-    "light": "neoecoae:block/working_station/controller_formed/controller_formed_light_compat/other_on"
+    "light_light": "neoecoae:block/working_station/controller_formed/controller_formed_light/dark",
+    "light_dark": "neoecoae:block/working_station/controller_formed/controller_formed_light/light",
+    "screen_dark": "neoecoae:block/working_station/controller_formed/controller_formed_screen_on/dark",
+    "screen_middle": "neoecoae:block/working_station/controller_formed/controller_formed_screen_on/middle",
+    "screen_light": "neoecoae:block/working_station/controller_formed/controller_formed_screen_on/light"
   }
 }

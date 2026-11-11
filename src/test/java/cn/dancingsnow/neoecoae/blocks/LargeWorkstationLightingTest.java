@@ -80,7 +80,7 @@ class LargeWorkstationLightingTest {
 
     @Test
     void formedBodyKeepsNaturalAmbientOcclusion() throws Exception {
-        for (String variant : List.of("off", "on")) {
+        for (String variant : List.of("off", "on", "off_smart", "on_smart")) {
             var model = BlockModel.fromString(readModel(variant).toString());
             assertTrue(model.hasAmbientOcclusion(), variant + " model must retain natural body AO");
         }
@@ -88,14 +88,14 @@ class LargeWorkstationLightingTest {
 
     @Test
     void onlyEmissiveFacesBypassAmbientOcclusion() throws Exception {
-        for (String variant : List.of("off", "on")) {
+        for (String variant : List.of("off", "on", "off_smart", "on_smart")) {
             var model = BlockModel.fromString(readModel(variant).toString());
             int emissiveFaces = 0;
             for (var element : model.getElements()) {
                 for (var face : element.faces.values()) {
                     String texture = face.texture();
                     var lighting = face.faceData();
-                    if (texture.equals("#light") || variant.equals("on") && texture.equals("#screen")) {
+                    if (texture.startsWith("#light") || texture.startsWith("#screen_") || texture.equals("#cooling_screen")) {
                         assertEquals(15, lighting.blockLight());
                         assertEquals(15, lighting.skyLight());
                         assertFalse(lighting.ambientOcclusion());
@@ -109,7 +109,7 @@ class LargeWorkstationLightingTest {
                     }
                 }
             }
-            assertEquals(variant.equals("on") ? 7 : 5, emissiveFaces);
+            assertEquals(15 + (variant.startsWith("on") ? 6 : 0) + (variant.endsWith("_smart") ? 1 : 0), emissiveFaces);
         }
     }
 
