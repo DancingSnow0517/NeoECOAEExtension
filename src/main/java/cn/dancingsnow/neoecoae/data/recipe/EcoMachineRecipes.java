@@ -45,6 +45,7 @@ public class EcoMachineRecipes {
             .require(NEBlocks.ENERGIZED_SUPERCONDUCTIVE_BLOCK, 32)
             .require(AEBlocks.INTERFACE, 16)
             .require(NEItems.CRYSTAL_MATRIX, 32)
+            .require(NEItems.NETWORK_PULL_CARD, 16)
             .require(NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH, 16)
             .require(NEItems.CRYOTHEUM_CRYSTAL, 64)
             .require(AEItems.ENGINEERING_PROCESSOR, 32)
