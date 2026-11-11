@@ -71,8 +71,9 @@ class CycleRouteCompletenessReviewTest {
             mock(appeng.api.networking.crafting.ICraftingService.class), goal, stock, true);
         // Freeze compilation and the clock so the test cuts the shared allowance at the route boundary,
         // not at a machine-dependent elapsed time or during unrelated recipe discovery.
-        var fields = Map.<String, Object>of("compiled", network, "condensation", graph, "activeSelection", initial,
-            "compiledContractGeneration", cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection.reloadGeneration(),
+        var structure = new CompiledStructureCache.Structure(network, graph,
+            cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection.reloadGeneration(), -1L);
+        var fields = Map.<String, Object>of("structure", structure, "activeSelection", initial,
             "planningBudget", new cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget(
                 ECOCancellation.NONE, work.get() + extraWork, Long.MAX_VALUE, () -> 0L));
         for (var entry : fields.entrySet()) {
@@ -127,8 +128,9 @@ class CycleRouteCompletenessReviewTest {
             .multiply(java.math.BigInteger.TWO).subtract(java.math.BigInteger.ONE)), expectedMissing);
         var session = new cn.dancingsnow.neoecoae.crafting.planner.ECOCraftingPlannerService().createSession(
             mock(appeng.api.networking.crafting.ICraftingService.class), goal, stock, true);
-        var fields = Map.<String, Object>of("compiled", network, "condensation", graph, "activeSelection", initial,
-            "compiledContractGeneration", cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection.reloadGeneration(),
+        var structure = new CompiledStructureCache.Structure(network, graph,
+            cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection.reloadGeneration(), -1L);
+        var fields = Map.<String, Object>of("structure", structure, "activeSelection", initial,
             "planningBudget", new cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget(
                 ECOCancellation.NONE, work.get() + extraWork, Long.MAX_VALUE, () -> 0L));
         for (var entry : fields.entrySet()) {

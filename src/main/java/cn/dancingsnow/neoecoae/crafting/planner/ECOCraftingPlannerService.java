@@ -40,17 +40,19 @@ import org.slf4j.LoggerFactory;
 public final class ECOCraftingPlannerService {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOCraftingPlannerService.class);
 
-    private final CraftingNetworkCompiler compiler = new CraftingNetworkCompiler();
-    private final CraftingGraphBuilder graphBuilder = new CraftingGraphBuilder();
-    private final TarjanSccAnalyzer sccAnalyzer = new TarjanSccAnalyzer();
-    private final ComponentPlanner componentPlanner = new ComponentPlanner(
+    public static final ECOCraftingPlannerService INSTANCE = new ECOCraftingPlannerService();
+
+    private static final CraftingNetworkCompiler COMPILER = new CraftingNetworkCompiler();
+    private static final CraftingGraphBuilder GRAPH_BUILDER = new CraftingGraphBuilder();
+    private static final TarjanSccAnalyzer SCC_ANALYZER = new TarjanSccAnalyzer();
+    private static final ComponentPlanner COMPONENT_PLANNER = new ComponentPlanner(
             new AcyclicCraftingSolver(), new BoundedCycleSolver());
-    private final AE2CraftingPlanBridge bridge = new AE2CraftingPlanBridge();
+    private static final AE2CraftingPlanBridge BRIDGE = new AE2CraftingPlanBridge();
 
     /**
      * Per-calculation session: structural compilation is reused by all AE2 CRAFT_LESS probes.
      */
-    public final class Session {
+    public static final class Session {
         private final ICraftingService craftingService;
         private final AEKey goal;
         private final KeyCounter inventory;
@@ -60,11 +62,8 @@ public final class ECOCraftingPlannerService {
         private final Set<ResourceLocation> fuzzyPlanningItemIds;
         private final long planningRequestId = ECOPlanningStageLogger.nextRequestId();
         private ECOPlanningBudget planningBudget;
-        private volatile CompiledNetwork compiled;
-        private volatile CondensationGraph condensation;
+        private volatile CompiledStructureCache.Structure structure;
         private volatile ActiveRouteSelector.Selection activeSelection;
-        private volatile long compiledContractGeneration = -1L;
-        private volatile long compiledProviderRevision = -1L;
         private final Object initializationLock = new Object();
 
         private Session(ICraftingService craftingService, AEKey goal, KeyCounter inventory,
@@ -110,26 +109,28 @@ public final class ECOCraftingPlannerService {
             try (var ignored = ECOPlanningStageLogger.open(
                     NEConfig.ecoPlanningStageDebug, planningRequestId, goal, amount, simulation)) {
                 try {
-                    ensureCompiled(cancellation);
+                    var current = ensureCompiled(cancellation);
+                    var compiled = current.network();
+                    var condensation = current.condensation();
                     ComponentPlanner.Outcome solved;
                     long componentStarted = ECOPlanningStageLogger.start();
                     try {
                         if (ignorePatternSubstitutions) {
-                            solved = componentPlanner.planLite(compiled, condensation, inventorySnapshot, amount, cancellation);
+                            solved = COMPONENT_PLANNER.planLite(compiled, condensation, inventorySnapshot, amount, cancellation);
                         } else {
                             if (activeSelection == null) synchronized (initializationLock) {
                                 if (activeSelection == null) {
                                     budgetStage = "route_selection";
-                                    activeSelection = componentPlanner.selectRoutes(condensation, cyclePlanningEnabled, cancellation);
+                                    activeSelection = COMPONENT_PLANNER.selectRoutes(condensation, cyclePlanningEnabled, cancellation);
                                 }
                             }
                             budgetStage = "component_planning";
-                            solved = componentPlanner.planWithRouteFallback(compiled, condensation, activeSelection,
+                            solved = COMPONENT_PLANNER.planWithRouteFallback(compiled, condensation, activeSelection,
                                     inventory, inventorySnapshot, amount, cyclePlanningEnabled, ignorePatternSubstitutions, cancellation,
                                     candidate -> {
                                         ECOCancellation candidateCancellation = accepted[0] == null
                                             ? callerCancellation : searchCancellation;
-                                        ECOPlanningResult ready = buildResult(candidate, amount, simulation, startedNanos,
+                                        ECOPlanningResult ready = buildResult(current, candidate, amount, simulation, startedNanos,
                                             candidateCancellation);
                                         candidateCancellation.checkpoint();
                                         if (!ready.executable()) {
@@ -169,7 +170,7 @@ public final class ECOCraftingPlannerService {
                             solved.status() == PlanningStatus.SUCCESS,
                             ECOPlanningStageLogger.resultReason(solved.status(), solved.trace()));
                     var result = accepted[0] != null ? accepted[0]
-                        : buildResult(solved, amount, simulation, startedNanos, callerCancellation);
+                        : buildResult(current, solved, amount, simulation, startedNanos, callerCancellation);
                     if (accepted[0] != null) {
                         // Reuse the validated execution plan; rebuilding it after the window would add another
                         // potentially expensive validation pass. Only finish the search diagnostics and timing.
@@ -189,15 +190,8 @@ public final class ECOCraftingPlannerService {
                         logTotal(startedNanos, accepted[0]);
                         return accepted[0];
                     }
-                    ECOPlanTrace trace = new ECOPlanTrace();
-                    trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CANCELLED,
-                            "Crafting candidate calculation was cancelled"));
-                    var result = new ECOPlanningResult(PlanningStatus.CANCELLED, bridge.unsupported(goal, amount), trace,
-                            List.of(), List.of(),
-                            List.of(), elapsedSince(startedNanos));
-                    attach(result);
-                    logTotal(startedNanos, result);
-                    return result;
+                    return failed(amount, startedNanos, PlanningStatus.CANCELLED, PlannerDiagnostic.Code.CANCELLED,
+                            "Crafting candidate calculation was cancelled");
                 } catch (ECOPlanningBudget.Exhausted exhausted) {
                     if (accepted[0] != null) {
                         accepted[0].trace().addDiagnostic(new PlannerDiagnostic(
@@ -207,50 +201,49 @@ public final class ECOCraftingPlannerService {
                         logTotal(startedNanos, accepted[0]);
                         return accepted[0];
                     }
-                    ECOPlanTrace trace = new ECOPlanTrace();
-                    trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_BUDGET_EXHAUSTED,
-                        "stage=" + budgetStage + " " + exhausted.getMessage()));
-                    var result = new ECOPlanningResult(PlanningStatus.CYCLE_UNRESOLVED,
-                        bridge.unsupported(goal, amount), trace, List.of(), List.of(), List.of(), elapsedSince(startedNanos));
-                    attach(result);
-                    logTotal(startedNanos, result);
-                    return result;
+                    return failed(amount, startedNanos, PlanningStatus.CYCLE_UNRESOLVED,
+                            PlannerDiagnostic.Code.CYCLE_BUDGET_EXHAUSTED,
+                            "stage=" + budgetStage + " " + exhausted.getMessage());
                 } catch (RuntimeException e) {
                     LOGGER.error("[ECO-PLANNER] calculation failed goal={} amount={} simulation={} "
                                     + "cyclePlanningEnabled={} ignorePatternSubstitutions={} fuzzyItems={}",
                             goal, amount, simulation, cyclePlanningEnabled, ignorePatternSubstitutions,
                             fuzzyPlanningItemIds, e);
-                    ECOPlanTrace trace = new ECOPlanTrace();
-                    trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.INTERNAL_ERROR,
-                            e.getClass().getSimpleName() + ": " + e.getMessage()));
-                    var result = new ECOPlanningResult(PlanningStatus.INTERNAL_ERROR, bridge.unsupported(goal, amount), trace,
-                            List.of(), List.of(),
-                            List.of(), elapsedSince(startedNanos));
-                    attach(result);
-                    logTotal(startedNanos, result);
-                    return result;
+                    return failed(amount, startedNanos, PlanningStatus.INTERNAL_ERROR, PlannerDiagnostic.Code.INTERNAL_ERROR,
+                            e.getClass().getSimpleName() + ": " + e.getMessage());
                 }
             }
         }
 
-        private ECOPlanningResult buildResult(ComponentPlanner.Outcome solved, long amount, boolean simulation,
+        private ECOPlanningResult failed(long amount, long startedNanos, PlanningStatus status,
+                PlannerDiagnostic.Code code, String message) {
+            var trace = new ECOPlanTrace();
+            trace.addDiagnostic(new PlannerDiagnostic(code, message));
+            var result = new ECOPlanningResult(status, BRIDGE.unsupported(goal, amount), trace,
+                    List.of(), List.of(), List.of(), elapsedSince(startedNanos));
+            attach(result);
+            logTotal(startedNanos, result);
+            return result;
+        }
+
+        private ECOPlanningResult buildResult(CompiledStructureCache.Structure current, ComponentPlanner.Outcome solved, long amount, boolean simulation,
                 long startedNanos, ECOCancellation cancellation) throws InterruptedException {
             // Completed reports can be published after a search slice expires, but never after cancellation/reload.
             cancellation.checkpoint();
-            if (compiledContractGeneration != AE2PatternIntrospection.reloadGeneration()) {
+            if (current.contractGeneration() != AE2PatternIntrospection.reloadGeneration()) {
                 throw new IllegalStateException("PATTERN_CONTRACT_CHANGED_DURING_PLANNING");
             }
             long validationStarted = ECOPlanningStageLogger.start();
-            solved = rejectUnclosedSuccess(solved, amount);
+            solved = rejectUnclosedSuccess(solved, amount, current.network());
             ECOPlanningStageLogger.finish("material_closure_validation", validationStarted, solved.completeCandidate(),
                 ECOPlanningStageLogger.resultReason(solved.status(), solved.trace()));
-            boolean multiplePaths = compiled.multiplePaths();
+            boolean multiplePaths = current.network().multiplePaths();
             long bridgeStarted = ECOPlanningStageLogger.start();
             var plan = switch (solved.status()) {
-                case SUCCESS, MISSING_ITEMS -> bridge.success(goal, amount,
+                case SUCCESS, MISSING_ITEMS -> BRIDGE.success(goal, amount,
                     simulation || solved.status() != PlanningStatus.SUCCESS, multiplePaths, solved.state());
-                case PARTIAL, CYCLE_UNRESOLVED -> bridge.partial(goal, amount, multiplePaths, solved.state());
-                default -> bridge.unsupported(goal, amount);
+                case PARTIAL, CYCLE_UNRESOLVED -> BRIDGE.partial(goal, amount, multiplePaths, solved.state());
+                default -> BRIDGE.unsupported(goal, amount);
             };
             ECOPlanningStageLogger.finish("ae2_plan_bridge", bridgeStarted, plan != null, solved.status().name());
             long provenanceStarted = ECOPlanningStageLogger.start();
@@ -275,78 +268,69 @@ public final class ECOCraftingPlannerService {
             return result;
         }
 
-        private void ensureCompiled(ECOCancellation cancellation) throws InterruptedException {
-            if (compiled != null && condensation != null
-                    && compiledContractGeneration == AE2PatternIntrospection.reloadGeneration()) {
-                long reused = ECOPlanningStageLogger.start();
-                ECOPlanningStageLogger.finish("structural_initialization", reused, true, "REUSED");
-                return;
-            }
+        private CompiledStructureCache.Structure ensureCompiled(ECOCancellation cancellation) throws InterruptedException {
             synchronized (initializationLock) {
                 long contractGeneration = AE2PatternIntrospection.reloadGeneration();
-                if (compiledContractGeneration != contractGeneration) {
-                    compiled = null;
-                    condensation = null;
-                    activeSelection = null;
+                var current = structure;
+                // Probes in one calculation retain their provider snapshot; reloads invalidate the contract.
+                if (current != null && current.contractGeneration() == contractGeneration) {
+                    ECOPlanningStageLogger.finish("structural_initialization", ECOPlanningStageLogger.start(), true, "REUSED");
+                    return current;
                 }
+                structure = null;
+                activeSelection = null;
                 long providerRevision = CompiledStructureCache.revision(craftingService);
                 var cached = CompiledStructureCache.get(craftingService, providerRevision, contractGeneration, goal,
                         cyclePlanningEnabled, ignorePatternSubstitutions, fuzzyPlanningItemIds);
                 if (cached != null) {
-                    compiled = cached.network();
-                    condensation = cached.condensation();
-                    compiledContractGeneration = contractGeneration;
-                    compiledProviderRevision = providerRevision;
+                    structure = cached;
                     ECOPlanningStageLogger.finish("structural_initialization", ECOPlanningStageLogger.start(),
                             true, "CACHED_PROVIDER_REVISION=" + providerRevision);
-                    return;
+                    return cached;
                 }
-                if (compiled == null) {
-                    long stageStarted = ECOPlanningStageLogger.start();
-                    try {
-                        compiled = compiler.compile(craftingService, goal, cyclePlanningEnabled,
-                                ignorePatternSubstitutions, fuzzyPlanningItemIds, cancellation);
-                        ECOPlanningStageLogger.finish("network_compile", stageStarted, true, null);
-                    } catch (InterruptedException | RuntimeException e) {
-                        ECOPlanningStageLogger.finish("network_compile", stageStarted, false,
-                                ECOPlanningStageLogger.exceptionReason(e));
-                        throw e;
-                    }
+                long stageStarted = ECOPlanningStageLogger.start();
+                CompiledNetwork compiled;
+                try {
+                    compiled = COMPILER.compile(craftingService, goal, cyclePlanningEnabled,
+                            ignorePatternSubstitutions, fuzzyPlanningItemIds, cancellation);
+                    ECOPlanningStageLogger.finish("network_compile", stageStarted, true, null);
+                } catch (InterruptedException | RuntimeException e) {
+                    ECOPlanningStageLogger.finish("network_compile", stageStarted, false,
+                            ECOPlanningStageLogger.exceptionReason(e));
+                    throw e;
                 }
-                if (condensation == null) {
-                    long graphStarted = ECOPlanningStageLogger.start();
-                    var graph = graphBuilder.build(compiled, cancellation);
-                    ECOPlanningStageLogger.finish("graph_build", graphStarted, true, null);
-                    long sccStarted = ECOPlanningStageLogger.start();
-                    var sccs = sccAnalyzer.analyze(graph, cancellation);
-                    ECOPlanningStageLogger.finish("scc_analysis", sccStarted, true, null);
-                    long condensationStarted = ECOPlanningStageLogger.start();
-                    condensation = CondensationGraph.build(graph, sccs, cancellation);
-                    ECOPlanningStageLogger.finish("condensation_graph", condensationStarted, true, null);
-                }
+                long graphStarted = ECOPlanningStageLogger.start();
+                var graph = GRAPH_BUILDER.build(compiled, cancellation);
+                ECOPlanningStageLogger.finish("graph_build", graphStarted, true, null);
+                long sccStarted = ECOPlanningStageLogger.start();
+                var sccs = SCC_ANALYZER.analyze(graph, cancellation);
+                ECOPlanningStageLogger.finish("scc_analysis", sccStarted, true, null);
+                long condensationStarted = ECOPlanningStageLogger.start();
+                var condensation = CondensationGraph.build(graph, sccs, cancellation);
+                ECOPlanningStageLogger.finish("condensation_graph", condensationStarted, true, null);
                 if (contractGeneration != AE2PatternIntrospection.reloadGeneration()) {
-                    compiled = null;
-                    condensation = null;
                     throw new IllegalStateException("PATTERN_CONTRACT_CHANGED_DURING_COMPILATION");
                 }
-                compiledContractGeneration = contractGeneration;
-                compiledProviderRevision = providerRevision;
+                current = new CompiledStructureCache.Structure(compiled, condensation, contractGeneration, providerRevision);
                 CompiledStructureCache.put(craftingService, providerRevision, contractGeneration, goal, cyclePlanningEnabled,
-                        ignorePatternSubstitutions, fuzzyPlanningItemIds, new CompiledStructureCache.Structure(compiled, condensation));
+                        ignorePatternSubstitutions, fuzzyPlanningItemIds, current);
+                structure = current;
+                return current;
             }
         }
 
         /** Frozen recipe structure, independent stock and allowance for each optional search. */
         Session fork(PlannerInventorySnapshot stock, ECOCancellation cancellation, boolean remaining) {
-            if (!isStructureCurrent()) throw new IllegalStateException("STALE_PLANNING_STRUCTURE");
+            var current = structure;
+            if (!isStructureCurrent(current)) throw new IllegalStateException("STALE_PLANNING_STRUCTURE");
             Session fork = new Session(craftingService, goal, stock, cyclePlanningEnabled,
                     ignorePatternSubstitutions, fuzzyPlanningItemIds);
             // A running CPU can use only its own stock; emitters would create new, unconfirmed requests.
-            fork.compiled = remaining ? new CompiledNetwork(goal, compiled.producers(), Set.of(),
-                    compiled.reachablePatternCount(), compiled.edgeCount()) : compiled;
-            fork.condensation = condensation;
-            fork.compiledContractGeneration = compiledContractGeneration;
-            fork.compiledProviderRevision = compiledProviderRevision;
+            var compiled = current.network();
+            fork.structure = remaining ? new CompiledStructureCache.Structure(
+                    new CompiledNetwork(goal, compiled.producers(), Set.of(),
+                            compiled.reachablePatternCount(), compiled.edgeCount()),
+                    current.condensation(), current.contractGeneration(), current.providerRevision()) : current;
             fork.planningBudget = new ECOPlanningBudget(cancellation,
                     ECOPlanningImprovements.MAX_WORK, ECOPlanningImprovements.MAX_NANOS, System::nanoTime);
             return fork;
@@ -356,9 +340,13 @@ public final class ECOCraftingPlannerService {
         boolean belongsTo(ICraftingService service) { return craftingService == service; }
 
         boolean isStructureCurrent() {
-            return compiled != null && condensation != null && compiledProviderRevision >= 0
-                    && compiledProviderRevision == CompiledStructureCache.revision(craftingService)
-                    && compiledContractGeneration == AE2PatternIntrospection.reloadGeneration();
+            return isStructureCurrent(structure);
+        }
+
+        private boolean isStructureCurrent(CompiledStructureCache.Structure current) {
+            return current != null && current.providerRevision() >= 0
+                    && current.providerRevision() == CompiledStructureCache.revision(craftingService)
+                    && current.contractGeneration() == AE2PatternIntrospection.reloadGeneration();
         }
 
         private void logTotal(long startedNanos, ECOPlanningResult result) {
@@ -383,7 +371,7 @@ public final class ECOCraftingPlannerService {
             ECOPlanTrace trace = result.trace();
             trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.INTERNAL_ERROR,
                     "EXECUTION_PLAN_FAILED:" + reason));
-            var rejected = new ECOPlanningResult(PlanningStatus.INTERNAL_ERROR, bridge.unsupported(
+            var rejected = new ECOPlanningResult(PlanningStatus.INTERNAL_ERROR, BRIDGE.unsupported(
                     result.plan().finalOutput().what(), amount), trace, result.cycles(),
                     result.components(), result.executionComponentOrder(), elapsedSince(startedNanos));
             rejected.setFuzzyPlanningItemIds(result.fuzzyPlanningItemIds());
@@ -391,7 +379,8 @@ public final class ECOCraftingPlannerService {
             return rejected;
         }
 
-        private ComponentPlanner.Outcome rejectUnclosedSuccess(ComponentPlanner.Outcome solved, long amount) {
+        private ComponentPlanner.Outcome rejectUnclosedSuccess(ComponentPlanner.Outcome solved, long amount,
+                CompiledNetwork compiled) {
             if (solved.status() != PlanningStatus.SUCCESS && !solved.completeCandidate()) return solved;
             var issue = ECOPlanMaterialValidator.firstDeficit(solved.state(), goal, amount, inventory, compiled,
                 ignorePatternSubstitutions);
@@ -443,15 +432,6 @@ public final class ECOCraftingPlannerService {
                 fuzzyPlanningItemIds);
     }
 
-    /** @deprecated Planning logs are controlled by the global debug configuration. */
-    @Deprecated
-    public Session createSession(ICraftingService service, AEKey goal, PlannerInventorySnapshot inventory,
-                                 boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
-                                 Set<ResourceLocation> fuzzyPlanningItemIds, boolean planningLogEnabled) {
-        return createSession(service, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions,
-                fuzzyPlanningItemIds);
-    }
-
     public Session createSession(ICraftingService service, AEKey goal, KeyCounter inventory,
                                  boolean cyclePlanningEnabled) {
         return new Session(service, goal, inventory, cyclePlanningEnabled, false, Set.of());
@@ -465,15 +445,6 @@ public final class ECOCraftingPlannerService {
     public Session createSession(ICraftingService service, AEKey goal, KeyCounter inventory,
                                  boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
                                  Set<ResourceLocation> fuzzyPlanningItemIds) {
-        return new Session(service, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions,
-                fuzzyPlanningItemIds);
-    }
-
-    /** @deprecated Planning logs are controlled by the global debug configuration. */
-    @Deprecated
-    public Session createSession(ICraftingService service, AEKey goal, KeyCounter inventory,
-                                 boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
-                                 Set<ResourceLocation> fuzzyPlanningItemIds, boolean planningLogEnabled) {
         return new Session(service, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions,
                 fuzzyPlanningItemIds);
     }
