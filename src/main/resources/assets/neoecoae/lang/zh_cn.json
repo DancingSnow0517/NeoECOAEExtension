@@ -1642,7 +1642,7 @@
   "gui.neoecoae.crafting_report.export_title": "ECO 合成规划清单",
   "gui.neoecoae.crafting_report.export_materials": "共 %s 种材料",
   "gui.neoecoae.crafting_report.export_cycle": "循环参与材料",
-  "gui.neoecoae.crafting_report.export_fuzzy": "模糊规划材料",
+  "gui.neoecoae.crafting_report.export_fuzzy": "忽略 NBT（模糊规划）",
   "gui.neoecoae.crafting_report.export_saved": "已保存规划清单图片：%s",
   "gui.neoecoae.crafting_report.card.title": "计算统计",
   "gui.neoecoae.crafting_report.card.elapsed": "计算耗时",

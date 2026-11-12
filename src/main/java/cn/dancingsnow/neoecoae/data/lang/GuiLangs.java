@@ -14,7 +14,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_report.export_title", "ECO Crafting Material List");
         provider.add("gui.neoecoae.crafting_report.export_materials", "%s materials");
         provider.add("gui.neoecoae.crafting_report.export_cycle", "Cycle participant");
-        provider.add("gui.neoecoae.crafting_report.export_fuzzy", "Fuzzy planning");
+        provider.add("gui.neoecoae.crafting_report.export_fuzzy", "Ignores NBT (fuzzy planning)");
         provider.add("gui.neoecoae.crafting_report.export_saved", "Saved crafting list image: %s");
         provider.add("gui.neoecoae.crafting_report.card.title", "Calculation statistics");
         provider.add("gui.neoecoae.crafting_report.card.elapsed", "Calculation time");

@@ -691,7 +691,7 @@
   "gui.neoecoae.crafting_report.elapsed": "Time: %s ms",
   "gui.neoecoae.crafting_report.exact_incomplete": "Execution plan incomplete; see CPU details",
   "gui.neoecoae.crafting_report.export_cycle": "Cycle participant",
-  "gui.neoecoae.crafting_report.export_fuzzy": "Fuzzy planning",
+  "gui.neoecoae.crafting_report.export_fuzzy": "Ignores NBT (fuzzy planning)",
   "gui.neoecoae.crafting_report.export_image": "Export as Image",
   "gui.neoecoae.crafting_report.export_materials": "%s materials",
   "gui.neoecoae.crafting_report.export_saved": "Saved crafting list image: %s",
