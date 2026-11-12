@@ -113,6 +113,15 @@ public interface IECOTier {
         return null;
     }
 
+    /**
+     * Optional 13x18 glyph replacing the selected CPU tier in the active crafting status header.
+     * Null retains the built-in digit or addon panel tier name. Independent of the confirmation glyph.
+     */
+    @Nullable
+    default ECOCpuTierGlyph getCraftingStatusCpuTierGlyph() {
+        return null;
+    }
+
     default int compareTo(IECOTier tier) {
         return Integer.compare(this.getTier(), tier.getTier());
     }

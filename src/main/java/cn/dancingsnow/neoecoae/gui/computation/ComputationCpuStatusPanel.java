@@ -19,6 +19,8 @@ import java.util.function.IntConsumer;
 import net.minecraft.network.chat.MutableComponent;
 import appeng.core.AEConfig;
 import appeng.core.localization.GuiText;
+import cn.dancingsnow.neoecoae.all.NERegistries;
+import cn.dancingsnow.neoecoae.api.ECOCpuTierGlyph;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
@@ -166,6 +168,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private int tier;
     private boolean tierBuiltin = true;
     private Component tierName = Component.empty();
+    @Nullable private ECOCpuTierGlyph tierGlyph;
     private boolean cpuScrollPending, itemScrollPending, taskScrollPending;
     private long cpuScrollSequence, itemScrollSequence, taskScrollSequence;
     private long selectionSequence;
@@ -455,6 +458,9 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         tier = value.getInt("tier");
         tierBuiltin = value.getBoolean("tierBuiltin");
         tierName = Component.literal(value.getString("tierName"));
+        int tierRegistryId = value.contains("tierRegistryId", Tag.TAG_INT) ? value.getInt("tierRegistryId") : -1;
+        IECOTier selectedTier = tierRegistryId < 0 ? null : NERegistries.ECO_TIER.byId(tierRegistryId);
+        tierGlyph = selectedTier == null ? null : selectedTier.getCraftingStatusCpuTierGlyph();
         cpuOffset = Math.clamp(cpuOffset, 0, Math.max(0, total - rows));
         itemOffset = Math.clamp(itemOffset / ITEM_COLS, 0, maxItemRows(itemTotal, rows)) * ITEM_COLS;
         taskOffset = Math.clamp(taskOffset, 0, Math.max(0, taskTotal - rows));
@@ -727,6 +733,20 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
 
     /** Replaces the artwork's "O" with the selected host tier glyph, as the controller pages do. */
     private void drawTier(GUIContext context, Font font, float x, float y) {
+        if (tierGlyph != null) {
+            context.drawTexture(TIER_COVER, x + TIER_X, y + TIER_Y, TIER_WIDTH, TIER_HEIGHT);
+            context.graphics.flush();
+            var pose = context.graphics.pose();
+            pose.pushPose();
+            try {
+                pose.translate(x + TIER_X, y + TIER_Y, 0);
+                context.graphics.blit(tierGlyph.texture(), 0, 0, 0, tierGlyph.u(), tierGlyph.v(),
+                    ECOCpuTierGlyph.WIDTH, ECOCpuTierGlyph.HEIGHT, tierGlyph.textureWidth(), tierGlyph.textureHeight());
+            } finally {
+                pose.popPose();
+            }
+            return;
+        }
         if (tierBuiltin && tier >= 1 && tier <= 3) {
             context.drawTexture(TIER_COVER, x + TIER_X, y + TIER_Y, TIER_WIDTH, TIER_HEIGHT);
             context.drawTexture(NETextures.Crafting.widget((tier - 1) * TIER_WIDTH, 0, TIER_WIDTH, TIER_HEIGHT),
@@ -1294,6 +1314,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         }
 
         private static void writeTier(CompoundTag tag, @Nullable IECOTier tier) {
+            tag.putInt("tierRegistryId", tier == null ? -1 : NERegistries.ECO_TIER.getId(tier));
             tag.putInt("tier", tier == null ? 0 : tier.getTier());
             tag.putBoolean("tierBuiltin", tier == null || tier instanceof ECOTier);
             tag.putString("tierName", tier == null || tier instanceof ECOTier ? "" : tier.getPanelTierName().getString());
