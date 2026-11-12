@@ -1781,5 +1781,8 @@
   "gui.neoecoae.crafting_graph.status.rejected": "未选用",
   "gui.neoecoae.crafting_graph.details.inputs": "输入：%s",
   "gui.neoecoae.crafting_graph.details.outputs": "输出：%s",
-  "gui.neoecoae.crafting_graph.details.firings": "执行次数：%s"
+  "gui.neoecoae.crafting_graph.details.firings": "执行次数：%s",
+  "gui.neoecoae.crafting_graph.summary.from_storage": "原料（库存）",
+  "gui.neoecoae.crafting_graph.summary.outputs": "产物／余量",
+  "gui.neoecoae.crafting_graph.summary.amount": "%s：%s"
 }

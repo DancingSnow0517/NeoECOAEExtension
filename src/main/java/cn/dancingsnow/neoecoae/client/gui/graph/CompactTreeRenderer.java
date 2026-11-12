@@ -127,7 +127,7 @@ final class CompactTreeRenderer {
         return node.key() != null ? node.key().getDisplayName().getString() : node.label();
     }
 
-    private static void drawAmount(GuiGraphics graphics, Font font, String amount, float left, float top,
+    static void drawAmount(GuiGraphics graphics, Font font, String amount, float left, float top,
             float right, float bottom, int color) {
         float availableWidth = Math.max(1, right - left - 2);
         float availableHeight = Math.max(1, bottom - top);
@@ -152,6 +152,7 @@ final class CompactTreeRenderer {
             result.add(Component.translatable("gui.neoecoae.crafting_graph.action.expand_hint"));
             return result;
         }
+        if (GraphMaterialCard.supports(node)) return GraphMaterialCard.builder(graph, node, false).texts();
         if (node.kind() == ClientCraftingGraph.Kind.REFERENCE) {
             var treeNode = graph.compactTreeNode(node.id());
             return List.of(Component.literal("↪ " + nodeTitle(node)),
@@ -192,8 +193,9 @@ final class CompactTreeRenderer {
     }
 
     private static String flowText(CraftingGraphSnapshot.MaterialNode material) {
-        if (showsPendingCraftLabel(material)) {
-            return Component.translatable("gui.neoecoae.crafting_graph.node.pending_craft").getString();
+        if (showsCraftQuantity(material)) {
+            // Intermediate products can be entirely consumed by the order: zero net change still needs crafting.
+            return "\u00d7" + GraphRenderer.formatMagnitude(material.key(), PlannerAmount.of(material.toCraftBigInteger()));
         }
         if (material.consumedBigInteger().signum() == 0 && material.producedBigInteger().signum() == 0) {
             return HostText.ae2Amount(material.exactRequested());
@@ -209,7 +211,7 @@ final class CompactTreeRenderer {
             : GraphRenderer.formatMagnitude(node.key(), node.recursion().amount());
     }
 
-    static boolean showsPendingCraftLabel(CraftingGraphSnapshot.MaterialNode material) {
+    static boolean showsCraftQuantity(CraftingGraphSnapshot.MaterialNode material) {
         return material.status() == CraftingGraphSnapshot.MaterialStatus.CRAFTING
             && material.toCraftBigInteger().signum() > 0
             && material.producedBigInteger().equals(material.consumedBigInteger());

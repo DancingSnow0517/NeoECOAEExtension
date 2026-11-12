@@ -1026,6 +1026,9 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_graph.open", "Planning Graph");
         provider.add("gui.neoecoae.crafting_graph.title", "ECO Crafting Planning Graph");
         provider.add("gui.neoecoae.crafting_graph.search", "Search");
+        provider.add("gui.neoecoae.crafting_graph.summary.from_storage", "From storage");
+        provider.add("gui.neoecoae.crafting_graph.summary.outputs", "Outputs / surplus");
+        provider.add("gui.neoecoae.crafting_graph.summary.amount", "%s: %s");
         provider.add("gui.neoecoae.crafting_graph.toolbar.back", "Back");
         provider.add("gui.neoecoae.crafting_graph.toolbar.main_only", "Available in the outer plan only");
         provider.add("gui.neoecoae.crafting_graph.controls", "Scroll: zoom | Shift+scroll / drag: pan | Enter: next match");
