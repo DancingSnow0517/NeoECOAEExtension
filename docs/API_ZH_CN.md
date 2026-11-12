@@ -137,7 +137,7 @@ public final class EcoApiExample {
 | 选项 | 约定 |
 | --- | --- |
 | `cyclePlanningEnabled` | 允许不可避开的循环组件进入求解 |
-| `ignorePatternSubstitutions` | 兼容旧 API 名称的轻量合成开关，默认开启；每种材料固定一个精确样板，不回溯路线、不计替代或返还与副产物复用，当前合成链涉及已启用的循环或 NBT 忽略规则时，改用完整规划处理这些规则 |
+| `ignorePatternSubstitutions` | 兼容旧 API 名称的默认规划开关，默认开启；true 对应无额外标记的默认规划，false 对应界面的深度规划模式；每种材料固定一个样板，不回溯路线、不计替代或返还；计入实际副产物，仅从已选样板补全一次副产物生产路线，非循环材料最多补算一次。开启循环时使用固定路线的循环求解，关闭时须由捕获库存和经验证的产物分配闭合。已标记加工输入按物品 ID 匹配，不切换完整规划 |
 | `fuzzyPlanningItemIds` | 对指定物品忽略 NBT 规划，实际输入仍须通过样板校验 |
 | `planningLogEnabled` | 旧兼容字段；日志由全局 Calculating 调试配置控制 |
 
