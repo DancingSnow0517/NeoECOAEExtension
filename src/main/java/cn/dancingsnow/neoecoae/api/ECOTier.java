@@ -15,7 +15,8 @@ public enum ECOTier implements IECOTier {
         1 << 26,
         1 << 24,
         10_000_000,
-        Identifier.fromNamespaceAndPath("neoecoae", "textures/gui/computation/cpu_overlay/l4.png")
+        Identifier.fromNamespaceAndPath("neoecoae", "textures/gui/computation/cpu_overlay/l4.png"),
+        0
     ),
     L6(
         2,
@@ -26,7 +27,8 @@ public enum ECOTier implements IECOTier {
         1 << 28,
         1 << 26,
         100_000_000,
-        Identifier.fromNamespaceAndPath("neoecoae", "textures/gui/computation/cpu_overlay/l6.png")
+        Identifier.fromNamespaceAndPath("neoecoae", "textures/gui/computation/cpu_overlay/l6.png"),
+        13
     ),
     L9(
         3,
@@ -37,7 +39,8 @@ public enum ECOTier implements IECOTier {
         1 << 30,
         1 << 28,
         1_000_000_000,
-        Identifier.fromNamespaceAndPath("neoecoae", "textures/gui/computation/cpu_overlay/l9.png")
+        Identifier.fromNamespaceAndPath("neoecoae", "textures/gui/computation/cpu_overlay/l9.png"),
+        26
     );
     @Getter
     private final int tier;
@@ -51,6 +54,7 @@ public enum ECOTier implements IECOTier {
     @Getter
     private final long powerStorageSize;
     private final Identifier cpuOverlayTexture;
+    private final ECOCpuTierGlyph craftConfirmCpuTierGlyph;
 
     ECOTier(
         int tier,
@@ -61,7 +65,8 @@ public enum ECOTier implements IECOTier {
         long cpuTotalBytes,
         long storageTotalBytes,
         long powerStorageSize,
-        Identifier cpuOverlayTexture
+        Identifier cpuOverlayTexture,
+        int craftConfirmGlyphU
     ) {
         this.tier = tier;
         this.crafterParallel = crafterParallel;
@@ -72,6 +77,9 @@ public enum ECOTier implements IECOTier {
         this.storageTotalBytes = storageTotalBytes;
         this.powerStorageSize = powerStorageSize;
         this.cpuOverlayTexture = cpuOverlayTexture;
+        this.craftConfirmCpuTierGlyph = new ECOCpuTierGlyph(
+            Identifier.fromNamespaceAndPath("neoecoae", "textures/guis/crafting_widgets.png"),
+            craftConfirmGlyphU, 0, 288, 256);
     }
 
     @Override
@@ -107,5 +115,10 @@ public enum ECOTier implements IECOTier {
     @Override
     public Identifier getCPUOverlayTexture() {
         return cpuOverlayTexture;
+    }
+
+    @Override
+    public ECOCpuTierGlyph getCraftConfirmCpuTierGlyph() {
+        return craftConfirmCpuTierGlyph;
     }
 }

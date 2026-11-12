@@ -1,19 +1,35 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtCpuStatus;
+
+import cn.dancingsnow.neoecoae.gui.crafting.CraftingListCard;
+import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingMachineActions;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
 
 import appeng.client.api.AEKeyRendering;
+import appeng.api.networking.crafting.ICraftingCPU;
+import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.api.stacks.AEKey;
 import appeng.api.util.AEColor;
+import appeng.api.config.TerminalStyle;
 import appeng.client.gui.widgets.AE2Button;
+import appeng.core.localization.ButtonToolTips;
+import java.util.function.IntConsumer;
+import net.minecraft.network.chat.MutableComponent;
 import appeng.core.AEConfig;
 import appeng.core.localization.GuiText;
+import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
+import cn.dancingsnow.neoecoae.gui.common.ElementRenderHooks;
+import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import com.lowdragmc.lowdraglib2.LDLib2;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.SyncStrategy;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEventBuilder;
@@ -22,59 +38,114 @@ import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
-import cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt;
-import cn.dancingsnow.neoecoae.gui.common.ElementRenderHooks;
-import net.minecraft.client.renderer.RenderPipelines;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.math.BigInteger;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
+import java.util.function.LongSupplier;
+import java.util.function.Supplier;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.ChatFormatting;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.player.Player;
 import org.apache.commons.lang3.time.DurationFormatUtils;
+import org.jetbrains.annotations.Nullable;
 
-/** The 326x254 ECO crafting CPU page shown when a CPU row is clicked. */
+/**
+ * The 427x226 ECO crafting status page (stretches downwards with AE2's terminal style). A: CPU list, B: crafting status in AE2 order, C: running tasks in
+ * processing state order, D: search that moves matches to B's first cell, E: AE2's suspend/cancel controls.
+ */
 final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private final HostProgressAnimation opening = new HostProgressAnimation();
-    static final int WIDTH = 326, HEIGHT = 254, ROWS = 9;
-    private static final int CPU_X = 8, CPU_Y = 19, CPU_WIDTH = 67, CPU_HEIGHT = 22, CPU_STRIDE = 23;
-    private static final int CPU_TRACK_X = 77, TRACK_Y = 19, TRACK_HEIGHT = 206;
-    private static final int ITEM_X = 97, ITEM_Y = 19, ITEM_WIDTH = 67, ITEM_HEIGHT = 22, ITEM_COLUMN_STRIDE = 68;
-    private static final int ITEM_COLS = 3, ITEM_ROWS = 9, ITEM_STRIDE = 23, ITEM_PAGE = ITEM_COLS * ITEM_ROWS;
-    private static final int ITEM_TRACK_X = 306;
+    static final int WIDTH = 427, HEIGHT = 226, ROWS = 7;
+    private static final int ROW_WIDTH = 67, ROW_HEIGHT = 22, ROW_STRIDE = 23, LIST_Y = 27;
+    private static final int TRACK_Y = 26, TRACK_HEIGHT = 162;
+    private static final int TRACK_WIDTH = 6, SCROLLER_INSET = (ComputationScrollbar.WIDTH - TRACK_WIDTH) / 2;
+    private static final int CPU_X = 11, CPU_TRACK_X = 89;
+    private static final int ITEM_X = 105, ITEM_WIDTH = ROW_WIDTH, ITEM_HEIGHT = ROW_HEIGHT, ITEM_COLUMN_STRIDE = 68;
+    private static final int ITEM_COLS = 3, ITEM_ROWS = ROWS, ITEM_STRIDE = ROW_STRIDE, ITEM_PAGE = ITEM_COLS * ITEM_ROWS;
+    private static final int ITEM_TRACK_X = 317;
+    private static final int TASK_X = 333, TASK_TRACK_X = 411;
+    private static final int SEARCH_X = 333, SEARCH_Y = 9, SEARCH_WIDTH = 67, SEARCH_HEIGHT = 10;
+    private static final int TIER_X = 134, TIER_Y = 5, TIER_WIDTH = 13, TIER_HEIGHT = 18;
+    // Suspend/cancel sit higher than the lower extension's floor, between the lists and the panel bottom.
+    private static final int FOOTER_X = 97, FOOTER_WIDTH = 233, BUTTON_Y = 196;
     private static final int TEXT = 0x413F54;
-    private static final int BATCH_ICON_SIZE = 16, BATCH_ICON_LEFT = -1;
-    private static final Identifier BATCH_ICON =
-        Identifier.fromNamespaceAndPath("neoecoae", "textures/gui/computation/eco_batching.png");
-    // The source sheet is 384x384, but only the 326x254 top slice is the page background.
-    // The two 67x22 CPU row states live at y=260 in the same sheet.
-    private static final IGuiTexture BACKGROUND = SpriteTexture.of(
-        Identifier.fromNamespaceAndPath("neoecoae", "textures/guis/eco_craftingcpu.png")).setSprite(0, 0, WIDTH, HEIGHT);
-    private static final IGuiTexture CPU_NORMAL = SpriteTexture.of(
-        Identifier.fromNamespaceAndPath("neoecoae", "textures/guis/eco_craftingcpu.png")).setSprite(0, 260, CPU_WIDTH, CPU_HEIGHT);
-    private static final IGuiTexture CPU_SELECTED = SpriteTexture.of(
-        Identifier.fromNamespaceAndPath("neoecoae", "textures/guis/eco_craftingcpu.png")).setSprite(69, 260, CPU_WIDTH, CPU_HEIGHT);
+    // Header text right of the ECO logo, above the line's low segment (which steps up near x=255).
+    private static final int TIME_X = 152, TIME_Y = 12, TIME_WIDTH = 100;
+    // 1.7.10's light text: the list cells are dark, so dark text loses contrast there.
+    private static final int TEXT_LIGHT = 0xF2F3F7;
+    private static final int STATUS_SYNC_INTERVAL = 10;
+    private static final int PROCESSING_SYNC_INTERVAL = 5, BACKGROUND_PROCESSING_REQUESTS = 16;
+    private static final Identifier ATLAS =
+        Identifier.fromNamespaceAndPath("neoecoae", "textures/guis/eco_crafting_processing.png");
+    // The panel body ends at y=200 with a 237x26 lower extension; the row states sit in the notch beside it.
+    private static final int BODY_BOTTOM = 200, LOWER_X = 95, LOWER_WIDTH = 237, LOWER_HEIGHT = 26;
+    private static final int STRIP_V = LIST_Y + ROW_STRIDE, TAIL_V = LIST_Y + (ROWS - 1) * ROW_STRIDE, MAX_ROWS = 48;
+    private static final IGuiTexture BACKGROUND_TOP = sprite(0, 0, WIDTH, STRIP_V);
+    private static final IGuiTexture BACKGROUND_STRIP = sprite(0, STRIP_V, WIDTH, ROW_STRIDE);
+    private static final IGuiTexture BACKGROUND_TAIL = sprite(0, TAIL_V, WIDTH, BODY_BOTTOM - TAIL_V);
+    private static final IGuiTexture BACKGROUND_LOWER = sprite(LOWER_X, BODY_BOTTOM, LOWER_WIDTH, LOWER_HEIGHT);
+    private static final int ROW_NORMAL_U = 11, ROW_NORMAL_V = 215, ROW_SELECTED_U = 11, ROW_SELECTED_V = 237;
+    private static final IGuiTexture ROW_NORMAL = sprite(ROW_NORMAL_U, ROW_NORMAL_V, ROW_WIDTH, ROW_HEIGHT);
+    private static final IGuiTexture ROW_SELECTED = sprite(ROW_SELECTED_U, ROW_SELECTED_V, ROW_WIDTH, ROW_HEIGHT);
+    private static final IGuiTexture TIER_COVER = sprite(132, TIER_Y, 1, TIER_HEIGHT);
 
-    private final ComputationControllerUI.Config config;
-    private final BindableValue<Integer> selectionRequest = new BindableValue<>(-1);
+    /** The server-side capabilities the page needs; the controller and the AE2 takeover supply their own. */
+    record Source(@Nullable Player player, LongSupplier gameTime, BooleanSupplier canInteract,
+            Supplier<List<? extends ICraftingCPU>> cpus, Consumer<ICraftingCPU> toggleCpuSuspended,
+            Consumer<ICraftingCPU> cancelCpu, @Nullable Runnable serverBack) {
+        HolderLookup.Provider registries() {
+            return player == null ? RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY)
+                : player.registryAccess();
+        }
+
+        static Source of(ComputationControllerUI.Config config) {
+            return new Source(config.player(), config.gameTime(), config.canInteract(), () -> config.cpus().get(),
+                cpu -> { if (cpu instanceof ECOCraftingCPU eco) config.toggleCpuSuspended().accept(eco); },
+                cpu -> { if (cpu instanceof ECOCraftingCPU eco) config.cancelCpu().accept(eco); }, null);
+        }
+    }
+
+    private final Source source;
+    private final BindableValue<CompoundTag> selectionRequest = new BindableValue<>(new CompoundTag());
     private final BindableValue<CompoundTag> cpuScrollRequest = new BindableValue<>(new CompoundTag());
     private final BindableValue<CompoundTag> itemScrollRequest = new BindableValue<>(new CompoundTag());
+    private final BindableValue<CompoundTag> taskScrollRequest = new BindableValue<>(new CompoundTag());
+    private final Map<AEKey, ECOProcessingProgress> processingByKey = new HashMap<>();
+    private final BindableValue<CompoundTag> processingOverview = new BindableValue<>(new CompoundTag()) {
+        @Override public BindableValue<CompoundTag> setValue(CompoundTag value, boolean notify) {
+            super.setValue(value, notify);
+            applyProcessingOverview(value);
+            return this;
+        }
+    };
     private ComputationItemActionsPopup itemActionsPopup;
     private final BindableValue<CompoundTag> itemActionResponse = new BindableValue<>(new CompoundTag()) {
         @Override public BindableValue<CompoundTag> setValue(CompoundTag value, boolean notify) {
@@ -87,71 +158,124 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private final StatusButton cancelButton = new StatusButton();
     private final ComputationScrollbar cpuScrollbar;
     private final ComputationScrollbar itemScrollbar;
-    private List<ComputationCpuEntry> cpus = List.of();
-    private List<ComputationCpuItemEntry> items = List.of();
+    private final ComputationScrollbar taskScrollbar;
     private final ComputationScrollPage<ComputationCpuEntry> cpuPage = new ComputationScrollPage<>(ROWS, 1);
     private final ComputationScrollPage<ComputationCpuItemEntry> itemPage = new ComputationScrollPage<>(ITEM_ROWS, ITEM_COLS);
+    private final ComputationScrollPage<ComputationCpuItemEntry> taskPage = new ComputationScrollPage<>(ROWS, 1);
     private ComputationCpuEntry selected;
-    private int selectedSerial = -1, total, cpuOffset, cpuPageOffset, itemTotal, itemOffset, itemPageOffset;
-    private boolean cpuScrollPending, itemScrollPending;
-    private long cpuScrollSequence, itemScrollSequence;
+    private int selectedSerial = -1, total, cpuOffset, itemTotal, itemOffset, taskTotal, taskOffset;
+    private int tier;
+    private boolean tierBuiltin = true;
+    private Component tierName = Component.empty();
+    private boolean cpuScrollPending, itemScrollPending, taskScrollPending;
+    private long cpuScrollSequence, itemScrollSequence, taskScrollSequence;
+    private long selectionSequence;
     private Runnable backAction = () -> {};
+    private java.util.function.BiConsumer<AEKey, Integer> processingDetailsRequest = (key, page) -> {};
+    private Runnable stopProcessingRequest = () -> {};
+    private AEKey hoveredProcessingKey, requestedProcessingKey;
+    private int hoveredProcessingPage, requestedProcessingPage;
+    private long nextProcessingRequest;
+    // Visible list rows; AE2's terminal style stretches the page downwards like the 1.7.10 status page.
+    private int rows = ROWS;
+    private final BindableValue<Integer> rowsRequest = new BindableValue<>(ROWS);
+    private UIElement cpuHit, itemHit, taskHit;
+    // AE2's terminal-style toggle in the shared left rail, like AE2's terminal toolbar.
+    private final Button styleButton = HostSideButtonBar.createButton();
+    private final UIElement styleIcon = new UIElement();
+    private UIElement styleBar;
+    private TerminalStyle shownStyle;
+    private IntConsumer heightListener = height -> {};
 
-    ComputationCpuStatusPanel(ComputationControllerUI.Config config, CpuSelectionState.Identities<ECOCraftingCPU> identities) {
+    ComputationCpuStatusPanel(ComputationControllerUI.Config config, CpuSelectionState.Identities<ICraftingCPU> identities) {
+        this(Source.of(config), identities);
+    }
+
+    ComputationCpuStatusPanel(Source source, CpuSelectionState.Identities<ICraftingCPU> identities) {
         super(new CompoundTag());
-        this.config = config;
+        this.source = source;
         layout(layout -> layout.width(WIDTH).height(HEIGHT).paddingAll(0));
-        style(style -> style.backgroundTexture(BACKGROUND));
         setOverflowVisible(true);
-        ServerState server = new ServerState(config, identities);
+        ServerState server = new ServerState(source, identities);
         var cpuAction = addRPCEvent(RPCEventBuilder.simple(Integer.class, Integer.class, server::action));
         var itemAction = addRPCEvent(RPCEventBuilder.simple(Integer.class, CompoundTag.class, server::itemAction));
-        itemActionsPopup = new ComputationItemActionsPopup(config.registries(), request -> itemAction.send(selectedSerial, request));
+        itemActionsPopup = new ComputationItemActionsPopup(source.registries(), request -> itemAction.send(selectedSerial, request));
+        var processingDetails = addRPCEvent(RPCEventBuilder.simple(Integer.class, CompoundTag.class, server::processingDetails));
+        processingDetailsRequest = (key, page) -> {
+            var request = new CompoundTag();
+            if (key != null) request.put("key", cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeKey(source.registries(), key));
+            request.putInt("page", page);
+            processingDetails.send(selectedSerial, request);
+        };
+        stopProcessingRequest = () -> processingDetails.send(-1, new CompoundTag());
         bind(DataBindingBuilder.create(server::snapshot, ignored -> {})
             .syncType(CompoundTag.class).c2sStrategy(SyncStrategy.NONE).build());
-        selectionRequest.bind(DataBindingBuilder.intValC2S(server::select).build());
+        selectionRequest.bind(DataBindingBuilder.<CompoundTag>create(CompoundTag::new, server::select)
+            .syncType(CompoundTag.class).s2cStrategy(SyncStrategy.NONE).build());
         cpuScrollRequest.bind(DataBindingBuilder.<CompoundTag>create(CompoundTag::new, server::scrollCpu)
             .syncType(CompoundTag.class).s2cStrategy(SyncStrategy.NONE).build());
         itemScrollRequest.bind(DataBindingBuilder.<CompoundTag>create(CompoundTag::new, server::scrollItems)
             .syncType(CompoundTag.class).s2cStrategy(SyncStrategy.NONE).build());
+        taskScrollRequest.bind(DataBindingBuilder.<CompoundTag>create(CompoundTag::new, server::scrollTasks)
+            .syncType(CompoundTag.class).s2cStrategy(SyncStrategy.NONE).build());
         itemActionResponse.bind(DataBindingBuilder.create(() -> server.itemActionResponse, ignored -> {})
             .syncType(CompoundTag.class).c2sStrategy(SyncStrategy.NONE).build());
+        processingOverview.bind(DataBindingBuilder.create(server::processingSnapshot, ignored -> {})
+            .syncType(CompoundTag.class).c2sStrategy(SyncStrategy.NONE).build());
+        processingOverview.setDisplay(false);
+        addChild(processingOverview);
         selectionRequest.setDisplay(false);
         cpuScrollRequest.setDisplay(false);
         itemScrollRequest.setDisplay(false);
+        taskScrollRequest.setDisplay(false);
         itemActionResponse.setDisplay(false);
-        addChildren(selectionRequest, cpuScrollRequest, itemScrollRequest, itemActionResponse, itemActionsPopup);
-        addChildren(cpuHitbox(), itemHitbox());
+        addChildren(selectionRequest, cpuScrollRequest, itemScrollRequest, taskScrollRequest, itemActionResponse);
+        rowsRequest.bind(DataBindingBuilder.intValC2S(server::rows).build());
+        rowsRequest.setDisplay(false);
+        addChild(rowsRequest);
+        addChildren(cpuHit = cpuHitbox(), itemHit = itemHitbox(), taskHit = taskHitbox(), searchField(server));
         addEventListener(UIEvents.MOUSE_DOWN, event -> {
             if (itemActionsPopup.isDisplayed() && !itemActionsPopup.isMouseOverElement(event.x, event.y)) {
                 itemActionsPopup.close();
                 if (event.button != 1) event.stopImmediatePropagation();
             }
         }, true);
-        cpuScrollbar = new ComputationScrollbar(this, CPU_TRACK_X, TRACK_Y, TRACK_HEIGHT, this::scrollCpuTo);
-        itemScrollbar = new ComputationScrollbar(this, ITEM_TRACK_X, TRACK_Y, TRACK_HEIGHT,
+        cpuScrollbar = scrollbar(CPU_TRACK_X, this::scrollCpuTo);
+        itemScrollbar = scrollbar(ITEM_TRACK_X,
             row -> scrollItemsTo(row * ITEM_COLS));
-        addChildren(cpuScrollbar, itemScrollbar);
+        taskScrollbar = scrollbar(TASK_TRACK_X, this::scrollTasksTo);
+        addChildren(cpuScrollbar, itemScrollbar, taskScrollbar);
         addEventListener(UIEvents.MOUSE_WHEEL, event -> {
             if (itemActionsPopup.isDisplayed()) {
                 if (!itemActionsPopup.isMouseOverElement(event.x, event.y)) event.stopImmediatePropagation();
                 return;
             }
-            if (event.x >= getPositionX() + CPU_X && event.x < getPositionX() + CPU_TRACK_X + ComputationScrollbar.WIDTH
-                && event.y >= getPositionY() + CPU_Y && event.y < getPositionY() + CPU_Y + ROWS * CPU_STRIDE) {
-                scrollCpuTo(cpuOffset + (event.deltaY < 0 ? ROWS / 3 : -ROWS / 3));
-                event.stopImmediatePropagation();
-            } else if (event.x >= getPositionX() + ITEM_X && event.x < getPositionX() + ITEM_TRACK_X + ComputationScrollbar.WIDTH
-                && event.y >= getPositionY() + ITEM_Y && event.y < getPositionY() + ITEM_Y + ITEM_ROWS * ITEM_STRIDE) {
-                scrollItemsTo(itemOffset + (event.deltaY < 0 ? ITEM_COLS : -ITEM_COLS));
-                event.stopImmediatePropagation();
+            float localX = event.x - getPositionX(), localY = event.y - getPositionY();
+            if (localY < LIST_Y || localY >= LIST_Y + rows * ROW_STRIDE) return;
+            int direction = event.deltaY < 0 ? 1 : -1;
+            if (localX >= CPU_X && localX < CPU_TRACK_X + TRACK_WIDTH + SCROLLER_INSET) {
+                scrollCpuTo(cpuOffset + direction * (rows / 3));
+            } else if (localX >= ITEM_X && localX < ITEM_TRACK_X + TRACK_WIDTH + SCROLLER_INSET) {
+                scrollItemsTo(itemOffset + direction * ITEM_COLS);
+            } else if (localX >= TASK_X && localX < TASK_TRACK_X + TRACK_WIDTH + SCROLLER_INSET) {
+                scrollTasksTo(taskOffset + direction);
+            } else {
+                return;
             }
+            event.stopImmediatePropagation();
         }, true);
 
+        boolean takeover = source.serverBack() != null;
         Button back = new BackButton().noText()
-            .setOnClick(event -> { itemActionsPopup.close(); backAction.run(); });
+            .setOnClick(event -> {
+                itemActionsPopup.close();
+                hoveredProcessingKey = requestedProcessingKey = null;
+                stopProcessingRequest.run();
+                if (!takeover) backAction.run();
+            });
+        if (takeover) back.setOnServerClick(event -> source.serverBack().run());
         back.setId("computation-status-back");
-        back.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(302).top(-5).width(20).height(20).paddingAll(0));
+        back.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(WIDTH - 22).top(-5).width(20).height(20).paddingAll(0));
         back.setOverflowVisible(true);
         HostElements.tooltips(back,
             Component.translatable("gui.neoecoae.computation.settings.back"));
@@ -159,63 +283,205 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         cancelButton.setId("computation-status-cancel");
         pauseButton.setText(GuiText.Suspend.text())
             .setOnClick(event -> { if (event.button == 0) cpuAction.send(selectedSerial, 1); });
-        placeButton(pauseButton, 191, HEIGHT - 25);
+        placeButton(pauseButton, FOOTER_X + FOOTER_WIDTH - 106, BUTTON_Y);
         cancelButton.setText(GuiText.Cancel.text())
             .setOnClick(event -> { if (event.button == 0) cpuAction.send(selectedSerial, 2); });
-        placeButton(cancelButton, 251, HEIGHT - 25);
+        placeButton(cancelButton, FOOTER_X + FOOTER_WIDTH - 54, BUTTON_Y);
         pauseButton.setActive(false);
         cancelButton.setActive(false);
-        addChildren(back, pauseButton, cancelButton);
+        styleButton.setId("computation-status-terminal-style");
+        styleIcon.layout(layout -> layout.heightPercent(100).setAspectRatio(1f))
+            .addClasses("__icon__", "__button_post-icon__");
+        styleButton.noText().addChild(styleIcon);
+        updateStyleIcon();
+        styleButton.setOnClick(event -> {
+            var styles = TerminalStyle.values();
+            var current = AEConfig.instance().getTerminalStyle();
+            int step = event.button == 1 ? -1 : 1;
+            AEConfig.instance().setTerminalStyle(styles[Math.floorMod(current.ordinal() + step, styles.length)]);
+            updateStyleIcon();
+        });
+        styleButton.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(new java.util.ArrayList<Object>(List.<Component>of(ButtonToolTips.TerminalStyle.text(), styleTooltip(AEConfig.instance().getTerminalStyle())
+                .withStyle(ChatFormatting.GRAY))), null, null, null, null));
+        styleBar = HostSideButtonBar.grayLeft(styleButton);
+        addChildren(back, pauseButton, cancelButton, styleBar, itemActionsPopup);
+    }
+
+    /** AE2's big scroller, as on the previous status page, centred on the artwork's 6-pixel track. */
+    private ComputationScrollbar scrollbar(int trackX, IntConsumer onScroll) {
+        return new ComputationScrollbar(this, trackX - SCROLLER_INSET, TRACK_Y, TRACK_HEIGHT, onScroll);
     }
 
     void setBackAction(Runnable action) { backAction = action; }
 
+    /** Receives the page height whenever the stretched row count changes. */
+    void setHeightListener(IntConsumer listener) { heightListener = listener; }
+
+    int currentHeight() { return HEIGHT + extra(); }
+
+    private int extra() { return (rows - ROWS) * ROW_STRIDE; }
+
+    /** AE2's terminal rule: the style takes a share of the rows that fit between the screen margins. */
+    private int desiredRows() {
+        // Without a window or AE2 config (headless rendering in tests) the page keeps its current height.
+        var minecraft = Minecraft.getInstance();
+        var config = AEConfig.instance();
+        if (minecraft == null || minecraft.getWindow() == null || config == null) return rows;
+        int available = minecraft.getWindow().getGuiScaledHeight() - 2 * config.getTerminalMargin();
+        int max = ROWS + Math.max(0, (available - HEIGHT) / ROW_STRIDE);
+        return Math.clamp(config.getTerminalStyle().getRows(max), ROWS, MAX_ROWS);
+    }
+
+    private void applyRows(int next) {
+        if (next == rows) return;
+        rows = next;
+        int extra = extra();
+        layout(layout -> layout.height(HEIGHT + extra));
+        for (UIElement hitbox : new UIElement[] {cpuHit, itemHit, taskHit}) {
+            hitbox.layout(layout -> layout.height(rows * ROW_STRIDE - 1));
+        }
+        cpuPage.rows(rows);
+        itemPage.rows(rows);
+        taskPage.rows(rows);
+        cpuScrollbar.resize(TRACK_HEIGHT + extra);
+        itemScrollbar.resize(TRACK_HEIGHT + extra);
+        taskScrollbar.resize(TRACK_HEIGHT + extra);
+        placeButton(pauseButton, FOOTER_X + FOOTER_WIDTH - 106, BUTTON_Y + extra);
+        placeButton(cancelButton, FOOTER_X + FOOTER_WIDTH - 54, BUTTON_Y + extra);
+        cpuScrollbar.update(cpuOffset, total - rows, rows / 3);
+        itemScrollbar.update(itemOffset / ITEM_COLS, maxItemRows(itemTotal, rows), 1);
+        taskScrollbar.update(taskOffset, taskTotal - rows, 1);
+        rowsRequest.setValue(rows);
+        heightListener.accept(HEIGHT + extra);
+        var minecraft = Minecraft.getInstance();
+        minecraft.execute(() -> {
+            // Re-centre through a deferred resize, as the controller page does when it changes size.
+            var screen = minecraft.screen;
+            if (screen != null) screen.resize(screen.width, screen.height);
+        });
+    }
+
+    private void updateStyleIcon() {
+        // The terminal style is AE2 client config; the server copy of this tree never renders it.
+        if (net.neoforged.fml.loading.FMLEnvironment.getDist() != net.neoforged.api.distmarker.Dist.CLIENT) return;
+        var style = AEConfig.instance().getTerminalStyle();
+        if (style == shownStyle) return;
+        shownStyle = style;
+        ECOIcon icon = switch (style) {
+            case SMALL -> ECOIcon.TERMINAL_STYLE_SMALL;
+            case MEDIUM -> ECOIcon.TERMINAL_STYLE_MEDIUM;
+            case TALL -> ECOIcon.TERMINAL_STYLE_TALL;
+            case FULL -> ECOIcon.TERMINAL_STYLE_FULL;
+        };
+        styleIcon.style(css -> css.backgroundTexture(AETextures.icon(icon)));
+    }
+
+    private static MutableComponent styleTooltip(TerminalStyle style) {
+        return switch (style) {
+            case SMALL -> ButtonToolTips.TerminalStyle_Small.text();
+            case MEDIUM -> ButtonToolTips.TerminalStyle_Medium.text();
+            case TALL -> ButtonToolTips.TerminalStyle_Tall.text();
+            case FULL -> ButtonToolTips.TerminalStyle_Full.text();
+        };
+    }
+
     @Override public boolean isIntersectWithPoint(double x, double y) {
-        return super.isIntersectWithPoint(x, y) || itemActionsPopup != null && itemActionsPopup.isDisplayed();
+        // The terminal-style button hangs outside the panel's left edge but still takes clicks.
+        return super.isIntersectWithPoint(x, y) || itemActionsPopup != null && itemActionsPopup.isDisplayed()
+            || styleBar != null && styleBar.isIntersectWithPoint(x, y);
     }
 
     void open(int serial) {
+        if (serial == selectedSerial) return;
         itemScrollPending = false;
+        taskScrollPending = false;
         itemActionsPopup.close();
         selectedSerial = serial;
-        selectionRequest.setValue(serial);
+        // Highlight the click immediately, but never expose another CPU's details/actions under it.
+        selected = null;
+        itemTotal = taskTotal = itemOffset = taskOffset = 0;
+        itemPage.reset();
+        taskPage.reset();
+        processingByKey.clear();
+        hoveredProcessingKey = requestedProcessingKey = null;
+        itemScrollbar.update(0, 0, 1);
+        taskScrollbar.update(0, 0, 1);
+        pauseButton.setActive(false);
+        cancelButton.setActive(false);
+        var request = new CompoundTag();
+        request.putInt("serial", serial);
+        request.putLong("sequence", ++selectionSequence);
+        selectionRequest.setValue(request);
+    }
+
+    private TextField searchField(ServerState server) {
+        TextField search = new SearchField();
+        search.setId("computation-status-search");
+        search.setAnyString();
+        // No LDLib frame or rounded focus overlay: the artwork already draws the box.
+        search.textFieldStyle(style -> style.textColor(0xF2F2F2).textShadow(false).fontSize(8)
+            .focusOverlay(IGuiTexture.EMPTY).cursorColor(0xFFF2F2F2)
+            .placeholder(GuiText.SearchPlaceholder.text().withStyle(ChatFormatting.GRAY)));
+        search.style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
+        // LDLib caches the placeholder line when the field is built; rebuild it with the AE2 placeholder.
+        search.setText(" ", false);
+        search.setText("", false);
+        search.bind(DataBindingBuilder.stringC2S(server::search).build());
+        search.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(SEARCH_X + 1).top(SEARCH_Y)
+            .width(SEARCH_WIDTH - 2).height(SEARCH_HEIGHT).paddingAll(0));
+        search.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(new java.util.ArrayList<Object>(List.<Component>of(GuiText.SearchTooltip.text(), GuiText.SearchTooltipModId.text().withStyle(ChatFormatting.GRAY),
+                GuiText.SearchTooltipItemId.text().withStyle(ChatFormatting.GRAY))), null, null, null, null));
+        return search;
     }
 
     @Override
     public ComputationCpuStatusPanel setValue(CompoundTag value, boolean notify) {
+        // Serial alone cannot distinguish A -> B -> A. Do not let an in-flight snapshot
+        // replace the latest click (including the C2S value that has not been sent yet).
+        if (value != null && value.contains("total")
+            && value.getLongOr("selectionSequence", 0L) != selectionSequence) return this;
         super.setValue(value, notify);
         if (value == null || !value.contains("total")) return this;
         total = value.getIntOr("total", 0);
-        if (selectedSerial != value.getIntOr("selectedSerial", 0)) itemActionsPopup.close();
-        selectedSerial = value.getIntOr("selectedSerial", 0);
+        int receivedSerial = value.getIntOr("selectedSerial", 0);
+        boolean selectionChanged = receivedSerial != selectedSerial;
+        if (selectionChanged) { processingByKey.clear(); itemActionsPopup.close(); }
+        selectedSerial = receivedSerial;
+        // LDLib reads child bindings before this panel's initial CPU selection.
+        if (selectionChanged) applyProcessingOverview(processingOverview.getValue());
         itemTotal = value.getIntOr("itemTotal", 0);
-        cpuOffset = Math.clamp(cpuOffset, 0, Math.max(0, total - ROWS));
-        itemOffset = Math.clamp(itemOffset / ITEM_COLS, 0, maxItemRows(itemTotal)) * ITEM_COLS;
-        int receivedCpuOffset = value.getIntOr("cpuOffset", 0);
+        taskTotal = value.getIntOr("taskTotal", 0);
+        tier = value.getIntOr("tier", 0);
+        tierBuiltin = value.getBooleanOr("tierBuiltin", false);
+        tierName = Component.literal(value.getStringOr("tierName", ""));
+        cpuOffset = Math.clamp(cpuOffset, 0, Math.max(0, total - rows));
+        itemOffset = Math.clamp(itemOffset / ITEM_COLS, 0, maxItemRows(itemTotal, rows)) * ITEM_COLS;
+        taskOffset = Math.clamp(taskOffset, 0, Math.max(0, taskTotal - rows));
+        var registries = source.registries();
         if (!cpuScrollPending || value.getLongOr("cpuScrollSequence", 0L) == cpuScrollSequence) {
-            cpuOffset = cpuPageOffset = receivedCpuOffset;
-            cpus = value.getListOrEmpty("cpus").stream()
-                .map(tag -> ComputationCpuEntry.read((CompoundTag) tag, config.registries())).toList();
-            cpuPage.accept(cpuOffset, value.contains("cpuPageStart") ? value.getIntOr("cpuPageStart", 0) : cpuOffset,
-                cpus);
+            cpuOffset = value.getIntOr("cpuOffset", 0);
+            cpuPage.accept(cpuOffset, value.getIntOr("cpuPageStart", 0), value.getListOrEmpty("cpus").stream()
+                .map(tag -> ComputationCpuEntry.read((CompoundTag) tag, registries)).toList());
             cpuScrollPending = false;
             cpuScrollRequest.setValue(scrollTag(cpuScrollSequence, cpuOffset), false);
         }
-        int receivedItemOffset = value.getIntOr("itemOffset", 0);
         if (!itemScrollPending || value.getLongOr("itemScrollSequence", 0L) == itemScrollSequence) {
-            itemOffset = itemPageOffset = receivedItemOffset;
-            items = value.getListOrEmpty("items").stream()
-                .map(tag -> ComputationCpuItemEntry.read((CompoundTag) tag, config.registries())).toList();
-            itemPage.accept(itemOffset, value.contains("itemPageStart") ? value.getIntOr("itemPageStart", 0) : itemOffset,
-                items);
+            itemOffset = value.getIntOr("itemOffset", 0);
+            itemPage.accept(itemOffset, value.getIntOr("itemPageStart", 0), items(value.getListOrEmpty("items")));
             itemScrollPending = false;
             itemScrollRequest.setValue(scrollTag(itemScrollSequence, itemOffset), false);
         }
+        if (!taskScrollPending || value.getLongOr("taskScrollSequence", 0L) == taskScrollSequence) {
+            taskOffset = value.getIntOr("taskOffset", 0);
+            taskPage.accept(taskOffset, value.getIntOr("taskPageStart", 0), items(value.getListOrEmpty("tasks")));
+            taskScrollPending = false;
+            taskScrollRequest.setValue(scrollTag(taskScrollSequence, taskOffset), false);
+        }
         selected = value.contains("selected")
-            ? ComputationCpuEntry.read(value.getCompoundOrEmpty("selected"), config.registries()) : null;
-        selectionRequest.setValue(selectedSerial, false);
-        cpuScrollbar.update(cpuOffset, total - ROWS, ROWS / 3);
-        itemScrollbar.update(itemOffset / ITEM_COLS, maxItemRows(itemTotal), 1);
+            ? ComputationCpuEntry.read(value.getCompoundOrEmpty("selected"), registries) : null;
+        cpuScrollbar.update(cpuOffset, total - rows, rows / 3);
+        itemScrollbar.update(itemOffset / ITEM_COLS, maxItemRows(itemTotal, rows), 1);
+        taskScrollbar.update(taskOffset, taskTotal - rows, 1);
         boolean busy = selected != null && !selected.status().equals("idle");
         pauseButton.setActive(busy && !selected.status().equals("error") && !selected.status().equals("returning"));
         cancelButton.setActive(busy);
@@ -223,11 +489,30 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         return this;
     }
 
+    private void applyProcessingOverview(@Nullable CompoundTag value) {
+        if (value == null || value.getIntOr("serial", 0) != selectedSerial) return;
+        if (!value.getBooleanOr("delta", false)) processingByKey.clear();
+        for (var raw : value.getListOrEmpty("removed")) {
+            AEKey key = ECOKeyFactory.fromTagGeneric(source.registries(), (CompoundTag) raw);
+            if (key != null) processingByKey.remove(key);
+        }
+        for (var raw : value.getListOrEmpty("items")) {
+            var tag = (CompoundTag) raw;
+            AEKey key = ECOKeyFactory.fromTagGeneric(source.registries(), tag.getCompoundOrEmpty("key"));
+            if (key != null) processingByKey.put(key, ECOProcessingProgress.read(tag.getCompoundOrEmpty("progress"), source.registries()));
+        }
+    }
+
+    private List<ComputationCpuItemEntry> items(ListTag tags) {
+        var registries = source.registries();
+        return tags.stream().map(tag -> ComputationCpuItemEntry.read((CompoundTag) tag, registries)).toList();
+    }
+
     private UIElement cpuHitbox() {
-        UIElement hitbox = hitbox(CPU_X, CPU_Y, CPU_WIDTH, ROWS * CPU_STRIDE - 1);
+        UIElement hitbox = hitbox(CPU_X, LIST_Y, ROW_WIDTH, rows * ROW_STRIDE - 1);
         hitbox.addEventListener(UIEvents.MOUSE_UP, event -> {
             if (event.button != 0) return;
-            ComputationCpuEntry entry = cpuPage.hit(event.y - getPositionY() - CPU_Y, 0, CPU_STRIDE, CPU_HEIGHT);
+            ComputationCpuEntry entry = cpuPage.hit(event.y - getPositionY() - LIST_Y, 0, ROW_STRIDE, ROW_HEIGHT);
             if (entry == null) return;
             open(entry.serial());
             event.stopImmediatePropagation();
@@ -236,65 +521,133 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             // LDLib2's tooltip collection event has no mouse coordinates.
             var ui = getModularUI();
             if (ui == null) return;
-            ComputationCpuEntry entry = cpuPage.hit(ui.getLastMouseY() - getPositionY() - CPU_Y, 0, CPU_STRIDE, CPU_HEIGHT);
+            ComputationCpuEntry entry = cpuPage.hit(ui.getLastMouseY() - getPositionY() - LIST_Y, 0, ROW_STRIDE, ROW_HEIGHT);
             if (entry != null) {
-                event.hoverTooltips = HoverTooltips.empty().append(
-                    ComputationCpuSelector.tooltip(entry).toArray(Component[]::new));
+                event.hoverTooltips = CraftingListCard.hover(ComputationCards.cpu(entry));
             }
         });
         return hitbox;
     }
 
     private UIElement itemHitbox() {
-        UIElement hitbox = hitbox(ITEM_X, ITEM_Y, ITEM_COLS * ITEM_COLUMN_STRIDE - 1, ITEM_ROWS * ITEM_STRIDE - 1);
+        UIElement hitbox = hitbox(ITEM_X, LIST_Y, ITEM_COLS * ITEM_COLUMN_STRIDE - 1, rows * ITEM_STRIDE - 1);
+        itemEvents(hitbox, this::itemAt);
+        return hitbox;
+    }
+
+    private UIElement taskHitbox() {
+        UIElement hitbox = hitbox(TASK_X, LIST_Y, ROW_WIDTH, rows * ROW_STRIDE - 1);
+        itemEvents(hitbox, (mouseX, mouseY) -> {
+            var item = taskPage.hit(mouseY - getPositionY() - LIST_Y, 0, ROW_STRIDE, ROW_HEIGHT);
+            return item == null ? null : withProcessing(item);
+        });
+        return hitbox;
+    }
+
+    private void itemEvents(UIElement hitbox, ItemLookup lookup) {
+        if (LDLib2.isClient() && !LDLib2.isServer()) {
+            Supplier<@Nullable AEKey> hoveredKey = () -> {
+                var ui = getModularUI();
+                if (ui == null || !isDisplayed() || itemActionsPopup.isDisplayed()
+                    || ui.getFocusedElement() instanceof TextField) return null;
+                var item = lookup.at(ui.getLastMouseX(), ui.getLastMouseY());
+                return item == null ? null : item.key();
+            };
+            if (LDLib2.isJeiLoaded()) {
+                cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin.bindIngredient(hitbox, hoveredKey);
+            }
+            if (LDLib2.isEmiLoaded()) {
+
+            }
+        }
         hitbox.addEventListener(UIEvents.MOUSE_DOWN, event -> {
             if (event.button != 1) return;
-            var item = itemAt(event.x, event.y);
+            var item = lookup.at(event.x, event.y);
             if (item == null) return;
             itemActionsPopup.open(item, event.x - getPositionX() + 2, event.y - getPositionY() + 2);
             event.stopImmediatePropagation();
         });
         hitbox.addEventListener(UIEvents.MOUSE_UP, event -> { if (event.button == 1) event.stopImmediatePropagation(); });
+        hitbox.addEventListener(UIEvents.MOUSE_LEAVE, event -> clearProcessingDetails());
         hitbox.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
             var ui = getModularUI();
             if (ui == null) return;
-            ComputationCpuItemEntry item = itemAt(ui.getLastMouseX(), ui.getLastMouseY());
-            if (item == null) return;
-            List<Component> lines = new ArrayList<>(AEKeyRendering.getTooltip(item.key()));
-            lines.addAll(itemDescription(item, true));
-            if (item.batched()) {
-                lines.add(Component.translatable("gui.neoecoae.crafting.smart_doubling").withColor(0xC7A6FF));
-            }
-            event.hoverTooltips = ComputationProcessingTooltips.create(lines, item);
+            ComputationCpuItemEntry item = lookup.at(ui.getLastMouseX(), ui.getLastMouseY());
+            if (item == null) { clearProcessingDetails(); return; }
+            if (item.processing().machineCount() > 0 || item.processing().refreshing()) requestProcessingDetails(item, 0);
+            else clearProcessingDetails();
+            event.hoverTooltips = CraftingListCard.hover(
+                ComputationCards.item(AEKeyRendering.getTooltip(item.key()), item));
         });
-        return hitbox;
+    }
+
+    @FunctionalInterface
+    private interface ItemLookup {
+        @Nullable ComputationCpuItemEntry at(float mouseX, float mouseY);
     }
 
     private ComputationCpuItemEntry itemAt(float mouseX, float mouseY) {
         float localX = mouseX - getPositionX() - ITEM_X;
-        float localY = mouseY - getPositionY() - ITEM_Y;
-        if (localX < 0 || localX >= ITEM_COLS * ITEM_COLUMN_STRIDE - 1 || localY < 0 || localY >= ITEM_ROWS * ITEM_STRIDE - 1) return null;
+        float localY = mouseY - getPositionY() - LIST_Y;
+        if (localX < 0 || localX >= ITEM_COLS * ITEM_COLUMN_STRIDE - 1 || localY < 0 || localY >= rows * ITEM_STRIDE - 1) return null;
         int column = (int) (localX / ITEM_COLUMN_STRIDE);
         if (localX - column * ITEM_COLUMN_STRIDE >= ITEM_WIDTH) return null;
-        return itemPage.hit(localY, column, ITEM_STRIDE, ITEM_HEIGHT);
+        var item = itemPage.hit(localY, column, ITEM_STRIDE, ITEM_HEIGHT);
+        return item == null ? null : withProcessing(item);
+    }
+
+    private ComputationCpuItemEntry withProcessing(ComputationCpuItemEntry item) {
+        if (item.active().signum() <= 0 && item.pending().signum() <= 0) return item;
+        var progress = processingByKey.get(item.key());
+        return progress == null ? item : item.withProcessing(progress);
+    }
+
+    private void requestProcessingDetails(ComputationCpuItemEntry item, int pageDelta) {
+        if (!item.key().equals(hoveredProcessingKey)) {
+            hoveredProcessingKey = item.key();
+            hoveredProcessingPage = Math.max(0, item.processing().detailPage());
+        }
+        hoveredProcessingPage = Math.clamp(hoveredProcessingPage + pageDelta, 0, item.processing().pages() - 1);
+        long now = net.minecraft.util.Util.getMillis();
+        boolean changed = !item.key().equals(requestedProcessingKey) || hoveredProcessingPage != requestedProcessingPage;
+        if (now < nextProcessingRequest || (!changed && item.processing().detailPage() == hoveredProcessingPage)) return;
+        processingDetailsRequest.accept(item.key(), hoveredProcessingPage);
+        requestedProcessingKey = item.key();
+        requestedProcessingPage = hoveredProcessingPage;
+        nextProcessingRequest = now + 250;
+    }
+
+    private void clearProcessingDetails() {
+        if (requestedProcessingKey == null) return;
+        hoveredProcessingKey = requestedProcessingKey = null;
+        processingDetailsRequest.accept(null, -1);
     }
 
     private void scrollCpuTo(int value) {
-        int next = Math.clamp(value, 0, Math.max(0, total - ROWS));
+        int next = Math.clamp(value, 0, Math.max(0, total - rows));
         if (next == cpuOffset) return;
         cpuOffset = next;
         cpuScrollPending = true;
-        cpuScrollbar.update(cpuOffset, total - ROWS, ROWS / 3);
+        cpuScrollbar.update(cpuOffset, total - rows, rows / 3);
         cpuScrollRequest.setValue(scrollTag(++cpuScrollSequence, cpuOffset));
     }
 
     private void scrollItemsTo(int value) {
-        int next = Math.clamp(value / ITEM_COLS, 0, maxItemRows(itemTotal)) * ITEM_COLS;
+        int next = Math.clamp(value / ITEM_COLS, 0, maxItemRows(itemTotal, rows)) * ITEM_COLS;
         if (next == itemOffset) return;
         itemOffset = next;
         itemScrollPending = true;
-        itemScrollbar.update(itemOffset / ITEM_COLS, maxItemRows(itemTotal), 1);
+        itemScrollbar.update(itemOffset / ITEM_COLS, maxItemRows(itemTotal, rows), 1);
         itemScrollRequest.setValue(scrollTag(++itemScrollSequence, itemOffset));
+    }
+
+    private void scrollTasksTo(int value) {
+        int next = Math.clamp(value, 0, Math.max(0, taskTotal - rows));
+        if (next == taskOffset) return;
+        taskOffset = next;
+        taskScrollPending = true;
+        taskScrollbar.update(taskOffset, taskTotal - rows, 1);
+        taskScrollRequest.setValue(scrollTag(++taskScrollSequence, taskOffset));
     }
 
     private static CompoundTag scrollTag(long sequence, int offset) {
@@ -304,50 +657,102 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         return tag;
     }
 
-    private static int maxItemRows(int total) {
-        return Math.max(0, (total + ITEM_COLS - 1) / ITEM_COLS - ITEM_ROWS);
+    private static int maxItemRows(int total, int rows) {
+        return Math.max(0, (total + ITEM_COLS - 1) / ITEM_COLS - rows);
     }
 
     @Override
-    public void drawBackgroundAdditional(IGUIContext ctx) {
+    public void drawBackgroundAdditional(com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext ctx) {
         if (!(ctx instanceof GUIContext context)) return;
         Font font = Minecraft.getInstance().font;
         float x = getPositionX(), y = getPositionY();
-        context.graphics.text(font, GuiText.CraftingCPUs.text(), Math.round(x + CPU_X), Math.round(y + 7), 0xFF000000 | TEXT, false);
-        context.graphics.text(font, title(selected, itemTotal > 0), Math.round(x + ITEM_X - 1), Math.round(y + 7), 0xFF000000 | TEXT, false);
+        updateStyleIcon();
+        int wanted = desiredRows();
+        if (wanted != rows) Minecraft.getInstance().execute(() -> applyRows(desiredRows()));
+        // Header and first row, one row strip per further row, then the last row, footer and lower extension.
+        context.drawTexture(BACKGROUND_TOP, x, y, WIDTH, STRIP_V);
+        float stripY = y + STRIP_V;
+        for (int row = 0; row < rows - 2; row++, stripY += ROW_STRIDE) {
+            context.drawTexture(BACKGROUND_STRIP, x, stripY, WIDTH, ROW_STRIDE);
+        }
+        context.drawTexture(BACKGROUND_TAIL, x, stripY, WIDTH, BODY_BOTTOM - TAIL_V);
+        context.drawTexture(BACKGROUND_LOWER, x + LOWER_X, stripY + BODY_BOTTOM - TAIL_V, LOWER_WIDTH, LOWER_HEIGHT);
+        drawTier(context, font, x, y);
+        // Elapsed time of the selected job, in the header space between the logo and the line's raised step.
+        String elapsed = selected == null || selected.status().equals("idle") || selected.elapsed() <= 0 ? "--"
+            : DurationFormatUtils.formatDuration(TimeUnit.NANOSECONDS.toMillis(selected.elapsed()), GuiText.ETAFormat.getLocal());
+        ComputationCpuSelector.fittedText(context, font,
+            Component.translatable("gui.neoecoae.computation.status.time", elapsed).getString(),
+            x + TIME_X, y + TIME_Y, TIME_WIDTH, 0.75F, TEXT);
         // Switch complete acknowledged pages together with the rows used for hit testing.
         cpuPage.advance();
         itemPage.advance();
-        context.enableScissor(x + CPU_X, y + CPU_Y, CPU_WIDTH, ROWS * CPU_STRIDE - 1);
+        taskPage.advance();
+        context.enableScissor(x + CPU_X, y + LIST_Y, ROW_WIDTH, rows * ROW_STRIDE - 1);
         try {
             for (int index = 0; index < cpuPage.size(); index++) {
                 double row = cpuPage.row(index);
-                if (row > -1 && row < ROWS) drawCpu(context, font, cpuPage.get(index),
-                    x + CPU_X, y + CPU_Y + (float) row * CPU_STRIDE);
+                if (row > -1 && row < rows) drawCpu(context, font, cpuPage.get(index),
+                    x + CPU_X, y + LIST_Y + (float) row * ROW_STRIDE);
             }
         } finally {
-            context.disableScissor();
+                context.disableScissor();
         }
-        context.enableScissor(x + ITEM_X, y + ITEM_Y, ITEM_COLS * ITEM_COLUMN_STRIDE - 1, ITEM_ROWS * ITEM_STRIDE - 1);
+        context.enableScissor(x + ITEM_X, y + LIST_Y, ITEM_COLS * ITEM_COLUMN_STRIDE - 1, rows * ITEM_STRIDE - 1);
         try {
             for (int index = 0; index < itemPage.size(); index++) {
                 double row = itemPage.row(index);
-                if (row > -1 && row < ITEM_ROWS) drawItem(context, font, itemPage.get(index),
+                if (row > -1 && row < rows) drawItem(context, font, withProcessing(itemPage.get(index)),
                     x + ITEM_X + itemPage.column(index) * ITEM_COLUMN_STRIDE,
-                    y + ITEM_Y + (float) row * ITEM_STRIDE, AEConfig.instance().isUseColoredCraftingStatus());
+                    y + LIST_Y + (float) row * ITEM_STRIDE, AEConfig.instance().isUseColoredCraftingStatus());
             }
         } finally {
-            context.disableScissor();
+                context.disableScissor();
+        }
+        context.enableScissor(x + TASK_X, y + LIST_Y, ROW_WIDTH, rows * ROW_STRIDE - 1);
+        try {
+            for (int index = 0; index < taskPage.size(); index++) {
+                double row = taskPage.row(index);
+                if (row > -1 && row < rows) drawTask(context, font, withProcessing(taskPage.get(index)),
+                    x + TASK_X, y + LIST_Y + (float) row * ROW_STRIDE);
+            }
+        } finally {
+                context.disableScissor();
+        }
+    }
+
+    /** Replaces the artwork's "O" with the selected host tier glyph, as the controller pages do. */
+    private void drawTier(GUIContext context, Font font, float x, float y) {
+        if (tierBuiltin && tier >= 1 && tier <= 3) {
+            context.drawTexture(TIER_COVER, x + TIER_X, y + TIER_Y, TIER_WIDTH, TIER_HEIGHT);
+            context.drawTexture(NETextures.Crafting.widget((tier - 1) * TIER_WIDTH, 0, TIER_WIDTH, TIER_HEIGHT),
+                x + TIER_X, y + TIER_Y, TIER_WIDTH, TIER_HEIGHT);
+            return;
+        }
+        if (tierBuiltin || tierName.getString().isEmpty()) return;
+        context.drawTexture(TIER_COVER, x + TIER_X, y + TIER_Y, TIER_WIDTH, TIER_HEIGHT);
+        float scale = Math.min(1, Math.min(TIER_WIDTH / (float) Math.max(1, font.width(tierName)),
+            TIER_HEIGHT / (float) font.lineHeight));
+        var pose = context.graphics.pose();
+        pose.pushMatrix();
+        try {
+            pose.translate(x + TIER_X + (TIER_WIDTH - font.width(tierName) * scale) / 2,
+                y + TIER_Y + (TIER_HEIGHT - font.lineHeight * scale) / 2);
+            pose.scale(scale, scale);
+            cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(context.graphics, font, tierName, 0, 0, 0xFF3F3D52, false);
+        } finally {
+            pose.popMatrix();
         }
     }
 
     static Component title(ComputationCpuEntry cpu, boolean hasItems) {
         var title = GuiText.CraftingStatus.text();
         if (cpu == null) return title;
-        BigInteger completed = cpu.requested().subtract(cpu.remaining()).max(BigInteger.ONE);
-        BigInteger eta = BigInteger.valueOf(cpu.elapsed()).multiply(cpu.remaining()).divide(completed);
+        PlannerAmount remaining = PlannerAmount.of(cpu.remaining());
+        PlannerAmount completed = PlannerAmount.of(cpu.requested()).subtract(remaining).max(PlannerAmount.ONE);
+        PlannerAmount eta = PlannerAmount.of(cpu.elapsed()).multiply(remaining).divide(completed);
         if (hasItems && eta.signum() > 0) {
-            long nanos = eta.min(BigInteger.valueOf(Long.MAX_VALUE)).longValue();
+            long nanos = eta.longValueSaturated();
             title.append(" - " + DurationFormatUtils.formatDuration(
                 TimeUnit.NANOSECONDS.toMillis(nanos), GuiText.ETAFormat.getLocal()));
         }
@@ -363,52 +768,73 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         opening.reset();
         cpuPage.reset();
         itemPage.reset();
+        taskPage.reset();
+        processingByKey.clear();
+        hoveredProcessingKey = requestedProcessingKey = null;
     }
 
     private void drawCpu(GUIContext context, Font font, ComputationCpuEntry entry, float x, float y) {
         ComputationCpuSelector.drawCpuRow(context, font, entry, x, y, entry.serial() == selectedSerial,
-            CPU_NORMAL, CPU_SELECTED, opening.value(entry.progress()));
+            ROW_NORMAL, ROW_SELECTED, opening.value(entry.progress()));
     }
 
+    /**
+     * A running task drawn straight on the list's own row, without a card. As on 1.7.10, the whole row is the
+     * progress bar: the state colour sweeps left to right as the machines progress, and the rest keeps a faint tint
+     * of the same colour so the row still reads as running.
+     */
+    private void drawTask(GUIContext context, Font font, ComputationCpuItemEntry entry, float x, float y) {
+        var processing = entry.processing();
+        int rgb = switch (processing.state()) {
+            case WAITING -> 0xE2AA4F;
+            case PAUSED -> 0x90909F;
+            default -> ComputationCards.PROGRESS_FILL & 0xFFFFFF;
+        };
+        int left = Math.round(x), top = Math.round(y), right = left + ROW_WIDTH, bottom = top + ROW_HEIGHT;
+        float progress = processing.hasProgress() ? opening.value(Math.clamp(processing.progress(), 0, 1)) : 0;
+        int filled = Math.round(ROW_WIDTH * progress);
+        if (filled < ROW_WIDTH) context.graphics.fill(left + filled, top, right, bottom, rgb | 0x30000000);
+        if (filled > 0) context.graphics.fill(left, top, left + filled, bottom, rgb | 0x90000000);
+        key(context, entry.key(), x + ROW_WIDTH - 19, y + 3, 1.0F);
+        ComputationCpuSelector.fittedText(context, font, entry.key().getDisplayName().getString(),
+            x + 3, y + 3, ROW_WIDTH - 23, 0.5F, TEXT_LIGHT);
+        Component amount = entry.active().signum() > 0
+            ? GuiText.Crafting.text(entry.amount(entry.active(), false))
+            : GuiText.Scheduled.text(entry.amount(entry.pending(), false));
+        ComputationCpuSelector.fittedText(context, font, amount.getString(),
+            x + 3, y + 9, ROW_WIDTH - 23, 0.5F, TEXT_LIGHT);
+        Component state = processing.machineCount() == 0
+            ? Component.translatable(processing.refreshing() ? "gui.neoecoae.processing.refreshing"
+                : "gui.neoecoae.processing.state.unavailable")
+            : processing.hasProgress() && processing.state() != ECOProcessingProgress.State.WAITING
+            ? Component.literal(Math.round(processing.progress() * 100) + "%")
+            : Component.translatable("gui.neoecoae.processing.state." + processing.state().name().toLowerCase(Locale.ROOT));
+        ComputationCpuSelector.fittedText(context, font, state.getString(), x + 3, y + 15, ROW_WIDTH - 23, 0.5F, TEXT_LIGHT);
+    }
+    /** AE2's status cell: green while crafting, yellow while scheduled, amounts beside the stack, no extra marks. */
     static void drawItem(GUIContext context, Font font, ComputationCpuItemEntry entry, float x, float y,
             boolean colored) {
-        int overlay = 0;
         if (colored) {
-            int color = entry.active().signum() > 0
-                ? (entry.batched() ? AEColor.PURPLE : AEColor.GREEN).blackVariant
+            int color = entry.active().signum() > 0 ? AEColor.GREEN.blackVariant
                 : entry.pending().signum() > 0 ? AEColor.YELLOW.blackVariant : 0;
-            if (color != 0) overlay = color & 0xFFFFFF | 0x5A000000;
-        }
-        if (!drawProcessingProgress(context, entry, x, y, overlay) && overlay != 0) context.graphics.fill(Math.round(x),
-            Math.round(y), Math.round(x + ITEM_WIDTH), Math.round(y + ITEM_HEIGHT), overlay);
-        if (entry.batched()) {
-            context.graphics.blit(RenderPipelines.GUI_TEXTURED, BATCH_ICON, Math.round(x + BATCH_ICON_LEFT),
-                Math.round(y + (ITEM_HEIGHT - BATCH_ICON_SIZE) / 2F), 0, 0,
-                BATCH_ICON_SIZE, BATCH_ICON_SIZE, BATCH_ICON_SIZE, BATCH_ICON_SIZE);
+            if (color != 0) context.graphics.fill(Math.round(x), Math.round(y), Math.round(x + ITEM_WIDTH),
+                Math.round(y + ITEM_HEIGHT), color | 0x5A000000);
         }
         key(context, entry.key(), x + ITEM_WIDTH - 19, y + 3, 1.0F);
         drawItemDescription(context, font, itemDescription(entry, false), x, y);
     }
-
-    /**
-     * 1.7.10's whole-cell cycle fill: the state colour sweeps left to right across the full cell as the machines
-     * progress, and the unfilled remainder keeps a faint tint of the same colour so the cell still reads as active.
-     * Returns false when there is no cycle to show, so the caller draws the plain status colour instead.
-     */
-    static boolean drawProcessingProgress(GUIContext context, ComputationCpuItemEntry entry, float x, float y,
-            int overlay) {
-        if (entry.active().signum() <= 0 || !entry.processing().hasProgress()) return false;
-        int rgb = overlay != 0 ? overlay & 0xFFFFFF : switch (entry.processing().state()) {
-            case WAITING -> 0xE2AA4F;
-            case PAUSED -> 0x90909F;
-            default -> 0xC7A6FF;
+    static void drawProcessingProgress(GUIContext context, ComputationCpuItemEntry entry, float x, float y) {
+        if (entry.active().signum() <= 0 || !entry.processing().hasProgress()) return;
+        int left = Math.round(x + 2), right = Math.round(x + ITEM_WIDTH - 2);
+        int top = Math.round(y + ITEM_HEIGHT - 3);
+        context.graphics.fill(left, top, right, top + 2, 0xFF5B566B);
+        int color = switch (entry.processing().state()) {
+            case WAITING -> 0xFFE2AA4F;
+            case PAUSED -> 0xFF90909F;
+            default -> 0xFFC7A6FF;
         };
-        int left = Math.round(x), top = Math.round(y);
-        int right = Math.round(x + ITEM_WIDTH), bottom = Math.round(y + ITEM_HEIGHT);
         int filled = Math.round((right - left) * entry.processing().progress());
-        if (left + filled < right) context.graphics.fill(left + filled, top, right, bottom, rgb | 0x30000000);
-        if (filled > 0) context.graphics.fill(left, top, left + filled, bottom, rgb | 0x90000000);
-        return true;
+        if (filled > 0) context.graphics.fill(left, top, left + filled, top + 2, color);
     }
 
     static void drawItemDescription(GUIContext context, Font font, List<Component> lines, float x, float y) {
@@ -421,7 +847,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             context.graphics.pose().translate(x + ITEM_WIDTH - 21 - font.width(value) * scale,
                 top + line * (font.lineHeight * scale + 1));
             context.graphics.pose().scale(scale, scale);
-            context.graphics.text(font, value, 0, 0, 0xFF000000 | TEXT, false);
+            cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(context.graphics, font, value, 0, 0, 0xFF000000 | TEXT_LIGHT, false);
             context.graphics.pose().popMatrix();
         }
     }
@@ -446,17 +872,31 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         return new UIElement().layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(x).top(y).width(width).height(height));
     }
 
+    private static IGuiTexture sprite(int x, int y, int width, int height) {
+        return SpriteTexture.of(ATLAS).setSprite(x, y, width, height);
+    }
+
     private static void placeButton(Button button, int x, int y) {
         button.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(x).top(y).width(50).height(20).paddingAll(0));
     }
 
-    private static final class BackButton extends Button implements ElementRenderHooks.Background {
-        static {
-            ElementRenderHooks.register(BackButton.class);
-        }
+    /** Text only: the artwork's box is the frame, so LDLib's rounded background and focus overlay are never drawn. */
+    private static final class SearchField extends TextField implements ElementRenderHooks.Overlay {
+        static { ElementRenderHooks.register(SearchField.class); }
+        @Override
+        public void drawBackgroundTexture(com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext ctx) {
+        if (!(ctx instanceof GUIContext context)) return;}
 
         @Override
-        public void drawBackgroundAdditional(IGUIContext context, Runnable drawParent) {
+        public void drawBackgroundOverlay(com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext ctx, Runnable drawParent) {
+        if (!(ctx instanceof GUIContext context)) return;}
+    }
+
+    private static final class BackButton extends Button implements ElementRenderHooks.Background {
+        static { ElementRenderHooks.register(BackButton.class); }
+        @Override
+        public void drawBackgroundAdditional(com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext ctx, Runnable drawParent) {
+        if (!(ctx instanceof GUIContext context)) return;
             // AE2's box tab changes only with focus and draws both sprites at native size.
             ECOIcon background = isFocused() ? ECOIcon.TAB_BUTTON_BACKGROUND_FOCUS : ECOIcon.TAB_BUTTON_BACKGROUND;
             context.drawTexture(AETextures.icon(background), getPositionX(), getPositionY(), background.width, background.height);
@@ -464,12 +904,8 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         }
     }
 
-    private static final class StatusButton extends Button
-            implements ElementRenderHooks.Background, ElementRenderHooks.Contents {
-        static {
-            ElementRenderHooks.register(StatusButton.class);
-        }
-
+    private static final class StatusButton extends Button implements ElementRenderHooks.Background, ElementRenderHooks.Contents {
+        static { ElementRenderHooks.register(StatusButton.class); }
         private Component label = Component.empty();
 
         private StatusButton() { noText(); }
@@ -481,53 +917,125 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         }
 
         @Override
-        public void drawBackgroundAdditional(IGUIContext context, Runnable drawParent) {
+        public void drawBackgroundAdditional(com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext ctx, Runnable drawParent) {
+        if (!(ctx instanceof GUIContext context)) return;
             IGuiTexture texture = !isActive() ? NETextures.AE2_BUTTON_DISABLED
                 : getState() == State.DEFAULT ? NETextures.AE2_BUTTON : NETextures.AE2_BUTTON_HIGHLIGHTED;
             context.drawTexture(texture, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
         }
 
         @Override
-        public void drawContents(IGUIContext ctx, Runnable drawDefault) {
-            drawDefault.run();
+        public void drawContents(com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext ctx, Runnable drawDefault) {
             if (!(ctx instanceof GUIContext context)) return;
+            drawDefault.run();
             int x = Math.round(getPositionX()), y = Math.round(getPositionY());
             int offset = !isActive() ? -1 : getState() == State.DEFAULT ? 1 : 0;
             int color = !isActive() ? TEXT : getState() == State.DEFAULT ? 0xF2F2F2 : 0x517497;
-            AE2Button.renderButtonText(context.graphics, Minecraft.getInstance().font, label,
+                AE2Button.renderButtonText(context.graphics, Minecraft.getInstance().font, label,
                 x + 2, y, x + Math.round(getSizeWidth()) - 2, y + Math.round(getSizeHeight()), offset, 0xFF000000 | color);
         }
     }
 
+    /** AE2's crafting status order: crafting + scheduled amount first, then stored amount, both descending. */
+    static final Comparator<ComputationCpuItemEntry> AE2_ORDER = Comparator
+        .comparing((ComputationCpuItemEntry item) -> item.active().add(item.pending()))
+        .thenComparing(ComputationCpuItemEntry::stored)
+        .reversed()
+        .thenComparing(item -> item.key().getDisplayName().getString())
+        .thenComparing(item -> item.key().getId().toString());
+
+    /** Running work, dispatched work awaiting a machine cycle, then work with a problem. */
+    private static int taskPriority(ComputationCpuItemEntry item, ECOProcessingProgress progress) {
+        if (progress == null) return 1;
+        return switch (progress.state()) {
+            case RUNNING -> 0;
+            case QUEUED -> 1;
+            case WAITING, PAUSED, UNAVAILABLE -> 2;
+        };
+    }
+
+    /** AE2-style terminal search: plain text matches names, {@code @} the mod id and {@code *} the resource id. */
+    static boolean matches(AEKey key, String query) {
+        if (query.isEmpty()) return false;
+        if (query.startsWith("@")) return key.getModId().toLowerCase(Locale.ROOT).contains(query.substring(1));
+        if (query.startsWith("*")) return key.getId().toString().toLowerCase(Locale.ROOT).contains(query.substring(1));
+        return key.getDisplayName().getString().toLowerCase(Locale.ROOT).contains(query);
+    }
+
     private static final class ServerState {
-        private final ComputationControllerUI.Config config;
-        private final CpuSelectionState<ECOCraftingCPU> selection;
+        private final Source source;
+        private final CpuSelectionState<ICraftingCPU> selection;
         private CompoundTag cached;
         private long sampledTick = Long.MIN_VALUE;
         private int itemOffset;
         private long cpuScrollSequence, itemScrollSequence;
+        private boolean viewing;
+        private AEKey processingDetailKey;
+        private int processingDetailPage;
+        private List<ComputationCpuItemEntry> processingItems = List.of();
+        private List<ComputationCpuItemEntry> processingCandidates = List.of();
+        private int processingCursor;
+        private CompoundTag processingCached;
+        private long processingSyncTick = Long.MIN_VALUE;
+        private final Map<AEKey, ECOProcessingProgress> processingSent = new LinkedHashMap<>();
+        private int processingSentSerial = -1;
+        private UUID processingSentJob;
+        private boolean processingReset = true;
+        private int taskOffset;
+        private long taskScrollSequence;
+        private long selectionSequence;
+        private int requestedSerial;
+        private boolean selectionPending;
         private CompoundTag itemActionResponse = new CompoundTag();
+        private String query = "";
+        private boolean focusPending;
+        // Within each processing state, tasks keep their first-observed order.
+        private final LinkedHashSet<AEKey> taskOrder = new LinkedHashSet<>();
+        private int taskSerial = -1;
+        private UUID taskJob;
+        private int rows = ROWS;
 
-        private ServerState(ComputationControllerUI.Config config, CpuSelectionState.Identities<ECOCraftingCPU> identities) {
-            this.config = config;
+        private ServerState(Source source, CpuSelectionState.Identities<ICraftingCPU> identities) {
+            this.source = source;
             selection = new CpuSelectionState<>(ROWS, identities);
+            // AE2 opens this page directly. The embedded host page subscribes when a CPU is clicked.
+            viewing = source.serverBack() != null;
         }
 
         private void refresh() {
-            selection.update(config.cpus().get(), ECOCraftingCPU::isBusy,
+            selection.update(source.cpus().get(), ICraftingCPU::isBusy,
                 cpu -> cpu.getName() == null ? null : cpu.getName().getString());
         }
 
-        private void select(int serial) {
-            if (!config.canInteract().getAsBoolean()) return;
-            refresh();
-            selection.select(serial);
-            itemOffset = 0;
+        /** The client reports its stretched row count so the buffered pages cover what it shows. */
+        private void rows(int value) {
+            int next = Math.clamp(value, ROWS, MAX_ROWS);
+            if (next == rows) return;
+            rows = next;
+            selection.rows(rows);
             cached = null;
+            processingCached = null;
+        }
+
+        private void select(CompoundTag request) {
+            if (!source.canInteract().getAsBoolean()) return;
+            if (!request.contains("serial") || request.getLongOr("sequence", 0L) <= selectionSequence) return;
+            // C2S values already coalesce between client ticks. Also coalesce packets received
+            // before the next server snapshot, without rescanning/sorting CPUs for each click.
+            selectionSequence = request.getLongOr("sequence", 0L);
+            requestedSerial = request.getIntOr("serial", 0);
+            selectionPending = true;
+            viewing = true;
+            processingDetailKey = null;
+            processingItems = List.of();
+            processingCandidates = List.of();
+            processingCursor = 0;
+            processingCached = null;
+            processingReset = true;
         }
 
         private void scrollCpu(CompoundTag request) {
-            if (!config.canInteract().getAsBoolean()) return;
+            if (!source.canInteract().getAsBoolean()) return;
             refresh();
             selection.scroll(request.getIntOr("offset", 0));
             cpuScrollSequence = request.getLongOr("sequence", 0L);
@@ -535,27 +1043,74 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         }
 
         private void scrollItems(CompoundTag request) {
-            if (!config.canInteract().getAsBoolean()) return;
+            if (!source.canInteract().getAsBoolean()) return;
             refresh();
             int total = selectedItems(selection.selected()).size();
-            itemOffset = Math.clamp(request.getIntOr("offset", 0) / ITEM_COLS, 0, maxItemRows(total)) * ITEM_COLS;
+            itemOffset = Math.clamp(request.getIntOr("offset", 0) / ITEM_COLS, 0, maxItemRows(total, rows)) * ITEM_COLS;
             itemScrollSequence = request.getLongOr("sequence", 0L);
             cached = null;
         }
 
+        private void scrollTasks(CompoundTag request) {
+            if (!source.canInteract().getAsBoolean()) return;
+            refresh();
+            int total = tasks(selection.selected(), selectedItems(selection.selected())).size();
+            taskOffset = Math.clamp(request.getIntOr("offset", 0), 0, Math.max(0, total - rows));
+            taskScrollSequence = request.getLongOr("sequence", 0L);
+            cached = null;
+            processingCached = null;
+        }
+
+        private void search(String text) {
+            if (!source.canInteract().getAsBoolean()) return;
+            String next = text == null ? "" : text.trim().toLowerCase(Locale.ROOT);
+            if (next.equals(query)) return;
+            query = next;
+            // Matches move to B's first cell, so the item view returns to its top.
+            itemOffset = 0;
+            focusPending = !query.isEmpty();
+            cached = null;
+            processingCached = null;
+        }
+
         private void action(int serial, int action) {
-            if (!config.canInteract().getAsBoolean()) return;
+            if (!source.canInteract().getAsBoolean()) return;
             refresh();
             // Carry the target in this request; selection synchronization may arrive on a later tick.
             if (!selection.select(serial)) return;
-            ECOCraftingCPU cpu = selection.selected();
-            if (action == 1) config.toggleCpuSuspended().accept(cpu);
-            if (action == 2) config.cancelCpu().accept(cpu);
+            ICraftingCPU cpu = selection.selected();
+            if (action == 1) source.toggleCpuSuspended().accept(cpu);
+            if (action == 2) source.cancelCpu().accept(cpu);
             cached = null;
         }
 
+        private void processingDetails(int serial, CompoundTag request) {
+            if (!source.canInteract().getAsBoolean()) return;
+            if (serial < 0) {
+                viewing = false;
+                processingDetailKey = null;
+                processingItems = List.of();
+                processingCandidates = List.of();
+                processingCached = null;
+                return;
+            }
+            if (serial != selection.selectedSerial() || selection.selected() == null) return;
+            if (!request.contains("key")) {
+                processingDetailKey = null;
+                processingCached = null;
+                return;
+            }
+            AEKey key = ECOKeyFactory.fromTagGeneric(source.registries(), request.getCompoundOrEmpty("key"));
+            if (key == null || !(selection.selected() instanceof ECOCraftingCPU eco)
+                || (eco.getLogic().getWaitingFor(key) <= 0 && eco.getLogic().getPendingOutputs(key) <= 0)) return;
+            viewing = true;
+            processingDetailKey = key;
+            processingDetailPage = Math.max(0, request.getIntOr("page", 0));
+            processingCached = null;
+        }
+
         private void itemAction(int serial, CompoundTag request) {
-            if (!config.canInteract().getAsBoolean()) return;
+            if (!source.canInteract().getAsBoolean()) return;
             var response = new CompoundTag();
             response.putInt("serial", serial);
             response.putLong("sequence", request.getLongOr("sequence", 0L));
@@ -563,31 +1118,47 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             itemActionResponse = response;
             refresh();
             var cpu = selection.selected();
-            AEKey key = ECOLegacyAENbt.readKey(config.registries(), request.getCompoundOrEmpty("key"));
+            AEKey key = ECOKeyFactory.fromTagGeneric(source.registries(), request.getCompoundOrEmpty("key"));
             if (cpu == null || serial != selection.selectedSerial() || key == null) {
                 response.putString("error", "gui.neoecoae.processing.task_changed");
                 return;
             }
-            var logic = cpu.getLogic();
-            var job = logic.getProcessingJobId();
+            var job = jobId(cpu);
             String action = request.getStringOr("action", "");
-            if ((!action.equals("inspect") && !action.equals("open")) || job == null
-                || (action.equals("open") && (!request.read("job", net.minecraft.core.UUIDUtil.CODEC).isPresent() || !job.equals(request.read("job", net.minecraft.core.UUIDUtil.CODEC).orElseThrow())))) {
+            boolean opening = action.equals("open") || action.equals("open_machine");
+            if ((!action.equals("inspect") && !opening) || job == null
+                || (opening && (!request.read("job", net.minecraft.core.UUIDUtil.CODEC).isPresent() || !job.equals(request.read("job", net.minecraft.core.UUIDUtil.CODEC).orElse(null))))) {
                 response.putString("error", "gui.neoecoae.processing.task_changed");
                 return;
             }
             response.store("job", net.minecraft.core.UUIDUtil.CODEC, job);
-            var grid = cpu.getGrid();
+            var grid = cpu instanceof ECOCraftingCPU eco ? eco.getGrid()
+                : cpu instanceof CraftingCPUCluster cluster ? cluster.getGrid() : null;
             var sources = grid != null && grid.getCraftingService() instanceof appeng.me.service.CraftingService crafting
-                ? cn.dancingsnow.neoecoae.compat.ae2.ECOProviderActions.find(logic.getProcessingPatterns(key), crafting)
+                ? cn.dancingsnow.neoecoae.compat.ae2.ECOProviderActions.find(patterns(cpu, key, crafting), crafting)
                 : List.<cn.dancingsnow.neoecoae.compat.ae2.ECOProviderActions.Source>of();
             var list = new ListTag();
-            for (var source : sources) list.add(source.describe(config.registries()));
+            for (var source : sources) list.add(source.describe(this.source.registries()));
             response.put("sources", list);
+            // Machines come from the processing monitor's scan of this job's destinations; AE2 jobs have none.
+            var monitor = cpu instanceof ECOCraftingCPU eco ? eco.getLogic().getProcessingMonitor() : null;
+            var machines = monitor != null && this.source.player() != null
+                ? ECOProcessingMachineActions.find(((net.minecraft.server.level.ServerPlayer) this.source.player()).level().getServer(), monitor.machineTargets(key))
+                : List.<ECOProcessingMachineActions.Machine>of();
+            var machineList = new ListTag();
+            for (var machine : machines) machineList.add(machine.describe(this.source.registries()));
+            response.put("machines", machineList);
+            if (action.equals("open_machine")) {
+                var target = machines.stream().filter(machine -> machine.id().equals(request.getStringOr("source", ""))).findFirst();
+                String error = target.isEmpty() || !(this.source.player() instanceof net.minecraft.server.level.ServerPlayer player)
+                    ? ECOProcessingMachineActions.OPEN_UNAVAILABLE : target.get().open(player);
+                if (error != null) response.putString("error", error);
+                return;
+            }
             if (action.equals("open")) {
                 var target = sources.stream().filter(source -> source.id().equals(request.getStringOr("source", ""))).findFirst();
                 try {
-                    if (!(config.player() instanceof net.minecraft.server.level.ServerPlayer player)
+                    if (!(this.source.player() instanceof net.minecraft.server.level.ServerPlayer player)
                         || target.isEmpty() || !target.get().open(player)) response.putString("error", "gui.neoecoae.processing.open_unavailable");
                 } catch (RuntimeException | LinkageError unsupported) {
                     response.putString("error", "gui.neoecoae.processing.open_unavailable");
@@ -595,50 +1166,234 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             }
         }
 
+        private CompoundTag processingSnapshot() {
+            // Prepare the selected CPU and visible rows before child bindings serialize their progress.
+            if (viewing) snapshot();
+            long tick = source.gameTime().getAsLong();
+            // Machine progress is only tracked for ECO jobs; AE2 tasks show their state without a fill.
+            var cpu = selection.selected() instanceof ECOCraftingCPU eco ? eco : null;
+            boolean active = viewing && source.canInteract().getAsBoolean() && cpu != null;
+            if (active) cpu.getLogic().refreshProcessingProgress();
+            int serial = selection.selectedSerial();
+            UUID job = jobId(cpu);
+            boolean reset = processingReset || processingSentSerial != serial || !Objects.equals(processingSentJob, job);
+            if (!reset && processingCached != null && tick >= processingSyncTick
+                && tick - processingSyncTick < PROCESSING_SYNC_INTERVAL) return processingCached;
+            processingSyncTick = tick;
+            Map<AEKey, ECOProcessingProgress> next = new LinkedHashMap<>();
+            if (active) {
+                for (var item : processingItems) {
+                    if (item.active().signum() <= 0 && item.pending().signum() <= 0) continue;
+                    var progress = cpu.getLogic().getProcessingProgress(item.key());
+                    if (progress == null || (progress.machineCount() == 0 && !progress.refreshing())) continue;
+                    var status = progress.forStatusSync().page(item.key().equals(processingDetailKey) ? processingDetailPage : -1);
+                    // A long cycle need not send sub-percent float changes; hovered machine counters stay exact.
+                    float percent = Math.round(status.progress() * 100) / 100.0F;
+                    if (percent != status.progress()) status = new ECOProcessingProgress(percent, status.hasProgress(),
+                        status.state(), status.machineCount(), status.detailPage(), status.refreshing(), status.machines());
+                    next.put(item.key(), status);
+                }
+                // Visible rows spend the shared CPU budget first. Rotate a bounded amount of background
+                // work so pending admission failures can still enter the task list without scanning it all.
+                for (int remaining = Math.min(BACKGROUND_PROCESSING_REQUESTS, processingCandidates.size()); remaining > 0; remaining--) {
+                    if (processingCursor >= processingCandidates.size()) processingCursor = 0;
+                    var item = processingCandidates.get(processingCursor++);
+                    if (!next.containsKey(item.key())) cpu.getLogic().getProcessingProgress(item.key());
+                }
+            }
+            var entries = new ListTag();
+            next.forEach((key, progress) -> {
+                if (!reset && progress.equals(processingSent.get(key))) return;
+                var entry = new CompoundTag();
+                entry.put("key", cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeKey(source.registries(), key));
+                entry.put("progress", progress.write(source.registries()));
+                entries.add(entry);
+            });
+            var removed = new ListTag();
+            if (!reset) for (AEKey key : processingSent.keySet()) {
+                if (!next.containsKey(key)) removed.add(cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeKey(source.registries(), key));
+            }
+            if (!reset && entries.isEmpty() && removed.isEmpty() && processingCached != null) return processingCached;
+            var tag = new CompoundTag();
+            tag.putInt("serial", serial);
+            if (!reset) tag.putBoolean("delta", true);
+            tag.put("items", entries);
+            if (!removed.isEmpty()) tag.put("removed", removed);
+            processingSent.clear();
+            processingSent.putAll(next);
+            processingSentSerial = serial;
+            processingSentJob = job;
+            processingReset = false;
+            return processingCached = tag;
+        }
+
         private CompoundTag snapshot() {
-            long tick = config.gameTime().getAsLong();
-            if (cached != null && tick >= sampledTick && tick - sampledTick < 3) return cached;
+            // The host's hidden status page must not enumerate jobs or request machine scans.
+            if (!viewing || !source.canInteract().getAsBoolean()) {
+                if (cached == null) cached = new CompoundTag();
+                return cached;
+            }
+            long tick = source.gameTime().getAsLong();
+            if (cached != null && !selectionPending && tick >= sampledTick && tick - sampledTick < STATUS_SYNC_INTERVAL) return cached;
             sampledTick = tick;
             refresh();
+            if (selectionPending) {
+                selectionPending = false;
+                int previousSerial = selection.selectedSerial();
+                if (selection.select(requestedSerial) && previousSerial != selection.selectedSerial()) {
+                    itemOffset = 0;
+                    taskOffset = 0;
+                    focusPending = !query.isEmpty();
+                }
+            }
             CompoundTag tag = new CompoundTag();
             tag.putInt("total", selection.size());
             tag.putInt("cpuOffset", selection.offset());
             tag.putLong("cpuScrollSequence", cpuScrollSequence);
             tag.putLong("itemScrollSequence", itemScrollSequence);
+            tag.putLong("taskScrollSequence", taskScrollSequence);
             tag.putInt("selectedSerial", selection.selectedSerial());
-            var registries = config.registries();
+            tag.putLong("selectionSequence", selectionSequence);
+            var registries = source.registries();
             ListTag cpuPage = new ListTag();
-            tag.putInt("cpuPageStart", Math.max(0, selection.offset() - ROWS));
-            for (ECOCraftingCPU cpu : selection.bufferedPage()) cpuPage.add(ComputationCpuEntry.sample(cpu, selection.serial(cpu)).write(registries));
+            tag.putInt("cpuPageStart", Math.max(0, selection.offset() - rows));
+            for (ICraftingCPU cpu : selection.bufferedPage()) cpuPage.add(ComputationCpuEntry.sample(cpu, selection.serial(cpu)).write(registries));
             tag.put("cpus", cpuPage);
-            ECOCraftingCPU selectedCpu = selection.selected();
-            if (selectedCpu != null) {
-                ComputationCpuEntry selectedEntry = ComputationCpuEntry.sample(selectedCpu, selection.selectedSerial());
-                tag.put("selected", selectedEntry.write(registries));
-                List<ComputationCpuItemEntry> all = selectedItems(selectedCpu);
-                tag.putInt("itemTotal", all.size());
-                itemOffset = Math.clamp(itemOffset / ITEM_COLS, 0, maxItemRows(all.size())) * ITEM_COLS;
-                tag.putInt("itemOffset", itemOffset);
-                int itemPageStart = Math.max(0, itemOffset - ITEM_PAGE);
-                tag.putInt("itemPageStart", itemPageStart);
-                ListTag itemPage = new ListTag();
-                for (ComputationCpuItemEntry item : all.subList(itemPageStart, Math.min(all.size(), itemOffset + ITEM_PAGE * 2))) {
-                    var progress = item.active().signum() > 0
-                        ? selectedCpu.getLogic().getProcessingProgress(item.key())
-                        : ECOProcessingProgress.EMPTY;
-                    itemPage.add(item.withProcessing(progress == null ? ECOProcessingProgress.EMPTY : progress.forStatusSync().page(0)).write(registries));
+            ICraftingCPU selectedCpu = selection.selected();
+            writeTier(tag, selectedCpu instanceof ECOCraftingCPU eco ? eco.getTier() : null);
+            List<ComputationCpuItemEntry> all = selectedItems(selectedCpu);
+            processingCandidates = all.stream().filter(item -> item.active().signum() > 0 || item.pending().signum() > 0).toList();
+            List<ComputationCpuItemEntry> running = tasks(selectedCpu, all);
+            if (focusPending) {
+                focusPending = false;
+                for (int index = 0; index < running.size(); index++) {
+                    if (matches(running.get(index).key(), query)) {
+                        taskOffset = index;
+                        break;
+                    }
                 }
-                tag.put("items", itemPage);
-            } else {
-                tag.putInt("itemTotal", 0);
-                tag.putInt("itemOffset", 0);
-                tag.put("items", new ListTag());
             }
+            if (selectedCpu != null) tag.put("selected", ComputationCpuEntry.sample(selectedCpu, selection.selectedSerial()).write(registries));
+            // Detailed processing progress is synced separately for the rows the client shows (see processingSnapshot).
+            Map<AEKey, ComputationCpuItemEntry> visible = new LinkedHashMap<>();
+            tag.putInt("itemTotal", all.size());
+            itemOffset = Math.clamp(itemOffset / ITEM_COLS, 0, maxItemRows(all.size(), rows)) * ITEM_COLS;
+            tag.putInt("itemOffset", itemOffset);
+            int itemPageStart = Math.max(0, itemOffset - (ITEM_COLS * rows));
+            tag.putInt("itemPageStart", itemPageStart);
+            tag.put("items", page(selectedCpu, all, itemPageStart, Math.min(all.size(), itemOffset + (ITEM_COLS * rows) * 2),
+                visible, itemOffset, itemOffset + ITEM_COLS * rows));
+            tag.putInt("taskTotal", running.size());
+            taskOffset = Math.clamp(taskOffset, 0, Math.max(0, running.size() - rows));
+            tag.putInt("taskOffset", taskOffset);
+            int taskPageStart = Math.max(0, taskOffset - rows);
+            tag.putInt("taskPageStart", taskPageStart);
+            tag.put("tasks", page(selectedCpu, running, taskPageStart, Math.min(running.size(), taskOffset + rows * 2),
+                visible, taskOffset, taskOffset + rows));
+            processingItems = List.copyOf(visible.values());
             return cached = tag;
         }
 
+        private static void writeTier(CompoundTag tag, @Nullable IECOTier tier) {
+            tag.putInt("tier", tier == null ? 0 : tier.getTier());
+            tag.putBoolean("tierBuiltin", tier == null || tier instanceof ECOTier);
+            tag.putString("tierName", tier == null || tier instanceof ECOTier ? "" : tier.getPanelTierName().getString());
+        }
+
+        private ListTag page(@Nullable ICraftingCPU cpu, List<ComputationCpuItemEntry> entries, int from, int to,
+                Map<AEKey, ComputationCpuItemEntry> visible, int visibleFrom, int visibleTo) {
+            ListTag page = new ListTag();
+            if (cpu == null) return page;
+            var registries = source.registries();
+            for (int index = Math.min(from, to); index < to; index++) {
+                var item = entries.get(index);
+                if (index >= visibleFrom && index < visibleTo) visible.putIfAbsent(item.key(), item);
+                page.add(item.write(registries));
+            }
+            return page;
+        }
+
+        /** Group tasks by processing state, retaining first-observed order within each group. */
+        private List<ComputationCpuItemEntry> tasks(@Nullable ICraftingCPU cpu, List<ComputationCpuItemEntry> all) {
+            UUID job = jobId(cpu);
+            if (selection.selectedSerial() != taskSerial || !Objects.equals(job, taskJob)) {
+                taskOrder.clear();
+                taskSerial = selection.selectedSerial();
+                taskJob = job;
+            }
+            Map<AEKey, ComputationCpuItemEntry> active = new HashMap<>();
+            Map<AEKey, Integer> priorities = new HashMap<>();
+            List<AEKey> naturalOrder = new ArrayList<>();
+            for (ComputationCpuItemEntry item : all) {
+                if (item.active().signum() <= 0 && item.pending().signum() <= 0) continue;
+                var progress = cpu instanceof ECOCraftingCPU eco ? eco.getLogic().getProcessingMonitor().cachedProgress(item.key())
+                    : ECOProcessingProgress.EMPTY;
+                // Admission-blocked pending work (for example an overheated workstation) is listed as a task too.
+                if (item.active().signum() <= 0
+                    && (progress == null || progress.state() != ECOProcessingProgress.State.WAITING)) continue;
+                active.put(item.key(), item);
+                priorities.put(item.key(), taskPriority(item, progress));
+                naturalOrder.add(item.key());
+            }
+            taskOrder.retainAll(active.keySet());
+            // Tasks first observed together keep AE2's order, so the initial list is deterministic.
+            naturalOrder.sort(Comparator.comparing(active::get, AE2_ORDER));
+            taskOrder.addAll(naturalOrder);
+            List<ComputationCpuItemEntry> result = new ArrayList<>(taskOrder.size());
+            for (AEKey key : taskOrder) result.add(active.get(key));
+            result.sort(Comparator.comparingInt(item -> priorities.get(item.key())));
+            return result;
+        }
+
+        /** ECO jobs know their own patterns; for AE2 jobs every network pattern producing the key is a candidate. */
+        private static List<appeng.api.crafting.IPatternDetails> patterns(ICraftingCPU cpu, AEKey key,
+                appeng.me.service.CraftingService crafting) {
+            if (cpu instanceof ECOCraftingCPU eco) return eco.getLogic().getProcessingPatterns(key);
+            return List.copyOf(crafting.getCraftingFor(key));
+        }
+
+        /** ECO jobs carry their own id; AE2 clusters expose the link of the job they are running. */
+        @Nullable
+        private static UUID jobId(@Nullable ICraftingCPU cpu) {
+            if (cpu instanceof ECOCraftingCPU eco) return eco.getLogic().getProcessingJobId();
+            if (cpu instanceof CraftingCPUCluster cluster && cluster.craftingLogic.hasJob()) {
+                var link = cluster.craftingLogic.getLastLink();
+                return link == null ? null : link.getCraftingID();
+            }
+            var summary = ECOAe2LtCpuStatus.summary(cpu);
+            return summary == null ? null : summary.jobId();
+        }
+
+        private Comparator<ComputationCpuItemEntry> order() {
+            return query.isEmpty() ? AE2_ORDER
+                : Comparator.<ComputationCpuItemEntry, Boolean>comparing(item -> !matches(item.key(), query)).thenComparing(AE2_ORDER);
+        }
+
+        private List<ComputationCpuItemEntry> selectedItems(@Nullable ICraftingCPU cpu) {
+            if (cpu instanceof ECOCraftingCPU eco) return selectedItems(eco);
+            // Native AE2 CPUs: the same per-key amounts AE2's CraftingStatus packet reports.
+            if (!(cpu instanceof CraftingCPUCluster cluster)) {
+                return ECOAe2LtCpuStatus.items(cpu).stream().map(item -> new ComputationCpuItemEntry(
+                        item.key(), item.stored(), item.active(), item.pending(), false))
+                    .filter(item -> item.stored().signum() > 0 || item.active().signum() > 0 || item.pending().signum() > 0)
+                    .sorted(order()).toList();
+            }
+            var logic = cluster.craftingLogic;
+            Set<AEKey> keys = new HashSet<>();
+            appeng.api.stacks.KeyCounter all = new appeng.api.stacks.KeyCounter();
+            logic.getAllItems(all);
+            all.forEach(entry -> keys.add(entry.getKey()));
+            logic.getAllWaitingFor(keys);
+            return keys.stream().map(key -> new ComputationCpuItemEntry(key,
+                    BigInteger.valueOf(Math.max(0L, logic.getStored(key))),
+                    BigInteger.valueOf(Math.max(0L, logic.getWaitingFor(key))),
+                    BigInteger.valueOf(Math.max(0L, logic.getPendingOutputs(key))), false))
+                .filter(item -> item.stored().signum() != 0 || item.active().signum() != 0 || item.pending().signum() != 0)
+                .sorted(order())
+                .toList();
+        }
+
         private List<ComputationCpuItemEntry> selectedItems(ECOCraftingCPU cpu) {
-            if (cpu == null) return List.of();
             var logic = cpu.getLogic();
             Map<appeng.api.stacks.AEKey, BigInteger> stored = new HashMap<>(logic.getExactStoredPreview());
             Map<appeng.api.stacks.AEKey, BigInteger> active = new HashMap<>(logic.getExactActivePreview());
@@ -652,7 +1407,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             keys.addAll(pending.keySet());
             return keys.stream().map(key -> itemForKey(logic, key, stored, active, pending))
                 .filter(item -> item.stored().signum() != 0 || item.active().signum() != 0 || item.pending().signum() != 0)
-                .sorted(Comparator.comparing(item -> item.key().getDisplayName().getString()))
+                .sorted(order())
                 .toList();
         }
 

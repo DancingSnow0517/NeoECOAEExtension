@@ -3,8 +3,6 @@ package cn.dancingsnow.neoecoae.gui.common;
 import appeng.api.networking.IManagedGridNode;
 import appeng.api.upgrades.IUpgradeInventory;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity;
-import cn.dancingsnow.neoecoae.gui.theme.NETextures;
-import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import cn.dancingsnow.neoecoae.util.LongFluidTank;
 import com.lowdragmc.lowdraglib2.LDLib2;
@@ -20,7 +18,6 @@ import dev.vfyjxf.taffy.style.TaffyDisplay;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
 import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
@@ -29,7 +26,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.material.Fluids;
-import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.fluids.FluidStack;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AmountFormat;
@@ -40,6 +36,26 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class FluidInputHatchUITest {
+    @Test
+    void inputHatchTitleUsesThePlacedBlocksTranslationKeyInBothModes() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            for (boolean networkPull : new boolean[] {false, true}) {
+                var host = host();
+                var block = mock(net.minecraft.world.level.block.Block.class);
+                var state = mock(net.minecraft.world.level.block.state.BlockState.class);
+                when(host.getBlockState()).thenReturn(state);
+                when(state.getBlock()).thenReturn(block);
+                when(block.getDescriptionId()).thenReturn("block.example_addon.fluid_input_hatch");
+                when(host.hasNetworkPullCard()).thenReturn(networkPull);
+                var root = FluidInputHatchUI.createRoot(host, player());
+                var title = (com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement)
+                    root.getChildren().getFirst().getChildren().getFirst();
+                assertEquals("block.example_addon.fluid_input_hatch", title.getText().getString());
+            }
+        }
+    }
+
     @Test
     void chineseResourcesContainReadableTextAndTheCardKeepsTheSuppliedPng() throws Exception {
         for (String locale : List.of("zh_cn", "zh_tw", "zh_hk", "lzh")) {
@@ -71,16 +87,7 @@ class FluidInputHatchUITest {
 
     @BeforeAll
     static void bootstrap() throws Exception {
-        InventoryTestBootstrap.initialize();
-        try (var mods = mockStatic(ModList.class); var registrate = mockStatic(NERegistrate.class)) {
-            ModList modList = mock(ModList.class);
-            when(modList.getAllScanData()).thenReturn(List.of());
-            mods.when(ModList::get).thenReturn(modList);
-            registrate.when(() -> NERegistrate.create("neoecoae")).thenReturn(mock(NERegistrate.class));
-            Class.forName(UIElement.class.getName());
-            Class.forName(NETextures.class.getName());
-            AccessorRegistries.init();
-        }
+        InventoryTestBootstrap.initializeUi();
     }
 
     @Test
@@ -224,6 +231,7 @@ class FluidInputHatchUITest {
 
     private static ECOFluidInputHatchBlockEntity host() {
         var host = mock(ECOFluidInputHatchBlockEntity.class);
+        when(host.getBlockState()).thenReturn(net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
         host.tank = new LongFluidTank();
         when(host.getFluidTankHandler()).thenCallRealMethod();
         when(host.getStoredFluidAmount()).thenCallRealMethod();

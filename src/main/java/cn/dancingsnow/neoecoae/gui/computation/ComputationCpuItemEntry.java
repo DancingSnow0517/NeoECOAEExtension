@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
 
 import appeng.api.stacks.AEKey;
@@ -22,6 +24,10 @@ record ComputationCpuItemEntry(AEKey key, BigInteger stored, BigInteger active, 
 
     ComputationCpuItemEntry withProcessing(ECOProcessingProgress value) {
         return new ComputationCpuItemEntry(key, stored, active, pending, batched, value);
+    }
+
+    boolean waitingForMachine() {
+        return pending.signum() > 0 && processing.state() == ECOProcessingProgress.State.WAITING;
     }
 
     String amount(BigInteger value, boolean full) {
@@ -47,10 +53,10 @@ record ComputationCpuItemEntry(AEKey key, BigInteger stored, BigInteger active, 
 
     static ComputationCpuItemEntry read(CompoundTag tag, HolderLookup.Provider registries) {
         return new ComputationCpuItemEntry(
-            ECOLegacyAENbt.readKey(registries, tag.getCompoundOrEmpty("key")),
-            new BigInteger(tag.getByteArray("stored").orElseGet(() -> new byte[0])),
-            new BigInteger(tag.getByteArray("active").orElseGet(() -> new byte[0])),
-            new BigInteger(tag.getByteArray("pending").orElseGet(() -> new byte[0])),
+            ECOKeyFactory.fromTagGeneric(registries, tag.getCompoundOrEmpty("key")),
+            new BigInteger(tag.getByteArray("stored").orElseGet(() -> new byte[] {0})),
+            new BigInteger(tag.getByteArray("active").orElseGet(() -> new byte[] {0})),
+            new BigInteger(tag.getByteArray("pending").orElseGet(() -> new byte[] {0})),
             tag.getBooleanOr("batched", false),
             ECOProcessingProgress.read(tag.getCompoundOrEmpty("processing"), registries));
     }

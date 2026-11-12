@@ -22,10 +22,13 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
 
 /** Controller buttons and hover interactions; machine actions are supplied by the host. */
 final class CraftingControllerInteractions {
@@ -120,9 +123,38 @@ final class CraftingControllerInteractions {
         information.addEventListener(UIEvents.MOUSE_ENTER, event -> information.style(style -> style.backgroundTexture(highlighted)));
         information.addEventListener(UIEvents.MOUSE_LEAVE, event -> information.style(style -> style.backgroundTexture(normal)));
         icon.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).right(-21).top(0).width(23).height(30));
-        information.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-            new java.util.ArrayList<Object>(maintenanceTooltipLines(syncedStatus.getValue())), null, null, null, null));
+        information.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+            Component value = syncedStatus.getValue();
+            event.hoverTooltips = VirtualModeStatusCard.applies(value)
+                ? CraftingListCard.hover(VirtualModeStatusCard.create(value))
+                : ComputationEndgameCard.applies(value)
+                ? CraftingListCard.hover(ComputationEndgameCard.create(value))
+                : new HoverTooltips(new java.util.ArrayList<Object>(maintenanceTooltipLines(value)), null, null, null, null);
+        });
         return icon;
+    }
+
+    static Map<String, Object[]> statusReasons(Component status, String reasonPrefix) {
+        Map<String, Object[]> reasons = new LinkedHashMap<>();
+        for (Component sibling : status.getSiblings()) {
+            if (sibling.getContents() instanceof TranslatableContents contents
+                && contents.getKey().startsWith(reasonPrefix)) {
+                reasons.put(contents.getKey().substring(reasonPrefix.length()), contents.getArgs());
+            }
+        }
+        return reasons;
+    }
+
+    static int statusIntArg(Object[] args, int index, int fallback) {
+        if (index >= args.length) return fallback;
+        Object arg = args[index];
+        if (arg instanceof Number number) return number.intValue();
+        String text = arg instanceof Component component ? component.getString() : String.valueOf(arg);
+        try {
+            return Integer.parseInt(text.trim());
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
     }
 
     static List<Component> maintenanceTooltipLines(Component status) {

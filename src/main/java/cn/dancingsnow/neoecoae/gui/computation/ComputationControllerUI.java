@@ -102,18 +102,23 @@ public final class ComputationControllerUI {
         Button frequency = ComputationControllerInteractions.createNetworkFrequencyButton(config);
         frequency.setId("computation-frequency");
         Button smartDoubling = ComputationControllerInteractions.createSmartDoublingButton(config);
-        var identities = new CpuSelectionState.Identities<ECOCraftingCPU>();
-        ComputationCpuStatusPanel status = new ComputationCpuStatusPanel(config, identities);
+        var identities = new CpuSelectionState.Identities<appeng.api.networking.crafting.ICraftingCPU>();
+        ComputationCpuStatusPanel status = new ComputationCpuStatusPanel(ComputationCpuStatusPanel.Source.of(config), identities);
         status.setDisplay(false);
         UIElement[] rootRef = new UIElement[1];
         ComputationCpuSelector selector = new ComputationCpuSelector(config, serial -> {
             mainOf(rootRef[0]).setDisplay(false);
             status.setDisplay(true);
             status.open(serial);
-            setViewSize(rootRef[0], 326, 254);
+            setViewSize(rootRef[0], ComputationCpuStatusPanel.WIDTH, status.currentHeight());
             recenter();
         }, identities);
         selector.setDisplay(false);
+        status.setHeightListener(height -> {
+            if (!status.isDisplayed()) return;
+            setViewSize(rootRef[0], ComputationCpuStatusPanel.WIDTH, height);
+            recenter();
+        });
         status.setBackAction(() -> {
             status.setDisplay(false);
             mainOf(rootRef[0]).setDisplay(true);
@@ -225,8 +230,6 @@ public final class ComputationControllerUI {
         textures.onChange(() -> switchTexture(button, Boolean.TRUE.equals(value.getValue()), index, panelTier, textures.get()));
         value.setDisplay(false);
         button.addChild(value);
-        BindableValue<Integer> count = "substitutions".equals(key)
-            ? syncedPatternCount(button, config.substitutionPatternCount()) : null;
         switchTexture(button, enabled.getAsBoolean(), index, panelTier, textures.get());
         button.setOnServerClick(event -> action.run());
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
@@ -237,21 +240,9 @@ public final class ComputationControllerUI {
                 ? "gui.neoecoae.computation.ui.switch.on"
                 : "gui.neoecoae.computation.ui.switch.off").withColor(on ? 0x55FF55 : 0xAAAAAA));
             lines.add(Component.translatable("gui.neoecoae.computation.ui.switch." + key + ".desc").withColor(0xAAAAAA));
-            if (count != null) {
-                lines.add(Component.translatable("gui.neoecoae.crafting.planning.substitution_pattern_count",
-                    Math.max(0, count.getValue() == null ? 0 : count.getValue())));
-            }
-            event.hoverTooltips = HoverTooltips.create(lines.toArray());
+            event.hoverTooltips = new HoverTooltips(new java.util.ArrayList<Object>(lines), null, null, null, null);
         });
         return button;
-    }
-
-    private static BindableValue<Integer> syncedPatternCount(Button button, IntSupplier count) {
-        BindableValue<Integer> synced = new BindableValue<>(count.getAsInt());
-        synced.bind(DataBindingBuilder.intValS2C(count::getAsInt).build());
-        synced.setDisplay(false);
-        button.addChild(synced);
-        return synced;
     }
 
     private static void switchTexture(Button button, boolean enabled, int index, Supplier<IECOTier> tier,

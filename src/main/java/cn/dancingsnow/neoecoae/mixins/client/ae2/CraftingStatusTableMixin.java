@@ -15,6 +15,10 @@ import java.util.List;
 public class CraftingStatusTableMixin {
     @Inject(method = "getEntryDescription(Lappeng/menu/me/crafting/CraftingStatusEntry;)Ljava/util/List;", at = @At("HEAD"), cancellable = true)
     private void exactDescription(CraftingStatusEntry entry, CallbackInfoReturnable<List<Component>> cir) {
+        if (entry.getWhat() == null) {
+            cir.setReturnValue(List.of());
+            return;
+        }
         var amount = exact(entry);
         if (amount == null && exactStored(entry) == null && exactActive(entry) == null) return;
         var lines = new java.util.ArrayList<Component>();
@@ -28,6 +32,10 @@ public class CraftingStatusTableMixin {
     }
     @Inject(method = "getEntryTooltip(Lappeng/menu/me/crafting/CraftingStatusEntry;)Ljava/util/List;", at = @At("HEAD"), cancellable = true)
     private void exactTooltip(CraftingStatusEntry entry, CallbackInfoReturnable<List<Component>> cir) {
+        if (entry.getWhat() == null) {
+            cir.setReturnValue(List.of());
+            return;
+        }
         var amount = exact(entry);
         if (amount == null && exactStored(entry) == null && exactActive(entry) == null) return;
         var lines = new java.util.ArrayList<>(appeng.client.api.AEKeyRendering.getTooltip(entry.getWhat()));

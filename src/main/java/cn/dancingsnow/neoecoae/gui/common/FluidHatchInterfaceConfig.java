@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import appeng.api.behaviors.ContainerItemStrategies;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEKeyType;
@@ -11,10 +12,10 @@ import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 /** Uses the same CONFIG_STACKS/FakeSlot path and fluid units as AE2's InterfaceMenu. */
-final class FluidHatchInterfaceConfig {
+public final class FluidHatchInterfaceConfig {
     private FluidHatchInterfaceConfig() {}
 
-    static @Nullable GenericStack click(@Nullable GenericStack current, ItemStack carried, int button) {
+    public static @Nullable GenericStack click(@Nullable GenericStack current, ItemStack carried, int button) {
         var inventory = ConfigInventory.configStacks(1).supportedType(AEKeyType.fluids())
             .allowOverstacking(true).build();
         inventory.setStack(0, current);
@@ -43,6 +44,6 @@ final class FluidHatchInterfaceConfig {
         return inventory.getStack(0);
     }
 
-    static String slotAmount(AEFluidKey key, long amount) { return key.formatAmount(amount, AmountFormat.SLOT); }
+    static String slotAmount(AEFluidKey key, long amount) { return DisplayNumbers.grouped(key.formatAmount(amount, AmountFormat.SLOT)); }
 
 }

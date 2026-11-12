@@ -12,6 +12,17 @@ import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 public final class UiTestRendering {
     private UiTestRendering() {}
 
+    public static java.util.List<net.minecraft.network.chat.Component> tooltipTexts(
+            com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips tooltip) {
+        return tooltip.tooltips().stream().filter(net.minecraft.network.chat.Component.class::isInstance)
+            .map(net.minecraft.network.chat.Component.class::cast).toList();
+    }
+
+    public static Object tooltipComponent(com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips tooltip) {
+        return tooltip.tooltips().stream().filter(net.minecraft.world.inventory.tooltip.TooltipComponent.class::isInstance)
+            .findFirst().orElse(null);
+    }
+
     public static void drawBackgroundAdditional(UIElement element, IGUIContext context) {
         UIElementRendererRegistry.findRenderer(element).drawBackgroundAdditional(element, context);
     }

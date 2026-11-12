@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
-import appeng.util.ReadableNumberConverter;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
@@ -10,12 +9,8 @@ import net.minecraft.network.chat.MutableComponent;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
-import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.function.ToIntFunction;
 
 public final class HostText {
@@ -32,24 +27,12 @@ public final class HostText {
     public static final int TITLE_Y = 10;
 
     private static final int BYTES_IN_K = 1024;
-    private static final long BYTES_IN_M = BYTES_IN_K * 1024L;
-    private static final long BYTES_IN_G = BYTES_IN_M * 1024L;
-    private static final long BYTES_IN_T = BYTES_IN_G * 1024L;
-    private static final long BYTES_IN_P = BYTES_IN_T * 1024L;
     private static final BigInteger BIG_BYTES_IN_K = BigInteger.valueOf(BYTES_IN_K);
     private static final int TOOLTIP_BYTE_DIGITS = 4;
     // Continue the binary-prefix display beyond yotta for effectively unbounded storage amounts.
     private static final String[] EXPANDED_BYTE_UNITS = {
         "", "K", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q"
     };
-    private static final ThreadLocal<NumberFormat> NUMBER_FORMAT =
-        ThreadLocal.withInitial(() -> NumberFormat.getNumberInstance(Locale.US));
-    private static final ThreadLocal<DecimalFormat> COMPACT_DECIMAL =
-        ThreadLocal.withInitial(() -> new DecimalFormat("#,##0.##", DecimalFormatSymbols.getInstance(Locale.US)));
-    private static final ThreadLocal<DecimalFormat> PRECISE_HUGE_DECIMAL =
-        ThreadLocal.withInitial(() -> new DecimalFormat("#,##0.00", DecimalFormatSymbols.getInstance(Locale.US)));
-    private static final ThreadLocal<DecimalFormat> PERCENT_DECIMAL =
-        ThreadLocal.withInitial(() -> new DecimalFormat("0.0", DecimalFormatSymbols.getInstance(Locale.US)));
 
     private HostText() {
     }
@@ -78,7 +61,7 @@ public final class HostText {
     }
 
     public static String expandedNumber(long value) {
-        return NUMBER_FORMAT.get().format(Math.max(0L, value));
+        return DisplayNumbers.grouped(Math.max(0L, value));
     }
 
     /** Exact byte counts for tooltips; unlike the panel labels this never uses a unit suffix. */
@@ -135,11 +118,11 @@ public final class HostText {
             unitIndex--;
         }
         if (unitIndex == 0) {
-            return NUMBER_FORMAT.get().format(safe);
+            return DisplayNumbers.grouped(safe);
         }
         BigDecimal scaled = new BigDecimal(safe)
             .divide(new BigDecimal(unit), 2, RoundingMode.DOWN);
-        return PRECISE_HUGE_DECIMAL.get().format(scaled) + EXPANDED_BYTE_UNITS[unitIndex];
+        return DisplayNumbers.grouped(scaled.toPlainString()) + EXPANDED_BYTE_UNITS[unitIndex];
     }
 
     public static String hugeStackAmount(BigInteger value) {
@@ -152,7 +135,7 @@ public final class HostText {
             unitIndex++;
         }
         if (unitIndex == 0) {
-            return NUMBER_FORMAT.get().format(safe);
+            return DisplayNumbers.grouped(safe);
         }
         return DisplayNumbers.grouped(new BigDecimal(safe)
             .divide(new BigDecimal(unit), 2, RoundingMode.DOWN)
@@ -288,7 +271,7 @@ public final class HostText {
             return "N/A";
         }
         double clamped = Math.max(0.0D, Math.min(1.0D, ratio));
-        return PERCENT_DECIMAL.get().format(clamped * 100.0D) + "%";
+        return DisplayNumbers.decimal(clamped * 100.0D, 1) + "%";
     }
 
     public static int gaugeColor(float ratio) {
@@ -313,7 +296,7 @@ public final class HostText {
     }
 
     private static String number(long value) {
-        return NUMBER_FORMAT.get().format(value);
+        return DisplayNumbers.grouped(value);
     }
 
     private static int usedTotalWidth(String prefix, String usedText, String maxText, String suffix) {
@@ -337,15 +320,12 @@ public final class HostText {
     }
 
     public static String ae2Amount(long value) {
-        return DisplayNumbers.grouped(ReadableNumberConverter.format(Math.max(0L, value), 4));
+        return DisplayNumbers.compact(Math.max(0L, value));
     }
 
     public static String ae2Amount(BigInteger value) {
         BigInteger safe = nonNegative(value);
-        if (safe.bitLength() < Long.SIZE) {
-            return ae2Amount(safe.longValue());
-        }
-        return BigNumberFormatter.format(safe, 1, false);
+        return DisplayNumbers.compact(safe);
     }
 
     /** Formats a synced decimal amount; text that is not an integer is shown unchanged. */
@@ -358,27 +338,6 @@ public final class HostText {
     }
 
     private static String compactTaskAmount(long value) {
-        long safe = Math.max(0L, value);
-        if (safe < 1_000L) {
-            return Long.toString(safe);
-        }
-        if (safe < 1_000_000L) {
-            return compactDecimal(safe, 1_000L, "K");
-        }
-        if (safe < 1_000_000_000L) {
-            return compactDecimal(safe, 1_000_000L, "M");
-        }
-        if (safe < 1_000_000_000_000L) {
-            return compactDecimal(safe, 1_000_000_000L, "G");
-        }
-        return compactDecimal(safe, 1_000_000_000_000L, "T");
-    }
-
-    private static String compactDecimal(long value, long unit, String suffix) {
-        double scaled = (double) Math.max(0L, value) / (double) unit;
-        if (scaled >= 100.0D || Math.abs(scaled - Math.rint(scaled)) < 0.05D) {
-            return String.format(Locale.US, "%,.0f%s", scaled, suffix);
-        }
-        return String.format(Locale.US, "%,.1f%s", scaled, suffix);
+        return DisplayNumbers.compact(Math.max(0L, value));
     }
 }

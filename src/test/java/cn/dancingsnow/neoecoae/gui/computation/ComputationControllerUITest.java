@@ -36,6 +36,21 @@ import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
 
 class ComputationControllerUITest {
+    private org.mockito.MockedStatic<appeng.core.AEConfig> clientConfig;
+
+    @org.junit.jupiter.api.BeforeEach
+    void clientTerminalStyle() {
+        var config = mock(appeng.core.AEConfig.class);
+        when(config.getTerminalStyle()).thenReturn(appeng.api.config.TerminalStyle.SMALL);
+        clientConfig = mockStatic(appeng.core.AEConfig.class);
+        clientConfig.when(appeng.core.AEConfig::instance).thenReturn(config);
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void closeClientConfig() {
+        clientConfig.close();
+    }
+
     @BeforeAll
     static void bootstrap() throws ClassNotFoundException {
         InventoryTestBootstrap.initialize();
@@ -112,8 +127,8 @@ class ComputationControllerUITest {
     }
 
     @Test
-    void switchTooltipListsNameStateDescriptionAndCount() {
-        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft()) {
+    void switchTooltipListsNameStateAndDescription() {
+        try (var ldlib = mockStatic(LDLib2.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             UIElement root = ComputationControllerUI.create(
                 config(mock(Runnable.class), mock(Runnable.class), mock(Runnable.class)),
@@ -125,7 +140,9 @@ class ComputationControllerUITest {
             tooltip.target = substitutions;
             UIEventDispatcher.dispatchEvent(tooltip, false, false, false);
             assertNotNull(tooltip.hoverTooltips);
-            assertEquals(4, tooltip.hoverTooltips.tooltips().stream().filter(net.minecraft.network.chat.Component.class::isInstance).map(net.minecraft.network.chat.Component.class::cast).toList().size());
+            assertEquals(3, cn.dancingsnow.neoecoae.gui.common.UiTestRendering.tooltipTexts(tooltip.hoverTooltips).size());
+            assertEquals("gui.neoecoae.computation.ui.switch.on",
+                ((net.minecraft.network.chat.contents.TranslatableContents) cn.dancingsnow.neoecoae.gui.common.UiTestRendering.tooltipTexts(tooltip.hoverTooltips).get(1).getContents()).getKey());
         }
     }
 
@@ -239,6 +256,20 @@ class ComputationControllerUITest {
     }
 
     @Test
+    void smartDoublingCardShowsStateCapAndBlockingPrecedence() {
+        String key = "gui.neoecoae.computation.ui.switch.";
+        var texts = ComputationControllerInteractions.smartDoublingCard(true).texts().stream()
+            .map(text -> ((net.minecraft.network.chat.contents.TranslatableContents) text.getContents()).getKey())
+            .toList();
+        assertEquals(List.of("gui.neoecoae.crafting.smart_doubling", key + "on", key + "smart_doubling.limit",
+            key + "smart_doubling.limit_value", key + "smart_doubling.limit_note", key + "smart_doubling.blocking",
+            key + "smart_doubling.blocking_note"), texts);
+        var off = ComputationControllerInteractions.smartDoublingCard(false).texts();
+        assertEquals(key + "off", ((net.minecraft.network.chat.contents.TranslatableContents) off.get(1).getContents()).getKey());
+        assertEquals("16,384", ((net.minecraft.network.chat.contents.TranslatableContents) off.get(3).getContents()).getArgs()[0]);
+    }
+
+    @Test
     void placedHostArtworkOverridesBadgesMarkersStatusAndSwitchesAndRefreshesWhileOpen() throws Exception {
         try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(Minecraft.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
@@ -278,8 +309,9 @@ class ComputationControllerUITest {
                 var button = (com.lowdragmc.lowdraglib2.gui.ui.elements.Button) find(root, "computation_switch_"
                     + List.of("substitutions", "cycle_planning", "fast_planner").get(index));
                 button.getStyleBag().compute(0);
-                assertEquals("addon:state_" + index + "_true_false.png", ((SpriteTexture) button.getButtonStyle().baseTexture()).getImageLocation().toString());
-                assertEquals("addon:state_" + index + "_true_true.png", ((SpriteTexture) button.getButtonStyle().hoverTexture()).getImageLocation().toString());
+                boolean enabled = true; // This fixture enables deep, cycle and fast planning.
+                assertEquals("addon:state_" + index + "_" + enabled + "_false.png", ((SpriteTexture) button.getButtonStyle().baseTexture()).getImageLocation().toString());
+                assertEquals("addon:state_" + index + "_" + enabled + "_true.png", ((SpriteTexture) button.getButtonStyle().hoverTexture()).getImageLocation().toString());
                 assertEquals(15, ((SpriteTexture) button.getButtonStyle().baseTexture()).spriteSize.width);
                 assertEquals(26, ((SpriteTexture) button.getButtonStyle().baseTexture()).spriteSize.height);
             }

@@ -1,5 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.common;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.AmountFormat;
@@ -59,12 +62,15 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
     static UIElement createRoot(ECOFluidInputHatchBlockEntity host, Player player) {
         var context = new FluidInputHatchUI(host, player);
         // One inventory and one upgrade slot keep menu indices stable across mode changes.
-        UIElement root = FluidHatchUI.createRoot(host.getFluidTankHandler(), "block.neoecoae.input_hatch", true, true);
+        UIElement root = FluidHatchUI.createRoot(host.getFluidTankHandler(),
+            host.getBlockState().getBlock().getDescriptionId(), true, true);
         root.setId("fluid-input-hatch-root");
         root.setOverflowVisible(true);
         UIElement legacy = root.getChildren().get(1);
         legacy.setId("legacy-fluid-content");
         UIElement title = root.getChildren().getFirst();
+        ((TextElement) title.getChildren().getFirst()).textStyle(style ->
+            style.textColor(0xFFFFFFFF).textShadow(true));
         InventorySlots inventory = (InventorySlots) root.getChildren().get(2);
         UIElement network = NeoUiJsonLoader.load(NeoECOAE.id("screens/fluid_input_hatch"), context);
         root.addChildAt(network, 2);
@@ -88,8 +94,6 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
                 if (enabled) layout.width(160).height(10);
                 else layout.widthPercent(100).heightAuto();
             });
-            ((TextElement) title.getChildren().getFirst()).textStyle(style ->
-                style.textColor(enabled ? 0x403F54 : 0xFFFFFFFF).textShadow(!enabled));
             inventory.layout(layout -> layout.positionType(enabled ? TaffyPosition.ABSOLUTE : TaffyPosition.RELATIVE)
                 .left(enabled ? 7 : 0).top(enabled ? 74 : 0));
             inventory.hotbar.layout(layout -> layout.marginTop(enabled ? 4 : 5));
@@ -171,7 +175,7 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
         @Override
         public Component getFluidAmountText() {
             return Component.literal(getValue().isEmpty() || exactAmount == null ? ""
-                : FluidHatchInterfaceConfig.slotAmount(AEFluidKey.of(getValue()), exactAmount.getValue()));
+                : FluidHatchInterfaceConfig.slotAmount(ECOKeyFactory.fluid(getValue()), exactAmount.getValue()));
         }
 
         @Override protected void drawFluid(IGUIContext context, FluidStack fluid, float x, float y, float width, float height) {
@@ -210,15 +214,15 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
         var mc = Minecraft.getInstance();
         AEKeyRendering.drawInGui(mc, context.graphics, Math.round(x), Math.round(y), key);
         if (amount > 0) StackSizeRenderer.renderSizeLabel(context.graphics, mc.font, x, y,
-            key.formatAmount(amount, AmountFormat.SLOT), false);
+            DisplayNumbers.grouped(key.formatAmount(amount, AmountFormat.SLOT)), false);
     }
 
     private static List<Component> interfaceTooltip(FluidStack fluid, long amount) {
         List<Component> lines = new java.util.ArrayList<>();
         if (!fluid.isEmpty()) {
-            var key = AEFluidKey.of(fluid);
+            var key = ECOKeyFactory.fluid(fluid);
             lines.add(key.getDisplayName());
-            lines.add(Component.literal(key.formatAmount(amount, AmountFormat.FULL)).withStyle(ChatFormatting.GRAY));
+            lines.add(Component.literal(DisplayNumbers.grouped(key.formatAmount(amount, AmountFormat.FULL))).withStyle(ChatFormatting.GRAY));
         }
         return lines;
     }
@@ -241,7 +245,7 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
             click = addRPCEvent(RPCEventBuilder.simple(Integer.class, button -> {
                 if (!canEdit(this) || !host.hasNetworkPullCard() || button < 0 || button > 1) return;
                 var marked = host.getMarkedFluid();
-                GenericStack current = marked.isEmpty() ? null : new GenericStack(AEFluidKey.of(marked), host.getTargetAmount());
+                GenericStack current = marked.isEmpty() ? null : new GenericStack(ECOKeyFactory.fluid(marked), host.getTargetAmount());
                 var updated = FluidHatchInterfaceConfig.click(current, player.containerMenu.getCarried(), button);
                 host.setMarkedFluid(updated == null ? FluidStack.EMPTY : ((AEFluidKey) updated.what()).toStack(1));
                 host.setTargetAmount(updated == null ? 0 : updated.amount());
@@ -255,7 +259,7 @@ final class FluidInputHatchUI implements NeoUiJsonContext {
         @Override
         public Component getFluidAmountText() {
             return Component.literal(getValue().isEmpty() || exactTarget == null ? ""
-                : FluidHatchInterfaceConfig.slotAmount(AEFluidKey.of(getValue()), exactTarget.getValue()));
+                : FluidHatchInterfaceConfig.slotAmount(ECOKeyFactory.fluid(getValue()), exactTarget.getValue()));
         }
 
         @Override protected void drawFluid(IGUIContext context, FluidStack fluid, float x, float y, float width, float height) {

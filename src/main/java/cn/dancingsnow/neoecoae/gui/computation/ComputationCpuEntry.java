@@ -1,8 +1,12 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtCpuStatus;
+
 import appeng.api.config.CpuSelectionMode;
+import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt;
+import appeng.me.cluster.implementations.CraftingCPUCluster;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
@@ -19,7 +23,7 @@ import org.jetbrains.annotations.Nullable;
 /** Compact status shared by the CPU row, selected summary and tooltips, including fluid targets. */
 record ComputationCpuEntry(int serial, String name, @Nullable AEKey output,
         BigInteger requested, BigInteger remaining, float progress, long elapsed,
-        long storage, int parallel, CpuSelectionMode mode, Identifier overlay, String status) {
+        long storage, int parallel, CpuSelectionMode mode, @Nullable Identifier overlay, String status) {
     String amount(BigInteger value, boolean full) {
         int unit = output == null ? 1 : Math.max(1, output.getAmountPerUnit());
         String number = full ? DisplayNumbers.grouped(new BigDecimal(value)
@@ -31,6 +35,38 @@ record ComputationCpuEntry(int serial, String name, @Nullable AEKey output,
 
     String storageText() { return NEByteFormatter.formatCpuStorage(storage); }
     String fullStorageText() { return storageText() + " (" + HostText.expandedNumber(storage) + " B)"; }
+
+    /** Any CPU the AE2 crafting service lists; ECO CPUs keep their exact big-order amounts. */
+    static ComputationCpuEntry sample(ICraftingCPU cpu, int serial) {
+        if (cpu instanceof ECOCraftingCPU eco) return sample(eco, serial);
+        var job = cpu.getJobStatus();
+        var output = job == null ? null : job.crafting();
+        float progress = job == null || job.totalItems() <= 0 ? 0 : (float) (job.progress() / (double) job.totalItems());
+        progress = Float.isFinite(progress) ? Math.clamp(progress, 0, 1) : 0;
+        BigInteger requested = BigInteger.valueOf(output == null ? 0 : Math.max(0, output.amount()));
+        // AE2 estimates its ETA from synthetic item progress; keep the same ratio for the shared title.
+        BigInteger remaining = new BigDecimal(requested).multiply(BigDecimal.valueOf(1 - progress))
+            .setScale(0, RoundingMode.CEILING).toBigInteger().min(requested);
+        String status;
+        if (cpu instanceof CraftingCPUCluster cluster && cluster.craftingLogic.hasJob()) {
+            var logic = cluster.craftingLogic;
+            status = logic.isJobSuspended() ? "suspended" : logic.isCantStoreItems() ? "returning" : "running";
+        } else if (cpu instanceof CraftingCPUCluster cluster && cluster.craftingLogic.isCantStoreItems()) {
+            status = "returning";
+        } else {
+            status = cpu.isBusy() || job != null ? "running" : "idle";
+        }
+        var summary = ECOAe2LtCpuStatus.summary(cpu);
+        if (summary != null) {
+            requested = summary.requested();
+            remaining = summary.remaining();
+            status = summary.state();
+        }
+        return new ComputationCpuEntry(serial, cpu.getName() == null ? "" : cpu.getName().getString(),
+            output == null ? null : output.what(), requested, remaining, progress,
+            job == null ? 0 : Math.max(0, job.elapsedTimeNanos()), cpu.getAvailableStorage(), cpu.getCoProcessors(),
+            cpu.getSelectionMode(), null, status);
+    }
 
     static ComputationCpuEntry sample(ECOCraftingCPU cpu, int serial) {
         var logic = cpu.getLogic();
@@ -56,7 +92,7 @@ record ComputationCpuEntry(int serial, String name, @Nullable AEKey output,
         CompoundTag tag = new CompoundTag();
         tag.putInt("serial", serial);
         tag.putString("name", name);
-        if (output != null) tag.put("output", ECOLegacyAENbt.writeKey(registries, output));
+        if (output != null) tag.put("output", cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeKey(registries, output));
         tag.putByteArray("requested", requested.toByteArray());
         tag.putByteArray("remaining", remaining.toByteArray());
         tag.putFloat("progress", progress);
@@ -64,17 +100,17 @@ record ComputationCpuEntry(int serial, String name, @Nullable AEKey output,
         tag.putLong("storage", storage);
         tag.putInt("parallel", parallel);
         tag.putInt("mode", mode.ordinal());
-        tag.putString("overlay", overlay.toString());
+        if (overlay != null) tag.putString("overlay", overlay.toString());
         tag.putString("status", status);
         return tag;
     }
 
     static ComputationCpuEntry read(CompoundTag tag, HolderLookup.Provider registries) {
         return new ComputationCpuEntry(tag.getIntOr("serial", 0), tag.getStringOr("name", ""),
-            tag.contains("output") ? ECOLegacyAENbt.readKey(registries, tag.getCompoundOrEmpty("output")) : null,
-            new BigInteger(tag.getByteArray("requested").orElseGet(() -> new byte[0])), new BigInteger(tag.getByteArray("remaining").orElseGet(() -> new byte[0])),
+            tag.contains("output") ? ECOKeyFactory.fromTagGeneric(registries, tag.getCompoundOrEmpty("output")) : null,
+            new BigInteger(tag.getByteArray("requested").orElseGet(() -> new byte[] {0})), new BigInteger(tag.getByteArray("remaining").orElseGet(() -> new byte[] {0})),
             tag.getFloatOr("progress", 0F), tag.getLongOr("elapsed", 0L), tag.getLongOr("storage", 0L), tag.getIntOr("parallel", 0),
             CpuSelectionMode.values()[Math.clamp(tag.getIntOr("mode", 0), 0, CpuSelectionMode.values().length - 1)],
-            Identifier.parse(tag.getStringOr("overlay", "")), tag.getStringOr("status", ""));
+            tag.contains("overlay") ? Identifier.parse(tag.getStringOr("overlay", "")) : null, tag.getStringOr("status", ""));
     }
 }

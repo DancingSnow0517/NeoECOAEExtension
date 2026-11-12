@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.util.List;
@@ -18,7 +19,7 @@ final class CraftingControllerTooltips {
     }
 
     String formatCapacity(long value) {
-        return value == Long.MAX_VALUE ? "∞" : Long.toString(Math.max(0L, value));
+        return value == Long.MAX_VALUE ? "∞" : DisplayNumbers.compact(Math.max(0L, value));
     }
 
     long parallelLimit() {
@@ -37,7 +38,7 @@ final class CraftingControllerTooltips {
         boolean full = !unbounded && view.batchCapacity > 0L && count >= view.batchCapacity;
         String state = full ? "full" : count == 0L ? "idle" : "active";
         int stateColor = full ? CraftingTooltipCard.WARN : count == 0L ? CraftingTooltipCard.MUTED : CraftingTooltipCard.CYAN;
-        return List.of(CraftingTooltipCard.builder(CraftingTooltipCard.Icon.STACK,
+        return CraftingTooltipCard.builder(CraftingTooltipCard.Icon.STACK,
                 Component.translatable("gui.neoecoae.crafting.ui.queue_heading"))
             .headerRight(CraftingTooltipCard.upper(Component.translatable("gui.neoecoae.crafting.ui.queue_card." + state)),
                 stateColor)
@@ -46,20 +47,20 @@ final class CraftingControllerTooltips {
             .segment(permille / (double) CraftingControllerPanelState.FULL, CraftingTooltipCard.CYAN, false)
             .row(Component.translatable("gui.neoecoae.crafting.ui.queue_card.used").withColor(CraftingTooltipCard.MUTED),
                 Component.literal(percent(permille)), full ? CraftingTooltipCard.WARN : CraftingTooltipCard.PRIMARY)
-            .build());
+            .build();
     }
 
     List<Object> parallelTooltip() {
         var card = CraftingTooltipCard.builder(CraftingTooltipCard.Icon.CHIP,
             Component.translatable("gui.neoecoae.crafting.ui.parallel_heading"));
         Component runtime = CraftingTooltipCard.label("gui.neoecoae.crafting.ui.parallel_card.runtime",
-            view.executionTicks + " t", CraftingTooltipCard.PRIMARY);
+            DisplayNumbers.compact(view.executionTicks) + " t", CraftingTooltipCard.PRIMARY);
         if (view.virtualMode) {
-            return List.of(card.value("∞", null)
+            return card.value("∞", null)
                 .status(Component.translatable("gui.neoecoae.crafting.ui.virtual_crafting"), CraftingTooltipCard.ACCENT)
                 .segment(1.0D, CraftingTooltipCard.ACCENT, false)
                 .row(runtime, Component.empty(), CraftingTooltipCard.PRIMARY)
-                .build());
+                .build();
         }
         long total = Math.max(0L, view.ftParallelCapacity);
         long limit = Math.max(0L, parallelLimit());
@@ -67,7 +68,7 @@ final class CraftingControllerTooltips {
         boolean over = overflow > 0L;
         if (limit > 0L) {
             String multiple = total % limit == 0L ? CraftingTooltipCard.group(total / limit)
-                : String.format(Locale.ROOT, "%.1f", (double) total / limit);
+                : DisplayNumbers.decimal((double) total / limit, 1);
             card.headerRight(Component.translatable("gui.neoecoae.crafting.ui.parallel_card.multiple", multiple),
                 CraftingTooltipCard.WARN);
         }
@@ -82,20 +83,20 @@ final class CraftingControllerTooltips {
                 CraftingTooltipCard.ACCENT, false);
         }
         String ratio = total <= 0L ? "0.0%"
-            : String.format(Locale.ROOT, "%.1f%%", Math.clamp(overflow * 100.0D / total, 0.0D, 100.0D));
-        return List.of(card
+            : DisplayNumbers.decimal(Math.clamp(overflow * 100.0D / total, 0.0D, 100.0D), 1) + "%";
+        return card
             .row(CraftingTooltipCard.label("gui.neoecoae.crafting.ui.parallel_card.excess",
                     "+" + CraftingTooltipCard.group(overflow), over ? CraftingTooltipCard.WARN : CraftingTooltipCard.PRIMARY),
                 Component.literal(ratio), over ? CraftingTooltipCard.WARN : CraftingTooltipCard.PRIMARY)
             .dividedRow(runtime, CraftingTooltipCard.label("gui.neoecoae.crafting.ui.parallel_card.overclock",
                     view.effectiveOverclockTimes + " / " + view.theoreticalOverclockTimes, CraftingTooltipCard.PRIMARY),
                 CraftingTooltipCard.PRIMARY)
-            .build());
+            .build();
     }
 
     List<Component> energyTooltip() {
         return List.of(Component.translatable("gui.neoecoae.crafting.ui.energy_usage"),
-            Tooltips.ofNumber(view.energyUsage).append(" AE/t"),
+            Component.literal(DisplayNumbers.compact(view.energyUsage) + " AE/t"),
             Tooltips.ofPercent(view.state.energyPermille() / (double) CraftingControllerPanelState.FULL));
     }
 
@@ -115,12 +116,25 @@ final class CraftingControllerTooltips {
                 HostText.totalPart(HostText.expandedNumber(view.outputCapacity) + " mB")));
     }
 
-    List<Component> fxTooltip() {
-        return List.of(Component.translatable("gui.neoecoae.crafting.ui.fx_active", view.activeWorkerCores, view.workerCores),
-            Component.empty(),
-            Component.translatable("gui.neoecoae.crafting.ui.ft_parallel", view.ftParallelCapacity),
-            Component.empty(),
-            Component.translatable("gui.neoecoae.crafting.ui.batch_capacity", formatCapacity(view.batchCapacity)));
+    List<Object> fxTooltip() {
+        int total = Math.max(0, view.workerCores);
+        int active = Math.max(0, view.activeWorkerCores);
+        String batch = view.batchCapacity == Long.MAX_VALUE ? "∞"
+            : CraftingTooltipCard.group(Math.max(0L, view.batchCapacity));
+        return CraftingListCard.builder()
+            .header(null, Component.translatable("gui.neoecoae.crafting.ui.fx_card.title"),
+                Component.translatable("gui.neoecoae.crafting.ui.fx_card.overview"), CraftingTooltipCard.MUTED)
+            .divider()
+            .largeRow(CraftingListCard.Glyph.STACK, Component.translatable("gui.neoecoae.crafting.ui.fx_card.fx_active"),
+                CraftingTooltipCard.group(active), "/ " + CraftingTooltipCard.group(total), CraftingTooltipCard.PRIMARY)
+            .bar(total <= 0 ? 0.0D : active / (double) total, CraftingTooltipCard.ACCENT)
+            .largeRow(CraftingListCard.Glyph.BOLT, Component.translatable("gui.neoecoae.crafting.ui.fx_card.ft_parallel"),
+                CraftingTooltipCard.group(Math.max(0L, view.ftParallelCapacity)), null, CraftingTooltipCard.ACCENT)
+            .divider()
+            .row(null, CraftingTooltipCard.MUTED, Component.translatable("gui.neoecoae.crafting.ui.fx_card.batch_capacity")
+                .withStyle(style -> style.withColor(CraftingTooltipCard.MUTED)), Component.literal(batch),
+                CraftingTooltipCard.PRIMARY)
+            .build();
     }
 
     List<Component> coolantRowTooltip() {

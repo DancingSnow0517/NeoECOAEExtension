@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import static cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.UI_HEIGHT;
 import static cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.UI_WIDTH;
 import cn.dancingsnow.neoecoae.api.IECOTier;
@@ -19,8 +20,6 @@ import com.lowdragmc.lowdraglib2.gui.util.DrawerHelperClient;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import cn.dancingsnow.neoecoae.gui.NEGuiColors;
 import dev.vfyjxf.taffy.style.TaffyPosition;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -55,7 +54,6 @@ final class CraftingControllerArtwork extends UIElement {
     private static final int STAT_COLUMN_WIDTH = 49;
     private static final int PROGRESS_BAR_WIDTH = 44;
     private static final int PROGRESS_BAR_HEIGHT = 7;
-    private static final String[] NUMBER_UNITS = {"", "K", "M", "G", "T", "P", "E"};
     private final Config config;
     private final Supplier<IECOTier> panelTier;
     private final Supplier<HostPanelTextureState> textures;
@@ -105,8 +103,12 @@ final class CraftingControllerArtwork extends UIElement {
     private UIElement tooltipRegion(int x, int y, int width, int height, Supplier<? extends List<?>> lines) {
         return new UIElement().layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
             .left(x).top(y).width(width).height(height))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-                new java.util.ArrayList<Object>(lines.get()), null, null, null, null));
+            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = hoverTooltips(lines.get()));
+    }
+
+    /** Text lines go to the vanilla list; a card is passed as the tooltip component inside the same frame. */
+    private static HoverTooltips hoverTooltips(List<?> entries) {
+        return CraftingListCard.hover(entries);
     }
 
     private void updateWorkerSlots() {
@@ -363,7 +365,7 @@ final class CraftingControllerArtwork extends UIElement {
         Component text = Component.empty();
         for (int decimalPlaces = 2; decimalPlaces >= 0; decimalPlaces--) {
             for (int i = 0; i < numbers.length; i++) {
-                values[i] = decimalPlaces == 2 ? Long.toString(numbers[i]) : compactNumber(numbers[i], decimalPlaces);
+                values[i] = decimalPlaces == 2 ? DisplayNumbers.grouped(numbers[i]) : DisplayNumbers.compact(Math.max(0L, numbers[i]), decimalPlaces);
             }
             text = formatter.apply(values);
             if (font.width(text) * scale <= width - 1) break;
@@ -385,18 +387,6 @@ final class CraftingControllerArtwork extends UIElement {
         } finally {
             pose.popMatrix();
         }
-    }
-
-    private String compactNumber(long value, int decimalPlaces) {
-        long safe = Math.max(0L, value);
-        long divisor = 1L;
-        int unit = 0;
-        while (unit < NUMBER_UNITS.length - 1 && safe / divisor >= 1_000L) {
-            divisor *= 1_000L;
-            unit++;
-        }
-        return BigDecimal.valueOf(safe).divide(BigDecimal.valueOf(divisor), decimalPlaces, RoundingMode.DOWN)
-            .stripTrailingZeros().toPlainString() + NUMBER_UNITS[unit];
     }
 
     private void drawFluidGauge(GUIContext context, int x, FluidStack fluid, int amount, int capacity, int tickX) {

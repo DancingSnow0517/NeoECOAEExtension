@@ -58,8 +58,8 @@ class ComputationItemActionsPopupTest {
 
     @Test void locationsAreWrittenToChatAndCloseTheMenuWithoutOpeningADialogOrSendingAnotherRequest() {
         var fixture = new Fixture(6);
-        assertTrue(fixture.popup.getPositionX() + fixture.popup.getSizeWidth() <= 326);
-        assertTrue(fixture.popup.getPositionY() + fixture.popup.getSizeHeight() <= 254);
+        assertTrue(fixture.popup.getPositionX() + fixture.popup.getSizeWidth() <= ComputationCpuStatusPanel.WIDTH);
+        assertTrue(fixture.popup.getPositionY() + fixture.popup.getSizeHeight() <= ComputationCpuStatusPanel.HEIGHT);
         assertEquals(138, fixture.popup.getSizeWidth());
         fixture.click(25);
         fixture.arrange();
@@ -104,7 +104,7 @@ class ComputationItemActionsPopupTest {
 
     @Test void openingMultipleProvidersRequiresChoosingTheSourceAndCarriesTheJobToken() {
         var fixture = new Fixture(2);
-        fixture.click(41);
+        fixture.click(PROVIDER_ROW);
         fixture.arrange();
         assertEquals(1, fixture.requests.size());
         fixture.click(28);
@@ -119,25 +119,26 @@ class ComputationItemActionsPopupTest {
         fixture.popup.open(fixture.item, 20, 20);
         fixture.popup.accept(old);
         fixture.arrange();
-        fixture.click(41);
+        fixture.click(PROVIDER_ROW);
         assertEquals(2, fixture.requests.size(), "Only the two inspect requests are sent");
     }
 
     @Test void aSingleProviderOpensDirectlyAndAnEmptyListDisablesBothActions() {
         var single = new Fixture(1);
-        single.click(41);
+        single.click(PROVIDER_ROW);
         assertEquals("open", single.requests.getLast().getStringOr("action", ""));
         assertEquals("source-0", single.requests.getLast().getStringOr("source", ""));
         var empty = new Fixture(0);
         empty.click(25);
-        empty.click(41);
+        empty.click(MACHINE_ROW);
+        empty.click(PROVIDER_ROW);
         assertEquals(1, empty.requests.size());
         assertTrue(empty.chat.isEmpty());
     }
 
     @Test void providerChooserPagesAndEscapeClosesOnlyThePopup() {
         var fixture = new Fixture(6);
-        fixture.click(41);
+        fixture.click(PROVIDER_ROW);
         fixture.arrange();
         var wheel = UIEvent.create(UIEvents.MOUSE_WHEEL);
         wheel.target = fixture.popup;
@@ -157,12 +158,31 @@ class ComputationItemActionsPopupTest {
     @Test void disabledActionsCollectTheirTooltipWithoutMouseCoordinatesInTheEvent() throws Exception {
         var fixture = new Fixture(0);
         set(fixture.ui, "lastMouseX", fixture.popup.getPositionX() + 10);
-        for (int top : new int[] {25, 41}) {
+        for (int top : new int[] {25, PROVIDER_ROW}) {
             set(fixture.ui, "lastMouseY", fixture.popup.getPositionY() + top);
             var tooltip = fixture.popup.collectHoverTooltips();
             assertNotNull(tooltip);
             assertEquals(List.of(Component.translatable("gui.neoecoae.processing.no_pattern")), tooltip.tooltips().stream().filter(net.minecraft.network.chat.Component.class::isInstance).map(net.minecraft.network.chat.Component.class::cast).toList());
         }
+        set(fixture.ui, "lastMouseY", fixture.popup.getPositionY() + MACHINE_ROW);
+        var tooltip = fixture.popup.collectHoverTooltips();
+        assertNotNull(tooltip);
+        assertEquals(List.of(Component.translatable("gui.neoecoae.processing.no_machine")), cn.dancingsnow.neoecoae.gui.common.UiTestRendering.tooltipTexts(tooltip));
+    }
+
+    @Test void machinesOpenDirectlyOrThroughTheChooserWithTheirOwnAction() {
+        var single = new Fixture(1, 1);
+        single.click(MACHINE_ROW);
+        assertEquals("open_machine", single.requests.getLast().getStringOr("action", ""));
+        assertEquals("machine-0", single.requests.getLast().getStringOr("source", ""));
+        assertEquals(single.job, single.requests.getLast().read("job", net.minecraft.core.UUIDUtil.CODEC).orElseThrow());
+        var several = new Fixture(1, 3);
+        several.click(MACHINE_ROW);
+        several.arrange();
+        assertEquals(1, several.requests.size(), "Several machines open the chooser first");
+        several.click(58);
+        assertEquals("open_machine", several.requests.getLast().getStringOr("action", ""));
+        assertEquals("machine-1", several.requests.getLast().getStringOr("source", ""));
     }
 
     // 26.1 port: GUI rendering is deferred to strata in GuiRenderState, so the old depth (z > 200) and flush()
@@ -189,6 +209,9 @@ class ComputationItemActionsPopupTest {
         assertEquals(new org.joml.Matrix3x2f(), new org.joml.Matrix3x2f(pose), "the popup must restore the enclosing GUI pose");
     }
 
+    // Menu rows: locate (22..38), open machine (38..54), open provider (54..70).
+    private static final int MACHINE_ROW = 41, PROVIDER_ROW = 57;
+
     private static void set(Object target, String name, Object value) throws Exception {
         var field = target.getClass().getDeclaredField(name);
         field.setAccessible(true);
@@ -201,16 +224,21 @@ class ComputationItemActionsPopupTest {
         final List<CompoundTag> highlights = new ArrayList<>();
         final ComputationItemActionsPopup popup = new ComputationItemActionsPopup(registries,
             request -> requests.add(request.copy()), chat::add, source -> highlights.add(source.copy()));
-        final UIElement root = new UIElement().layout(layout -> layout.width(326).height(254));
+        final UIElement root = new UIElement().layout(layout ->
+            layout.width(ComputationCpuStatusPanel.WIDTH).height(ComputationCpuStatusPanel.HEIGHT));
         final ComputationCpuItemEntry item = new ComputationCpuItemEntry(AEItemKey.of(Items.STONE),
             BigInteger.ZERO, BigInteger.ONE, BigInteger.TEN, false);
         final com.lowdragmc.lowdraglib2.gui.ui.ModularUI ui = com.lowdragmc.lowdraglib2.gui.ui.ModularUI.of(com.lowdragmc.lowdraglib2.gui.ui.UI.of(root));
         final UUID job = UUID.randomUUID();
-        final int count;
+        final int count, machines;
         Fixture(int count) {
+            this(count, 0);
+        }
+        Fixture(int count, int machines) {
             this.count = count;
+            this.machines = machines;
             root.addChild(popup);
-            popup.open(item, 320, 250);
+            popup.open(item, ComputationCpuStatusPanel.WIDTH - 6, ComputationCpuStatusPanel.HEIGHT - 4);
             popup.accept(response());
             arrange();
         }
@@ -231,10 +259,20 @@ class ComputationItemActionsPopupTest {
                 sources.add(source);
             }
             response.put("sources", sources);
+            var machineList = new ListTag();
+            for (int i = 0; i < machines; i++) {
+                var machine = new CompoundTag();
+                machine.putString("id", "machine-" + i);
+                machine.putString("name", net.minecraft.network.chat.ComponentSerialization.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, Component.literal("Machine " + i)).getOrThrow().toString());
+                machine.putString("dimension", "minecraft:overworld");
+                machine.putLong("position", new BlockPos(i, 70, 20).asLong());
+                machineList.add(machine);
+            }
+            response.put("machines", machineList);
             return response;
         }
         void arrange() {
-            ui.init(326, 254);
+            ui.init(ComputationCpuStatusPanel.WIDTH, ComputationCpuStatusPanel.HEIGHT);
             // LDLib2 refreshes this during rendering before it routes mouse events.
             try {
                 var hovered = com.lowdragmc.lowdraglib2.gui.ui.ModularUI.class.getDeclaredField("lastHoveredElement");

@@ -2,12 +2,11 @@ package cn.dancingsnow.neoecoae.gui.computation;
 
 import appeng.client.api.AEKeyRendering;
 import appeng.api.config.CpuSelectionMode;
-import appeng.util.Icon;
-import appeng.client.gui.style.Blitter;
+import appeng.api.networking.crafting.ICraftingCPU;
+import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import appeng.client.gui.widgets.Scrollbar;
-import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
-import appeng.core.localization.Tooltips;
+import cn.dancingsnow.neoecoae.gui.crafting.CraftingListCard;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation;
@@ -23,9 +22,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import net.minecraft.client.renderer.RenderPipelines;
 import dev.vfyjxf.taffy.style.TaffyPosition;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.function.IntConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -56,7 +53,7 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
     private long scrollSequence;
 
     ComputationCpuSelector(ComputationControllerUI.Config config, IntConsumer openDetails,
-            CpuSelectionState.Identities<ECOCraftingCPU> identities) {
+            CpuSelectionState.Identities<ICraftingCPU> identities) {
         super(new CompoundTag());
         this.config = config;
         this.openDetails = openDetails;
@@ -128,7 +125,7 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
         });
         hitbox.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
             ComputationCpuEntry entry = rowEntry(row);
-            if (entry != null) event.hoverTooltips = HoverTooltips.empty().append(tooltip(entry).toArray(Component[]::new));
+            if (entry != null) event.hoverTooltips = CraftingListCard.hover(ComputationCards.cpu(entry));
         });
         return hitbox;
     }
@@ -177,22 +174,22 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
         context.drawTexture(chosen ? selected : normal, x, y, ROW_WIDTH, ROW_HEIGHT);
         int color = 0x413F54;
         text(context, font, name(entry).getString(), x + 3, y + 2, 50, 0.666F, color);
-        context.graphics.blit(RenderPipelines.GUI_TEXTURED, entry.overlay(), Math.round(x + 55), Math.round(y), 0, 0, 10, 10, 10, 10);
+        if (entry.overlay() != null) context.graphics.blit(entry.overlay(), Math.round(x + 55), Math.round(y), 0, 0, 10, 10, 10, 10);
         if (entry.output() != null && !entry.status().equals("idle")) {
-            icon(context, Icon.S_CRAFT, x + 2, y + 10);
+            icon(context, ECOIcon.S_CRAFT, x + 2, y + 10);
             fittedText(context, font, entry.amount(entry.requested(), false), x + 14, y + 13, 39, 0.666F, color);
             key(context, entry, x + 55, y + 10, 0.625F);
             context.graphics.fill(Math.round(x + 1), Math.round(y + 20), Math.round(x + 1 + progress * 66), Math.round(y + 21),
                 chosen ? 0xFF7DA9D2 : 0xFFACE9FF);
         } else {
             if (entry.parallel() > 0) {
-                icon(context, Icon.S_PROCESSOR, x + 2, y + 10);
+                icon(context, ECOIcon.S_PROCESSOR, x + 2, y + 10);
                 fittedText(context, font, HostText.ae2Amount(entry.parallel()), x + 14, y + 13, 12, 0.666F, color);
             }
-            icon(context, Icon.S_STORAGE, x + 27, y + 10);
+            icon(context, ECOIcon.S_STORAGE, x + 27, y + 10);
             fittedText(context, font, entry.storageText(), x + 39, y + 13,
                 entry.mode() == CpuSelectionMode.ANY ? 26 : 15, 0.666F, color);
-            if (entry.mode() != CpuSelectionMode.ANY) icon(context, entry.mode() == CpuSelectionMode.PLAYER_ONLY ? Icon.S_TERMINAL : Icon.S_MACHINE, x + 55, y + 10);
+            if (entry.mode() != CpuSelectionMode.ANY) icon(context, entry.mode() == CpuSelectionMode.PLAYER_ONLY ? ECOIcon.S_TERMINAL : ECOIcon.S_MACHINE, x + 55, y + 10);
         }
     }
 
@@ -221,10 +218,10 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
         context.graphics.pose().popMatrix();
     }
 
-    private static void icon(GUIContext context, Icon icon, float x, float y) {
+    private static void icon(GUIContext context, ECOIcon icon, float x, float y) {
         context.graphics.pose().pushMatrix();
         context.graphics.pose().translate(x, y);
-        Blitter.icon(icon).dest(0, 0).blit(context.graphics);
+        icon.blit(context.graphics, 0, 0);
         context.graphics.pose().popMatrix();
     }
 
@@ -234,23 +231,6 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
 
     static Component status(ComputationCpuEntry entry) {
         return Component.translatable("gui.neoecoae.cpu.status." + entry.status());
-    }
-
-    static List<Component> tooltip(ComputationCpuEntry entry) {
-        List<Component> lines = new ArrayList<>();
-        lines.add(name(entry));
-        lines.add(status(entry));
-        lines.add(ButtonToolTips.CpuStatusStorage.text(Component.literal(entry.fullStorageText()).withStyle(Tooltips.NUMBER_TEXT)));
-        lines.add(ButtonToolTips.CpuStatusCoProcessors.text(Tooltips.ofNumber(entry.parallel())));
-        if (entry.mode() != CpuSelectionMode.ANY) lines.add(entry.mode() == CpuSelectionMode.PLAYER_ONLY
-            ? ButtonToolTips.CpuSelectionModePlayersOnly.text() : ButtonToolTips.CpuSelectionModeAutomationOnly.text());
-        if (entry.output() != null) {
-            lines.add(entry.output().getDisplayName());
-            lines.add(Component.translatable("gui.neoecoae.cpu.remaining", entry.amount(entry.remaining(), true)));
-            lines.add(Component.translatable("gui.neoecoae.big_order.requested", entry.amount(entry.requested(), true)));
-            lines.add(ButtonToolTips.CpuStatusCraftedIn.text(Tooltips.ofPercent(entry.progress()), Tooltips.ofDuration(entry.elapsed(), TimeUnit.NANOSECONDS)));
-        }
-        return lines;
     }
 
     private static IGuiTexture sprite(int x, int y, int width, int height) {
@@ -263,16 +243,16 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
 
     private static final class ServerState {
         private final ComputationControllerUI.Config config;
-        private final CpuSelectionState<ECOCraftingCPU> selection;
+        private final CpuSelectionState<ICraftingCPU> selection;
         private CompoundTag cached;
         private long sampledTick = Long.MIN_VALUE, revision, scrollSequence;
 
-        private ServerState(ComputationControllerUI.Config config, CpuSelectionState.Identities<ECOCraftingCPU> identities) {
+        private ServerState(ComputationControllerUI.Config config, CpuSelectionState.Identities<ICraftingCPU> identities) {
             this.config = config;
             selection = new CpuSelectionState<>(ROWS, identities);
         }
         private void refresh() {
-            selection.update(config.cpus().get(), ECOCraftingCPU::isBusy,
+            selection.update(config.cpus().get(), ICraftingCPU::isBusy,
                 cpu -> cpu.getName() == null ? null : cpu.getName().getString());
         }
         private void select(int serial) {
@@ -303,7 +283,7 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
             tag.putInt("selectedSerial", selection.selectedSerial());
             var registries = config.registries();
             ListTag page = new ListTag();
-            for (ECOCraftingCPU cpu : selection.page()) page.add(ComputationCpuEntry.sample(cpu, selection.serial(cpu)).write(registries));
+            for (ICraftingCPU cpu : selection.page()) page.add(ComputationCpuEntry.sample(cpu, selection.serial(cpu)).write(registries));
             tag.put("page", page);
             return cached = tag;
         }

@@ -12,7 +12,7 @@ import java.util.function.Predicate;
 
 /** Menu-local CPU identities survive list changes; removed identities are never reassigned. */
 final class CpuSelectionState<T> {
-    private final int rows;
+    private int rows;
     private final Identities<T> identities;
     private List<T> entries = List.of();
     private int selectedSerial = -1;
@@ -28,7 +28,7 @@ final class CpuSelectionState<T> {
         this.identities = identities;
     }
 
-    void update(List<T> cpus, Predicate<T> busy, Function<T, String> name) {
+    void update(List<? extends T> cpus, Predicate<T> busy, Function<T, String> name) {
         ReferenceSet<T> present = new ReferenceOpenHashSet<>(cpus.size());
         List<T> next = new ArrayList<>();
         for (T cpu : cpus) {
@@ -46,6 +46,12 @@ final class CpuSelectionState<T> {
                 .orElse(entries.isEmpty() ? null : entries.getFirst());
             selectedSerial = fallback == null ? -1 : serial(fallback);
         }
+        scroll(offset);
+    }
+
+    /** The visible row count follows the stretched status page; offsets stay within the new page. */
+    void rows(int rows) {
+        this.rows = Math.max(1, rows);
         scroll(offset);
     }
 
