@@ -17,7 +17,7 @@ final class GraphVisibilityCache {
             var nodes = next.query(nextArea, LIVE_LIMIT + 1);
             visible = new GraphRenderer.VisiblePlan(nodes,
                 nodes.size() > LIVE_LIMIT ? List.of() : next.queryLinks(nextArea),
-                next.nodeCount(nextArea), next.edgeCount(nextArea));
+                next.nodeCount(nextArea));
         }
         return visible;
     }

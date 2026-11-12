@@ -20,6 +20,7 @@ final class RecursiveCycleLayout implements GraphLayoutEngine {
     private static final float GAP = CompactTreeLayout.SIBLING_GAP;
     private static final float LANE_GAP = 6;
     private static final float EDGE_GAP = 12;
+    private static final float REGION_BOTTOM_PADDING = 6;
     private static final float RESULT_GAP = 44;
     private static final float STEP_SIZE = 20;
     private static final float INPUT_Y = -HEIGHT - 40;
@@ -106,7 +107,8 @@ final class RecursiveCycleLayout implements GraphLayoutEngine {
             Box from = boxes.get(link.fromId()), to = boxes.get(link.toId());
             boolean external = graph.nodes().get(link.fromId()).recursion().role() == Role.INPUT;
             if (external) {
-                float bendY = from.y() + from.height() + 8;
+                // Keep the horizontal input collector below the region frame, not alongside its bottom edge.
+                float bendY = from.y() + from.height() + REGION_BOTTOM_PADDING + EDGE_GAP;
                 routes.put(link, List.of(new Point(from.centerX(), from.y() + from.height()),
                     new Point(from.centerX(), bendY), new Point(to.centerX(), bendY), new Point(to.centerX(), to.y())));
             } else {
@@ -181,7 +183,8 @@ final class RecursiveCycleLayout implements GraphLayoutEngine {
             right = Math.max(right, box.x() + box.width()); bottom = Math.max(bottom, box.y() + box.height());
         }
         float padding = Math.max(6, (60 - (right - left)) / 2);
-        regions.add(new RecursionRegion(role, level, new Bounds(left - padding, top - header, right + padding, bottom + 6)));
+        regions.add(new RecursionRegion(role, level,
+            new Bounds(left - padding, top - header, right + padding, bottom + REGION_BOTTOM_PADDING)));
     }
 
     private static float width(int count) { return Math.max(0, count * (WIDTH + GAP) - GAP); }

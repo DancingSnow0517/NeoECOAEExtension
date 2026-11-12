@@ -40,7 +40,6 @@ final class GraphTileCache<T extends GraphTileCache.Tile> implements AutoCloseab
 
     private final Map<Key, Entry<T>> tiles = new LinkedHashMap<>(16, 0.75f, true);
     private List<Spec> visible = List.of();
-    private Bounds viewport;
     private Object content;
     private double guiScale;
     private int cursor;
@@ -51,11 +50,10 @@ final class GraphTileCache<T extends GraphTileCache.Tile> implements AutoCloseab
             content = nextContent;
             guiScale = nextGuiScale;
         }
-        viewport = nextViewport;
-        float left = Math.max(viewport.left(), drawing.left() - 32);
-        float top = Math.max(viewport.top(), drawing.top() - 32);
-        float right = Math.min(viewport.right(), drawing.right() + 32);
-        float bottom = Math.min(viewport.bottom(), drawing.bottom() + 32);
+        float left = Math.max(nextViewport.left(), drawing.left() - 32);
+        float top = Math.max(nextViewport.top(), drawing.top() - 32);
+        float right = Math.min(nextViewport.right(), drawing.right() + 32);
+        float bottom = Math.min(nextViewport.bottom(), drawing.bottom() + 32);
         if (right <= left || bottom <= top) {
             visible = List.of();
             return;
@@ -122,25 +120,20 @@ final class GraphTileCache<T extends GraphTileCache.Tile> implements AutoCloseab
     }
 
     List<Entry<T>> drawable() {
-        if (visible.isEmpty()) return List.of();
         List<Entry<T>> result = new ArrayList<>();
-        boolean unfinished = false;
-        for (var spec : visible) {
-            var entry = tiles.get(spec.key());
-            if (entry == null || !entry.complete) unfinished = true;
-            if (entry != null && !entry.complete) result.add(entry);
-        }
-        if (unfinished) {
-            var key = visible.get(0).key();
-            for (var entry : tiles.values()) {
-                var other = entry.spec.key();
-                if (entry.complete && other.level() != key.level()
-                        && entry.spec.bounds().intersects(viewport)) result.add(entry);
-            }
-        }
         for (var spec : visible) {
             var entry = tiles.get(spec.key());
             if (entry != null && entry.complete) result.add(entry);
+        }
+        return result;
+    }
+
+    /** Unfinished tiles are painted live until their complete replacement is ready. */
+    List<Bounds> unfinished() {
+        List<Bounds> result = new ArrayList<>();
+        for (var spec : visible) {
+            var entry = tiles.get(spec.key());
+            if (entry == null || !entry.complete) result.add(spec.bounds());
         }
         return result;
     }
@@ -153,7 +146,6 @@ final class GraphTileCache<T extends GraphTileCache.Tile> implements AutoCloseab
         tiles.values().forEach(entry -> entry.tile.close());
         tiles.clear();
         visible = List.of();
-        viewport = null;
         content = null;
         cursor = 0;
     }
