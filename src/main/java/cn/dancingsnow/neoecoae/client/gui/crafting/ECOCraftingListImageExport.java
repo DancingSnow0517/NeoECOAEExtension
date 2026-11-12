@@ -47,11 +47,14 @@ final class ECOCraftingListImageExport {
     private static final long MAX_IMAGE_PIXELS = 64L * 1024 * 1024;
     private static final int LINE_HEIGHT = 11;
     private static final int CARD_WIDTH = TABLE_WIDTH - 1;
-    private static final int ACCENT = 0xFFC899FF;
-    private static final int MUTED = 0xFFA9A3C5;
+    // The report's light outer panel needs dark text; inset table cells need light text.
+    private static final int ACCENT = 0xFF321B40;
+    private static final int TEXT = 0xFF181C28;
+    private static final int SECONDARY = 0xFF232633;
+    private static final int PANEL_TEXT = 0xFFF2F3F7;
+    private static final int REQUEST = 0xFF493000;
     private static final int CYAN = 0xFF55F4ED;
     private static final int GOLD = 0xFFFFC857;
-    private static final int HEADER_BACKGROUND = 0xFF353344;
 
     record Entry(AEKey key, List<Component> description, int overlay, Component type) {}
     record Header(Component target, Component requested, Component elapsed, Component bytes,
@@ -185,7 +188,8 @@ final class ECOCraftingListImageExport {
             boolean first = strip.firstRow() == 0;
             int tableY = first ? headerHeight : 0;
             renderBackground(screen.getStyle().getBackground(), graphics, strip, tableY, first, last, leftEdge, rightEdge);
-            if (first && header != null) renderHeader(graphics, client.font, header, materialCount);
+            if (first && header != null) renderHeader(graphics, client.font, header, materialCount,
+                screen.getStyle().getBackground());
             if (first && !legend.isEmpty()) renderLegend(screen, graphics, client.font, legend);
             new ExportTable(screen, tableY, strip.endRow() - strip.firstRow())
                 .render(graphics, -1_000_000, -1_000_000, entries, strip.firstRow());
@@ -229,7 +233,7 @@ final class ECOCraftingListImageExport {
                 .dest(TABLE_X, cellY).blit(graphics);
             new ExportTable(screen, cellY, 1).render(graphics, -1_000_000, -1_000_000, List.of(entry), 0);
             wrapped(graphics, font, entry.type(), TABLE_X + 77,
-                y + (rowHeight - font.split(entry.type(), 116).size() * LINE_HEIGHT) / 2, 116, 0xFFF0EAF9, false);
+                y + (rowHeight - font.split(entry.type(), 116).size() * LINE_HEIGHT) / 2, 116, TEXT, false);
             y += rowHeight + 10;
         }
     }
@@ -250,30 +254,31 @@ final class ECOCraftingListImageExport {
                 "gui.neoecoae.crafting_report.card.incomplete_hint"), CARD_WIDTH - 16).size() * LINE_HEIGHT + 4 : 0);
     }
 
-    private static void renderHeader(GuiGraphics graphics, Font font, Header header, int materialCount) {
+    private static void renderHeader(GuiGraphics graphics, Font font, Header header, int materialCount,
+            Blitter background) {
         int x = TABLE_X - 1, y = MARGIN, width = CARD_WIDTH;
         int left = x + 8, right = x + width - 8;
         fitted(graphics, font, Component.literal("✦ ").append(Component.translatable(
             "gui.neoecoae.crafting_report.export_title").withStyle(ChatFormatting.BOLD)),
             left, y + 10, width - 78, 1, ACCENT, false);
-        fitted(graphics, font, Component.literal("ME CRAFTING"), right, y + 12, 56, 0.65F, MUTED, true);
+        fitted(graphics, font, Component.literal("ME CRAFTING"), right, y + 12, 56, 0.85F, SECONDARY, true);
         graphics.fill(left, y + 30, right, y + 31, 0xFF514064);
         int rowY = y + 42;
-        wrapped(graphics, font, header.target(), left, rowY, 120, 0xFFF0EAF9, false);
-        wrapped(graphics, font, header.requested(), right, rowY, width - 144, GOLD, true);
+        wrapped(graphics, font, header.target(), left, rowY, 120, TEXT, false);
+        wrapped(graphics, font, header.requested(), right, rowY, width - 144, REQUEST, true);
         rowY += requestHeight(font, header) + 6;
         fitted(graphics, font, Component.translatable("gui.neoecoae.crafting_report.card.title"),
-            left, rowY, width - 16, 0.8F, MUTED, false);
+            left, rowY, width - 16, 1, SECONDARY, false);
         rowY += 14;
         int elapsedHeight = valueHeight(font, header.elapsed());
         int bytesHeight = valueHeight(font, header.bytes());
-        panel(graphics, left, rowY, width - 16, elapsedHeight + bytesHeight + 18, 0xFF423E53);
+        panel(background, graphics, left, rowY, width - 16, elapsedHeight + bytesHeight + 18);
         fitted(graphics, font, Component.translatable("gui.neoecoae.crafting_report.card.elapsed"),
-            left + 6, rowY + 7, 58, 0.85F, MUTED, false);
+            left + 6, rowY + 7, 58, 1, PANEL_TEXT, false);
         wrapped(graphics, font, header.elapsed(), right - 6, rowY + 7, width - 84, CYAN, true);
         fitted(graphics, font, Component.translatable("gui.neoecoae.crafting_report.card."
             + (header.partialBytes() ? "bytes_partial" : "bytes")),
-            left + 6, rowY + elapsedHeight + 11, 58, 0.85F, MUTED, false);
+            left + 6, rowY + elapsedHeight + 11, 58, 1, PANEL_TEXT, false);
         wrapped(graphics, font, header.bytes(), right - 6, rowY + elapsedHeight + 11, width - 84, CYAN, true);
         rowY += elapsedHeight + bytesHeight + 23;
         Component[] values = {header.patterns(), header.cycles(), Component.literal(Integer.toString(materialCount))};
@@ -283,22 +288,22 @@ final class ECOCraftingListImageExport {
         for (int i = 0; i < values.length; i++) {
             int tileLeft = left + i * (width - 12) / 3;
             int tileWidth = (width - 28) / 3;
-            panel(graphics, tileLeft, rowY, tileWidth, 33, 0xFF423E53);
+            panel(background, graphics, tileLeft, rowY, tileWidth, 33);
             int center = tileLeft + tileWidth / 2;
             fitted(graphics, font, values[i].copy().withStyle(ChatFormatting.BOLD), center,
                 rowY + 7, tileWidth - 8, 1.1F, GOLD, false, true);
-            fitted(graphics, font, labels[i], center, rowY + 23, tileWidth - 6, 0.65F, MUTED, false, true);
+            fitted(graphics, font, labels[i], center, rowY + 23, tileWidth - 6, 1, PANEL_TEXT, false, true);
         }
         rowY += 39;
         if (header.partialBytes()) {
             rowY += wrapped(graphics, font, Component.translatable("gui.neoecoae.crafting_report.card.incomplete_hint"),
-                left, rowY, width - 16, GOLD, false) + 4;
+                left, rowY, width - 16, REQUEST, false) + 4;
         }
         graphics.fill(left, rowY, right, rowY + 1, 0xFF514064);
         fitted(graphics, font, Component.translatable("gui.neoecoae.crafting_report.export_title"),
-            left, rowY + 10, (width - 20) / 2, 0.6F, MUTED, false);
+            left, rowY + 10, (width - 20) / 2, 1, SECONDARY, false);
         fitted(graphics, font, Component.translatable("gui.neoecoae.crafting_report.export_materials", materialCount),
-            right, rowY + 10, (width - 20) / 2, 0.6F, ACCENT, true);
+            right, rowY + 10, (width - 20) / 2, 1, ACCENT, true);
     }
 
     private static int wrapped(GuiGraphics graphics, Font font, Component text, int x, int y,
@@ -331,11 +336,10 @@ final class ECOCraftingListImageExport {
         }
     }
 
-    private static void panel(GuiGraphics graphics, int x, int y, int width, int height, int color) {
-        // Two-pixel corners remain crisp at the export's integer render scale.
-        graphics.fill(x + 2, y, x + width - 2, y + height, color);
-        graphics.fill(x, y + 2, x + width, y + height - 2, color);
-        graphics.fill(x + 1, y + 1, x + width - 1, y + height - 1, color);
+    private static void panel(Blitter background, GuiGraphics graphics, int x, int y, int width, int height) {
+        background.copy().src(background.getSrcX() + TABLE_X,
+            background.getSrcY() + TABLE_TEXTURE_Y + ROW_HEIGHT, 1, 1)
+            .dest(x, y, width, height).blit(graphics);
     }
 
     private static void renderBackground(Blitter background, GuiGraphics graphics, Strip strip,
@@ -347,7 +351,6 @@ final class ECOCraftingListImageExport {
         background.copy().src(x + background.getSrcWidth() - 2, y + 27, 2, 1)
             .dest(WIDTH - 2, 0, 2, strip.height()).blit(graphics);
         if (first) {
-            graphics.fill(0, 0, WIDTH, tableY - 1, HEADER_BACKGROUND);
             background.copy().src(x + TABLE_X - 1, y + TABLE_TEXTURE_Y - 1, TABLE_WIDTH, 1)
                 .dest(TABLE_X - 1, tableY - 1).blit(graphics);
         }
