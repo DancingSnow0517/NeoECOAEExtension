@@ -59,6 +59,8 @@ class ECOInfiniteStorageAccessTest {
         field(host, "infiniteModeController", new ECOInfiniteStorageModeController(host));
         field(host, "interfaceTransfer", new ECOStorageInterfaceTransfer(host));
         field(host, "infiniteMemberIds", new HashSet<UUID>());
+        field(host, "invalidInfiniteMemberIds", new net.minecraft.nbt.ListTag());
+        field(host, "invalidInfiniteMigrationSourceIds", new net.minecraft.nbt.ListTag());
         field(host, "infiniteMembersDirty", true);
         doReturn(Blocks.STONE.defaultBlockState()).when(host).getBlockState();
         doReturn(false).when(host).isStorageServerStopping();

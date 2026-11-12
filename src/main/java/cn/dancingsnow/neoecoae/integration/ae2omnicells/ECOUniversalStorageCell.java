@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.ae2omnicells;
 
+import static cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingAdd;
+
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
@@ -172,13 +174,6 @@ public final class ECOUniversalStorageCell implements IECOStorageMigrationCell {
         }
         long quotient = dividend / divisor;
         return dividend % divisor == 0L ? quotient : saturatingAdd(quotient, 1L);
-    }
-
-    private static long saturatingAdd(long left, long right) {
-        if (right > 0L && left > Long.MAX_VALUE - right) {
-            return Long.MAX_VALUE;
-        }
-        return left + right;
     }
 
     private StorageSnapshot snapshot() {

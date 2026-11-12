@@ -152,8 +152,11 @@ public final class ECOInfiniteStorageTransfer {
             budget.consume();
         }
         if (cursor.index < cursor.keys.length) return StepResult.IN_PROGRESS;
-        var commit = engine.commit();
+        if (cursor.checkpoint == null) cursor.checkpoint = engine.checkpoint();
+        if (!cursor.checkpoint.isDone()) return StepResult.IN_PROGRESS;
+        var commit = cursor.checkpoint.getNow(null);
         if (!commit.successful()) {
+            cursor.checkpoint = null;
             return StepResult.blocked(ECOInfiniteStorageEngine.MigrationBlock.Kind.COMMIT_FAILED,
                     commit.failure() == null ? "" : commit.failure());
         }
@@ -196,6 +199,7 @@ public final class ECOInfiniteStorageTransfer {
         private final long[] amounts;
         private int index;
         private String tag;
+        private java.util.concurrent.CompletableFuture<ECOInfiniteStorageEngine.CommitResult> checkpoint;
 
         private Cursor(Object source, IECOStorageMigrationCell cell, Iterator<Object2LongMap.Entry<AEKey>> entries) {
             this.source = source;

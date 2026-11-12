@@ -19,7 +19,11 @@ import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.api.storage.IECOConfigurableCellDrive;
+import cn.dancingsnow.neoecoae.api.storage.ECOStorageCellPriorities;
+import cn.dancingsnow.neoecoae.api.storage.ECOStorageCellPriorities.Target;
 import cn.dancingsnow.neoecoae.api.storage.IECOStoragePriorityHost;
+import cn.dancingsnow.neoecoae.api.storage.IECOConfigurableCellHost;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
@@ -28,7 +32,7 @@ import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostActionUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI;
 import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
-import cn.dancingsnow.neoecoae.gui.storage.StoragePriorityUI;
+import cn.dancingsnow.neoecoae.gui.storage.StorageCellPriorityUI;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
@@ -73,7 +77,7 @@ import org.slf4j.LoggerFactory;
 
 public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster, ECOStorageSystemBlockEntity>
         implements ISyncPersistRPCBlockEntity, InternalInventoryHost, IStorageProvider, MultiBlockBuildController.Host,
-        IECOStoragePriorityHost {
+        IECOStoragePriorityHost, IECOConfigurableCellHost {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOStorageSystemBlockEntity.class);
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
     private static final long STORAGE_INTERFACE_TRANSFER_NANOS_PER_TICK = 2_000_000L;
@@ -101,8 +105,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     @Persisted
     @DescSynced
     private int storagePriority;
-    private record CellPriorityTarget(BlockPos position, UUID installation) {}
-    private final Map<UUID, CellPriorityTarget> cellPriorityTargets = new java.util.HashMap<>();
+    private final ECOStorageCellPriorities cellPriorities = new ECOStorageCellPriorities(
+        this::getConfigurableCellDrives,
+        player -> level != null && player.level() == level && isFormed() && canPlayerInteract(player));
     @Persisted
     @DescSynced
     private ECOStorageHostMode hostMode = ECOStorageHostMode.UNFORMED;
@@ -119,11 +124,13 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
      * Migration ids which must be seen and completed before the host may enter FORMED_INFINITE.
      */
     private final java.util.Set<UUID> infiniteMigrationSourceIds = new java.util.HashSet<>();
+    // Preserve unknown roster entries verbatim; dropping one would falsely authorize leaving the domain.
+    private final net.minecraft.nbt.ListTag invalidInfiniteMemberIds = new net.minecraft.nbt.ListTag();
+    private final net.minecraft.nbt.ListTag invalidInfiniteMigrationSourceIds = new net.minecraft.nbt.ListTag();
 
     @Persisted(key = INFINITE_COMPONENT_INVENTORY_PERSIST_KEY)
-    // Keep the component inventory persisted and exposed to the regular UI container, but do not include
-    // every ItemStack in LDLib's descriptive/advanced-data synchronization packet. A populated infinite
-    // component inventory can exceed the packet's fixed 2392-byte buffer before the UI is even opened.
+    @com.lowdragmc.lowdraglib2.syncdata.annotation.LazyManaged
+    // Inventory callbacks mark it dirty on the server; the UI container synchronizes its slot separately.
     private final AppEngInternalInventory infiniteComponentInventory = new AppEngInternalInventory(this, 1, INFINITE_COMPONENT_REQUIRED);
     // Keep LDLib-managed fields on the block entity; delegate domain-specific behavior and caches.
     private final ECOStorageHostStatistics statistics = new ECOStorageHostStatistics(this);
@@ -287,19 +294,11 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             return;
         }
         performanceAverageNanos = nextAverageNanos;
-        setChanged();
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         StorageHostActionUI.Elements actionUI = createActionUI(holder);
-        final CellPriorityTarget[] selectedCellPriority = {null};
-        UIElement cellPriorityWindow = StoragePriorityUI.createFloatingPanel(new StoragePriorityUI.Config(
-            () -> getCellPriority(holder.player, selectedCellPriority[0]),
-            priority -> setCellPriorityFromUi(holder.player, selectedCellPriority[0], priority),
-            delta -> changeCellPriorityFromUi(holder.player, selectedCellPriority[0], delta),
-            () -> net.minecraft.network.chat.Component.translatable(
-                "gui.neoecoae.storage.cell.priority.title")
-        ));
+        var cellPriorityWindow = new StorageCellPriorityUI(holder.player, cellPriorities);
 
         UIElement root = StorageHostUI.create(new StorageHostUI.Config(
                 () -> getItemFromBlockEntity().getDefaultInstance().getItemName(),
@@ -328,13 +327,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 },
                 new StorageHostUI.CellActions(
                     (position, expected) -> markAndMigrateBulkCell(holder.player, position, expected),
-                    (position, expected) -> {
-                        selectedCellPriority[0] = new CellPriorityTarget(position, expected);
-                        cellPriorityWindow.setDisplay(true);
-                        if (level != null && level.isClientSide()) {
-                            rpcToServer("selectCellPriority", position, expected);
-                        }
-                    },
+                    cellPriorityWindow::openPriority,
                     position -> holder.player.sendOverlayMessage(
                         net.minecraft.network.chat.Component.translatable(
                             "gui.neoecoae.storage.bulk_cell.compression_display.reserved")),
@@ -343,87 +336,37 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 )
         ), this::getTier, this::getBlockState);
         actionUI.addTo(root);
-        root.addChild(cellPriorityWindow);
+        root.addChild(cellPriorityWindow.window());
         return ECOModularUI.create(root, holder.player);
-    }
-
-    @Nullable
-    private ECODriveBlockEntity configurableDrive(Player player, @Nullable CellPriorityTarget target) {
-        if (target == null || !isFormed() || !canPlayerInteract(player)) return null;
-        for (var drive : getStorageDrivesForIntegration()) {
-            if (!drive.isRemoved() && drive.getBlockPos().equals(target.position())
-                && target.installation().equals(drive.getCellInteractionId())
-                && drive.canExtractCell() && drive.getCellStack() != null
-                && cn.dancingsnow.neoecoae.storage.ECOStorageCellSettings.canConfigure(drive.getCellStack())) return drive;
-        }
-        return null;
-    }
-
-    private int getCellPriority(Player player, @Nullable CellPriorityTarget clientTarget) {
-        var target = level != null && level.isClientSide() ? clientTarget : cellPriorityTargets.get(player.getUUID());
-        var drive = configurableDrive(player, target);
-        return drive == null ? 0 : drive.getConfiguredCellPriority();
-    }
-
-    private void setCellPriorityFromUi(Player player, @Nullable CellPriorityTarget clientTarget, int priority) {
-        if (level != null && level.isClientSide()) {
-            if (clientTarget != null) rpcToServer("setCellPriority", clientTarget.position(), clientTarget.installation(), priority);
-            return;
-        }
-        setConfiguredCellPriority(player, cellPriorityTargets.get(player.getUUID()), priority);
-    }
-
-    private void changeCellPriorityFromUi(Player player, @Nullable CellPriorityTarget clientTarget, int delta) {
-        if (level != null && level.isClientSide()) {
-            if (clientTarget != null) rpcToServer("changeCellPriority", clientTarget.position(), clientTarget.installation(), delta);
-            return;
-        }
-        setConfiguredCellPriority(player, cellPriorityTargets.get(player.getUUID()),
-            StoragePriority.adjust(getCellPriority(player, null), delta));
-    }
-
-    private void setConfiguredCellPriority(Player player, @Nullable CellPriorityTarget target, int priority) {
-        if (level == null || level.isClientSide()) return;
-        var drive = configurableDrive(player, target);
-        if (drive != null) drive.setConfiguredCellPriority(priority);
     }
 
     @RPCMethod
     public void selectCellPriority(RPCSender sender, BlockPos position, UUID expected) {
         if (sender.isServer() || !(level instanceof ServerLevel serverLevel)) return;
         ServerPlayer player = sender.asPlayer();
-        if (player == null || player.level() != serverLevel || !canPlayerInteract(player)) return;
-        var target = new CellPriorityTarget(position, expected);
-        if (configurableDrive(player, target) != null) cellPriorityTargets.put(player.getUUID(), target);
+        if (player == null || player.level() != serverLevel) return;
+        cellPriorities.select(player, new Target(position, expected));
     }
 
     @RPCMethod
     public void setCellPriority(RPCSender sender, BlockPos position, UUID expected, int priority) {
         if (sender.isServer() || !(level instanceof ServerLevel serverLevel)) return;
         ServerPlayer player = sender.asPlayer();
-        if (player == null || player.level() != serverLevel || !canPlayerInteract(player)) return;
-        var target = new CellPriorityTarget(position, expected);
-        if (configurableDrive(player, target) == null) return;
-        cellPriorityTargets.put(player.getUUID(), target);
-        setConfiguredCellPriority(player, target, priority);
+        if (player == null || player.level() != serverLevel) return;
+        cellPriorities.setPriority(player, new Target(position, expected), priority);
     }
 
     @RPCMethod
     public void changeCellPriority(RPCSender sender, BlockPos position, UUID expected, int delta) {
         if (sender.isServer() || !(level instanceof ServerLevel serverLevel)) return;
         ServerPlayer player = sender.asPlayer();
-        if (player == null || player.level() != serverLevel || !canPlayerInteract(player)) return;
-        var target = new CellPriorityTarget(position, expected);
-        if (configurableDrive(player, target) == null) return;
-        cellPriorityTargets.put(player.getUUID(), target);
-        setConfiguredCellPriority(player, target, StoragePriority.adjust(getCellPriority(player, null), delta));
+        if (player == null || player.level() != serverLevel) return;
+        cellPriorities.changePriority(player, new Target(position, expected), delta);
     }
 
-    private void openCellConfiguration(Player player, BlockPos position, UUID expected) {
-        if (level == null || level.isClientSide() || !player.containerMenu.getCarried().isEmpty()
-            || configurableDrive(player, new CellPriorityTarget(position, expected)) == null) return;
-        appeng.menu.MenuOpener.open(appeng.menu.implementations.CellWorkbenchMenu.TYPE, player,
-            new cn.dancingsnow.neoecoae.menu.StorageCellWorkbenchLocator(worldPosition, position, expected));
+    @Override
+    public net.minecraft.world.level.block.entity.BlockEntity getCellWorkbenchBlockEntity() {
+        return this;
     }
 
     private CompoundTag previewBulkCellMigration(Player player, BlockPos position) {
@@ -676,6 +619,11 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return cluster == null ? List.of() : cluster.getDrives();
     }
 
+    /** Drives eligible for the shared cell-priority API; addons may expose their own drive implementations. */
+    public List<? extends IECOConfigurableCellDrive> getConfigurableCellDrives() {
+        return getStorageDrivesForIntegration();
+    }
+
     /**
      * Invalidates host UI data and refreshes AE2 mounts after an integration changes cell configuration.
      */
@@ -775,7 +723,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     public int getMissingInfiniteMembers() {
         if (!isInfiniteMode()) return 0;
-        rememberInfiniteMembers();
         java.util.Set<UUID> missing = new java.util.HashSet<>(infiniteMemberIds);
         if (cluster != null && infiniteDomainId != null) {
             for (ECODriveBlockEntity drive : cluster.getDrives()) {
@@ -784,29 +731,45 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 }
             }
         }
-        return missing.size();
+        return missing.size() + invalidInfiniteMemberIds.size() + invalidInfiniteMigrationSourceIds.size();
+    }
+
+    boolean hasInvalidInfiniteMembers() {
+        return !invalidInfiniteMemberIds.isEmpty() || !invalidInfiniteMigrationSourceIds.isEmpty();
     }
 
     private void saveInfiniteMembers(CompoundTag tag) {
         net.minecraft.nbt.ListTag ids = new net.minecraft.nbt.ListTag();
         for (UUID id : infiniteMemberIds) ids.add(net.minecraft.nbt.StringTag.valueOf(id.toString()));
+        invalidInfiniteMemberIds.forEach(value -> ids.add(value.copy()));
         tag.put("infiniteMemberIds", ids);
         net.minecraft.nbt.ListTag migrations = new net.minecraft.nbt.ListTag();
         for (UUID id : infiniteMigrationSourceIds) {
             migrations.add(net.minecraft.nbt.StringTag.valueOf(id.toString()));
         }
+        invalidInfiniteMigrationSourceIds.forEach(value -> migrations.add(value.copy()));
         tag.put("infiniteMigrationSourceIds", migrations);
     }
 
     private void loadInfiniteMembers(CompoundTag tag) {
         infiniteMembersDirty = true;
         infiniteMemberIds.clear();
+        invalidInfiniteMemberIds.clear();
         for (var value : tag.getListOrEmpty("infiniteMemberIds")) {
-            value.asString().ifPresent(id -> infiniteMemberIds.add(UUID.fromString(id)));
+            try {
+                infiniteMemberIds.add(UUID.fromString(value.asString().orElse("")));
+            } catch (IllegalArgumentException invalid) {
+                invalidInfiniteMemberIds.add(value.copy());
+            }
         }
         infiniteMigrationSourceIds.clear();
+        invalidInfiniteMigrationSourceIds.clear();
         for (var value : tag.getListOrEmpty("infiniteMigrationSourceIds")) {
-            value.asString().ifPresent(id -> infiniteMigrationSourceIds.add(UUID.fromString(id)));
+            try {
+                infiniteMigrationSourceIds.add(UUID.fromString(value.asString().orElse("")));
+            } catch (IllegalArgumentException invalid) {
+                invalidInfiniteMigrationSourceIds.add(value.copy());
+            }
         }
     }
 

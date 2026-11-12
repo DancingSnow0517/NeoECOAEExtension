@@ -45,8 +45,9 @@ public final class ECOInfiniteStorageMember {
     }
 
     public static UUID identity(ItemStack stack) {
+        var existing = getIdentity(stack);
+        if (existing.isPresent()) return existing.get();
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        if (tag.read(IDENTITY_TAG, net.minecraft.core.UUIDUtil.CODEC).isPresent()) return tag.read(IDENTITY_TAG, net.minecraft.core.UUIDUtil.CODEC).orElseThrow();
         UUID identity = UUID.randomUUID();
         tag.store(IDENTITY_TAG, net.minecraft.core.UUIDUtil.CODEC, identity);
         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));

@@ -1,15 +1,14 @@
 package cn.dancingsnow.neoecoae.gui.storage;
+import org.joml.Matrix3x2fStack;
 
 import cn.dancingsnow.neoecoae.gui.common.UiTestRendering;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKeyTypesInternal;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
-import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode;
 import cn.dancingsnow.neoecoae.storage.StorageInterfaceFilter;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
-import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import cn.dancingsnow.neoecoae.gui.common.GuiTestKeys;
 import com.lowdragmc.lowdraglib2.LDLib2;
@@ -28,8 +27,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.layout.LayoutProperties;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.style.PropertyRegistry;
-import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
-import org.joml.Matrix3x2fStack;
+import com.mojang.blaze3d.vertex.PoseStack;
 import dev.vfyjxf.taffy.style.LengthPercentageAuto;
 import dev.vfyjxf.taffy.style.TaffyDimension;
 import dev.vfyjxf.taffy.style.TaffyPosition;
@@ -49,7 +47,6 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.material.Fluids;
-import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidUtil;
 import org.junit.jupiter.api.BeforeAll;
@@ -61,16 +58,7 @@ import static org.mockito.Mockito.*;
 class StorageInterfaceUiTest {
     @BeforeAll
     static void bootstrap() throws ClassNotFoundException {
-        InventoryTestBootstrap.initialize();
-        try (var mods = mockStatic(ModList.class); var registrate = mockStatic(NERegistrate.class)) {
-            ModList modList = mock(ModList.class);
-            when(modList.getAllScanData()).thenReturn(List.of());
-            mods.when(ModList::get).thenReturn(modList);
-            registrate.when(() -> NERegistrate.create("neoecoae")).thenReturn(mock(NERegistrate.class));
-            Class.forName(UIElement.class.getName());
-            Class.forName(NETextures.class.getName());
-            AccessorRegistries.init();
-        }
+        InventoryTestBootstrap.initializeUi();
     }
 
     @Test

@@ -15,6 +15,7 @@ import cn.dancingsnow.neoecoae.integration.biggerae2.BiggerAE2SingularityPowerSe
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import appeng.api.stacks.AEKeyType;
+import appeng.blockentity.networking.CreativeEnergyCellBlockEntity;
 import appeng.api.stacks.AEKeyTypes;
 import appeng.api.storage.cells.CellState;
 import net.minecraft.core.Registry;
@@ -168,6 +169,11 @@ final class ECOStorageHostStatistics {
         for (ECOEnergyCellBlockEntity energyCell : host.getCluster().getEnergyCells()) {
             storedEnergy = NEMath.saturatingAdd(storedEnergy, (long) energyCell.getAECurrentPower());
             maxEnergy = NEMath.saturatingAdd(maxEnergy, (long) energyCell.getAEMaxPower());
+        }
+        var energyGrid = host.getMainNode().getGrid();
+        if (energyGrid != null && !energyGrid.getMachines(CreativeEnergyCellBlockEntity.class).isEmpty()) {
+            // Negative capacity marks unlimited energy, matching the -1 convention for unbounded totals.
+            maxEnergy = -1L;
         }
 
         long energyConsumePerTick = Math.round(host.appliedIdlePower().orElse(

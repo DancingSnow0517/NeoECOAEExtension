@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.integration.appflux.item;
 
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
-import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
@@ -32,7 +32,7 @@ public class ECOFeStorageCellItem extends ECOStorageCellItem {
         KeyCounter availableStacks = handler.getAvailableStacks();
         for (Object2LongMap.Entry<AEKey> entry : availableStacks) {
             if (entry.getKey() instanceof FluxKey fluxKey) {
-                lines.accept(Component.translatable("appflux.cell.storage", Tooltips.ofNumber(entry.getLongValue()), fluxKey.getEnergyType().translate()));
+                lines.accept(Component.translatable("appflux.cell.storage", Component.literal(Long.toString(entry.getLongValue())), fluxKey.getEnergyType().translate()));
             }
         }
     }

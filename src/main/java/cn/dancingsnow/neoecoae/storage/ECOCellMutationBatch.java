@@ -93,6 +93,17 @@ public final class ECOCellMutationBatch implements AutoCloseable {
         }
     }
 
+    /** A closed world's inventories must never be retried against the next integrated server. */
+    public static void clearAfterServerStop() {
+        if (!DEFERRED.isEmpty() || !RETRY.isEmpty() || ACTIVE.get() != null) {
+            LoggerFactory.getLogger(ECOCellMutationBatch.class)
+                    .error("ECO cell persistence remained pending after world shutdown; no post-save writes were attempted");
+        }
+        DEFERRED.clear();
+        RETRY.clear();
+        ACTIVE.remove();
+    }
+
     /** Drops an accidentally unclosed server-thread scope at the server lifecycle boundary. */
     public static void clearThreadState() {
         ECOCellMutationBatch batch = ACTIVE.get();

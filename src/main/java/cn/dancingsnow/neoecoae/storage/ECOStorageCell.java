@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.storage;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.config.Actionable;
 import appeng.api.config.IncludeExclude;
 import appeng.api.ids.AEComponents;
@@ -36,7 +38,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingVersion {
+public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingDelta {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     @Nullable
@@ -44,7 +46,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingV
     private final IBasicECOCellItem cellType;
     @Getter
     private final AEKeyType keyType;
-    // 过滤�?
+    // 过滤器
     @Getter
     private final IPartitionList partitionList;
     @Getter
@@ -60,13 +62,44 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingV
     private long storedItemCount;
     private Object2LongMap<AEKey> storedAmounts;
     private long contentRevision;
+    private StorageChangeLog changes;
+    private Object listingIdentity = new Object();
+    private final ECOStorageListingCache listing = new ECOStorageListingCache();
 
     public long contentRevision() { return contentRevision; }
 
     @Override
     public long neoecoae$listingVersion() {
         // Subclasses whose listing depends on other state must opt in by overriding this.
-        return getClass() == ECOStorageCell.class ? contentListingVersion() : UNKNOWN;
+        if (getClass() != ECOStorageCell.class) return UNKNOWN;
+        // A cell with no incremental readers pays no journal allocation or per-IO journal maintenance.
+        if (changes == null) {
+            changes = new StorageChangeLog();
+            changes.barrier(contentRevision);
+        }
+        return contentListingVersion();
+    }
+
+    @Override public Object neoecoae$listingIdentity() { return listingIdentity; }
+
+    @Override public boolean neoecoae$visitListingChanges(long since, long current,
+            java.util.function.Consumer<AEKey> visitor) {
+        return getClass() == ECOStorageCell.class && changes != null && current == contentListingVersion()
+            && changes.visit(since, current, visitor);
+    }
+
+    @Override public boolean neoecoae$visitListingChanges(long since, long current,
+            java.util.function.ObjLongConsumer<AEKey> visitor) {
+        return neoecoae$visitListingChanges(since, current,
+            (java.util.function.Consumer<AEKey>) key -> visitor.accept(key, getCellItems().getLong(key)));
+    }
+
+    @Override public long neoecoae$listedAmount(AEKey key) {
+        if (getClass() == ECOStorageCell.class) return contentListingVersion() < 0 ? 0 : getCellItems().getLong(key);
+        // Inherited scalar queries must still honor a specialised cell's own listing and amount representation.
+        var out = new KeyCounter();
+        getAvailableStacks(out);
+        return out.get(key);
     }
 
     /** For listings derived only from contents changed through {@link #saveChanges} or {@link #markContentChanged}. */
@@ -96,7 +129,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingV
             this.cellType = c;
             this.tier = c.getTier();
 
-            // 根据已安装的升级和配置的过滤器更新分区列表和模式�?
+            // 根据已安装的升级和配置的过滤器更新分区列表和模式。
             var builder = IPartitionList.builder();
 
             var upgrades = getUpgradesInventory();
@@ -269,7 +302,29 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingV
     }
 
     protected void saveChanges() {
-        contentRevision++;
+        saveChanges(null);
+    }
+
+    private void saveKeyChange(AEKey key) {
+        // Preserve specialised cells' virtual save hooks; their listing semantics require explicit opt-in.
+        if (getClass() == ECOStorageCell.class) saveChanges(key);
+        else saveChanges();
+    }
+
+    private void advanceContentRevision() {
+        if (contentRevision == Long.MAX_VALUE) {
+            contentRevision = 0;
+            listingIdentity = new Object();
+            if (changes != null) changes.barrier(0);
+        } else contentRevision++;
+    }
+
+    private void saveChanges(@Nullable AEKey key) {
+        advanceContentRevision();
+        if (changes != null) {
+            if (key == null) changes.barrier(contentRevision);
+            else changes.record(key, contentRevision);
+        }
         this.isPersisted = false;
         if (ECOCellMutationBatch.defer(this)) return;
         if (this.container instanceof DeferredCellPersistence host && host.neoecoae$canDeferCellPersistence()) {
@@ -296,6 +351,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingV
 
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
+        if (getClass() != ECOStorageCell.class) what = ECOKeyFactory.canonicalize(what);
         if (cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return 0L;
         if (amount == 0 || !acceptsKey(what)) {
             return 0;
@@ -309,10 +365,10 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingV
             return 0;
         }
 
-        // 执行常规插入逻辑，然后对返回值应用虚空升级效果�?
+        // 执行常规插入逻辑，然后对返回值应用虚空升级效果。
         long inserted = innerInsert(what, amount, mode);
 
-        // 当虚空卡用于（已满的）未格式化元件时，确保不会虚空掉元件未存储且无法存储的物品�?
+        // 当虚空卡用于（已满的）未格式化元件时，确保不会虚空掉元件未存储且无法存储的物品。
         if (partitionList.isEmpty() && hasVoidUpgrade && !canHoldNewItem()) {
             return getCellItems().containsKey(what) ? amount : inserted;
         }
@@ -322,6 +378,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingV
 
     /** Inserts for a lossless migration without applying the void upgrade's reported acceptance. */
     public long insertForMigration(AEKey what, long amount, Actionable mode) {
+        if (getClass() != ECOStorageCell.class) what = ECOKeyFactory.canonicalize(what);
         if (amount <= 0 || !acceptsKey(what)) {
             return 0;
         }
@@ -333,7 +390,8 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingV
 
     /** Marks an in-memory mutation from a specialised cell implementation. */
     protected final void markContentChanged() {
-        contentRevision = contentRevision == Long.MAX_VALUE ? 0L : contentRevision + 1L;
+        advanceContentRevision();
+        if (changes != null) changes.barrier(contentRevision);
     }
 
     /** Joins the current controller mutation batch, if one is active. */
@@ -343,6 +401,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingV
 
     @Override
     public long insertForMigration(AEKey what, long amount, Actionable mode, IActionSource source) {
+        what = ECOKeyFactory.canonicalize(what);
         return insertForMigration(what, amount, mode);
     }
 
@@ -451,7 +510,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingV
                 return 0;
             }
             if (!canHoldNewItem()) {
-                // 无更多类型空�?
+                // 无更多类型空间。
                 return 0;
             }
 
@@ -473,12 +532,13 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingV
 
         if (mode == Actionable.MODULATE) {
             long newAmount = currentAmount + amount;
+            if (currentAmount <= 0 && getClass() == ECOStorageCell.class) what = ECOKeyFactory.canonicalize(what);
             getCellItems().put(what, newAmount);
             if (currentAmount <= 0) {
                 storedItems++;
             }
             storedItemCount = NEMath.saturatingAdd(storedItemCount, amount);
-            this.saveChanges();
+            this.saveKeyChange(what);
         }
 
         return amount;
@@ -486,6 +546,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingV
 
     @Override
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
+        if (getClass() != ECOStorageCell.class) what = ECOKeyFactory.canonicalize(what);
         if (amount <= 0L || cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return 0L;
         var currentAmount = getCellItems().getLong(what);
         if (currentAmount > 0) {
@@ -494,7 +555,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingV
                     getCellItems().remove(what, currentAmount);
                     storedItems = Math.max(0, storedItems - 1);
                     storedItemCount = Math.max(0, storedItemCount - currentAmount);
-                    this.saveChanges();
+                    this.saveKeyChange(what);
                 }
 
                 return currentAmount;
@@ -502,7 +563,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingV
                 if (mode == Actionable.MODULATE) {
                     getCellItems().put(what, currentAmount - amount);
                     storedItemCount = Math.max(0, storedItemCount - amount);
-                    this.saveChanges();
+                    this.saveKeyChange(what);
                 }
 
                 return amount;
@@ -521,7 +582,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingV
     @Override
     public void getAvailableStacks(KeyCounter out) {
         if (cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return;
-        getMigrationStacks(out);
+        listing.append(this, out, this::getMigrationStacks);
     }
 
     @Override

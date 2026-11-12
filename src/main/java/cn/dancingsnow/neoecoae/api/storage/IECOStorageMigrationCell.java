@@ -22,7 +22,11 @@ public interface IECOStorageMigrationCell extends IECOStorageCell {
         return contents.get(key);
     }
 
-    /** Flushes contents before the controller saves the source seal or destination receipt to its chunk. */
+    /**
+     * Flushes contents before ECO checkpoints the owning chunk. The default covers item-component inventories.
+     * A separate-file backend must override this and confirm its write, or throw, before returning. Merely marking
+     * that backend dirty is insufficient: a source seal and a destination receipt depend on the corresponding data.
+     */
     default void persistMigrationContents(ServerLevel level) { persist(); }
 
     default Iterator<Object2LongMap.Entry<AEKey>> migrationEntries() {

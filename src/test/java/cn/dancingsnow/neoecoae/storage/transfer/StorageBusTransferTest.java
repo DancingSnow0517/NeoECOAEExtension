@@ -11,6 +11,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.me.storage.NetworkStorage;
 import cn.dancingsnow.neoecoae.mixins.ae2.storage.NetworkStorageMixin;
+import cn.dancingsnow.neoecoae.mixins.ae2.storage.StorageBusInventoryMixin;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import java.lang.reflect.Method;
@@ -121,13 +122,13 @@ class StorageBusTransferTest {
 
     @Test void markerTargetAndNetworkCallSitesMatchTheActualAe2Dependency() throws Exception {
         String target = "appeng/parts/storagebus/StorageBusPart$StorageBusInventory";
-        ClassNode bus = bytecode(target);
+        ClassNode bus = dependencyBytecode(target);
         assertEquals("appeng/me/storage/MEInventoryHandler", bus.superName);
-        ClassNode part = bytecode("appeng/parts/storagebus/StorageBusPart");
+        ClassNode part = dependencyBytecode("appeng/parts/storagebus/StorageBusPart");
         assertTrue(part.methods.stream().filter(m -> m.name.equals("mountInventories"))
             .flatMap(m -> java.util.stream.StreamSupport.stream(m.instructions.spliterator(), false))
             .anyMatch(i -> i instanceof FieldInsnNode && ((FieldInsnNode) i).desc.equals("L" + target + ";")));
-        ClassNode network = bytecode(NetworkStorage.class.getName().replace('.', '/'));
+        ClassNode network = dependencyBytecode(NetworkStorage.class.getName().replace('.', '/'));
         for (String method : List.of("insert", "extract", "getAvailableStacks")) {
             long calls = network.methods.stream().filter(m -> m.name.equals(method))
                 .flatMap(m -> java.util.stream.StreamSupport.stream(m.instructions.spliterator(), false))
@@ -139,6 +140,20 @@ class StorageBusTransferTest {
         assertTrue(marker.interfaces.contains(StorageBusTransferFilter.StorageBusInventory.class.getName().replace('.', '/')));
         assertTrue(marker.invisibleAnnotations.stream().anyMatch(a -> a.desc.equals("Lorg/spongepowered/asm/mixin/Mixin;")
             && a.values.toString().contains(target.replace('/', '.'))));
+    }
+
+    /** Read the pinned, untransformed dependency even when the tests use a woven fixture. */
+    private static ClassNode dependencyBytecode(String name) throws Exception {
+        var path = java.nio.file.Path.of(MEStorage.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+        try (var jar = new java.util.jar.JarFile(path.toFile())) {
+            var entry = jar.getJarEntry(name + ".class");
+            assertNotNull(entry, name);
+            try (var stream = jar.getInputStream(entry)) {
+                ClassNode node = new ClassNode();
+                new ClassReader(stream).accept(node, 0);
+                return node;
+            }
+        }
     }
 
     private static ClassNode bytecode(String name) throws Exception {
@@ -168,13 +183,14 @@ class StorageBusTransferTest {
     private static final class MountedNetwork implements MEStorage {
         final List<? extends MEStorage> mounts;
         final NetworkStorageMixin hooks = new NetworkStorageMixin() {};
-        MountedNetwork(List<? extends MEStorage> mounts) { this.mounts = mounts; }
+        MountedNetwork(List<? extends MEStorage> mounts) {
+            this.mounts = mounts.stream().map(storage -> storage instanceof BusStock
+                    ? new StorageBusInventoryMixin(storage) {} : storage).toList();
+        }
         @Override public long insert(AEKey key, long amount, Actionable mode, IActionSource source) {
             long remaining = amount;
             for (MEStorage mount : mounts) {
-                remaining -= call("neoecoae$excludeStorageBusOutput", mount, key, remaining, mode, source,
-                    (Operation<Long>) args -> ((MEStorage) args[0]).insert((AEKey) args[1], (long) args[2],
-                        (Actionable) args[3], (IActionSource) args[4]));
+                remaining -= mount.insert(key, remaining, mode, source);
                 if (remaining == 0) break;
             }
             return amount - remaining;

@@ -43,6 +43,8 @@ class InfiniteMemberInteractionTest {
         field(host, "infiniteDomainId", domain);
         field(host, "infiniteMemberIds", new HashSet<UUID>());
         field(host, "infiniteMigrationSourceIds", new HashSet<UUID>());
+        field(host, "invalidInfiniteMemberIds", new net.minecraft.nbt.ListTag());
+        field(host, "invalidInfiniteMigrationSourceIds", new net.minecraft.nbt.ListTag());
         return host;
     }
 
@@ -65,6 +67,33 @@ class InfiniteMemberInteractionTest {
             when(cell.isInfiniteStorageEligible()).thenReturn(true);
             assertFalse(host.canInsertStorageCell(special));
         }
+    }
+
+    @Test
+    void malformedRosterEntriesSurviveReloadAndContinueBlockingExit() throws Exception {
+        var valid = UUID.randomUUID();
+        var saved = new CompoundTag();
+        var members = new net.minecraft.nbt.ListTag();
+        members.add(net.minecraft.nbt.StringTag.valueOf(valid.toString()));
+        members.add(net.minecraft.nbt.StringTag.valueOf("broken member uuid"));
+        saved.put("infiniteMemberIds", members);
+        var sources = new net.minecraft.nbt.ListTag();
+        sources.add(net.minecraft.nbt.StringTag.valueOf("broken migration uuid"));
+        saved.put("infiniteMigrationSourceIds", sources);
+        var load = ECOStorageSystemBlockEntity.class.getDeclaredMethod("loadInfiniteMembers", CompoundTag.class);
+        var save = ECOStorageSystemBlockEntity.class.getDeclaredMethod("saveInfiniteMembers", CompoundTag.class);
+        load.setAccessible(true);
+        save.setAccessible(true);
+        var controller = host(UUID.randomUUID());
+        assertDoesNotThrow(() -> load.invoke(controller, saved));
+        assertTrue(controller.hasInvalidInfiniteMembers());
+        assertEquals(3, controller.getMissingInfiniteMembers());
+        var written = new CompoundTag();
+        save.invoke(controller, written);
+        assertEquals(saved, written, "invalid identities must remain recoverable rather than being discarded");
+        var reloaded = host(UUID.randomUUID());
+        load.invoke(reloaded, written);
+        assertEquals(3, reloaded.getMissingInfiniteMembers());
     }
 
     @Test

@@ -113,6 +113,7 @@ public final class ECOInfiniteStorageDomains {
         ECOInfiniteStorageData data = server.getDataStorage().computeIfAbsent(
                 ECOInfiniteStorageData.type(dataId, dataFile, server.registryAccess(),
                         () -> importPrevious(overworld, domainId, previousDataFile, legacyFile)));
+        data.bindPersistence(dataFile, overworld.registryAccess());
         if (data.status() != ECOInfiniteStorageData.DomainStatus.HEALTHY) {
             LOGGER.warn("ECO domain {} opened with status {}: {}", domainId, data.status(), data.failures());
         }

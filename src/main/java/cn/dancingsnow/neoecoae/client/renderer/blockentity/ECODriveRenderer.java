@@ -41,7 +41,7 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
         BlockEntityRenderer.super.extractRenderState(blockEntity, state, partialTicks, cameraPosition, breakProgress);
         state.color = 0;
         int color = 0;
-        if (ECOInfiniteStorageMember.isMember(blockEntity.getCellStack())) {
+        if (blockEntity.isInfiniteMember()) {
             color = ARGB.color(255, INFINITE_MEMBER_LED_COLOR);
         } else if (blockEntity.isMounted() && blockEntity.isOnline()) {
             CellState cellState = blockEntity.getCellState();

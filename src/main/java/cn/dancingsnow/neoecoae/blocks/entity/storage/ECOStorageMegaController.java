@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.storage.IECOBulkMarkableCellItem;
 
@@ -183,7 +185,7 @@ final class ECOStorageMegaController {
             || !(cellStack.getItem() instanceof IECOBulkMarkableCellItem cellItem)) {
             return EcoMegaFilterResult.INVALID_TARGET;
         }
-        AEItemKey key = normalized.isEmpty() ? null : AEItemKey.of(normalized);
+        AEItemKey key = normalized.isEmpty() ? null : ECOKeyFactory.item(normalized);
         cellItem.getConfigInventory(cellStack).setStack(
             page * ECO_MEGA_SLOTS_PER_PAGE + visualSlot,
             key == null ? null : new GenericStack(key, 0L)

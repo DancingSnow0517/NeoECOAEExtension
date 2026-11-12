@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.storage.bulk;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEItemKey;
 import cn.dancingsnow.neoecoae.network.ECOCompressionSyncS2CPacket;
 import com.google.gson.JsonElement;
@@ -31,6 +33,7 @@ import net.neoforged.neoforge.event.AddServerReloadListenersEvent;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -132,7 +135,7 @@ public final class ECOCompressionService {
             var actual = recipe.assemble(input);
             if (!ItemStack.isSameItemSameComponents(actual, output) || actual.getCount() != output.getCount()
                     || recipe.getRemainingItems(input).stream().anyMatch(stack -> !stack.isEmpty())) continue;
-            result.add(new RecipeCandidate(key, nonempty.size(), AEItemKey.of(output), output.getCount()));
+            result.add(new RecipeCandidate(key, nonempty.size(), ECOKeyFactory.item(output), output.getCount()));
         }
         return result;
     }
@@ -195,7 +198,7 @@ public final class ECOCompressionService {
         private static AEItemKey key(JsonElement value) {
             ItemStack stack = ItemStack.CODEC.parse(JsonOps.INSTANCE, value).getOrThrow();
             if (stack.isEmpty() || stack.getCount() != 1) throw new IllegalArgumentException("Compression rule keys require count 1");
-            return AEItemKey.of(stack);
+            return ECOKeyFactory.item(stack);
         }
     }
 }

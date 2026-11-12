@@ -187,6 +187,46 @@ class ECOIOPortTransferTest {
         assertEquals(0L, new ECOIOPortTransfer().transfer(grid, host, true, true, IActionSource.empty()));
         assertEquals(100L, network.amount);
         assertEquals(0L, host.amount);
+        assertEquals(0, network.modulatedExtracts, "power preflight must not remove stock from an extract-only source");
+    }
+
+    @Test void scheduledOutputRetainsStockAndFlushesOnThresholdOrNetworkChange() {
+        AEKey key = AEItemKey.of(Items.STONE);
+        var host = new CountingStorage(key, 1, 1000);
+        var destination = new CountingStorage(key, 0, 1000);
+        var grid = inputGrid(destination);
+        var transfer = new ECOIOPortTransfer();
+        java.util.function.Predicate<AEKey> filter = ignored -> true;
+        assertEquals(1, transfer.transfer(grid, host, false, false, false, IActionSource.empty(), filter, 0, 5, 10));
+        host.amount = 3;
+        assertEquals(0, transfer.transfer(grid, host, false, false, false, IActionSource.empty(), filter, 1, 5, 10));
+        assertEquals(3, host.amount);
+        host.amount = 10;
+        assertEquals(10, transfer.transfer(grid, host, false, false, false, IActionSource.empty(), filter, 2, 5, 10));
+        host.amount = 4;
+        var replacement = new CountingStorage(key, 0, 1000);
+        assertEquals(4, transfer.transfer(inputGrid(replacement), host, false, false, false,
+            IActionSource.empty(), filter, 3, 5, 10));
+        assertEquals(11, destination.amount);
+        assertEquals(4, replacement.amount);
+        host.amount = 6;
+        transfer.reset();
+        assertEquals(6, host.amount, "discarding candidate state must not discard resources");
+    }
+
+    @Test void skippedTicksDoNotStarveKeysPastTheFiveKeyBudget() {
+        List<AEKey> keys = List.of(AEItemKey.of(Items.STONE), AEItemKey.of(Items.DIRT), AEItemKey.of(Items.SAND),
+            AEItemKey.of(Items.GLASS), AEItemKey.of(Items.GRAVEL), AEItemKey.of(Items.COBBLESTONE));
+        var host = new MultiStorage(keys, 1);
+        var destination = new MultiStorage(List.of(), 0);
+        var grid = inputGrid(destination);
+        var transfer = new ECOIOPortTransfer();
+        for (int tick = 0; tick < 11; tick++) {
+            transfer.transfer(grid, host, false, false, false, IActionSource.empty(), ignored -> true,
+                tick, 5, Long.MAX_VALUE);
+        }
+        assertEquals(0, host.total());
+        assertEquals(6, destination.total());
     }
 
     private static IGrid inputGrid(MEStorage network) {

@@ -150,7 +150,7 @@ class ECOCellDeferredPersistenceTest {
         throw new NoSuchFieldException(name);
     }
 
-    @Test void driveFlushesBeforeItsStackIsReadAndQueuesOneNotification() throws Exception {
+    @Test void driveFlushesBeforeItsStackIsReadAndCoalescesWorkerNotifications() throws Exception {
         var level = mock(ServerLevel.class);
         var server = mock(MinecraftServer.class);
         when(level.getServer()).thenReturn(server);
@@ -161,6 +161,7 @@ class ECOCellDeferredPersistenceTest {
         var stack = stack();
         field(drive, "level", level);
         field(drive, "cellStack", stack);
+        field(drive, "persistenceNotifyQueued", new java.util.concurrent.atomic.AtomicBoolean());
         assertTrue(drive.neoecoae$canDeferCellPersistence());
 
         var stone = AEItemKey.of(Items.STONE);
@@ -181,15 +182,67 @@ class ECOCellDeferredPersistenceTest {
         assertEquals(150, stored(stack, stone));
         assertEquals(150, stored(visible, stone));
         assertFalse(ECOCellMutationBatch.hasDeferred(drive));
+        verify(drive, atLeastOnce()).setChanged();
+        verify(server, never()).executeIfPossible(any());
 
+        when(server.isSameThread()).thenReturn(false);
         drive.notifyPersistence();
         drive.notifyPersistence();
         var task = ArgumentCaptor.forClass(Runnable.class);
         verify(server, times(1)).executeIfPossible(task.capture());
-        task.getValue().run();
+        when(server.isSameThread()).thenReturn(true);
         task.getValue().run();
         verify(drive, atMost(1)).markForUpdate();
+        when(server.isSameThread()).thenReturn(false);
         drive.notifyPersistence();
         verify(server, times(2)).executeIfPossible(any());
+    }
+
+    @Test void stoppedServerStillMarksFinalCellChangesDirtyOnItsOwnThread() throws Exception {
+        var drive = mock(ECODriveBlockEntity.class, CALLS_REAL_METHODS);
+        var level = mock(ServerLevel.class);
+        var server = mock(MinecraftServer.class);
+        field(drive, "level", level);
+        when(level.getServer()).thenReturn(server);
+        when(server.isSameThread()).thenReturn(true);
+        when(server.isStopped()).thenReturn(true);
+        doNothing().when(drive).setChanged();
+        drive.notifyPersistence();
+        verify(drive).setChanged();
+        verify(drive, never()).getCellInventory();
+        verify(drive, never()).markForUpdate();
+        verify(server, never()).executeIfPossible(any());
+    }
+
+    @Test void drivePublishesOnlyAppearanceAndNeverPollsTheLiveCell() throws Exception {
+        InventoryTestBootstrap.initializeUi();
+        var drive = mock(ECODriveBlockEntity.class, CALLS_REAL_METHODS);
+        var level = mock(ServerLevel.class);
+        var server = mock(MinecraftServer.class);
+        when(level.getServer()).thenReturn(server);
+        when(server.isSameThread()).thenReturn(true);
+        field(drive, "level", level);
+        field(drive, "worldPosition", net.minecraft.core.BlockPos.ZERO);
+        field(drive, "blockState", net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+        field(drive, "renderedCell", ItemStack.EMPTY);
+        var full = new ItemStack(Items.PAPER);
+        full.set(AEComponents.STORAGE_CELL_INV, List.of(new GenericStack(AEItemKey.of(Items.STONE), 100_000L)));
+        var custom = new net.minecraft.nbt.CompoundTag();
+        custom.putBoolean("neoecoae_infinite_member", true);
+        full.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
+                net.minecraft.world.item.component.CustomData.of(custom));
+        field(drive, "cellStack", full);
+        drive.setChanged();
+        var published = ECODriveBlockEntity.class.getDeclaredField("renderedCell");
+        published.setAccessible(true);
+        var rendered = (ItemStack) published.get(drive);
+        assertTrue(rendered.is(Items.PAPER));
+        assertFalse(rendered.has(AEComponents.STORAGE_CELL_INV));
+        assertFalse(rendered.has(net.minecraft.core.component.DataComponents.CUSTOM_DATA));
+        assertTrue(drive.isInfiniteMember());
+        field(drive, "syncStorage", new com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage(drive));
+        assertTrue(java.util.Arrays.stream(drive.getRootStorage().getNonLazyFields()).noneMatch(ref -> ref.readRaw() == full));
+        assertTrue(java.util.Arrays.stream(drive.getRootStorage().getSyncFields()).noneMatch(ref -> ref.readRaw() == full));
+        assertEquals(100_000L, stored(full, AEItemKey.of(Items.STONE)));
     }
 }
