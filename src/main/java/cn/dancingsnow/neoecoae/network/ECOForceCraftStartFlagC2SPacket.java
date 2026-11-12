@@ -10,12 +10,13 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-public record ECOForceCraftStartFlagC2SPacket(int containerId, boolean forceStart) implements CustomPacketPayload {
+public record ECOForceCraftStartFlagC2SPacket(int containerId, boolean forceStart, long revision) implements CustomPacketPayload {
+    public ECOForceCraftStartFlagC2SPacket(int containerId, boolean forceStart) { this(containerId, forceStart, -1L); }
     public static final Type<ECOForceCraftStartFlagC2SPacket> TYPE = new Type<>(
         Identifier.fromNamespaceAndPath(NeoECOAE.MOD_ID, "force_craft_start_flag"));
     public static final StreamCodec<FriendlyByteBuf, ECOForceCraftStartFlagC2SPacket> STREAM_CODEC =
-        StreamCodec.of((buf, packet) -> { buf.writeVarInt(packet.containerId); buf.writeBoolean(packet.forceStart); },
-            buf -> new ECOForceCraftStartFlagC2SPacket(buf.readVarInt(), buf.readBoolean()));
+        StreamCodec.of((buf, packet) -> { buf.writeVarInt(packet.containerId); buf.writeBoolean(packet.forceStart); buf.writeLong(packet.revision); },
+            buf -> new ECOForceCraftStartFlagC2SPacket(buf.readVarInt(), buf.readBoolean(), buf.readLong()));
 
     public static void handle(ECOForceCraftStartFlagC2SPacket packet, IPayloadContext context) {
         context.enqueueWork(() -> {
@@ -36,6 +37,12 @@ public record ECOForceCraftStartFlagC2SPacket(int containerId, boolean forceStar
             if (!(menu instanceof ECOForceCraftStartSync sync)) {
                 logger.warn("[craft-submit] Rejected packet: reason=FORCE_START_SYNC_UNAVAILABLE, container={}",
                     packet.containerId);
+                menu.submitError = new CraftConfirmMenu.SyncableSubmitResult(
+                    appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
+                return;
+            }
+            if (packet.revision >= 0 && menu instanceof cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode mode
+                    && !mode.neoecoae$lockDisplayedPlan(packet.revision)) {
                 menu.submitError = new CraftConfirmMenu.SyncableSubmitResult(
                     appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
                 return;

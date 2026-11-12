@@ -70,6 +70,7 @@ class NEBlockEntityLifecycleTest {
         doReturn(null).when(host).getOrientation();
         var level = mock(Level.class);
         var state = mock(BlockState.class);
+        doReturn(state).when(host).getBlockState();
         var unformedState = mock(BlockState.class);
         when(level.hasChunkAt(BlockPos.ZERO)).thenReturn(true);
         when(level.getBlockState(BlockPos.ZERO)).thenReturn(state);

@@ -158,7 +158,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem, INati
      * {@link Long#MAX_VALUE} is the saturation sentinel for an unbounded capacity, so render it as
      * an infinity symbol instead of the raw number.
      */
-    private static Component bytesUsedLine(long used, long total) {
+    public static Component bytesUsedLine(long used, long total) {
         if (total != Long.MAX_VALUE) {
             return Tooltips.bytesUsed(used, total);
         }

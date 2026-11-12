@@ -209,16 +209,9 @@ public class ECOModelUtil {
 
     public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> smartCoolingModule() {
         return (ctx, prov) -> {
-            var model = SMART_COOLING_MODULE.create(
-                ctx.get(),
-                new TextureMapping()
-                    .put(TextureSlot.SIDE, new Material(prov.modLoc("block/working_station/smart_cooling_module_side")))
-                    .put(TextureSlot.FRONT, new Material(prov.modLoc("block/working_station/smart_cooling_module_front")))
-                    .put(TextureSlot.BOTTOM, new Material(prov.modLoc("block/working_station/smart_cooling_module_side")))
-                    .put(TextureSlot.TOP, new Material(prov.modLoc("block/working_station/smart_cooling_module_top"))),
-                prov.modelOutput
-            );
-            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get(), BlockModelGenerators.plainVariant(model)));
+            var model = prov.modLoc("block/large_integrated_working_station_cooling_controller");
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get(), BlockModelGenerators.plainVariant(model))
+                .with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
             // Item definition comes from the block's .simpleItem().
         };
     }

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.orientation.BlockOrientation;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.inventories.InternalInventory;
@@ -52,7 +54,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -74,7 +75,6 @@ import java.util.List;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -146,6 +146,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private int patternContentRevision;
     private transient List<PatternSlotRef> patternSlotRefs = List.of();
     private transient boolean patternInterfaceMappingInitialized;
+    private transient boolean patternInterfaceMappingDirty;
     /** Identity of the local crafting host or its shared Network Switch domain. */
     private transient Object patternInterfaceDomain;
     private transient long patternInterfaceDomainGeneration;
@@ -205,13 +206,17 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     public CompoundTag getStorageResourceFilters() { return storageResourceFilters.copy(); }
 
     public boolean acceptsStorageResource(AEKey key) {
+        return storageResourceFilter().test(key);
+    }
+
+    public StorageInterfaceFilter storageResourceFilter() {
         if (storageResourceFilter == null || cachedStorageResourceFilters != storageResourceFilters) {
             var registries = level == null ? net.minecraft.core.RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY)
                 : level.registryAccess();
             storageResourceFilter = new StorageInterfaceFilter(storageResourceFilters, registries);
             cachedStorageResourceFilters = storageResourceFilters;
         }
-        return storageResourceFilter.test(key);
+        return storageResourceFilter;
     }
 
     /** Menu RPCs validate the player and decode a complete AE key before reaching this setter. */
@@ -310,7 +315,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     public void startNetworkPatternTransfer() {
-        if (patternTransferTask != null || patternOrganizeTask != null || !(level instanceof ServerLevel serverLevel)) {
+        if (patternTransferTask != null || patternOrganizeTask != null || !(level instanceof ServerLevel)) {
             return;
         }
         PatternTransferTask task = createPatternTransferTask();
@@ -764,7 +769,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
         patternInterfaceMappingInitialized = false;
         patternSlotRefs = List.of();
-        ensurePatternInterfaceMapping();
         onInterfaceTopologyChanged();
     }
 
@@ -790,10 +794,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             return;
         }
         if (reason == IGridNodeListener.State.POWER || reason == IGridNodeListener.State.GRID_BOOT) {
-            patternInterfaceMappingInitialized = false;
-            if (level instanceof ServerLevel) {
-                ensurePatternInterfaceMapping();
-            }
+            // AE2 notifies both ends of a reboot. Validate once on the next read/tick, after it settles.
+            patternInterfaceMappingDirty = true;
         }
     }
 
@@ -814,8 +816,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (!(level instanceof ServerLevel)) {
             return;
         }
-        patternInterfaceMappingInitialized = false;
-        ensurePatternInterfaceMapping();
+        patternInterfaceMappingDirty = true;
     }
 
     /** Called by a Pattern Bus after a real slot mutation; this path never scans the inventory. */
@@ -886,7 +887,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
         Object domain = patternDomain();
         long domainGeneration = patternDomainGeneration();
-        if (patternInterfaceMappingInitialized && patternInterfaceDomain == domain
+        if (patternInterfaceMappingInitialized && !patternInterfaceMappingDirty && patternInterfaceDomain == domain
                 && patternInterfaceDomainGeneration == domainGeneration) {
             return;
         }
@@ -913,18 +914,38 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         long[] positions = new long[buses.size()];
         int[] slotCounts = new int[buses.size()];
         int[] offsets = new int[buses.size()];
-        List<PatternSlotRef> refs = new ArrayList<>();
+        int totalSlots = 0;
         for (int busIndex = 0; busIndex < buses.size(); busIndex++) {
             ECOCraftingPatternBusBlockEntity bus = buses.get(busIndex);
             int slotCount = Math.max(0, bus.getPatternSlotCount());
-            offsets[busIndex] = refs.size();
+            offsets[busIndex] = totalSlots;
             positions[busIndex] = bus.getBlockPos().asLong();
             slotCounts[busIndex] = slotCount;
-            for (int slot = 0; slot < slotCount; slot++) {
-                refs.add(new PatternSlotRef(bus, slot));
+            totalSlots += slotCount;
+        }
+        boolean sameMapping = patternInterfaceDomain == domain
+                && patternInterfaceDomainGeneration == domainGeneration
+                && patternSlotRefs.size() == totalSlots
+                && Arrays.equals(patternBusPositions, positions)
+                && Arrays.equals(patternBusSlotCounts, slotCounts);
+        for (int busIndex = 0; sameMapping && busIndex < buses.size(); busIndex++) {
+            // Positions alone cannot distinguish a removed bus from its replacement.
+            if (slotCounts[busIndex] > 0 && patternSlotRefs.get(offsets[busIndex]).bus() != buses.get(busIndex)) {
+                sameMapping = false;
             }
         }
+        if (sameMapping) {
+            patternInterfaceMappingInitialized = true;
+            patternInterfaceMappingDirty = false;
+            return;
+        }
 
+        List<PatternSlotRef> refs = new ArrayList<>(totalSlots);
+        for (int busIndex = 0; busIndex < buses.size(); busIndex++) {
+            for (int slot = 0; slot < slotCounts[busIndex]; slot++) {
+                refs.add(new PatternSlotRef(buses.get(busIndex), slot));
+            }
+        }
         synchronized (this) {
             patternBusPositions = positions;
             patternBusSlotCounts = slotCounts;
@@ -936,6 +957,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         auxiliaryPreviewCache.clear();
         busAuxiliaryPreviewRevisions.clear();
         patternInterfaceMappingInitialized = true;
+        patternInterfaceMappingDirty = false;
         patternPreviewSync.reset();
         // Equal positions can still refer to replacement block entities or inventories.
         patternContentRevision = nextPatternContentRevision();
@@ -973,13 +995,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         return ref.slot() < inventory.size() ? inventory.getStackInSlot(ref.slot()) : ItemStack.EMPTY;
     }
 
-    private void setPatternStack(int slot, ItemStack stack) {
-        if (slot < 0 || slot >= patternSlotRefs.size()) {
-            return;
-        }
-        setPatternStack(patternSlotRefs.get(slot), stack);
-    }
-
     private void setPatternStack(PatternSlotRef ref, ItemStack stack) {
         InternalInventory inventory = ref.bus().getPatternSlotInventory();
         if (ref.slot() < inventory.size()) {
@@ -996,7 +1011,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     private boolean hasDuplicatePattern(PatternSlotRef target, ItemStack candidate) {
-        AEItemKey candidateKey = AEItemKey.of(candidate);
+        AEItemKey candidateKey = ECOKeyFactory.item(candidate);
         if (candidateKey == null) {
             return false;
         }
@@ -1011,20 +1026,11 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             if (ref.equals(target)) {
                 continue;
             }
-            if (candidateKey.equals(AEItemKey.of(getPatternStack(ref)))) {
+            if (candidateKey.equals(ECOKeyFactory.item(getPatternStack(ref)))) {
                 return true;
             }
         }
         return false;
-    }
-
-    private ItemStack insertPatternSlot(int slot, ItemStack stack, boolean simulate) {
-        if (slot < 0 || slot >= patternSlotRefs.size()) {
-            return stack;
-        }
-        PatternSlotRef ref = patternSlotRefs.get(slot);
-        InternalInventory inventory = ref.bus().getPatternSlotInventory();
-        return ref.slot() < inventory.size() ? inventory.insertItem(ref.slot(), stack, simulate) : stack;
     }
 
     private record PatternSlotRef(ECOCraftingPatternBusBlockEntity bus, int slot) {
@@ -1364,7 +1370,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (storage == null) {
             return false;
         }
-        AEItemKey key = AEItemKey.of(replacement);
+        AEItemKey key = ECOKeyFactory.item(replacement);
         if (key == null) {
             return false;
         }
@@ -1386,7 +1392,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (storage == null) {
             return false;
         }
-        AEItemKey key = AEItemKey.of(blank);
+        AEItemKey key = ECOKeyFactory.item(blank);
         if (key == null) {
             return false;
         }
@@ -1453,7 +1459,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 continue;
             }
 
-            ECOPreparedPattern prepared = new ECOPreparedPattern(stack, details, AEItemKey.of(stack));
+            ECOPreparedPattern prepared = new ECOPreparedPattern(stack, details, ECOKeyFactory.item(stack));
             cn.dancingsnow.neoecoae.api.ECOPatternInsertion insertion =
                     task.catalog().insertPreparedPatternReporting(task.domain(), prepared, step.candidate());
             switch (insertion.result()) {

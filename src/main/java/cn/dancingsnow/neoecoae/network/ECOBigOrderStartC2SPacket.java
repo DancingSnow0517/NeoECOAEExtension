@@ -9,11 +9,12 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /** Contains intent only; the server resolves the result, target and CPU from the open menu. */
-public record ECOBigOrderStartC2SPacket(int containerId, boolean forced) implements CustomPacketPayload {
+public record ECOBigOrderStartC2SPacket(int containerId, boolean forced, long revision) implements CustomPacketPayload {
+    public ECOBigOrderStartC2SPacket(int containerId, boolean forced) { this(containerId, forced, -1L); }
     public static final Type<ECOBigOrderStartC2SPacket> TYPE = new Type<>(NeoECOAE.id("big_order_start"));
     public static final StreamCodec<FriendlyByteBuf, ECOBigOrderStartC2SPacket> STREAM_CODEC = StreamCodec.of(
-        (buf, packet) -> { buf.writeVarInt(packet.containerId); buf.writeBoolean(packet.forced); },
-        buf -> new ECOBigOrderStartC2SPacket(buf.readVarInt(), buf.readBoolean()));
+        (buf, packet) -> { buf.writeVarInt(packet.containerId); buf.writeBoolean(packet.forced); buf.writeLong(packet.revision); },
+        buf -> new ECOBigOrderStartC2SPacket(buf.readVarInt(), buf.readBoolean(), buf.readLong()));
     public static void handle(ECOBigOrderStartC2SPacket packet, IPayloadContext context) {
         context.enqueueWork(() -> {
             var current = context.player().containerMenu;
@@ -32,6 +33,11 @@ public record ECOBigOrderStartC2SPacket(int containerId, boolean forced) impleme
             }
             if (!(menu instanceof ECOCraftConfirmMenuMode mode)) {
                 logger.warn("[big-order-submit] Rejected packet: reason=ECO_MENU_UNAVAILABLE, container={}", packet.containerId);
+                menu.submitError = new CraftConfirmMenu.SyncableSubmitResult(
+                    appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
+                return;
+            }
+            if (packet.revision >= 0 && !mode.neoecoae$lockDisplayedPlan(packet.revision)) {
                 menu.submitError = new CraftConfirmMenu.SyncableSubmitResult(
                     appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
                 return;

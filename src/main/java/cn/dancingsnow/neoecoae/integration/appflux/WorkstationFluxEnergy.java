@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.integration.appflux;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
+import appeng.api.networking.storage.IStorageService;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.MEStorage;
 import net.neoforged.fml.ModList;
@@ -22,8 +23,12 @@ public final class WorkstationFluxEnergy {
         return amount <= 0 || !available() ? 0 : storage.extract(Access.KEY, amount, mode, source);
     }
 
+    public static long stored(IStorageService storage) {
+        return !available() ? 0 : storage.getCachedInventory().get(Access.KEY);
+    }
+
     private static final class Access {
-        private static final AEKey KEY = com.glodblock.github.appflux.common.me.key.FluxKey.of(
+        private static final AEKey KEY = cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOFluxKeys.of(
             com.glodblock.github.appflux.common.me.key.type.EnergyType.FE);
     }
 }

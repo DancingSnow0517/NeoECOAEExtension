@@ -12,24 +12,30 @@ import net.minecraft.server.level.ServerLevel;
 import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 public final class ECOStorageLifecycleEvents {
     private ECOStorageLifecycleEvents() {
     }
 
+    public static void onServerStopping(ServerStoppingEvent event) {
+        ECOCellMutationBatch.clearThreadState();
+        ECOCellMutationBatch.drainRetries();
+    }
+
     /**
      * Release integrated-server state. World data, including infinite domains, was already saved by vanilla shutdown.
      */
     public static void onServerStopped(ServerStoppedEvent event) {
+        cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse.invalidate();
         MinecraftServer server = event.getServer();
         PatternBusUpdateScheduler.clear(server);
         NELogicalNetworkManager.clearAll();
         ECOPlanningResultRegistry.clear();
         NetGrowthPatternValidationRegistry.clear();
-        ECOCellMutationBatch.clearThreadState();
-        ECOCellMutationBatch.drainRetries();
         ECOStorageCells.clearRuntimeState();
+        ECOCellMutationBatch.clearAfterServerStop();
         ECOInfiniteStorageDomains.onServerStopped(server);
     }
 

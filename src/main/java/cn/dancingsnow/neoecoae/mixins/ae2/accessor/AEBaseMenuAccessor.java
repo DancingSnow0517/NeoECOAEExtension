@@ -8,6 +8,9 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(AEBaseMenu.class)
 public interface AEBaseMenuAccessor {
+    @Accessor("dataSync")
+    appeng.menu.guisync.DataSynchronization neoecoae$getDataSync();
+
     @Mutable
     @Accessor("blockEntity")
     void neoecoae$setBlockEntity(BlockEntity blockEntity);

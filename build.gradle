@@ -230,6 +230,7 @@ neoForge {
     runs {
         client {
             client()
+            systemProperty 'neoecoae.devGenerator', 'true'
             // `./gradlew runClient -PquickPlay=<world>` opens a singleplayer world directly.
             if (project.hasProperty('quickPlay')) {
                 programArguments.addAll '--quickPlaySingleplayer', project.property('quickPlay').toString()
@@ -290,6 +291,9 @@ sourceSets.main.resources {
 }
 
 sourceSets.main.java {
+    if (!providers.gradleProperty('keyReuseAcceptance').isPresent()) {
+        exclude 'cn/dancingsnow/neoecoae/dev/acceptance/**'
+    }
     // 26.1.2 port: leaf integrations whose target mod has no ported 26.1.2 build yet.
     // Nothing in the core references these packages; see docs/26.1-migration-reduction-notes.md.
     exclude 'cn/dancingsnow/neoecoae/integration/appbot/**'
@@ -297,6 +301,9 @@ sourceSets.main.java {
     exclude 'cn/dancingsnow/neoecoae/integration/appliedpneumatics/**'
     exclude 'cn/dancingsnow/neoecoae/integration/appliedsoul/**'
     exclude 'cn/dancingsnow/neoecoae/integration/appmek/**'
+    exclude 'cn/dancingsnow/neoecoae/compat/ae2/keyreuse/ECOChemicalKeys.java'
+    exclude 'cn/dancingsnow/neoecoae/compat/ae2/keyreuse/SharedChemicalKey.java'
+    exclude 'cn/dancingsnow/neoecoae/mixins/keyreuse/MekanismKeyReuseMixin.java'
     exclude 'cn/dancingsnow/neoecoae/integration/arsenergistique/**'
     exclude 'cn/dancingsnow/neoecoae/integration/dataenergistics/**'
     exclude 'cn/dancingsnow/neoecoae/integration/emi/**'
@@ -430,4 +437,9 @@ artifacts {
 
 lombok {
     version = "1.18.46"
+}
+
+// Opt-in launcher harnesses never belong in published artifacts.
+tasks.withType(Jar).configureEach {
+    exclude 'cn/dancingsnow/neoecoae/dev/acceptance/**'
 }

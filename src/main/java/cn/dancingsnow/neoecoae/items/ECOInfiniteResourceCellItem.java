@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.items;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -30,7 +32,7 @@ import java.util.function.Supplier;
  *
  * <p>The cell is hard-locked to those keys: {@link #isBlackListed} rejects every other key, so no
  * partition configuration can widen it. It is also permanently excluded from the ECO infinite
- * storage domain via {@link #isInfiniteStorageEligible()}, because migrating an unbounded supply
+ * storage domain via {@link ECOInfiniteResourceCell#isInfiniteStorageEligible()}, because migrating an unbounded supply
  * into the domain would erase the distinction between "stored" and "always available".
  */
 public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {

@@ -107,12 +107,12 @@ public final class CraftingPlanExport {
         private final Map<IPatternDetails, String> ids = new LinkedHashMap<>();
         private final Map<AEKey, List<IPatternDetails>> producerOrder = new LinkedHashMap<>();
         private final Set<AEKey> consumedByNetwork = new HashSet<>();
-        private final Map<IPatternDetails, BigInteger> tasks = new LinkedHashMap<>();
-        private final Map<AEKey, BigInteger> used;
-        private final Map<AEKey, BigInteger> missing;
-        private final Map<AEKey, BigInteger> emitted;
-        private final Map<AEKey, BigInteger> produced = new HashMap<>();
-        private final Map<AEKey, BigInteger> consumed = new HashMap<>();
+        private final Map<IPatternDetails, PlannerAmount> tasks = new LinkedHashMap<>();
+        private final Map<AEKey, PlannerAmount> used;
+        private final Map<AEKey, PlannerAmount> missing;
+        private final Map<AEKey, PlannerAmount> emitted;
+        private final Map<AEKey, PlannerAmount> produced = new HashMap<>();
+        private final Map<AEKey, PlannerAmount> consumed = new HashMap<>();
         private final Map<AEKey, Boolean> producedOnlyAsByproduct = new HashMap<>();
         private final KeyCounter stock;
 
@@ -172,27 +172,27 @@ public final class CraftingPlanExport {
 
         private void collectTasks() {
             if (result != null && !result.exactPatternTimes().isEmpty()) {
-                result.exactPatternTimes().forEach((pattern, amount) -> tasks.put(pattern, amount.toBigInteger()));
+                tasks.putAll(result.exactPatternTimes());
             } else if (plan instanceof ECOExactCraftingPlan exact) {
-                tasks.putAll(exact.exactTasks());
+                exact.exactTasks().forEach((pattern, amount) -> tasks.put(pattern, PlannerAmount.of(amount)));
             } else {
-                plan.patternTimes().forEach((pattern, times) -> tasks.put(pattern, BigInteger.valueOf(times)));
+                plan.patternTimes().forEach((pattern, times) -> tasks.put(pattern, PlannerAmount.of(times)));
             }
         }
 
-        private static Map<AEKey, BigInteger> materials(@Nullable Map<AEKey, PlannerAmount> exact, KeyCounter counter,
+        private static Map<AEKey, PlannerAmount> materials(@Nullable Map<AEKey, PlannerAmount> exact, KeyCounter counter,
                 Map<AEKey, BigInteger> deferred) {
-            var amounts = new LinkedHashMap<AEKey, BigInteger>();
+            var amounts = new LinkedHashMap<AEKey, PlannerAmount>();
             if (exact != null && !exact.isEmpty()) {
                 exact.forEach((key, amount) -> {
-                    if (amount.signum() > 0) amounts.put(key, amount.toBigInteger());
+                    if (amount.signum() > 0) amounts.put(key, amount);
                 });
                 return amounts;
             }
             for (var entry : counter) {
-                amounts.merge(entry.getKey(), BigInteger.valueOf(entry.getLongValue()), BigInteger::add);
+                amounts.merge(entry.getKey(), PlannerAmount.of(entry.getLongValue()), PlannerAmount::add);
             }
-            deferred.forEach((key, amount) -> amounts.merge(key, amount, BigInteger::add));
+            deferred.forEach((key, amount) -> amounts.merge(key, PlannerAmount.of(amount), PlannerAmount::add));
             amounts.values().removeIf(amount -> amount.signum() <= 0);
             return amounts;
         }
@@ -201,24 +201,23 @@ public final class CraftingPlanExport {
             tasks.forEach((pattern, times) -> {
                 AEKey primary = pattern.getPrimaryOutput().what();
                 for (GenericStack output : pattern.getOutputs()) {
-                    produced.merge(output.what(), times.multiply(BigInteger.valueOf(output.amount())), BigInteger::add);
+                    produced.merge(output.what(), times.multiply(output.amount()), PlannerAmount::add);
                     boolean byproduct = !output.what().equals(primary);
                     producedOnlyAsByproduct.merge(output.what(), byproduct, Boolean::logicalAnd);
                 }
                 for (IPatternDetails.IInput input : pattern.getInputs()) {
                     GenericStack[] possible = input.getPossibleInputs();
                     if (possible.length == 0) continue;
-                    BigInteger amount = BigInteger.valueOf(possible[0].amount())
-                        .multiply(BigInteger.valueOf(input.getMultiplier()));
-                    consumed.merge(possible[0].what(), times.multiply(amount), BigInteger::add);
+                    PlannerAmount amount = PlannerAmount.of(possible[0].amount()).multiply(input.getMultiplier());
+                    consumed.merge(possible[0].what(), times.multiply(amount), PlannerAmount::add);
                 }
             });
         }
 
-        private BigInteger surplus(AEKey key) {
-            BigInteger value = produced.getOrDefault(key, BigInteger.ZERO).add(used.getOrDefault(key, BigInteger.ZERO))
-                .subtract(consumed.getOrDefault(key, BigInteger.ZERO));
-            return key.equals(goal.what()) ? value.subtract(BigInteger.valueOf(goal.amount())) : value;
+        private PlannerAmount surplus(AEKey key) {
+            PlannerAmount value = produced.getOrDefault(key, PlannerAmount.ZERO).add(used.getOrDefault(key, PlannerAmount.ZERO))
+                .subtract(consumed.getOrDefault(key, PlannerAmount.ZERO));
+            return key.equals(goal.what()) ? value.subtract(goal.amount()) : value;
         }
 
         String render() {
@@ -362,17 +361,17 @@ public final class CraftingPlanExport {
             var rows = new TreeMap<String, String>();
             used.forEach((key, amount) -> {
                 long available = stock.get(key);
-                boolean all = available != Long.MAX_VALUE && amount.compareTo(BigInteger.valueOf(available)) >= 0;
+                boolean all = available != Long.MAX_VALUE && amount.compareTo(PlannerAmount.of(available)) >= 0;
                 rows.put(names.of(key), "used=" + amount + " avail=" + available(available) + (all ? " (all)" : ""));
             });
             out.append("\n## USED FROM STORAGE (used=taken by this job, avail=network stock; (all) = job takes every copy)\n");
             rows.forEach((name, row) -> out.append(row).append(' ').append(name).append('\n'));
         }
 
-        private void appendAmounts(StringBuilder out, String title, Map<AEKey, BigInteger> amounts) {
+        private void appendAmounts(StringBuilder out, String title, Map<AEKey, PlannerAmount> amounts) {
             if (amounts.isEmpty()) return;
-            var rows = new TreeMap<String, BigInteger>();
-            amounts.forEach((key, amount) -> rows.merge(names.of(key), amount, BigInteger::add));
+            var rows = new TreeMap<String, PlannerAmount>();
+            amounts.forEach((key, amount) -> rows.merge(names.of(key), amount, PlannerAmount::add));
             out.append("\n## ").append(title).append('\n');
             rows.forEach((name, amount) -> out.append(amount).append(' ').append(name).append('\n'));
         }
@@ -381,14 +380,14 @@ public final class CraftingPlanExport {
             var keys = new LinkedHashSet<AEKey>();
             keys.addAll(produced.keySet());
             keys.addAll(used.keySet());
-            var positive = new ArrayList<Map.Entry<AEKey, BigInteger>>();
-            var negative = new ArrayList<Map.Entry<AEKey, BigInteger>>();
+            var positive = new ArrayList<Map.Entry<AEKey, PlannerAmount>>();
+            var negative = new ArrayList<Map.Entry<AEKey, PlannerAmount>>();
             for (AEKey key : keys) {
-                BigInteger value = surplus(key);
+                PlannerAmount value = surplus(key);
                 if (value.signum() > 0) positive.add(Map.entry(key, value));
                 else if (value.signum() < 0) negative.add(Map.entry(key, value));
             }
-            positive.sort(Map.Entry.<AEKey, BigInteger>comparingByValue().reversed());
+            positive.sort(Map.Entry.<AEKey, PlannerAmount>comparingByValue().reversed());
             if (!positive.isEmpty()) {
                 out.append("\n## SURPLUS (produced + taken from stock - consumed = left over after the job;")
                     .append(" [sink] = no network pattern consumes it, [byproduct] = only made as a secondary output)\n");
@@ -479,7 +478,7 @@ public final class CraftingPlanExport {
                     break;
                 }
                 out.append(' ').append(names.of(member)).append(" avail=").append(available(stock.get(member)))
-                    .append(" used=").append(used.getOrDefault(member, BigInteger.ZERO))
+                    .append(" used=").append(used.getOrDefault(member, PlannerAmount.ZERO))
                     .append(" surplus=").append(surplus(member)).append(';');
             }
             out.append('\n');

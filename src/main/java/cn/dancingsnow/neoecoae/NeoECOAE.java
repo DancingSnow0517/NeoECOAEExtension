@@ -76,10 +76,12 @@ public class NeoECOAE {
         NECreativeTabs.register();
         NEMenus.register(modBus);
         cn.dancingsnow.neoecoae.menu.StorageCellWorkbenchLocator.register();
+        cn.dancingsnow.neoecoae.gui.computation.ECOCraftingStatusUI.register();
         NEItems.register();
         NEBlocks.register();
         NEFluids.register();
         NEBlockEntities.register();
+        cn.dancingsnow.neoecoae.dev.DevResourceGenerator.register(modBus);
         NEDataGen.configureDataGen();
         NEGridServices.register();
         NEEcoTiers.register();
@@ -108,6 +110,10 @@ public class NeoECOAE {
         // These values govern server-authoritative gameplay and are also read by client-side
         // previews/tooltips. SERVER configs are synchronized to joining clients by NeoForge.
         modContainer.registerConfig(ModConfig.Type.SERVER, NEConfig.SPEC);
+        modContainer.registerConfig(ModConfig.Type.COMMON,
+            cn.dancingsnow.neoecoae.config.KeyReuseConfig.SPEC, "neoecoae-key-reuse.toml");
+        modContainer.registerConfig(ModConfig.Type.COMMON,
+            cn.dancingsnow.neoecoae.config.DevToolsConfig.SPEC, "neoecoae-dev-tools.toml");
 
         modBus.addListener(NeoECOAE::registerCapabilities);
         modBus.addListener(NeoECOAE::initUpgrades);
@@ -123,6 +129,7 @@ public class NeoECOAE {
         NeoForge.EVENT_BUS.addListener(NeoECOAE::onSyncDatapack);
         NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onLevelUnload);
         NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopped);
+        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopping);
         NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerTick);
         if (Boolean.getBoolean("neoecoae.mixinAudit")) {
             // Dev check (./gradlew runServer|runClient -PmixinAudit): apply every mixin now so a stale
@@ -215,6 +222,12 @@ public class NeoECOAE {
             NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
             (be, side) -> be.getEnergyStorage(side)
         );
+        event.registerBlockEntity(
+            Capabilities.Energy.BLOCK,
+            NEBlockEntities.LARGE_INTEGRATED_WORKING_STATION_CASING.get(),
+            (be, side) -> be instanceof cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationCasingBlockEntity port
+                ? port.getEnergyStorage(side) : null
+        );
     }
 
     private static void initUpgrades(FMLCommonSetupEvent event) {
@@ -263,6 +276,7 @@ public class NeoECOAE {
     }
 
     private static void onTagsUpdated(TagsUpdatedEvent event) {
+        cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse.invalidate();
         cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes.invalidate();
         AE2PatternIntrospection.onRecipeReloadOrServerReload();
     }

@@ -108,6 +108,11 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
 
     @Override
     public void onReady() {
+        // Repeated clearRemoved() calls can queue multiple first-tick callbacks for a live entity.
+        // AE2's managed node consumes its initialization data on the first create() call.
+        if (getMainNode().isReady()) {
+            return;
+        }
         super.onReady();
         onGridConnectableSidesChanged();
         if (level instanceof ServerLevel serverLevel) {

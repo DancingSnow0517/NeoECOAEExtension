@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.blocks.ECOLargeIntegratedWorkingStationInputHatch
 import cn.dancingsnow.neoecoae.blocks.ECOLargeIntegratedWorkingStationSmartCoolingModule;
 import cn.dancingsnow.neoecoae.blocks.ECOLargeIntegratedWorkingStationOutputHatch;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
+import cn.dancingsnow.neoecoae.blocks.ECOLargeIntegratedWorkingStationCasing;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineInterface;
 import cn.dancingsnow.neoecoae.blocks.NENetworkSwitchBlock;
 
@@ -553,7 +554,7 @@ public class NEBlocks {
         .register();
 
     public static final BlockEntry<ECOMachineCasing<NEIntegratedWorkingStationCluster>> LARGE_INTEGRATED_WORKING_STATION_CASING = REGISTRATE
-        .block("large_integrated_working_station_casing", ECOMachineCasing<NEIntegratedWorkingStationCluster>::new)
+        .<ECOMachineCasing<NEIntegratedWorkingStationCluster>>block("large_integrated_working_station_casing", ECOLargeIntegratedWorkingStationCasing::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(p -> p.strength(5.0F, 6.0F).requiresCorrectToolForDrops().noOcclusion())
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
@@ -582,7 +583,7 @@ public class NEBlocks {
         .properties(p -> p.strength(5.0F, 6.0F).requiresCorrectToolForDrops())
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate(() -> ECOModelUtil.smartCoolingModule())
-        .lang("Large Integrated Working Station Smart Cooling Module")
+        .lang("Large Integrated Working Station Smart Cooling Controller")
         .simpleItem()
         .register();
 

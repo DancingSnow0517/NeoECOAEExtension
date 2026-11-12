@@ -14,6 +14,11 @@ public final class JeiBookmarkAccess {
         return cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("jei") && JeiBookmarkAccessImpl.isAvailable();
     }
 
+    /** Whether missing materials can be sent to JEI bookmarks or EMI favorites. */
+    public static boolean canBookmarkMissing() {
+        return isAvailable();
+    }
+
     public static List<AEKey> bookmarkedKeys() {
         return isAvailable() ? JeiBookmarkAccessImpl.bookmarkedKeys() : List.of();
     }
@@ -21,6 +26,7 @@ public final class JeiBookmarkAccess {
     public static void addMissingToBookmarks(List<? extends AEKey> keys) {
         if (isAvailable()) {
             JeiBookmarkAccessImpl.addMissingToBookmarks(keys);
+
         }
     }
 }
