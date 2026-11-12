@@ -539,27 +539,46 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             for (var entry : exactMaterials()) {
                 entries.add(new ECOCraftingListImageExport.Entry(entry.key(),
                     exactTable.describe(entry, AmountFormat.SLOT),
-                    exactTable.getEntryOverlayColor(entry)));
+                    exactTable.getEntryOverlayColor(entry), exportType(entry.key(), entry.missingBigInteger().signum() > 0)));
             }
         } else if (menu.getPlan() != null) {
             for (var entry : menu.getPlan().getEntries()) {
                 entries.add(new ECOCraftingListImageExport.Entry(entry.getWhat(),
                     table.describe(entry, AmountFormat.SLOT),
-                    table.getEntryOverlayColor(entry)));
+                    table.getEntryOverlayColor(entry), exportType(entry.getWhat(), entry.getMissingAmount() > 0)));
             }
         }
-        var header = new java.util.ArrayList<Component>();
-        header.add(Component.translatable("gui.neoecoae.crafting_report.export_title"));
+        Component target = Component.empty();
+        Component requested = Component.empty();
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode) {
             var snapshot = mode.neoecoae$getCraftingGraphSnapshot();
-            snapshot.nodes().stream().filter(node -> node.nodeId() == snapshot.rootNodeId()).findFirst()
-                .ifPresent(node -> header.add(node.key().getDisplayName().copy().append(" — ")
-                    .append(Component.translatable("gui.neoecoae.crafting_graph.details.requested",
-                        ECOExactMaterialTableRenderer.formatAmount(node.key(), node.requestedBigInteger(),
-                            AmountFormat.FULL)))));
+            var root = snapshot.nodes().stream().filter(node -> node.nodeId() == snapshot.rootNodeId()).findFirst();
+            if (root.isPresent()) {
+                var node = root.get();
+                target = node.key().getDisplayName();
+                requested = Component.literal("× " + ECOExactMaterialTableRenderer.formatAmount(
+                    node.key(), node.requestedBigInteger(), AmountFormat.FULL));
+            }
         }
-        header.addAll(reportSummary.tooltip());
+        var state = reportSummaryState;
+        var graph = state == null ? null : state.graphSummary();
+        var unknown = Component.translatable("gui.neoecoae.crafting_report.card.unknown");
+        var elapsed = state == null || state.loadingSummary() ? reportSummary.elapsed()
+            : Component.literal(java.math.BigDecimal.valueOf(Math.max(0L, state.nanos()), 6).toPlainString() + " ms");
+        var bytes = state == null || state.bytes() == null ? unknown
+            : Component.literal(cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers.grouped(state.bytes()) + " B");
+        var header = new ECOCraftingListImageExport.Header(target, requested, elapsed, bytes,
+            state != null && state.incompleteBytes(),
+            graph == null ? unknown : Component.literal(cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers.grouped(graph.patternNodes())),
+            graph == null ? unknown : Component.literal(cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers.grouped(graph.cycleGroups())));
         ECOCraftingListImageExport.save(this, entries, header);
+    }
+
+    private Component exportType(AEKey key, boolean missing) {
+        if (missing) return Component.translatable("gui.neoecoae.crafting_report.card.missing");
+        if (isCycleParticipant(key)) return Component.translatable("gui.neoecoae.crafting_report.export_cycle");
+        if (isFuzzyPlanningItem(key)) return Component.translatable("gui.neoecoae.crafting_report.export_fuzzy");
+        return Component.empty();
     }
     private void start() {
         if (!start.active) return;

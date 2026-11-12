@@ -33,7 +33,6 @@ final class ECOCraftReportTooltips {
 
     static CraftingListCard.Builder pending(Component status, boolean liteCrafting) {
         var card = statisticsHeader(null).divider().wrapped(null, status, CraftingTooltipCard.MUTED);
-        if (liteCrafting) card.divider().wrapped(Glyph.INFO, text("lite_mode"), CraftingTooltipCard.OK);
         return card;
     }
 
@@ -63,9 +62,7 @@ final class ECOCraftReportTooltips {
                 .row(null, CraftingTooltipCard.MUTED, text("cycles"), Component.literal(DisplayNumbers.grouped(summary.cycleGroups())),
                     summary.cycleGroups() > 0 ? CraftingTooltipCard.CYAN : CraftingTooltipCard.PRIMARY);
         }
-        if (liteCrafting) {
-            card.divider().wrapped(Glyph.INFO, text("lite_mode"), CraftingTooltipCard.OK);
-        } else if (!complete) {
+        if (!liteCrafting && !complete) {
             card.divider().wrapped(Glyph.INFO, text("incomplete"), CraftingTooltipCard.WARN)
                 .wrapped(null, text("incomplete_hint"), CraftingTooltipCard.MUTED);
         }
