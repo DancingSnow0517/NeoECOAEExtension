@@ -197,6 +197,7 @@ def ecoMixinConfigs = ['neoecoae.mixins.json', 'neoecoae.key_reuse.mixins.json',
                        'neoecoae.compat.gregtech.mixins.json',
                        'neoecoae.compat.ae2omnicells.mixins.json',
                        'neoecoae.compat.merequester.mixins.json',
+                       'neoecoae.compat.ae2wtlib.mixins.json',
                        'neoecoae.compat.extendedae.mixins.json', 'neoecoae.compat.thunderbolt.mixins.json',
                        'neoecoae.terminal_big_amount.mixins.json']
 mixin {
