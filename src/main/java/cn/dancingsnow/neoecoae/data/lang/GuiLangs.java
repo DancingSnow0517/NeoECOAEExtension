@@ -4,6 +4,19 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class GuiLangs {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("gui.neoecoae.crafting_report.export_too_large", "This material list is too large to export as one image.");
+        provider.add("gui.neoecoae.crafting_graph.details.firings", "Crafts: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.outputs", "Outputs: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.inputs", "Inputs: %s");
+        provider.add("gui.neoecoae.crafting_graph.status.rejected", "Rejected");
+        provider.add("gui.neoecoae.crafting_graph.status.selected", "Selected");
+        provider.add("gui.neoecoae.crafting_graph.zoom", "Zoom: %s%%");
+        provider.add("gui.neoecoae.crafting_graph.controls", "Scroll: zoom | Shift+scroll / drag: pan | Enter: next match");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.main_only", "Available in the outer plan only");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.back", "Back");
+        provider.add("gui.neoecoae.crafting_graph.summary.amount", "%s: %s");
+        provider.add("gui.neoecoae.crafting_graph.summary.outputs", "Outputs / surplus");
+        provider.add("gui.neoecoae.crafting_graph.summary.from_storage", "From storage");
         provider.add("gui.neoecoae.multiblock.preview.info.parallel", "Parallel");
         provider.add("gui.neoecoae.multiblock.preview.info.memory", "Memory");
         provider.add("gui.neoecoae.multiblock.preview.info.threads", "Threads");
@@ -474,15 +487,14 @@ public class GuiLangs {
         provider.add("gui.neoecoae.computation.pause", "Pause");
         provider.add("gui.neoecoae.computation.resume", "Resume");
         provider.add("gui.neoecoae.computation.settings.cpu_mode", "CPU Selection Mode");
-        provider.add("gui.neoecoae.computation.settings.substitutions", "Lite Crafting Mode");
-        provider.add("gui.neoecoae.crafting_report.card.lite_mode", "Lite Crafting Mode");
+        provider.add("gui.neoecoae.computation.settings.substitutions", "Deep Planning Mode");
         provider.add("gui.neoecoae.computation.settings.cycle_planning", "Enable cycle planning");
         provider.add("gui.neoecoae.computation.settings.fast_planner", "Enable ECO fast planning");
         provider.add("gui.neoecoae.computation.settings.frequency", "Network frequency: %s / %s");
         provider.add("gui.neoecoae.computation.settings.back", "Back to CPU List");
         provider.add("gui.neoecoae.computation.status.time", "Time: %s");
         provider.add("gui.neoecoae.computation.ui.control_heading", "Controls");
-        provider.add("gui.neoecoae.computation.ui.switch.substitutions", "Lite");
+        provider.add("gui.neoecoae.computation.ui.switch.substitutions", "Deep");
         provider.add("gui.neoecoae.computation.ui.switch.cycle_planning", "Cycle");
         provider.add("gui.neoecoae.computation.ui.switch.fast_planner", "Fast");
         provider.add("gui.neoecoae.computation.ui.cpu", "CPU");
@@ -505,7 +517,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.computation.ui.stat.offline", "Off");
         provider.add("gui.neoecoae.computation.ui.switch.on", "Enabled");
         provider.add("gui.neoecoae.computation.ui.switch.off", "Disabled");
-        provider.add("gui.neoecoae.computation.ui.switch.substitutions.desc", "Disables some pattern features for much faster crafting calculations.");
+        provider.add("gui.neoecoae.computation.ui.switch.substitutions.desc", "Enables full planning with alternative routes, substitutions, and tool and container returns. Calculations may take longer.");
         provider.add("gui.neoecoae.computation.ui.switch.cycle_planning.desc", "Lets planning solve recipe routes that contain cycles.");
         provider.add("gui.neoecoae.computation.ui.switch.fast_planner.desc", "Handles crafting requests with the ECO fast planner.");
         provider.add("gui.neoecoae.computation.ui.switch.smart_doubling.limit", "Per-dispatch cap when disabled");
@@ -746,9 +758,9 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.active_cooling.on", "Disable Active Cooling");
         provider.add("gui.neoecoae.crafting.active_cooling.off", "Enable Active Cooling");
         provider.add("gui.neoecoae.crafting.planning.ignore_substitutions.on",
-            "Disable Lite Crafting Mode");
+            "Enable Deep Planning Mode");
         provider.add("gui.neoecoae.crafting.planning.ignore_substitutions.off",
-            "Enable Lite Crafting Mode");
+            "Disable Deep Planning Mode");
         provider.add("gui.neoecoae.crafting.planning.substitution_pattern_count",
             "Currently %d substitution-enabled patterns");
         provider.add("gui.neoecoae.host.network_frequency.cycle", "Cycle Network Frequency (Current: %d)");
@@ -841,7 +853,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_report.export_title", "ECO Crafting Material List");
         provider.add("gui.neoecoae.crafting_report.export_materials", "%s materials");
         provider.add("gui.neoecoae.crafting_report.export_cycle", "Cycle participant");
-        provider.add("gui.neoecoae.crafting_report.export_fuzzy", "Fuzzy planning");
+        provider.add("gui.neoecoae.crafting_report.export_fuzzy", "Ignores NBT (fuzzy planning)");
         provider.add("gui.neoecoae.crafting_report.export_saved", "Saved crafting list image: %s");
         provider.add("gui.neoecoae.crafting_report.bookmark_missing", "Save Missing");
         provider.add("gui.neoecoae.crafting_report.complex_tree_hint", "Check the patterns in this complex crafting tree");
@@ -1038,7 +1050,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_graph.card.source_patterns", "Source patterns #%s");
         provider.add("gui.neoecoae.crafting_graph.reference.description", "Shared dependency reference");
         provider.add("gui.neoecoae.crafting_graph.reference.source", "Source ID: %s");
-        provider.add("gui.neoecoae.crafting_graph.action.expand_hint", "Click: expand one level; right-click: expand all");
+        provider.add("gui.neoecoae.crafting_graph.action.expand_hint", "Click: expand one level; double-click or right-click: expand all");
         provider.add("gui.neoecoae.crafting_graph.details.hidden_nodes", "Hidden nodes: %s");
         provider.add("gui.neoecoae.crafting_graph.details.hidden_layers", "Hidden layers: %s");
         provider.add("gui.neoecoae.crafting_graph.details.depth", "Depth: %s");

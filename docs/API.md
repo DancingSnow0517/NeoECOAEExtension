@@ -137,7 +137,7 @@ Consume a completed Future from a server tick, call `submit` once, then check `I
 | Option | Contract |
 | --- | --- |
 | `cyclePlanningEnabled` | Allow unavoidable cyclic components into the solver |
-| `ignorePatternSubstitutions` | Legacy API name for default-enabled lite crafting: one exact producer per material, no route retries, substitutions, remainder or byproduct reuse; explicit cycle and component-matching policies take priority on relevant dependency chains |
+| `ignorePatternSubstitutions` | Legacy API name for default planning, enabled by default (true); false selects the UI Deep Planning Mode. Default planning has no extra mode label: one producer per material, no route retries, substitutions or remainder reuse; physical byproducts are credited, secondary-only producers are filled once from selected patterns, and acyclic materials allow at most one supplemental expansion. Enabled cycles use the fixed-route cycle solver; disabled cycles require captured stock and verified output allocations. Marked processing inputs match by item ID without switching to full planning |
 | `fuzzyPlanningItemIds` | Ignore NBT for selected items during planning; actual inputs must still pass pattern validation |
 | `planningLogEnabled` | Legacy compatibility field; logging uses the global Calculating debug configuration |
 
