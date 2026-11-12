@@ -56,6 +56,8 @@ Handler operations and quantity reads follow the server-thread, simulation/execu
 
 ## Threads, registration and ownership
 
+The JEI multiblock transfer bridge selects the available API through `MultiBlockRecipeTransferHandler.create()`; load this class only on the client when JEI is present. With the 19.52 context API, actual pattern encoding reports completion or failure; preview checks do not send completion notifications. The old constructor and six-argument `transferRecipe` remain available for older JEI and existing binaries. New integrations should use the factory so context completion notifications are preserved.
+
 Begin planning on the owning server thread: it captures grid inventory before handing work to the executor. Submission, provider acceptance, storage mutations and output claims also run on that thread. The caller checks player/machine access before calculation and again before submission; these low-level APIs do not authenticate callers.
 
 Poll `Future.isDone()` from a later tick before calling `get()`. Clear the stored request reference before consuming it so a plan can be submitted only once. Cancel requests when their menu, machine or grid disappears. Handle cancellation, `ExecutionException`, interruption and executor `RejectedExecutionException`. Never block a server tick waiting for a result.
@@ -133,18 +135,32 @@ Consume a completed Future from a server tick, call `submit` once, then check `I
 
 `ECOPlanningService.begin` bypasses AE2's calculation service entry. To keep the normal service chain, wrap an `ICraftingSimulationRequester` with `new ECOPlannerRequester(originalRequester, options)` and call `beginCraftingCalculation`. ECO does not cancel or replace a Future returned earlier by another planner. Enabling the grid switch alone does not redirect every unmarked third-party request.
 
+Built-in bridges explicitly select ECO planning for AE2 crafting cards (including addons using `MultiCraftingTracker`) and ME Requester automatic orders. The request node must be online, fast planning must be enabled, and an ECO computation host must accept the action source. Cycle, substitution and fuzzy options are captured from the grid when ordering; otherwise the original calculation entry remains in use.
+
 | Option | Contract |
 | --- | --- |
 | `cyclePlanningEnabled` | Allow unavoidable cyclic components into the solver |
-| `ignorePatternSubstitutions` | Plan only the encoded preferred input |
+| `ignorePatternSubstitutions` | Legacy API name for default planning, enabled by default (true); false selects the UI Deep Planning Mode. Default planning has no extra mode label: one producer per material, no route retries, substitutions or remainder reuse; physical byproducts are credited, secondary-only producers are filled once from selected patterns, and acyclic materials allow at most one supplemental expansion. Enabled cycles use the fixed-route cycle solver; disabled cycles require captured stock and verified output allocations. Marked processing inputs match by item ID without switching to full planning |
 | `fuzzyPlanningItemIds` | Ignore components for selected items during planning; actual inputs must still pass pattern validation |
 | `planningLogEnabled` | Legacy compatibility field; logging uses the global Calculating debug configuration |
 
-`ECOPlannerOptions.from(settings)` captures current options. `from(null)` disables cycle planning and ignored substitutions and uses an empty fuzzy set. Mutating shared grid settings requires authorization. Check source-specific eligibility with `neoecoae$hasComputationHost(source)`.
+`ECOPlannerOptions.from(settings)` captures current options. `from(null)` enables lite crafting, disables cycle planning, and uses an empty fuzzy set. Mutating shared grid settings requires authorization. Check source-specific eligibility with `neoecoae$hasComputationHost(source)`.
 
 `REPORT_MISSING_ITEMS` retains the original request and shortage report. `CRAFT_LESS` may return a smaller amount; read `plan.finalOutput().amount()`. A non-null plan can be a simulation report. Read status, `exactMissingItems()`, `theoreticalBytes()` and `trace().diagnostics()` through [ECOCraftingPlanDiagnostics](../src/main/java/cn/dancingsnow/neoecoae/api/me/diagnostics/ECOCraftingPlanDiagnostics.java) or [ECOPlanningResultRegistry.find](../src/main/java/cn/dancingsnow/neoecoae/api/me/planning/ECOPlanningResultRegistry.java); verify `resolveContract(...).executable()` before submission. Do not assume every plan provides stage `executionPlan()` metadata.
 
 `withSubmissionAlias` binds metadata only during a synchronous submission callback. Keep execution identity intact; do not copy or scale task vectors to reuse another plan's metadata. The registry is bounded and expiring, not persistent storage.
+
+`ECOPlanningService.begin` still returns `Future<ICraftingPlan>`. Candidates remain private until bounded optimization selects one final result. A completed confirmation result is never replaced by a later background candidate. Addons continue to manage requests through the Future completion and cancellation contract.
+
+Exact materials and recipe counts use [PlannerAmount](../src/main/java/cn/dancingsnow/neoecoae/crafting/amount/PlannerAmount.java): long for small values, a U128 magnitude with a separate sign for the middle tier, and BigInteger beyond 128 bits. U128 covers finite values from `0` to `2^128-1`; it does not indicate unlimited supply or cap the total of an exact order. Read `exactUsedItems()`, `exactEmittedItems()`, `exactMissingItems()` and `exactPatternTimes()`, calling `toBigInteger()` when needed. Never replace the exact ledger with AE2's bounded long projections.
+
+### Confirmation reports
+
+[ECOCraftConfirmMenuMode](../src/main/java/cn/dancingsnow/neoecoae/api/me/menu/ECOCraftConfirmMenuMode.java) separates material readiness through `neoecoae$diagnosticsReady()` from graph readiness through `neoecoae$graphReady()`. `neoecoae$hasByteEstimate()` indicates an available estimate; only `neoecoae$hasCompleteByteEstimate()` indicates a complete estimate. Custom screens enable actions according to these states and label partial costs accordingly.
+
+Materials and the graph share `neoecoae$getDisplayedPlanRevision()`. Receive material data with `neoecoae$setMaterialReport(version, report, cycles)` and the complete graph with `neoecoae$setDiagnostics(version, graph, cycles)`. Before submission, call `neoecoae$lockDisplayedPlan(revision)` for the displayed revision; reread the state if it returns false. `neoecoae$getReportSyncFailure()` values 1 and 2 indicate material and graph synchronization failures respectively.
+
+[CraftingGraphSnapshot](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/snapshot/CraftingGraphSnapshot.java) exposes material-stage data through `materialReport()`. In a complete graph, `CycleGroup.recursion()` provides initial stock and bounded exact checkpoints. Each `RecursionLayer` carries PlannerAmount inputs, inventory and firing counts; `folded` marks repeated steps represented together. `Recursion.complete()` may describe execution conditional on supplying missing materials and does not replace the submission contract's executability check. The report wire protocol is now 7; server and client protocols must match.
 
 ### Exact parent orders
 
@@ -204,6 +220,10 @@ External CPUs call `ECOFastPathFacade.prepare(...)` and single-use `PreparedBatc
 
 Remove only the returned `claimedAmount()` from the producer's physical buffer. Keep unclaimed resources. Inspect `deliveredToRequester()`, `deliveredToNetwork()` and `storedInCpu()`; never deliver an already claimed amount through another path. `SIMULATE` transfers nothing.
 
+Final output is offered to the requester first. Explicitly rejected remainders are offered to ME storage; anything storage also rejects remains in the CPU for retry. Only actual delivery advances final-output progress, and completion waits for pending recipes and physical returns to clear. A requester or storage exception suspends the job with the persisted `FINAL_OUTPUT_DELIVERY_UNCERTAIN` diagnostic and stops automatic delivery to avoid replaying output with unknown acceptance.
+
+Output claims also retain same-key cycle feedback and deliver at most the remaining requested final amount. Surplus stays in the CPU for ordinary inventory return after completion; substituted-output delivery markers do not keep an overproducing job busy indefinitely.
+
 | Entry point | Responsibility |
 | --- | --- |
 | [ECOCraftingOutputRouter](../src/main/java/cn/dancingsnow/neoecoae/api/me/output/ECOCraftingOutputRouter.java) | Route output to a CPU by job ID |
@@ -245,9 +265,36 @@ Claim external candidates under an owner UUID and release claims on every exit p
 
 ## Storage cells and exact amounts
 
+Incremental listing readers track both `StorageListingVersion.neoecoae$listingVersion()` and `neoecoae$listingIdentity()`. The default identity is the source itself; replace it when a delegate, filter view or revision epoch changes, and return `UNKNOWN` when the listing cannot be versioned safely. `StorageListingDelta` retains the original key-only callback, which may return false after reporting some keys. Its new `ObjLongConsumer<AEKey>` overload reports absolute nonnegative listed amounts (zero means deletion) and must return false without calling the visitor when a complete delta is unavailable. The default bridge stages the old callback safely; a native implementation can override it to avoid that temporary collection. These cursors do not change AEKey content equality.
+
+`ECOExactInventory.debitTransferred(key, accepted)` removes an acknowledged external delivery. Its observer callbacks run after the debit and cannot roll it back; use `debit(Map)` for a local reversible reservation instead. Idle ECO CPUs return retained inventory over bounded passes. A storage exception or invalid acceptance stops automatic return and persists the diagnostic; integrations must not resubmit work to a CPU that still owns items or reports a permanent error.
+
+`ECOExactInventory.quantity(key)`, `snapshotQuantities()`, `debitQuantities(Map)` and `restoreQuantities(Map)` use PlannerAmount directly to avoid repeated conversion on hot paths. Existing BigInteger entry points remain available. Both use the same ledger; the long quantities in `list` are projections for AE2 compatibility.
+
+Terminal exact-amount sources may implement `crafting.display.terminal.SparseExactAmountSource` to report only resources that the ordinary long listing cannot represent faithfully. `neoecoae$exceptionalAmount(key)` returns `null` when the ordinary listing is exact for that key, or the key is currently hidden. Sparse and ordinary queries must use identical visibility, access and restore-lock rules. When combined with `StorageListingDelta`, its version must cover exact changes even when the long projection is unchanged. Existing `ExactAmountSource` and `CombinedExactAmountSource` implementations remain valid; the latter's new three-argument listing overload accepts primitive long callbacks for faithful ordinary quantities and defaults to the original exact callback.
+
 Register handlers with `ECOStorageCells.register(IECOCellHandler)`. `getCellInventory(stack, saveProvider)` may return null. On cell replacement or host unload, call `releaseCellInventory` so the handler saves/releases owned state. [IECOStorageCell](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStorageCell.java) defines inventory behavior; [IECOStorageCellItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStorageCellItem.java) and [IBasicECOCellItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IBasicECOCellItem.java) expose item capabilities.
 
 For `ICellHost`, install exactly one valid cell; null requests removal, while `ItemStack.EMPTY` does not. Check `isItemValid/canExtractCell`, call void `setCellStack`, then re-read the slot before transferring source/old-cell ownership. Do not mutate its returned live stack. [IECOStoragePriorityHost.setStoragePriority](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStoragePriorityHost.java) saves and refreshes mounts on the server.
+
+Addon drives can implement [IECOConfigurableCellDrive](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOConfigurableCellDrive.java) without inheriting ECO block entities. `getCellInteractionId()` identifies one installation: regenerate it on cell replacement or reload and synchronize it through `StorageHostUI.CellEntry.atDrive(position, stack, reason, interactionId)`. `setConfiguredCellPriority` must persist and synchronize settings and refresh affected AE2 mounts. Use `StoragePriority.mountPriority(hostPriority, cellPriority)` for signed, saturating int addition when mounting.
+
+To reuse the installed-cell Configure workbench, implement [IECOConfigurableCellHost](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOConfigurableCellHost.java) on the placed host block entity. Return itself from `getCellWorkbenchBlockEntity()` and only its current drives from `getStorageDrivesForIntegration()`. Drives implement [IECOCellWorkbenchDrive](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOCellWorkbenchDrive.java), extending the priority contract above and `ICellHost`. `getCellInventory()` returns the mounted inventory and `getCellStack()` must return the same live stack. `reloadCellConfiguration()` persists contents, rebuilds the handler and refreshes mounts without replacing the stack or installation UUID.
+
+Bind `CellActions.openConfiguration` to `(pos, id) -> openCellConfiguration(player, pos, id)` and call it on the owning server thread. The shared locator and workbench validate host identity, level, formation, permissions, drive membership, installation UUID, a single cell and migration locks; addons supply the actual `isFormed/canPlayerInteract` rules. Configuration edits the installed stack directly; extraction transfers it to the cursor only after confirmed removal. The default return menu is LDLib's block UI; override `returnToCellWorkbenchHost(ServerPlayer)` for another menu. No built-in host/drive inheritance or copied workbench is needed.
+
+Keep one [ECOStorageCellPriorities](../src/main/java/cn/dancingsnow/neoecoae/api/storage/ECOStorageCellPriorities.java) per host, supplying its current drives and an authorization predicate that checks level identity, formation, distance and player/network permissions. Every read/write rechecks membership, position, installation UUID, removal, extractability and migration/infinite-membership locks. Server operations run on the owning server thread. Built-in hosts expose the interface through `getConfigurableCellDrives()`; the existing `getStorageDrivesForIntegration()` signature remains available.
+
+Create a [StorageCellPriorityUI](../src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageCellPriorityUI.java) for each menu. It handles the client target, per-player server selection and menu RPC:
+
+```java
+var priority = new StorageCellPriorityUI(player, cellPriorities);
+var config = baseConfig.withCellActions(priority.withActions(baseConfig.cellActions()));
+var root = StorageHostUI.create(config, this::getTier, this::getBlockState);
+root.addChild(priority.window()); // Add at the same location on client and server.
+```
+
+`withActions` preserves the other four cell actions and replaces only `openPriority`. The 19-argument compatibility constructor of `StorageHostUI.Config` supplies `CellActions.NONE`, leaving all five actions empty; use `withCellActions` to enable them explicitly. Custom menus/packets can reuse `ECOStorageCellPriorities.select/getSelectedPriority/setPriority/changePriority` and call `clear(player)` when a selection is no longer needed.
 
 `ECOBigIntegerStorage.insert(storage, key, amount, mode, source)` returns the **inserted amount**, not the remainder. Within long it uses normal AE2 insertion. Beyond long it prefers exact storage; otherwise it attempts one `Long.MAX_VALUE` segment without looping. Exact implementations must return an amount between zero and the offered total.
 
@@ -259,6 +306,8 @@ For `ICellHost`, install exactly one valid cell; null requests removal, while `I
 | [INativeMEStorageRestrictedItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/INativeMEStorageRestrictedItem.java) | Defaults to rejecting native ME drive/chest insertion; false resumes normal validation, not guaranteed acceptance |
 
 Native restrictions do not remove existing cells, affect other mods' drives or supply ECO storage. Infinite cells still need complete migration support and explicit eligibility.
+
+Infinite transfers keep cells sealed across ordered persistence checkpoints. `IECOStorageMigrationCell.persistMigrationContents(level)` must flush the current contents before returning; a backend stored outside the item must confirm its own file write or throw, rather than only mark data dirty. ECO separately awaits the vanilla chunk write and domain snapshot without blocking a server tick. Simulation and preview methods must not assign identities or modify the live stack.
 
 ## Addon extension registration
 
@@ -287,12 +336,13 @@ Build definitions resolve through the registry, `IECOTier.getBuildDefinition(kin
 Roles provide classification/ordering, not execution backends; cores and drives still require compatible entities/calculators. `IECOComputationCellItem` reports nonnegative bytes per actual stack; adapt external Items without caching dynamic capacity by Item. `IECOTier.supportsFeature(ECOFeature)` declares eligibility without bypassing physical, material or recovery requirements.
 
 `ECOStorageChannelDisplays.Display` aliases merge display channels, never distinct AEKey inventories. Names, colors and texture IDs travel in server snapshots; statistics stay exact. Icons/bars use separate 8×8 images with bar borders.
-
-[AddonApiExample.java](../src/test/java/cn/dancingsnow/neoecoae/api/extension/AddonApiExample.java) provides a compilable registration skeleton; replace IDs, blocks, entities and recipe adapters with registered addon objects.
-
 ### Workstation recipes and modules
 
+`ECOLargeIntegratedWorkingStationBlockEntity.getCluster()` returns `null` when the structure is dismantled or disconnected; addon callers must retain their null checks. The legacy public methods `getSelectedTierText/getTemperatureText/getEnergyText/getRecipeText/returnStoredInputs` are deprecated since 21.2.15, with their signatures and behavior retained and no removal planned. New panels should use the corresponding data from `getCoolingTierText/getTemperature/getAECurrentPower/getAEMaxPower/getTask`. There is no general replacement for `returnStoredInputs`: legacy callers must run it on the owning server thread and retain any resources the network rejects for a later recovery attempt.
+
 `ECOWorkstationRecipeAdapters.register(id, priority, sourceRecipeType, adapter)` preserves source ID/type, inputs, outputs, time, AE/FE costs and extra resources. Disable recipes that cannot be represented accurately instead of omitting costs. `LargeWorkstationRecipe.processing(ticks, feEnergy, feAlternative)` specifies time/FE; `energy()` is the AE budget. Nonzero AE and FE with alternative false require both; true makes them alternatives. FE-only recipes set AE to zero.
+
+`isFePreferred()` reads the controller's saved supply priority; `togglePowerPriority()` changes it on the owning server thread. A payment uses the preferred source first and combines the remainder with the other source at AE2's configured conversion rate. Independent AE and FE budgets are added, while an alternative recipe selects one budget at acceptance. Changing priority never reprices an accepted batch. `NEIntegratedWorkingStationCluster.getInputHatch()` remains the ordinary lower inlet; `getSmartCoolingController()` returns the optional upper component directly behind the controller. Both may be present and both getters may return `null`.
 
 `ECOWorkstationModules.Module` supplies stable ID, card, source types, names and optional appearance. Read `getInstalledModuleId/getInstalledModuleDescription`; the legacy enum's `OTHER` cannot distinguish custom modules. Icons are 15×15, circuit images 28×28; provide complete north-facing controller models.
 
@@ -325,6 +375,10 @@ Register custom tiers and cell types with matching IDs on both sides in synchron
 
 `IECOTier.getPanelTierName()` supplies names, `getHostMarkerTexture()` supplies markers and `getPanelAtlas(String)` replaces full atlases for that tier. Null preserves defaults. Resolution is tier atlas, global LDLib2 `ui-eco` provider, then original image. Preserve atlas dimensions and crop layout.
 
+`IECOTier.getCraftConfirmCpuTierGlyph()` supplies a separate 13×18 CPU tier glyph for the terminal's crafting confirmation header. Its default returns null and draws nothing, so existing addons need no new implementation. For a standalone image, return `new ECOCpuTierGlyph(ResourceLocation.parse("addon:textures/gui/tier/l1.png"))`. For an atlas, use the five-argument constructor `(texture, u, v, textureWidth, textureHeight)`; the crop is always 13×18. Built-in L4/L6/L9 retain the digits at `(0,0)/(13,0)/(26,0)` in `crafting_widgets.png`. This API is independent of the 10×10 pattern returned by `getCPUOverlayTexture()` and does not fall back to the tier name. The menu synchronizes the `ECO_TIER` registry ID, with -1 meaning no ECO CPU; an addon with `getTier() == 0` can also supply its own glyph.
+
+`StorageHostActionUI.Config` retains the 13-argument constructor from 21.2.13/21.2.14 so existing addon JARs can still link. Its default `definition` supplier returns null, preserving build actions and material previews. To supply a structure scene preview, use the 14-argument constructor with a `Supplier<MultiBlockDefinition>` immediately after `previewPlan`.
+
 | atlas argument, without `ui-eco:` | Default under `assets/neoecoae/textures/guis/` |
 | --- | --- |
 | `Computation-BACKGROUND_ATLAS` | `eco_cpu_controller.png` |
@@ -345,11 +399,13 @@ Blocks implement `IHostPanelTextureProvider.getPanelTexture(BlockState, Part)` f
 | `COMPUTATION_STATUS` | 12×12 |
 | `COMPUTATION_SWITCH/CRAFTING_MODE` | 15×26 |
 
-Status indices 0–5 represent connection, substitutions, cycles, fast planning, normal switch and high-energy switch; hovered is false. The high-energy blue state uses column 5, its pink state column 4. Computation switch indices 0–2 are substitutions/cycles/fast planning; crafting indices 0–1 are active cooling/overclock, with active/hovered selecting state images.
+Status indices 0–5 represent connection, lite crafting, cycles, fast planning, normal switch and high-energy switch; hovered is false. The high-energy blue state uses column 5, its pink state column 4. Computation switch indices 0–2 are lite crafting/cycles/fast planning; crafting indices 0–1 are active cooling/overclock, with active/hovered selecting state images.
 
 When constructing panels such as [StorageHostUI](../src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageHostUI.java), use overloads accepting `Supplier<IECOTier>` and `Supplier<BlockState>`. The server captures placed-state texture IDs for synchronization; old factory signatures remain available.
 
-Register `ECOCellModels.register` and `ECOComputationModels.registerCellModel/registerCableModel` on the client. Cables support `(tier, hostBlock)` entries, resolved as provider (`registerCableModelProvider`) → `(tier, hostBlock)` → `tier` → `registerDefaultCableModel`; the host is the rendered computation drive block. Additional models returned by dynamic providers require `registerAdditionalModel` before baking. Panel providers change images, not button semantics.
+`FluidHatchUI.createInputHatchUI(holder, host)` uses the placed block's `getDescriptionId()` as its title translation key, so addon input-hatch subclasses display their own block name in both normal and network-pull modes. The explicit title parameter of the older `createFluidHatchUI` remains available.
+
+Register `ECOCellModels.register` and `ECOComputationModels.registerCellModel/registerCableModel` on the client. Cables support `(tier, hostBlock)` entries. Additional models returned by dynamic providers require `registerAdditionalModel` before baking. Panel providers change images, not button semantics.
 
 ## Integration diagnostics
 

@@ -56,6 +56,8 @@ side = "BOTH"
 
 ## 线程、注册与资源所有权
 
+JEI 多方块转移兼容桥使用 `MultiBlockRecipeTransferHandler.create()` 选择可用 API；仅在客户端且 JEI 存在时加载该类。具备 19.52 上下文接口时，实际样板编码完成或失败后回传转移结果，预检不发送完成通知。旧构造器及六参数 `transferRecipe` 保留给旧版 JEI 和已有二进制；新版接入使用工厂方法，避免遗漏上下文完成通知。
+
 规划入口先读取库存快照，因此在所属服务器线程调用。提交、供应器接收、存储变更和产物认领也在服务器线程执行。调用方在开始计算和提交前检查玩家/机器的网络访问权限；底层接口不代替鉴权。
 
 规划返回 `Future`：后续 tick 检查 `isDone()`，完成后才 `get()`，消费前清除持有的请求引用，确保只提交一次。菜单关闭、机器移除或网络失效时取消请求。处理取消、`ExecutionException`、中断与执行器队列满时的 `RejectedExecutionException`；不要在 tick 中阻塞等待。
@@ -133,18 +135,32 @@ public final class EcoApiExample {
 
 直接调用 `ECOPlanningService.begin` 不经过 AE2 的服务入口。若要保留 AE2 服务链，使用 `new ECOPlannerRequester(originalRequester, options)` 包装 `ICraftingSimulationRequester`，再调用 `beginCraftingCalculation`。其他规划器提前返回的 Future 不会被 ECO 取消或替换；未标记的第三方请求不会仅因网络开关开启就全部改用 ECO。
 
+内置兼容入口为 AE2 合成卡（包括复用 `MultiCraftingTracker` 的附属）和 ME Requester 自动订单显式选择 ECO 规划：请求节点须在线、启用快速规划，且存在接受该动作来源的 ECO 运算主机。循环、替代和模糊选项使用下单时的网络设置；不满足条件时保留原计算入口。
+
 | 选项 | 约定 |
 | --- | --- |
 | `cyclePlanningEnabled` | 允许不可避开的循环组件进入求解 |
-| `ignorePatternSubstitutions` | 仅按编码首选输入规划 |
+| `ignorePatternSubstitutions` | 兼容旧 API 名称的默认规划开关，默认开启；true 对应无额外标记的默认规划，false 对应界面的深度规划模式；每种材料固定一个样板，不回溯路线、不计替代或返还；计入实际副产物，仅从已选样板补全一次副产物生产路线，非循环材料最多补算一次。开启循环时使用固定路线的循环求解，关闭时须由捕获库存和经验证的产物分配闭合。已标记加工输入按物品 ID 匹配，不切换完整规划 |
 | `fuzzyPlanningItemIds` | 对指定物品忽略组件规划，实际输入仍须通过样板校验 |
 | `planningLogEnabled` | 旧兼容字段；日志由全局 Calculating 调试配置控制 |
 
-`ECOPlannerOptions.from(settings)` 捕获当前选项；`from(null)` 关闭循环与忽略替代模式，模糊集合为空。共享网络设置的修改仍须鉴权。使用带动作来源的 `neoecoae$hasComputationHost(source)` 检查玩家/自动任务资格。
+`ECOPlannerOptions.from(settings)` 捕获当前选项；`from(null)` 开启轻量合成、关闭循环规划，模糊集合为空。共享网络设置的修改仍须鉴权。使用带动作来源的 `neoecoae$hasComputationHost(source)` 检查玩家/自动任务资格。
 
 `REPORT_MISSING_ITEMS` 保留原请求及完整缺料报告；`CRAFT_LESS` 可能返回较小数量，读取 `plan.finalOutput().amount()`。非空计划可能只是模拟报告，不能直接提交。通过 [ECOCraftingPlanDiagnostics](../src/main/java/cn/dancingsnow/neoecoae/api/me/diagnostics/ECOCraftingPlanDiagnostics.java) 或 [ECOPlanningResultRegistry.find](../src/main/java/cn/dancingsnow/neoecoae/api/me/planning/ECOPlanningResultRegistry.java) 读取状态、`exactMissingItems()`、`theoreticalBytes()` 与 `trace().diagnostics()`；提交前检查 `resolveContract(...).executable()`。不假定每份计划都有阶段 `executionPlan()`。
 
 `withSubmissionAlias` 只在同步提交回调期间绑定元数据；保持同一计划的执行身份，不复制或缩放任务向量来复用元数据。该注册表有容量与有效期限制，不用于持久化。
+
+`ECOPlanningService.begin` 仍返回 `Future<ICraftingPlan>`。候选方案保留在请求内部，有限优化结束后只完成一次；已返回的确认结果不会被后台候选替换。附属继续通过 Future 的完成与取消合同管理请求。
+
+精确材料与配方次数使用 [PlannerAmount](../src/main/java/cn/dancingsnow/neoecoae/crafting/amount/PlannerAmount.java)：小数量使用 long，中间层使用带独立符号的 U128 幅值，超出 128 位后自动使用 BigInteger。U128 的有限范围为 `0` 至 `2^128-1`，不代表无限供应，也不是精确订单的总量上限。读取 `exactUsedItems()`、`exactEmittedItems()`、`exactMissingItems()` 与 `exactPatternTimes()`，需要 BigInteger 时调用 `toBigInteger()`；不得用 AE2 的有界 long 投影覆盖精确账本。
+
+### 确认菜单报告
+
+[ECOCraftConfirmMenuMode](../src/main/java/cn/dancingsnow/neoecoae/api/me/menu/ECOCraftConfirmMenuMode.java) 区分材料就绪 `neoecoae$diagnosticsReady()` 与图就绪 `neoecoae$graphReady()`。`neoecoae$hasByteEstimate()` 表示已有字节估算，`neoecoae$hasCompleteByteEstimate()` 才表示完整估算。自定义界面按对应就绪状态启用操作，不把部分估算显示为完整成本。
+
+材料与图属于同一个 `neoecoae$getDisplayedPlanRevision()`。材料阶段由 `neoecoae$setMaterialReport(version, report, cycles)` 接收，完整图由 `neoecoae$setDiagnostics(version, graph, cycles)` 接收；提交前使用 `neoecoae$lockDisplayedPlan(revision)` 核对已显示的版本，返回 false 时重新读取状态。`neoecoae$getReportSyncFailure()` 的 1、2 分别表示材料、图同步失败。
+
+[CraftingGraphSnapshot](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/snapshot/CraftingGraphSnapshot.java) 的 `materialReport()` 只提供材料阶段的数据。完整图中 `CycleGroup.recursion()` 提供初始库存和有界的精确检查点；`RecursionLayer` 的投入、库存和配方次数均使用 PlannerAmount，`folded` 表示折叠了重复步骤。`Recursion.complete()` 也可描述补足缺料后的条件执行过程，不代替提交合同的可执行判定。报告线协议现为 7，服务器与客户端必须使用匹配协议。
 
 ### 精确父订单
 
@@ -204,6 +220,10 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 
 生产者只从物理缓存移除返回的 `claimedAmount()`，未认领部分保留。查看 `deliveredToRequester()`、`deliveredToNetwork()`、`storedInCpu()` 区分去向；已认领部分不能再从另一条路径交付。`SIMULATE` 不交付物资。
 
+最终产物先交付请求方；明确拒收的余量尝试退回 ME 网络，网络也拒收的部分保留在 CPU 重试。只有实际交付的数量推进最终产物进度；剩余配方与等待回收的产物清空后才通知任务完成。请求方或网络抛出异常时，以 `FINAL_OUTPUT_DELIVERY_UNCERTAIN` 暂停任务并持久化诊断，停止自动交付，避免重复发送接收量不明的产物。
+
+产物认领也遵守同键循环回流预留，只交付尚欠的最终产物数量。超产部分保留在 CPU，任务结束后按普通库存返还；替代产物的交付标记不会因超产而永久阻止任务结束。
+
 | 入口 | 责任 |
 | --- | --- |
 | [ECOCraftingOutputRouter](../src/main/java/cn/dancingsnow/neoecoae/api/me/output/ECOCraftingOutputRouter.java) | 按任务 ID 向 CPU 路由产物 |
@@ -245,9 +265,36 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 
 ## 存储盘与精确数量
 
+增量列表读者同时记录 `StorageListingVersion.neoecoae$listingVersion()` 和 `neoecoae$listingIdentity()`。默认 identity 为源对象自身；委托库存、过滤视图或版本纪元改变时应更换 identity，无法安全版本化时返回 `UNKNOWN`。`StorageListingDelta` 保留原有只传 Key 的回调，该回调允许已报告部分 Key 后返回 false；新增的 `ObjLongConsumer<AEKey>` 重载报告非负的绝对列表数量（零表示删除），无法提供完整增量时必须在调用任何回调前返回 false。默认桥会暂存旧回调的 Key，原生实现可覆盖该重载以避免临时集合；这些游标不改变 AEKey 的内容相等语义。
+
+`ECOExactInventory.debitTransferred(key, accepted)` 扣除外部已确认接收的数量，先记账再通知观察者，通知失败不会回滚已交付资源；本地可回滚的预留继续使用 `debit(Map)`。空闲 ECO CPU 分批返还保留库存，存储异常或非法接收量会停止自动返还并保存诊断；附属不得向仍持有资源或报告永久错误的 CPU 提交新任务。
+
+`ECOExactInventory.quantity(key)`、`snapshotQuantities()`、`debitQuantities(Map)` 和 `restoreQuantities(Map)` 直接使用 PlannerAmount，避免热路径反复转换；原有 BigInteger 入口继续保留。两组入口共享同一账本，`list` 中的 long 数量仅用于 AE2 兼容访问。
+
+终端精确数量源可以实现 `crafting.display.terminal.SparseExactAmountSource`，只报告普通 long 列表无法准确表达的资源；`neoecoae$exceptionalAmount(key)` 返回 `null` 表示普通列表已准确表达该资源，或资源当前不可见。稀疏查询与普通列表必须使用相同的过滤、访问和恢复锁规则。结合 `StorageListingDelta` 时，版本必须覆盖精确数量变化，即使 long 投影保持不变。已有 `ExactAmountSource` 与 `CombinedExactAmountSource` 实现继续有效；后者新增的三参数枚举重载允许可信的普通数量使用原始 long 回调，默认仍调用原有精确回调。
+
 `ECOStorageCells.register(IECOCellHandler)` 注册盘处理器；`getCellInventory(stack, saveProvider)` 可能返回 null。宿主更换盘或卸载时调用 `releaseCellInventory`，处理器按实际所有权保存并释放状态。[IECOStorageCell](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStorageCell.java) 为库存契约，[IECOStorageCellItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStorageCellItem.java) / [IBasicECOCellItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IBasicECOCellItem.java) 提供物品能力。
 
 `ICellHost` 的安装参数为恰好一张有效盘，移除参数为 null；`ItemStack.EMPTY` 不是移除请求。先查询 `isItemValid/canExtractCell`，调用 void 的 `setCellStack` 后重读槽位确认，再转移源/旧盘。不要直接修改 `getCellStack()` 返回的活栈。[IECOStoragePriorityHost.setStoragePriority](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStoragePriorityHost.java) 在服务端保存并刷新挂载。
+
+附属驱动器可实现 [IECOConfigurableCellDrive](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOConfigurableCellDrive.java)，无需继承 ECO 方块实体。`getCellInteractionId()` 标识一次安装，换盘或重新加载时更新，并同步到 `StorageHostUI.CellEntry.atDrive(position, stack, reason, interactionId)`。`setConfiguredCellPriority` 必须保存、同步设置并刷新受影响的 AE2 挂载；有效挂载优先级使用 `StoragePriority.mountPriority(hostPriority, cellPriority)`，按有符号 int 饱和相加。
+
+要复用已安装盘的「配置」工作台，主机方块实体实现 [IECOConfigurableCellHost](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOConfigurableCellHost.java)，`getCellWorkbenchBlockEntity()` 返回自身，`getStorageDrivesForIntegration()` 仅返回当前所属驱动器；驱动器实现 [IECOCellWorkbenchDrive](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOCellWorkbenchDrive.java)，复用上述优先级接口和 `ICellHost`。`getCellInventory()` 返回当前挂载的库存，`getCellStack()` 必须返回同一活栈；`reloadCellConfiguration()` 保存内容、重建处理器并刷新挂载，不得更换活栈或安装 UUID。
+
+将 `CellActions.openConfiguration` 绑定为 `(pos, id) -> openCellConfiguration(player, pos, id)`，在所属服务器线程调用。共享 locator 与工作台负责检查主机身份、世界、结构、权限、驱动器归属、安装 UUID、单张盘及迁移锁；附属仍需实现 `isFormed/canPlayerInteract` 的实际规则。配置直接写入已安装盘，取盘确认移除成功后才转交鼠标；默认返回 LDLib 方块界面，其他菜单重写 `returnToCellWorkbenchHost(ServerPlayer)`。无需继承内置主机、驱动器或复制工作台。
+
+每台主机保存一个 [ECOStorageCellPriorities](../src/main/java/cn/dancingsnow/neoecoae/api/storage/ECOStorageCellPriorities.java)，传入当前所属驱动器的 supplier 和权限 predicate；predicate 应检查同一世界、结构形成、距离及玩家/网络权限。每次读写都会重新检查归属、位置、安装 UUID、移除状态、可取出性和盘的迁移/无限成员锁定。服务端操作在所属服务器线程执行。内置主机的 `getConfigurableCellDrives()` 同样返回此接口，原 `getStorageDrivesForIntegration()` 签名保留。
+
+在每次创建菜单时建立 [StorageCellPriorityUI](../src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageCellPriorityUI.java)，它封装客户端目标、服务端按玩家选择和菜单 RPC，无需附属复制这些逻辑：
+
+```java
+var priority = new StorageCellPriorityUI(player, cellPriorities);
+var config = baseConfig.withCellActions(priority.withActions(baseConfig.cellActions()));
+var root = StorageHostUI.create(config, this::getTier, this::getBlockState);
+root.addChild(priority.window()); // 客户端和服务端都添加到同一位置
+```
+
+`withActions` 保留其余四个仓格动作，只替换 `openPriority`。`StorageHostUI.Config` 的 19 参数兼容构造器使用 `CellActions.NONE`，五个动作均为空；可用 `withCellActions` 显式启用。自定义网络/菜单也可复用 `ECOStorageCellPriorities` 的 `select/getSelectedPriority/setPriority/changePriority`，菜单结束后可用 `clear(player)` 清除选择。
 
 `ECOBigIntegerStorage.insert(storage, key, amount, mode, source)` 返回**已插入数量**，剩余量为提供量减去返回值。long 范围使用普通 AE2 插入；超 long 时优先精确库存，否则仅尝试一段 `Long.MAX_VALUE`，不会自动循环搬完。精确实现返回值必须在 0 与提供量之间。
 
@@ -257,6 +304,8 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 | [IECOBulkMarkableCellItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOBulkMarkableCellItem.java) | 开启压缩标记 UI，不注册库存后端 |
 | [IECOBulkDisplayCell](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOBulkDisplayCell.java) | 提供完整压缩链与实际生效的显示截止等级 |
 | [INativeMEStorageRestrictedItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/INativeMEStorageRestrictedItem.java) | 默认禁止原版 ME 驱动器/箱子插入；false 仅继续原校验，不保证接受 |
+
+无限域迁移会在有序的持久化检查点之间保持盘封印。`IECOStorageMigrationCell.persistMigrationContents(level)` 返回前必须写出当前内容；库存保存在物品之外的后端，需要确认自己的文件写入完成或抛出异常，不能只标脏。ECO 另行等待原版区块写入与域快照完成，不阻塞服务器 tick。模拟与预览方法不得分配身份或修改实际物品栈。
 
 原版插入限制不清理已有盘，不影响其他 Mod 的驱动器，也不提供 ECO 后端。无限盘仍须具备完整迁移实现与明确资格。
 
@@ -287,12 +336,13 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 部件角色用于识别与排序，不自行创建执行后端；对应核心、驱动器仍须使用兼容实体/计算器。`IECOComputationCellItem` 按实际栈返回非负字节容量，外部 Item 可注册适配器，不按 Item 缓存动态容量。`IECOTier.supportsFeature(ECOFeature)` 声明高级资格，不能绕过结构、材料或恢复要求。
 
 `ECOStorageChannelDisplays.Display` 的别名只合并展示通道，不合并不同 AEKey 的真实库存。名称/颜色/纹理随服务端快照发送，统计保持精确数量。图标与色条为独立 8×8 图，色条两端保留边框。
-
-可编译的附属注册骨架见 [AddonApiExample.java](../src/test/java/cn/dancingsnow/neoecoae/api/extension/AddonApiExample.java)；其中 ID、方块、实体与配方适配器均须替换为附属实际注册对象。
-
 ### 工作站配方与模块
 
+`ECOLargeIntegratedWorkingStationBlockEntity.getCluster()` 在结构拆除或断开时返回 `null`，附属调用必须保留判空。旧公开方法 `getSelectedTierText/getTemperatureText/getEnergyText/getRecipeText/returnStoredInputs` 自 21.2.15 标记为弃用，仍保留原签名和行为，未计划移除。新面板使用 `getCoolingTierText/getTemperature/getAECurrentPower/getAEMaxPower/getTask` 等对应数据入口；`returnStoredInputs` 暂无通用替代，仅供所属服务器线程恢复旧批次，拒收后仍须保留未退回资源。
+
 `ECOWorkstationRecipeAdapters.register(id, priority, sourceRecipeType, adapter)` 转换外部配方，保留源 ID/类型、输入输出、加工时间、AE/FE 与额外资源。不能准确表达时使该配方停用，不丢弃成本。`LargeWorkstationRecipe.processing(ticks, feEnergy, feAlternative)` 明确时间/FE 合同；`energy()` 是 AE 预算，两项非零且非 alternative 时同时支付，alternative 时二选一，FE-only 的 AE 设零。
+
+`isFePreferred()` 读取控制器保存的供能优先级，`togglePowerPriority()` 仅在所属服务器线程切换。付款先使用优先能源，缺口按 AE2 配置汇率由另一种补足；独立 AE/FE 预算相加，alternative 配方在接单时选择一项预算。切换优先级不重新定价已接批次。`NEIntegratedWorkingStationCluster.getInputHatch()` 仍返回下层普通输入仓，`getSmartCoolingController()` 返回主机正后方的可选上层控制器。两者可以同时存在，调用方均须保留判空。
 
 `ECOWorkstationModules.Module` 提供稳定 ID、升级卡、源类型、名称与可选外观。用 `getInstalledModuleId/getInstalledModuleDescription` 读取真实身份，不用旧枚举的 `OTHER` 区分自定义模块。图标 15×15、芯片图 28×28，模型按北向提供完整控制器外观。
 
@@ -325,6 +375,10 @@ ServerEvents.recipes(event => {
 
 `IECOTier.getPanelTierName()` 提供名称，`getHostMarkerTexture()` 提供标记，`getPanelAtlas(String)` 为当前档位替换完整图集。返回 null 使用默认外观。图集优先级：档位 → 全局 LDLib2 `ui-eco` provider → 原图。替换图保持原尺寸与裁剪布局。
 
+`IECOTier.getCraftConfirmCpuTierGlyph()` 为终端合成确认页提供独立的 13×18 CPU 档位角标，默认返回 null，不绘制角标，旧附属无需新增实现。独立图片可返回 `new ECOCpuTierGlyph(ResourceLocation.parse("addon:textures/gui/tier/l1.png"))`；图集使用五参数构造器 `(texture, u, v, textureWidth, textureHeight)`，裁剪固定为 13×18。内置 L4/L6/L9 沿用 `crafting_widgets.png` 中 `(0,0)/(13,0)/(26,0)` 的数字。此接口与 `getCPUOverlayTexture()` 的 10×10 花纹独立，不自动使用档位名称兜底。菜单同步 `ECO_TIER` 注册表 ID，-1 表示无 ECO CPU；附属的 `getTier() == 0` 也可正常显示自己的角标。
+
+`StorageHostActionUI.Config` 保留 21.2.13/21.2.14 的 13 参数构造器，旧附属 JAR 可继续链接。该重载的 `definition` 默认 supplier 返回 null，保留建造操作与材料预览；要提供结构场景预览，使用 14 参数构造器，在 `previewPlan` 后传入 `Supplier<MultiBlockDefinition>`。
+
 | atlas 参数（不带 `ui-eco:`） | 默认文件（`assets/neoecoae/textures/guis/`） |
 | --- | --- |
 | `Computation-BACKGROUND_ATLAS` | `eco_cpu_controller.png` |
@@ -349,7 +403,9 @@ ServerEvents.recipes(event => {
 
 自行创建 [StorageHostUI](../src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageHostUI.java) 等面板时，使用接收 `Supplier<IECOTier>` 和 `Supplier<BlockState>` 的重载；服务器捕获放置态纹理并同步到客户端。旧工厂签名保留。
 
-`ECOCellModels.register`、`ECOComputationModels.registerCellModel/registerCableModel` 在客户端注册模型。线缆支持 `(tier, hostBlock)` 专用条目，解析顺序为 provider（`registerCableModelProvider`）→ `(tier, hostBlock)` → `tier` → `registerDefaultCableModel`，宿主即被渲染的计算驱动器方块；动态模型提供器返回的额外模型须在烘焙前用 `registerAdditionalModel` 声明。面板 provider 只更换图片，不改变按钮或业务语义。
+`FluidHatchUI.createInputHatchUI(holder, host)` 使用实际放置方块的 `getDescriptionId()` 作为标题翻译键，附属的输入仓子类会显示自己的方块名称；网络拉取与普通模式使用同一标题。旧 `createFluidHatchUI` 的显式标题参数保持可用。
+
+`ECOCellModels.register`、`ECOComputationModels.registerCellModel/registerCableModel` 在客户端注册模型。线缆支持 `(tier, hostBlock)` 专用条目；动态模型提供器返回的额外模型须在烘焙前用 `registerAdditionalModel` 声明。面板 provider 只更换图片，不改变按钮或业务语义。
 
 ## 接入诊断
 
