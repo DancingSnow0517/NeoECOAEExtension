@@ -61,6 +61,8 @@ final class GraphViewportCache implements AutoCloseable {
         }
     }
 
+    java.util.List<Bounds> unfinished() { return tiles.unfinished(); }
+
     void draw(GuiGraphics graphics) {
         graphics.flush();
         boolean depth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);

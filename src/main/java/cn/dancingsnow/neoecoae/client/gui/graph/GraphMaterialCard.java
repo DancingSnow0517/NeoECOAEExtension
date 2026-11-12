@@ -40,7 +40,8 @@ final class GraphMaterialCard {
     }
 
     static boolean supports(@Nullable ClientCraftingGraph.Node node) {
-        return node != null && node.kind() == ClientCraftingGraph.Kind.MATERIAL
+        return node != null
+            && (node.kind() == ClientCraftingGraph.Kind.MATERIAL || node.kind() == ClientCraftingGraph.Kind.REFERENCE)
             && node.material() != null && node.recursion() == null;
     }
 
@@ -70,6 +71,10 @@ final class GraphMaterialCard {
         var card = CraftingListCard.builder().minimumWidth(details ? 272 : 150);
         if (details) card.header(CraftingListCard.Glyph.SPARKLE, title, label("request"), MUTED);
         else card.header(null, title, Component.empty(), CYAN, CraftingListCard.Glyph.CUBE);
+        if (node.kind() == ClientCraftingGraph.Kind.REFERENCE) {
+            card.space(6).row(null, 0,
+                Component.translatable("gui.neoecoae.crafting_graph.reference.description"), Component.empty(), MUTED);
+        }
         card.space(8).divider(DIVIDER).space(6);
         if (details) {
             card.metricColumns(label("requested"), requested, PRIMARY, label("inventory"), inventory, MUTED)
@@ -94,10 +99,16 @@ final class GraphMaterialCard {
         return card;
     }
 
-    void renderDetails(GuiGraphics graphics, int screenWidth, int screenHeight) {
-        int top = 38;
-        float scale = fit(Math.min(242, screenWidth - 16), screenHeight - top - 24);
+    void renderDetails(GuiGraphics graphics, int screenWidth, int contentBottom, int top) {
+        float scale = fit(Math.min(242, screenWidth - 16), contentBottom - top - 8);
         draw(graphics, screenWidth - 8 - (int) Math.ceil(width * scale), top, scale, 300, 0xff556675);
+    }
+
+    boolean containsDetails(double mouseX, double mouseY, int screenWidth, int contentBottom, int top) {
+        float scale = fit(Math.min(242, screenWidth - 16), contentBottom - top - 8);
+        int drawnWidth = (int) Math.ceil(width * scale), drawnHeight = (int) Math.ceil(height * scale);
+        return mouseX >= screenWidth - 8 - drawnWidth && mouseX < screenWidth - 8
+            && mouseY >= top && mouseY < top + drawnHeight;
     }
 
     void renderTooltip(GuiGraphics graphics, int mouseX, int mouseY, int screenWidth, int screenHeight) {
