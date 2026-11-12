@@ -7,8 +7,8 @@ import appeng.api.stacks.AEKey;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.platform.mixin.CraftingServiceEarlyBridge;
 import com.google.common.collect.ImmutableSet;
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.sugar.Local;
-import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,10 +18,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 /** Order-sensitive provider callbacks run before normal-priority providers on Mixin 0.8.5. */
 @Mixin(value = CraftingService.class, priority = 1500, remap = false)
 public abstract class CraftingServiceEarlyMixin {
-    // AE2 15.4.11 loads the accepted local twice in the loop and once immediately before returning.
-    // Update the local before RETURN hooks so AdvancedAE observes ECO's actual accepted quantity too.
-    @ModifyVariable(method = "insertIntoCpus", at = @At(value = "LOAD", ordinal = 2),
-            ordinal = 1, require = 1, allow = 1)
+    // Route the remainder to ECO after AE2 and any addon CPU loops have finished.
+    // AdvancedAE overwrites this method, so local-variable load ordinals are not stable.
+    @ModifyReturnValue(method = "insertIntoCpus", at = @At("RETURN"), require = 1, allow = 1)
     private long neoecoae$insert(long inserted, AEKey key, long amount, Actionable mode) {
         return ((CraftingServiceEarlyBridge) this).neoecoae$earlyInsertIntoCpus(inserted, key, amount, mode);
     }
