@@ -14,6 +14,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /** Main-thread, menu-scoped transport. All bulk channels share one player's tick budget. */
@@ -121,6 +122,7 @@ public final class MenuDataTransport {
 
     public static void retainClientMenu(AbstractContainerMenu menu) {
         INCOMING.keySet().removeIf(previous -> previous != menu);
+        CraftingReportStream.retainClientMenu(menu);
     }
 
     private static long peakPlayerTickBytes;
@@ -136,6 +138,8 @@ public final class MenuDataTransport {
 
     public static void stopped(ServerStoppedEvent event) {
         OUTGOING.clear();
+        INCOMING.clear();
+        CraftingReportStream.clear();
         STATS.clear();
         ExactCpuSnapshot.clear();
         cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot.clear();

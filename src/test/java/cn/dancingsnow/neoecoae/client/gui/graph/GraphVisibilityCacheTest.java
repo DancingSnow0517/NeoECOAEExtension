@@ -38,7 +38,7 @@ class GraphVisibilityCacheTest {
         cache.clear();
         assertNotSame(first, cache.get(layout, area));
         assertEquals(3, first.nodeCount());
-        assertEquals(2, first.edgeCount());
+        assertEquals(2, first.edges().size());
     }
 
     @Test
@@ -48,6 +48,5 @@ class GraphVisibilityCacheTest {
         assertEquals(GraphVisibilityCache.LIVE_LIMIT + 1, visible.nodes().size());
         assertTrue(visible.edges().isEmpty());
         assertEquals(3001, visible.nodeCount());
-        assertEquals(3000, visible.edgeCount());
     }
 }

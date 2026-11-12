@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.client.gui.graph;
 
 import appeng.client.api.AEKeyRendering;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.graph.ClientCraftingGraph;
 import cn.dancingsnow.neoecoae.crafting.graph.CompactTreeNode;
 import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot;
@@ -8,216 +9,131 @@ import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
-/** Minecraft-style compact tree renderer. */
-public final class CompactTreeRenderer {
-    private static final int TEXT = 0xffe8edf2;
-    private static final int MUTED = 0xffaab3bd;
+/**
+ * Minecraft-style compact node art in world units. The caller owns the camera transform, so every zoom level and
+ * the raster cache draw exactly the same picture.
+ */
+final class CompactTreeRenderer {
+    static final int TEXT = 0xffe8edf2;
+    static final int MUTED = 0xffaab3bd;
+    static final int BODY = 0xee171b20;
+    static final int FRAME = 0xff8293a4;
 
-    public GraphRenderer.Frame render(GuiGraphicsExtractor graphics, ClientCraftingGraph graph,
-            GraphLayoutSnapshot layout, float cameraX, float cameraY, float zoom, int screenWidth, int screenHeight,
-            int mouseX, int mouseY, @Nullable Integer selectedId, GraphProfiler profiler, GraphRenderer.VisiblePlan visible) {
-        long started = System.nanoTime();
-        Set<Integer> neighborhood = selectedId == null ? Set.of() : graph.neighborhood(selectedId);
-        for (var link : visible.edges()) {
-            drawLink(graphics, layout, link, selectedId, neighborhood, cameraX, cameraY, zoom);
-        }
-        ClientCraftingGraph.Node hovered = null;
-        float worldMouseX = (mouseX - cameraX) / zoom;
-        float worldMouseY = (mouseY - cameraY) / zoom;
-        for (var box : visible.nodes()) {
-            var node = graph.nodes().get(box.nodeId());
-            if (node == null) continue;
-            boolean selected = selectedId != null && selectedId == node.id();
-            drawNode(graphics, graph, node, box, selected, neighborhood.contains(node.id()), cameraX, cameraY, zoom);
-            if (box.contains(worldMouseX, worldMouseY)) hovered = node;
-        }
-        drawRowFrames(graphics, layout.queryRowFrames(GraphRenderer.viewport(cameraX, cameraY, zoom,
-            screenWidth, screenHeight)), cameraX, cameraY, zoom);
-        for (var box : visible.nodes()) {
-            var node = graph.nodes().get(box.nodeId());
-            if (node != null && node.material() != null
-                    && node.material().status() == CraftingGraphSnapshot.MaterialStatus.MISSING) {
-                drawNodeFrame(graphics, box, 0xffcf5e5e, cameraX, cameraY, zoom);
-            }
-        }
-        profiler.update(visible.nodes().size(), visible.edges().size(), System.nanoTime() - started);
-        return new GraphRenderer.Frame(hovered, List.of());
+    private CompactTreeRenderer() {}
+
+    static void drawBody(GuiGraphicsExtractor graphics, GraphLayoutSnapshot.Box box) {
+        GraphDraw.fill(graphics, box.x(), box.y(), box.x() + box.width(), box.y() + box.height(), BODY);
     }
 
-    private static void drawRowFrames(GuiGraphicsExtractor graphics, List<GraphLayoutSnapshot.Bounds> rows,
-            float cameraX, float cameraY, float zoom) {
-        for (var row : rows) {
-            drawRowFrame(graphics, row.left(), row.top(), row.right(), row.bottom(), cameraX, cameraY, zoom);
-        }
-    }
-
-    private static void drawRowFrame(GuiGraphicsExtractor graphics, float left, float top, float right, float bottom,
-            float cameraX, float cameraY, float zoom) {
-        int x = screen(cameraX, left, zoom);
-        int y = screen(cameraY, top, zoom);
-        int r = screen(cameraX, right, zoom);
-        int b = screen(cameraY, bottom, zoom);
-        if (r <= x || b <= y) return;
-        int color = 0xff8293a4;
-        GraphDraw.fill(graphics, x, y, r, Math.min(b, y + 1), color);
-        GraphDraw.fill(graphics, x, Math.max(y, b - 1), r, b, color);
-        GraphDraw.fill(graphics, x, y, Math.min(r, x + 1), b, color);
-        GraphDraw.fill(graphics, Math.max(x, r - 1), y, r, b, color);
-    }
-
-    static void drawNodeFrame(GuiGraphicsExtractor graphics, GraphLayoutSnapshot.Box box, int color,
-            float cameraX, float cameraY, float zoom) {
-        int x = screen(cameraX, box.x(), zoom);
-        int y = screen(cameraY, box.y(), zoom);
-        int right = screen(cameraX, box.x() + box.width(), zoom);
-        int bottom = screen(cameraY, box.y() + box.height(), zoom);
-        if (right <= x || bottom <= y) return;
-        int thickness = Math.min(2, Math.min(right - x, bottom - y));
-        GraphDraw.fill(graphics, x, y, right, y + thickness, color);
-        GraphDraw.fill(graphics, x, bottom - thickness, right, bottom, color);
-        GraphDraw.fill(graphics, x, y, x + thickness, bottom, color);
-        GraphDraw.fill(graphics, right - thickness, y, right, bottom, color);
-    }
-
-    static void drawLink(GuiGraphicsExtractor graphics, GraphLayoutSnapshot layout, ClientCraftingGraph.Link link,
-            @Nullable Integer selected, Set<Integer> neighborhood, float cameraX, float cameraY, float zoom) {
-        boolean highlighted = selected != null && (link.fromId() == selected || link.toId() == selected)
-            && (neighborhood.contains(link.fromId()) || neighborhood.contains(link.toId()));
-        int color = highlighted ? 0xfff6c453 : link.selected() ? 0xff8293a4 : 0xff66505a;
-        List<GraphLayoutSnapshot.Point> route = layout.edgePoints(link);
-        if (route.isEmpty()) {
-            var from = layout.box(link.fromId());
-            var to = layout.box(link.toId());
-            if (from == null || to == null) return;
-            route = verticalRoute(from, to);
-        }
-        drawRoute(graphics, route, color, cameraX, cameraY, zoom);
-        var end = route.getLast();
-        int endX = screen(cameraX, end.x(), zoom);
-        int endY = screen(cameraY, end.y(), zoom);
-        GraphDraw.fill(graphics, endX - 3, endY - 2, endX + 1, endY + 3, color);
-    }
-
-    private static void drawRoute(GuiGraphicsExtractor graphics, List<GraphLayoutSnapshot.Point> route, int color,
-            float cameraX, float cameraY, float zoom) {
-        for (int i = 1; i < route.size(); i++) {
-            var from = route.get(i - 1);
-            var to = route.get(i);
-            int x1 = screen(cameraX, from.x(), zoom);
-            int y1 = screen(cameraY, from.y(), zoom);
-            int x2 = screen(cameraX, to.x(), zoom);
-            int y2 = screen(cameraY, to.y(), zoom);
-            if (x1 == x2) GraphDraw.vLine(graphics, x1, Math.min(y1, y2), Math.max(y1, y2), color);
-            else if (y1 == y2) GraphDraw.hLine(graphics, Math.min(x1, x2), Math.max(x1, x2), y1, color);
-            else {
-                int middle = (x1 + x2) / 2;
-                GraphDraw.hLine(graphics, Math.min(x1, middle), Math.max(x1, middle), y1, color);
-                GraphDraw.vLine(graphics, middle, Math.min(y1, y2), Math.max(y1, y2), color);
-                GraphDraw.hLine(graphics, Math.min(middle, x2), Math.max(middle, x2), y2, color);
-            }
-        }
-    }
-
-    private static List<GraphLayoutSnapshot.Point> verticalRoute(GraphLayoutSnapshot.Box from,
-            GraphLayoutSnapshot.Box to) {
-        float startX = from.centerX();
-        float startY = from.y() + from.height();
-        float endX = to.centerX();
-        float endY = to.y();
-        float middle = (startY + endY) / 2;
-        return List.of(new GraphLayoutSnapshot.Point(startX, startY), new GraphLayoutSnapshot.Point(startX, middle),
-            new GraphLayoutSnapshot.Point(endX, middle), new GraphLayoutSnapshot.Point(endX, endY));
-    }
-
-    static void drawNode(GuiGraphicsExtractor graphics, ClientCraftingGraph graph, ClientCraftingGraph.Node node,
-            GraphLayoutSnapshot.Box box, boolean selected, boolean adjacent, float cameraX, float cameraY,
-            float zoom) {
-        int x = screen(cameraX, box.x(), zoom);
-        int y = screen(cameraY, box.y(), zoom);
-        int right = screen(cameraX, box.x() + box.width(), zoom);
-        int bottom = screen(cameraY, box.y() + box.height(), zoom);
-        if (right <= x || bottom <= y) return;
-        int accent = selected ? 0xfff6c453 : adjacent ? 0xff83c5be : nodeBorder(graph, node);
-        int background = selected ? 0xee2b271c : adjacent ? 0xee182527 : 0xee171b20;
-        GraphDraw.fill(graphics, x, y, right, bottom, background);
-        if (node.kind() == ClientCraftingGraph.Kind.FOLDER) {
-            drawFolder(graphics, graph, node, x, y, right, bottom, accent);
-        } else {
-            drawCompactContent(graphics, node, x, y, right, bottom, accent, zoom);
-        }
-    }
-
-    private static void drawFolder(GuiGraphicsExtractor graphics, ClientCraftingGraph graph, ClientCraftingGraph.Node node,
-            int x, int y, int right, int bottom, int border) {
-        CompactTreeNode metadata = graph.compactTreeNode(node.id());
-        if (metadata == null || bottom - y < 14) return;
-        Font font = Minecraft.getInstance().font;
-        String symbol = metadata.containsCycle() ? "↻" : metadata.containsMissing() ? "!"
-            : metadata.containsUnsupported() ? "?" : "▱";
-        graphics.centeredText(font, symbol, (x + right) / 2, y + 5, border);
-        if (bottom - y >= 24) drawAmount(graphics, font, "+" + metadata.hiddenNodeCount(),
-            x, y + 20, right, bottom);
-    }
-
-    private static void drawCompactContent(GuiGraphicsExtractor graphics, ClientCraftingGraph.Node node, int x, int y,
-            int right, int bottom, int border, float zoom) {
-        Font font = Minecraft.getInstance().font;
-        if (bottom - y < 14) return;
-        if (node.kind() == ClientCraftingGraph.Kind.MATERIAL
-                || node.kind() == ClientCraftingGraph.Kind.REFERENCE && node.material() != null) {
-            var material = node.material();
-            if (material != null && material.key() != null && right - x >= 16 && bottom - y >= 20) {
-                int iconX = x + (right - x - 16) / 2;
-                int iconY = y + (Math.min(20, bottom - y) - 16) / 2;
-                AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, iconX, iconY, material.key());
-            }
-            if (material != null && material.key() != null && bottom - y >= 24
-                    && (material.consumedBigInteger().signum() > 0 || material.producedBigInteger().signum() > 0
-                        || material.requestedBigInteger().signum() > 0)) {
-                drawAmount(graphics, font, flowText(material),
-                    x, y + 20, right, bottom);
-            }
-        } else if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) {
-            var cycle = node.cycle();
-            String label = cycle == null ? node.label() : "↻ 循环 #" + cycle.componentId();
-            graphics.text(font, fit(font, label, Math.max(20, right - x - 24)), x + 6, y + 5, TEXT, false);
-            if (cycle != null) graphics.text(font, cycle.memberNodeIds().size() + " 个成员", x + 6, y + 19,
-                MUTED, false);
-            graphics.text(font, "↻", right - 14, y + 9, border, false);
-        } else if (node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER) {
-            var cluster = node.cluster();
-            String label = cluster == null ? node.label() : "◎ 循环簇 #" + cluster.clusterId();
-            graphics.text(font, fit(font, label, Math.max(20, right - x - 24)), x + 6, y + 5, TEXT, false);
-            if (cluster != null) graphics.text(font, cluster.componentIds().size() + " 个循环", x + 6,
-                y + 19, MUTED, false);
-            graphics.text(font, "◎", right - 14, y + 9, border, false);
-        } else if (node.kind() == ClientCraftingGraph.Kind.REFERENCE) {
-            graphics.text(font, fit(font, node.label(), Math.max(20, right - x - 10)), x + 6, y + 9,
-                MUTED, false);
-        }
-    }
-
-    private static void drawAmount(GuiGraphicsExtractor graphics, Font font, String amount, int left, int top,
-            int right, int bottom) {
-        int availableWidth = Math.max(1, right - left - 2);
-        int availableHeight = Math.max(1, bottom - top);
-        float scale = Math.min(0.5f, Math.min((float) availableWidth / Math.max(1, font.width(amount)),
-            (float) availableHeight / font.lineHeight));
-        float centerX = (left + right) / 2.0f;
-        float textY = top + (availableHeight - font.lineHeight * scale) / 2.0f;
+    static void drawIcon(GuiGraphicsExtractor graphics, ClientCraftingGraph.Node node, GraphLayoutSnapshot.Box box) {
+        var material = node.material();
+        if (material == null || material.key() == null) return;
+        if (node.kind() != ClientCraftingGraph.Kind.MATERIAL && node.kind() != ClientCraftingGraph.Kind.REFERENCE) return;
+        boolean large = box.width() >= GraphLayoutSnapshot.MATERIAL_WIDTH;
+        float iconX = large ? box.x() + 7 : box.x() + (box.width() - 16) / 2;
+        float iconY = large ? box.y() + 8 : box.y() + (Math.min(20, box.height()) - 16) / 2;
+        // Non-item keys (fluids) blit immediately; the buffered bodies were flushed by the caller beforehand.
         var pose = graphics.pose();
         pose.pushMatrix();
-        pose.translate(centerX, textY);
-        pose.scale(scale, scale);
-        graphics.text(font, amount, -font.width(amount) / 2, 0, TEXT, false);
+        pose.translate(iconX, iconY);
+        AEKeyRendering.drawInGui(Minecraft.getInstance(), graphics, 0, 0, material.key());
         pose.popMatrix();
+
+    }
+
+    static void drawText(GuiGraphicsExtractor graphics, ClientCraftingGraph graph, ClientCraftingGraph.Node node,
+            GraphLayoutSnapshot.Box box) {
+        Font font = Minecraft.getInstance().font;
+        float x = box.x(), y = box.y(), right = x + box.width(), bottom = y + box.height();
+        int accent = nodeBorder(graph, node);
+        switch (node.kind()) {
+            case FOLDER -> {
+                CompactTreeNode metadata = graph.compactTreeNode(node.id());
+                if (metadata == null) return;
+                String symbol = metadata.containsCycle() ? "↻" : metadata.containsMissing() ? "!"
+                    : metadata.containsUnsupported() ? "?" : "▱";
+                GraphDraw.centeredText(graphics, font, symbol, (x + right) / 2, y + 5, accent, 1);
+                drawAmount(graphics, font, "+" + metadata.hiddenNodeCount(), x, y + 20, right, bottom, TEXT);
+            }
+            case MATERIAL, REFERENCE -> {
+                var material = node.material();
+                if (material == null || material.key() == null) {
+                    GraphDraw.centeredText(graphics, font, "↪", (x + right) / 2, y + (box.height() - 9) / 2, MUTED, 1);
+                    return;
+                }
+                if (box.width() >= GraphLayoutSnapshot.MATERIAL_WIDTH) {
+                    GraphDraw.text(graphics, font, GraphDraw.fit(font, nodeTitle(node), box.width() - 35),
+                        x + 29, y + 7, TEXT, 1);
+                    GraphDraw.text(graphics, font, GraphDraw.fit(font, Component.translatable(
+                        "gui.neoecoae.crafting_graph.status." + material.status().name().toLowerCase(java.util.Locale.ROOT))
+                        .getString(), box.width() - 35), x + 29, y + 18, accent, 1);
+                    GraphDraw.text(graphics, font, GraphDraw.fit(font, Component.translatable(
+                        "gui.neoecoae.crafting_graph.details.requested", HostText.ae2Amount(material.exactRequested()))
+                        .getString(), box.width() - 14), x + 7, y + 35, MUTED, 1);
+                    GraphDraw.text(graphics, font, GraphDraw.fit(font, Component.translatable(
+                        "gui.neoecoae.crafting_graph.details.inventory", HostText.ae2Amount(material.exactFromInventory()))
+                        .getString(), box.width() - 14), x + 7, y + 47, MUTED, 1);
+                    GraphDraw.text(graphics, font, GraphDraw.fit(font, materialAmount(node), box.width() - 14),
+                        x + 7, y + 59, MUTED, 1);
+                    return;
+                }
+                if (node.recursion() != null || material.consumedBigInteger().signum() > 0
+                        || material.producedBigInteger().signum() > 0 || material.requestedBigInteger().signum() > 0) {
+                    drawAmount(graphics, font, materialAmount(node), x, y + 20, right, bottom, TEXT);
+                }
+            }
+            case CYCLE_GROUP -> {
+                var cycle = node.cycle();
+                GraphDraw.text(graphics, font, GraphDraw.fit(font, nodeTitle(node), box.width() - 24), x + 6, y + 5,
+                    TEXT, 1);
+                if (cycle != null) GraphDraw.text(graphics, font,
+                    GraphDraw.fit(font, GraphRenderer.recursiveModuleSummary(cycle).getString(), box.width() - 12),
+                    x + 6, y + 19, MUTED, 1);
+                GraphDraw.text(graphics, font, "↻", right - 14, y + 9, accent, 1);
+            }
+            case CYCLE_CLUSTER -> {
+                var cluster = node.cluster();
+                GraphDraw.text(graphics, font, GraphDraw.fit(font, nodeTitle(node), box.width() - 24), x + 6, y + 5,
+                    TEXT, 1);
+                if (cluster != null) GraphDraw.text(graphics, font, GraphDraw.fit(font, Component.translatable(
+                        "gui.neoecoae.crafting_graph.details.cluster_cycles", cluster.componentIds().size()).getString(),
+                    box.width() - 12), x + 6, y + 19, MUTED, 1);
+                GraphDraw.text(graphics, font, "◎", right - 14, y + 9, accent, 1);
+            }
+            case PATTERN -> {
+                var pattern = node.pattern();
+                GraphDraw.centeredText(graphics, font, "⚒", (x + right) / 2, y + 4, accent, 1);
+                if (pattern != null) drawAmount(graphics, font,
+                    "×" + HostText.ae2Amount(pattern.plannerFiringCount().toBigInteger()), x, y + 16, right, bottom, TEXT);
+            }
+        }
+    }
+
+    /** Localized title for module nodes; material titles come from their key. */
+    static String nodeTitle(ClientCraftingGraph.Node node) {
+        if (node.cycle() != null && node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) {
+            return GraphRenderer.recursionText("module", node.cycle().componentId()).getString();
+        }
+        if (node.cluster() != null && node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER) {
+            return GraphRenderer.recursionText("modules", node.cluster().clusterId()).getString();
+        }
+        return node.key() != null ? node.key().getDisplayName().getString() : node.label();
+    }
+
+    static void drawAmount(GuiGraphicsExtractor graphics, Font font, String amount, float left, float top,
+            float right, float bottom, int color) {
+        float availableWidth = Math.max(1, right - left - 2);
+        float availableHeight = Math.max(1, bottom - top);
+        float scale = Math.min(0.5f, Math.min(availableWidth / Math.max(1, font.width(amount)),
+            availableHeight / font.lineHeight));
+        GraphDraw.centeredText(graphics, font, amount, (left + right) / 2,
+            top + (availableHeight - font.lineHeight * scale) / 2, color, scale);
     }
 
     static List<Component> tooltip(ClientCraftingGraph graph, @Nullable ClientCraftingGraph.Node node) {
@@ -227,46 +143,31 @@ public final class CompactTreeRenderer {
             if (folder == null) return List.of(Component.literal(node.label()));
             List<Component> result = new ArrayList<>();
             result.add(Component.literal(node.label()));
-            result.add(Component.literal("hidden nodes: " + folder.hiddenNodeCount()));
-            result.add(Component.literal("hidden layers: " + folder.hiddenDepth()));
-            result.add(Component.literal("missing: " + folder.containsMissing() + ", unsupported: "
-                + folder.containsUnsupported() + ", cycle: " + folder.containsCycle()));
-            result.add(Component.literal("click: expand one level, right click: expand all"));
+            result.add(Component.translatable("gui.neoecoae.crafting_graph.details.hidden_nodes", folder.hiddenNodeCount()));
+            result.add(Component.translatable("gui.neoecoae.crafting_graph.details.hidden_layers", folder.hiddenDepth()));
+            result.add(Component.translatable("gui.neoecoae.crafting_graph.details.missing", yesNo(folder.containsMissing())));
+            result.add(Component.translatable("gui.neoecoae.crafting_graph.details.unsupported", yesNo(folder.containsUnsupported())));
+            result.add(Component.translatable("gui.neoecoae.crafting_graph.details.cycle", yesNo(folder.containsCycle())));
+            result.add(Component.translatable("gui.neoecoae.crafting_graph.action.expand_hint"));
             return result;
         }
+        if (GraphMaterialCard.supports(node)) return GraphMaterialCard.builder(graph, node, false).texts();
         if (node.kind() == ClientCraftingGraph.Kind.REFERENCE) {
             var treeNode = graph.compactTreeNode(node.id());
-            return List.of(Component.literal(node.label()), Component.literal("shared dependency reference"),
-                Component.literal(treeNode == null ? "" : "source id: " + treeNode.sourceId()));
+            return List.of(Component.literal("↪ " + nodeTitle(node)),
+                Component.translatable("gui.neoecoae.crafting_graph.reference.description"),
+                treeNode == null ? Component.empty()
+                    : Component.translatable("gui.neoecoae.crafting_graph.reference.source", treeNode.sourceId()));
         }
-        if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP && node.cycle() != null) {
-            var cycle = node.cycle();
-            return List.of(Component.literal("循环 #" + cycle.componentId()),
-                Component.literal("成员：" + cycle.memberNodeIds().size()),
-                Component.literal("状态：" + cycle.status()),
-                Component.literal("双击：打开循环详情"));
-        }
-        if (node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER && node.cluster() != null) {
-            var cluster = node.cluster();
-            return List.of(Component.literal("循环簇 #" + cluster.clusterId()),
-                Component.literal("独立循环：" + cluster.componentIds().size()),
-                Component.literal("跨环物料流：" + cluster.flows().size()),
-                Component.literal("双击：打开循环簇"));
-        }
-        if (node.material() != null) {
-            var material = node.material();
-            return List.of(Component.literal(node.label()), Component.literal("requested: " + HostText.ae2Amount(material.exactRequested())),
-                Component.literal("inventory: " + HostText.ae2Amount(material.exactFromInventory())),
-                Component.literal("to craft: " + HostText.ae2Amount(material.exactToCraft())),
-                Component.literal("missing: " + HostText.ae2Amount(material.exactMissing())),
-                Component.literal("consumed: " + HostText.ae2Amount(material.exactConsumed())),
-                Component.literal("produced: " + HostText.ae2Amount(material.exactProduced())),
-                Component.literal("status: " + material.status()));
-        }
-        return List.of(Component.literal(node.label()));
+        if (node.material() != null) return GraphMaterialCard.builder(graph, node, false).texts();
+        return GraphRenderer.tooltip(graph, node);
     }
 
-    private static int nodeBorder(ClientCraftingGraph graph, ClientCraftingGraph.Node node) {
+    private static Component yesNo(boolean value) {
+        return Component.translatable("gui.neoecoae.common." + (value ? "yes" : "no"));
+    }
+
+    static int nodeBorder(ClientCraftingGraph graph, ClientCraftingGraph.Node node) {
         if (node.kind() == ClientCraftingGraph.Kind.FOLDER) {
             var metadata = graph.compactTreeNode(node.id());
             if (metadata != null && metadata.containsCycle()) return 0xffd59b45;
@@ -276,8 +177,11 @@ public final class CompactTreeRenderer {
         }
         if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) return 0xffd59b45;
         if (node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER) return 0xffcf8f45;
-        if (node.kind() == ClientCraftingGraph.Kind.REFERENCE) return 0xff8d98a3;
-        if (node.material() == null) return 0xff8293a4;
+        if (node.kind() == ClientCraftingGraph.Kind.PATTERN) {
+            return node.pattern() != null && node.pattern().status() == CraftingGraphSnapshot.CandidateStatus.SELECTED
+                ? 0xff66a182 : 0xff9a5964;
+        }
+        if (node.kind() == ClientCraftingGraph.Kind.REFERENCE || node.material() == null) return 0xff8d98a3;
         return switch (node.material().status()) {
             case SATISFIED -> 0xff68a878;
             case CRAFTING -> 0xff5f9fc5;
@@ -287,40 +191,28 @@ public final class CompactTreeRenderer {
         };
     }
 
-    private static String statusSymbol(CraftingGraphSnapshot.MaterialStatus status) {
-        return switch (status) {
-            case SATISFIED -> "✓";
-            case CRAFTING -> "⚒";
-            case MISSING -> "!";
-            case UNSUPPORTED -> "?";
-            case CYCLE -> "↻";
-        };
-    }
-
     private static String flowText(CraftingGraphSnapshot.MaterialNode material) {
-        if (showsPendingCraftLabel(material)) {
-            return Component.translatable("gui.neoecoae.crafting_graph.node.pending_craft").getString();
+        if (showsCraftQuantity(material)) {
+            // Intermediate products can be entirely consumed by the order: zero net change still needs crafting.
+            return "\u00d7" + GraphRenderer.formatMagnitude(material.key(), PlannerAmount.of(material.toCraftBigInteger()));
         }
         if (material.consumedBigInteger().signum() == 0 && material.producedBigInteger().signum() == 0) {
             return HostText.ae2Amount(material.exactRequested());
         }
-        java.math.BigInteger delta = material.producedBigInteger().subtract(material.consumedBigInteger());
-        String amount = HostText.ae2Amount(delta.abs());
+        PlannerAmount delta = PlannerAmount.of(material.producedBigInteger()).subtract(PlannerAmount.of(material.consumedBigInteger()));
+        String amount = HostText.ae2Amount(delta.abs().toBigInteger());
         return delta.signum() > 0 ? "+" + amount : delta.signum() < 0 ? "-" + amount : "0";
     }
 
-    static boolean showsPendingCraftLabel(CraftingGraphSnapshot.MaterialNode material) {
+    /** Recursive occurrences show their own checkpoint stock/input, never the complete order's net change. */
+    static String materialAmount(ClientCraftingGraph.Node node) {
+        return node.recursion() == null ? flowText(node.material())
+            : GraphRenderer.formatMagnitude(node.key(), node.recursion().amount());
+    }
+
+    static boolean showsCraftQuantity(CraftingGraphSnapshot.MaterialNode material) {
         return material.status() == CraftingGraphSnapshot.MaterialStatus.CRAFTING
             && material.toCraftBigInteger().signum() > 0
             && material.producedBigInteger().equals(material.consumedBigInteger());
-    }
-
-    private static int screen(float camera, float world, float zoom) { return Math.round(camera + world * zoom); }
-
-    private static String fit(Font font, String value, int maxWidth) {
-        if (maxWidth <= 0) return "";
-        if (font.width(value) <= maxWidth) return value;
-        String ellipsis = "…";
-        return font.plainSubstrByWidth(value, Math.max(0, maxWidth - font.width(ellipsis))) + ellipsis;
     }
 }

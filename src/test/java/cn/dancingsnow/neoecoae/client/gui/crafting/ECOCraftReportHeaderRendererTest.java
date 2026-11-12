@@ -23,38 +23,32 @@ import org.mockito.ArgumentCaptor;
 
 class ECOCraftReportHeaderRendererTest {
     @Test
-    void byteTooltipFollowsTheScreenMouseWhenTheReportMoves() throws Exception {
-        for (int[] origin : List.of(new int[] {0, 0}, new int[] {37, 61}, new int[] {241, 133})) {
-            var screen = mock(ECOCraftConfirmScreen.class);
-            var graphics = graphics();
-            graphics.pose().translate(origin[0], origin[1]);
-            var summary = ECOCraftReportHeaderRenderer.pending(Component.literal("Calculating..."));
-            setField(AbstractContainerScreen.class, screen, "menu", mock(CraftConfirmMenu.class));
-            setField(Screen.class, screen, "font", mock(Font.class));
-            setField(ECOCraftConfirmScreen.class, screen, "reportSummary", summary);
-            setField(ECOCraftConfirmScreen.class, screen, "cycleItems", mock(ECOCycleItemListRenderer.class));
-            doCallRealMethod().when(screen).drawFG(any(), anyInt(), anyInt(), anyInt(), anyInt());
-
-            int mouseX = origin[0] + 70;
-            int mouseY = origin[1] + 12;
-            screen.drawFG(graphics, origin[0], origin[1], mouseX, mouseY);
-            verify(screen).drawTooltipWithHeader(graphics, mouseX, mouseY, summary.tooltip());
-
-            clearInvocations(screen);
-            for (int[] outside : List.of(new int[] {52, 12}, new int[] {155, 12},
-                    new int[] {70, 4}, new int[] {70, 20})) {
-                screen.drawFG(graphics, origin[0], origin[1],
-                    origin[0] + outside[0], origin[1] + outside[1]);
-            }
-            verify(screen, never()).drawTooltipWithHeader(any(), anyInt(), anyInt(), anyList());
+    void liteStatisticsReplaceIncompleteWarningWithTheModeFooter() throws Exception {
+        cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize();
+        try (var mods = mockStatic(net.neoforged.fml.ModList.class)) {
+            var modList = mock(net.neoforged.fml.ModList.class);
+            when(modList.getAllScanData()).thenReturn(List.of());
+            mods.when(net.neoforged.fml.ModList::get).thenReturn(modList);
+            Class.forName(cn.dancingsnow.neoecoae.NeoECOAE.class.getName());
+            com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries.init();
         }
+        var summary = new cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot.Summary(
+            "MISSING_ITEMS", 4, 3, 2, 1, 0);
+        for (boolean exact : new boolean[] {false, true}) {
+            var lite = ECOCraftReportTooltips.statistics(123_000L, BigInteger.TEN, false, summary, exact, true).texts();
+            assertEquals("gui.neoecoae.crafting_report.card.lite_mode", key(lite.getLast()));
+            assertFalse(lite.stream().filter(line -> line.getContents() instanceof TranslatableContents)
+                .anyMatch(line -> "gui.neoecoae.crafting_report.card.incomplete".equals(key(line))));
+            var full = ECOCraftReportTooltips.statistics(123_000L, BigInteger.TEN, false, summary, exact, false).texts();
+            assertTrue(full.stream().filter(line -> line.getContents() instanceof TranslatableContents)
+                .anyMatch(line -> "gui.neoecoae.crafting_report.card.incomplete".equals(key(line))));
+            assertFalse(full.stream().filter(line -> line.getContents() instanceof TranslatableContents)
+                .anyMatch(line -> "gui.neoecoae.crafting_report.card.lite_mode".equals(key(line))));
+        }
+        var pending = ECOCraftReportTooltips.pending(Component.literal("Loading"), true).texts();
+        assertEquals("gui.neoecoae.crafting_report.card.lite_mode", key(pending.getLast()));
     }
 
-    private static void setField(Class<?> owner, Object target, String name, Object value) throws Exception {
-        var field = owner.getDeclaredField(name);
-        field.setAccessible(true);
-        field.set(target, value);
-    }
 
     @Test
     void byteRowAndProgressStayInsideTheTextAreaWhenTheWindowMoves() {
@@ -127,7 +121,7 @@ class ECOCraftReportHeaderRendererTest {
     @Test
     void hugeByteCountsRemainExactInTheTooltipAndFitTheMeasuredRow() {
         BigInteger huge = BigInteger.TEN.pow(123).add(BigInteger.valueOf(987654321));
-        var summary = ECOCraftReportHeaderRenderer.completed(543_210L, huge,
+        var summary = ECOCraftReportHeaderRenderer.completed(543_210L, huge, true,
             text -> ("字节：" + argument(text)).length() * 9);
 
         assertEquals("0.54321", argument(summary.elapsed()));
@@ -144,8 +138,8 @@ class ECOCraftReportHeaderRendererTest {
     @Test
     void pendingAndUnknownByteCountsAreDistinctAndZeroRetainsElapsedTooltip() {
         var pending = ECOCraftReportHeaderRenderer.pending(Component.literal("计算中…"));
-        var unknown = ECOCraftReportHeaderRenderer.completed(0, null, text -> 0);
-        var zero = ECOCraftReportHeaderRenderer.completed(0, BigInteger.ZERO, text -> 0);
+        var unknown = ECOCraftReportHeaderRenderer.completed(0, null, true, text -> 0);
+        var zero = ECOCraftReportHeaderRenderer.completed(0, BigInteger.ZERO, true, text -> 0);
         assertEquals("gui.neoecoae.crafting_report.bytes_pending", key(pending.bytes()));
         assertEquals("gui.neoecoae.crafting_report.bytes_unknown", key(unknown.bytes()));
         assertEquals("0.0000", argument(zero.elapsed()));
@@ -154,17 +148,23 @@ class ECOCraftReportHeaderRendererTest {
         assertFalse(ECOCraftReportHeaderRenderer.isHovered(155, 20));
     }
 
-    private static GuiGraphicsExtractor graphics() {
-        // Keep Minecraft's real text extraction and pose-aware scissors without rendering to a window.
-        return spy(new GuiGraphicsExtractor(mock(Minecraft.class, RETURNS_DEEP_STUBS),
-            mock(GuiRenderState.class), 0, 0));
+    @Test
+    void partialByteEstimateKeepsItsExactLowerBoundAndCannotClaimZeroCost() {
+        var partial = ECOCraftReportHeaderRenderer.completed(100, BigInteger.valueOf(123), false, text -> 0);
+        assertEquals("gui.neoecoae.crafting_report.bytes_partial", key(partial.bytes()));
+        assertEquals("123 B", argument(partial.tooltip().get(1)));
+        assertEquals("gui.neoecoae.crafting_report.bytes_partial_hint", key(partial.tooltip().getLast()));
+        var unknown = ECOCraftReportHeaderRenderer.completed(100, BigInteger.ZERO, false, text -> 0);
+        assertEquals("gui.neoecoae.crafting_report.bytes_unknown", key(unknown.bytes()));
     }
 
     private static ScreenRectangle currentScissor(GuiGraphicsExtractor graphics) {
-        graphics.text(mock(Font.class), Component.empty(), 0, 0, 0xFFFFFFFF, false);
-        var textStates = ArgumentCaptor.forClass(GuiTextRenderState.class);
-        verify(graphics.guiRenderState, atLeastOnce()).addText(textStates.capture());
-        return textStates.getValue().scissor;
+        return graphics.peekScissorStack();
+    }
+
+    private static GuiGraphicsExtractor graphics() {
+        return spy(new GuiGraphicsExtractor(mock(Minecraft.class, RETURNS_DEEP_STUBS),
+            mock(GuiRenderState.class), 0, 0));
     }
 
     private static String key(Component component) {

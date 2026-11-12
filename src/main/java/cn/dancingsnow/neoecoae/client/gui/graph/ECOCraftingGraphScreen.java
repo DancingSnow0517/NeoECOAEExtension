@@ -20,25 +20,29 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 /** Full-screen immediate-mode ECO crafting DAG and SCC viewer. */
 public final class ECOCraftingGraphScreen extends Screen {
-    private static final int TOOLBAR_HEIGHT = 30;
+    private static final int INFO_HEIGHT = 18;
+    private int toolbarHeight = 30;
+    private Button depthButton;
+    private Button missingButton;
+    private int toolbarX, toolbarY;
+    private int previousWidth, previousHeight;
+    private String lastSearchQuery = "";
+    private int lastSearchIndex = -1;
 
     private final Screen previous;
     private final CraftingGraphSnapshot snapshot;
-    private final @Nullable Integer initialCycleComponentId;
-    private final @Nullable AEKey initialFocusedMaterial;
-    private GraphLayoutCache layoutCache;
+    private final GraphLayoutCache layoutCache = new GraphLayoutCache(GraphLayout.Mode.COMPACT_TREE);
     private final GraphRenderer renderer = new GraphRenderer();
-    private final GraphProfiler profiler = new GraphProfiler();
-    private final Set<Integer> collapsed = new HashSet<>();
+    private final GraphMaterialSummary materialSummary;
+    private Component recursionOverview = Component.empty();
     private final Set<String> expandedTreePaths = new HashSet<>();
     private final Set<String> fullyExpandedTreePaths = new HashSet<>();
     private final Set<String> collapsedTreePaths = new HashSet<>();
@@ -49,16 +53,16 @@ public final class ECOCraftingGraphScreen extends Screen {
     private final List<ClientCraftingGraph.Node> searchSuggestions = new ArrayList<>();
     private @Nullable Integer selectedId;
     private @Nullable ClientCraftingGraph.Node hovered;
+    private @Nullable GraphMaterialCard materialDetails;
+    private @Nullable GraphMaterialCard materialTooltip;
     private float cameraX;
-    private float cameraY = TOOLBAR_HEIGHT;
+    private float cameraY = 30;
     private float zoom = 1;
     private int depth = CompactTreeProjection.DEFAULT_DEPTH;
     private boolean missingOnly;
-    private GraphLayout.Mode layoutMode;
-    private boolean advanced;
     private boolean panning;
     private long lastClickMillis;
-    private int lastClickNode = Integer.MAX_VALUE;
+    private String lastClickPath = "";
     private boolean lastClickWasFolder;
     private @Nullable CycleCluster parentCluster;
 
@@ -71,111 +75,114 @@ public final class ECOCraftingGraphScreen extends Screen {
         super(Component.translatable("gui.neoecoae.crafting_graph.title"));
         this.previous = previous;
         this.snapshot = snapshot;
-        this.initialCycleComponentId = initialCycleComponentId;
-        this.initialFocusedMaterial = focusedMaterial;
+        this.materialSummary = new GraphMaterialSummary(snapshot);
         this.baseGraph = initialCycleComponentId == null ? ClientCraftingGraph.main(snapshot, false)
             : ClientCraftingGraph.cycle(snapshot, initialCycleComponentId, false, focusedMaterial);
         this.graph = baseGraph;
         this.selectedId = baseGraph.focusedMaterialId() != null ? baseGraph.focusedMaterialId() : baseGraph.rootId();
-        this.layoutMode = GraphLayout.Mode.fromSystemProperty();
-        this.layoutCache = new GraphLayoutCache(layoutMode);
     }
 
     @Override
     protected void init() {
-        renderer.close();
+        String query = search == null ? "" : search.getValue();
+        boolean focused = search != null && search.isFocused();
+        int oldTop = graphContentTop();
         clearWidgets();
-        int x = 5;
-        x = addButton(x, 48, tr("toolbar.fit_all"), this::fitAll);
-        x = addButton(x, 66, depthLabel(), this::cycleDepth);
-        x = addButton(x, 74, tr(missingOnly ? "toolbar.missing_on" : "toolbar.missing_off"), this::toggleMissingOnly);
-        search = new EditBox(font, x + 4, 6, Math.min(180, Math.max(80, width - x - 250)), 18,
-            Component.translatable("gui.neoecoae.crafting_graph.search"));
+        panning = false;
+        toolbarX = 5;
+        toolbarY = 5;
+        addButton(tr("toolbar.root"), this::goRoot);
+        addButton(tr("toolbar.fit_all"), this::fitAll);
+        depthButton = addButton(depthLabel(), this::cycleDepth);
+        missingButton = addButton(tr(missingOnly ? "toolbar.missing_on" : "toolbar.missing_off"), this::toggleMissingOnly);
+        int searchWidth = Math.min(180, Math.max(60, width - toolbarX - 8));
+        if (toolbarX + searchWidth + 5 > width) {
+            toolbarX = 5;
+            toolbarY += 24;
+            searchWidth = Math.min(180, Math.max(1, width - 10));
+        }
+        search = new EditBox(font, toolbarX + 1, toolbarY + 1, searchWidth, 18, tr("search"));
         search.setHint(tr("search_hint"));
+        search.setValue(query);
         search.setResponder(ignored -> updateSearchSuggestions());
         addRenderableWidget(search);
+        search.setFocused(focused);
+        if (focused) setFocused(search);
+        toolbarHeight = toolbarY + 25;
+        materialSummary.resize(width, height);
+        if (layout == null) rebuildGraph(true);
+        else {
+            cameraX += (width - previousWidth) / 2f;
+            cameraY += graphContentTop() - oldTop
+                + (height - previousHeight - graphContentTop() + oldTop) / 2f;
+        }
+        previousWidth = width;
+        previousHeight = height;
+        updateControls();
         updateSearchSuggestions();
-        rebuildGraph(initialCycleComponentId != null);
     }
 
-    private int addButton(int x, int width, Component label, Runnable action) {
-        addRenderableWidget(Button.builder(label, ignored -> action.run())
-            .bounds(x, 5, width, 20).build());
-        return x + width + 3;
+    private Button addButton(Component label, Runnable action) {
+        int buttonWidth = Math.min(Math.max(1, width - 10), Math.max(48, font.width(label) + 16));
+        if (toolbarX + buttonWidth + 5 > width && toolbarX > 5) {
+            toolbarX = 5;
+            toolbarY += 24;
+        }
+        Button button = addRenderableWidget(Button.builder(label, ignored -> action.run())
+            .bounds(toolbarX, toolbarY, buttonWidth, 20).build());
+        toolbarX += buttonWidth + 3;
+        return button;
+    }
+
+    private void updateControls() {
+        if (depthButton == null) return;
+        boolean main = graph.view() == ClientCraftingGraph.View.MAIN;
+        depthButton.active = main;
+        missingButton.active = main;
+        depthButton.setTooltip(main ? null : Tooltip.create(tr("toolbar.main_only")));
+        missingButton.setTooltip(main ? null : Tooltip.create(tr("toolbar.main_only")));
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         graphics.fill(0, 0, width, height, 0xff0e1115);
-        graphics.fill(0, 0, width, TOOLBAR_HEIGHT, 0xff242a31);
+        graphics.fill(0, 0, width, toolbarHeight, 0xff242a31);
         int contentTop = graphContentTop();
-        graphics.enableScissor(0, contentTop, width, height);
-        int graphMouseX = mouseY >= contentTop ? mouseX : -1;
-        int graphMouseY = mouseY >= contentTop ? mouseY : -1;
-        var frame = renderer.render(graphics, graph, layout, cameraX, cameraY, zoom, width, height,
-            graphMouseX, graphMouseY,
-            selectedId, profiler);
+        boolean overGraph = overGraph(mouseX, mouseY);
+        int graphMouseX = overGraph ? mouseX : -1_000_000;
+        int graphMouseY = overGraph ? mouseY : -1_000_000;
+        var frame = renderer.render(graphics, graph, layout, cameraX, cameraY, zoom,
+            new GraphRenderer.Viewport(0, contentTop, width, Math.max(contentTop, graphContentBottom())),
+            graphMouseX, graphMouseY, selectedId);
         hovered = frame.hovered();
-        // Item icons are batched. Flush them while the graph scissor is still active so later UI overlays stay on top.
-        graphics.disableScissor();
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
-        drawSearchSuggestions(graphics, mouseX, mouseY);
+        graphics.fill(0, infoTop(), width, materialSummary.top(), 0xff0e1115);
         drawBreadcrumb(graphics);
         drawStats(graphics);
-        if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) drawCycleDetails(graphics);
-        else if (graph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER) drawClusterDetails(graphics);
-        else if (graph.isCompactTree()) drawDetailsPanel(graphics);
-        if (!frame.tooltip().isEmpty() && mouseY >= contentTop) {
-            graphics.setComponentTooltipForNextFrame(font, frame.tooltip(), mouseX, mouseY);
-            var tooltipCycle = cycleForTooltipNode(hovered);
-            if (tooltipCycle != null) drawCycleTooltipRing(graphics, tooltipCycle, mouseX, mouseY);
+        materialSummary.render(graphics, font, mouseX, mouseY);
+        if (graph.isRecursiveCycle()) RecursiveCycleRenderer.text(graphics, font, recursionOverview.getString(),
+            7, toolbarHeight + 7, width - 14, RecursiveCycleRenderer.TEXT, 0.85f);
+        if (selectedId != null) {
+            if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) drawCycleDetails(graphics);
+            else if (graph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER) drawClusterDetails(graphics);
+            else drawDetailsPanel(graphics);
         }
-    }
 
-    @Nullable
-    private CraftingGraphSnapshot.CycleGroup cycleForTooltipNode(@Nullable ClientCraftingGraph.Node node) {
-        if (node == null) return null;
-        if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) return node.cycle();
-        if (node.kind() != ClientCraftingGraph.Kind.MATERIAL || node.material() == null) return null;
-        int sourceId = node.material().nodeId();
-        return snapshot.cycleGroups().stream()
-            .filter(cycle -> cycle.memberNodeIds().contains(sourceId))
-            .findFirst().orElse(null);
-    }
+        graphics.pose().pushMatrix();
+        graphics.nextStratum();
+        drawSearchSuggestions(graphics, mouseX, mouseY);
 
-    /** Draws a compact cycle summary over the tooltip without changing vanilla tooltip layout. */
-    private void drawCycleTooltipRing(GuiGraphicsExtractor graphics, CraftingGraphSnapshot.CycleGroup cycle,
-            int mouseX, int mouseY) {
-        int radius = 18;
-        int centerX = Math.min(width - radius - 4, mouseX + 112);
-        int centerY = Math.max(radius + TOOLBAR_HEIGHT + 2, mouseY - 24);
-        int backgroundLeft = centerX - radius - 5;
-        int backgroundTop = centerY - radius - 5;
-        int backgroundRight = centerX + radius + 6;
-        int backgroundBottom = centerY + radius + 6;
-        graphics.fill(backgroundLeft, backgroundTop, backgroundRight, backgroundBottom, 0xee171b20);
-
-        int activeColor = cycleStatusColor(cycle.status());
-        int segments = 12;
-        int activeSegments = Math.max(1, Math.min(segments, cycle.memberNodeIds().size()));
-        for (int i = 0; i < segments; i++) {
-            double angle = -Math.PI / 2 + i * (Math.PI * 2 / segments);
-            int x = centerX + (int) Math.round(Math.cos(angle) * radius);
-            int y = centerY + (int) Math.round(Math.sin(angle) * radius);
-            int color = i < activeSegments ? activeColor : 0xff56616c;
-            graphics.fill(x - 2, y - 2, x + 3, y + 3, color);
+        graphics.pose().popMatrix();
+        if (!frame.tooltip().isEmpty() && overGraph) {
+            if (graph.view() == ClientCraftingGraph.View.MAIN && GraphMaterialCard.supports(hovered)) {
+                if (materialTooltip == null || !materialTooltip.matches(graph, hovered, font)) {
+                    materialTooltip = new GraphMaterialCard(graph, hovered, font, false);
+                }
+                materialTooltip.renderTooltip(graphics, mouseX, mouseY, width, height);
+            } else graphics.setComponentTooltipForNextFrame(font, frame.tooltip(), mouseX, mouseY);
         }
-        graphics.centeredText(font, cn.dancingsnow.neoecoae.gui.common.HostText.expandedNumber(cycle.memberNodeIds().size()), centerX,
-            centerY - font.lineHeight / 2, 0xffe8edf2);
-    }
-
-    private static int cycleStatusColor(String status) {
-        return switch (status.toUpperCase(Locale.ROOT)) {
-            case "SOLVED", "PLANNED", "READY" -> 0xff68b58a;
-            case "UNSUPPORTED", "DISABLED" -> 0xffa36c9a;
-            case "FAILED", "MISSING" -> 0xffcf5e5e;
-            default -> 0xffd59b45;
-        };
+        var summaryTooltip = materialSummary.tooltip(graph);
+        if (!summaryTooltip.isEmpty()) graphics.setComponentTooltipForNextFrame(font, summaryTooltip, mouseX, mouseY);
     }
 
     @Override
@@ -184,71 +191,77 @@ public final class ECOCraftingGraphScreen extends Screen {
     }
 
     private void drawBreadcrumb(GuiGraphicsExtractor graphics) {
+        cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font, breadcrumbText(), 7, infoTop() + 5, 0xffc6d0da, false);
+    }
+
+    private String breadcrumbText() {
         String breadcrumb = switch (graph.view()) {
             case MAIN -> tr("breadcrumb.plan").getString();
             case CYCLE_FOCUS -> tr("breadcrumb.cycle", graph.focusedCycleId()).getString();
             case CYCLE_CLUSTER -> tr("breadcrumb.cluster", graph.focusedCluster().clusterId()).getString();
         };
-        graphics.text(font, breadcrumb, 7, height - 14, 0xffc6d0da, false);
+        if (graph.view() != ClientCraftingGraph.View.MAIN) breadcrumb = "\u2039 " + tr("toolbar.back").getString() + "  " + breadcrumb;
+        return fit(breadcrumb, Math.max(1, width / 3 - 12));
     }
 
     private void drawStats(GuiGraphicsExtractor graphics) {
-        String stats = String.format(Locale.ROOT,
-            "nodes %,d/%,d  edges %,d/%,d  zoom %.0f%%  layout %,.2f ms  index %,.2f ms  render %,.2f ms  v%d",
-            profiler.visibleNodes(), snapshot.summary().materialNodes() + snapshot.summary().patternNodes(),
-            profiler.visibleEdges(), snapshot.summary().edges(), zoom * 100,
-            layout.layoutNanos() / 1_000_000.0, layout.spatialIndexNanos() / 1_000_000.0,
-            profiler.renderNanos() / 1_000_000.0, layout.version());
-        graphics.text(font, stats, Math.max(7, width - font.width(stats) - 7), height - 14, 0xff8e9aa6, false);
+        String zoomLabel = tr("zoom", Math.round(zoom * 100)).getString();
+        String hint = tr("controls").getString();
+        int right = width - font.width(zoomLabel) - 7;
+        cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font, zoomLabel, Math.max(7, right), infoTop() + 5, 0xffc6d0da, false);
+        int hintRight = right - 10;
+        String shownHint = fit(hint, Math.max(0, hintRight - font.width(breadcrumbText()) - 19));
+        cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font, shownHint, hintRight - font.width(shownHint), infoTop() + 5, 0xff8e9aa6, false);
     }
 
     private void drawCycleDetails(GuiGraphicsExtractor graphics) {
-        if (graph.view() != ClientCraftingGraph.View.CYCLE_FOCUS) return;
+        if (graph.view() != ClientCraftingGraph.View.CYCLE_FOCUS || graph.isRecursiveCycle()) return;
         var cycle = snapshot.cycleGroups().stream()
             .filter(value -> value.componentId() == graph.focusedCycleId()).findFirst().orElse(null);
         if (cycle == null) return;
-        int panelWidth = 250;
+        int panelWidth = Math.min(250, Math.max(1, width - 16));
         int left = width - panelWidth - 8;
-        int top = 38;
-        int lines = 7;
+        int top = graphContentTop() + 8;
+        int lines = 8;
         graphics.fill(left, top, width - 8, top + 10 + lines * 12, 0xdd171b20);
-        graphics.text(font, tr("details.cycle_title", cycle.componentId()), left + 7, top + 6,
+        cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font, tr("details.cycle_title", cycle.componentId()), left + 7, top + 6,
             0xffe2b766, false);
         int y = top + 19;
         y = textLine(graphics, left, panelWidth, y, "status", statusText(cycle.status()));
         y = textLine(graphics, left, panelWidth, y, "seed", summarizeAmounts(cycle.requiredSeed()));
         y = textLine(graphics, left, panelWidth, y, "external", summarizeAmounts(cycle.externalInputs()));
-        y = textLine(graphics, left, panelWidth, y, "execute", summarizePatterns(cycle));
-        y = line(graphics, left, y, "witness_steps", cycle.executionWitness().size());
-        y = line(graphics, left, y, "members", cycle.memberNodeIds().size());
-        line(graphics, left, y, "required_outputs", cycle.requiredOutputs().size());
+        y = textLine(graphics, left, panelWidth, y, "target", summarizeAmounts(cycle.requiredOutputs()));
+        y = line(graphics, left, y, "recursion_layers", cycle.recursion().layers().size());
+        String hint = !cycle.recursion().complete() ? "unknown_hint"
+            : cycle.status().equals("SOLVED") || cycle.status().equals("NOT_REQUIRED") ? "direction" : "conditional";
+        graphics.textWithWordWrap(font, GraphRenderer.recursionText(hint), left + 7, y, panelWidth - 14, 0xffaeb8c2);
     }
 
     private int line(GuiGraphicsExtractor graphics, int left, int y, String keySuffix, int value) {
-        graphics.text(font, tr("details." + keySuffix, value), left + 7, y, 0xffaeb8c2, false);
+        cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font, tr("details." + keySuffix, value), left + 7, y, 0xffaeb8c2, false);
         return y + 12;
     }
 
     private void drawClusterDetails(GuiGraphicsExtractor graphics) {
         CycleCluster cluster = graph.focusedCluster();
         if (cluster == null) return;
-        int panelWidth = 250;
+        int panelWidth = Math.min(250, Math.max(1, width - 16));
         int left = width - panelWidth - 8;
-        int top = 38;
+        int top = graphContentTop() + 8;
         graphics.fill(left, top, width - 8, top + 70, 0xdd171b20);
-        graphics.text(font, tr("details.cluster_title", cluster.clusterId()), left + 7, top + 6,
+        cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font, tr("details.cluster_title", cluster.clusterId()), left + 7, top + 6,
             0xffe2b766, false);
         int y = top + 20;
         y = line(graphics, left, y, "cluster_cycles", cluster.componentIds().size());
         y = line(graphics, left, y, "cluster_flows", cluster.flows().size());
-        graphics.text(font, tr("details.cluster_hint"), left + 7, y, 0xffaeb8c2, false);
+        cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font, tr("details.cluster_hint"), left + 7, y, 0xffaeb8c2, false);
     }
 
     private int textLine(GuiGraphicsExtractor graphics, int left, int panelWidth, int y, String keySuffix, Component value) {
         Component label = tr("details." + keySuffix + "_label");
         int valueX = left + 7 + font.width(label);
-        graphics.text(font, label, left + 7, y, 0xffaeb8c2, false);
-        graphics.text(font, fit(value.getString(), panelWidth - 14 - font.width(label)), valueX, y,
+        cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font, label, left + 7, y, 0xffaeb8c2, false);
+        cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font, fit(value.getString(), panelWidth - 14 - font.width(label)), valueX, y,
             0xffe2b766, false);
         return y + 12;
     }
@@ -261,33 +274,17 @@ public final class ECOCraftingGraphScreen extends Screen {
             if (i > 0) text.append(", ");
             var value = values.get(i);
             text.append(value.key().getDisplayName().getString()).append(" ×")
-                .append(HostText.ae2Amount(value.amount()));
+                .append(HostText.ae2Amount(value.plannerAmount().toBigInteger()));
         }
         if (values.size() > shown) text.append(tr("summary.more", values.size() - shown).getString());
         return Component.literal(text.toString());
     }
 
-    private Component summarizePatterns(CraftingGraphSnapshot.CycleGroup cycle) {
-        if (cycle.patternTimes().isEmpty()) return Component.literal("-");
-        StringBuilder text = new StringBuilder();
-        int shown = Math.min(2, cycle.patternTimes().size());
-        for (int i = 0; i < shown; i++) {
-            if (i > 0) text.append(", ");
-            var value = cycle.patternTimes().get(i);
-            var pattern = snapshot.patterns().stream()
-                .filter(candidate -> candidate.patternNodeId() == value.patternNodeId()).findFirst().orElse(null);
-            text.append(pattern == null ? "Pattern #" + value.patternNodeId() : pattern.displayIdentity())
-                .append(" ×").append(HostText.ae2Amount(value.amount()));
-        }
-        if (cycle.patternTimes().size() > shown) text.append(" +").append(cycle.patternTimes().size() - shown)
-            .append(tr("summary.more_suffix").getString());
-        return Component.literal(text.toString());
-    }
-
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (mouseY < graphContentTop()) return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-        if (graph.isCompactTree() && !Minecraft.getInstance().hasControlDown()) {
+        if (materialSummary.mouseScrolled(mouseX, mouseY, scrollY != 0 ? scrollY : scrollX)) return true;
+        if (!overGraph(mouseX, mouseY)) return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        if (minecraft.hasShiftDown()) {
             cameraX -= (float) scrollX * 28;
             cameraY -= (float) scrollY * 28;
             return true;
@@ -302,50 +299,97 @@ public final class ECOCraftingGraphScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(MouseButtonEvent event, boolean isDoubleClick) {
-        double mouseX = event.x();
-        double mouseY = event.y();
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean isDoubleClick) {
+        double mouseX = event.x(), mouseY = event.y();
         int button = event.button();
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && selectSearchSuggestion(mouseX, mouseY)) return true;
+        if (materialSummary.contains(mouseX, mouseY)) {
+            if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT
+                    && !materialSummary.mouseClicked(mouseX, mouseY, this::focusSummaryMaterial)) clearSelection();
+            return true;
+        }
         if (super.mouseClicked(event, isDoubleClick)) return true;
-        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && mouseY >= height - 20
-                && graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) {
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && mouseY >= infoTop() && mouseY < materialSummary.top()
+                && graph.view() != ClientCraftingGraph.View.MAIN && mouseX < font.width(breadcrumbText()) + 14) {
             goRoot();
             return true;
         }
-        if (mouseY < graphContentTop()) return false;
+        if (!overGraph(mouseX, mouseY)) {
+            if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && (mouseY < graphContentTop() || mouseY >= infoTop())) clearSelection();
+            return false;
+        }
         ClientCraftingGraph.Node hit = hit(mouseX, mouseY);
-        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT && hit != null && graph.isCompactTree()) {
+        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT && hit != null && graph.view() == ClientCraftingGraph.View.MAIN) {
             selectedId = hit.id();
-            collapseSelected();
+            if (hit.kind() == ClientCraftingGraph.Kind.FOLDER) expandAllSelected();
+            else collapseSelected();
             return true;
         }
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && hit != null) {
             selectedId = hit.id();
             long now = Util.getMillis();
-            boolean doubleClick = lastClickNode == hit.id() && now - lastClickMillis < 350;
-            // A one-level expansion replaces a folder with its source node at the same path/id. Keep the
-            // previous folder gesture only while the second click is on that same projected occurrence.
-            boolean sameFolderOccurrence = lastClickWasFolder && lastClickNode == hit.id();
-            if (graph.isCompactTree() && (hit.kind() == ClientCraftingGraph.Kind.FOLDER || sameFolderOccurrence)) {
+            var occurrence = graph.compactTreeNode(hit.id());
+            String clickPath = occurrence == null ? "node/" + hit.id() : occurrence.path();
+            boolean doubleClick = lastClickPath.equals(clickPath) && now - lastClickMillis < 350;
+            // A folder becomes a material occurrence on expansion. Match its path across projection rebuilds.
+            boolean sameFolderOccurrence = lastClickWasFolder && doubleClick;
+            if (hit.recursion() != null && hit.recursion().role()
+                    == cn.dancingsnow.neoecoae.crafting.graph.RecursiveCycleNode.Role.OUTPUT) {
+                goRoot();
+            } else if (hit.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP || hit.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER
+                    || hit.kind() == ClientCraftingGraph.Kind.REFERENCE && (hit.cycle() != null || hit.cluster() != null)) {
+                activate(hit);
+            } else if (graph.isCompactTree() && (hit.kind() == ClientCraftingGraph.Kind.FOLDER || sameFolderOccurrence)) {
                 if (doubleClick && sameFolderOccurrence) expandAllSelected();
                 else expandSelected();
             } else if (doubleClick) activate(hit);
             lastClickWasFolder = hit.kind() == ClientCraftingGraph.Kind.FOLDER;
-            lastClickNode = hit.id();
+            lastClickPath = clickPath;
             lastClickMillis = now;
             return true;
         }
         if (button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE || button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) clearSelection();
             panning = true;
             return true;
         }
         return false;
     }
 
+    private void clearSelection() {
+        selectedId = null;
+        materialDetails = null;
+        materialTooltip = null;
+        hovered = null;
+        lastClickPath = "";
+        lastClickWasFolder = false;
+    }
+
+    private void focusSummaryMaterial(CraftingGraphSnapshot.MaterialNode material) {
+        var match = baseGraph.nodes().values().stream()
+            .filter(node -> node.kind() == ClientCraftingGraph.Kind.MATERIAL && material.key().equals(node.key()))
+            .findFirst().orElse(null);
+        if (match == null) {
+            var cycle = snapshot.cycleGroups().stream()
+                .filter(group -> group.memberNodeIds().contains(material.nodeId())).findFirst().orElse(null);
+            if (cycle != null) {
+                parentCluster = graph.focusedCluster();
+                baseGraph = ClientCraftingGraph.cycle(snapshot, cycle.componentId(), false, material.key());
+                selectedId = baseGraph.focusedMaterialId() != null ? baseGraph.focusedMaterialId() : baseGraph.rootId();
+                rebuildGraph(true);
+                return;
+            }
+            parentCluster = null;
+            baseGraph = ClientCraftingGraph.main(snapshot, false);
+            rebuildGraph(false);
+            match = baseGraph.nodes().get(material.nodeId());
+        }
+        if (match != null) focusSearchMatch(match);
+    }
+
     @Override
-    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
-        if (panning) {
+    public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dragX, double dragY) {
+        if (panning && overGraph(event.x(), event.y())) {
             cameraX += (float) dragX;
             cameraY += (float) dragY;
             return true;
@@ -354,15 +398,15 @@ public final class ECOCraftingGraphScreen extends Screen {
     }
 
     @Override
-    public boolean mouseReleased(MouseButtonEvent event) {
+    public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
         panning = false;
         return super.mouseReleased(event);
     }
 
     @Override
-    public boolean keyPressed(KeyEvent event) {
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
         int keyCode = event.key();
-        if (keyCode == GLFW.GLFW_KEY_ENTER && search.isFocused()) {
+        if ((keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) && search.isFocused()) {
             findNext();
             return true;
         }
@@ -379,7 +423,8 @@ public final class ECOCraftingGraphScreen extends Screen {
 
     @Override
     public void onClose() {
-        Minecraft.getInstance().setScreen(previous);
+        if (graph.view() != ClientCraftingGraph.View.MAIN) goRoot();
+        else Minecraft.getInstance().setScreen(previous);
     }
 
     @Override
@@ -389,17 +434,17 @@ public final class ECOCraftingGraphScreen extends Screen {
     }
 
     private void activate(ClientCraftingGraph.Node node) {
-        if (node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER) {
+        if (node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER
+                || node.kind() == ClientCraftingGraph.Kind.REFERENCE && node.cluster() != null) {
             parentCluster = null;
-            baseGraph = ClientCraftingGraph.cluster(snapshot, node.cluster(), advanced);
+            baseGraph = ClientCraftingGraph.cluster(snapshot, node.cluster(), false);
             selectedId = baseGraph.rootId();
-            collapsed.clear();
             rebuildGraph(true);
-        } else if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) {
-            parentCluster = null;
-            baseGraph = ClientCraftingGraph.cycle(snapshot, node.cycle().componentId(), advanced);
+        } else if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP
+                || node.kind() == ClientCraftingGraph.Kind.REFERENCE && node.cycle() != null) {
+            parentCluster = graph.focusedCluster();
+            baseGraph = ClientCraftingGraph.cycle(snapshot, node.cycle().componentId(), false);
             selectedId = baseGraph.rootId();
-            collapsed.clear();
             rebuildGraph(true);
         } else if (node.kind() == ClientCraftingGraph.Kind.FOLDER) {
             expandAllSelected();
@@ -409,27 +454,27 @@ public final class ECOCraftingGraphScreen extends Screen {
             Integer componentId = componentForClusterNode(node);
             if (componentId != null) {
                 parentCluster = graph.focusedCluster();
-                baseGraph = ClientCraftingGraph.cycle(snapshot, componentId, advanced,
+                baseGraph = ClientCraftingGraph.cycle(snapshot, componentId, false,
                     node.kind() == ClientCraftingGraph.Kind.MATERIAL ? node.key() : null);
                 selectedId = baseGraph.rootId();
                 rebuildGraph(true);
             }
         } else if (node.kind() == ClientCraftingGraph.Kind.MATERIAL) {
             selectedId = node.id();
-            rebuildGraph(true);
+            if (graph.isRecursiveCycle()) center(node.id());
+            else rebuildGraph(true);
         }
     }
 
     private void goRoot() {
         if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS && parentCluster != null) {
-            baseGraph = ClientCraftingGraph.cluster(snapshot, parentCluster, advanced);
+            baseGraph = ClientCraftingGraph.cluster(snapshot, parentCluster, false);
             parentCluster = null;
         } else if (graph.view() != ClientCraftingGraph.View.MAIN) {
-            baseGraph = ClientCraftingGraph.main(snapshot, advanced);
+            baseGraph = ClientCraftingGraph.main(snapshot, false);
             parentCluster = null;
         }
         selectedId = baseGraph.rootId();
-        collapsed.clear();
         expandedTreePaths.clear();
         fullyExpandedTreePaths.clear();
         collapsedTreePaths.clear();
@@ -437,33 +482,23 @@ public final class ECOCraftingGraphScreen extends Screen {
     }
 
     private void expandSelected() {
-        if (selectedId == null) return;
-        if (graph.isCompactTree()) {
-            CompactTreeNode treeNode = graph.compactTreeNode(selectedId);
-            if (treeNode == null) return;
-            collapsedTreePaths.remove(treeNode.path());
-            fullyExpandedTreePaths.remove(treeNode.path());
-            expandedTreePaths.add(treeNode.path());
-            rebuildGraph(false);
-        } else {
-            collapsed.remove(selectedId);
-            rebuildGraph(false);
-        }
+        if (selectedId == null || !graph.isCompactTree()) return;
+        CompactTreeNode treeNode = graph.compactTreeNode(selectedId);
+        if (treeNode == null) return;
+        collapsedTreePaths.remove(treeNode.path());
+        fullyExpandedTreePaths.remove(treeNode.path());
+        expandedTreePaths.add(treeNode.path());
+        rebuildGraph(false);
     }
 
     private void collapseSelected() {
-        if (selectedId == null) return;
-        if (graph.isCompactTree()) {
-            CompactTreeNode treeNode = graph.compactTreeNode(selectedId);
-            if (treeNode == null) return;
-            collapsedTreePaths.add(treeNode.path());
-            expandedTreePaths.remove(treeNode.path());
-            fullyExpandedTreePaths.remove(treeNode.path());
-            rebuildGraph(false);
-        } else {
-            if (!collapsed.add(selectedId)) collapsed.remove(selectedId);
-            rebuildGraph(false);
-        }
+        if (selectedId == null || !graph.isCompactTree()) return;
+        CompactTreeNode treeNode = graph.compactTreeNode(selectedId);
+        if (treeNode == null) return;
+        collapsedTreePaths.add(treeNode.path());
+        expandedTreePaths.remove(treeNode.path());
+        fullyExpandedTreePaths.remove(treeNode.path());
+        rebuildGraph(false);
     }
 
     private void expandAllSelected() {
@@ -476,30 +511,9 @@ public final class ECOCraftingGraphScreen extends Screen {
         rebuildGraph(false);
     }
 
-    private void toggleCollapse() { collapseSelected(); }
-
-    private void expandToFour() {
-        depth = CompactTreeProjection.DEFAULT_DEPTH;
-        expandedTreePaths.clear();
-        fullyExpandedTreePaths.clear();
-        collapsedTreePaths.clear();
-        collapsed.clear();
-        rebuildGraph(true);
-        refreshControls();
-    }
-
-    private void foldToFour() {
-        depth = CompactTreeProjection.DEFAULT_DEPTH;
-        expandedTreePaths.clear();
-        fullyExpandedTreePaths.clear();
-        collapsedTreePaths.clear();
-        collapsed.clear();
-        rebuildGraph(true);
-        refreshControls();
-    }
-
     private void cycleDepth() {
         depth = depth == 99 ? 2 : depth == 2 ? 4 : depth == 4 ? 8 : 99;
+        rebuildGraph(false);
         refreshControls();
     }
 
@@ -512,64 +526,75 @@ public final class ECOCraftingGraphScreen extends Screen {
         refreshControls();
     }
 
-    private void cycleLayoutMode() {
-        layoutMode = switch (layoutMode) {
-            case COMPACT_TREE -> GraphLayout.Mode.LEGACY;
-            case LEGACY -> GraphLayout.Mode.COMPACT_TREE;
-        };
-        layoutCache = new GraphLayoutCache(layoutMode);
-        rebuildGraph(true);
-        refreshControls();
-    }
-
-    private void toggleAdvanced() {
-        advanced = !advanced;
-        AEKey focusedMaterial = graph.focusedMaterialId() == null ? null
-            : graph.nodes().get(graph.focusedMaterialId()) == null ? null
-                : graph.nodes().get(graph.focusedMaterialId()).key();
-        baseGraph = switch (graph.view()) {
-            case CYCLE_FOCUS -> ClientCraftingGraph.cycle(snapshot, graph.focusedCycleId(), advanced, focusedMaterial);
-            case CYCLE_CLUSTER -> ClientCraftingGraph.cluster(snapshot, graph.focusedCluster(), advanced);
-            case MAIN -> ClientCraftingGraph.main(snapshot, advanced);
-        };
-        refreshControls();
-    }
-
     private void refreshControls() {
-        String query = search == null ? "" : search.getValue();
+        // Reflow translated labels without rebuilding the graph or resetting its camera.
         init();
-        search.setValue(query);
     }
 
     private void rebuildGraph(boolean fit) {
+        var oldBox = layout == null || selectedId == null ? null : layout.box(selectedId);
+        var oldOccurrence = selectedId == null ? null : graph.compactTreeNode(selectedId);
         if (baseGraph.view() == ClientCraftingGraph.View.CYCLE_FOCUS
                 || baseGraph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER) {
             // A cycle focus is a complete SCC explanation. Depth/collapse controls belong to MAIN projection and
             // must never silently remove a boundary or an internal pattern from this view.
             graph = baseGraph;
-        } else if (layoutMode == GraphLayout.Mode.COMPACT_TREE && baseGraph.view() == ClientCraftingGraph.View.MAIN) {
+        } else {
             ClientCraftingGraph projectedBase = missingOnly ? baseGraph.missingPaths() : baseGraph;
             graph = CompactTreeProjection.project(projectedBase, missingOnly ? 99 : depth, expandedTreePaths,
                 fullyExpandedTreePaths, collapsedTreePaths);
-        } else {
-            ClientCraftingGraph projectedBase = missingOnly && baseGraph.view() == ClientCraftingGraph.View.MAIN
-                ? baseGraph.missingPaths() : baseGraph;
-            int focus = selectedId != null && projectedBase.nodes().containsKey(selectedId)
-                ? selectedId : projectedBase.rootId();
-            graph = projectedBase.limited(focus, missingOnly ? 99 : depth, collapsed);
         }
         layoutCache.invalidate();
+        materialDetails = null;
+        materialTooltip = null;
         layout = layoutCache.get(graph);
-        if (fit) fitAll();
+        if (!fit && oldOccurrence != null && graph.isCompactTree()) {
+            // Projected numeric IDs change as earlier branches expand. Selection follows the occurrence path.
+            selectedId = graph.compactTreeNodes().values().stream()
+                .filter(node -> oldOccurrence.path().equals(node.path())).map(CompactTreeNode::id)
+                .findFirst().orElse(graph.rootId());
+        }
+        if (selectedId != null && !graph.nodes().containsKey(selectedId)) selectedId = graph.rootId();
+        var newBox = selectedId == null ? null : layout.box(selectedId);
+        if (!fit && oldBox != null && newBox != null) {
+            cameraX += (oldBox.centerX() - newBox.centerX()) * zoom;
+            cameraY += (oldBox.centerY() - newBox.centerY()) * zoom;
+        }
+        if (graph.isRecursiveCycle()) {
+            var cycle = graph.nodes().values().stream().map(ClientCraftingGraph.Node::cycle)
+                .filter(java.util.Objects::nonNull).findFirst().orElseThrow();
+            long retained = graph.nodes().values().stream().filter(node -> node.recursion().role()
+                == cn.dancingsnow.neoecoae.crafting.graph.RecursiveCycleNode.Role.RETAINED
+                && node.recursion().amount().signum() > 0).count();
+            recursionOverview = GraphRenderer.recursionText("overview", cycle.componentId(),
+                cycle.recursion().layers().size(), cycle.requiredSeed().size(), cycle.externalInputs().size(),
+                cycle.recursion().complete() ? retained : "—");
+        }
+        updateControls();
+        updateSearchSuggestions();
+        if (fit) {
+            fitAll();
+            if (graph.isRecursiveCycle()) focusRecursionStart();
+        }
+    }
+
+    /** Long recursion strips open at their left edge with readable nodes and the next steps in view. */
+    private void focusRecursionStart() {
+        if (zoom >= 0.85f) return;
+        var bounds = layout.bounds();
+        float availableHeight = Math.max(1, graphContentBottom() - graphContentTop() - 24);
+        zoom = Math.max(GraphViewTransform.MIN_ZOOM, Math.min(0.85f, availableHeight / Math.max(1, bounds.height())));
+        cameraX = 16 - bounds.left() * zoom;
+        cameraY = graphContentTop() + 12 + (availableHeight - bounds.height() * zoom) / 2 - bounds.top() * zoom;
     }
 
     private void fitAll() {
         if (layout == null || layout.boxes().isEmpty()) return;
         var bounds = layout.bounds();
-        float detailsReserve = graph.isCompactTree() || graph.view() != ClientCraftingGraph.View.MAIN ? 258 : 0;
+        float detailsReserve = detailsReserve();
         float availableWidth = Math.max(1, width - 40 - detailsReserve);
         int contentTop = graphContentTop();
-        float availableHeight = Math.max(1, height - contentTop - 24);
+        float availableHeight = Math.max(1, graphContentBottom() - contentTop - 24);
         zoom = GraphViewTransform.fitZoom(bounds, availableWidth, availableHeight);
         cameraX = 20 - bounds.left() * zoom + (availableWidth - bounds.width() * zoom) / 2;
         cameraY = contentTop + 12 - bounds.top() * zoom
@@ -579,27 +604,64 @@ public final class ECOCraftingGraphScreen extends Screen {
     private void findNext() {
         String query = search.getValue().trim().toLowerCase(Locale.ROOT);
         if (query.isEmpty()) return;
-        baseGraph.nodes().values().stream()
-            .filter(node -> matchesItemSearch(node, query))
-            .findFirst().ifPresent(this::focusSearchMatch);
+        var matches = baseGraph.nodes().values().stream().filter(node -> matchesItemSearch(node, query))
+            .sorted(java.util.Comparator.comparingInt(ClientCraftingGraph.Node::id)).toList();
+        if (matches.isEmpty()) return;
+        if (!query.equals(lastSearchQuery)) lastSearchIndex = -1;
+        lastSearchQuery = query;
+        lastSearchIndex = (lastSearchIndex + 1) % matches.size();
+        focusSearchMatch(matches.get(lastSearchIndex));
     }
 
     private void center(int id) {
         var box = layout.box(id);
         if (box == null) return;
-        float detailsReserve = graph.isCompactTree() || graph.view() != ClientCraftingGraph.View.MAIN ? 258 : 0;
+        float detailsReserve = detailsReserve();
         float usableWidth = Math.max(1, width - detailsReserve);
         int contentTop = graphContentTop();
-        float usableHeight = Math.max(1, height - contentTop);
+        float usableHeight = Math.max(1, graphContentBottom() - contentTop);
         cameraX = usableWidth / 2.0f - box.centerX() * zoom;
         cameraY = contentTop + usableHeight / 2.0f - box.centerY() * zoom;
     }
 
     private int graphContentTop() {
-        return TOOLBAR_HEIGHT;
+        return toolbarHeight + (graph.isRecursiveCycle() ? 24 : 0);
+    }
+
+    private int infoTop() { return Math.max(0, materialSummary.top() - INFO_HEIGHT); }
+
+    private int graphContentBottom() { return Math.max(graphContentTop(), infoTop()); }
+
+    private int detailsReserve() {
+        if (graph.isRecursiveCycle() || selectedId == null) return 0;
+        var selected = graph.nodes().get(selectedId);
+        if (selected == null) return 0;
+        return Math.min(Math.max(0, width - 40), graph.view() == ClientCraftingGraph.View.MAIN ? 250 : 258);
+    }
+
+    private boolean overGraph(double mouseX, double mouseY) {
+        if (mouseY < graphContentTop() || mouseY >= graphContentBottom() || mouseX < 0 || mouseX >= width) return false;
+        if (search != null && search.isFocused() && !searchSuggestions.isEmpty()
+                && mouseX >= search.getX() && mouseX < search.getX() + search.getWidth()
+                && mouseY >= search.getY() + search.getHeight()
+                && mouseY < search.getY() + search.getHeight() + searchSuggestions.size() * 18 + 2) return false;
+        if (graph.isRecursiveCycle() || selectedId == null) return true;
+        int top = graphContentTop() + 8;
+        if (graph.view() != ClientCraftingGraph.View.MAIN) return !(mouseX >= Math.max(8, width - 258)
+            && mouseX < width - 8 && mouseY >= top && mouseY < top
+                + (graph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER ? 70 : 106));
+        var selected = selectedId == null ? null : graph.nodes().get(selectedId);
+        if (selected == null) return true;
+        if (GraphMaterialCard.supports(selected)) {
+            if (materialDetails == null || !materialDetails.matches(graph, selected, font))
+                materialDetails = new GraphMaterialCard(graph, selected, font, true);
+            return !materialDetails.containsDetails(mouseX, mouseY, width, graphContentBottom(), top);
+        }
+        return !(mouseX >= Math.max(8, width - 228) && mouseX < width - 8 && mouseY >= top && mouseY < top + 120);
     }
 
     private @Nullable ClientCraftingGraph.Node hit(double mouseX, double mouseY) {
+        if (!overGraph(mouseX, mouseY)) return null;
         float worldX = ((float) mouseX - cameraX) / zoom;
         float worldY = ((float) mouseY - cameraY) / zoom;
         return layout.query(worldX, worldY, worldX, worldY, 0).stream()
@@ -614,23 +676,34 @@ public final class ECOCraftingGraphScreen extends Screen {
      * integration uses this hit test to make material nodes available to recipe and usage lookups.</p>
      */
     public @Nullable AEKey getECOStackAt(int mouseX, int mouseY) {
+        var summaryMaterial = materialSummary.materialAt(mouseX, mouseY);
+        if (summaryMaterial != null) return summaryMaterial.key();
         if (mouseY < graphContentTop() || layout == null) return null;
         ClientCraftingGraph.Node node = hit(mouseX, mouseY);
-        return node != null && node.kind() == ClientCraftingGraph.Kind.MATERIAL ? node.key() : null;
+        return node != null && node.material() != null
+            && (node.kind() == ClientCraftingGraph.Kind.MATERIAL || node.kind() == ClientCraftingGraph.Kind.REFERENCE)
+            ? node.key() : null;
     }
 
     private void drawDetailsPanel(GuiGraphicsExtractor graphics) {
         if (selectedId == null) return;
         var node = graph.nodes().get(selectedId);
         if (node == null) return;
-        int panelWidth = 220;
+        if (GraphMaterialCard.supports(node)) {
+            if (materialDetails == null || !materialDetails.matches(graph, node, font)) {
+                materialDetails = new GraphMaterialCard(graph, node, font, true);
+            }
+            materialDetails.renderDetails(graphics, width, graphContentBottom(), graphContentTop() + 8);
+            return;
+        }
+        int panelWidth = Math.min(220, Math.max(1, width - 16));
         int left = width - panelWidth - 8;
-        int top = 38;
+        int top = graphContentTop() + 8;
         int lines = 9;
         graphics.fill(left, top, width - 8, top + 12 + lines * 12, 0xdd171b20);
-        graphics.text(font, node.kind() == ClientCraftingGraph.Kind.FOLDER
+        cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font, node.kind() == ClientCraftingGraph.Kind.FOLDER
                 ? Component.translatable("gui.neoecoae.crafting_graph.details.folder")
-                : Component.literal(node.label()), left + 7,
+                : Component.literal(fit(CompactTreeRenderer.nodeTitle(node), panelWidth - 14)), left + 7,
             top + 6, node.kind() == ClientCraftingGraph.Kind.FOLDER ? 0xff9fb3c2 : 0xffe2b766, false);
         int y = top + 20;
         if (node.kind() == ClientCraftingGraph.Kind.FOLDER) {
@@ -645,16 +718,13 @@ public final class ECOCraftingGraphScreen extends Screen {
                 detailTextLine(graphics, left, y, "action",
                     Component.translatable("gui.neoecoae.crafting_graph.action.expand"));
             }
-        } else if (node.material() != null) {
-            var material = node.material();
-            y = detailTextLine(graphics, left, y, "requested", compact(material.exactRequested()));
-            y = detailTextLine(graphics, left, y, "inventory", compact(material.exactFromInventory()));
-            y = detailTextLine(graphics, left, y, "to_craft", compact(material.exactToCraft()));
-            y = detailTextLine(graphics, left, y, "missing", compact(material.exactMissing()));
-            y = detailTextLine(graphics, left, y, "consumed", compact(material.exactConsumed()));
-            y = detailTextLine(graphics, left, y, "produced", compact(material.exactProduced()));
-            y = detailTextLine(graphics, left, y, "status", statusText(material.status().name()));
-            detailLine(graphics, left, y, "source_patterns", baseGraph.source().patterns().size());
+        } else if (node.pattern() != null) {
+            var pattern = node.pattern();
+            y = detailTextLine(graphics, left, y, "status", statusText(pattern.status().name()));
+            y = detailTextLine(graphics, left, y, "firings",
+                Component.literal(HostText.ae2Amount(pattern.plannerFiringCount().toBigInteger())));
+            y = detailLine(graphics, left, y, "inputs", pattern.inputs().size());
+            detailLine(graphics, left, y, "outputs", pattern.outputs().size());
         } else if (node.cluster() != null) {
             var cluster = node.cluster();
             y = detailLine(graphics, left, y, "cluster_cycles", cluster.componentIds().size());
@@ -668,14 +738,14 @@ public final class ECOCraftingGraphScreen extends Screen {
     }
 
     private int detailLine(GuiGraphicsExtractor graphics, int left, int y, String keySuffix, long value) {
-        graphics.text(font,
+        cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font,
             Component.translatable("gui.neoecoae.crafting_graph.details." + keySuffix, value),
             left + 7, y, 0xffaeb8c2, false);
         return y + 12;
     }
 
     private int detailTextLine(GuiGraphicsExtractor graphics, int left, int y, String keySuffix, Component value) {
-        graphics.text(font,
+        cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font,
             Component.translatable("gui.neoecoae.crafting_graph.details." + keySuffix, value),
             left + 7, y, 0xffaeb8c2, false);
         return y + 12;
@@ -691,12 +761,6 @@ public final class ECOCraftingGraphScreen extends Screen {
     }
 
     private Component depthLabel() { return tr(depth == 99 ? "toolbar.depth_all" : "toolbar.depth", depth); }
-    private Component viewLabel() { return tr(layoutMode == GraphLayout.Mode.COMPACT_TREE
-        ? "toolbar.view_tree" : "toolbar.view_graph"); }
-    private static Component compact(String exact) {
-        return Component.literal(HostText.ae2Amount(exact));
-    }
-
     private void updateSearchSuggestions() {
         searchSuggestions.clear();
         if (search == null) return;
@@ -728,7 +792,7 @@ public final class ECOCraftingGraphScreen extends Screen {
             int rowTop = top + 1 + i * 18;
             if (mouseX >= left && mouseX < right && mouseY >= rowTop && mouseY < rowTop + 18)
                 graphics.fill(left, rowTop, right, rowTop + 18, 0xff3a4650);
-            graphics.text(font, fit(node.label(), search.getWidth() - 8), left + 4, rowTop + 5, 0xffe8edf2, false);
+            cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font, fit(node.label(), search.getWidth() - 8), left + 4, rowTop + 5, 0xffe8edf2, false);
         }
     }
 
@@ -747,8 +811,13 @@ public final class ECOCraftingGraphScreen extends Screen {
     }
 
     private void focusSearchMatch(ClientCraftingGraph.Node match) {
-        if (layoutMode == GraphLayout.Mode.COMPACT_TREE && baseGraph.view() == ClientCraftingGraph.View.MAIN) {
-            List<String> paths = CompactTreeProjection.pathTo(baseGraph, match.id());
+        if (missingOnly && baseGraph.view() == ClientCraftingGraph.View.MAIN
+                && !baseGraph.missingPaths().nodes().containsKey(match.id())) {
+            missingOnly = false;
+            refreshControls();
+        }
+        if (baseGraph.view() == ClientCraftingGraph.View.MAIN) {
+            List<String> paths = CompactTreeProjection.pathTo(missingOnly ? baseGraph.missingPaths() : baseGraph, match.id());
             expandedTreePaths.addAll(paths);
             collapsedTreePaths.removeAll(paths);
             rebuildGraph(false);
@@ -761,7 +830,6 @@ public final class ECOCraftingGraphScreen extends Screen {
             if (!graph.nodes().containsKey(match.id())) rebuildGraph(false);
         }
         if (selectedId != null && layout.box(selectedId) != null) {
-            zoom = 1.0f;
             center(selectedId);
         }
     }

@@ -13,6 +13,7 @@ import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.math.BigInteger;
 import java.util.List;
+import java.util.function.Predicate;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.Rect2i;
@@ -30,17 +31,19 @@ final class ECOCycleItemListRenderer {
     private final Blitter hoveredItemBackground;
     private final int x;
     private final int y;
+    private final Predicate<AEKey> missingStartupSeed;
     private StackWithBounds hoveredStack;
     private List<Component> hoveredTooltip;
     private int hoveredMouseX;
     private int hoveredMouseY;
 
-    ECOCycleItemListRenderer(AEBaseScreen<?> screen, int x, int y) {
+    ECOCycleItemListRenderer(AEBaseScreen<?> screen, int x, int y, Predicate<AEKey> missingStartupSeed) {
         this.screen = screen;
         this.itemBackground = screen.getStyle().getImage("cycleItem");
         this.hoveredItemBackground = screen.getStyle().getImage("cycleItemHovered");
         this.x = x;
         this.y = y;
+        this.missingStartupSeed = missingStartupSeed;
     }
 
     void render(GuiGraphicsExtractor graphics, int mouseX, int mouseY, List<ECOCycleItemList.Entry> items,
@@ -98,7 +101,7 @@ final class ECOCycleItemListRenderer {
                 }
                 if (entry.seedShortfallIsEstimate()) {
                     tooltip.add(Component.translatable("gui.neoecoae.crafting_report.seed_shortfall_estimate_hint"));
-                } else if (isMissingStartupSeed(entry)) {
+                } else if (missingStartupSeed.test(entry.what())) {
                     tooltip.add(Component.translatable("gui.neoecoae.crafting_report.missing_startup_seed"));
                 }
                 hoveredTooltip = tooltip;
@@ -134,11 +137,6 @@ final class ECOCycleItemListRenderer {
             ? "gui.neoecoae.crafting_report.total_produced"
             : "gui.neoecoae.crafting_report.total_consumed";
         return Component.translatable(translationKey, formatAmount(entry.displayedTotal(), format));
-    }
-
-    private static boolean isMissingStartupSeed(ECOCycleItemList.Entry entry) {
-        return entry.exactMissing().signum() > 0 && entry.solveStatus() == cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT
-            && entry.exactSingleNetOutput().signum() == 0 && entry.exactTotalNetOutput().signum() == 0;
     }
 
     int getScrollableRows(int size) {

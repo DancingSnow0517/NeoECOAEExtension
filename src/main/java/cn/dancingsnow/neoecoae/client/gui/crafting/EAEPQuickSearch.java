@@ -65,9 +65,16 @@ final class EAEPQuickSearch {
         }
     }
 
-    private static Method method(String className, String name, Class<?>... parameters) {
+    private static Method method(String className, String legacyClassName, String name, Class<?>... parameters) {
         try {
-            return Class.forName(className).getMethod(name, parameters);
+            Class<?> helper;
+            try {
+                helper = Class.forName(className);
+            } catch (ClassNotFoundException ignored) {
+                // EAEP 1.6.4 moved viewer helpers into separate JEI/EMI packages.
+                helper = Class.forName(legacyClassName);
+            }
+            return helper.getMethod(name, parameters);
         } catch (ReflectiveOperationException failure) {
             throw new IllegalStateException("Unavailable EAEP search helper: " + className + '.' + name, failure);
         }
@@ -82,14 +89,16 @@ final class EAEPQuickSearch {
     }
 
     private static final class Emi {
-        static final Method HOVERED = optionalMethod("com.extendedae_plus.compat.EmiHelper", "getIngredientUnderMouse");
+        static final Method HOVERED = method("com.extendedae_plus.compat.emi.EmiHelper",
+                "com.extendedae_plus.compat.EmiHelper", "getIngredientUnderMouse");
     }
 
     private static final class Jei {
-        private static final String HELPER = "com.extendedae_plus.compat.JeiRuntimeCompat";
-        static final Method HOVERED_AT = method(HELPER, "getIngredientUnderMouse", double.class, double.class);
-        static final Method HOVERED = method(HELPER, "getIngredientUnderMouse");
-        static final Method VALUE = method(HELPER, "getTypedIngredientValue", Object.class);
-        static final Method NAME = method(HELPER, "getTypedIngredientDisplayName", Object.class);
+        private static final String HELPER = "com.extendedae_plus.compat.jei.JeiRuntimeCompat";
+        private static final String LEGACY_HELPER = "com.extendedae_plus.compat.JeiRuntimeCompat";
+        static final Method HOVERED_AT = method(HELPER, LEGACY_HELPER, "getIngredientUnderMouse", double.class, double.class);
+        static final Method HOVERED = method(HELPER, LEGACY_HELPER, "getIngredientUnderMouse");
+        static final Method VALUE = method(HELPER, LEGACY_HELPER, "getTypedIngredientValue", Object.class);
+        static final Method NAME = method(HELPER, LEGACY_HELPER, "getTypedIngredientDisplayName", Object.class);
     }
 }

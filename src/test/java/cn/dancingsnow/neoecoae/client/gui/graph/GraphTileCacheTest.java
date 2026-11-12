@@ -67,7 +67,8 @@ class GraphTileCacheTest {
         cache.select(content, new Bounds(0, 0, 300, 300), DRAWING, 1, 1);
         cache.advance(spec -> raster, () -> clock[0]);
         assertEquals(1, raster.steps);
-        assertFalse(cache.drawable().get(0).complete);
+        assertTrue(cache.drawable().isEmpty());
+        assertEquals(1, cache.unfinished().size());
         for (int pan = 1; pan <= 2; pan++) {
             cache.select(content, new Bounds(pan * 30, 0, 300 + pan * 30, 300), DRAWING, 1, 1);
             cache.advance(spec -> { throw new AssertionError("Pan restarted an existing painter"); }, () -> clock[0]);
@@ -98,7 +99,7 @@ class GraphTileCacheTest {
     }
 
     @Test
-    void adjacentZoomShowsTheCompletedOldLevelWhileNewTilesAreBuilt() {
+    void adjacentZoomUsesLiveFallbackUntilNewTilesAreComplete() {
         var cache = new GraphTileCache<Raster>();
         var content = new Object();
         var area = new Bounds(0, 0, 300, 300);
@@ -110,8 +111,8 @@ class GraphTileCacheTest {
         cache.select(content, area, DRAWING, 1.2, 1);
         var pending = new Raster(clock, 10, GraphTileCache.FRAME_BUDGET_NANOS + 1);
         cache.advance(spec -> pending, () -> clock[0]);
-        assertTrue(cache.drawable().stream().anyMatch(entry -> entry.tile == ready && entry.complete));
-        assertTrue(cache.drawable().stream().anyMatch(entry -> entry.tile == pending && !entry.complete));
+        assertTrue(cache.drawable().isEmpty());
+        assertEquals(1, cache.unfinished().size());
         assertEquals(0, ready.closes);
         cache.close();
     }

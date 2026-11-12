@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.client.gui.graph;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.render.TextureSetup;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -30,6 +31,27 @@ final class GraphDraw {
         fill(graphics, x, Math.min(top, bottom) + 1, x + 1, Math.max(top, bottom), color);
     }
 
+    /** Inner frame of the given thickness. */
+    static void frame(GuiGraphicsExtractor graphics, float left, float top, float right, float bottom, int color,
+            float thickness) {
+        if (right <= left || bottom <= top) return;
+        float t = Math.min(thickness, Math.min(right - left, bottom - top) / 2);
+        fill(graphics, left, top, right, top + t, color);
+        fill(graphics, left, bottom - t, right, bottom, color);
+        fill(graphics, left, top + t, left + t, bottom - t, color);
+        fill(graphics, right - t, top + t, right, bottom - t, color);
+    }
+
+    /** Axis-aligned segments become square-capped rectangles so orthogonal corners have no gaps. */
+    static void segment(GuiGraphicsExtractor graphics, float x1, float y1, float x2, float y2, int color, float halfWidth) {
+        if (x1 == x2 || y1 == y2) {
+            fill(graphics, Math.min(x1, x2) - halfWidth, Math.min(y1, y2) - halfWidth,
+                Math.max(x1, x2) + halfWidth, Math.max(y1, y2) + halfWidth, color);
+        } else {
+            line(graphics, x1, y1, x2, y2, color, halfWidth);
+        }
+    }
+
     static void line(GuiGraphicsExtractor graphics, float x1, float y1, float x2, float y2, int color, float halfWidth) {
         float dx = x2 - x1, dy = y2 - y1;
         float length = (float) Math.hypot(dx, dy);
@@ -42,6 +64,38 @@ final class GraphDraw {
     static void triangle(GuiGraphicsExtractor graphics, float ax, float ay, float bx, float by,
             float cx, float cy, int color) {
         quad(graphics, ax, ay, bx, by, cx, cy, cx, cy, color);
+    }
+
+    static void dashedLine(GuiGraphicsExtractor graphics, float x1, float y1, float x2, float y2, int color, float halfWidth) {
+        float length = (float) Math.hypot(x2 - x1, y2 - y1);
+        if (length < 0.001f) return;
+        float dx = (x2 - x1) / length, dy = (y2 - y1) / length;
+        for (float start = 0; start < length; start += 9) {
+            float end = Math.min(length, start + 5);
+            line(graphics, x1 + dx * start, y1 + dy * start, x1 + dx * end, y1 + dy * end, color, halfWidth);
+        }
+    }
+
+    /** Draws text at a fractional world position and scale. */
+    static void text(GuiGraphicsExtractor graphics, Font font, String text, float x, float y, int color, float scale) {
+        var pose = graphics.pose();
+        pose.pushMatrix();
+        pose.translate(x, y);
+        if (scale != 1) pose.scale(scale, scale);
+        cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font, text, 0, 0, color, false);
+        pose.popMatrix();
+    }
+
+    static void centeredText(GuiGraphicsExtractor graphics, Font font, String text, float centerX, float y, int color,
+            float scale) {
+        text(graphics, font, text, centerX - font.width(text) * scale / 2, y, color, scale);
+    }
+
+    static String fit(Font font, String value, float maxWidth) {
+        if (maxWidth <= 0) return "";
+        if (font.width(value) <= maxWidth) return value;
+        String ellipsis = "…";
+        return font.plainSubstrByWidth(value, Math.max(0, (int) maxWidth - font.width(ellipsis))) + ellipsis;
     }
 
     private static void quad(GuiGraphicsExtractor graphics, float ax, float ay, float bx, float by,

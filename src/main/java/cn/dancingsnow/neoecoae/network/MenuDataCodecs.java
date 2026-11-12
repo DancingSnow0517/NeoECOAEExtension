@@ -2,11 +2,8 @@ package cn.dancingsnow.neoecoae.network;
 
 import appeng.menu.me.common.MEStorageMenu;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOBigOrderStatusHost;
-import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
-import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountClientCache;
-import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerMenu;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -32,12 +29,7 @@ final class MenuDataCodecs {
                 if (menu instanceof ECOBigOrderStatusHost host)
                     host.neoecoae$applyExactAmounts(serial, full, stored, active, pending);
             }
-            case GRAPH -> {
-                long version = buf.readVarLong();
-                var graph = new CraftingGraphSnapshot(buf);
-                var cycles = new ECOCycleItemList(buf);
-                if (menu instanceof ECOCraftConfirmMenuMode host) host.neoecoae$setDiagnostics(version, graph, cycles);
-            }
+            case GRAPH -> CraftingReportStream.receive(menu, buf);
             case PATTERNS -> {
                 var pos = buf.readBlockPos();
                 var tag = cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewCodec.read(buf);
