@@ -998,6 +998,7 @@
   "gui.neoecoae.crafting_report.cycle_not_detected": "未检测到循环",
   "gui.neoecoae.crafting_report.cycle_not_detected_preview": "预览路线无循环",
   "gui.neoecoae.crafting_report.cycle_planning_enabled": "存在循环",
+  "gui.neoecoae.crafting_report.cycle_seed": "循环种子：借用后归还，不计入消耗",
   "gui.neoecoae.crafting_report.cycle_planning_disabled": "未开启循环规划",
   "gui.neoecoae.crafting_report.missing_startup_seed": "缺少启动种子",
   "gui.neoecoae.crafting_report.seed_shortfall_estimate": "启动材料至少还需：%s",

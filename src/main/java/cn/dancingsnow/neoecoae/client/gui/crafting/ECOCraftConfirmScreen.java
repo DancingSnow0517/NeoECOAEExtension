@@ -100,11 +100,11 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     public ECOCraftConfirmScreen(CraftConfirmMenu menu, Inventory playerInventory, Component title,
             ScreenStyle style) {
         super(menu, playerInventory, title, style);
-        table = new ECOCraftConfirmTableRenderer(this, 9, 27, this::isCycleParticipant,
+        table = new ECOCraftConfirmTableRenderer(this, 9, 27, this::isCycleParticipant, materialData::isCycleSeed,
             this::isFuzzyPlanningItem);
-        exactTable = new ECOExactMaterialTableRenderer(this, 9, 27, this::isCycleParticipant,
+        exactTable = new ECOExactMaterialTableRenderer(this, 9, 27, this::isCycleParticipant, materialData::isCycleSeed,
             this::isMissingStartupSeed, this::isEstimatedStartupSeed, this::isFuzzyPlanningItem);
-        cycleItems = new ECOCycleItemListRenderer(this, 237, 27, this::isMissingStartupSeed);
+        cycleItems = new ECOCycleItemListRenderer(this, 237, 27, materialData::isCycleSeed, this::isMissingStartupSeed);
         scrollbar = widgets.addScrollBar("scrollbar", cn.dancingsnow.neoecoae.client.gui.widget.NEScrollbars.BIG);
         cycleScrollbar = widgets.addScrollBar("cycleScrollbar", cn.dancingsnow.neoecoae.client.gui.widget.NEScrollbars.BIG);
         start = addTextButton("start", GuiText.Start.text(), this::start);
@@ -564,7 +564,8 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         var graph = state == null ? null : state.graphSummary();
         var unknown = Component.translatable("gui.neoecoae.crafting_report.card.unknown");
         var elapsed = state == null || state.loadingSummary() ? reportSummary.elapsed()
-            : Component.literal(java.math.BigDecimal.valueOf(Math.max(0L, state.nanos()), 6).toPlainString() + " ms");
+            : Component.literal(cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers.grouped(
+                java.math.BigDecimal.valueOf(Math.max(0L, state.nanos()), 6)) + " ms");
         var bytes = state == null || state.bytes() == null ? unknown
             : Component.literal(cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers.grouped(state.bytes()) + " B");
         var header = new ECOCraftingListImageExport.Header(target, requested, elapsed, bytes,
@@ -576,6 +577,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
 
     private Component exportType(AEKey key, boolean missing) {
         if (missing) return Component.translatable("gui.neoecoae.crafting_report.card.missing");
+        if (materialData.isCycleSeed(key)) return Component.translatable("gui.neoecoae.crafting_graph.recursion.seed");
         if (isCycleParticipant(key)) return Component.translatable("gui.neoecoae.crafting_report.export_cycle");
         if (isFuzzyPlanningItem(key)) return Component.translatable("gui.neoecoae.crafting_report.export_fuzzy");
         return Component.empty();

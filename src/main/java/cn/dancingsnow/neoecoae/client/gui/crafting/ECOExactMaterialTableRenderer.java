@@ -36,6 +36,7 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
         private List<CraftingGraphSnapshot.MaterialNode> sorted = List.of();
         private List<AEKey> missing = List.of();
         private Set<AEKey> participants = Set.of();
+        private Set<AEKey> startupSeeds = Set.of();
         private Set<AEKey> missingSeeds = Set.of();
         private Set<AEKey> estimatedSeeds = Set.of();
         private Set<Integer> componentIds = Set.of();
@@ -49,6 +50,7 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             this.snapshot = snapshot;
             this.cycles = cycles;
             Map<Integer, Set<AEKey>> requiredSeeds = new HashMap<>();
+            startupSeeds = new HashSet<>();
             for (var cycle : snapshot.cycleGroups()) {
                 Set<AEKey> seeds = new HashSet<>();
                 cycle.requiredSeed().forEach(seed -> seeds.add(seed.key()));
@@ -61,6 +63,10 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             for (var entry : cycles) {
                 participants.add(entry.what());
                 componentIds.add(entry.componentId());
+                if (entry.exactTotalNetOutput().signum() >= 0
+                        && requiredSeeds.getOrDefault(entry.componentId(), Set.of()).contains(entry.what())) {
+                    startupSeeds.add(entry.what());
+                }
                 if (entry.seedShortfallIsEstimate()) estimatedSeeds.add(entry.what());
                 if (entry.exactMissing().signum() > 0
                         && entry.solveStatus() == CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT
@@ -80,6 +86,7 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
         List<CraftingGraphSnapshot.MaterialNode> sorted() { return sorted; }
         List<AEKey> missing() { return missing; }
         boolean isCycleParticipant(AEKey key) { return participants.contains(key); }
+        boolean isCycleSeed(AEKey key) { return startupSeeds.contains(key); }
         boolean isMissingStartupSeed(AEKey key) { return missingSeeds.contains(key); }
         boolean isEstimatedStartupSeed(AEKey key) { return estimatedSeeds.contains(key); }
         boolean hasEstimatedStartupSeed() { return !estimatedSeeds.isEmpty(); }
@@ -112,16 +119,19 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
     private static final int MISSING_OVERLAY = 0x1AFF0000;
     private static final int CYCLE_OVERLAY = 0x1AB86BFF;
     private static final int FUZZY_PLANNING_OVERLAY = 0x264CAF70;
+    static final int CYCLE_SEED_OVERLAY = 0x33FFC107;
     private final Predicate<AEKey> cycleParticipant;
+    private final Predicate<AEKey> cycleSeed;
     private final Predicate<AEKey> missingStartupSeed;
     private final Predicate<AEKey> estimatedStartupSeed;
     private final Predicate<AEKey> fuzzyPlanningItem;
 
     ECOExactMaterialTableRenderer(AEBaseScreen<?> screen, int x, int y,
-            Predicate<AEKey> cycleParticipant, Predicate<AEKey> missingStartupSeed,
+            Predicate<AEKey> cycleParticipant, Predicate<AEKey> cycleSeed, Predicate<AEKey> missingStartupSeed,
             Predicate<AEKey> estimatedStartupSeed, Predicate<AEKey> fuzzyPlanningItem) {
         super(screen, x, y, 7);
         this.cycleParticipant = cycleParticipant;
+        this.cycleSeed = cycleSeed;
         this.missingStartupSeed = missingStartupSeed;
         this.estimatedStartupSeed = estimatedStartupSeed;
         this.fuzzyPlanningItem = fuzzyPlanningItem;
@@ -165,7 +175,7 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
     protected List<Component> getEntryTooltip(CraftingGraphSnapshot.MaterialNode entry) {
         ((ECOCraftConfirmScreen) screen).queueMaterialTooltip(new ECOCraftReportTooltips.Material(entry.key(),
             entry.fromInventoryBigInteger(), entry.missingBigInteger(), entry.toCraftBigInteger(), entry.requestedBigInteger(),
-            isMissingStartupSeed(entry.key()), isEstimatedStartupSeed(entry.key())));
+            isMissingStartupSeed(entry.key()), isEstimatedStartupSeed(entry.key()), cycleSeed.test(entry.key())));
         // AE2 draws text tooltips inside its translated foreground. The report draws this card after that pose is restored.
         return List.of();
     }
@@ -173,6 +183,7 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
     @Override
     protected int getEntryOverlayColor(CraftingGraphSnapshot.MaterialNode entry) {
         if (entry.missingBigInteger().signum() > 0) return MISSING_OVERLAY;
+        if (cycleSeed.test(entry.key())) return CYCLE_SEED_OVERLAY;
         if (cycleParticipant.test(entry.key())) return CYCLE_OVERLAY;
         if (fuzzyPlanningItem.test(entry.key())) return FUZZY_PLANNING_OVERLAY;
         return 0;
