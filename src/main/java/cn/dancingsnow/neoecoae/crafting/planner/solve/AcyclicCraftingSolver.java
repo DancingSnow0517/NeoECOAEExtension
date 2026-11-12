@@ -40,11 +40,12 @@ public final class AcyclicCraftingSolver {
         }
     }
     private final CandidateResolver candidates = new CandidateResolver();
+    private static final int MAX_LITE_EXPANSIONS_PER_KEY = 2;
 
     /**
-     * GTNH's lite traversal on the existing compiled graph and exact material ledger. Each key is visited once;
-     * stock is shared across branches, and cyclic leftovers receive one final exact-stock draw. There is no
-     * candidate retry, returned-container/tool analysis, byproduct credit, or cycle-growth solving.
+     * Fixed-route traversal using the shared joint-output queue and exact material ledger. A material may be
+     * expanded once more for late demand; cyclic materials are expanded only once and need captured stock
+     * to close their feedback. There is no route retry, returned-container/tool analysis, or cycle-growth solving.
      */
     public Outcome solveLite(CompiledNetwork network,
             cn.dancingsnow.neoecoae.crafting.planner.graph.CondensationGraph condensation,
@@ -53,77 +54,108 @@ public final class AcyclicCraftingSolver {
         ECOPlanTrace trace = new ECOPlanTrace();
         if (amount <= 0L) return new Outcome(PlanningStatus.AMOUNT_OVERFLOW, state, trace);
         PlannerAmount goalAmount = PlannerAmount.of(amount);
-        state.stored.set(network.goal(), PlannerAmount.ZERO);
         state.demand.put(network.goal(), goalAmount);
         state.provenance.register(MaterialDemand.goal(network.goal(), goalAmount));
         state.bytes = PlannerAmount.of(network.keys().size()).multiply(8L);
 
-        Map<AEKey, Integer> inDegree = new HashMap<>();
-        for (var patterns : network.producers().values()) {
+        Map<IPatternDetails, List<CompiledInput>> inputsByPattern = new java.util.IdentityHashMap<>();
+        Map<AEKey, CompiledPattern> selected = new LinkedHashMap<>();
+        for (var entry : network.producers().entrySet()) {
             cancellation.checkpoint();
-            if (!patterns.isEmpty()) for (CompiledInput input : patterns.get(0).inputs()) {
-                inDegree.merge(input.key(), 1, Integer::sum);
+            var patterns = entry.getValue();
+            if (!patterns.isEmpty()) {
+                selected.put(entry.getKey(), patterns.get(0));
+                inputsByPattern.put(patterns.get(0).details(), patterns.get(0).inputs());
             }
         }
         Set<AEKey> looping = new LinkedHashSet<>();
         for (var cycle : condensation.cycles()) {
-            if (cycle.members().size() > 1) looping.addAll(cycle.members());
+            looping.addAll(cycle.members());
         }
-        ArrayDeque<AEKey> ready = new ArrayDeque<>();
-        ArrayDeque<AEKey> loopCandidates = new ArrayDeque<>();
-        Set<AEKey> visited = new LinkedHashSet<>();
-        ready.add(network.goal());
-        while (!ready.isEmpty() || !loopCandidates.isEmpty()) {
+        List<AEKey> order = selectedRoute(network, Map.of(), Set.of(), Set.of(), Set.of(network.goal()), cancellation);
+        if (order == null) order = List.copyOf(network.keys());
+        JointOutputDemandQueue pending = new JointOutputDemandQueue(order, selected, Set.of(), Set.of());
+        Map<AEKey, Integer> expansions = new HashMap<>();
+        pending.add(network.goal());
+        while (!pending.isEmpty()) {
             cancellation.checkpoint();
-            AEKey key = ready.isEmpty() ? loopCandidates.removeFirst() : ready.removeFirst();
-            if (!visited.add(key)) continue;
-            var patterns = network.producersOf(key);
-            CompiledPattern pattern = patterns.isEmpty() ? null : patterns.get(0);
-            // Even a stock-satisfied branch releases its dependency edges, just as in GTNH.
-            if (pattern != null) for (CompiledInput input : pattern.inputs()) {
-                if (inDegree.merge(input.key(), -1, Integer::sum) == 0) ready.addLast(input.key());
-                if (looping.contains(input.key())) loopCandidates.addLast(input.key());
-            }
+            AEKey key = pending.poll(cancellation);
+            CompiledPattern pattern = selected.get(key);
             PlannerAmount requested = state.provenance.pendingAmount(key);
+            if (requested.isZero()) continue;
             state.bytes = state.bytes.add(PlannerAmount.stackBytes(requested, key.getAmountPerByte()));
-            requested = requested.subtract(consumeStoredForInput(state, key, requested, false, null, null, null));
+            consumeLiteStock(state, key, inputsByPattern);
+            consumeLiteCredit(state, key);
+            requested = state.provenance.pendingAmount(key);
             if (requested.isZero()) continue;
             if (pattern == null) continue;
             if (!pattern.fastSupported()) {
                 state.unsupported.add(key);
                 continue;
             }
+            int limit = looping.contains(key) ? 1 : MAX_LITE_EXPANSIONS_PER_KEY;
+            int expanded = expansions.getOrDefault(key, 0);
+            if (expanded >= limit) continue;
+            expansions.put(key, expanded + 1);
             state.selected.put(key, pattern);
             PlannerAmount times = requested.ceilDiv(pattern.outputPerPattern());
             state.patternTimes.merge(pattern.details(), times, PlannerAmount::add);
             state.bytes = state.bytes.add(times);
             state.provenance.allocatePending(key, key, new MaterialSource.PatternOutput(pattern.details(), true), requested);
+            creditPatternOutputs(state, pattern, key, requested, SolveWorkspace.outputAmounts(pattern, times));
             for (int slot = 0; slot < pattern.inputs().size(); slot++) {
                 cancellation.checkpoint();
                 CompiledInput input = pattern.inputs().get(slot);
                 PlannerAmount required = input.amountPerPattern().multiply(times);
                 state.provenance.register(MaterialDemand.input(pattern.details(), slot, input.key(), required));
                 state.demand.merge(input.key(), required, PlannerAmount::add);
+                pending.add(input.key());
             }
         }
-        // A loop may add a demand after that material's visit. Do not expand it a second time or borrow outputs
-        // from an unexecuted cycle; only the remaining captured stock may close it.
+        // Late credits can close a previously missing leaf without another expansion. Demand still left after
+        // the bounded supplement remains missing; no alternative producer or unbounded fixed-point pass is tried.
         for (AEKey key : state.demand.keySet()) {
             cancellation.checkpoint();
-            PlannerAmount pending = state.provenance.pendingAmount(key);
-            pending = pending.subtract(consumeStoredForInput(state, key, pending, false, null, null, null));
-            if (pending.signum() > 0) state.missing.add(key, pending);
+            consumeLiteStock(state, key, inputsByPattern);
+            consumeLiteCredit(state, key);
+            PlannerAmount remaining = state.provenance.pendingAmount(key);
+            if (remaining.signum() > 0) state.missing.add(key, remaining);
         }
         addTrace(network, state, goalAmount, trace);
         if (!state.unsupported.isEmpty()) return new Outcome(PlanningStatus.PARTIAL_UNSUPPORTED, state, trace);
         if (addExecutionRepresentabilityDiagnostics(state, trace)) {
             return new Outcome(PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE, state, trace);
         }
+        if (state.executionProvenance().hasPatternCycle(state.patternTimes.keySet(), cancellation)) {
+            trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CYCLE_DISABLED,
+                "Lite byproduct allocations require a startup cycle; enable cycle planning"));
+            return new Outcome(PlanningStatus.CYCLE_UNRESOLVED, state, trace);
+        }
         trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.FAST_DAG,
-            "Lite crafting: one exact producer per material, one topological pass"));
+            "Lite crafting: one fixed producer per material, joint-output credit, at most one supplemental expansion"));
         return new Outcome(state.missing.isEmpty() ? PlanningStatus.SUCCESS : PlanningStatus.MISSING_ITEMS, state, trace);
     }
 
+    private static void consumeLiteCredit(SolveState state, AEKey key) {
+        PlannerAmount credited = state.provenance.pendingAmount(key).min(state.craftedAmount(key));
+        if (credited.signum() > 0) state.consumeCrafted(key, credited);
+    }
+
+
+    /** Reserve exact demands first; an ID override belongs to its processing input, never to the final goal. */
+    private static void consumeLiteStock(SolveState state, AEKey key,
+            Map<IPatternDetails, List<CompiledInput>> inputsByPattern) {
+        List<MaterialDemand> pending = state.provenance.pendingDemands(key);
+        for (boolean fuzzy : new boolean[] {false, true}) {
+            for (MaterialDemand demand : pending) {
+                if (demand.kind() != MaterialDemand.Kind.INPUT) continue;
+                CompiledInput input = inputsByPattern.get(demand.consumer()).get(demand.inputSlot());
+                if (input.ignoresComponents() != fuzzy) continue;
+                consumeStoredForInput(state, key, state.provenance.remaining(demand), fuzzy,
+                    demand, demand.consumer(), input.source());
+            }
+        }
+    }
 
     public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, KeyCounter inventory, long amount,
             ECOCancellation cancellation) throws InterruptedException {
@@ -498,6 +530,8 @@ public final class AcyclicCraftingSolver {
         }
         SpecialPatternResolver specialResolver = new SpecialPatternResolver(
             network, state, workspace.candidateChoice(), cancellation, ignorePatternSubstitutions);
+        Map<AEKey, Integer> liteExpansions = ignorePatternSubstitutions ? new HashMap<>() : null;
+        Set<AEKey> limited = new LinkedHashSet<>();
         if (restored) specialResolver.restoreReservations(saved.reusableStock);
         List<AEKey> prefix = checkpointBefore != null && stockLeaves.isEmpty() && retryPossible
                 && route.keys().size() > SolveWorkspace.MIN_CHECKPOINT_EXPANSIONS ? new ArrayList<>() : null;
@@ -635,6 +669,15 @@ public final class AcyclicCraftingSolver {
                     new MaterialSource.PatternOutput(pattern.details(), true), requested);
                 continue;
             }
+            if (liteExpansions != null) {
+                int count = liteExpansions.getOrDefault(key, 0);
+                if (count >= MAX_LITE_EXPANSIONS_PER_KEY) {
+                    limited.add(key);
+                    unsettled.add(key);
+                    continue;
+                }
+                liteExpansions.put(key, count + 1);
+            }
             state.provenance.allocatePending(key, key, new MaterialSource.PatternOutput(pattern.details(), true), requested);
             PlannerAmount times = requested.ceilDiv(pattern.outputPerPattern());
             if (metrics != null) metrics.patternExpansions++;
@@ -647,11 +690,7 @@ public final class AcyclicCraftingSolver {
             SolveWorkspace.Expansion expansion = workspace.cachedExpansion(pattern, times, metrics);
             Map<AEKey, PlannerAmount> produced = expansion == null
                 ? SolveWorkspace.outputAmounts(pattern, times) : expansion.outputs();
-            for (var output : produced.entrySet()) {
-                PlannerAmount available = output.getValue();
-                if (output.getKey().equals(key)) available = available.subtract(requested);
-                if (available.signum() > 0) state.creditCrafted(output.getKey(), pattern.details(), available);
-            }
+            creditPatternOutputs(state, pattern, key, requested, produced);
             specialResolver.resolve(pattern, times);
             for (int slot = 0; slot < pattern.inputs().size(); slot++) {
                 CompiledInput input = pattern.inputs().get(slot);
@@ -694,10 +733,21 @@ public final class AcyclicCraftingSolver {
             if (credited.signum() > 0) state.consumeCrafted(key, credited);
             requested = requested.subtract(credited);
             if (requested.isZero()) continue;
-            if (stockLeaves.contains(key) || !network.producersOf(key).isEmpty()) state.unsupported.add(key);
+            if (!limited.contains(key) && (stockLeaves.contains(key) || !network.producersOf(key).isEmpty())) {
+                state.unsupported.add(key);
+            }
             else addCounter(state.missing, key, requested);
         }
         return state;
+    }
+
+    private static void creditPatternOutputs(SolveState state, CompiledPattern pattern, AEKey key,
+            PlannerAmount requested, Map<AEKey, PlannerAmount> produced) {
+        for (var output : produced.entrySet()) {
+            PlannerAmount available = output.getValue();
+            if (output.getKey().equals(key)) available = available.subtract(requested);
+            if (available.signum() > 0) state.creditCrafted(output.getKey(), pattern.details(), available);
+        }
     }
 
     private static PlannerAmount consumeStoredForInput(SolveState state, AEKey key, PlannerAmount requested,

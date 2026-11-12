@@ -51,9 +51,9 @@ public final class CraftingPlanningModeButton {
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
             event.hoverTooltips = new HoverTooltips(List.of(
                 Component.translatable("gui.neoecoae.computation.settings.substitutions"),
-                Component.translatable(Boolean.TRUE.equals(syncedMode.getValue())
+                Component.translatable(!Boolean.TRUE.equals(syncedMode.getValue())
                     ? "gui.neoecoae.computation.ui.switch.on" : "gui.neoecoae.computation.ui.switch.off")
-                    .withStyle(Boolean.TRUE.equals(syncedMode.getValue())
+                    .withStyle(!Boolean.TRUE.equals(syncedMode.getValue())
                         ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.GRAY),
                 Component.translatable("gui.neoecoae.computation.ui.switch.substitutions.desc")
             ), null, null, null));
