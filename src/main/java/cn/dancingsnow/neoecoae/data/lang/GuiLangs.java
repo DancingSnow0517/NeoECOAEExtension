@@ -129,7 +129,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_graph.card.source_patterns", "Source patterns #%s");
         provider.add("gui.neoecoae.crafting_graph.reference.description", "Shared dependency reference");
         provider.add("gui.neoecoae.crafting_graph.reference.source", "Source ID: %s");
-        provider.add("gui.neoecoae.crafting_graph.action.expand_hint", "Click: expand one level; right-click: expand all");
+        provider.add("gui.neoecoae.crafting_graph.action.expand_hint", "Click: expand one level; double-click or right-click: expand all");
         provider.add("gui.neoecoae.craft_error.shortfall", "Not extracted this attempt: %s");
         provider.add("gui.neoecoae.craft_error.meaning", "The actual extraction fell short. This is the unextracted remainder, not total network stock.");
         provider.add("gui.neoecoae.craft_error.unknown_cause", "AE2 did not report the underlying cause. Possible causes to check:");
@@ -1027,6 +1027,15 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_graph.open", "Planning Graph");
         provider.add("gui.neoecoae.crafting_graph.title", "ECO Crafting Planning Graph");
         provider.add("gui.neoecoae.crafting_graph.search", "Search");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.back", "Back");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.main_only", "Available in the outer plan only");
+        provider.add("gui.neoecoae.crafting_graph.controls", "Scroll: zoom | Shift+scroll / drag: pan | Enter: next match");
+        provider.add("gui.neoecoae.crafting_graph.zoom", "Zoom: %s%%");
+        provider.add("gui.neoecoae.crafting_graph.status.selected", "Selected");
+        provider.add("gui.neoecoae.crafting_graph.status.rejected", "Rejected");
+        provider.add("gui.neoecoae.crafting_graph.details.inputs", "Inputs: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.outputs", "Outputs: %s");
+        provider.add("gui.neoecoae.crafting_graph.details.firings", "Crafts: %s");
         provider.add("gui.neoecoae.crafting_graph.search_hint", "Search AEKey / item");
         provider.add("gui.neoecoae.crafting_graph.node.pending_craft", "Pending craft");
         provider.add("gui.neoecoae.crafting_graph.toolbar.fit_all", "Fit All");

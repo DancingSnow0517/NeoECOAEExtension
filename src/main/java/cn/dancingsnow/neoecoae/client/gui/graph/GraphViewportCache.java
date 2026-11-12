@@ -74,6 +74,8 @@ final class GraphViewportCache implements AutoCloseable {
         }
     }
 
+    java.util.List<Bounds> unfinished() { return tiles.unfinished(); }
+
     @Override
     public void close() { tiles.close(); }
 

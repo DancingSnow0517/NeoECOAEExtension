@@ -45,107 +45,87 @@ final class RecursiveCycleRenderer {
         };
     }
 
-    static void drawRegion(GuiGraphics graphics, RecursionRegion region,
-            float cameraX, float cameraY, float zoom) {
-        var pose = graphics.pose();
-        pose.pushPose();
-        pose.translate(cameraX, cameraY, 0);
-        pose.scale(zoom, zoom, 1);
-        try {
-            var bounds = region.bounds();
-            Font font = Minecraft.getInstance().font;
-            boolean checkpoint = region.role() == Role.SEED || region.role() == Role.STOCK || region.role() == Role.RETAINED;
-            if (region.role() != Role.STOCK) {
-                int accent = color(region.role());
-                GraphDraw.fill(graphics, bounds.left(), bounds.top(), bounds.right(), bounds.bottom(),
-                    0x12000000 | accent & 0xffffff);
-                frame(graphics, bounds.left(), bounds.top(), bounds.right(), bounds.bottom(), accent,
-                    region.role() == Role.INPUT);
-                if (!checkpoint) {
-                    String label = recursionText("zone_" + region.role().name().toLowerCase(java.util.Locale.ROOT)).getString();
-                    GraphDraw.fill(graphics, bounds.left() + 3, bounds.top() - 5,
-                        bounds.left() + Math.min(bounds.width() - 3, font.width(label) * 0.7f + 7), bounds.top() + 5, 0xff0e1115);
-                    text(graphics, font, label, bounds.left() + 5, bounds.top() - 3, bounds.width() - 10, accent, 0.7f);
-                }
+    static void drawRegion(GuiGraphics graphics, RecursionRegion region, double pixelsPerUnit) {
+        var bounds = region.bounds();
+        Font font = Minecraft.getInstance().font;
+        boolean checkpoint = region.role() == Role.SEED || region.role() == Role.STOCK || region.role() == Role.RETAINED;
+        int accent = color(region.role());
+        if (region.role() != Role.STOCK) {
+            GraphDraw.fill(graphics, bounds.left(), bounds.top(), bounds.right(), bounds.bottom(),
+                0x12000000 | accent & 0xffffff);
+            float half = GraphRenderer.halfWidth(pixelsPerUnit, 0.5f);
+            if (region.role() == Role.INPUT) {
+                GraphDraw.dashedLine(graphics, bounds.left(), bounds.top(), bounds.right(), bounds.top(), accent, half);
+                GraphDraw.dashedLine(graphics, bounds.right(), bounds.top(), bounds.right(), bounds.bottom(), accent, half);
+                GraphDraw.dashedLine(graphics, bounds.right(), bounds.bottom(), bounds.left(), bounds.bottom(), accent, half);
+                GraphDraw.dashedLine(graphics, bounds.left(), bounds.bottom(), bounds.left(), bounds.top(), accent, half);
+            } else GraphDraw.frame(graphics, bounds.left(), bounds.top(), bounds.right(), bounds.bottom(), accent, half * 2);
+            if (!checkpoint) {
+                String label = recursionText("zone_" + region.role().name().toLowerCase(java.util.Locale.ROOT)).getString();
+                GraphDraw.fill(graphics, bounds.left() + 3, bounds.top() - 5,
+                    bounds.left() + Math.min(bounds.width() - 3, font.width(label) * 0.7f + 7), bounds.top() + 5, 0xff0e1115);
+                text(graphics, font, label, bounds.left() + 5, bounds.top() - 3, bounds.width() - 10, accent, 0.7f);
             }
-            if (checkpoint) {
-                float x = bounds.left() + 5;
-                float y = bounds.top() + 5;
-                String label = recursionText(region.role() == Role.SEED ? "seed" : region.role() == Role.RETAINED ? "result" : "row",
-                    region.level() / 2).getString();
-                text(graphics, font, label, x, y, bounds.width() - 10, TEXT, 0.85f);
-                if (region.role() != Role.STOCK) {
-                    text(graphics, font, recursionText(region.role() == Role.RETAINED ? "result_hint" : "initial_stock").getString(),
-                        x, y + 11, bounds.width() - 10, MUTED, 0.65f);
-                }
-            }
-        } finally {
-            graphics.flush();
-            pose.popPose();
+        }
+        if (checkpoint) {
+            float x = bounds.left() + 5, y = bounds.top() + 5;
+            String label = recursionText(region.role() == Role.SEED ? "seed" : region.role() == Role.RETAINED ? "result" : "row",
+                region.level() / 2).getString();
+            text(graphics, font, label, x, y, bounds.width() - 10, TEXT, 0.85f);
+            if (region.role() != Role.STOCK) text(graphics, font,
+                recursionText(region.role() == Role.RETAINED ? "result_hint" : "initial_stock").getString(),
+                x, y + 11, bounds.width() - 10, MUTED, 0.65f);
         }
     }
 
-    static void drawNode(GuiGraphics graphics, ClientCraftingGraph graph, ClientCraftingGraph.Node node,
-            Box box, boolean selected, boolean adjacent, float cameraX, float cameraY, float zoom) {
-        var detail = node.recursion();
+    static void drawBody(GuiGraphics graphics, ClientCraftingGraph.Node node, Box box, double pixelsPerUnit) {
+        if (node.key() != null) CompactTreeRenderer.drawBody(graphics, box);
+        else if (node.recursion().role() != Role.STEP && node.recursion().role() != Role.UNKNOWN) {
+            GraphDraw.fill(graphics, box.x(), box.y(), box.x() + box.width(), box.y() + box.height(), 0xff252d35);
+        }
+    }
+
+    static void drawIcon(GuiGraphics graphics, ClientCraftingGraph.Node node, Box box) {
         if (node.key() != null) {
-            // Material occurrences use the exact same icon, amount, body and frame as the outer compact tree.
-            CompactTreeRenderer.drawNode(graphics, graph, node, box, selected, adjacent, cameraX, cameraY, zoom);
-            if (detail.role() == Role.RETAINED && detail.amount().isZero()) {
-                graphics.flush();
-                GraphDraw.fill(graphics, cameraX + box.x() * zoom, cameraY + box.y() * zoom,
-                    cameraX + (box.x() + box.width()) * zoom, cameraY + (box.y() + box.height()) * zoom,
-                    0x66434a51);
-            }
-            CompactTreeRenderer.drawRowFrame(graphics, box.x(), box.y(), box.x() + box.width(),
-                box.y() + box.height(), cameraX, cameraY, zoom);
-            if (detail.role() == Role.SEED && detail.balance() != null
-                    && detail.balance().seedShortfall() != null && detail.balance().seedShortfall().signum() > 0) {
-                CompactTreeRenderer.drawNodeFrame(graphics, box, MISSING, cameraX, cameraY, zoom);
-            }
+            CompactTreeRenderer.drawIcon(graphics, node, box);
             return;
         }
-        int accent = color(detail.role());
+        if (node.recursion().role() != Role.STEP) return;
+        graphics.flush();
         var pose = graphics.pose();
         pose.pushPose();
-        pose.translate(cameraX + box.x() * zoom, cameraY + box.y() * zoom, 0);
-        pose.scale(zoom, zoom, 1);
-        try {
-            float w = box.width(), h = box.height();
-            if (detail.role() == Role.STEP) {
-                graphics.flush();
-                ECOIcon.CRAFT_HAMMER.blit(graphics, (int) (w - ECOIcon.CRAFT_HAMMER.width) / 2,
-                    (int) (h - ECOIcon.CRAFT_HAMMER.height) / 2, 0);
-                return;
+        pose.translate(box.x() + (box.width() - ECOIcon.CRAFT_HAMMER.width) / 2,
+            box.y() + (box.height() - ECOIcon.CRAFT_HAMMER.height) / 2, 0);
+        ECOIcon.CRAFT_HAMMER.blit(graphics, 0, 0, 0);
+        pose.popPose();
+    }
+
+    static void drawText(GuiGraphics graphics, ClientCraftingGraph graph, ClientCraftingGraph.Node node, Box box,
+            float thickness) {
+        var detail = node.recursion();
+        if (node.key() != null) {
+            CompactTreeRenderer.drawText(graphics, graph, node, box);
+            if (detail.role() == Role.RETAINED && detail.amount().isZero()) {
+                GraphDraw.fill(graphics, box.x(), box.y(), box.x() + box.width(), box.y() + box.height(), 0x66434a51);
             }
-            if (detail.role() == Role.UNKNOWN) {
-                centered(graphics, Minecraft.getInstance().font, "?", w / 2, (h - 9) / 2, w - 2, MISSING, 1.1f);
-                return;
-            }
-            GraphDraw.fill(graphics, 1, 1, w - 1, h - 1, 0xff252d35);
-            GraphDraw.fill(graphics, 2, 2, w - 2, 4, 0xff626b75);
-            GraphDraw.fill(graphics, 2, 4, 4, h - 2, 0xff464e58);
-            GraphDraw.fill(graphics, 2, h - 4, w - 2, h - 2, 0xff101318);
-            GraphDraw.fill(graphics, w - 4, 4, w - 2, h - 2, 0xff101318);
-            frame(graphics, 0, 0, w, h, accent, false);
-            if (selected || adjacent) frame(graphics, -2, -2, w + 2, h + 2,
-                selected ? OUTPUT : STEP, false);
-            Font font = Minecraft.getInstance().font;
-            if (detail.role() == Role.SEED) {
-                centered(graphics, font, recursionText("no_seed").getString(), w / 2, h / 2, w - 8, MUTED, 0.8f);
-            } else {
-                graphics.flush();
-                ECOIcon.ARROW_RIGHT.blit(graphics, 4, 2, 0);
-                text(graphics, font, title(node).getString(), 24, (h - 8) / 2, w - 29, accent, 0.85f);
-            }
-        } finally {
-            graphics.flush();
-            pose.popPose();
+            int border = detail.role() == Role.SEED && detail.balance() != null
+                && detail.balance().seedShortfall() != null && detail.balance().seedShortfall().signum() > 0
+                ? MISSING : CompactTreeRenderer.FRAME;
+            GraphDraw.frame(graphics, box.x(), box.y(), box.x() + box.width(), box.y() + box.height(), border, thickness);
+        } else if (detail.role() == Role.UNKNOWN) {
+            GraphDraw.centeredText(graphics, Minecraft.getInstance().font, "?", box.centerX(),
+                box.y() + (box.height() - 9) / 2, MISSING, 1);
+        } else if (detail.role() != Role.STEP) {
+            GraphDraw.frame(graphics, box.x(), box.y(), box.x() + box.width(), box.y() + box.height(),
+                color(detail.role()), thickness);
+            text(graphics, Minecraft.getInstance().font,
+                detail.role() == Role.SEED ? recursionText("no_seed").getString() : title(node).getString(),
+                box.x() + 4, box.y() + (box.height() - 9) / 2, box.width() - 8, MUTED, 0.8f);
         }
     }
 
     static void drawLink(GuiGraphics graphics, ClientCraftingGraph graph, GraphLayoutSnapshot layout,
-            ClientCraftingGraph.Link link, float cameraX, float cameraY, float zoom, @Nullable Integer highlight) {
+            ClientCraftingGraph.Link link, @Nullable Integer highlight, double pixelsPerUnit) {
         var route = layout.edgePoints(link);
         if (route.size() < 2) return;
         var fromRole = graph.nodes().get(link.fromId()).recursion().role();
@@ -153,18 +133,13 @@ final class RecursiveCycleRenderer {
         boolean external = fromRole == Role.INPUT;
         int accent = highlight != null ? highlight : external ? INPUT
             : toRole == Role.OUTPUT ? OUTPUT : toRole == Role.RETAINED ? RETAINED : 0xff8293a4;
-        var pose = graphics.pose();
-        pose.pushPose();
-        pose.translate(cameraX, cameraY, 0);
-        pose.scale(zoom, zoom, 1);
-        try {
-            for (int i = 1; i < route.size(); i++) {
-                var a = route.get(i - 1); var b = route.get(i);
-                if (external) GraphDraw.dashedLine(graphics, a.x(), a.y(), b.x(), b.y(), accent, 0.7f);
-                else GraphDraw.line(graphics, a.x(), a.y(), b.x(), b.y(), accent, 0.6f);
-            }
-            GraphRenderer.drawArrowHead(graphics, route, accent, 0, 0, 1);
-        } finally { pose.popPose(); }
+        float half = GraphRenderer.halfWidth(pixelsPerUnit, 0.6f);
+        for (int i = 1; i < route.size(); i++) {
+            var a = route.get(i - 1); var b = route.get(i);
+            if (external) GraphDraw.dashedLine(graphics, a.x(), a.y(), b.x(), b.y(), accent, half);
+            else GraphDraw.segment(graphics, a.x(), a.y(), b.x(), b.y(), accent, half);
+        }
+        GraphRenderer.drawArrowHead(graphics, route, accent);
     }
 
     static Component title(ClientCraftingGraph.Node node) {
@@ -285,22 +260,5 @@ final class RecursiveCycleRenderer {
         pose.pushPose(); pose.translate(x, y, 0); pose.scale(scale, scale, 1);
         graphics.drawString(font, text, 0, 0, color, false);
         pose.popPose();
-    }
-    private static void centered(GuiGraphics graphics, Font font, String text, float centerX, float y, float width, int color, float scale) {
-        float fitted = Math.min(scale, width / Math.max(1, font.width(text)));
-        text(graphics, font, text, centerX - Math.min(width, font.width(text) * fitted) / 2, y, width, color, scale);
-    }
-    private static void frame(GuiGraphics graphics, float left, float top, float right, float bottom, int color, boolean dashed) {
-        if (dashed) {
-            GraphDraw.dashedLine(graphics, left, top, right, top, color, 0.7f);
-            GraphDraw.dashedLine(graphics, right, top, right, bottom, color, 0.7f);
-            GraphDraw.dashedLine(graphics, right, bottom, left, bottom, color, 0.7f);
-            GraphDraw.dashedLine(graphics, left, bottom, left, top, color, 0.7f);
-        } else {
-            GraphDraw.line(graphics, left, top, right, top, color, 0.5f);
-            GraphDraw.line(graphics, right, top, right, bottom, color, 0.5f);
-            GraphDraw.line(graphics, right, bottom, left, bottom, color, 0.5f);
-            GraphDraw.line(graphics, left, bottom, left, top, color, 0.5f);
-        }
     }
 }

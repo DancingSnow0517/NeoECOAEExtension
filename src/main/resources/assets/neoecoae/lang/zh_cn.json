@@ -1750,7 +1750,7 @@
   "gui.neoecoae.crafting_graph.card.source_patterns": "来源样板 #%s",
   "gui.neoecoae.crafting_graph.reference.description": "共享依赖引用",
   "gui.neoecoae.crafting_graph.reference.source": "来源 ID：%s",
-  "gui.neoecoae.crafting_graph.action.expand_hint": "左键展开一层；右键展开全部",
+  "gui.neoecoae.crafting_graph.action.expand_hint": "左键展开一层；双击或右键展开全部",
   "gui.neoecoae.craft_error.shortfall": "本次未能提取：%s",
   "gui.neoecoae.craft_error.meaning": "实际提取量不足；此数量是本次提取缺口，并非网络总库存。",
   "gui.neoecoae.craft_error.unknown_cause": "AE2 未返回底层原因。请检查以下可能原因：",
@@ -1765,5 +1765,14 @@
   "gui.neoecoae.crafting_report.optimizing": "后台优化",
   "gui.neoecoae.crafting_report.optimization_paused": "已保留当前方案，部分路线尚未完成优化",
   "gui.neoecoae.crafting_report.optimization_finished": "路线优化已结束",
-  "gui.neoecoae.crafting_report.export_too_large": "材料清单过大，无法导出为单张图片。"
+  "gui.neoecoae.crafting_report.export_too_large": "材料清单过大，无法导出为单张图片。",
+  "gui.neoecoae.crafting_graph.toolbar.back": "返回上一级",
+  "gui.neoecoae.crafting_graph.toolbar.main_only": "仅在外层规划图中可用",
+  "gui.neoecoae.crafting_graph.controls": "滚轮：缩放 | Shift+滚轮 / 拖动：平移 | 回车：下一结果",
+  "gui.neoecoae.crafting_graph.zoom": "缩放：%s%%",
+  "gui.neoecoae.crafting_graph.status.selected": "已选用",
+  "gui.neoecoae.crafting_graph.status.rejected": "未选用",
+  "gui.neoecoae.crafting_graph.details.inputs": "输入：%s",
+  "gui.neoecoae.crafting_graph.details.outputs": "输出：%s",
+  "gui.neoecoae.crafting_graph.details.firings": "执行次数：%s"
 }

@@ -4,14 +4,14 @@ import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot;
 
 /** Camera calculations shared by fitting and wheel zoom, including very wide dependency trees. */
 final class GraphViewTransform {
-    static final float MIN_ZOOM = 0.000001f;
+    static final float MIN_ZOOM = 0.05f;
     static final float MAX_ZOOM = 2.5f;
 
     private GraphViewTransform() {}
 
     static float fitZoom(GraphLayoutSnapshot.Bounds bounds, float width, float height) {
-        return Math.max(Float.MIN_NORMAL, Math.min(1.5f,
-            Math.min(Math.max(1, width) / bounds.width(), Math.max(1, height) / bounds.height())));
+        return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM,
+            Math.min(Math.max(1, width) / Math.max(1, bounds.width()), Math.max(1, height) / Math.max(1, bounds.height()))));
     }
 
     static float scrollZoom(float current, double scroll) {

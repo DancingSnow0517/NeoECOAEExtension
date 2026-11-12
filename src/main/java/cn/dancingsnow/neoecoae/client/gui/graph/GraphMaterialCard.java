@@ -94,10 +94,16 @@ final class GraphMaterialCard {
         return card;
     }
 
-    void renderDetails(GuiGraphics graphics, int screenWidth, int screenHeight) {
-        int top = 38;
+    void renderDetails(GuiGraphics graphics, int screenWidth, int screenHeight, int top) {
         float scale = fit(Math.min(242, screenWidth - 16), screenHeight - top - 24);
         draw(graphics, screenWidth - 8 - (int) Math.ceil(width * scale), top, scale, 300, 0xff556675);
+    }
+
+    boolean containsDetails(double mouseX, double mouseY, int screenWidth, int screenHeight, int top) {
+        float scale = fit(Math.min(242, screenWidth - 16), screenHeight - top - 24);
+        int drawnWidth = (int) Math.ceil(width * scale), drawnHeight = (int) Math.ceil(height * scale);
+        return mouseX >= screenWidth - 8 - drawnWidth && mouseX < screenWidth - 8
+            && mouseY >= top && mouseY < top + drawnHeight;
     }
 
     void renderTooltip(GuiGraphics graphics, int mouseX, int mouseY, int screenWidth, int screenHeight) {
