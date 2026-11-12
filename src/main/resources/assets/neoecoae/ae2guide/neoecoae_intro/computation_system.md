@@ -31,11 +31,11 @@ item_ids:
 
 The ECO Computation System is a powerful multiblock crafting CPU cluster that provides massive parallel crafting capabilities for your ME Network.
 
-## Lite Crafting Mode
+## Default and Deep Planning Modes
 
-The computation host's **Lite** switch is enabled by default. Each material keeps one fixed pattern, without alternative-route retries, substitutions, tool or container returns, or byproduct reuse. Acyclic orders use one dependency pass. With **Cycle** enabled, cyclic orders solve growth, startup seeds, and external ingredient demands within that fixed pattern route, without searching other patterns. With cycle solving disabled, a cycle is visited once; demands returning to an already visited material draw only from remaining stock. Explicitly marked processing inputs match by item ID and retain the actual reserved NBT variants. The final product still matches exactly. Disabling lite mode always uses full planning.
+Default planning prioritizes fast calculations without an extra mode label. The computation host's **Deep Planning Mode** switch is disabled by default. In default planning, each material keeps one fixed pattern, without alternative-route retries, substitutions, or tool and container returns. Physical byproducts are shared across ingredient demands. Materials without a direct producer can use one fixed byproduct source from the selected patterns; acyclic materials allow at most one supplemental expansion for late demands, and unresolved amounts remain missing. With **Cycle** enabled, cyclic orders solve growth, startup seeds, and external ingredient demands within that fixed pattern route, without searching other patterns. With cycle solving disabled, a cyclic material is expanded once; captured stock and verified output allocations must close its remaining demand, without borrowing outputs from a cycle that cannot start. Explicitly marked processing inputs match by item ID and retain the actual reserved NBT variants. The final product still matches exactly. Enabling Deep Planning Mode uses the original full planner, including alternative routes, substitutions, and tool and container returns. Calculations may take longer.
 
-Calculation statistics show **Lite Crafting Mode** in green when the lite pass was actually used. It omits the incomplete-calculation notice; orders using full planning retain its diagnostics. Material shortages remain visible and detected cycles are shown as information.
+Default planning shows no mode label and hides the incomplete-calculation notice. Deep planning retains full diagnostics. Material shortages remain visible and detected cycles are shown as information.
 
 ## Continuous Pattern Dispatch
 
@@ -45,7 +45,7 @@ Per-tick execution and probe budgets still apply. Processing batches spend that 
 
 ## Crafting Reports and Recursive Graphs
 
-After calculation, the confirmation page shows the final selected plan. The summary and material list arrive first, followed by the graph. Material cells show stock, amounts to craft, and shortages. Outside lite mode, a partial byte estimate is labelled as incomplete.
+After calculation, the confirmation page shows the final selected plan. The summary and material list arrive first, followed by the graph. Material cells show stock, amounts to craft, and shortages. In deep planning mode, a partial byte estimate is labelled as incomplete.
 
 Open the graph from the left toolbar and expand a recursive module to inspect its startup seeds, material additions, inventory after each layer, final delivery, and retained materials. Large cycles fold repeated steps. An unfinished search displays unknown stages and does not imply that the plan can execute.
 

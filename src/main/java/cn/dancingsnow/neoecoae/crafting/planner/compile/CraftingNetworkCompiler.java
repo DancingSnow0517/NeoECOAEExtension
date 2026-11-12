@@ -148,7 +148,6 @@ public final class CraftingNetworkCompiler {
                 }
                 producers.put(key, compiled);
             }
-            if (liteCrafting) break;
             // Vanilla AE2 does not list a key that every pattern makes only as a byproduct (electrolysis oxygen,
             // for example), so the loop above found no plannable producer for it. Running such a pattern for that
             // key is still valid: give the key byproduct views of the compiled patterns that yield it. Their inputs
@@ -164,25 +163,42 @@ public final class CraftingNetworkCompiler {
                     if (definition == null || knownDefinitions.add(definition)) known.add(view.details());
                 }
             }
+            Map<AEKey, IPatternDetails> liteSources = new LinkedHashMap<>();
+            if (liteCrafting) {
+                for (List<CompiledPattern> views : producers.values()) for (CompiledPattern view : views) {
+                    cancellation.checkpoint();
+                    for (GenericStack output : view.outputs()) liteSources.putIfAbsent(output.what(), view.details());
+                }
+            }
             for (var entry : producers.entrySet()) {
                 AEKey key = entry.getKey();
                 if (emittable.contains(key)
+                        || liteCrafting && !entry.getValue().isEmpty()
                         || entry.getValue().stream().anyMatch(CompiledPattern::fastSupported)) continue;
                 boolean componentInsensitiveOutput = !key.equals(goal) && ignoresComponents(key, ignoredItemIds);
                 Set<IPatternDetails> present = Collections.newSetFromMap(new IdentityHashMap<>());
                 for (CompiledPattern view : entry.getValue()) present.add(view.details());
                 List<CompiledPattern> extended = null;
-                for (IPatternDetails details : known) {
+                List<IPatternDetails> sources = liteCrafting && !componentInsensitiveOutput
+                    ? liteSources.containsKey(key) ? List.of(liteSources.get(key)) : List.of()
+                    : known;
+                for (IPatternDetails details : sources) {
                     if (present.contains(details) || !yields(details, key, componentInsensitiveOutput)) continue;
                     cancellation.checkpoint();
-                    CompiledPattern view = compilePattern(nextPatternId++, details, key, cyclePlanningEnabled,
-                        ignoredItemIds, componentInsensitiveOutput, service);
+                    CompiledPattern view = liteCrafting
+                        ? compileLitePattern(nextPatternId++, details, key, componentInsensitiveOutput, ignoredItemIds)
+                        : compilePattern(nextPatternId++, details, key, cyclePlanningEnabled,
+                            ignoredItemIds, componentInsensitiveOutput, service);
                     if (extended == null) extended = new ArrayList<>(entry.getValue());
                     extended.add(view);
                     edgeCount += enqueue(view, queued, work);
+                    if (liteCrafting) break;
                 }
                 if (extended != null) entry.setValue(extended);
             }
+            // Lite views share the already-expanded inputs of their one fixed physical pattern.
+            // Discover secondary-only producers once; never add alternatives or reopen the closure.
+            if (liteCrafting) break;
             if (work.isEmpty() || nextPatternId == before) break;
         }
         return new CompiledNetwork(goal, producers, emittable, nextPatternId, edgeCount);
@@ -261,7 +277,7 @@ public final class CraftingNetworkCompiler {
 
     private record PatternDefinition(Class<?> implementation, AEItemKey definition) {}
 
-    /** GTNH lite contract: encoded primary inputs, one matching output, no remainder analysis. */
+    /** Lite contract: encoded primary inputs and all physical outputs, without remainder analysis. */
     private static CompiledPattern compileLitePattern(int id, IPatternDetails details, AEKey producedKey,
             boolean componentInsensitiveOutput, Set<ResourceLocation> fuzzyPlanningItemIds) {
         List<CompiledInput> inputs = new ArrayList<>();
@@ -278,6 +294,8 @@ public final class CraftingNetworkCompiler {
                         || componentInsensitiveOutput && sameItem(producedKey, output.what())) {
                     outputs.add(new GenericStack(producedKey, output.amount()));
                     outputAmount = outputAmount.add(PlannerAmount.of(output.amount()));
+                } else {
+                    outputs.add(output);
                 }
             }
             if (outputAmount.isZero()) throw new IllegalArgumentException("Output does not match request");
