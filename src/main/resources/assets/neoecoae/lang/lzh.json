@@ -1,6 +1,6 @@
 {
   "gui.neoecoae.computation.ui.switch.substitutions.desc": "啟用完整規劃，搜尋替代路線並考慮替代輸入及工具、容器返還，計算可能耗時更長。",
-  "gui.neoecoae.computation.ui.switch.substitutions": "深度規劃",
+  "gui.neoecoae.computation.ui.switch.substitutions": "深度",
   "gui.neoecoae.computation.settings.substitutions": "深度規劃模式",
   "gui.neoecoae.storage.bulk_marker.raise": "升一階",
   "gui.neoecoae.storage.bulk_marker.lower": "降一階",

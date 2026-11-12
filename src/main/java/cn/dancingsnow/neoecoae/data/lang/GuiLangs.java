@@ -631,7 +631,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.computation.settings.back", "Back to CPU List");
         provider.add("gui.neoecoae.computation.status.time", "Time: %s");
         provider.add("gui.neoecoae.computation.ui.control_heading", "Controls");
-        provider.add("gui.neoecoae.computation.ui.switch.substitutions", "Deep Planning");
+        provider.add("gui.neoecoae.computation.ui.switch.substitutions", "Deep");
         provider.add("gui.neoecoae.computation.ui.switch.cycle_planning", "Cycle");
         provider.add("gui.neoecoae.computation.ui.switch.fast_planner", "Fast");
         provider.add("gui.neoecoae.computation.ui.cpu", "CPU");

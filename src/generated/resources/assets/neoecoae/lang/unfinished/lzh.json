@@ -247,7 +247,7 @@
   "gui.neoecoae.computation.ui.switch.smart_doubling.limit": "閉時每發之限",
   "gui.neoecoae.computation.ui.switch.smart_doubling.limit_note": "實發之數，猶受當下可用並行所限。",
   "gui.neoecoae.computation.ui.switch.smart_doubling.limit_value": "%s 份",
-  "gui.neoecoae.computation.ui.switch.substitutions": "深度規劃",
+  "gui.neoecoae.computation.ui.switch.substitutions": "深度",
   "gui.neoecoae.computation.ui.switch.substitutions.desc": "啟用完整規劃，搜尋替代路線並考慮替代輸入及工具、容器返還，計算可能耗時更長。",
   "gui.neoecoae.computation.ui.take_cell": "UNLOCALIZED: Click to take the flash crystal matrix; Shift-click to move it to your inventory",
   "gui.neoecoae.computation.ui.threads": "UNLOCALIZED: Threads",

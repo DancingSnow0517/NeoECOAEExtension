@@ -330,7 +330,7 @@
   "gui.neoecoae.computation.settings.back": "返回 CPU 列表",
   "gui.neoecoae.computation.status.time": "时间：%s",
   "gui.neoecoae.computation.ui.control_heading": "控制开关",
-  "gui.neoecoae.computation.ui.switch.substitutions": "深度规划",
+  "gui.neoecoae.computation.ui.switch.substitutions": "深度",
   "gui.neoecoae.computation.ui.switch.cycle_planning": "循环",
   "gui.neoecoae.computation.ui.switch.fast_planner": "快速",
   "gui.neoecoae.computation.ui.cpu": "CPU",
