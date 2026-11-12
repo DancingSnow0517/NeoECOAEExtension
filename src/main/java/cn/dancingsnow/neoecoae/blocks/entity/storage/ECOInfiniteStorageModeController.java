@@ -16,6 +16,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.storage.IStorageProvider;
 import appeng.api.storage.MEStorage;
 import net.minecraft.core.UUIDUtil;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
@@ -511,6 +512,81 @@ final class ECOInfiniteStorageModeController {
             refreshHostAccess();
         }
         return mountedEngine;
+    }
+
+    /** Reattaches existing world data; never copies balances or starts another migration. */
+    @Nullable
+    Component recoverDomain(UUID domainId) {
+        String prefix = "command.neoecoae.storage_recover.";
+        if (!(host.getLevel() instanceof ServerLevel level) || host.isStorageServerStopping()
+                || !host.isFormed() || host.getCluster() == null
+                || host.storageHostMode() != ECOStorageHostMode.FORMED_INFINITE
+                || !host.hasRequiredInfiniteComponents() || host.isInfiniteExitRequested()
+                || host.infiniteRestore().isRestoring()) {
+            return Component.translatable(prefix + "invalid_host");
+        }
+        MinecraftServer server = level.getServer();
+        if (!ECOInfiniteStorageDomains.exists(server, domainId)) {
+            return Component.translatable(prefix + "not_found", domainId.toString());
+        }
+        UUID previousDomain = host.infiniteDomainId();
+        ECOInfiniteStorageEngine previous = getEngine();
+        boolean sameDomain = domainId.equals(previousDomain);
+        if (previous == null || !previous.canExitOrRestore() || previous.hasPendingRestore()
+                || !sameDomain && !previous.isEmpty()) {
+            return Component.translatable(prefix + "occupied");
+        }
+        if (ECOInfiniteStorageDomains.mountedHosts(server, domainId) > (sameDomain ? 1 : 0)) {
+            return Component.translatable(prefix + "mounted");
+        }
+        // Only retag this host's sealed, fully migrated members. A migration/restore in progress
+        // or a foreign member needs its original transaction, not a replacement identity.
+        if (host.hasInvalidInfiniteMembers()) {
+            return Component.translatable(prefix + "invalid_members");
+        }
+        Set<UUID> identities = new HashSet<>();
+        List<ECODriveBlockEntity> members = new ArrayList<>();
+        for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
+            ItemStack stack = drive.getCellStack();
+            if (ECOInfiniteStorageMember.isMigrating(stack)) {
+                return Component.translatable(prefix + "invalid_members");
+            }
+            if (!ECOInfiniteStorageMember.isMember(stack)) continue;
+            var identity = ECOInfiniteStorageMember.getIdentity(stack);
+            if ((!ECOInfiniteStorageMember.isMemberOf(stack, previousDomain)
+                    && !ECOInfiniteStorageMember.isMemberOf(stack, domainId))
+                    || identity.isEmpty() || !identities.add(identity.get())) {
+                return Component.translatable(prefix + "invalid_members");
+            }
+            members.add(drive);
+        }
+        ECOInfiniteStorageEngine recovered = ECOInfiniteStorageDomains.acquire(level, domainId);
+        try {
+            if (!recovered.canExitOrRestore() || !recovered.canUseMountedStorage()) {
+                return Component.translatable(prefix + "unhealthy");
+            }
+            // Invalidate every previously issued view before changing drive membership.
+            release();
+            host.setInfiniteDomainId(domainId);
+            host.infiniteMemberIds().clear();
+            host.infiniteMigrationSourceIds().clear();
+            for (ECODriveBlockEntity drive : members) {
+                ECOInfiniteStorageMember.markMember(drive.getCellStack(), domainId);
+                host.infiniteMemberIds().add(ECOInfiniteStorageMember.identity(drive.getCellStack()));
+                drive.setChanged();
+                drive.markForUpdate();
+            }
+            host.invalidateInfiniteMembers();
+            getEngine();
+            host.infiniteRestore().invalidateExtractionCheck();
+            host.invalidateStorageStatistics();
+            host.refreshDriveStorageProviders();
+            host.setChanged();
+            host.markForUpdate();
+            return null;
+        } finally {
+            ECOInfiniteStorageDomains.release(server, domainId);
+        }
     }
 
     void release() {

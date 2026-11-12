@@ -125,6 +125,9 @@ public class NeoECOAE {
         NeoForge.EVENT_BUS.addListener(cn.dancingsnow.neoecoae.network.MenuDataTransport::stopped);
         NeoForge.EVENT_BUS.addListener(NETooltips::register);
         NeoForge.EVENT_BUS.addListener(NECommands::register);
+        NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.LOWEST, NECommands::onStorageRecoverClick);
+        NeoForge.EVENT_BUS.addListener(NECommands::onPlayerLoggedOut);
+        NeoForge.EVENT_BUS.addListener(NECommands::onServerStopped);
         NeoForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
         NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onLevelUnload);
         NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopped);

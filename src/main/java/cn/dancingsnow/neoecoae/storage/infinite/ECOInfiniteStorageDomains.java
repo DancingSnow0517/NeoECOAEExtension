@@ -53,6 +53,22 @@ public final class ECOInfiniteStorageDomains {
         }
     }
 
+    /** Checks existing data without creating an empty domain for an unknown UUID. */
+    public static boolean exists(MinecraftServer server, UUID domainId) {
+        Map<UUID, DomainEntry> engines = ENGINES.get(server);
+        if (engines != null && engines.containsKey(domainId)) return true;
+        Path directory = server.getWorldPath(LevelResource.ROOT).resolve("data");
+        String name = DATA_NAME_PREFIX + domainId;
+        return java.nio.file.Files.exists(directory.resolve(name + "_v3.dat"))
+                || LegacyInfiniteStorageReader.exists(directory.resolve(name + ".dat"));
+    }
+
+    public static int mountedHosts(MinecraftServer server, UUID domainId) {
+        Map<UUID, DomainEntry> engines = ENGINES.get(server);
+        DomainEntry entry = engines == null ? null : engines.get(domainId);
+        return entry == null ? 0 : entry.mountCount;
+    }
+
     /** The world has already been saved by vanilla shutdown; only drop the cached views. */
     public static void onServerStopped(MinecraftServer server) {
         ENGINES.remove(server);

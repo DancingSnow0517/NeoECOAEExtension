@@ -1,5 +1,13 @@
 {
   "gui.neoecoae.crafting_report.card.lite_mode": "轻量合成模式",
+  "command.neoecoae.storage_recover.select_host": "请右键已经处于无限模式的主机。",
+  "command.neoecoae.storage_recover.success": "无限存储已恢复：%s",
+  "command.neoecoae.storage_recover.not_found": "找不到 UUID 为 %s 的无限存储存档数据。",
+  "command.neoecoae.storage_recover.invalid_host": "请右键已经成型且处于无限模式的主机，保留无限存储组件，并等待迁移或回填完成。",
+  "command.neoecoae.storage_recover.occupied": "无法恢复：目标主机的存储域必须为空、状态正常且没有待完成的回填；恢复该主机当前的 UUID 时可以保留现有库存。",
+  "command.neoecoae.storage_recover.mounted": "无法恢复：其他已加载的主机正在使用此 UUID。",
+  "command.neoecoae.storage_recover.invalid_members": "无法恢复：主机中存在无效、重复、属于其他存储域或正在迁移的成员矩阵。",
+  "command.neoecoae.storage_recover.unhealthy": "无法恢复：原存储域存在未解决的数据或持久化故障，或有尚未完成的回填。",
   "neoecoae.configuration.keyReuse": "AE 资源 key 复用",
   "neoecoae.configuration.keyReuse.tooltip": "本地缓存选项。保留值相等语义与旧存档格式。",
   "neoecoae.configuration.keyReuse.enabled": "复用无额外数据的 key",
