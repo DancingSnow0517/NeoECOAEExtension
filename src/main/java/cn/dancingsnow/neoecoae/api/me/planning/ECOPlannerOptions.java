@@ -11,9 +11,11 @@ import org.jetbrains.annotations.Nullable;
  * Options captured for one explicit ECO planning request.
  *
  * <p>The legacy {@code ignorePatternSubstitutions} name now selects GTNH-style lite crafting:
- * one exact producer per material, without route retries, ordinary substitutions, remainder reuse, or byproduct credit.
- * Explicit cycle and component-insensitive policies remain captured. Requests involving those policies use full
- * planning; unrelated policies do not disable the lite pass.</p>
+ * one producer per material, without route retries, ordinary substitutions, or remainder reuse. Physical
+ * byproducts share the exact output ledger; missing producer views are filled once from already selected
+ * patterns, and acyclic demands allow at most one supplemental expansion. Enabled cycles use the existing
+ * cycle solver on the fixed route; disabled cycles close only against captured stock and verified output
+ * allocations. Explicit processing-input item-ID rules do not switch to full planning.</p>
  *
  * <p>The legacy {@code planningLogEnabled} component remains for compatibility, but stage logging is now controlled
  * by the global {@code Debug > Calculating} configuration.</p>

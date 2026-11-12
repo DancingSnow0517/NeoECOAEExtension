@@ -94,10 +94,15 @@ public final class ComponentPlanner {
         this.maxRouteAttempts = maxRouteAttempts;
     }
 
-    /** The lite pass emits ordinary tasks; structural cycles do not request the full cycle solver. */
+    /** Lite compilation fixes producers; enabled cycles use the existing solver without route search. */
     public Outcome planLite(CompiledNetwork network, CondensationGraph condensation,
-            PlannerInventorySnapshot inventory, long amount, ECOCancellation cancellation) throws InterruptedException {
-        var solved = acyclicSolver.solveLite(network, condensation, inventory, amount, cancellation);
+            KeyCounter inventory, PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
+            ECOCancellation cancellation) throws InterruptedException {
+        if (cyclePlanningEnabled && !condensation.cycles().isEmpty()) {
+            var fixedSelection = activeRouteSelector.select(condensation.source(), false, cancellation);
+            return plan(network, fixedSelection, inventory, snapshot, amount, true, true, cancellation);
+        }
+        var solved = acyclicSolver.solveLite(network, condensation, snapshot, amount, cancellation);
         var physical = Set.copyOf(solved.state().plannerPatternTimes().keySet());
         var component = new ComponentPlanningResult(Map.of(network.goal(), PlannerAmount.of(Math.max(0L, amount))),
             Map.of(), 0, ComponentPlanningResult.Type.ACYCLIC, ComponentPlanningResult.Status.PLANNED,

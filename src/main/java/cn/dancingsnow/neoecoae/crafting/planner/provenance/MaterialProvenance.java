@@ -48,6 +48,12 @@ public final class MaterialProvenance {
         return bucket == null ? PlannerAmount.ZERO : bucket.amount;
     }
 
+    /** Snapshot for demand-specific matching while allocations mutate the pending bucket. */
+    public List<MaterialDemand> pendingDemands(AEKey key) {
+        PendingDemands bucket = pending.get(key);
+        return bucket == null ? List.of() : List.copyOf(bucket.demands.values());
+    }
+
     /** Apportions an aggregated numeric draw to the original demands in registration order. */
     public void allocatePending(AEKey key, AEKey material, MaterialSource source, PlannerAmount amount) {
         allocatePending(key, material, source, amount, true);

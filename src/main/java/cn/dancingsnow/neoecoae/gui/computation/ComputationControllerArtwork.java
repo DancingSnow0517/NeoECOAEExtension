@@ -128,7 +128,7 @@ final class ComputationControllerArtwork extends UIElement {
         tag.putInt("normalSwitchCount", Math.max(0, config.normalSwitchCount().getAsInt()));
         tag.putInt("highEnergySwitchCount", Math.max(0, config.highEnergySwitchCount().getAsInt()));
         tag.putBoolean("connected", config.connected().getAsBoolean());
-        tag.putBoolean("substitutions", config.ignoringPatternSubstitutions().getAsBoolean());
+        tag.putBoolean("substitutions", !config.ignoringPatternSubstitutions().getAsBoolean());
         tag.putBoolean("cyclePlanning", config.cyclePlanningEnabled().getAsBoolean());
         tag.putBoolean("fastPlanner", config.fastPlannerEnabled().getAsBoolean());
         return tag;

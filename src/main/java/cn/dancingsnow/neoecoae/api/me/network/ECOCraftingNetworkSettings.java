@@ -12,7 +12,7 @@ import org.jetbrains.annotations.Nullable;
  * ECO crafting-planning settings owned by one AE grid's crafting service.
  */
 public interface ECOCraftingNetworkSettings {
-    /** Legacy API name for requested lite crafting; explicit cycle and component policies take priority as needed. */
+    /** Legacy API name for lite crafting; cycles and explicit input item-ID matching stay within the lite pass. */
     boolean neoecoae$isIgnoringPatternSubstitutions();
 
     void neoecoae$setIgnoringPatternSubstitutions(boolean ignoringPatternSubstitutions);

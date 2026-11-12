@@ -244,7 +244,7 @@ public final class ComputationControllerUI {
         Runnable action;
         switch (key) {
             case "substitutions" -> {
-                enabled = config.ignoringPatternSubstitutions();
+                enabled = () -> !config.ignoringPatternSubstitutions().getAsBoolean();
                 action = config.toggleIgnoringPatternSubstitutions();
             }
             case "cycle_planning" -> {

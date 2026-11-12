@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.crafting.planner;
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
-import cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching;
 import cn.dancingsnow.neoecoae.crafting.planner.bridge.AE2CraftingPlanBridge;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
@@ -117,7 +116,7 @@ public final class ECOCraftingPlannerService {
                     long componentStarted = ECOPlanningStageLogger.start();
                     try {
                         if (liteCraftingMode) {
-                            solved = componentPlanner.planLite(compiled, condensation, inventorySnapshot, amount, cancellation);
+                            solved = componentPlanner.planLite(compiled, condensation, inventory, inventorySnapshot, amount, cyclePlanningEnabled, cancellation);
                         } else {
                             if (activeSelection == null) synchronized (initializationLock) {
                                 if (activeSelection == null) {
@@ -277,24 +276,6 @@ public final class ECOCraftingPlannerService {
             return result;
         }
 
-        /** Explicit interface policies need the existing full template and solver only on relevant branches. */
-        private boolean requiresFullPlanning(CompiledNetwork network, CondensationGraph graph,
-                ECOCancellation cancellation) throws InterruptedException {
-            if (cyclePlanningEnabled && !graph.cycles().isEmpty()) return true;
-            if (fuzzyPlanningItemIds.isEmpty()) return false;
-            for (var patterns : network.producers().values()) {
-                for (var pattern : patterns) {
-                    cancellation.checkpoint();
-                    for (var input : pattern.inputs()) {
-                        if (ECOProcessingComponentMatching.enabled(pattern.details(), input.key(), fuzzyPlanningItemIds)) {
-                            return true;
-                        }
-                    }
-                }
-            }
-            return false;
-        }
-
         private void ensureCompiled(ECOCancellation cancellation) throws InterruptedException {
             if (compiled != null && condensation != null
                     && compiledContractGeneration == AE2PatternIntrospection.reloadGeneration()) {
@@ -322,35 +303,28 @@ public final class ECOCraftingPlannerService {
                     return;
                 }
                 if (compiled == null) liteCraftingMode = ignorePatternSubstitutions;
-                while (true) {
-                    if (compiled == null) {
-                        long stageStarted = ECOPlanningStageLogger.start();
-                        try {
-                            compiled = compiler.compile(craftingService, goal, cyclePlanningEnabled,
-                                    liteCraftingMode, fuzzyPlanningItemIds, cancellation);
-                            ECOPlanningStageLogger.finish("network_compile", stageStarted, true, null);
-                        } catch (InterruptedException | RuntimeException e) {
-                            ECOPlanningStageLogger.finish("network_compile", stageStarted, false,
-                                    ECOPlanningStageLogger.exceptionReason(e));
-                            throw e;
-                        }
+                if (compiled == null) {
+                    long stageStarted = ECOPlanningStageLogger.start();
+                    try {
+                        compiled = compiler.compile(craftingService, goal, cyclePlanningEnabled,
+                                liteCraftingMode, fuzzyPlanningItemIds, cancellation);
+                        ECOPlanningStageLogger.finish("network_compile", stageStarted, true, null);
+                    } catch (InterruptedException | RuntimeException e) {
+                        ECOPlanningStageLogger.finish("network_compile", stageStarted, false,
+                                ECOPlanningStageLogger.exceptionReason(e));
+                        throw e;
                     }
-                    if (condensation == null) {
-                        long graphStarted = ECOPlanningStageLogger.start();
-                        var graph = graphBuilder.build(compiled, cancellation);
-                        ECOPlanningStageLogger.finish("graph_build", graphStarted, true, null);
-                        long sccStarted = ECOPlanningStageLogger.start();
-                        var sccs = sccAnalyzer.analyze(graph, cancellation);
-                        ECOPlanningStageLogger.finish("scc_analysis", sccStarted, true, null);
-                        long condensationStarted = ECOPlanningStageLogger.start();
-                        condensation = CondensationGraph.build(graph, sccs, cancellation);
-                        ECOPlanningStageLogger.finish("condensation_graph", condensationStarted, true, null);
-                    }
-                    if (!liteCraftingMode || !requiresFullPlanning(compiled, condensation, cancellation)) break;
-                    // Recompile once with the existing semantics before solving an explicitly enabled policy.
-                    liteCraftingMode = false;
-                    compiled = null;
-                    condensation = null;
+                }
+                if (condensation == null) {
+                    long graphStarted = ECOPlanningStageLogger.start();
+                    var graph = graphBuilder.build(compiled, cancellation);
+                    ECOPlanningStageLogger.finish("graph_build", graphStarted, true, null);
+                    long sccStarted = ECOPlanningStageLogger.start();
+                    var sccs = sccAnalyzer.analyze(graph, cancellation);
+                    ECOPlanningStageLogger.finish("scc_analysis", sccStarted, true, null);
+                    long condensationStarted = ECOPlanningStageLogger.start();
+                    condensation = CondensationGraph.build(graph, sccs, cancellation);
+                    ECOPlanningStageLogger.finish("condensation_graph", condensationStarted, true, null);
                 }
                 if (contractGeneration != AE2PatternIntrospection.reloadGeneration()) {
                     compiled = null;
