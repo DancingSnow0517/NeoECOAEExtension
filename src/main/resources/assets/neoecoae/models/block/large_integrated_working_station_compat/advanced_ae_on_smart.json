@@ -1,0 +1,10 @@
+{
+  "parent": "neoecoae:block/large_integrated_working_station_on_smart",
+  "textures": {
+    "light_light": "neoecoae:block/working_station/controller_formed/colored/advanced_ae/controller_formed_light/dark_working",
+    "light_dark": "neoecoae:block/working_station/controller_formed/colored/advanced_ae/controller_formed_light/light_working",
+    "screen_dark": "neoecoae:block/working_station/controller_formed/colored/advanced_ae/controller_formed_screen_on/dark",
+    "screen_middle": "neoecoae:block/working_station/controller_formed/colored/advanced_ae/controller_formed_screen_on/middle",
+    "screen_light": "neoecoae:block/working_station/controller_formed/colored/advanced_ae/controller_formed_screen_on/light"
+  }
+}

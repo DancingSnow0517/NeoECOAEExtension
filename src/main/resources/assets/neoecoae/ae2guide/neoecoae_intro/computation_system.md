@@ -31,11 +31,27 @@ item_ids:
 
 The ECO Computation System is a powerful multiblock crafting CPU cluster that provides massive parallel crafting capabilities for your ME Network.
 
+## Lite Crafting Mode
+
+The computation host's **Lite** switch is enabled by default. Ordinary orders follow GTNH's lite rules: one exact pattern per material and one dependency pass, without alternative-route retries, substitutions, tool or container returns, or byproduct reuse. Explicit cycle and NBT/component-ignore settings remain effective: orders whose dependency chain needs either policy use full planning. Unrelated marked items keep the lite pass. Disabling lite mode always uses full planning.
+
+Calculation statistics show **Lite Crafting Mode** in green when the lite pass was actually used. It omits the incomplete-calculation notice; orders using full planning retain its diagnostics. Material shortages remain visible and detected cycles are shown as information.
+
 ## Continuous Pattern Dispatch
 
 Within a crafting job, the current pattern keeps dispatch priority while its inputs are available and providers keep accepting it. There is no consecutive-success cap. Missing inputs, unavailable providers, task completion, suspension, or dependency and cycle constraints allow other legal patterns to run.
 
 Per-tick execution and probe budgets still apply. Processing batches spend that budget per provider submission, not per copy: each CPU makes at most 64 submissions per tick and one pattern uses at most half of them. A provider that accepts whole batches receives every copy that materials, energy, cycle seeds and its own capacity allow in one submission. A budget pause is not a provider failure and retains the current pattern for the next tick. Batches consume inputs and record expected outputs according to the amount actually accepted.
+
+## Crafting Reports and Recursive Graphs
+
+After calculation, the confirmation page shows the final selected plan. The summary and material list arrive first, followed by the graph. Material cells show stock, amounts to craft, and shortages. Outside lite mode, a partial byte estimate is labelled as incomplete.
+
+Open the graph from the left toolbar and expand a recursive module to inspect its startup seeds, material additions, inventory after each layer, final delivery, and retained materials. Large cycles fold repeated steps. An unfinished search displays unknown stages and does not imply that the plan can execute.
+
+Hold **Shift** while hovering over a material or recursive node to see its full exact quantities. Values remain exact beyond the ordinary integer range, and missing startup seeds are distinguished from ingredients required for the whole order.
+
+Once the material list has loaded, use the image export button on the left toolbar to save the complete list in the game's `screenshots` folder. Large lists use multiple columns in one PNG. Click the filename in chat to open it.
 
 ## Overview
 
@@ -241,5 +257,7 @@ The computation system supports different CPU selection modes:
 
 
 Fast planning requires an online host that accepts the request source. Cyclic routes also require Cycle Planning and actual startup seeds; an unfinished search is different from missing materials. In the computation interface, hold a sample and left-click to mark an item whose component differences may be ignored, or right-click to clear it. Samples are not consumed, and the physical pattern and machine must still accept the inputs.
+
+These marks also apply to AE2LT / Thunderbolt planners with a compatible integration API, without switching to the ECO planner. Plain AE2 processing patterns accept the marked item's component variants; crafting recipes and custom patterns keep their own validation. Each task retains the marks captured when it was ordered, including after interface edits or a world reload. The ECO planner also reads the component-insensitive input settings encoded in AE2LT overload patterns.
 
 Self-growing cycles (for example crystal seed loops) keep their minimal startup seed so later orders can still grow. When the stock covers the startup seed plus this order, the order uses the stock and the seed stays in the network. Otherwise the cycle grows the shortfall first: it may borrow the seed while it runs, but the seed must be back in the network when the order finishes. For example, a crystal dust order grinds existing crystals directly and leaves the crystals needed to restart the loop; with too few crystals it grows the shortfall and replaces the seed. If fuel or other materials cannot cover the growth, the plan lists them as missing instead of consuming the seed; with no seed in the network at all, the missing startup seed is reported. Catalysts and containers are still returned according to the pattern.

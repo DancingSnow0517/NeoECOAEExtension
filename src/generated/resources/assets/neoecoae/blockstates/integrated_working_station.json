@@ -137,11 +137,11 @@
       "y": 90
     },
     "facing=east,formed=true,module=advanced_ae,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/advanced_ae_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/advanced_ae_off_smart",
       "y": 90
     },
     "facing=east,formed=true,module=advanced_ae,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/advanced_ae_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/advanced_ae_on_smart",
       "y": 90
     },
     "facing=east,formed=true,module=ae2cs,smart_cooling=false,working=false": {
@@ -153,11 +153,11 @@
       "y": 90
     },
     "facing=east,formed=true,module=ae2cs,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/ae2cs_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_off_smart",
       "y": 90
     },
     "facing=east,formed=true,module=ae2cs,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/ae2cs_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_on_smart",
       "y": 90
     },
     "facing=east,formed=true,module=aelt,smart_cooling=false,working=false": {
@@ -169,11 +169,11 @@
       "y": 90
     },
     "facing=east,formed=true,module=aelt,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/aelt_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/aelt_off_smart",
       "y": 90
     },
     "facing=east,formed=true,module=aelt,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/aelt_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/aelt_on_smart",
       "y": 90
     },
     "facing=east,formed=true,module=appgen,smart_cooling=false,working=false": {
@@ -185,11 +185,11 @@
       "y": 90
     },
     "facing=east,formed=true,module=appgen,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/appgen_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/appgen_off_smart",
       "y": 90
     },
     "facing=east,formed=true,module=appgen,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/appgen_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/appgen_on_smart",
       "y": 90
     },
     "facing=east,formed=true,module=data_energistics,smart_cooling=false,working=false": {
@@ -201,11 +201,11 @@
       "y": 90
     },
     "facing=east,formed=true,module=data_energistics,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/data_energistics_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_off_smart",
       "y": 90
     },
     "facing=east,formed=true,module=data_energistics,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/data_energistics_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_on_smart",
       "y": 90
     },
     "facing=east,formed=true,module=extendedae,smart_cooling=false,working=false": {
@@ -217,11 +217,11 @@
       "y": 90
     },
     "facing=east,formed=true,module=extendedae,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/extendedae_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/extendedae_off_smart",
       "y": 90
     },
     "facing=east,formed=true,module=extendedae,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/extendedae_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/extendedae_on_smart",
       "y": 90
     },
     "facing=east,formed=true,module=other,smart_cooling=false,working=false": {
@@ -233,11 +233,11 @@
       "y": 90
     },
     "facing=east,formed=true,module=other,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/other_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/other_off_smart",
       "y": 90
     },
     "facing=east,formed=true,module=other,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/other_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/other_on_smart",
       "y": 90
     },
     "facing=east,formed=true,module=regular,smart_cooling=false,working=false": {
@@ -249,11 +249,11 @@
       "y": 90
     },
     "facing=east,formed=true,module=regular,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_off",
+      "model": "neoecoae:block/large_integrated_working_station_off_smart",
       "y": 90
     },
     "facing=east,formed=true,module=regular,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_on",
+      "model": "neoecoae:block/large_integrated_working_station_on_smart",
       "y": 90
     },
     "facing=north,formed=false,module=advanced_ae,smart_cooling=false,working=false": {
@@ -359,10 +359,10 @@
       "model": "neoecoae:block/large_integrated_working_station_compat/advanced_ae_on"
     },
     "facing=north,formed=true,module=advanced_ae,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/advanced_ae_off"
+      "model": "neoecoae:block/large_integrated_working_station_compat/advanced_ae_off_smart"
     },
     "facing=north,formed=true,module=advanced_ae,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/advanced_ae_on"
+      "model": "neoecoae:block/large_integrated_working_station_compat/advanced_ae_on_smart"
     },
     "facing=north,formed=true,module=ae2cs,smart_cooling=false,working=false": {
       "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_off"
@@ -371,10 +371,10 @@
       "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_on"
     },
     "facing=north,formed=true,module=ae2cs,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/ae2cs_off"
+      "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_off_smart"
     },
     "facing=north,formed=true,module=ae2cs,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/ae2cs_on"
+      "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_on_smart"
     },
     "facing=north,formed=true,module=aelt,smart_cooling=false,working=false": {
       "model": "neoecoae:block/large_integrated_working_station_compat/aelt_off"
@@ -383,10 +383,10 @@
       "model": "neoecoae:block/large_integrated_working_station_compat/aelt_on"
     },
     "facing=north,formed=true,module=aelt,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/aelt_off"
+      "model": "neoecoae:block/large_integrated_working_station_compat/aelt_off_smart"
     },
     "facing=north,formed=true,module=aelt,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/aelt_on"
+      "model": "neoecoae:block/large_integrated_working_station_compat/aelt_on_smart"
     },
     "facing=north,formed=true,module=appgen,smart_cooling=false,working=false": {
       "model": "neoecoae:block/large_integrated_working_station_compat/appgen_off"
@@ -395,10 +395,10 @@
       "model": "neoecoae:block/large_integrated_working_station_compat/appgen_on"
     },
     "facing=north,formed=true,module=appgen,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/appgen_off"
+      "model": "neoecoae:block/large_integrated_working_station_compat/appgen_off_smart"
     },
     "facing=north,formed=true,module=appgen,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/appgen_on"
+      "model": "neoecoae:block/large_integrated_working_station_compat/appgen_on_smart"
     },
     "facing=north,formed=true,module=data_energistics,smart_cooling=false,working=false": {
       "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_off"
@@ -407,10 +407,10 @@
       "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_on"
     },
     "facing=north,formed=true,module=data_energistics,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/data_energistics_off"
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_off_smart"
     },
     "facing=north,formed=true,module=data_energistics,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/data_energistics_on"
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_on_smart"
     },
     "facing=north,formed=true,module=extendedae,smart_cooling=false,working=false": {
       "model": "neoecoae:block/large_integrated_working_station_compat/extendedae_off"
@@ -419,10 +419,10 @@
       "model": "neoecoae:block/large_integrated_working_station_compat/extendedae_on"
     },
     "facing=north,formed=true,module=extendedae,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/extendedae_off"
+      "model": "neoecoae:block/large_integrated_working_station_compat/extendedae_off_smart"
     },
     "facing=north,formed=true,module=extendedae,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/extendedae_on"
+      "model": "neoecoae:block/large_integrated_working_station_compat/extendedae_on_smart"
     },
     "facing=north,formed=true,module=other,smart_cooling=false,working=false": {
       "model": "neoecoae:block/large_integrated_working_station_compat/other_off"
@@ -431,10 +431,10 @@
       "model": "neoecoae:block/large_integrated_working_station_compat/other_on"
     },
     "facing=north,formed=true,module=other,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/other_off"
+      "model": "neoecoae:block/large_integrated_working_station_compat/other_off_smart"
     },
     "facing=north,formed=true,module=other,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/other_on"
+      "model": "neoecoae:block/large_integrated_working_station_compat/other_on_smart"
     },
     "facing=north,formed=true,module=regular,smart_cooling=false,working=false": {
       "model": "neoecoae:block/large_integrated_working_station_off"
@@ -443,10 +443,10 @@
       "model": "neoecoae:block/large_integrated_working_station_on"
     },
     "facing=north,formed=true,module=regular,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_off"
+      "model": "neoecoae:block/large_integrated_working_station_off_smart"
     },
     "facing=north,formed=true,module=regular,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_on"
+      "model": "neoecoae:block/large_integrated_working_station_on_smart"
     },
     "facing=south,formed=false,module=advanced_ae,smart_cooling=false,working=false": {
       "model": "neoecoae:block/integrated_working_station",
@@ -585,11 +585,11 @@
       "y": 180
     },
     "facing=south,formed=true,module=advanced_ae,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/advanced_ae_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/advanced_ae_off_smart",
       "y": 180
     },
     "facing=south,formed=true,module=advanced_ae,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/advanced_ae_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/advanced_ae_on_smart",
       "y": 180
     },
     "facing=south,formed=true,module=ae2cs,smart_cooling=false,working=false": {
@@ -601,11 +601,11 @@
       "y": 180
     },
     "facing=south,formed=true,module=ae2cs,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/ae2cs_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_off_smart",
       "y": 180
     },
     "facing=south,formed=true,module=ae2cs,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/ae2cs_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_on_smart",
       "y": 180
     },
     "facing=south,formed=true,module=aelt,smart_cooling=false,working=false": {
@@ -617,11 +617,11 @@
       "y": 180
     },
     "facing=south,formed=true,module=aelt,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/aelt_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/aelt_off_smart",
       "y": 180
     },
     "facing=south,formed=true,module=aelt,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/aelt_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/aelt_on_smart",
       "y": 180
     },
     "facing=south,formed=true,module=appgen,smart_cooling=false,working=false": {
@@ -633,11 +633,11 @@
       "y": 180
     },
     "facing=south,formed=true,module=appgen,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/appgen_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/appgen_off_smart",
       "y": 180
     },
     "facing=south,formed=true,module=appgen,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/appgen_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/appgen_on_smart",
       "y": 180
     },
     "facing=south,formed=true,module=data_energistics,smart_cooling=false,working=false": {
@@ -649,11 +649,11 @@
       "y": 180
     },
     "facing=south,formed=true,module=data_energistics,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/data_energistics_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_off_smart",
       "y": 180
     },
     "facing=south,formed=true,module=data_energistics,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/data_energistics_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_on_smart",
       "y": 180
     },
     "facing=south,formed=true,module=extendedae,smart_cooling=false,working=false": {
@@ -665,11 +665,11 @@
       "y": 180
     },
     "facing=south,formed=true,module=extendedae,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/extendedae_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/extendedae_off_smart",
       "y": 180
     },
     "facing=south,formed=true,module=extendedae,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/extendedae_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/extendedae_on_smart",
       "y": 180
     },
     "facing=south,formed=true,module=other,smart_cooling=false,working=false": {
@@ -681,11 +681,11 @@
       "y": 180
     },
     "facing=south,formed=true,module=other,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/other_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/other_off_smart",
       "y": 180
     },
     "facing=south,formed=true,module=other,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/other_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/other_on_smart",
       "y": 180
     },
     "facing=south,formed=true,module=regular,smart_cooling=false,working=false": {
@@ -697,11 +697,11 @@
       "y": 180
     },
     "facing=south,formed=true,module=regular,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_off",
+      "model": "neoecoae:block/large_integrated_working_station_off_smart",
       "y": 180
     },
     "facing=south,formed=true,module=regular,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_on",
+      "model": "neoecoae:block/large_integrated_working_station_on_smart",
       "y": 180
     },
     "facing=west,formed=false,module=advanced_ae,smart_cooling=false,working=false": {
@@ -841,11 +841,11 @@
       "y": 270
     },
     "facing=west,formed=true,module=advanced_ae,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/advanced_ae_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/advanced_ae_off_smart",
       "y": 270
     },
     "facing=west,formed=true,module=advanced_ae,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/advanced_ae_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/advanced_ae_on_smart",
       "y": 270
     },
     "facing=west,formed=true,module=ae2cs,smart_cooling=false,working=false": {
@@ -857,11 +857,11 @@
       "y": 270
     },
     "facing=west,formed=true,module=ae2cs,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/ae2cs_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_off_smart",
       "y": 270
     },
     "facing=west,formed=true,module=ae2cs,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/ae2cs_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/ae2cs_on_smart",
       "y": 270
     },
     "facing=west,formed=true,module=aelt,smart_cooling=false,working=false": {
@@ -873,11 +873,11 @@
       "y": 270
     },
     "facing=west,formed=true,module=aelt,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/aelt_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/aelt_off_smart",
       "y": 270
     },
     "facing=west,formed=true,module=aelt,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/aelt_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/aelt_on_smart",
       "y": 270
     },
     "facing=west,formed=true,module=appgen,smart_cooling=false,working=false": {
@@ -889,11 +889,11 @@
       "y": 270
     },
     "facing=west,formed=true,module=appgen,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/appgen_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/appgen_off_smart",
       "y": 270
     },
     "facing=west,formed=true,module=appgen,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/appgen_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/appgen_on_smart",
       "y": 270
     },
     "facing=west,formed=true,module=data_energistics,smart_cooling=false,working=false": {
@@ -905,11 +905,11 @@
       "y": 270
     },
     "facing=west,formed=true,module=data_energistics,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/data_energistics_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_off_smart",
       "y": 270
     },
     "facing=west,formed=true,module=data_energistics,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/data_energistics_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/data_energistics_on_smart",
       "y": 270
     },
     "facing=west,formed=true,module=extendedae,smart_cooling=false,working=false": {
@@ -921,11 +921,11 @@
       "y": 270
     },
     "facing=west,formed=true,module=extendedae,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/extendedae_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/extendedae_off_smart",
       "y": 270
     },
     "facing=west,formed=true,module=extendedae,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/extendedae_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/extendedae_on_smart",
       "y": 270
     },
     "facing=west,formed=true,module=other,smart_cooling=false,working=false": {
@@ -937,11 +937,11 @@
       "y": 270
     },
     "facing=west,formed=true,module=other,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/other_off",
+      "model": "neoecoae:block/large_integrated_working_station_compat/other_off_smart",
       "y": 270
     },
     "facing=west,formed=true,module=other,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_compat/other_on",
+      "model": "neoecoae:block/large_integrated_working_station_compat/other_on_smart",
       "y": 270
     },
     "facing=west,formed=true,module=regular,smart_cooling=false,working=false": {
@@ -953,11 +953,11 @@
       "y": 270
     },
     "facing=west,formed=true,module=regular,smart_cooling=true,working=false": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_off",
+      "model": "neoecoae:block/large_integrated_working_station_off_smart",
       "y": 270
     },
     "facing=west,formed=true,module=regular,smart_cooling=true,working=true": {
-      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_on",
+      "model": "neoecoae:block/large_integrated_working_station_on_smart",
       "y": 270
     }
   }

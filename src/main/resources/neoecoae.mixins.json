@@ -39,7 +39,21 @@
     "ae2.storage.StorageBusInventoryMixin",
     "ae2.storage.StorageServiceMixin",
     "ae2.storage.StoredEnergyAmountMixin",
-    "minecraft.LightningBoltMixin"
+    "minecraft.LightningBoltMixin",
+    "ae2.accessor.PrecisePriorityListAccessor",
+    "ae2.key.DefaultKeyOwnerMixin",
+    "ae2.key.AEItemKeyFactoryMixin",
+    "ae2.key.AEFluidKeyFactoryMixin",
+    "ae2.crafting.PatternDetailsComponentPolicyMixin",
+    "ae2.crafting.MultiCraftingTrackerMixin",
+    "ae2.menu.MenuOpenerMixin",
+    "ae2.storage.KeyCounterSnapshotMixin",
+    "ae2.storage.DelegatingStorageListingMixin",
+    "ae2.storage.MEInventoryHandlerListingMixin",
+    "ae2.storage.StorageLevelEmitterPartMixin",
+    "ae2.storage.StorageLevelWatcherMixin",
+    "minecraft.PlayerRemoteMachineReachMixin",
+    "minecraft.SavedDataStorageMixin"
   ],
   "client": [
     "client.jei.RecipeLayoutMixin",
@@ -55,7 +69,8 @@
     "client.ae2.CraftingStatusTableMixin",
     "client.ae2.PatternEncodingTermScreenMixin",
     "client.ae2.SetStockAmountScreenMixin",
-    "client.ae2.FluidHatchNumberEntryWidgetMixin"
+    "client.ae2.FluidHatchNumberEntryWidgetMixin",
+    "client.accessor.MinecraftRenderTargetAccessor"
   ],
   "server": [],
   "injectors": {
@@ -63,5 +78,6 @@
   },
   "mixinextras": {
     "minVersion": "0.5.3"
-  }
+  },
+  "plugin": "cn.dancingsnow.neoecoae.mixins.ae2.storage.StoragePerformanceMixinPlugin"
 }
