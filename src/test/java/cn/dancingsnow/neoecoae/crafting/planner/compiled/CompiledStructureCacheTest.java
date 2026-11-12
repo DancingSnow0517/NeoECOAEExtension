@@ -132,6 +132,191 @@ class CompiledStructureCacheTest {
         verify(second).getCraftingFor(goal);
     }
 
+    @Test void liteAndFullModesKeepSeparateRoutesWhenTheFirstProducerIsMissing() throws Exception {
+        var alternativeInput = AEItemKey.of(Items.GOLD_INGOT);
+        var first = pattern(goal, 1, new GenericStack(raw, 1));
+        var second = pattern(goal, 1, new GenericStack(alternativeInput, 1));
+        var service = routes(java.util.Map.of(goal, List.of(first, second)));
+        var stock = new KeyCounter();
+        stock.add(alternativeInput, 1);
+        var planner = new ECOCraftingPlannerService();
+        for (boolean lite : new boolean[] {true, false, true, false}) {
+            var result = planner.createSession(service, goal, stock, false, lite).plan(1, false, ECOCancellation.NONE);
+            assertEquals(lite ? PlanningStatus.MISSING_ITEMS : PlanningStatus.SUCCESS, result.status());
+            assertEquals(lite, result.liteCraftingMode());
+            assertTrue(result.exactPatternTimes().containsKey(lite ? first : second));
+            assertFalse(result.exactPatternTimes().containsKey(lite ? second : first));
+        }
+        verify(service, times(2)).getCraftingFor(goal);
+    }
+
+    @Test void cyclePoliciesKeepLiteAndSurviveStructureReuse() throws Exception {
+        var seed = AEItemKey.of(Items.IRON_NUGGET);
+        var root = pattern(goal, 1, new GenericStack(raw, 1));
+        var grow = pattern(raw, 2, new GenericStack(seed, 1));
+        var recover = pattern(seed, 1, new GenericStack(raw, 1));
+        var service = routes(java.util.Map.of(goal, List.of(root), raw, List.of(grow), seed, List.of(recover)));
+        var stock = new KeyCounter();
+        stock.add(seed, 1);
+        var planner = new ECOCraftingPlannerService();
+        for (boolean cycles : new boolean[] {false, true, false, true}) {
+            var session = planner.createSession(service, goal, stock, cycles, true);
+            for (long amount : new long[] {2L, 10L}) {
+                var result = session.plan(amount, false, ECOCancellation.NONE);
+                assertEquals(cycles || amount == 2L ? PlanningStatus.SUCCESS : PlanningStatus.MISSING_ITEMS, result.status(),
+                    result.trace().diagnostics().toString());
+                assertTrue(result.liteCraftingMode());
+                if (cycles || amount == 2L) assertNull(result.executionPlanError());
+                else assertFalse(result.exactMissingItems().isEmpty(), "Disabled cycles cannot grow the captured seed");
+            }
+            assertEquals(1, stock.get(seed), "Planning must preserve the captured startup stock");
+        }
+        verify(service, times(2)).getCraftingFor(goal);
+    }
+
+    @Test void unrelatedComponentOverridesKeepTheRequestedLitePass() throws Exception {
+        var recipe = pattern(goal, 1, new GenericStack(raw, 1));
+        var service = routes(java.util.Map.of(goal, List.of(recipe)));
+        var unrelated = Set.of(BuiltInRegistries.ITEM.getKey(Items.GOLD_INGOT));
+        var result = new ECOCraftingPlannerService().createSession(service, goal, stock(1), true, true, unrelated)
+            .plan(1, false, ECOCancellation.NONE);
+        assertEquals(PlanningStatus.SUCCESS, result.status());
+        assertTrue(result.liteCraftingMode());
+        assertEquals(unrelated, result.fuzzyPlanningItemIds());
+        assertNull(result.executionPlanError());
+    }
+
+    @Test void liteAggregatesSharedIngredientsBeforeRoundingPatternCounts() throws Exception {
+        var other = AEItemKey.of(Items.GOLD_INGOT);
+        var shared = AEItemKey.of(Items.IRON_NUGGET);
+        var fuel = AEItemKey.of(Items.COAL);
+        var root = pattern(goal, 1, new GenericStack(raw, 1), new GenericStack(other, 1));
+        var left = pattern(raw, 1, new GenericStack(shared, 1));
+        var right = pattern(other, 1, new GenericStack(shared, 1));
+        var batch = pattern(shared, 3, new GenericStack(fuel, 1));
+        var service = routes(java.util.Map.of(goal, List.of(root), raw, List.of(left),
+            other, List.of(right), shared, List.of(batch)));
+        var inventory = new KeyCounter();
+        inventory.add(fuel, 1);
+        var result = lite(service, inventory, 1);
+        assertEquals(PlanningStatus.SUCCESS, result.status());
+        assertEquals(java.math.BigInteger.ONE, result.exactPatternTimes().get(batch).toBigInteger());
+        assertEquals(java.math.BigInteger.ONE, result.exactUsedItems().get(fuel).toBigInteger());
+        assertNull(result.executionPlanError());
+        assertEquals(4, result.executionPlan().tasks().size());
+    }
+
+    @Test void liteCreditsAPhysicalSecondaryOutputToAnotherBranch() throws Exception {
+        var secondary = AEItemKey.of(Items.GOLD_INGOT);
+        var fuel = AEItemKey.of(Items.COAL);
+        var root = pattern(goal, 1, new GenericStack(raw, 1), new GenericStack(secondary, 1));
+        var source = pattern(raw, 1, new GenericStack(fuel, 1));
+        when(source.getOutputs()).thenReturn(List.of(new GenericStack(raw, 1), new GenericStack(secondary, 1)));
+        var service = routes(java.util.Map.of(goal, List.of(root), raw, List.of(source)));
+        var inventory = new KeyCounter();
+        inventory.add(fuel, 1);
+        var result = lite(service, inventory, 1);
+        assertEquals(PlanningStatus.SUCCESS, result.status());
+        assertTrue(result.exactMissingItems().isEmpty());
+        assertEquals(java.math.BigInteger.ONE, result.exactPatternTimes().get(source).toBigInteger());
+        assertEquals(java.math.BigInteger.ONE, result.exactUsedItems().get(fuel).toBigInteger());
+        assertNull(result.executionPlanError());
+        assertEquals(2, result.exactPatternTimes().size());
+    }
+
+    @Test void liteChargesPrimaryInputsPerCraftWithoutSubstituteOrRemainderAnalysis() throws Exception {
+        var substitute = AEItemKey.of(Items.GOLD_INGOT);
+        var recipe = pattern(goal, 1, new GenericStack(raw, 1));
+        var input = recipe.getInputs()[0];
+        when(input.getPossibleInputs()).thenReturn(new GenericStack[] {new GenericStack(raw, 1), new GenericStack(substitute, 1)});
+        when(input.getRemainingKey(raw)).thenReturn(raw);
+        var inventory = new KeyCounter();
+        inventory.add(raw, 31);
+        inventory.add(substitute, 100);
+        var service = routes(java.util.Map.of(goal, List.of(recipe)));
+        new cn.dancingsnow.neoecoae.crafting.planner.compile.CraftingNetworkCompiler().compile(
+            service, goal, true, true, Set.of(), ECOCancellation.NONE);
+        verify(input, never()).getRemainingKey(any());
+        var result = new ECOCraftingPlannerService().createSession(service,
+            goal, inventory, false, true, Set.of())
+            .plan(32, false, ECOCancellation.NONE);
+        assertEquals(PlanningStatus.MISSING_ITEMS, result.status());
+        assertEquals(java.math.BigInteger.ONE, result.exactMissingItems().get(raw).toBigInteger());
+        assertEquals(java.math.BigInteger.valueOf(31), result.exactUsedItems().get(raw).toBigInteger());
+        assertFalse(result.exactUsedItems().containsKey(substitute));
+    }
+
+    @Test void liteTraversesCyclesOnceAndReportsUnfundedInputs() throws Exception {
+        var seed = AEItemKey.of(Items.IRON_NUGGET);
+        var root = pattern(goal, 1, new GenericStack(raw, 1));
+        var forward = pattern(raw, 1, new GenericStack(seed, 1));
+        var reverse = pattern(seed, 1, new GenericStack(raw, 1));
+        var service = routes(java.util.Map.of(goal, List.of(root), raw, List.of(forward), seed, List.of(reverse)));
+        var inventory = new KeyCounter();
+        inventory.add(seed, 1);
+        var funded = lite(service, inventory, 1);
+        assertEquals(PlanningStatus.SUCCESS, funded.status());
+        assertEquals(1, funded.cycles().size());
+        assertFalse(funded.exactPatternTimes().containsKey(reverse));
+        assertNull(funded.executionPlanError());
+        var missing = lite(service, new KeyCounter(), 1);
+        assertEquals(PlanningStatus.MISSING_ITEMS, missing.status());
+        assertEquals(java.math.BigInteger.ONE, missing.exactMissingItems().get(raw).toBigInteger());
+        assertEquals(3, missing.exactPatternTimes().size());
+    }
+
+    @Test void liteCanReserveFinalProductStockAsCycleSeedWithoutSkippingProduction() throws Exception {
+        var recipe = pattern(goal, 2, new GenericStack(goal, 1));
+        var service = routes(java.util.Map.of(goal, List.of(recipe)));
+        var inventory = new KeyCounter();
+        inventory.add(goal, 1);
+        var funded = lite(service, inventory, 1);
+        assertEquals(PlanningStatus.SUCCESS, funded.status());
+        assertEquals(java.math.BigInteger.ONE, funded.exactUsedItems().get(goal).toBigInteger());
+        assertEquals(java.math.BigInteger.ONE, funded.exactPatternTimes().get(recipe).toBigInteger());
+        assertNull(funded.executionPlanError());
+        var missing = lite(service, new KeyCounter(), 1);
+        assertEquals(PlanningStatus.CYCLE_UNRESOLVED, missing.status());
+        assertFalse(missing.executable(), "A self-produced output cannot replace its own startup seed");
+    }
+
+    @Test void liteKeepsLargeIntermediateRequirementsExact() throws Exception {
+        var recipe = pattern(goal, 1, new GenericStack(raw, 3));
+        var result = lite(routes(java.util.Map.of(goal, List.of(recipe))), new KeyCounter(), Long.MAX_VALUE);
+        assertEquals(PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE, result.status());
+        assertEquals(java.math.BigInteger.valueOf(Long.MAX_VALUE).multiply(java.math.BigInteger.valueOf(3)),
+            result.exactMissingItems().get(raw).toBigInteger());
+        assertTrue(result.liteCraftingMode());
+    }
+
+    private static cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult lite(
+            ICraftingService service, KeyCounter inventory, long amount) throws Exception {
+        return new ECOCraftingPlannerService().createSession(service, goal, inventory, false, true)
+            .plan(amount, false, ECOCancellation.NONE);
+    }
+
+    private static ICraftingService routes(java.util.Map<AEKey, List<IPatternDetails>> patterns) {
+        var service = mock(ICraftingService.class, withSettings().extraInterfaces(ECOCraftingProviderRevision.class));
+        when(((ECOCraftingProviderRevision) service).neoecoae$getProviderRevision()).thenReturn(1L);
+        when(((ECOCraftingProviderRevision) service).neoecoae$isProviderSnapshotStable()).thenReturn(true);
+        when(service.getCraftingFor(any(AEKey.class))).thenAnswer(call -> patterns.getOrDefault(call.getArgument(0), List.of()));
+        return service;
+    }
+
+    private static IPatternDetails pattern(AEKey output, long count, GenericStack... ingredients) {
+        var inputs = java.util.Arrays.stream(ingredients).map(ingredient -> {
+            var input = mock(IPatternDetails.IInput.class);
+            when(input.getMultiplier()).thenReturn(1L);
+            when(input.getPossibleInputs()).thenReturn(new GenericStack[] {ingredient});
+            return input;
+        }).toArray(IPatternDetails.IInput[]::new);
+        var pattern = mock(IPatternDetails.class);
+        when(pattern.getInputs()).thenReturn(inputs);
+        when(pattern.getOutputs()).thenReturn(List.of(new GenericStack(output, count)));
+        when(pattern.getPrimaryOutput()).thenReturn(new GenericStack(output, count));
+        return pattern;
+    }
+
     private static KeyCounter stock(long amount) {
         var stock = new KeyCounter();
         if (amount > 0) stock.add(raw, amount);

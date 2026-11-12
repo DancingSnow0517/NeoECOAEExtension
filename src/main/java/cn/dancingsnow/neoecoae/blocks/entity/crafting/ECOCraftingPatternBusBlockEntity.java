@@ -1,12 +1,13 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.implementations.blockentities.PatternContainerGroup;
 import appeng.api.inventories.BaseInternalInventory;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGrid;
-import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
@@ -292,6 +293,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
+        // AE2 mounts this list when the node joins a grid; catalog/disk changes explicitly republish it.
+        // Power and cable reboots do not change the advertised patterns and need no provider refresh.
         refreshAuxiliaryPatterns();
         if (auxiliaryPatternDetails.isEmpty()) {
             return catalog.availablePatterns();
@@ -512,10 +515,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return cluster;
     }
 
-    boolean isServerStoppingForPublisher() {
-        return isServerStopping();
-    }
-
     @Override
     public @Nullable IGrid getGrid() {
         var node = getGridNode();
@@ -621,14 +620,14 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             var block = cluster.getController().getBlockState().getBlock();
             if (block != Blocks.AIR) {
                 return new PatternContainerGroup(
-                    AEItemKey.of(block.asItem()),
+                    ECOKeyFactory.item(block.asItem()),
                     block.getName(),
                     List.of()
                 );
             }
         }
         return new PatternContainerGroup(
-            AEItemKey.of(NEBlocks.CRAFTING_PATTERN_BUS.asStack()),
+            ECOKeyFactory.item(NEBlocks.CRAFTING_PATTERN_BUS.asStack()),
             NEBlocks.CRAFTING_PATTERN_BUS.get().getName(),
             List.of()
         );
@@ -672,7 +671,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         if (shouldValidateNetGrowthPatterns()) {
             NetGrowthPatternValidationRegistry.validateAndRegisterFromSmartPatternBus(details);
         }
-        return new ECOPreparedPattern(itemStack, details, AEItemKey.of(itemStack));
+        return new ECOPreparedPattern(itemStack, details, ECOKeyFactory.item(itemStack));
     }
 
     @Override
@@ -717,23 +716,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             && prepared.details() instanceof IMolecularAssemblerSupportedPattern
             && !prepared.stack().isEmpty()
             && prepared.matches(prepared.stack());
-    }
-
-    /**
-     * Purely a function of the recipe encoded in the pattern - never cached and never written back onto the
-     * pattern's ItemStack, so it can't go stale and can't affect pattern identity (dedup, AEItemKey, ...).
-     */
-    private static boolean isDurabilityPattern(IPatternDetails details) {
-        for (var input : details.getInputs()) {
-            if (input == null) continue;
-            for (var possible : input.getPossibleInputs()) {
-                if (possible != null && possible.what() instanceof AEItemKey itemKey
-                    && itemKey.toStack(1).isDamageableItem()) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     @Override
@@ -851,22 +833,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         notifyPatternInterfaceTopologyChanged(previousGrid);
     }
 
-    @Override
-    public void onMainNodeStateChanged(IGridNodeListener.State reason) {
-        if (isServerStopping()) {
-            return;
-        }
-        super.onMainNodeStateChanged(reason);
-        if (reason == IGridNodeListener.State.POWER || reason == IGridNodeListener.State.GRID_BOOT) {
-            queueCraftingProviderRefresh();
-            notifyPatternInterfaceTopologyChanged();
-        }
-    }
-
-    private void updatePatternDetails() {
-        catalog.updatePatternDetails();
-    }
-
     /**
      * Republishes this provider's pattern list to AE2.
      *
@@ -937,19 +903,11 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         publisher.notifyPatternInterfaceHosts(slots);
     }
 
-    private void notifyPatternInterfaceTopologyChanged() {
-        publisher.notifyPatternInterfaceTopologyChanged();
-    }
-
     private void notifyPatternInterfaceTopologyChanged(@Nullable IGrid grid) {
         publisher.notifyPatternInterfaceTopologyChanged(grid);
     }
 
-    /** Re-mount the provider after AE2 has completed a power or pathing transition. */
-    private void queueCraftingProviderRefresh() {
-        publisher.queueCraftingProviderRefresh();
-    }
-
+    /** Flushes a coalesced pattern-content update. */
     public void flushScheduledPatternDetails() {
         catalog.flushScheduledPatternDetails();
     }

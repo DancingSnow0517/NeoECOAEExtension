@@ -1,5 +1,9 @@
 package cn.dancingsnow.neoecoae.crafting.execution.worker;
 
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputRouter;
 
 import appeng.api.config.Actionable;
@@ -7,7 +11,6 @@ import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.TickRateModulation;
-import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -32,12 +35,9 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEnti
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import lombok.Getter;
 import net.minecraft.core.HolderLookup;
@@ -274,7 +274,7 @@ public class ECOCraftingThread {
             }
             return null;
         }
-        if (!outputItems.isEmpty()) return AEItemKey.of(outputItems.getFirst());
+        if (!outputItems.isEmpty()) return ECOKeyFactory.item(outputItems.getFirst());
         for (var stack : batchOutputItems) {
             if (stack.what() instanceof AEItemKey key) return key;
         }
@@ -287,19 +287,23 @@ public class ECOCraftingThread {
 
     /** Quantity of the displayed item only; other outputs and fluids must not inflate its count. */
     public java.math.BigInteger getDisplayedItemAmount(AEItemKey key) {
-        if (!isBusy) return java.math.BigInteger.ZERO;
+        return getDisplayedItemQuantity(key).toBigInteger();
+    }
+
+    public PlannerAmount getDisplayedItemQuantity(AEItemKey key) {
+        if (!isBusy) return PlannerAmount.ZERO;
         if (exactVirtual != null) {
-            return exactVirtual.snapshot(true).getOrDefault(key, java.math.BigInteger.ZERO);
+            return exactVirtual.quantity(true, key);
         }
-        java.math.BigInteger amount = java.math.BigInteger.ZERO;
+        PlannerAmount amount = PlannerAmount.ZERO;
         for (ItemStack output : outputItems) {
-            if (!output.isEmpty() && key.equals(AEItemKey.of(output))) {
-                amount = amount.add(java.math.BigInteger.valueOf(output.getCount()));
+            if (!output.isEmpty() && key.equals(ECOKeyFactory.item(output))) {
+                amount = amount.add(output.getCount());
             }
         }
         for (GenericStack output : batchOutputItems) {
             if (key.equals(output.what()) && output.amount() > 0) {
-                amount = amount.add(java.math.BigInteger.valueOf(output.amount()));
+                amount = amount.add(output.amount());
             }
         }
         return amount;
@@ -384,7 +388,7 @@ public class ECOCraftingThread {
         var unit = recipe.withVirtualBatch(1L, job);
         if (unit == null || !pushVirtualBatch(unit, controller)) return false;
         exactVirtual = ledger;
-        craftCount = count.min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).longValueExact();
+        craftCount = ledger.craftQuantity().longValueSaturated();
         setChanged();
         return true;
     }
@@ -531,17 +535,6 @@ public class ECOCraftingThread {
         List<ItemStack> copy = new ArrayList<>();
         copyStacks(source, copy);
         return copy;
-    }
-
-    private List<ItemStack> snapshotCraftingInputs() {
-        List<ItemStack> inputs = new ArrayList<>();
-        for (int slot = 0; slot < craftingInv.getContainerSize(); slot++) {
-            ItemStack stack = craftingInv.getItem(slot);
-            if (!stack.isEmpty()) {
-                inputs.add(stack.copy());
-            }
-        }
-        return inputs;
     }
 
     private int userPower(
@@ -770,7 +763,7 @@ public class ECOCraftingThread {
 
     private static void addStack(KeyCounter counter, ItemStack stack) {
         if (stack != null && !stack.isEmpty()) {
-            GenericStack genericStack = GenericStack.fromItemStack(stack);
+            GenericStack genericStack = ECOKeyFactory.fromItemStack(stack);
             if (genericStack != null && genericStack.amount() > 0L) {
                 counter.add(genericStack.what(), genericStack.amount());
             }
@@ -1174,12 +1167,11 @@ public class ECOCraftingThread {
 
     public java.math.BigInteger getExactOutputAmount() {
         return exactVirtual == null ? java.math.BigInteger.valueOf(getOutputAmount())
-            : exactVirtual.snapshot(true).values().stream().reduce(java.math.BigInteger.ZERO, java.math.BigInteger::add);
+            : exactVirtual.totalQuantity(true).toBigInteger();
     }
 
     private long getOutputAmount() {
-        if (exactVirtual != null) return getExactOutputAmount()
-            .min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).longValueExact();
+        if (exactVirtual != null) return exactVirtual.totalQuantity(true).longValueSaturated();
         long amount = 0;
         for (ItemStack stack : outputItems) {
             if (!stack.isEmpty()) {

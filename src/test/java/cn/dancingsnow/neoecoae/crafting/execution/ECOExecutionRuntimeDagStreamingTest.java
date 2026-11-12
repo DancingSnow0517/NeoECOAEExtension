@@ -12,6 +12,7 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingLink;
@@ -117,7 +118,7 @@ class ECOExecutionRuntimeDagStreamingTest {
             progress[1].accept(1L);
             runtime.onAccepted(cycle, 1L, new KeyCounter[0]);
             assertEquals(List.of(0, 1), taskIds(runtime.candidates()));
-            assertEquals(Map.of(seed, 2L), runtime.protectedStartupSeed(null));
+            assertEquals(Map.of(seed, PlannerAmount.of(2L)), runtime.protectedStartupSeed(null));
 
             cycle = runtime.candidates().get(1);
             progress[1].accept(1L);

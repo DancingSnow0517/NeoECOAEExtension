@@ -5,6 +5,7 @@ import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
+import cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapters;
@@ -66,7 +67,13 @@ public final class CraftingNetworkCompiler {
 
     public CompiledNetwork compile(ICraftingService service, AEKey goal, boolean cyclePlanningEnabled,
             Set<Identifier> fuzzyPlanningItemIds, ECOCancellation cancellation) throws InterruptedException {
-        if (semanticAdapters == null) {
+        return compile(service, goal, cyclePlanningEnabled, false, fuzzyPlanningItemIds, cancellation);
+    }
+
+    public CompiledNetwork compile(ICraftingService service, AEKey goal, boolean cyclePlanningEnabled,
+            boolean liteCrafting, Set<Identifier> fuzzyPlanningItemIds, ECOCancellation cancellation)
+            throws InterruptedException {
+        if (semanticAdapters == null && !liteCrafting) {
             return new CraftingNetworkCompiler(PatternSemanticAdapters.defaults(), specialPatternAnalyzer)
                 .compile(service, goal, cyclePlanningEnabled, fuzzyPlanningItemIds, cancellation);
         }
@@ -89,6 +96,22 @@ public final class CraftingNetworkCompiler {
                     emittable.add(key);
                 }
                 List<CompiledPattern> compiled = new ArrayList<>();
+                if (liteCrafting) {
+                    // Keep one producer in AE2 priority order, widening only explicitly marked item IDs.
+                    // No alternative-route search, semantic callbacks, or byproduct-only discovery.
+                    boolean componentInsensitiveOutput = !key.equals(goal) && ignoresComponents(key, ignoredItemIds);
+                    for (IPatternDetails details : craftingFor(service, key, componentInsensitiveOutput)) {
+                        cancellation.checkpoint();
+                        if (!yields(details, key, componentInsensitiveOutput)) continue;
+                        CompiledPattern pattern = compileLitePattern(nextPatternId++, details, key,
+                            componentInsensitiveOutput, ignoredItemIds);
+                        compiled.add(pattern);
+                        edgeCount += enqueue(pattern, queued, work);
+                        break;
+                    }
+                    producers.put(key, compiled);
+                    continue;
+                }
                 Set<PatternDefinition> definitions = new HashSet<>();
                 boolean componentInsensitiveOutput = !key.equals(goal) && ignoresComponents(key, ignoredItemIds);
                 List<IPatternDetails> offered = new ArrayList<>();
@@ -140,25 +163,42 @@ public final class CraftingNetworkCompiler {
                     if (definition == null || knownDefinitions.add(definition)) known.add(view.details());
                 }
             }
+            Map<AEKey, IPatternDetails> liteSources = new LinkedHashMap<>();
+            if (liteCrafting) {
+                for (List<CompiledPattern> views : producers.values()) for (CompiledPattern view : views) {
+                    cancellation.checkpoint();
+                    for (GenericStack output : view.outputs()) liteSources.putIfAbsent(output.what(), view.details());
+                }
+            }
             for (var entry : producers.entrySet()) {
                 AEKey key = entry.getKey();
                 if (emittable.contains(key)
+                        || liteCrafting && !entry.getValue().isEmpty()
                         || entry.getValue().stream().anyMatch(CompiledPattern::fastSupported)) continue;
                 boolean componentInsensitiveOutput = !key.equals(goal) && ignoresComponents(key, ignoredItemIds);
                 Set<IPatternDetails> present = Collections.newSetFromMap(new IdentityHashMap<>());
                 for (CompiledPattern view : entry.getValue()) present.add(view.details());
                 List<CompiledPattern> extended = null;
-                for (IPatternDetails details : known) {
+                List<IPatternDetails> sources = liteCrafting && !componentInsensitiveOutput
+                    ? liteSources.containsKey(key) ? List.of(liteSources.get(key)) : List.of()
+                    : known;
+                for (IPatternDetails details : sources) {
                     if (present.contains(details) || !yields(details, key, componentInsensitiveOutput)) continue;
                     cancellation.checkpoint();
-                    CompiledPattern view = compilePattern(nextPatternId++, details, key, cyclePlanningEnabled,
-                        ignoredItemIds, componentInsensitiveOutput, service);
+                    CompiledPattern view = liteCrafting
+                        ? compileLitePattern(nextPatternId++, details, key, componentInsensitiveOutput, ignoredItemIds)
+                        : compilePattern(nextPatternId++, details, key, cyclePlanningEnabled,
+                            ignoredItemIds, componentInsensitiveOutput, service);
                     if (extended == null) extended = new ArrayList<>(entry.getValue());
                     extended.add(view);
                     edgeCount += enqueue(view, queued, work);
+                    if (liteCrafting) break;
                 }
                 if (extended != null) entry.setValue(extended);
             }
+            // Lite views share the already-expanded inputs of their one fixed physical pattern.
+            // Discover secondary-only producers once; never add alternatives or reopen the closure.
+            if (liteCrafting) break;
             if (work.isEmpty() || nextPatternId == before) break;
         }
         return new CompiledNetwork(goal, producers, emittable, nextPatternId, edgeCount);
@@ -236,6 +276,50 @@ public final class CraftingNetworkCompiler {
     }
 
     private record PatternDefinition(Class<?> implementation, AEItemKey definition) {}
+
+    /** Lite contract: encoded primary inputs and all physical outputs, without remainder analysis. */
+    private static CompiledPattern compileLitePattern(int id, IPatternDetails details, AEKey producedKey,
+            boolean componentInsensitiveOutput, Set<Identifier> fuzzyPlanningItemIds) {
+        List<CompiledInput> inputs = new ArrayList<>();
+        List<PatternSemantics.Input> consumed = new ArrayList<>();
+        List<GenericStack> outputs = new ArrayList<>();
+        PlannerAmount outputAmount = PlannerAmount.ZERO;
+        String unsupported = null;
+        try {
+            for (GenericStack output : safeOutputs(details)) {
+                if (output == null || output.what() == null || output.amount() <= 0L) {
+                    throw new IllegalArgumentException("Invalid pattern output");
+                }
+                if (producedKey.equals(output.what())
+                        || componentInsensitiveOutput && sameItem(producedKey, output.what())) {
+                    outputs.add(new GenericStack(producedKey, output.amount()));
+                    outputAmount = outputAmount.add(PlannerAmount.of(output.amount()));
+                } else {
+                    outputs.add(output);
+                }
+            }
+            if (outputAmount.isZero()) throw new IllegalArgumentException("Output does not match request");
+            for (IPatternDetails.IInput input : details.getInputs()) {
+                GenericStack[] possible = input.getPossibleInputs();
+                if (possible == null || possible.length == 0 || possible[0] == null
+                        || possible[0].what() == null || possible[0].amount() <= 0L || input.getMultiplier() <= 0L) {
+                    throw new IllegalArgumentException("Invalid primary pattern input");
+                }
+                GenericStack primary = possible[0];
+                PlannerAmount amount = PlannerAmount.of(primary.amount()).multiply(input.getMultiplier());
+                inputs.add(new CompiledInput(input, primary.what(), amount, true, "", null,
+                    PlannerAmount.ZERO, ECOProcessingComponentMatching.enabled(details, primary.what(), fuzzyPlanningItemIds)));
+                consumed.add(new PatternSemantics.Input(input, primary.what(), amount, null, PlannerAmount.ZERO));
+            }
+        } catch (RuntimeException failure) {
+            unsupported = "MALFORMED_PATTERN:" + failure.getClass().getSimpleName();
+        }
+        PatternSemantics semantics = new PatternSemantics(details, null, consumed, outputs, List.of(), List.of(),
+            PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE,
+            unsupported == null, true, unsupported);
+        return new CompiledPattern(id, details, producedKey, outputAmount, inputs, outputs, unsupported == null,
+            unsupported == null ? "" : unsupported, false, semantics, SpecialPatternAnalysis.NONE);
+    }
 
     private CompiledPattern compilePattern(int id, IPatternDetails details, AEKey producedKey,
             boolean cyclePlanningEnabled, Set<Identifier> fuzzyPlanningItemIds,

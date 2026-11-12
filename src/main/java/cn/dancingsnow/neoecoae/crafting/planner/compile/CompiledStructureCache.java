@@ -17,9 +17,15 @@ public final class CompiledStructureCache {
     private static final int MAX_WEIGHT = 50_000;
     private static final List<Entry> ENTRIES = new ArrayList<>();
 
-    public record Structure(CompiledNetwork network, CondensationGraph condensation) {}
+    public record Structure(CompiledNetwork network, CondensationGraph condensation,
+            long contractGeneration, long providerRevision, boolean liteCraftingMode) {
+        public Structure(CompiledNetwork network, CondensationGraph condensation,
+                long contractGeneration, long providerRevision) {
+            this(network, condensation, contractGeneration, providerRevision, false);
+        }
+    }
     private record Entry(WeakReference<ICraftingService> owner, long revision, long contractGeneration, AEKey goal,
-            boolean cycles, Set<Identifier> fuzzyItems, Structure structure, int weight) {}
+            boolean cycles, boolean liteCrafting, Set<Identifier> fuzzyItems, Structure structure, int weight) {}
 
     private CompiledStructureCache() {}
 
@@ -30,13 +36,18 @@ public final class CompiledStructureCache {
 
     public static synchronized Structure get(ICraftingService service, long revision, long contractGeneration, AEKey goal,
             boolean cycles, Set<Identifier> fuzzyItems) {
+        return get(service, revision, contractGeneration, goal, cycles, false, fuzzyItems);
+    }
+
+    public static synchronized Structure get(ICraftingService service, long revision, long contractGeneration, AEKey goal,
+            boolean cycles, boolean liteCrafting, Set<Identifier> fuzzyItems) {
         ENTRIES.removeIf(entry -> entry.owner().get() == null || entry.contractGeneration() != contractGeneration
                 || entry.owner().get() == service && entry.revision() != revision);
         if (revision < 0 || revision(service) != revision
                 || AE2PatternIntrospection.reloadGeneration() != contractGeneration) return null;
         for (int i = 0; i < ENTRIES.size(); i++) {
             Entry entry = ENTRIES.get(i);
-            if (matches(entry, service, revision, goal, cycles, fuzzyItems)) {
+            if (matches(entry, service, revision, goal, cycles, liteCrafting, fuzzyItems)) {
                 ENTRIES.remove(i);
                 ENTRIES.add(entry);
                 return entry.structure();
@@ -47,6 +58,11 @@ public final class CompiledStructureCache {
 
     public static synchronized void put(ICraftingService service, long revision, long contractGeneration, AEKey goal,
             boolean cycles, Set<Identifier> fuzzyItems, Structure structure) {
+        put(service, revision, contractGeneration, goal, cycles, false, fuzzyItems, structure);
+    }
+
+    public static synchronized void put(ICraftingService service, long revision, long contractGeneration, AEKey goal,
+            boolean cycles, boolean liteCrafting, Set<Identifier> fuzzyItems, Structure structure) {
         if (revision < 0 || revision(service) != revision
                 || AE2PatternIntrospection.reloadGeneration() != contractGeneration) return;
         long weight = (long) structure.network().reachablePatternCount() + structure.network().edgeCount()
@@ -54,18 +70,18 @@ public final class CompiledStructureCache {
         if (weight > MAX_WEIGHT) return;
         ENTRIES.removeIf(entry -> entry.owner().get() == null || entry.contractGeneration() != contractGeneration
                 || entry.owner().get() == service && (entry.revision() != revision
-                    || matches(entry, service, revision, goal, cycles, fuzzyItems)));
+                    || matches(entry, service, revision, goal, cycles, liteCrafting, fuzzyItems)));
         int totalWeight = ENTRIES.stream().mapToInt(Entry::weight).sum();
         while (!ENTRIES.isEmpty() && (ENTRIES.size() >= MAX_ENTRIES || totalWeight + weight > MAX_WEIGHT)) {
             totalWeight -= ENTRIES.removeFirst().weight();
         }
-        ENTRIES.add(new Entry(new WeakReference<>(service), revision, contractGeneration, goal, cycles,
+        ENTRIES.add(new Entry(new WeakReference<>(service), revision, contractGeneration, goal, cycles, liteCrafting,
                 Set.copyOf(fuzzyItems), structure, (int) weight));
     }
 
     private static boolean matches(Entry entry, ICraftingService service, long revision, AEKey goal,
-            boolean cycles, Set<Identifier> fuzzyItems) {
+            boolean cycles, boolean liteCrafting, Set<Identifier> fuzzyItems) {
         return entry.owner().get() == service && entry.revision() == revision && entry.goal().equals(goal)
-                && entry.cycles() == cycles && entry.fuzzyItems().equals(fuzzyItems);
+                && entry.cycles() == cycles && entry.liteCrafting() == liteCrafting && entry.fuzzyItems().equals(fuzzyItems);
     }
 }

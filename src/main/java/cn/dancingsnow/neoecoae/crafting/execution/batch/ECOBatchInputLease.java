@@ -8,12 +8,13 @@ import java.math.BigInteger;
 import java.util.Map;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 
 /** One-shot ownership lease for the physical inputs of one current batch. */
 public final class ECOBatchInputLease {
     private final ListCraftingInventory inventory;
     private final List<GenericStack> inputs;
-    private final Map<AEKey, BigInteger> exactInputs;
+    private final Map<AEKey, PlannerAmount> exactInputs;
     private boolean settled;
 
     private ECOBatchInputLease(ListCraftingInventory inventory, List<GenericStack> inputs) {
@@ -22,7 +23,7 @@ public final class ECOBatchInputLease {
         this.exactInputs = Map.of();
     }
 
-    private ECOBatchInputLease(ECOExactInventory inventory, Map<AEKey, BigInteger> inputs) {
+    private ECOBatchInputLease(ECOExactInventory inventory, Map<AEKey, PlannerAmount> inputs) {
         this.inventory = inventory;
         this.inputs = List.of();
         this.exactInputs = inputs;
@@ -33,7 +34,11 @@ public final class ECOBatchInputLease {
     }
 
     public static ECOBatchInputLease acquireExact(ECOExactInventory inventory, Map<AEKey, BigInteger> inputs) {
-        return inventory.debit(inputs) ? new ECOBatchInputLease(inventory, inputs) : null;
+        return acquireExactQuantities(inventory, ECOExactInventory.fromBigIntegers(inputs));
+    }
+
+    public static ECOBatchInputLease acquireExactQuantities(ECOExactInventory inventory, Map<AEKey, PlannerAmount> inputs) {
+        return inventory.debitQuantities(inputs) ? new ECOBatchInputLease(inventory, inputs) : null;
     }
 
     /** Only a linear batch may refund a proportional, explicitly rejected suffix. */
@@ -65,7 +70,7 @@ public final class ECOBatchInputLease {
         if (!settled) {
             settled = true;
             if (exactInputs.isEmpty()) ECOBatchCraftingHelper.insertAll(inventory, inputs);
-            else ((ECOExactInventory) inventory).restore(exactInputs);
+            else ((ECOExactInventory) inventory).restoreQuantities(exactInputs);
         }
     }
 }

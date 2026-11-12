@@ -253,7 +253,10 @@ final class ECOCraftingTaskScheduler {
                             stallDiagnostics.providerConsidered(eligible);
                             return eligible;
                         },
-                        (providerCandidate, busy) -> stallDiagnostics.provider(pattern, providerCandidate, busy),
+                        (providerCandidate, busy) -> {
+                            providerDispatcher.observeProcessingTarget(current, pattern, providerCandidate);
+                            stallDiagnostics.provider(pattern, providerCandidate, busy);
+                        },
                         (providerCandidate, busy) -> ECOCraftingDispatchPolicyRegistry.isProviderAvailable(
                                 cpuContext, providerCandidate, busy));
                 if (providers.isEmpty()) {
@@ -269,7 +272,7 @@ final class ECOCraftingTaskScheduler {
                         ? 0L : current.executionRuntime.startupSeedGeneration();
                 long reloadGenerationBeforeResolve = AE2PatternIntrospection.reloadGeneration();
                 var protectedStartupSeed = current.executionRuntime == null
-                        ? java.util.Map.<AEKey, Long>of()
+                        ? java.util.Map.<AEKey, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount>of()
                         : current.executionRuntime.protectedStartupSeed(candidate);
                 var inputInventory = current.executionRuntime == null && current.fuzzyPlanningItemIds.isEmpty()
                         ? new ECOCraftingInputPreview(inventory, inputTemplateCache)

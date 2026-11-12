@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.config.Actionable;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionSource;
@@ -18,7 +20,7 @@ final class FluidHatchNetworkPull {
         if (target < 0) return;
         long stored = tank.getStoredAmount();
         if (stored > 0) {
-            AEFluidKey current = AEFluidKey.of(tank.getFluid());
+            AEFluidKey current = ECOKeyFactory.fluid(tank.getFluid());
             long excess = !current.equals(selected) ? stored : Math.max(0, stored - target);
             if (excess > 0) {
                 long returned = network.insert(current, excess, Actionable.MODULATE, source);

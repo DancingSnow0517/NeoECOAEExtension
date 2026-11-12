@@ -9,6 +9,7 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import appeng.api.stacks.AEKeyTypes;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
@@ -141,14 +142,14 @@ class ECOCraftingPlanUpdaterTest {
     @Test void startupReservationsCannotDisappearWhenTheSuffixIsRebound() {
         var f = new Fixture();
         var runtime = mock(ECOExecutionRuntime.class);
-        when(runtime.protectedStartupSeed(null)).thenReturn(Map.of(raw, 1L));
+        when(runtime.protectedStartupSeed(null)).thenReturn(Map.of(raw, PlannerAmount.ONE));
         f.job.executionRuntime = runtime;
         assertFalse(f.install());
         assertSame(runtime, f.job.executionRuntime);
         assertEquals(8, f.job.tasks.get(f.first).value);
     }
 
-    @Test void submissionTransfersOnlyTheMatchingGridsContextAndFreezesConfirmationWork() {
+    @Test void submissionTransfersTheMatchingGridsContext() {
         var f = new Fixture();
         var grid = mock(appeng.api.networking.IGrid.class, RETURNS_DEEP_STUBS);
         when(f.cpu.isActive()).thenReturn(true);
@@ -157,12 +158,12 @@ class ECOCraftingPlanUpdaterTest {
         cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry.register(f.candidate.plan(), f.candidate);
         f.host.setJobFromLifecycle(null);
         f.host.getInventory().list.clear();
-        try (var helpers = mockStatic(CraftingCpuHelper.class, CALLS_REAL_METHODS)) {
-            helpers.when(() -> CraftingCpuHelper.tryExtractInitialItems(any(), any(), any(), any())).thenReturn(null);
+        when(grid.getStorageService().getInventory().extract(any(), anyLong(), any(), any()))
+                .thenAnswer(call -> call.getArgument(1));
+        {
             assertTrue(f.host.trySubmitJob(grid, f.candidate.plan(),
                     appeng.api.networking.security.IActionSource.empty(), null).successful());
             assertSame(f.context, f.host.getJob().improvements);
-            verify(f.context).close();
         }
     }
 

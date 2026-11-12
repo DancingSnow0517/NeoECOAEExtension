@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.grid;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGrid;
@@ -210,7 +212,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         if (!writablePatternStorageCacheInitialized) {
             refreshPatternIndexes();
         }
-        AEItemKey patternKey = AEItemKey.of(patternItem);
+        AEItemKey patternKey = ECOKeyFactory.item(patternItem);
         if (patternKey != null && containsPatternOtherThanSource(domain, patternKey, source)) {
             return ECOPatternInsertion.of(ECOPatternInsertionResult.ALREADY_PRESENT);
         }
@@ -391,7 +393,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         if (!writablePatternStorageCacheInitialized) {
             refreshPatternIndexes();
         }
-        AEItemKey patternKey = AEItemKey.of(patternItem);
+        AEItemKey patternKey = ECOKeyFactory.item(patternItem);
         if (patternKey != null && containsPatternOtherThanSource(domain, patternKey, source)) {
             return ECOPatternInsertionResult.ALREADY_PRESENT;
         }
@@ -489,7 +491,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             return false;
         }
         refreshPatternIndexes();
-        AEItemKey key = AEItemKey.of(pattern);
+        AEItemKey key = ECOKeyFactory.item(pattern);
         return key != null && networkPatternCounts.containsKey(key);
     }
 
@@ -675,7 +677,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
 
     private static PatternRecord createRecord(PatternStorageHost bus,                                               int slot,
                                                ItemStack stack) {
-        AEItemKey key = AEItemKey.of(stack);
+        AEItemKey key = ECOKeyFactory.item(stack);
         IPatternDetails details = bus.getDecodedPatternDetails(slot);
         PatternType type = details instanceof IMolecularAssemblerSupportedPattern
                 ? PatternType.CRAFTING
@@ -1014,7 +1016,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                 if (source instanceof PatternStorageHost host && busPatternRecords.containsKey(host)) {
                     continue;
                 }
-                AEItemKey key = AEItemKey.of(stack);
+                AEItemKey key = ECOKeyFactory.item(stack);
                 PatternRecord record = new PatternRecord(
                                 new PatternLocation(source, slot),
                                 key,
@@ -1153,7 +1155,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                     ? inventory.getStackInSlot(slot)
                     : ItemStack.EMPTY;
             if (!current.isEmpty() && !bus.ownsAuxiliary(current) && bus.shouldIndexPattern(current)) {
-                AEItemKey key = AEItemKey.of(current);
+                AEItemKey key = ECOKeyFactory.item(current);
                 if (key != null) {
                     busCounts.addTo(key, 1);
                     networkPatternCounts.addTo(key, 1);
@@ -1204,7 +1206,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             if (!bus.shouldIndexPattern(stack)) {
                 continue;
             }
-            AEItemKey key = AEItemKey.of(stack);
+            AEItemKey key = ECOKeyFactory.item(stack);
             if (key != null) {
                 counts.addTo(key, 1);
                 networkPatternCounts.addTo(key, 1);
@@ -1230,7 +1232,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
     private void indexAuxiliaryPatterns(PatternStorageHost bus) {
         Object2IntOpenHashMap<AEItemKey> counts = new Object2IntOpenHashMap<>();
         for (ItemStack encoded : bus.getAuxiliaryEncodedPatterns()) {
-            AEItemKey key = AEItemKey.of(encoded);
+            AEItemKey key = ECOKeyFactory.item(encoded);
             if (key != null) {
                 counts.addTo(key, 1);
                 networkPatternCounts.addTo(key, 1);

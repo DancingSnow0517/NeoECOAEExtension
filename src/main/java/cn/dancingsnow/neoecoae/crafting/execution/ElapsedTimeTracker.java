@@ -29,6 +29,7 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
 import cn.dancingsnow.neoecoae.api.me.progress.ECOCraftingProgressSnapshot;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 
 public class ElapsedTimeTracker {
     private static final String NBT_ELAPSED_TIME = "elapsedTime";
@@ -38,8 +39,8 @@ public class ElapsedTimeTracker {
     private long lastTime = System.nanoTime();
     private long elapsedTime = 0;
     private boolean exact;
-    private final java.util.Map<AEKeyType, java.math.BigInteger> exactStarted = new LinkedHashMap<>();
-    private final java.util.Map<AEKeyType, java.math.BigInteger> exactCompleted = new LinkedHashMap<>();
+    private final java.util.Map<AEKeyType, PlannerAmount> exactStarted = new LinkedHashMap<>();
+    private final java.util.Map<AEKeyType, PlannerAmount> exactCompleted = new LinkedHashMap<>();
 
     private final Reference2LongMap<AEKeyType> startedWorkByType = new Reference2LongOpenHashMap<>(
             AEKeyTypes.getAll().size());
@@ -54,10 +55,15 @@ public class ElapsedTimeTracker {
         readLongByTypeMap(data.getCompoundOrEmpty(NBT_STARTED_WORK), startedWorkByType);
         readLongByTypeMap(data.getCompoundOrEmpty(NBT_COMPLETED_WORK), completedWorkByType);
         exact = data.getBooleanOr("exactWork", false);
-        if (exact) for (var type : AEKeyTypes.getAll()) {
-            String id = type.getId().toString();
-            exactStarted.put(type, new java.math.BigInteger(data.getCompoundOrEmpty("exactStarted").getStringOr(id, "")));
-            exactCompleted.put(type, new java.math.BigInteger(data.getCompoundOrEmpty("exactCompleted").getStringOr(id, "")));
+        if (exact) {
+            var started = data.getCompoundOrEmpty("exactStarted");
+            var completed = data.getCompoundOrEmpty("exactCompleted");
+            for (var type : AEKeyTypes.getAll()) {
+                String id = type.getId().toString();
+                // A key type added after the save has no historical work. Existing malformed values still fail.
+                exactStarted.put(type, started.contains(id) ? PlannerAmount.parse(started.getStringOr(id, "0")) : PlannerAmount.ZERO);
+                exactCompleted.put(type, completed.contains(id) ? PlannerAmount.parse(completed.getStringOr(id, "0")) : PlannerAmount.ZERO);
+            }
         }
     }
 
@@ -102,13 +108,13 @@ public class ElapsedTimeTracker {
 
     void decrementItems(long itemDiff, AEKeyType keyType) {
         updateTime();
-        if (exact) exactCompleted.merge(keyType, java.math.BigInteger.valueOf(itemDiff), java.math.BigInteger::add);
+        if (exact) exactCompleted.merge(keyType, PlannerAmount.of(itemDiff), PlannerAmount::add);
         completedWorkByType.merge(keyType, itemDiff, NEMath::saturatingAdd);
     }
 
     void addMaxItems(long itemDiff, AEKeyType keyType) {
         updateTime();
-        if (exact) exactStarted.merge(keyType, java.math.BigInteger.valueOf(itemDiff), java.math.BigInteger::add);
+        if (exact) exactStarted.merge(keyType, PlannerAmount.of(itemDiff), PlannerAmount::add);
         startedWorkByType.merge(keyType, itemDiff, NEMath::saturatingAdd);
     }
 
@@ -130,8 +136,8 @@ public class ElapsedTimeTracker {
             var done = completed.get(type);
             var total = totals.get(type);
             if (exact) {
-                exactCompleted.put(type, done);
-                exactStarted.put(type, total);
+                exactCompleted.put(type, PlannerAmount.of(done));
+                exactStarted.put(type, PlannerAmount.of(total));
             }
             startedWorkByType.put(type,
                     cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan.bounded(total));
@@ -159,14 +165,22 @@ public class ElapsedTimeTracker {
     // TODO: 1.21.4 Change the network packet and screen to use this rather than the counts below
     public float getProgress() {
         if (exact) {
-            var started = java.math.BigDecimal.ZERO;
-            var completed = java.math.BigDecimal.ZERO;
+            PlannerAmount started = PlannerAmount.ZERO, completed = PlannerAmount.ZERO, denominator = PlannerAmount.ONE;
             for (var type : AEKeyTypes.getAll()) {
-                var unit = java.math.BigDecimal.valueOf(type.getAmountPerUnit());
-                started = started.add(new java.math.BigDecimal(getExactStartedWork(type)).divide(unit, java.math.MathContext.DECIMAL128));
-                completed = completed.add(new java.math.BigDecimal(getExactCompletedWork(type)).divide(unit, java.math.MathContext.DECIMAL128));
+                PlannerAmount unit = PlannerAmount.of(type.getAmountPerUnit());
+                PlannerAmount gcd = denominator.gcd(unit);
+                PlannerAmount left = unit.divide(gcd), right = denominator.divide(gcd);
+                started = started.multiply(left).add(exactStarted.getOrDefault(type, PlannerAmount.ZERO).multiply(right));
+                completed = completed.multiply(left).add(exactCompleted.getOrDefault(type, PlannerAmount.ZERO).multiply(right));
+                denominator = denominator.multiply(left);
             }
-            return started.signum() <= 0 ? 0 : Math.clamp(completed.divide(started, java.math.MathContext.DECIMAL128).floatValue(), 0, 1);
+            if (started.signum() <= 0 || completed.signum() <= 0) return 0;
+            if (completed.compareTo(started) >= 0) return 1;
+            // Only the UI ratio is approximate. Scale both exact integers together before the
+            // double boundary, so even a BigInteger fallback cannot produce Infinity / Infinity.
+            int shift = Math.max(0, started.bitLength() - 1022);
+            double ratio = completed.shiftRight(shift).doubleValue() / started.shiftRight(shift).doubleValue();
+            return Math.clamp((float) ratio, 0, 1);
         }
         double startedUnits = 0;
         double completedUnits = 0;
@@ -193,18 +207,22 @@ public class ElapsedTimeTracker {
     }
 
     void addMaxItems(java.math.BigInteger amount, AEKeyType type) {
+        addMaxItems(PlannerAmount.of(amount), type);
+    }
+
+    void addMaxItems(PlannerAmount amount, AEKeyType type) {
         if (!exact) throw new IllegalStateException("Exact work is disabled");
         updateTime();
-        exactStarted.merge(type, amount, java.math.BigInteger::add);
-        startedWorkByType.put(type, cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan.bounded(getExactStartedWork(type)));
+        exactStarted.merge(type, amount, PlannerAmount::add);
+        startedWorkByType.put(type, exactStarted.get(type).longValueSaturated());
     }
 
     public java.math.BigInteger getExactStartedWork(AEKeyType type) {
-        return exact ? exactStarted.getOrDefault(type, java.math.BigInteger.ZERO) : java.math.BigInteger.valueOf(getStartedWork(type));
+        return exact ? exactStarted.getOrDefault(type, PlannerAmount.ZERO).toBigInteger() : java.math.BigInteger.valueOf(getStartedWork(type));
     }
 
     public java.math.BigInteger getExactCompletedWork(AEKeyType type) {
-        return exact ? exactCompleted.getOrDefault(type, java.math.BigInteger.ZERO) : java.math.BigInteger.valueOf(getCompletedWork(type));
+        return exact ? exactCompleted.getOrDefault(type, PlannerAmount.ZERO).toBigInteger() : java.math.BigInteger.valueOf(getCompletedWork(type));
     }
 
     public long getStartedWork(AEKeyType keyType) {

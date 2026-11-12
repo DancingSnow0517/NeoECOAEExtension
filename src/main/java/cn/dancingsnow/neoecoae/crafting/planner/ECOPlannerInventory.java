@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.compat.storage.ECOOptionalUnboundedCells;
 import cn.dancingsnow.neoecoae.crafting.planner.solve.PlannerInventorySnapshot;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
+import cn.dancingsnow.neoecoae.crafting.display.terminal.SparseExactAmountSource;
 import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
 import cn.dancingsnow.neoecoae.storage.ECOCreativeCell;
 
@@ -20,9 +21,18 @@ public final class ECOPlannerInventory {
     private ECOPlannerInventory() {}
 
     public static PlannerInventorySnapshot capture(IGrid grid) {
-        var inventory = grid.getStorageService().getInventory().getAvailableStacks();
-        Set<AEKey> unbounded = collectUnboundedKeys(grid);
-        return PlannerInventorySnapshot.of(inventory, unbounded);
+        var storage = cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot.resolve(
+            grid.getStorageService().getInventory());
+        var server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        // Planning must observe writes made after a terminal sampled this same tick, including exact quantities.
+        return cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot.captureAmounts(
+            storage, server == null ? 0L : server.getTickCount(), storage::getAvailableStacks, (amounts, exact) -> {
+                Set<AEKey> unbounded = collectUnboundedKeys(grid);
+                exact.forEach((key, amount) -> {
+                    if (amount.infinite()) unbounded.add(key);
+                });
+                return PlannerInventorySnapshot.of(amounts, exact, unbounded);
+            });
     }
 
     /**
@@ -57,6 +67,12 @@ public final class ECOPlannerInventory {
     }
 
     private static void markUnbounded(ExactAmountSource source, Set<AEKey> target) {
+        if (source instanceof SparseExactAmountSource sparse && sparse.neoecoae$hasSparseExactAmounts()) {
+            if (sparse.neoecoae$mayHaveExceptionalAmounts()) sparse.neoecoae$visitExceptionalAmounts((key, amount) -> {
+                if (amount.infinite()) target.add(key);
+            });
+            return;
+        }
         source.neoecoae$visitExactAmounts((key, amount) -> {
             if (amount.infinite()) target.add(key);
         });

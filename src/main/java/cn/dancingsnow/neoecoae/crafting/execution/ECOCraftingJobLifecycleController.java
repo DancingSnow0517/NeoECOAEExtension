@@ -36,7 +36,7 @@ final class ECOCraftingJobLifecycleController {
 
     ICraftingSubmitResult submit(IGrid grid, ICraftingPlan plan, IActionSource src,
                                  @Nullable ICraftingRequester requester) {
-        if (host.getJob() != null) {
+        if (host.getJob() != null || host.hasOwnedItems() || host.getPermanentExecutionError() != null) {
             return CraftingSubmitResult.CPU_BUSY;
         }
         if (!host.cpu.isActive()) {
@@ -44,13 +44,6 @@ final class ECOCraftingJobLifecycleController {
         }
         if (host.cpu.getAvailableStorage() < plan.bytes()) {
             return CraftingSubmitResult.CPU_TOO_SMALL;
-        }
-
-        if (!host.getInventory().list.isEmpty() && host.exactInventory().isEnabled()) {
-            return CraftingSubmitResult.CPU_BUSY;
-        }
-        if (!host.getInventory().list.isEmpty()) {
-            AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
         }
 
         var attachedPlanningResult = (Object) plan instanceof ECOCraftingPlanDiagnostics diagnostics
@@ -73,8 +66,7 @@ final class ECOCraftingJobLifecycleController {
         }
 
         host.exactInventory().setEnabled(plan instanceof cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan);
-        var missingIngredient = CraftingCpuHelper.tryExtractInitialItems(
-                plan, grid, host.getInventory(), src);
+        var missingIngredient = host.extractInitialItems(plan, grid, src);
         if (missingIngredient != null) {
             return CraftingSubmitResult.missingIngredient(missingIngredient);
         }
@@ -93,7 +85,6 @@ final class ECOCraftingJobLifecycleController {
             job.improvements = attachedPlanningResult.improvements();
             if (job.improvements != null && !job.improvements.belongsTo(grid.getCraftingService()))
                 job.improvements = null;
-            if (job.improvements != null) job.improvements.close();
         }
         if (plan instanceof cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan exact)
             job.fuzzyPlanningItemIds = exact.fuzzyPlanningItemIds();

@@ -6,6 +6,8 @@ import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
+import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
@@ -26,14 +28,14 @@ public final class ECOBatchExecutor {
     public static ECOBatchAdmission execute(ECOBatchPlan plan, KeyCounter[] inputs, KeyCounter outputs,
             KeyCounter remainders, ListCraftingInventory inventory, Level level, UUID jobId,
             Supplier<? extends LinearEnergy> reserve, ECOBatchProvider provider) {
-        if (plan == null) return ECOBatchAdmission.rejected();
+        if (plan == null) return ECOBatchAdmission.rejected(ECOBatchAdmission.StopReason.RESOURCES);
         var energy = reserve.get();
-        if (energy == null) return ECOBatchAdmission.rejected();
+        if (energy == null) return ECOBatchAdmission.rejected(ECOBatchAdmission.StopReason.RESOURCES);
         ECOBatchMaterialized batch = null;
         boolean retained = false;
         try {
             batch = MATERIALIZER.materialize(plan, inputs, outputs, remainders, inventory, level);
-            if (batch == null) return ECOBatchAdmission.rejected();
+            if (batch == null) return ECOBatchAdmission.rejected(ECOBatchAdmission.StopReason.RESOURCES);
             var request = new ECOBatchDispatchRequest(plan.identity(), batch.executionView(),
                     batch.inputCounters(), batch.outputCounter(), batch.remainderCounter(),
                     plan.craftCount(), level, jobId);
@@ -68,10 +70,16 @@ public final class ECOBatchExecutor {
     public static boolean executePrepared(ListCraftingInventory inventory, List<GenericStack> inputs,
             Map<AEKey, BigInteger> exactInputs, ECOFastPathFacade.Reservation energy,
             ECOStatefulBatchProvider provider) {
+        return executePreparedQuantities(inventory, inputs, ECOExactInventory.fromBigIntegers(exactInputs), energy, provider);
+    }
+
+    public static boolean executePreparedQuantities(ListCraftingInventory inventory, List<GenericStack> inputs,
+            Map<AEKey, PlannerAmount> exactInputs, ECOFastPathFacade.Reservation energy,
+            ECOStatefulBatchProvider provider) {
         ECOBatchInputLease lease = null;
         boolean retained = false;
         try {
-            lease = MATERIALIZER.materializePrepared(inventory, inputs, exactInputs);
+            lease = MATERIALIZER.materializePreparedQuantities(inventory, inputs, exactInputs);
             if (lease == null) return false;
             try {
                 retained = provider.eco$dispatchPreparedBatch();

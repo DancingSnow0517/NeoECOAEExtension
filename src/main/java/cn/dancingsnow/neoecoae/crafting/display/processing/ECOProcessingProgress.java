@@ -10,7 +10,6 @@ import net.minecraft.network.chat.Component;
 public record ECOProcessingProgress(float progress, boolean hasProgress, State state, int machineCount,
         int detailPage, boolean refreshing, List<Machine> machines) {
     public static final int DETAIL_PAGE_SIZE = 3;
-    /** Cycles this short (in ticks) are not shown as progress on the status screen. */
     public static final int SHORT_CYCLE_TICKS = 5;
     public static final ECOProcessingProgress EMPTY = new ECOProcessingProgress(0, false, State.QUEUED, 0, -1, false, List.of());
 
@@ -50,11 +49,6 @@ public record ECOProcessingProgress(float progress, boolean hasProgress, State s
             page < 0 ? List.of() : machines.subList(start, Math.min(machines.size(), start + DETAIL_PAGE_SIZE)));
     }
 
-    /**
-     * Copy for the CPU status sync. Cycles of {@link #SHORT_CYCLE_TICKS} or less finish between samples, so their
-     * tick counters only churn the packet: those machines lose their counters, and the cell loses its fill when the
-     * weighted average cycle is that short.
-     */
     public ECOProcessingProgress forStatusSync() {
         double duration = 0, weight = 0;
         boolean trimmed = false;

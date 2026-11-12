@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.crafting.execution;
 
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
 
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+
 import cn.dancingsnow.neoecoae.api.me.attachment.ECOCraftingJobAttachments;
 import cn.dancingsnow.neoecoae.api.me.completion.ECOVirtualCraftingCompletionSink;
 import cn.dancingsnow.neoecoae.api.me.dispatch.ECOCraftingCpuContext;
@@ -99,6 +101,11 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
     @Getter
     private boolean cantStoreItems = false;
     private boolean returningItemsToNetwork;
+    private final ECOCpuInventoryReturn inventoryReturn = new ECOCpuInventoryReturn(this);
+    private int changeBatchDepth;
+    private boolean batchDirty;
+    private final it.unimi.dsi.fastutil.objects.ObjectOpenHashSet<AEKey> batchChanges =
+            new it.unimi.dsi.fastutil.objects.ObjectOpenHashSet<>();
 
     @Getter
     private long lastModifiedOnTick = TickHandler.instance().getCurrentTick();
@@ -144,7 +151,9 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
     public ICraftingSubmitResult trySubmitJob(
             IGrid grid, ICraftingPlan plan, IActionSource src, @Nullable ICraftingRequester requester) {
-        return lifecycle.submit(grid, plan, src, requester);
+        beginChanges();
+        try { return lifecycle.submit(grid, plan, src, requester); }
+        finally { endChanges(); }
     }
 
     public void tickCraftingLogic(IEnergyService eg, CraftingService cc) {
@@ -190,13 +199,11 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         }
 
         if (!ECOCraftingDispatchPolicyRegistry.mayTick(createCpuContext(currentTick))) {
-            dispatchStrategy.finishTick(0);
             taskScheduler.finishResolveTick();
             return;
         }
 
-        int operationLimit = dispatchStrategy.beginTick(cpu.getCoProcessors(), NEConfig.ecoCpuPushTickLimit);
-        int acceptedNormalPushes = 0;
+        int operationLimit = dispatchStrategy.beginTick(NEConfig.ecoCpuPushTickLimit);
         // Thunderbolt 会包装此处的 executeCrafting 调用；快速路径的批量操作不消耗此慢速路径额度。
         taskScheduler.beginSharedProbeBudget(operationLimit);
         try {
@@ -205,15 +212,12 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
                 var pass = taskScheduler.lastPass();
                 taskScheduler.consumeSharedProbeBudget(pass.normalProbes());
                 operationLimit = Math.max(0, operationLimit - pass.acceptedNormalPushes());
-                acceptedNormalPushes += pass.acceptedNormalPushes();
                 if (pushed == 0) break;
             }
         } finally {
             taskScheduler.endSharedProbeBudget();
             taskScheduler.finishResolveTick();
         }
-        // 只有普通推送计入滚动操作窗口。
-        dispatchStrategy.finishTick(acceptedNormalPushes);
         if (job != null) {
             taskScheduler.check(job);
         }
@@ -412,66 +416,87 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
      */
     @Override
     protected void finishJob(boolean success) {
-        lifecycle.finish(success);
+        beginChanges();
+        try { lifecycle.finish(success); }
+        finally { endChanges(); }
     }
 
     /**
      * 取消当前合成任务。
      */
     public void cancel() {
-        lifecycle.cancel();
+        beginChanges();
+        try { lifecycle.cancel(); }
+        finally { endChanges(); }
     }
 
     /**
      * 尝试将所有本地存储的物品转存回存储网络。
      */
     public void storeItems() {
+        storeItems(false);
+    }
+
+    /** Permanent removal must attempt the complete remaining inventory before the ordinary drop path runs. */
+    public void storeItemsForRemoval() {
+        storeItems(true);
+    }
+
+    private void storeItems(boolean completePass) {
         Preconditions.checkState(job == null, "CPU should not have a job to prevent re-insertion when dumping items");
         if (returningItemsToNetwork) return;
         returningItemsToNetwork = true;
+        beginChanges();
         try {
-            returnItemsToNetwork();
+            inventoryReturn.run(completePass);
         } finally {
             returningItemsToNetwork = false;
+            endChanges();
         }
     }
 
-    private void returnItemsToNetwork() {
-        if (this.inventory.list.isEmpty())
-            return;
+    ECOCpuInventoryReturn inventoryReturnForPersistence() { return inventoryReturn; }
 
-        var g = cpu.getGrid();
-        if (g == null)
-            return;
-
-        var storage = g.getStorageService().getInventory();
-
-        if (exactInventory().isEnabled()) {
-            for (var entry : exactInventory().snapshot().entrySet()) {
-                this.postChange(entry.getKey());
-                var inserted = cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage.insert(
-                        storage, entry.getKey(), entry.getValue(), Actionable.MODULATE, cpu.getActionSource());
-                if (inserted.signum() > 0) {
-                    if (!exactInventory().debit(Map.of(entry.getKey(), inserted)))
-                        throw new IllegalStateException("CPU exact return exceeded retained inventory");
-                    markCpuDirty();
-                }
+    /** Initial extraction remains synchronous; a failed submission retains every unreturned input. */
+    @Nullable GenericStack extractInitialItems(ICraftingPlan plan, IGrid grid, IActionSource source) {
+        var storage = grid.getStorageService().getInventory();
+        for (var entry : plan.usedItems()) {
+            long wanted = entry.getLongValue();
+            if (wanted < 0) throw new IllegalArgumentException("Negative initial material requirement");
+            if (wanted == 0) continue;
+            long taken = storage.extract(entry.getKey(), wanted, Actionable.MODULATE, source);
+            if (taken < 0 || taken > wanted) throw new IllegalStateException("Invalid initial material extraction");
+            if (taken > 0) {
+                inventory.insert(entry.getKey(), taken, Actionable.MODULATE);
+                markCpuDirty();
             }
-            return;
+            if (taken < wanted) {
+                storeItems();
+                return new GenericStack(entry.getKey(), wanted - taken);
+            }
         }
-        for (var entry : this.inventory.list) {
-            this.postChange(entry.getKey());
-            var inserted = storage.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE,
-                    cpu.getActionSource());
+        return null;
+    }
 
-            entry.setValue(entry.getLongValue() - inserted);
-        }
-        this.inventory.list.removeZeros();
+    private void beginChanges() { changeBatchDepth++; }
 
-        markCpuDirty();
+    private void endChanges() {
+        if (--changeBatchDepth != 0) return;
+        boolean dirty = batchDirty;
+        batchDirty = false;
+        if (dirty) cpu.markDirty();
+        if (batchChanges.isEmpty()) return;
+        taskScheduler.invalidateInputTemplates(null);
+        lastModifiedOnTick = TickHandler.instance().getCurrentTick();
+        viewRevision++;
+        if (listeners.isEmpty()) { batchChanges.clear(); return; }
+        AEKey[] changes = batchChanges.toArray(AEKey[]::new);
+        batchChanges.clear();
+        for (AEKey key : changes) notifyListeners(key);
     }
 
     void postChange(@Nullable AEKey what) {
+        if (changeBatchDepth > 0) { batchChanges.add(what); return; }
         taskScheduler.invalidateInputTemplates(what);
         lastModifiedOnTick = TickHandler.instance().getCurrentTick();
         viewRevision++;
@@ -483,6 +508,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
     }
 
     void markCpuDirty() {
+        if (changeBatchDepth > 0) { batchDirty = true; return; }
         cpu.markDirty();
     }
 
@@ -498,10 +524,6 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         return taskScheduler;
     }
 
-    ECOCraftingDispatchStrategy dispatchStrategyForPersistence() {
-        return dispatchStrategy;
-    }
-
     ECOCraftingJobAttachments jobAttachmentsForPersistence() {
         return jobAttachments;
     }
@@ -512,9 +534,14 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
     public ECOProcessingMonitor getProcessingMonitor() { return processingMonitor; }
 
+    public void refreshProcessingProgress() {
+        Level level = cpu.getLevel();
+        if (job != null && level != null) processingMonitor.advance(level, level.getGameTime());
+    }
+
     public ECOProcessingProgress getProcessingProgress(AEKey key) {
         Level level = cpu.getLevel();
-        return job == null || getWaitingFor(key) <= 0 || level == null
+        return job == null || (getWaitingFor(key) <= 0 && getPendingOutputs(key) <= 0) || level == null
             ? ECOProcessingProgress.EMPTY
             : processingMonitor.sample(level, key, level.getGameTime());
     }
@@ -667,12 +694,11 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
     public java.util.Map<AEKey, java.math.BigInteger> getExactPendingPreview() {
         if (job != null && job.exactOrder) {
-            var amounts = new java.util.HashMap<AEKey, java.math.BigInteger>();
+            var amounts = new java.util.HashMap<AEKey, PlannerAmount>();
             job.tasks.forEach((pattern, progress) -> pattern.getOutputs().forEach(output ->
-                amounts.merge(output.what(), progress.remainingExact().multiply(
-                    java.math.BigInteger.valueOf(output.amount())), java.math.BigInteger::add)));
-            job.deferredEmitted.forEach((key, amount) -> amounts.merge(key, amount, java.math.BigInteger::add));
-            return amounts;
+                amounts.merge(output.what(), progress.remainingQuantity().multiply(output.amount()), PlannerAmount::add)));
+            job.deferredEmitted.forEach((key, amount) -> amounts.merge(key, amount, PlannerAmount::add));
+            return cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory.toBigIntegers(amounts);
         }
         return bigOrder.exactPendingPreview();
     }
@@ -702,24 +728,24 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         }
         for (var entry : job.deferredStock.entrySet()) {
             var generated = cn.dancingsnow.neoecoae.storage.ECOCreativeSupply.extract(
-                grid, entry.getKey(), entry.getValue(), source);
+                grid, entry.getKey(), entry.getValue().toBigInteger(), source);
             if (generated.signum() > 0) {
                 ((cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) inventory)
-                    .restore(java.util.Map.of(entry.getKey(), generated));
-                entry.setValue(entry.getValue().subtract(generated));
+                    .restoreQuantities(java.util.Map.of(entry.getKey(), PlannerAmount.of(generated)));
+                entry.setValue(entry.getValue().subtract(PlannerAmount.of(generated)));
                 taskScheduler.recordPhysicalInsert(entry.getKey());
                 postChange(entry.getKey());
                 markCpuDirty();
                 continue;
             }
             // Finite storage retains one network call per key/tick.
-            long wanted = cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan.bounded(entry.getValue());
+            long wanted = entry.getValue().longValueSaturated();
             if (wanted <= 0) continue;
             long extracted = grid.getStorageService().getInventory().extract(entry.getKey(), wanted,
                 appeng.api.config.Actionable.MODULATE, source);
             if (extracted > 0) {
                 inventory.insert(entry.getKey(), extracted, appeng.api.config.Actionable.MODULATE);
-                entry.setValue(entry.getValue().subtract(java.math.BigInteger.valueOf(extracted)));
+                entry.setValue(entry.getValue().subtract(extracted));
                 taskScheduler.recordPhysicalInsert(entry.getKey());
                 postChange(entry.getKey());
                 markCpuDirty();
@@ -728,8 +754,8 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         job.deferredStock.values().removeIf(amount -> amount.signum() == 0);
         for (var entry : job.deferredEmitted.entrySet()) {
             ((cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) job.waitingFor)
-                .restore(java.util.Map.of(entry.getKey(), entry.getValue()));
-            entry.setValue(java.math.BigInteger.ZERO);
+                .restoreQuantities(java.util.Map.of(entry.getKey(), entry.getValue()));
+            entry.setValue(PlannerAmount.ZERO);
             postChange(entry.getKey());
             markCpuDirty();
         }
@@ -759,7 +785,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
     /** 供 CPU 菜单和集成使用的稳定诊断接口；返回 null 表示任务仍可执行。 */
     public @Nullable String getPermanentExecutionError() {
-        return job == null ? null : job.permanentExecutionError;
+        return job == null ? inventoryReturn.failure() : job.permanentExecutionError;
     }
 
     public void setJobSuspended(boolean suspended) {

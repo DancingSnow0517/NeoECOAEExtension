@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
@@ -76,7 +78,7 @@ public class ECOCraftingCPU extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCP
 
     @Override
     public boolean isBusy() {
-        return logic.hasJob();
+        return logic.hasJob() || logic.hasOwnedItems() || logic.getPermanentExecutionError() != null;
     }
 
     @Override
@@ -191,7 +193,7 @@ public class ECOCraftingCPU extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCP
      */
     @Nullable
     private CraftingPlan readCraftingPlanFromNBT(CompoundTag tag, HolderLookup.Provider registries) {
-        GenericStack output = cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readStack(registries, tag.getCompoundOrEmpty("output"));
+        GenericStack output = ECOKeyFactory.readTag(registries, tag.getCompoundOrEmpty("output"));
         if (output == null) {
             // The final output no longer decodes (removed item/fluid, corrupt tag). A plan without an
             // output cannot drive a job, so refuse it instead of handing out a half-valid plan.

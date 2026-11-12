@@ -6,6 +6,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import appeng.crafting.inv.ICraftingInventory;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.crafting.execution.InputTemplate;
@@ -35,7 +36,7 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
     private final Set<AEKey> primaryInputs;
     private final Set<AEKey> possibleInputs;
     private final Set<AEKey> reusableTemplates;
-    private final Map<AEKey, Long> protectedAmounts;
+    private final Map<AEKey, PlannerAmount> protectedAmounts;
     private final Set<AEKey> componentInsensitiveInputs;
     private ECOCraftingInputTemplateCache templateCache;
 
@@ -54,7 +55,7 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
     }
 
     ECOCraftingInputPreview(ICraftingInventory source, IPatternDetails pattern,
-            Map<AEKey, Long> protectedAmounts) {
+            Map<AEKey, PlannerAmount> protectedAmounts) {
         this(source, pattern, protectedAmounts, ECOCraftingRemainderCache.shared());
     }
 
@@ -87,12 +88,12 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
     }
 
     ECOCraftingInputPreview(ICraftingInventory source, IPatternDetails pattern,
-            Map<AEKey, Long> protectedAmounts, ECOCraftingRemainderCache remainderCache) {
+            Map<AEKey, PlannerAmount> protectedAmounts, ECOCraftingRemainderCache remainderCache) {
         this(source, pattern, protectedAmounts, remainderCache, Set.of());
     }
 
     ECOCraftingInputPreview(ICraftingInventory source, IPatternDetails pattern,
-            Map<AEKey, Long> protectedAmounts, ECOCraftingRemainderCache remainderCache,
+            Map<AEKey, PlannerAmount> protectedAmounts, ECOCraftingRemainderCache remainderCache,
             Set<net.minecraft.resources.Identifier> fuzzyPlanningItemIds) {
         this.source = source;
         PatternMetadata metadata = metadata(pattern, remainderCache);
@@ -232,12 +233,13 @@ final class ECOCraftingInputPreview implements ICraftingInventory {
 
     private long availableAfterReservations(AEKey key) {
         if (source instanceof cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory exact && exact.isEnabled()) {
-            return exact.amount(key).subtract(java.math.BigInteger.valueOf(removed.getLong(key)))
-                .subtract(java.math.BigInteger.valueOf(protectedAmounts.getOrDefault(key, 0L)))
-                .max(java.math.BigInteger.ZERO).min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).longValueExact();
+            return exact.quantity(key).subtract(removed.getLong(key))
+                .subtract(protectedAmounts.getOrDefault(key, PlannerAmount.ZERO))
+                .max(PlannerAmount.ZERO).longValueSaturated();
         }
         long available = Math.max(0L, availableExact(key) - removed.getLong(key));
-        return Math.max(0L, available - protectedAmounts.getOrDefault(key, 0L));
+        return PlannerAmount.of(available).subtract(protectedAmounts.getOrDefault(key, PlannerAmount.ZERO))
+            .max(PlannerAmount.ZERO).longValueSaturated();
     }
 
     private long availableExact(AEKey key) {

@@ -11,9 +11,9 @@ import java.util.Map;
 /** Minimal stable boundary for the cycle implementation. Amounts are request state, not graph state. */
 public record CycleSolveRequest(
     CycleComponent component,
-    Map<AEKey, Long> requiredOutputs,
     Map<AEKey, PlannerAmount> plannerRequiredOutputs,
-    Map<AEKey, Long> availableRelevantStock,
+    Map<AEKey, PlannerAmount> plannerRelevantStock,
+    java.util.Set<AEKey> unboundedStock,
     List<ComponentDependency> externalResourceBoundary,
     PlannerOptions options,
     Map<AEKey, PlannerAmount> boundaryImportCaps
@@ -22,16 +22,24 @@ public record CycleSolveRequest(
     public CycleSolveRequest(CycleComponent component, Map<AEKey, Long> requiredOutputs,
             Map<AEKey, Long> availableRelevantStock, List<ComponentDependency> externalResourceBoundary,
             PlannerOptions options) {
-        this(component, requiredOutputs, exact(requiredOutputs), availableRelevantStock, externalResourceBoundary,
-            options);
+        this(component, exact(requiredOutputs), exact(availableRelevantStock), java.util.Set.of(),
+            externalResourceBoundary, options, Map.of());
     }
 
     /** Exact planner request constructor; the legacy map is only a representable compatibility projection. */
     public CycleSolveRequest(CycleComponent component, Map<AEKey, Long> requiredOutputs,
             Map<AEKey, PlannerAmount> plannerRequiredOutputs, Map<AEKey, Long> availableRelevantStock,
             List<ComponentDependency> externalResourceBoundary, PlannerOptions options) {
-        this(component, requiredOutputs, plannerRequiredOutputs, availableRelevantStock, externalResourceBoundary,
-            options, Map.of());
+        this(component, plannerRequiredOutputs, exact(availableRelevantStock), java.util.Set.of(),
+            externalResourceBoundary, options, Map.of());
+    }
+
+    public CycleSolveRequest(CycleComponent component, Map<AEKey, Long> requiredOutputs,
+            Map<AEKey, PlannerAmount> plannerRequiredOutputs, Map<AEKey, Long> availableRelevantStock,
+            List<ComponentDependency> externalResourceBoundary, PlannerOptions options,
+            Map<AEKey, PlannerAmount> boundaryImportCaps) {
+        this(component, plannerRequiredOutputs, exact(availableRelevantStock), java.util.Set.of(),
+            externalResourceBoundary, options, boundaryImportCaps);
     }
 
     public CycleSolveRequest {
@@ -44,7 +52,7 @@ public record CycleSolveRequest(
         for (PlannerAmount cap : caps.values()) {
             if (cap.signum() < 0) throw new IllegalArgumentException("Negative boundary import cap");
         }
-        return new CycleSolveRequest(component, requiredOutputs, plannerRequiredOutputs, availableRelevantStock,
+        return new CycleSolveRequest(component, plannerRequiredOutputs, plannerRelevantStock, unboundedStock,
             externalResourceBoundary, options, Map.copyOf(caps));
     }
 
@@ -64,7 +72,7 @@ public record CycleSolveRequest(
     }
 
     public long requiredOutput(AEKey key) {
-        return Math.max(0L, requiredOutputs.getOrDefault(key, 0L));
+        return requiredOutputAmount(key).longValueSaturated();
     }
 
     public PlannerAmount requiredOutputAmount(AEKey key) {
@@ -72,7 +80,20 @@ public record CycleSolveRequest(
     }
 
     public long stockOf(AEKey key) {
-        return Math.max(0L, availableRelevantStock.getOrDefault(key, 0L));
+        return stockAmountOf(key).longValueSaturated();
+    }
+
+    public PlannerAmount stockAmountOf(AEKey key) {
+        return plannerRelevantStock.getOrDefault(key, PlannerAmount.ZERO).max(PlannerAmount.ZERO);
+    }
+
+    public Map<AEKey, Long> requiredOutputs() { return bounded(plannerRequiredOutputs); }
+    public Map<AEKey, Long> availableRelevantStock() { return bounded(plannerRelevantStock); }
+
+    private static Map<AEKey, Long> bounded(Map<AEKey, PlannerAmount> amounts) {
+        Map<AEKey, Long> result = new LinkedHashMap<>();
+        amounts.forEach((key, amount) -> result.put(key, amount.longValueSaturated()));
+        return result;
     }
 
     private static Map<AEKey, PlannerAmount> exact(Map<AEKey, Long> amounts) {

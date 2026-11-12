@@ -35,8 +35,6 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
     @Unique
     private static final Logger NEOECOAE_LOGGER = LoggerFactory.getLogger("neoecoae");
     @Unique
-    private static final ECOCraftingPlannerService NEOECOAE_DAG_PLANNER = new ECOCraftingPlannerService();
-    @Unique
     private boolean neoecoae$ignorePatternSubstitutions;
     @Unique
     private ECOCraftingPlannerService.Session neoecoae$plannerSession;
@@ -106,7 +104,7 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
 
         ECOPlannerOptions options = ecoRequest.neoecoae$getPlannerOptions();
         var inventory = cn.dancingsnow.neoecoae.crafting.planner.ECOPlannerInventory.capture(grid);
-        this.neoecoae$plannerSession = NEOECOAE_DAG_PLANNER.createSession(
+        this.neoecoae$plannerSession = ECOCraftingPlannerService.INSTANCE.createSession(
             grid.getCraftingService(), output.what(), inventory,
             options.cyclePlanningEnabled(),
             options.ignorePatternSubstitutions(),

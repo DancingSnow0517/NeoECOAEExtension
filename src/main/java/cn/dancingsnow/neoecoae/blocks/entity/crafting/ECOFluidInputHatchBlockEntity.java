@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.util.IConfigManager;
@@ -102,7 +104,7 @@ public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyField
             if (level.getGameTime() % 20 == 0 && getMainNode().isActive()) {
                 var grid = getMainNode().getGrid();
                 if (grid != null) FluidHatchNetworkPull.sync(tank,
-                    markedFluid.isEmpty() ? null : AEFluidKey.of(markedFluid), targetAmount,
+                    markedFluid.isEmpty() ? null : ECOKeyFactory.fluid(markedFluid), targetAmount,
                     grid.getStorageService().getInventory(), grid.getEnergyService(), IActionSource.ofMachine(this));
             }
             return;

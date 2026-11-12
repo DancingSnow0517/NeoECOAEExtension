@@ -14,6 +14,9 @@ class ECOBigOrderPlannerTest {
     private ECOPlanningResult result(PlanningStatus status, long bytes) {
         var plan = mock(CraftingPlan.class);
         when(plan.bytes()).thenReturn(bytes);
+        when(plan.usedItems()).thenReturn(new appeng.api.stacks.KeyCounter());
+        when(plan.emittedItems()).thenReturn(new appeng.api.stacks.KeyCounter());
+        when(plan.missingItems()).thenReturn(new appeng.api.stacks.KeyCounter());
         return new ECOPlanningResult(status, plan, new ECOPlanTrace(), List.of(), 0);
     }
 
@@ -35,6 +38,21 @@ class ECOBigOrderPlannerTest {
         assertFalse(waiting.capacity());
         var unsupported = ECOBigOrderPlanner.search(8, 100, amount -> result(PlanningStatus.CYCLE_UNRESOLVED, 0));
         assertTrue(unsupported.fatal());
+    }
+
+    @Test void infeasibilityDiagnosticPreventsSubmittingAnApparentlySuccessfulSegment() throws Exception {
+        var rejected = result(PlanningStatus.SUCCESS, 8);
+        rejected.trace().addDiagnostic(new cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic(
+                cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic.Code.PLAN_MATERIAL_CLOSURE_INVALID,
+                "Candidate does not conserve materials"));
+        var probes = new ArrayList<Long>();
+        var answer = ECOBigOrderPlanner.search(64, 100, amount -> {
+            probes.add(amount);
+            return rejected;
+        });
+        assertTrue(answer.fatal());
+        assertSame(rejected, answer.result());
+        assertEquals(List.of(64L), probes);
     }
 
     @Test void aNewSearchUsesNewInventoryAndGraphResults() throws Exception {

@@ -90,6 +90,18 @@ public final class PlanIdentity {
         return total;
     }
 
+    public static Map<PatternIdentity, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount> exactTaskSignature(
+            Map<IPatternDetails, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount> tasks) {
+        var result = new LinkedHashMap<PatternIdentity, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount>();
+        for (var entry : tasks.entrySet()) {
+            if (entry.getKey() == null || entry.getValue() == null || entry.getValue().signum() < 0) return null;
+            PatternIdentity identity = patternIdentity(entry.getKey());
+            if (identity == null) return null;
+            result.merge(identity, entry.getValue(), cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount::add);
+        }
+        return result;
+    }
+
     public static String describe(@Nullable Signature signature) {
         if (signature == null) return "<unavailable>";
         return "output=" + signature.finalWhat() + "x" + signature.finalAmount()

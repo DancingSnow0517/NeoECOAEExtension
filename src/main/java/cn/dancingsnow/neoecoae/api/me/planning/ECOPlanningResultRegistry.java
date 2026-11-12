@@ -4,8 +4,6 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingPlan;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity.Signature;
-import cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult;
-import cn.dancingsnow.neoecoae.crafting.planner.result.CyclePlanningStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionSchedule;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
@@ -175,7 +173,7 @@ public final class ECOPlanningResultRegistry {
         if (confirmedPlan == null || result == null || result.plan() == null
                 || result.status() != PlanningStatus.SUCCESS || result.plan().simulation()) return null;
         Signature confirmedSignature = PlanIdentity.of(confirmedPlan);
-        if (confirmedSignature == null || !PlanIdentity.matches(confirmedSignature, result.plan())) return null;
+        if (!PlanIdentity.matches(confirmedSignature, result.plan())) return null;
 
         ECOExecutionPlan executionPlan;
         try {
@@ -327,7 +325,7 @@ public final class ECOPlanningResultRegistry {
             IPatternDetails target = mappedPattern(task.pattern(), mapping);
             if (target == null) return null;
             tasks.add(new ECOExecutionPlan.TaskSpec(task.id(), task.identity(), target,
-                ECOExecutionPlan.PatternRuntimeInfo.from(target), task.totalCount(), task.phaseIndex(), task.kind(),
+                ECOExecutionPlan.PatternRuntimeInfo.from(target), task.plannerTotalCount(), task.phaseIndex(), task.kind(),
                 task.inputAllocations()));
         }
         List<ECOExecutionSchedule.ComponentExecutionPhase> schedulePhases = new ArrayList<>();
@@ -407,9 +405,9 @@ public final class ECOPlanningResultRegistry {
                 executionPlan = result.executionPlan();
                 ECOExecutionSchedule schedule = executionPlan.schedule();
                 if (schedule.phases().isEmpty()) reason = "SCHEDULE_EMPTY";
-                else if (cycleExpected && schedule.phases().stream().noneMatch(phase ->
+                else if (schedule.phases().stream().noneMatch(phase ->
                         phase.type() != ECOExecutionSchedule.Type.DAG)) reason = "NO_CYCLE_PHASE";
-                else if (cycleExpected && schedule.phases().stream()
+                else if (schedule.phases().stream()
                         .filter(phase -> phase.type() != ECOExecutionSchedule.Type.DAG)
                         .allMatch(phase -> phase.patternSet().isEmpty())) reason = "EMPTY_CYCLE_PATTERN_SET";
             } catch (RuntimeException scheduleFailure) {

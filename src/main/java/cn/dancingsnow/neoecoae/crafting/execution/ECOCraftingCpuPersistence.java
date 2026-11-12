@@ -17,9 +17,9 @@ final class ECOCraftingCpuPersistence {
     }
 
     void read(CompoundTag data, HolderLookup.Provider registries) {
+        host.inventoryReturnForPersistence().read(data);
         cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge.clear(host);
         host.taskSchedulerForPersistence().reset();
-        host.dispatchStrategyForPersistence().reset();
         host.jobAttachmentsForPersistence().reset();
         host.outputDeliveryForPersistence().clearPendingFinalOutputs();
         host.energyTransactionForPersistence().readFromNBT(data);
@@ -58,6 +58,7 @@ final class ECOCraftingCpuPersistence {
     }
 
     void write(CompoundTag data, HolderLookup.Provider registries) {
+        host.inventoryReturnForPersistence().write(data);
         host.bigOrder.write(data, registries);
         data.putBoolean("ecoExactInventory", host.exactInventory().isEnabled());
         data.put("inventory", ECOLegacyAENbt.writeInventory(registries, host.getInventory()));

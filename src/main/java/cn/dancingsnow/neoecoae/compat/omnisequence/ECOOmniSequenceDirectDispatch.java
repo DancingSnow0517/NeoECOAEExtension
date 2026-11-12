@@ -7,7 +7,6 @@ import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchDispatchRequest;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
-import com.atir.molecularmanipulator.api.crafting.OmniBatchAdmission;
 import com.atir.molecularmanipulator.api.crafting.OmniBatchCraftingProvider;
 import com.atir.molecularmanipulator.api.crafting.OmniBatchDelivery;
 import com.atir.molecularmanipulator.api.crafting.OmniBatchProbe;
@@ -142,14 +141,14 @@ public final class ECOOmniSequenceDirectDispatch {
                 return provider;
             }
             try {
-                Method m = provider.getClass().getMethod("getLogic");
+                Method m = cn.dancingsnow.neoecoae.compat.processing.ProcessingReflection
+                    .publicNoArgMethod(provider.getClass(), "getLogic");
+                if (m == null) return provider;
                 Object logic = m.invoke(provider);
                 if (logic instanceof ICraftingProvider p
                         && (p instanceof MolecularBatchCraftingProvider || p instanceof OmniBatchCraftingProvider)) {
                     return p;
                 }
-            } catch (NoSuchMethodException absent) {
-                // Not a pattern provider host; the provider itself is the dispatch target.
             } catch (ReflectiveOperationException | RuntimeException failure) {
                 logFailure("provider unwrap", failure);
             }
@@ -386,19 +385,14 @@ public final class ECOOmniSequenceDirectDispatch {
                 }
             }
             if (!flushed) {
+                // Supported since OmniSequence 2.0.5, including 2.0.5-fix: the molecular interface extends
+                // this one and its default method forwards to molecularmanipulator$flushOutputsAfterCpuAccounting.
                 if (target instanceof OmniPostAccountingOutputProvider o) {
                     try {
                         o.flushOutputsAfterCpuAccounting();
                         flushed = true;
                     } catch (RuntimeException | LinkageError failure) {
                         logFailure("provider output flush", failure);
-                    }
-                } else if (target instanceof MolecularBatchCraftingProvider m) {
-                    try {
-                        m.molecularmanipulator$flushOutputsAfterCpuAccounting();
-                        flushed = true;
-                    } catch (RuntimeException | LinkageError failure) {
-                        logFailure("molecular output flush", failure);
                     }
                 }
             }

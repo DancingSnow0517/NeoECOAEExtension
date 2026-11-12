@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.compat.useless;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEKey;
@@ -87,8 +89,8 @@ final class ECOUselessScaledBatchDispatch implements ECOFastPathDispatchProvider
         boolean recipeOutputs = original instanceof OmniversalPatternDetails
             || original instanceof DynamicComponentPattern dynamic && dynamic.usesDynamicOutputs();
         if (recipeOutputs) {
-            for (var item : recipe.outputs()) merge(outputs, GenericStack.fromItemStack(item));
-            for (var fluid : recipe.outputFluids()) merge(outputs, GenericStack.fromFluidStack(fluid));
+            for (var item : recipe.outputs()) merge(outputs, ECOKeyFactory.fromItemStack(item));
+            for (var fluid : recipe.outputFluids()) merge(outputs, ECOKeyFactory.fromFluidStack(fluid));
             for (var output : recipe.keyOutputs()) merge(outputs, output);
             return limit(maximum, outputs, actualOperations);
         }

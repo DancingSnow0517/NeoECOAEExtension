@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.planner.result;
 
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -33,7 +35,7 @@ public record ECOExecutionPlan(
     }
 
     public record TaskSpec(int id, PlanIdentity.PatternIdentity identity, IPatternDetails pattern,
-            PatternRuntimeInfo runtimeInfo, long totalCount, int phaseIndex, TaskKind kind,
+            PatternRuntimeInfo runtimeInfo, PlannerAmount plannerTotalCount, int phaseIndex, TaskKind kind,
             List<PlannedInputAllocation> inputAllocations) {
         public TaskSpec {
             Objects.requireNonNull(identity, "identity");
@@ -41,14 +43,20 @@ public record ECOExecutionPlan(
             Objects.requireNonNull(runtimeInfo, "runtimeInfo");
             Objects.requireNonNull(kind, "kind");
 
-            if (id < 0 || totalCount <= 0 || phaseIndex < 0) {
+            if (id < 0 || plannerTotalCount.signum() <= 0 || phaseIndex < 0) {
                 throw new IllegalArgumentException("Invalid execution task");
             }
         }
         public TaskSpec(int id, PlanIdentity.PatternIdentity identity, IPatternDetails pattern,
                 PatternRuntimeInfo runtimeInfo, long totalCount, int phaseIndex, TaskKind kind) {
-            this(id, identity, pattern, runtimeInfo, totalCount, phaseIndex, kind, List.of());
+            this(id, identity, pattern, runtimeInfo, PlannerAmount.of(totalCount), phaseIndex, kind, List.of());
         }
+        public TaskSpec(int id, PlanIdentity.PatternIdentity identity, IPatternDetails pattern,
+                PatternRuntimeInfo runtimeInfo, long totalCount, int phaseIndex, TaskKind kind,
+                List<PlannedInputAllocation> allocations) {
+            this(id, identity, pattern, runtimeInfo, PlannerAmount.of(totalCount), phaseIndex, kind, allocations);
+        }
+        public long totalCount() { return plannerTotalCount.longValueSaturated(); }
     }
 
     /** Frozen fields needed by dispatch/UI without reinterpreting the planner graph. */
@@ -66,9 +74,9 @@ public record ECOExecutionPlan(
         }
     }
 
-    public record PhaseSpec(int index, int componentId, ECOExecutionSchedule.Type type,
-            List<Integer> taskIds, List<ExecutionStep> steps, List<Integer> dependencies,
-            java.util.Map<Integer, Long> dynamicFirings, java.util.Map<AEKey, Long> initialSeed) {
+    public record PhaseSpec(java.util.Map<Integer, PlannerAmount> plannerDynamicFirings,
+            java.util.Map<AEKey, PlannerAmount> plannerInitialSeed, int index, int componentId, ECOExecutionSchedule.Type type,
+            List<Integer> taskIds, List<ExecutionStep> steps, List<Integer> dependencies) {
         public PhaseSpec {
             if (index < 0) throw new IllegalArgumentException("Negative phase index");
             Objects.requireNonNull(type, "type");
@@ -77,15 +85,15 @@ public record ECOExecutionPlan(
 
 
 
-            for (var entry : dynamicFirings.entrySet()) {
+            for (var entry : plannerDynamicFirings.entrySet()) {
                 Integer taskId = entry.getKey();
-                Long count = entry.getValue();
-                if (taskId == null || !taskIds.contains(taskId) || count == null || count <= 0L) {
+                PlannerAmount count = entry.getValue();
+                if (taskId == null || !taskIds.contains(taskId) || count == null || count.signum() <= 0) {
                     throw new IllegalArgumentException("Invalid dynamic cycle firing vector");
                 }
             }
-            initialSeed.forEach((key, amount) -> {
-                if (key == null || amount == null || amount <= 0L) {
+            plannerInitialSeed.forEach((key, amount) -> {
+                if (key == null || amount == null || amount.signum() <= 0) {
                     throw new IllegalArgumentException("Invalid dynamic cycle seed");
                 }
             });
@@ -93,23 +101,47 @@ public record ECOExecutionPlan(
 
         public PhaseSpec(int index, int componentId, ECOExecutionSchedule.Type type,
                 List<Integer> taskIds, List<ExecutionStep> steps, List<Integer> dependencies) {
-            this(index, componentId, type, taskIds, steps, dependencies, java.util.Map.of(), java.util.Map.of());
+            this(java.util.Map.of(), java.util.Map.of(), index, componentId, type, taskIds, steps, dependencies);
         }
+        public PhaseSpec(int index, int componentId, ECOExecutionSchedule.Type type,
+                List<Integer> taskIds, List<ExecutionStep> steps, List<Integer> dependencies,
+                java.util.Map<Integer, Long> dynamicFirings, java.util.Map<AEKey, Long> initialSeed) {
+            this(exact(dynamicFirings), exact(initialSeed), index, componentId, type, taskIds, steps, dependencies);
+        }
+        public java.util.Map<Integer, Long> dynamicFirings() { return bounded(plannerDynamicFirings); }
+        public java.util.Map<AEKey, Long> initialSeed() { return bounded(plannerInitialSeed); }
     }
 
     /** One ordered run. Count is deliberately compressed and may be much larger than an int. */
-    public record ExecutionStep(int taskId, long count, int repeatWidth, long repetitions)
+    public record ExecutionStep(int taskId, PlannerAmount plannerCount, int repeatWidth, PlannerAmount plannerRepetitions)
             implements RepeatLayout.Run {
-        public ExecutionStep(int taskId, long count) { this(taskId, count, 1, 1L); }
+        public ExecutionStep(int taskId, long count) { this(taskId, PlannerAmount.of(count), 1, PlannerAmount.ONE); }
+        public ExecutionStep(int taskId, long count, int repeatWidth, long repetitions) {
+            this(taskId, PlannerAmount.of(count), repeatWidth, PlannerAmount.of(repetitions));
+        }
+        public long count() { return plannerCount.longValueSaturated(); }
+        @Override public long repetitions() { return plannerRepetitions.longValueSaturated(); }
         public ExecutionStep {
-            if (taskId < 0 || count <= 0) throw new IllegalArgumentException("Invalid execution step");
-            if (repeatWidth < 1 || repetitions < 1 || repetitions == 1 && repeatWidth != 1) {
+            if (taskId < 0 || plannerCount.signum() <= 0) throw new IllegalArgumentException("Invalid execution step");
+            if (repeatWidth < 1 || plannerRepetitions.signum() <= 0 || plannerRepetitions.equals(PlannerAmount.ONE) && repeatWidth != 1) {
                 throw new IllegalArgumentException("Invalid execution circuit repeat");
             }
         }
     }
 
     public enum TaskKind { DAG, CYCLE_REMAINDER, CYCLE_ORDERED, CYCLE_DYNAMIC }
+
+    private static <K> java.util.Map<K, PlannerAmount> exact(java.util.Map<K, Long> values) {
+        var result = new java.util.LinkedHashMap<K, PlannerAmount>();
+        values.forEach((key, value) -> result.put(key, PlannerAmount.of(value)));
+        return result;
+    }
+
+    private static <K> java.util.Map<K, Long> bounded(java.util.Map<K, PlannerAmount> values) {
+        var result = new java.util.LinkedHashMap<K, Long>();
+        values.forEach((key, value) -> result.put(key, value.longValueSaturated()));
+        return result;
+    }
 
     private static void validateShape(List<TaskSpec> tasks, List<PhaseSpec> phases, ExecutionMode mode) {
         boolean[] taskOwned = new boolean[tasks.size()];
@@ -123,7 +155,7 @@ public record ECOExecutionPlan(
                     throw new IllegalArgumentException("Invalid or duplicate task input allocation slot");
                 }
                 allocatedSlots[allocation.slot()] = true;
-                if (allocation.totalCrafts() != task.totalCount()) {
+                if (!allocation.plannerTotalCrafts().equals(task.plannerTotalCount())) {
                     throw new IllegalArgumentException("Task input allocation does not cover its complete count");
                 }
             }
@@ -150,8 +182,8 @@ public record ECOExecutionPlan(
             if (phase.type() != ECOExecutionSchedule.Type.DYNAMIC_CYCLE && !phase.dynamicFirings().isEmpty()) {
                 throw new IllegalArgumentException("Only a dynamic cycle phase can contain dynamic firings");
             }
-            phase.dynamicFirings().forEach((taskId, count) -> {
-                if (count > tasks.get(taskId).totalCount()) {
+            phase.plannerDynamicFirings().forEach((taskId, count) -> {
+                if (count.compareTo(tasks.get(taskId).plannerTotalCount()) > 0) {
                     throw new IllegalArgumentException("Dynamic firing count exceeds its task total");
                 }
             });
@@ -167,17 +199,17 @@ public record ECOExecutionPlan(
                     throw new IllegalArgumentException("Duplicate phase dependency");
                 }
             }
-            long[] repeats = RepeatLayout.multipliers(phase.steps());
-            java.util.Map<Integer, Long> orderedCounts = new java.util.HashMap<>();
+            PlannerAmount[] repeats = RepeatLayout.plannerMultipliers(phase.steps());
+            java.util.Map<Integer, PlannerAmount> orderedCounts = new java.util.HashMap<>();
             for (int stepIndex = 0; stepIndex < phase.steps().size(); stepIndex++) {
                 ExecutionStep step = phase.steps().get(stepIndex);
                 if (!phase.taskIds().contains(step.taskId())) {
                     throw new IllegalArgumentException("Cycle step references a task outside its phase");
                 }
-                orderedCounts.merge(step.taskId(), Math.multiplyExact(step.count(), repeats[stepIndex]), Math::addExact);
+                orderedCounts.merge(step.taskId(), step.plannerCount().multiply(repeats[stepIndex]), PlannerAmount::add);
             }
             orderedCounts.forEach((task, count) -> {
-                if (count > tasks.get(task).totalCount()) {
+                if (count.compareTo(tasks.get(task).plannerTotalCount()) > 0) {
                     throw new IllegalArgumentException("Ordered circuit exceeds its task total");
                 }
             });

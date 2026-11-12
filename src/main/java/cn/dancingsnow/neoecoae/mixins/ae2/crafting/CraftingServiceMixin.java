@@ -37,7 +37,7 @@ import com.google.common.collect.ImmutableSet;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.sugar.Local;
-import com.llamalad7.mixinextras.sugar.ref.LocalLongRef;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.Identifier;
@@ -68,6 +68,16 @@ import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
 @Mixin(CraftingService.class)
 public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings, ECOCraftingOutputRouter,
         IGridServiceProvider, ECOCraftingProviderRevision, ECOCraftingServiceDiagnostics {
+    @Inject(method = "getProviders", at = @At("HEAD"), cancellable = true)
+    private void neoecoae$componentPolicyProviders(IPatternDetails pattern,
+            CallbackInfoReturnable<Iterable<appeng.api.networking.crafting.ICraftingProvider>> cir) {
+        if (pattern instanceof cn.dancingsnow.neoecoae.crafting.ECOComponentInsensitiveProcessingPattern policy) {
+            var physical = ((CraftingService) (Object) this).getProviders(policy.ecoProviderPattern());
+            cir.setReturnValue(() -> java.util.stream.StreamSupport.stream(physical.spliterator(), false)
+                .map(policy::provider).iterator());
+        }
+    }
+
     @Unique
     private static final Logger NEOECOAE_SUBMISSION_LOGGER = LoggerFactory.getLogger("neoecoae.submit");
     @Unique
@@ -92,8 +102,8 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     }
 
     @Unique
-    private static final String NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY =
-            "neoecoaeIgnorePatternSubstitutions";
+    private static final String NEOECOAE_LITE_CRAFTING_MODE_KEY =
+            "neoecoaeLiteCraftingMode";
     @Unique
     private static final Comparator<NEComputationCluster> NE_FAST_FIRST_COMPARATOR = Comparator.comparingInt(
                     NEComputationCluster::getPooledParallelism)
@@ -183,7 +193,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     }
 
     @Unique
-    private boolean neoecoae$ignorePatternSubstitutions;
+    private boolean neoecoae$liteCraftingMode = true;
     @Unique
     private boolean neoecoae$planningModeInitialized;
     @Unique
@@ -270,9 +280,9 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     private void onAddNode(IGridNode gridNode, CompoundTag savedData, CallbackInfo ci) {
         if (!neoecoae$planningModeInitialized
                 && savedData != null
-                && savedData.contains(NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY)) {
-            neoecoae$ignorePatternSubstitutions = savedData.getBooleanOr(
-                    NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY, false);
+                && savedData.contains(NEOECOAE_LITE_CRAFTING_MODE_KEY)) {
+            neoecoae$liteCraftingMode = savedData.getBooleanOr(
+                    NEOECOAE_LITE_CRAFTING_MODE_KEY, false);
             neoecoae$planningModeInitialized = true;
         }
         if (gridNode.getOwner() instanceof NEBlockEntity<?, ?> blockEntity
@@ -311,17 +321,17 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     @Override
     public void saveNodeData(IGridNode gridNode, CompoundTag savedData) {
         savedData.putBoolean(
-                NEOECOAE_IGNORE_PATTERN_SUBSTITUTIONS_KEY,
-                neoecoae$ignorePatternSubstitutions);
+                NEOECOAE_LITE_CRAFTING_MODE_KEY,
+                neoecoae$liteCraftingMode);
     }
 
     @Unique
     private void neoecoae$initializeOrSyncPlanningMode(boolean persistedValue, java.util.function.Consumer<Boolean> apply) {
         if (!neoecoae$planningModeInitialized) {
-            neoecoae$ignorePatternSubstitutions = persistedValue;
+            neoecoae$liteCraftingMode = persistedValue;
             neoecoae$planningModeInitialized = true;
         } else {
-            apply.accept(neoecoae$ignorePatternSubstitutions);
+            apply.accept(neoecoae$liteCraftingMode);
         }
     }
 
@@ -348,13 +358,13 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
 
     @Override
     public boolean neoecoae$isIgnoringPatternSubstitutions() {
-        return neoecoae$ignorePatternSubstitutions;
+        return neoecoae$liteCraftingMode;
     }
 
     @Override
     public void neoecoae$setIgnoringPatternSubstitutions(boolean ignoringPatternSubstitutions) {
         neoecoae$planningModeInitialized = true;
-        neoecoae$ignorePatternSubstitutions = ignoringPatternSubstitutions;
+        neoecoae$liteCraftingMode = ignoringPatternSubstitutions;
         for (ECOCraftingSystemBlockEntity host : NEMachineLookup.getMachines(grid, ECOCraftingSystemBlockEntity.class)) {
             host.applyNetworkIgnoringPatternSubstitutions(ignoringPatternSubstitutions);
         }
@@ -497,27 +507,33 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
 
     }
 
-    @Inject(
+    // AE2 19.2.18 loads the inserted local twice in its loop and once for its return.
+    // Update that local before the final load: AdvancedAE's RETURN hook also captures it.
+    // A return-value-only modifier would leave AdvancedAE with the old accepted quantity.
+    @ModifyVariable(
             method = "insertIntoCpus",
-            at = @At(value = "RETURN", shift = At.Shift.BY, by = -1),
+            at = @At(value = "LOAD", ordinal = 2),
+            ordinal = 1,
+            require = 1,
+            allow = 1,
             order = 500
     )
-    private void onInsertIntoCpus(
+    private long onInsertIntoCpus(
+            long inserted,
             AEKey what,
             long amount,
-            Actionable type,
-            CallbackInfoReturnable<Long> cir,
-            @Local(ordinal = 1) LocalLongRef inserted
+            Actionable type
     ) {
-        if (this.neoecoae$computationClusters.isEmpty() || inserted.get() >= amount) return;
+        if (this.neoecoae$computationClusters.isEmpty() || inserted >= amount) return inserted;
         for (NEComputationCluster cluster : this.neoecoae$computationClusters) {
             if (cluster != null) {
                 for (var cpu : cluster.getAllocatedCPUs()) {
-                    inserted.set(inserted.get() + cpu.getLogic().insert(what, amount - inserted.get(), type));
-                    if (inserted.get() >= amount) return;
+                    inserted += cpu.getLogic().insert(what, amount - inserted, type);
+                    if (inserted >= amount) return inserted;
                 }
             }
         }
+        return inserted;
     }
 
     /**

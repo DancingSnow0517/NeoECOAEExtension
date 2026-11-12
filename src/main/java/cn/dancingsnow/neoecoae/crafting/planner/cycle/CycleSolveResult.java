@@ -38,17 +38,16 @@ public record CycleSolveResult(
     CycleSolveStatus status,
     ExecutionCountKnowledge executionCountKnowledge,
     Map<IPatternDetails, PlannerAmount> exactPatternTimes,
-    Map<IPatternDetails, Long> patternTimes,
-    Map<AEKey, Long> externalDemand,
-    Map<AEKey, Long> requiredSeed,
-    Map<AEKey, Long> seedShortfall,
-    Map<AEKey, Long> producedOutputs,
-    Map<AEKey, Long> deliverableOutputs,
+    Map<AEKey, PlannerAmount> exactExternalDemand,
+    Map<AEKey, PlannerAmount> exactRequiredSeed,
+    Map<AEKey, PlannerAmount> exactSeedShortfall,
+    Map<AEKey, PlannerAmount> exactProducedOutputs,
+    Map<AEKey, PlannerAmount> exactDeliverableOutputs,
     List<CycleFiring> executionWitness,
     List<PatternRun> executionPlan,
     List<CycleSolveDiagnostic> diagnostics,
     CycleSolveMetrics metrics,
-    List<Map<AEKey, Long>> startupCandidates
+    List<Map<AEKey, PlannerAmount>> exactStartupCandidates
 ) {
     public CycleSolveResult {
         executionCountKnowledge = executionCountKnowledge == null ? ExecutionCountKnowledge.UNKNOWN
@@ -62,13 +61,14 @@ public record CycleSolveResult(
 
 
 
-        RepeatLayout.multipliers(executionPlan);
+        RepeatLayout.plannerMultipliers(executionPlan);
 
-        startupCandidates = startupCandidates == null ? List.of() : startupCandidates;
-        if (status == CycleSolveStatus.SUCCESS && !seedShortfall.isEmpty()) {
+        exactStartupCandidates = exactStartupCandidates == null ? List.of() : exactStartupCandidates;
+        if (status == CycleSolveStatus.SUCCESS && !exactSeedShortfall.isEmpty()) {
             throw new IllegalArgumentException("A successful cycle solve cannot report a seed shortfall");
         }
-        if (!executionWitness.isEmpty() && totalRunCount(executionPlan) != executionWitness.size()) {
+        if (!executionWitness.isEmpty()
+                && !totalRunCount(executionPlan).equals(PlannerAmount.of(executionWitness.size()))) {
             throw new IllegalArgumentException("A compact execution plan must account for every witness step");
         }
     }
@@ -79,14 +79,29 @@ public record CycleSolveResult(
             Map<AEKey, Long> external, Map<AEKey, Long> seed, Map<AEKey, Long> shortfall,
             Map<AEKey, Long> produced, Map<AEKey, Long> delivered, List<CycleFiring> witness,
             List<PatternRun> plan, List<CycleSolveDiagnostic> diagnostics, CycleSolveMetrics metrics) {
-        this(status, knowledge, exactTimes, times, external, seed, shortfall, produced, delivered,
-            witness, plan, diagnostics, metrics, List.of());
+        this(status, knowledge, exactTimes, exactMap(external), exactMap(seed), exactMap(shortfall),
+            exactMap(produced), exactMap(delivered), witness, plan, diagnostics, metrics, List.of());
+    }
+
+    public CycleSolveResult(CycleSolveStatus status, ExecutionCountKnowledge knowledge,
+            Map<IPatternDetails, PlannerAmount> exactTimes, Map<IPatternDetails, Long> times,
+            Map<AEKey, Long> external, Map<AEKey, Long> seed, Map<AEKey, Long> shortfall,
+            Map<AEKey, Long> produced, Map<AEKey, Long> delivered, List<CycleFiring> witness,
+            List<PatternRun> plan, List<CycleSolveDiagnostic> diagnostics, CycleSolveMetrics metrics,
+            List<Map<AEKey, Long>> candidates) {
+        this(status, knowledge, exactTimes, exactMap(external), exactMap(seed), exactMap(shortfall),
+            exactMap(produced), exactMap(delivered), witness, plan, diagnostics, metrics,
+            candidates.stream().map(CycleSolveResult::exactMap).toList());
     }
 
     public CycleSolveResult withStartupCandidates(List<Map<AEKey, Long>> candidates) {
-        return new CycleSolveResult(status, executionCountKnowledge, exactPatternTimes, patternTimes, externalDemand,
-            requiredSeed, seedShortfall, producedOutputs, deliverableOutputs, executionWitness, executionPlan,
-            diagnostics, metrics, candidates);
+        return withExactStartupCandidates(candidates.stream().map(CycleSolveResult::exactMap).toList());
+    }
+
+    public CycleSolveResult withExactStartupCandidates(List<Map<AEKey, PlannerAmount>> candidates) {
+        return new CycleSolveResult(status, executionCountKnowledge, exactPatternTimes, exactExternalDemand,
+            exactRequiredSeed, exactSeedShortfall, exactProducedOutputs, exactDeliverableOutputs,
+            executionWitness, executionPlan, diagnostics, metrics, candidates);
     }
 
     /** Runtime-compatible constructor. Exact counts are derived before any diagnostic arithmetic. */
@@ -128,11 +143,11 @@ public record CycleSolveResult(
         return runs;
     }
 
-    private static long totalRunCount(List<PatternRun> runs) {
-        long total = 0;
-        long[] repeats = RepeatLayout.multipliers(runs);
+    private static PlannerAmount totalRunCount(List<PatternRun> runs) {
+        PlannerAmount total = PlannerAmount.ZERO;
+        PlannerAmount[] repeats = RepeatLayout.plannerMultipliers(runs);
         for (int i = 0; i < runs.size(); i++) {
-            total = Math.addExact(total, Math.multiplyExact(runs.get(i).count(), repeats[i]));
+            total = total.add(runs.get(i).plannerCount().multiply(repeats[i]));
         }
         return total;
     }
@@ -161,9 +176,9 @@ public record CycleSolveResult(
         if (extra.isEmpty()) return this;
         List<CycleSolveDiagnostic> merged = new ArrayList<>(extra);
         merged.addAll(diagnostics);
-        return new CycleSolveResult(status, executionCountKnowledge, exactPatternTimes, patternTimes, externalDemand,
-            requiredSeed, seedShortfall, producedOutputs, deliverableOutputs, executionWitness, executionPlan,
-            merged, metrics, startupCandidates);
+        return new CycleSolveResult(status, executionCountKnowledge, exactPatternTimes, exactExternalDemand,
+            exactRequiredSeed, exactSeedShortfall, exactProducedOutputs, exactDeliverableOutputs,
+            executionWitness, executionPlan, merged, metrics, exactStartupCandidates);
     }
 
     /** Exact total firings in the plan; it may exceed the legacy long projection. */
@@ -190,10 +205,37 @@ public record CycleSolveResult(
 
     /** Positive-only view, convenient for merging into planner reporting. */
     public Map<AEKey, Long> positiveExternalDemand() {
-        Map<AEKey, Long> result = new LinkedHashMap<>();
-        externalDemand.forEach((key, amount) -> {
-            if (amount != null && amount > 0) result.put(key, amount);
+        return bounded(positiveExactExternalDemand());
+    }
+
+    public Map<AEKey, PlannerAmount> positiveExactExternalDemand() {
+        Map<AEKey, PlannerAmount> result = new LinkedHashMap<>();
+        exactExternalDemand.forEach((key, amount) -> {
+            if (amount.signum() > 0) result.put(key, amount);
         });
+        return result;
+    }
+
+    /** Legacy display/API projections; the solver and component planner consume the exact maps above. */
+    public Map<IPatternDetails, Long> patternTimes() { return bounded(exactPatternTimes); }
+    public Map<AEKey, Long> externalDemand() { return bounded(exactExternalDemand); }
+    public Map<AEKey, Long> requiredSeed() { return bounded(exactRequiredSeed); }
+    public Map<AEKey, Long> seedShortfall() { return bounded(exactSeedShortfall); }
+    public Map<AEKey, Long> producedOutputs() { return bounded(exactProducedOutputs); }
+    public Map<AEKey, Long> deliverableOutputs() { return bounded(exactDeliverableOutputs); }
+    public List<Map<AEKey, Long>> startupCandidates() {
+        return exactStartupCandidates.stream().map(CycleSolveResult::bounded).toList();
+    }
+
+    private static <K> Map<K, Long> bounded(Map<K, PlannerAmount> values) {
+        Map<K, Long> result = new LinkedHashMap<>();
+        values.forEach((key, amount) -> result.put(key, amount.longValueSaturated()));
+        return result;
+    }
+
+    private static <K> Map<K, PlannerAmount> exactMap(Map<K, Long> values) {
+        Map<K, PlannerAmount> result = new LinkedHashMap<>();
+        values.forEach((key, amount) -> result.put(key, PlannerAmount.of(amount)));
         return result;
     }
 
@@ -225,9 +267,9 @@ public record CycleSolveResult(
                 net.merge(output.what(), times.multiply(output.amount()), PlannerAmount::add));
         }
         Map<AEKey, Long> result = new LinkedHashMap<>();
-        requiredSeed.forEach((key, amount) -> {
+        exactRequiredSeed.forEach((key, amount) -> {
             PlannerAmount use = smallestUse.get(key);
-            if (amount > 0 && use != null && use.signum() > 0
+            if (amount.signum() > 0 && use != null && use.signum() > 0
                     && net.getOrDefault(key, PlannerAmount.ZERO).isZero()) {
                 result.put(key, PlannerAmount.of(Math.max(0L, reservations.getOrDefault(key, 0L)))
                     .divide(use).longValueExact());

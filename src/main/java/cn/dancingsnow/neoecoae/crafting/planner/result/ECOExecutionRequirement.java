@@ -1,15 +1,14 @@
 package cn.dancingsnow.neoecoae.crafting.planner.result;
 
 import appeng.api.crafting.IPatternDetails;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /** Pure, shared classification of whether a submitted task vector needs solved cycle ordering. */
 public enum ECOExecutionRequirement {
@@ -20,39 +19,16 @@ public enum ECOExecutionRequirement {
 
     public static ECOExecutionRequirement classify(List<ComponentPlanningResult> components,
             Map<IPatternDetails, Long> plannedTasks) {
-        Map<PlanIdentity.PatternIdentity, Long> positivePlannedCounts = new HashMap<>();
-        Set<PlanIdentity.PatternIdentity> overflowingIdentities = new HashSet<>();
-        Map<IPatternDetails, Long> fallbackCounts = new IdentityHashMap<>();
-        ReferenceSet<IPatternDetails> overflowingFallbacks = new ReferenceOpenHashSet<>();
+        Map<PlanIdentity.PatternIdentity, PlannerAmount> positivePlannedCounts = new HashMap<>();
+        Map<IPatternDetails, PlannerAmount> fallbackCounts = new IdentityHashMap<>();
         for (var entry : plannedTasks.entrySet()) {
             Long count = entry.getValue();
             if (count == null || count <= 0L) continue;
             PlanIdentity.PatternIdentity identity = safePatternIdentity(entry.getKey());
             if (identity == null) {
-                if (overflowingFallbacks.contains(entry.getKey())) continue;
-                Long existing = fallbackCounts.get(entry.getKey());
-                if (existing == null) {
-                    fallbackCounts.put(entry.getKey(), count);
-                } else {
-                    try {
-                        fallbackCounts.put(entry.getKey(), Math.addExact(existing, count));
-                    } catch (ArithmeticException overflow) {
-                        overflowingFallbacks.add(entry.getKey());
-                    }
-                }
-            } else if (overflowingIdentities.contains(identity)) {
-                continue;
+                fallbackCounts.merge(entry.getKey(), PlannerAmount.of(count), PlannerAmount::add);
             } else {
-                Long existing = positivePlannedCounts.get(identity);
-                if (existing == null) {
-                    positivePlannedCounts.put(identity, count);
-                } else {
-                    try {
-                        positivePlannedCounts.put(identity, Math.addExact(existing, count));
-                    } catch (ArithmeticException overflow) {
-                        overflowingIdentities.add(identity);
-                    }
-                }
+                positivePlannedCounts.merge(identity, PlannerAmount.of(count), PlannerAmount::add);
             }
         }
         boolean ordered = false;
@@ -60,8 +36,7 @@ public enum ECOExecutionRequirement {
         for (ComponentPlanningResult component : components) {
             if (component.type() != ComponentPlanningResult.Type.CYCLIC) continue;
             boolean plannedMember = component.executionPatterns().stream().anyMatch(pattern ->
-                plannedCount(pattern, positivePlannedCounts, overflowingIdentities,
-                    fallbackCounts, overflowingFallbacks) > 0);
+                plannedCount(pattern, positivePlannedCounts, fallbackCounts).signum() > 0);
             switch (component.cycleDisposition()) {
                 case BLOCKED -> { return BLOCKED; }
                 case NOT_REQUIRED, STOCK_SATISFIED -> {
@@ -101,20 +76,14 @@ public enum ECOExecutionRequirement {
         return componentIsOrdered(component) || componentIsDynamic(component);
     }
 
-    private static long plannedCount(IPatternDetails pattern,
-            Map<PlanIdentity.PatternIdentity, Long> positivePlannedCounts,
-            Set<PlanIdentity.PatternIdentity> overflowingIdentities,
-            Map<IPatternDetails, Long> fallbackCounts,
-            Set<IPatternDetails> overflowingFallbacks) {
+    private static PlannerAmount plannedCount(IPatternDetails pattern,
+            Map<PlanIdentity.PatternIdentity, PlannerAmount> positivePlannedCounts,
+            Map<IPatternDetails, PlannerAmount> fallbackCounts) {
         PlanIdentity.PatternIdentity identity = safePatternIdentity(pattern);
         if (identity != null) {
-            if (overflowingIdentities.contains(identity)) {
-                throw new ArithmeticException("long overflow");
-            }
-            return positivePlannedCounts.getOrDefault(identity, 0L);
+            return positivePlannedCounts.getOrDefault(identity, PlannerAmount.ZERO);
         }
-        if (overflowingFallbacks.contains(pattern)) throw new ArithmeticException("long overflow");
-        return fallbackCounts.getOrDefault(pattern, 0L);
+        return fallbackCounts.getOrDefault(pattern, PlannerAmount.ZERO);
     }
 
     private static PlanIdentity.PatternIdentity safePatternIdentity(IPatternDetails pattern) {

@@ -107,7 +107,7 @@ class ECOExactInventoryLifecycleTest {
         verify((ECOBigIntegerStorage) storage, never()).insertBigInteger(any(), any(), any(), any());
     }
 
-    @Test void failedExactReturnRetainsItsInventoryAndCanRetry() {
+    @Test void uncertainExactReturnRetainsItsInventoryAndStaysStoppedAcrossReload() {
         var cpu = mock(ECOCraftingCPU.class);
         var grid = mock(IGrid.class, RETURNS_DEEP_STUBS);
         var storage = mock(MEStorage.class, withSettings().extraInterfaces(ECOBigIntegerStorage.class));
@@ -124,7 +124,35 @@ class ECOExactInventoryLifecycleTest {
         assertThrows(IllegalStateException.class, logic::storeItems);
         assertEquals(total, logic.exactInventory().amount(key));
         logic.storeItems();
-        assertFalse(logic.hasOwnedItems());
+        assertEquals(total, logic.exactInventory().amount(key));
+        assertNotNull(logic.getPermanentExecutionError());
+        var registry = mock(HolderLookup.Provider.class);
+
+        var saved = new CompoundTag();
+        logic.writeToNBT(saved, registry);
+        var restored = new ECOCraftingCPULogic(cpu);
+        try (var keys = mockStatic(AEKey.class)) {
+            keys.when(() -> AEKey.fromTagGeneric(any(net.minecraft.world.level.storage.ValueInput.class))).thenReturn(key);
+            restored.readFromNBT(saved, registry);
+        }
+        restored.storeItems();
+        assertEquals(total, restored.exactInventory().amount(key));
+        assertNotNull(restored.getPermanentExecutionError());
+        verify((ECOBigIntegerStorage) storage, times(1)).insertBigInteger(eq(key), eq(total), any(), any());
+    }
+
+    @Test void anObserverFailureCannotRefundAnAcknowledgedExternalTransfer() {
+        var fail = new java.util.concurrent.atomic.AtomicBoolean();
+        var inventory = new cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory(key -> {
+            if (fail.get()) throw new IllegalStateException("observer failed");
+        });
+        inventory.setEnabled(true);
+        var key = mock(AEKey.class, RETURNS_DEEP_STUBS);
+        var total = BigInteger.TEN.pow(28);
+        inventory.restore(java.util.Map.of(key, total));
+        fail.set(true);
+        assertThrows(IllegalStateException.class, () -> inventory.debitTransferred(key, BigInteger.valueOf(17)));
+        assertEquals(total.subtract(BigInteger.valueOf(17)), inventory.amount(key));
     }
 
     @Test void onlyTheExplicitExactOrderFlagEnablesBigIntegerInventory() {
@@ -154,6 +182,7 @@ class ECOExactInventoryLifecycleTest {
         doAnswer(call -> { ((net.minecraft.world.level.storage.ValueOutput) call.getArgument(0)).putString("test", "key"); return null; }).when(key).toTagGeneric(any());
         logic.exactInventory().setEnabled(true);
         for (int i = 0; i < 9; i++) logic.getInventory().insert(key, Long.MAX_VALUE, Actionable.MODULATE);
+        logic.markForDeletion();
         var saved = new CompoundTag();
         logic.writeToNBT(saved, registry);
         var restored = new ECOCraftingCPULogic(cpu);
@@ -162,6 +191,7 @@ class ECOExactInventoryLifecycleTest {
             restored.readFromNBT(saved, registry);
         }
         var total = BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.valueOf(9));
+        assertTrue(restored.isMarkedForDeletion());
         assertEquals(total, restored.exactInventory().amount(key));
         var storage = grid.getStorageService().getInventory();
         when(storage.insert(eq(key), anyLong(), eq(Actionable.MODULATE), any()))
@@ -174,6 +204,35 @@ class ECOExactInventoryLifecycleTest {
         verify(storage, times(9)).insert(eq(key), eq(Long.MAX_VALUE), eq(Actionable.MODULATE), any());
         assertFalse(restored.hasOwnedItems());
     }
+    @Test void alreadyPackedInventoryCannotBeReturnedAgainByLaterRemovalCallbacks() throws Exception {
+        cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize();
+        var cpu = mock(ECOCraftingCPU.class);
+        var grid = mock(IGrid.class, RETURNS_DEEP_STUBS);
+        when(cpu.getGrid()).thenReturn(grid);
+        when(cpu.getActionSource()).thenReturn(IActionSource.empty());
+        var logic = new ECOCraftingCPULogic(cpu);
+        when(cpu.getLogic()).thenReturn(logic);
+        var key = appeng.api.stacks.AEItemKey.of(net.minecraft.world.item.Items.STONE);
+        logic.getInventory().insert(key, 64, Actionable.MODULATE);
+        var storage = grid.getStorageService().getInventory();
+        when(storage.insert(eq(key), eq(64L), any(), any())).thenReturn(64L);
+        var core = mock(cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity.class);
+        setField(core, "level", mock(net.minecraft.world.level.Level.class));
+        setField(core, "cpus", new ECOCraftingCPU[]{cpu});
+        setField(core, "deferredInit", new CompoundTag[1]);
+        var packed = new java.util.BitSet();
+        packed.set(0);
+        setField(core, "packedExactInventories", packed);
+        doCallRealMethod().when(core).prepareForPermanentRemoval();
+        core.prepareForPermanentRemoval();
+        assertEquals(64, logic.getInventory().list.get(key));
+        verifyNoInteractions(storage);
+        packed.clear();
+        core.prepareForPermanentRemoval();
+        assertEquals(0, logic.getInventory().list.get(key));
+        verify(storage).insert(eq(key), eq(64L), any(), any());
+    }
+
     @Test void dismantledExactInventoryTravelsOnCoreItemWithoutChangingOrdinarySlots() throws Exception {
         cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize();
         var key = mock(AEKey.class, RETURNS_DEEP_STUBS);

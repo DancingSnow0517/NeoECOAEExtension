@@ -180,6 +180,20 @@ class ECOOmniSequenceDirectDispatchTest {
     }
 
     @Test
+    void molecularDefaultFlushReachesTheLegacyHookExactlyOnce() {
+        try (var mocked = mockStatic(ModList.class)) {
+            var modList = mock(ModList.class);
+            mocked.when(ModList::get).thenReturn(modList);
+            when(modList.isLoaded("molecularmanipulator")).thenReturn(true);
+
+            var provider = mock(TestMolecularProvider.class, CALLS_REAL_METHODS);
+            assertTrue(ECOOmniSequenceDirectDispatch.flushAfterCpuAccounting(provider));
+            verify(provider, times(1)).flushOutputsAfterCpuAccounting();
+            verify(provider, times(1)).molecularmanipulator$flushOutputsAfterCpuAccounting();
+        }
+    }
+
+    @Test
     void absentModDoesNotResolveOmniClasses() throws Exception {
         try (var mocked = mockStatic(ModList.class)) {
             var mods = mock(ModList.class);

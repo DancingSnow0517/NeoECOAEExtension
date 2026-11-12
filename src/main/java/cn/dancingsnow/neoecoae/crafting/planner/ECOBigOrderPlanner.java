@@ -13,7 +13,7 @@ public final class ECOBigOrderPlanner {
 
     public static Future<Answer> begin(IGrid grid, AEKey goal, long maximum, long bytes, ECOPlannerOptions options) {
         var inventory = ECOPlannerInventory.capture(grid);
-        var session = new ECOCraftingPlannerService().createSession(grid.getCraftingService(), goal, inventory,
+        var session = ECOCraftingPlannerService.INSTANCE.createSession(grid.getCraftingService(), goal, inventory,
                 options.cyclePlanningEnabled(), options.ignorePatternSubstitutions(), options.fuzzyPlanningItemIds());
         return ECOPlanningExecutor.submit(() -> search(maximum, bytes,
                 amount -> session.plan(amount, false, () -> {
@@ -33,8 +33,8 @@ public final class ECOBigOrderPlanner {
         while (true) {
             if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
             last = probe.plan(candidate);
-            if (last.status() == PlanningStatus.SUCCESS && last.plan() != null && !last.plan().simulation()
-                    && last.executionPlanError() == null) {
+            // Child orders use the long backend; exact-only results still require a smaller segment.
+            if (last.executable() && last.status() == PlanningStatus.SUCCESS) {
                 if (last.plan().bytes() >= 0 && last.plan().bytes() <= bytes)
                     return new Answer(last, false, false);
                 capacity = true;

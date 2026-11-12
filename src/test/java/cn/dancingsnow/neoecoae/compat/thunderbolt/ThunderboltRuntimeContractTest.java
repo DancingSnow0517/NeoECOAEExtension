@@ -117,6 +117,7 @@ class ThunderboltRuntimeContractTest {
                     case "hasFuzzyInputs" -> false;
                     case "isFuzzyOutput" -> true;
                     case "getOutputs" -> List.of(output);
+                    case "getInputs" -> source.getInputs();
                     default -> throw new UnsupportedOperationException(method.getName());
                 });
         var semantics = new ThunderPatternSemanticAdapter().analyze(pattern);
@@ -125,6 +126,57 @@ class ThunderboltRuntimeContractTest {
         assertEquals(PatternSemantics.MatchingMode.SUBSTITUTION, semantics.matchingMode());
         assertFalse(semantics.cycleSafe());
         assertSame(source, ECOProviderPatternIntrospection.unwrap(pattern));
+    }
+
+    @Test void releasedOverloadPlansDifferentComponentsFromStockAndFromAProducer() throws Exception {
+        var expected = AEItemKey.of(Items.IRON_PICKAXE);
+        var damaged = new net.minecraft.world.item.ItemStack(Items.IRON_PICKAXE);
+        damaged.setDamageValue(131);
+        var actual = AEItemKey.of(damaged);
+        var output = AEItemKey.of(Items.IRON_BLOCK);
+        var sourceStack = new net.minecraft.world.item.ItemStack(Items.PAPER);
+        var encoded = mock(appeng.crafting.pattern.EncodedProcessingPattern.class);
+        when(encoded.sparseInputs()).thenReturn(List.of(new GenericStack(expected, 1)));
+        when(encoded.sparseOutputs()).thenReturn(List.of(new GenericStack(output, 1)));
+        sourceStack.set(appeng.api.ids.AEComponents.ENCODED_PROCESSING_PATTERN, encoded);
+        var source = new appeng.crafting.pattern.AEProcessingPattern(AEItemKey.of(sourceStack));
+        var parsed = new com.moakiee.ae2lt.overload.runtime.pattern.ParsedPatternDefinition(
+            new com.moakiee.ae2lt.overload.runtime.pattern.SourcePatternSnapshot(
+                net.minecraft.resources.Identifier.parse("minecraft:paper"), null, null),
+            List.of(new com.moakiee.ae2lt.overload.runtime.pattern.ParsedPatternInput(0, expected.toStack())),
+            List.of(new com.moakiee.ae2lt.overload.runtime.pattern.ParsedPatternOutput(0, output.toStack(), true)));
+        var metadata = com.moakiee.ae2lt.overload.runtime.model.EncodedOverloadPattern.builder()
+            .input(0, com.moakiee.ae2lt.overload.runtime.model.MatchMode.ID_ONLY).build();
+        var overload = new com.moakiee.ae2lt.overload.runtime.pattern.Ae2OverloadPatternDetails(
+            AEItemKey.of(sourceStack), new com.moakiee.ae2lt.overload.runtime.pattern.OverloadPatternDetails(parsed, metadata), source);
+        assertFalse(source.getInputs()[0].isValid(actual, null));
+        assertTrue(overload.getInputs()[0].isValid(actual, null));
+        var semantics = new ThunderPatternSemanticAdapter().analyze(overload);
+        assertSame(overload.getInputs()[0], semantics.consumedInputs().getFirst().source());
+        var service = mock(appeng.api.networking.crafting.ICraftingService.class);
+        when(service.getCraftingFor(any())).thenAnswer(call -> output.equals(call.getArgument(0)) ? List.of(overload) : List.of());
+        when(service.getCraftables(any())).thenReturn(Set.of(output));
+        var stock = new KeyCounter(); stock.add(actual, 1);
+        var planner = new cn.dancingsnow.neoecoae.crafting.planner.ECOCraftingPlannerService();
+        var stocked = planner.createSession(service, output, stock, false, false, Set.of())
+            .plan(1, false, cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation.NONE);
+        assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.SUCCESS, stocked.status());
+        assertEquals(1, stocked.plan().usedItems().get(actual));
+        var ingot = AEItemKey.of(Items.IRON_INGOT);
+        var producerStack = new net.minecraft.world.item.ItemStack(Items.PAPER);
+        var producerEncoded = mock(appeng.crafting.pattern.EncodedProcessingPattern.class);
+        when(producerEncoded.sparseInputs()).thenReturn(List.of(new GenericStack(ingot, 1)));
+        when(producerEncoded.sparseOutputs()).thenReturn(List.of(new GenericStack(actual, 1)));
+        producerStack.set(appeng.api.ids.AEComponents.ENCODED_PROCESSING_PATTERN, producerEncoded);
+        var producer = new appeng.crafting.pattern.AEProcessingPattern(AEItemKey.of(producerStack));
+        when(service.getCraftingFor(actual)).thenReturn(List.of(producer));
+        when(service.getFuzzyCraftable(eq(expected), any())).thenReturn(actual);
+        var raw = new KeyCounter(); raw.add(ingot, 1);
+        var produced = planner.createSession(service, output, raw, false, false, Set.of())
+            .plan(1, false, cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation.NONE);
+        assertEquals(cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.SUCCESS, produced.status());
+        assertEquals(1, produced.plan().usedItems().get(ingot));
+        assertEquals(1L, produced.plan().patternTimes().get(producer));
     }
 
     @Test void cyclicWrapperIsRejected() throws Exception {

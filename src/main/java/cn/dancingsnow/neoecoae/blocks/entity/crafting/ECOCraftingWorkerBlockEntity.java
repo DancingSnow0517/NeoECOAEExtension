@@ -1,5 +1,8 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.api.power.ECOPowerRole;
 
 import appeng.api.networking.IGridNode;
@@ -406,11 +409,11 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         for (ECOCraftingThread thread : craftingThreads) {
             var key = thread.getDisplayedOutputKey();
             if (key == null) continue;
-            java.math.BigInteger amount = java.math.BigInteger.ZERO;
+            PlannerAmount amount = PlannerAmount.ZERO;
             for (ECOCraftingThread current : craftingThreads) {
-                amount = amount.add(current.getDisplayedItemAmount(key));
+                amount = amount.add(current.getDisplayedItemQuantity(key));
             }
-            if (amount.signum() > 0) return new CraftingOutputDisplay(key.toStack(1), amount);
+            if (amount.signum() > 0) return new CraftingOutputDisplay(key.toStack(1), amount.toBigInteger());
         }
         return CraftingOutputDisplay.EMPTY;
     }
@@ -441,7 +444,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     protected boolean readFromStream(RegistryFriendlyByteBuf data) {
         boolean changed = super.readFromStream(data);
         GenericStack previousDisplayedJob = displayedJob;
-        displayedJob = GenericStack.readBuffer(data);
+        displayedJob = ECOKeyFactory.readBuffer(data);
         return changed || !java.util.Objects.equals(previousDisplayedJob, displayedJob);
     }
 

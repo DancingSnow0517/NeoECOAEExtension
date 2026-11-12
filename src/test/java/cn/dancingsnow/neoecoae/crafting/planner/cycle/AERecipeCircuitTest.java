@@ -7,6 +7,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
+import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.crafting.planner.component.ComponentDependency;
@@ -18,6 +19,8 @@ import net.minecraft.world.level.material.Fluids;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
@@ -139,6 +142,102 @@ class AERecipeCircuitTest {
         assertEquals(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, result.status(), result.summary());
         assertTrue(result.startupCandidates().contains(Map.of(a, 1L)));
         assertTrue(result.startupCandidates().contains(Map.of(b, 1L)));
+    }
+
+    @Test void fixedFiringsReorderSharedWorkingStockWithoutBorrowingAnotherSeed() throws Exception {
+        AEKey a = mock(AEKey.class, "working_a"), b = mock(AEKey.class, "working_b");
+        AEKey product = mock(AEKey.class, "product"), catalyst = AEItemKey.of(Items.DIAMOND);
+        AEKey fuel = AEFluidKey.of(Fluids.WATER);
+        var first = recipe(0, Map.of(a, 1L, catalyst, 1L, fuel, 1000L), Map.of(b, 1L), Map.of(catalyst, 1L));
+        var second = recipe(1, Map.of(a, 1L, b, 1L, catalyst, 1L, fuel, 1000L),
+            Map.of(product, 1L), Map.of(a, 1L, catalyst, 1L));
+        var component = new CycleComponent(0, List.of(a, b), List.of(first, second), List.of(), List.of(), List.of());
+        var counts = Map.of(first.details(), PlannerAmount.ONE, second.details(), PlannerAmount.ONE);
+        var request = new CycleSolveRequest(component, Map.of(product, 1L),
+            Map.of(a, 1L, b, 1L, catalyst, 1L, fuel, 2000L), List.of(), new CycleSolveRequest.PlannerOptions());
+
+        var result = new BoundedCycleSolver().verifyFirings(request, counts, ECOCancellation.NONE);
+
+        assertNotNull(result);
+        assertEquals(CycleSolveStatus.SUCCESS, result.status(), result.summary());
+        assertEquals(counts, result.exactPatternTimes());
+        assertTrue(result.seedShortfall().isEmpty());
+        assertEquals(1L, result.requiredSeed().get(catalyst));
+        assertEquals(2000L, result.requiredSeed().get(fuel));
+        assertSame(second, result.executionPlan().getFirst().pattern());
+        assertTrue(result.diagnostics().stream().anyMatch(d -> d.code() == CycleSolveDiagnostic.Code.FACTORED_STARTUP_WITNESS));
+
+        var shortFuel = new BoundedCycleSolver().verifyFirings(new CycleSolveRequest(component, Map.of(product, 1L),
+            Map.of(a, 1L, b, 1L, catalyst, 1L, fuel, 1999L), List.of(), new CycleSolveRequest.PlannerOptions()),
+            counts, ECOCancellation.NONE);
+        assertNotNull(shortFuel);
+        assertEquals(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, shortFuel.status());
+        assertEquals(1L, shortFuel.seedShortfall().get(fuel));
+        assertEquals(counts, shortFuel.exactPatternTimes());
+        assertTrue(shortFuel.externalDemand().isEmpty());
+    }
+
+    @Test void aStartupSearchCutoffKeepsTheExistingExactMaterialReport() throws Exception {
+        AEKey a = mock(AEKey.class, "a"), b = mock(AEKey.class, "b");
+        var forward = recipe(0, Map.of(a, 1L), Map.of(b, 1L), Map.of());
+        var reverse = recipe(1, Map.of(b, 1L), Map.of(a, 1L), Map.of());
+        var component = new CycleComponent(0, List.of(a, b), List.of(forward, reverse), List.of(), List.of(), List.of());
+        var counts = Map.of(forward.details(), PlannerAmount.of(1_000_001), reverse.details(), PlannerAmount.of(1_000_000));
+        var result = new BoundedCycleSolver().verifyFirings(new CycleSolveRequest(component, Map.of(b, 1L), Map.of(),
+            List.of(), new CycleSolveRequest.PlannerOptions()), counts, ECOCancellation.NONE);
+        assertNotNull(result);
+        assertEquals(CycleSolveStatus.INSUFFICIENT_EXTERNAL_INPUT, result.status(), result.summary());
+        assertEquals(Map.of(a, 1L), result.seedShortfall());
+        assertEquals(counts, result.exactPatternTimes());
+        assertTrue(result.executionPlan().size() < 10);
+    }
+
+    @Test void independentWorkingGroupsFinishBeforeGeneralMarkingSearch() throws Exception {
+        int groups = 32;
+        AEKey catalyst = AEItemKey.of(Items.DIAMOND), fuel = AEFluidKey.of(Fluids.WATER);
+        AEKey firstProduct = mock(AEKey.class, "first_product");
+        var members = new ArrayList<AEKey>();
+        var patterns = new ArrayList<CompiledPattern>();
+        var stock = new LinkedHashMap<AEKey, Long>();
+        var counts = new LinkedHashMap<IPatternDetails, PlannerAmount>();
+        var required = new LinkedHashMap<AEKey, Long>();
+        required.put(firstProduct, (long) groups);
+        stock.put(catalyst, 1L); stock.put(fuel, 2000L * groups);
+        for (int group = 0; group < groups; group++) {
+            AEKey a = mock(AEKey.class, "a" + group), b = mock(AEKey.class, "b" + group);
+            AEKey secondProduct = mock(AEKey.class, "second_product" + group);
+            required.put(secondProduct, 1L);
+            members.add(a); members.add(b);
+            stock.put(a, 1L); stock.put(b, 1L);
+            var first = recipe(2 * group, Map.of(a, 1L, catalyst, 1L, fuel, 1000L),
+                Map.of(b, 1L, firstProduct, 1L), Map.of(catalyst, 1L));
+            var second = recipe(2 * group + 1, Map.of(a, 1L, b, 1L, catalyst, 1L, fuel, 1000L),
+                Map.of(secondProduct, 1L), Map.of(a, 1L, catalyst, 1L));
+            patterns.add(first); patterns.add(second);
+            counts.put(first.details(), PlannerAmount.ONE); counts.put(second.details(), PlannerAmount.ONE);
+        }
+        var component = new CycleComponent(0, members, patterns, List.of(), List.of(), List.of());
+        var result = new BoundedCycleSolver().solve(new CycleSolveRequest(component, required, stock, List.of(),
+            new CycleSolveRequest.PlannerOptions(new CycleSolveLimits(0, 0, 1, 1, 0))),
+            new ECOPlanningBudget(ECOCancellation.NONE, 5_000_000, Long.MAX_VALUE, () -> 0L));
+        assertEquals(CycleSolveStatus.SUCCESS, result.status(), result.summary());
+        assertEquals(counts, result.exactPatternTimes());
+        assertTrue(result.seedShortfall().isEmpty());
+        assertEquals(1L, result.requiredSeed().get(catalyst));
+        assertEquals(2000L * groups, result.requiredSeed().get(fuel));
+        assertTrue(result.diagnostics().stream().anyMatch(d -> d.code() == CycleSolveDiagnostic.Code.FACTORED_STARTUP_WITNESS));
+        // Replay the public, normalized AE pattern witness using one physical firing at a time.
+        for (CycleFiring firing : result.executionWitness()) {
+            for (CompiledInput input : firing.pattern().inputs()) {
+                long used = input.amountPerPattern().longValueExact();
+                assertTrue(stock.getOrDefault(input.key(), 0L) >= used);
+                stock.merge(input.key(), -used, Long::sum);
+            }
+            for (GenericStack output : firing.pattern().grossOutputs()) stock.merge(output.what(), output.amount(), Long::sum);
+        }
+        for (var goal : required.entrySet()) assertEquals(goal.getValue(), stock.get(goal.getKey()));
+        assertEquals(0L, stock.get(fuel));
+        assertEquals(1L, stock.get(catalyst));
     }
 
     private static CycleSolveResult solve(List<AEKey> members, List<CompiledPattern> patterns, AEKey product,

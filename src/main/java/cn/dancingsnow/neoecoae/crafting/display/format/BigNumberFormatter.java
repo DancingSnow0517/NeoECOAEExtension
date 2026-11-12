@@ -2,13 +2,13 @@ package cn.dancingsnow.neoecoae.crafting.display.format;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.MathContext;
 import java.math.RoundingMode;
 
 /** Shared display format for exact amounts that can exceed AE2's extended units. */
 public final class BigNumberFormatter {
     private static final BigInteger TWO_Q = BigInteger.TEN.pow(60);
     private static final BigDecimal TWO_Q_DECIMAL = new BigDecimal(TWO_Q);
-    private static final int SIGNIFICANT_DIGITS = 3;
 
     private BigNumberFormatter() {
     }
@@ -20,12 +20,12 @@ public final class BigNumberFormatter {
             .divide(BigDecimal.valueOf(Math.max(1, amountPerUnit)), 6, RoundingMode.DOWN)
             .stripTrailingZeros();
         if (display.compareTo(TWO_Q_DECIMAL) > 0) {
-            return scientific(display);
+            return DisplayNumbers.compact(display);
         }
         if (full) {
             return DisplayNumbers.grouped(display.toPlainString());
         }
-        return compact(display);
+        return DisplayNumbers.compact(display);
     }
 
     /** Formats an exact amount using SI decimal prefixes and at most three significant digits. */
@@ -43,30 +43,17 @@ public final class BigNumberFormatter {
         return DisplayNumbers.grouped(display.toPlainString());
     }
 
-    private static String compact(BigDecimal value) {
-        if (value.signum() == 0) {
-            return "0";
+    /** Report tooltips retain fractional display units and never shorten an explicitly requested exact value. */
+    public static String formatTooltipAmount(BigInteger amount, int amountPerUnit, boolean exact) {
+        BigInteger safe = amount == null || amount.signum() < 0 ? BigInteger.ZERO : amount;
+        int unit = Math.max(1, amountPerUnit);
+        BigDecimal display;
+        try {
+            display = new BigDecimal(safe).divide(BigDecimal.valueOf(unit));
+        } catch (ArithmeticException repeatingFraction) {
+            if (exact) return DisplayNumbers.grouped(safe) + " / " + DisplayNumbers.grouped(unit);
+            display = new BigDecimal(safe).divide(BigDecimal.valueOf(unit), MathContext.DECIMAL128);
         }
-        if (value.compareTo(BigDecimal.ONE) < 0) {
-            return value.toPlainString();
-        }
-
-        int exponent = value.precision() - value.scale() - 1;
-        int group = Math.max(0, exponent / 3);
-        BigDecimal scaled = value.movePointLeft(group * 3);
-        int integerDigits = Math.max(1, scaled.precision() - scaled.scale());
-        int decimals = Math.max(0, SIGNIFICANT_DIGITS - integerDigits);
-        String mantissa = scaled.setScale(decimals, RoundingMode.DOWN)
-            .stripTrailingZeros().toPlainString();
-        return DisplayNumbers.grouped(mantissa) + ExtendedDecimalUnits.suffix(group);
-    }
-
-    private static String scientific(BigDecimal value) {
-        BigDecimal normalized = value.stripTrailingZeros();
-        int exponent = normalized.precision() - normalized.scale() - 1;
-        String mantissa = normalized.movePointLeft(exponent)
-            .setScale(SIGNIFICANT_DIGITS - 1, RoundingMode.DOWN)
-            .stripTrailingZeros().toPlainString();
-        return mantissa + "×10^" + exponent;
+        return exact ? DisplayNumbers.grouped(display) : DisplayNumbers.compactTooltip(display);
     }
 }

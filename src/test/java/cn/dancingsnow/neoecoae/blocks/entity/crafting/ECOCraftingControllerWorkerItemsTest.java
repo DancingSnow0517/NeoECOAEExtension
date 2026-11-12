@@ -5,6 +5,7 @@ import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOExactVirtualLedger;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
@@ -43,12 +44,12 @@ class ECOCraftingControllerWorkerItemsTest {
         when(active.getDisplayedOutputKey()).thenReturn(AEItemKey.of(Items.DIAMOND));
         when(later.getDisplayedOutputKey()).thenReturn(AEItemKey.of(Items.EMERALD));
         for (var thread : List.of(idle, active, later, sameItem)) {
-            lenient().when(thread.getDisplayedItemAmount(any())).thenAnswer(call -> {
+            lenient().when(thread.getDisplayedItemQuantity(any())).thenAnswer(call -> {
                 var key = call.getArgument(0);
-                if (thread == active && key.equals(AEItemKey.of(Items.DIAMOND))) return BigInteger.valueOf(512);
-                if (thread == sameItem && key.equals(AEItemKey.of(Items.DIAMOND))) return BigInteger.valueOf(32);
-                if (thread == later && key.equals(AEItemKey.of(Items.EMERALD))) return BigInteger.valueOf(2000);
-                return BigInteger.ZERO;
+                if (thread == active && key.equals(AEItemKey.of(Items.DIAMOND))) return PlannerAmount.of(512);
+                if (thread == sameItem && key.equals(AEItemKey.of(Items.DIAMOND))) return PlannerAmount.of(32);
+                if (thread == later && key.equals(AEItemKey.of(Items.EMERALD))) return PlannerAmount.of(2000);
+                return PlannerAmount.ZERO;
             });
         }
         when(worker.getCraftingDisplayItem()).thenCallRealMethod();
@@ -101,16 +102,30 @@ class ECOCraftingControllerWorkerItemsTest {
     }
 
     @Test
-    void pooledGroupOutputsMergeSameItemAndSkipIdleWorkers() {
-        var merged = ECOCraftingSystemBlockEntity.mergeOutputs(List.of(
-            new CraftingOutputDisplay(new ItemStack(Items.DIAMOND), BigInteger.valueOf(512)),
+    void pooledGroupOutputsKeepOneCellPerBusyWorker() {
+        var packed = ECOCraftingSystemBlockEntity.packOutputs(List.of(
+            new CraftingOutputDisplay(new ItemStack(Items.DIAMOND), BigInteger.valueOf(8192)),
             CraftingOutputDisplay.EMPTY,
             new CraftingOutputDisplay(new ItemStack(Items.EMERALD), BigInteger.valueOf(8)),
-            new CraftingOutputDisplay(new ItemStack(Items.DIAMOND), BigInteger.valueOf(64))));
-        assertEquals(2, merged.size());
-        assertTrue(merged.get(0).item().is(Items.DIAMOND));
-        assertEquals(BigInteger.valueOf(576), merged.get(0).amount());
-        assertTrue(merged.get(1).item().is(Items.EMERALD));
+            new CraftingOutputDisplay(new ItemStack(Items.DIAMOND), BigInteger.valueOf(8192))), 11);
+        assertEquals(3, packed.size());
+        assertTrue(packed.get(0).item().is(Items.DIAMOND));
+        assertEquals(BigInteger.valueOf(8192), packed.get(0).amount());
+        assertTrue(packed.get(1).item().is(Items.EMERALD));
+        assertTrue(packed.get(2).item().is(Items.DIAMOND));
+        assertEquals(BigInteger.valueOf(8192), packed.get(2).amount());
+    }
+
+    @Test
+    void pooledGroupOverflowFoldsIntoMatchingCell() {
+        var packed = ECOCraftingSystemBlockEntity.packOutputs(List.of(
+            new CraftingOutputDisplay(new ItemStack(Items.DIAMOND), BigInteger.valueOf(8192)),
+            new CraftingOutputDisplay(new ItemStack(Items.EMERALD), BigInteger.valueOf(8)),
+            new CraftingOutputDisplay(new ItemStack(Items.DIAMOND), BigInteger.valueOf(8192)),
+            new CraftingOutputDisplay(new ItemStack(Items.GOLD_INGOT), BigInteger.valueOf(1))), 2);
+        assertEquals(2, packed.size());
+        assertEquals(BigInteger.valueOf(16384), packed.get(0).amount());
+        assertEquals(BigInteger.valueOf(8), packed.get(1).amount());
     }
 
     private static ECOCraftingWorkerBlockEntity worker(int distance, ItemStack output) {
@@ -129,6 +144,7 @@ class ECOCraftingControllerWorkerItemsTest {
         setField(thread, "batchOutputItems", List.of(new GenericStack(diamond, 512),
             new GenericStack(AEFluidKey.of(Fluids.WATER), 1000), new GenericStack(AEItemKey.of(Items.EMERALD), 2000)));
         when(thread.getDisplayedItemAmount(any())).thenCallRealMethod();
+        when(thread.getDisplayedItemQuantity(any())).thenCallRealMethod();
         assertEquals(BigInteger.valueOf(544), thread.getDisplayedItemAmount(diamond));
 
         var crafts = BigInteger.TEN.pow(30);

@@ -1,15 +1,19 @@
 package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
-import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
+import it.unimi.dsi.fastutil.objects.Object2IntLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,25 +23,25 @@ import org.jetbrains.annotations.Nullable;
  * reusable/special slots impose no quantity limit, and opaque recipes have unlimited output.
  * These optimistic contracts never authorize execution or cache another order's numeric result. */
 final class OptimisticSupplyModel {
-    record Alternative(AEKey key, BigInteger units) {}
-    record InputGroup(List<Alternative> alternatives, BigInteger multiplier) {
+    record Alternative(AEKey key, PlannerAmount units) {}
+    record InputGroup(List<Alternative> alternatives, PlannerAmount multiplier) {
         boolean available(Set<AEKey> stock) {
             return alternatives.isEmpty() || alternatives.stream().anyMatch(a -> stock.contains(a.key()));
         }
-        @Nullable BigInteger firings(Map<AEKey, BigInteger> finite, ECOCancellation cancellation)
+        @Nullable PlannerAmount firings(Map<AEKey, PlannerAmount> finite, ECOCancellation cancellation)
                 throws InterruptedException {
             if (alternatives.isEmpty()) return null;
-            BigInteger units = BigInteger.ZERO;
+            PlannerAmount units = PlannerAmount.ZERO;
             for (Alternative alternative : alternatives) {
                 cancellation.checkpoint();
-                BigInteger capacity = finite.get(alternative.key());
+                PlannerAmount capacity = finite.get(alternative.key());
                 if (capacity == null) return null;
                 units = units.add(capacity.divide(alternative.units()));
             }
             return units.divide(multiplier);
         }
     }
-    record Recipe(Map<AEKey, Integer> owners, List<InputGroup> inputs, Map<AEKey, BigInteger> outputs) {
+    record Recipe(Map<AEKey, Integer> owners, List<InputGroup> inputs, Map<AEKey, PlannerAmount> outputs) {
         boolean allowed(Map<AEKey, Integer> choices, Set<AEKey> fixed) {
             for (var owner : owners.entrySet()) {
                 if (owner.getValue() < 0 || !fixed.contains(owner.getKey())
@@ -46,7 +50,7 @@ final class OptimisticSupplyModel {
             return false;
         }
     }
-    record Production(Recipe recipe, BigInteger amount) {}
+    record Production(Recipe recipe, PlannerAmount amount) {}
 
     final AEKey goal;
     final Set<AEKey> keys;
@@ -59,34 +63,34 @@ final class OptimisticSupplyModel {
     private OptimisticSupplyModel(CompiledNetwork network, Set<AEKey> keys, List<Recipe> recipes,
             Map<AEKey, List<Production>> producers, Map<AEKey, Set<AEKey>> dependents) {
         this.goal = network.goal(); this.keys = keys; this.emitted = network.emittable();
-        this.variableKeys = new java.util.HashSet<>();
+        this.variableKeys = new ObjectOpenHashSet<>();
         network.fastProducers().forEach((key, choices) -> { if (choices.size() > 1) variableKeys.add(key); });
         this.recipes = recipes; this.producers = producers; this.dependents = dependents;
     }
 
     static @Nullable OptimisticSupplyModel compile(CompiledNetwork network, ECOCancellation cancellation)
             throws InterruptedException {
-        Set<AEKey> keys = new LinkedHashSet<>(network.keys());
+        Set<AEKey> keys = new ObjectLinkedOpenHashSet<>(network.keys());
         keys.add(network.goal());
         List<Recipe> recipes = new ArrayList<>();
-        Map<AEKey, List<Production>> producers = new HashMap<>();
-        Map<AEKey, Set<AEKey>> dependents = new HashMap<>();
-        Map<CompiledPattern, Map<AEKey, Integer>> indexed = new java.util.LinkedHashMap<>();
+        Map<AEKey, List<Production>> producers = new Object2ObjectOpenHashMap<>(keys.size());
+        Map<AEKey, Set<AEKey>> dependents = new Object2ObjectOpenHashMap<>(keys.size());
+        Map<CompiledPattern, Map<AEKey, Integer>> indexed = new Object2ObjectLinkedOpenHashMap<>(network.reachablePatternCount());
         for (var entry : network.producers().entrySet()) {
             List<CompiledPattern> fast = network.fastProducersOf(entry.getKey());
             for (CompiledPattern pattern : entry.getValue()) {
                 cancellation.checkpoint();
-                indexed.computeIfAbsent(pattern, ignored -> new java.util.LinkedHashMap<>())
+                indexed.computeIfAbsent(pattern, ignored -> new Object2IntLinkedOpenHashMap<>(1))
                     .put(entry.getKey(), pattern.fastSupported() ? fast.indexOf(pattern) : -1);
             }
         }
         for (var indexedEntry : indexed.entrySet()) {
             CompiledPattern pattern = indexedEntry.getKey();
             cancellation.checkpoint();
-            Map<AEKey, BigInteger> outputs = new HashMap<>();
+            Map<AEKey, PlannerAmount> outputs = new Object2ObjectOpenHashMap<>(pattern.grossOutputs().size());
             for (GenericStack output : pattern.grossOutputs()) {
                 if (output != null && output.what() != null && output.amount() > 0)
-                    outputs.merge(output.what(), BigInteger.valueOf(output.amount()), BigInteger::add);
+                    outputs.merge(output.what(), PlannerAmount.of(output.amount()), PlannerAmount::add);
             }
             List<InputGroup> inputs = new ArrayList<>();
             PatternSemantics semantics = pattern.semantics();
@@ -106,7 +110,7 @@ final class OptimisticSupplyModel {
                     || pattern.specialAnalysis().excludesFromCycleGraph(input) || input.reusable();
                 if (!relaxed && semantics.matchingMode() == PatternSemantics.MatchingMode.EXACT) {
                     if (input.amountPerPattern().signum() > 0) inputs.add(new InputGroup(
-                        List.of(new Alternative(input.key(), input.amountPerPattern().toBigInteger())), BigInteger.ONE));
+                        List.of(new Alternative(input.key(), input.amountPerPattern())), PlannerAmount.ONE));
                     continue;
                 }
                 List<Alternative> alternatives = new ArrayList<>();
@@ -121,10 +125,10 @@ final class OptimisticSupplyModel {
                         for (GenericStack candidate : possible) {
                             cancellation.checkpoint();
                             if (candidate == null || candidate.what() == null || candidate.amount() <= 0) return null;
-                            alternatives.add(new Alternative(candidate.what(), BigInteger.valueOf(candidate.amount())));
+                            alternatives.add(new Alternative(candidate.what(), PlannerAmount.of(candidate.amount())));
                             AEKey returned = input.source().getRemainingKey(candidate.what());
                             if (returned != null) {
-                                outputs.merge(returned, BigInteger.valueOf(multiplier), BigInteger::add);
+                                outputs.merge(returned, PlannerAmount.of(multiplier), PlannerAmount::add);
                                 if (returned.equals(candidate.what())) relaxed = true;
                             }
                         }
@@ -136,7 +140,7 @@ final class OptimisticSupplyModel {
                     if (semantics.matchingMode() == PatternSemantics.MatchingMode.SUBSTITUTION) return null;
                     relaxed = true;
                 }
-                if (!relaxed) inputs.add(new InputGroup(List.copyOf(alternatives), BigInteger.valueOf(multiplier)));
+                if (!relaxed) inputs.add(new InputGroup(List.copyOf(alternatives), PlannerAmount.of(multiplier)));
             }
             if (!known) inputs.clear();
             Recipe recipe = new Recipe(Map.copyOf(indexedEntry.getValue()), List.copyOf(inputs), Map.copyOf(outputs));
@@ -144,7 +148,7 @@ final class OptimisticSupplyModel {
             keys.addAll(outputs.keySet());
             for (InputGroup input : inputs) for (Alternative alternative : input.alternatives()) {
                 keys.add(alternative.key());
-                dependents.computeIfAbsent(alternative.key(), ignored -> new LinkedHashSet<>()).addAll(outputs.keySet());
+                dependents.computeIfAbsent(alternative.key(), ignored -> new ObjectLinkedOpenHashSet<>()).addAll(outputs.keySet());
             }
             outputs.forEach((key, amount) -> producers.computeIfAbsent(key, ignored -> new ArrayList<>())
                 .add(new Production(recipe, amount)));

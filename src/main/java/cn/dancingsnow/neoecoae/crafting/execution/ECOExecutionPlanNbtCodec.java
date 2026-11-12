@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.stacks.AEItemKey;
@@ -21,10 +23,51 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionPlan;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionSchedule;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionMode;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlannedInputAllocation;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 
 /** NBT codec for the validated planner-to-CPU execution contract. */
 public final class ECOExecutionPlanNbtCodec {
     private ECOExecutionPlanNbtCodec() {}
+
+    static void writeAmount(CompoundTag data, String key, PlannerAmount amount) {
+        if (amount.fitsLong()) data.putLong(key, amount.longValueExact());
+        else data.putString(key, amount.toString());
+    }
+
+    static PlannerAmount readAmount(CompoundTag data, String key) {
+        return data.contains(key) ? PlannerAmount.parse(data.getStringOr(key, "0"))
+            : PlannerAmount.of(data.getLongOr(key, 0L));
+    }
+
+    static void writeAmounts(CompoundTag data, String key, PlannerAmount[] amounts) {
+        if (Arrays.stream(amounts).allMatch(PlannerAmount::fitsLong)) {
+            data.putLongArray(key, Arrays.stream(amounts).mapToLong(PlannerAmount::longValueExact).toArray());
+        } else {
+            ListTag values = new ListTag();
+            for (PlannerAmount amount : amounts) values.add(net.minecraft.nbt.StringTag.valueOf(amount.toString()));
+            data.put(key, values);
+        }
+    }
+
+    static PlannerAmount[] readAmounts(CompoundTag data, String key) {
+        if (data.contains(key)) return Arrays.stream(data.getLongArray(key).orElseGet(() -> new long[0]))
+            .mapToObj(PlannerAmount::of).toArray(PlannerAmount[]::new);
+        ListTag values = data.getListOrEmpty(key);
+        PlannerAmount[] result = new PlannerAmount[values.size()];
+        for (int i = 0; i < result.length; i++) result[i] = PlannerAmount.parse(values.getStringOr(i, "0"));
+        return result;
+    }
+
+    static CompoundTag writeStack(HolderLookup.Provider registries, AEKey key, PlannerAmount amount) {
+        CompoundTag data = cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeStack(registries, new GenericStack(key, amount.longValueSaturated()));
+        if (!amount.fitsLong()) data.putString("ecoExactAmount", amount.toString());
+        return data;
+    }
+
+    static PlannerAmount readStackAmount(CompoundTag data, GenericStack projection) {
+        return data.contains("ecoExactAmount") ? PlannerAmount.parse(data.getStringOr("ecoExactAmount", ""))
+            : PlannerAmount.of(projection.amount());
+    }
 
     public static CompoundTag encode(ECOExecutionPlan plan, HolderLookup.Provider registries) {
         CompoundTag data = new CompoundTag();
@@ -38,7 +81,7 @@ public final class ECOExecutionPlanNbtCodec {
             }
             CompoundTag taskTag = new CompoundTag();
             taskTag.putInt("id", task.id());
-            taskTag.putLong("total", task.totalCount());
+            writeAmount(taskTag, "total", task.plannerTotalCount());
             taskTag.putInt("phase", task.phaseIndex());
             taskTag.putString("kind", task.kind().name());
             taskTag.put("pattern", cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeItemKey(registries, task.pattern().getDefinition()));
@@ -49,9 +92,8 @@ public final class ECOExecutionPlanNbtCodec {
                 allocationTag.putInt("slot", allocation.slot());
                 ListTag runs = new ListTag();
                 for (var run : allocation.runs()) {
-                    CompoundTag runTag = cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeStack(registries,
-                        new GenericStack(run.key(), run.amount()));
-                    runTag.putLong("crafts", run.crafts());
+                    CompoundTag runTag = writeStack(registries, run.key(), run.plannerAmount());
+                    writeAmount(runTag, "crafts", run.plannerCrafts());
                     runs.add(runTag);
                 }
                 allocationTag.put("runs", runs);
@@ -75,27 +117,27 @@ public final class ECOExecutionPlanNbtCodec {
             for (var step : phase.steps()) {
                 CompoundTag stepTag = new CompoundTag();
                 stepTag.putInt("task", step.taskId());
-                stepTag.putLong("count", step.count());
-                if (step.repetitions() > 1L) {
+                writeAmount(stepTag, "count", step.plannerCount());
+                if (step.plannerRepetitions().compareTo(PlannerAmount.ONE) > 0) {
                     stepTag.putInt("repeatWidth", step.repeatWidth());
-                    stepTag.putLong("repetitions", step.repetitions());
+                    writeAmount(stepTag, "repetitions", step.plannerRepetitions());
                 }
                 steps.add(stepTag);
             }
             phaseTag.put("steps", steps);
 
             ListTag dynamic = new ListTag();
-            for (var entry : phase.dynamicFirings().entrySet()) {
+            for (var entry : phase.plannerDynamicFirings().entrySet()) {
                 CompoundTag firing = new CompoundTag();
                 firing.putInt("task", entry.getKey());
-                firing.putLong("count", entry.getValue());
+                writeAmount(firing, "count", entry.getValue());
                 dynamic.add(firing);
             }
             phaseTag.put("dynamic", dynamic);
 
             ListTag seeds = new ListTag();
-            for (var entry : phase.initialSeed().entrySet()) {
-                seeds.add(cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeStack(registries, new GenericStack(entry.getKey(), entry.getValue())));
+            for (var entry : phase.plannerInitialSeed().entrySet()) {
+                seeds.add(writeStack(registries, entry.getKey(), entry.getValue()));
             }
             phaseTag.put("initialSeed", seeds);
             phaseTags.add(phaseTag);
@@ -114,7 +156,7 @@ public final class ECOExecutionPlanNbtCodec {
             CompoundTag taskTag = taskTags.getCompoundOrEmpty(i);
             int id = taskTag.getIntOr("id", 0);
             if (id != i) throw new IllegalArgumentException("Persisted execution task ids are not dense");
-            AEItemKey definition = cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readItemKey(registries, taskTag.getCompoundOrEmpty("pattern"));
+            AEItemKey definition = ECOKeyFactory.itemFromTag(registries, taskTag.getCompoundOrEmpty("pattern"));
             IPatternDetails pattern = PatternDetailsHelper.decodePattern(definition, cpu.cpu.getLevel());
             if (pattern == null) throw new IllegalArgumentException("Persisted execution pattern cannot be decoded");
             PlanIdentity.PatternIdentity identity = PlanIdentity.patternIdentityFor(pattern);
@@ -129,15 +171,15 @@ public final class ECOExecutionPlanNbtCodec {
                 ListTag runTags = allocationTag.getListOrEmpty("runs");
                 for (int runIndex = 0; runIndex < runTags.size(); runIndex++) {
                     CompoundTag runTag = runTags.getCompoundOrEmpty(runIndex);
-                    GenericStack stack = cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readStack(registries, runTag);
-                    long crafts = runTag.getLongOr("crafts", 0L);
+                    GenericStack stack = ECOKeyFactory.readTag(registries, runTag);
+                    PlannerAmount crafts = readAmount(runTag, "crafts");
                     if (stack == null) throw new IllegalArgumentException("Invalid persisted input allocation");
-                    runs.add(new PlannedInputAllocation.Run(stack.what(), stack.amount(), crafts));
+                    runs.add(new PlannedInputAllocation.Run(stack.what(), readStackAmount(runTag, stack), crafts));
                 }
                 allocations.add(new PlannedInputAllocation(allocationTag.getIntOr("slot", 0), runs));
             }
             tasks.add(new ECOExecutionPlan.TaskSpec(id, identity, pattern,
-                ECOExecutionPlan.PatternRuntimeInfo.from(pattern), taskTag.getLongOr("total", 0L),
+                ECOExecutionPlan.PatternRuntimeInfo.from(pattern), readAmount(taskTag, "total"),
                 taskTag.getIntOr("phase", 0), ECOExecutionPlan.TaskKind.valueOf(taskTag.getStringOr("kind", "")), allocations));
         }
 
@@ -157,30 +199,31 @@ public final class ECOExecutionPlanNbtCodec {
             ListTag stepTags = phaseTag.getListOrEmpty("steps");
             for (int stepIndex = 0; stepIndex < stepTags.size(); stepIndex++) {
                 CompoundTag step = stepTags.getCompoundOrEmpty(stepIndex);
-                steps.add(new ECOExecutionPlan.ExecutionStep(step.getIntOr("task", 0), step.getLongOr("count", 0L),
-                    step.getIntOr("repeatWidth", 1),
-                    step.getLongOr("repetitions", 1L)));
+                steps.add(new ECOExecutionPlan.ExecutionStep(step.getIntOr("task", 0), readAmount(step, "count"),
+                    step.contains("repeatWidth") ? step.getIntOr("repeatWidth", 0) : 1,
+                    step.contains("repetitions") ? readAmount(step, "repetitions") : PlannerAmount.ONE));
             }
 
-            Map<Integer, Long> dynamic = new LinkedHashMap<>();
+            Map<Integer, PlannerAmount> dynamic = new LinkedHashMap<>();
             ListTag dynamicTags = phaseTag.getListOrEmpty("dynamic");
             for (int dynamicIndex = 0; dynamicIndex < dynamicTags.size(); dynamicIndex++) {
                 CompoundTag firing = dynamicTags.getCompoundOrEmpty(dynamicIndex);
-                dynamic.put(firing.getIntOr("task", 0), firing.getLongOr("count", 0L));
+                dynamic.put(firing.getIntOr("task", 0), readAmount(firing, "count"));
             }
 
-            Map<AEKey, Long> seed = new LinkedHashMap<>();
+            Map<AEKey, PlannerAmount> seed = new LinkedHashMap<>();
             ListTag seedTags = phaseTag.getListOrEmpty("initialSeed");
             for (int seedIndex = 0; seedIndex < seedTags.size(); seedIndex++) {
-                GenericStack stack = cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readStack(registries, seedTags.getCompoundOrEmpty(seedIndex));
+                CompoundTag seedTag = seedTags.getCompoundOrEmpty(seedIndex);
+                GenericStack stack = ECOKeyFactory.readTag(registries, seedTag);
                 if (stack == null || stack.amount() <= 0L) {
                     throw new IllegalArgumentException("Invalid persisted seed");
                 }
-                seed.put(stack.what(), stack.amount());
+                seed.put(stack.what(), readStackAmount(seedTag, stack));
             }
 
-            phases.add(new ECOExecutionPlan.PhaseSpec(index, phaseTag.getIntOr("component", 0), type,
-                taskIds, steps, phaseDependencies, dynamic, seed));
+            phases.add(new ECOExecutionPlan.PhaseSpec(dynamic, seed, index, phaseTag.getIntOr("component", 0), type,
+                taskIds, steps, phaseDependencies));
 
             LinkedHashSet<IPatternDetails> patternSet = new LinkedHashSet<>();
             for (int taskId : taskIds) {

@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.crafting.planner.cycle;
 
 import appeng.api.crafting.IPatternDetails;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 
 /**
  * Compact execution metadata: fire {@code pattern} {@code count} times per lap.
@@ -15,14 +16,22 @@ import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
  * <p>For a normal-sized witness this is its order-preserving run-length encoding. For a large batch search result it
  * can be the only materialized execution trace, retaining the exact order without allocating one object per firing.
  */
-public record PatternRun(CompiledPattern pattern, long count, int repeatWidth, long repetitions)
+public record PatternRun(CompiledPattern pattern, PlannerAmount plannerCount, int repeatWidth, PlannerAmount plannerRepetitions)
         implements RepeatLayout.Run {
-    public PatternRun(CompiledPattern pattern, long count) { this(pattern, count, 1, 1L); }
+    public PatternRun(CompiledPattern pattern, long count) { this(pattern, PlannerAmount.of(count), 1, PlannerAmount.ONE); }
+    public PatternRun(CompiledPattern pattern, PlannerAmount count) { this(pattern, count, 1, PlannerAmount.ONE); }
+    public PatternRun(CompiledPattern pattern, long count, int repeatWidth, long repetitions) {
+        this(pattern, PlannerAmount.of(count), repeatWidth, PlannerAmount.of(repetitions));
+    }
+
+    /** Compatibility views; planning and execution accounting use the exact fields. */
+    public long count() { return plannerCount.longValueSaturated(); }
+    @Override public long repetitions() { return plannerRepetitions.longValueSaturated(); }
 
     public PatternRun {
         if (pattern == null) throw new IllegalArgumentException("A pattern run must name a pattern");
-        if (count < 0) throw new IllegalArgumentException("A pattern run count must not be negative");
-        if (repeatWidth < 1 || repetitions < 1 || repetitions == 1 && repeatWidth != 1) {
+        if (plannerCount.signum() < 0) throw new IllegalArgumentException("A pattern run count must not be negative");
+        if (repeatWidth < 1 || plannerRepetitions.signum() <= 0 || plannerRepetitions.equals(PlannerAmount.ONE) && repeatWidth != 1) {
             throw new IllegalArgumentException("Invalid pattern circuit repeat");
         }
     }

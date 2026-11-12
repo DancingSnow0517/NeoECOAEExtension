@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+
 import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
 
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
@@ -65,9 +67,9 @@ final class ECOCraftingFastPathDispatcher {
             exactDiagnostic(request, provider, "no-fast-path-adapter", null);
             return null;
         }
-        var initialRequest = request.job().tasks.get(request.pattern()).remainingExact();
+        var initialRequest = request.job().tasks.get(request.pattern()).remainingQuantity();
         var requested = dispatchLimit == null ? initialRequest
-            : initialRequest.min(java.math.BigInteger.valueOf(dispatchLimit));
+            : initialRequest.min(PlannerAmount.of(dispatchLimit));
         exactDiagnostic(request, provider, "requested", requested);
         var runtime = request.job().executionRuntime;
         if (runtime != null) requested = runtime.exactAllowance(request.candidate(), requested);
@@ -75,9 +77,9 @@ final class ECOCraftingFastPathDispatcher {
         var runtimeAllowance = requested;
         if (!Double.isFinite(singlePower) || singlePower < 0) return null;
         if (singlePower > 0) {
-            requested = ECOBatchCraftingHelper.maxAffordableCrafts(singlePower, requested,
+            requested = PlannerAmount.of(ECOBatchCraftingHelper.maxAffordableCrafts(singlePower, requested.toBigInteger(),
                 offer -> energyService.extractAEPower(offer, appeng.api.config.Actionable.SIMULATE,
-                    appeng.api.config.PowerMultiplier.CONFIG));
+                    appeng.api.config.PowerMultiplier.CONFIG)));
             if (requested.signum() <= 0) {
                 exactDiagnostic(request, provider, "energy-limit", requested);
                 return null;
@@ -87,7 +89,7 @@ final class ECOCraftingFastPathDispatcher {
         var context = cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext.create(request.pattern(),
             request.inputs(), request.outputs(), request.remainders(), request.level(), request.job().link.getCraftingID());
         var energyAllowance = requested;
-        var materialAllowance = new java.math.BigInteger[1];
+        var materialAllowance = new PlannerAmount[1];
         var batch = cn.dancingsnow.neoecoae.crafting.execution.batch.ECOExactBatchPlanner.prepare(
             target, context, inventory, requested,
             runtime == null ? java.util.Map.of() : runtime.protectedStartupSeed(request.candidate()),
@@ -99,23 +101,23 @@ final class ECOCraftingFastPathDispatcher {
             exactDiagnostic(request, provider, "provider-rejected-or-long-only", requested);
             return null;
         }
-        exactDiagnostic(request, provider, "provider-admitted", batch.craftCount(),
+        exactDiagnostic(request, provider, "provider-admitted", batch.craftQuantity(),
             () -> "initial=" + initialRequest + " runtime=" + runtimeAllowance
                 + " energy=" + energyAllowance + " material=" + materialAllowance[0]);
         var registration = ECOUselessDynamicOutputBridge.prepareExact(dynamicOutputOwner, request.pattern(), batch.craftCount());
         if (registration == null) {
-            exactDiagnostic(request, provider, "dynamic-output-registration-is-long-only", batch.craftCount());
+            exactDiagnostic(request, provider, "dynamic-output-registration-is-long-only", batch.craftQuantity());
             return null;
         }
         var energy = energyTransaction.reserve(energyService, singlePower, batch.craftCount());
         if (energy == null) {
-            exactDiagnostic(request, provider, "exact-energy-reservation-failed", batch.craftCount());
+            exactDiagnostic(request, provider, "exact-energy-reservation-failed", batch.craftQuantity());
             return null;
         }
         recordAttempt.accept(provider);
         try {
             if (!batch.submit(energy)) {
-                exactDiagnostic(request, provider, "provider-commit-rejected", batch.craftCount());
+                exactDiagnostic(request, provider, "provider-commit-rejected", batch.craftQuantity());
                 return null;
             }
         } catch (ECOIndeterminateBatchException failure) {
@@ -133,12 +135,12 @@ final class ECOCraftingFastPathDispatcher {
     }
 
     private void exactDiagnostic(ECOCraftingDispatchRequest request, ICraftingProvider provider,
-            String reason, java.math.BigInteger amount) {
+            String reason, PlannerAmount amount) {
         exactDiagnostic(request, provider, reason, amount, () -> "");
     }
 
     private void exactDiagnostic(ECOCraftingDispatchRequest request, ICraftingProvider provider,
-            String reason, java.math.BigInteger amount, java.util.function.Supplier<String> details) {
+            String reason, PlannerAmount amount, java.util.function.Supplier<String> details) {
         var jobId = request.job().link.getCraftingID();
         if (!java.util.Objects.equals(jobId, diagnosticJob)) {
             exactDiagnostics.clear();

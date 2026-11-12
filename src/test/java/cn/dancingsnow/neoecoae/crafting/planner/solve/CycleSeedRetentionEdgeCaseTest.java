@@ -121,10 +121,10 @@ class CycleSeedRetentionEdgeCaseTest {
         var acyclic = spy(new AcyclicCraftingSolver());
         var unknown = new AcyclicCraftingSolver.Outcome(PlanningStatus.CYCLE_UNRESOLVED,
             new SolveState(new KeyCounter()), new ECOPlanTrace());
-        doReturn(unknown).when(acyclic).solveDemands(any(), any(), anyMap(), anyMap(), anySet(), anyBoolean(), any());
+        doReturn(unknown).when(acyclic).solveExactDemands(any(), any(), anyMap(), anyMap(), anySet(), anyBoolean(), any());
         var outcome = planBoundary(acyclic, new BoundedCycleSolver(), inventory(a, 1), 2);
         assertNotEquals(PlanningStatus.SUCCESS, outcome.status(), describe(outcome));
-        verify(acyclic, atLeastOnce()).solveDemands(any(), any(), anyMap(), anyMap(), anySet(), anyBoolean(), any());
+        verify(acyclic, atLeastOnce()).solveExactDemands(any(), any(), anyMap(), anyMap(), anySet(), anyBoolean(), any());
         assertHasDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_EXTERNAL_DEMAND_UNSUPPORTED);
         assertNoDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SUPPLY_ALTERNATIVE);
         assertNoDiagnostic(outcome, PlannerDiagnostic.Code.CYCLE_SUPPLY_SEARCH_EXHAUSTED);

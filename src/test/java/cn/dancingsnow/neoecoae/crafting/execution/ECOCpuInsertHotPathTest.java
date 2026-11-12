@@ -12,6 +12,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.CraftingPlan;
+import appeng.crafting.execution.CraftingCpuHelper;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
@@ -36,6 +37,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.VarInsnNode;
 import org.mockito.MockedStatic;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
@@ -199,23 +204,35 @@ class ECOCpuInsertHotPathTest {
         assertTrue(fixture.cluster.getAllocatedCPUs().isEmpty());
     }
 
+    @Test void actualAe2FinalLocalLoadRemainsBeforeReturnAndOtherModsLocalCapture() throws Exception {
+        var node = new ClassNode();
+        try (var stream = CraftingService.class.getResourceAsStream("/appeng/me/service/CraftingService.class")) {
+            assertNotNull(stream);
+            new ClassReader(stream).accept(node, 0);
+        }
+        var method = node.methods.stream().filter(value -> value.name.equals("insertIntoCpus")).findFirst().orElseThrow();
+        int inserted = method.localVariables.stream().filter(value -> value.name.equals("inserted"))
+                .findFirst().orElseThrow().index;
+        var loads = java.util.stream.StreamSupport.stream(method.instructions.spliterator(), false)
+                .filter(value -> value instanceof VarInsnNode variable && variable.getOpcode() == Opcodes.LLOAD
+                        && variable.var == inserted).toList();
+        assertEquals(3, loads.size(), "review the primitive local hook if AE2 changes its loop");
+        var next = loads.get(2).getNext();
+        while (next != null && next.getOpcode() < 0) next = next.getNext();
+        assertNotNull(next);
+        assertEquals(Opcodes.LRETURN, next.getOpcode());
+    }
+
     private static long route(Set<NEComputationCluster> clusters, AEKey key, long amount, long already,
             Actionable mode) throws Exception {
         var mixin = mock(CraftingServiceMixin.class, CALLS_REAL_METHODS);
         var field = CraftingServiceMixin.class.getDeclaredField("neoecoae$computationClusters");
         field.setAccessible(true);
         field.set(mixin, clusters);
-        var inserted = new com.llamalad7.mixinextras.sugar.ref.LocalLongRef() {
-            private long value = already;
-            @Override public long get() { return value; }
-            @Override public void set(long next) { value = next; }
-        };
-        var hook = CraftingServiceMixin.class.getDeclaredMethod("onInsertIntoCpus", AEKey.class,
-            long.class, Actionable.class, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable.class,
-            com.llamalad7.mixinextras.sugar.ref.LocalLongRef.class);
+        var hook = CraftingServiceMixin.class.getDeclaredMethod("onInsertIntoCpus", long.class, AEKey.class,
+            long.class, Actionable.class);
         hook.setAccessible(true);
-        hook.invoke(mixin, key, amount, mode, null, inserted);
-        return inserted.get();
+        return (long) hook.invoke(mixin, already, key, amount, mode);
     }
 
     private static NEComputationCluster cluster(ECOCraftingCPU... cpus) {
@@ -262,7 +279,7 @@ class ECOCpuInsertHotPathTest {
             var core = mock(ECOComputationThreadingCoreBlockEntity.class);
             when(core.getTier()).thenReturn(ECOTier.L4);
             var cpu = new ECOCraftingCPU(cluster, plan, core);
-            var link = new CraftingLink(jobId, true, cpu);
+            var link = new CraftingLink(cn.dancingsnow.neoecoae.util.LegacyNbt.input(cn.dancingsnow.neoecoae.util.LegacyNbt.registries(), CraftingCpuHelper.generateLinkData(jobId, true, false)), cpu);
             cpu.getLogic().setJobFromLifecycle(new ExecutingCraftingJob(plan, cpu.getLogic()::postChange, link, null));
             cluster.pickup(plan, cpu);
             return cpu;

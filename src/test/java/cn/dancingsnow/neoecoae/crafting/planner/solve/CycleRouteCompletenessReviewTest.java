@@ -1,11 +1,11 @@
 package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
+import static cn.dancingsnow.neoecoae.crafting.planner.solve.RouteTestPatterns.pattern;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
-import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
@@ -13,7 +13,6 @@ import cn.dancingsnow.neoecoae.crafting.planner.compile.*;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.BoundedCycleSolver;
 import cn.dancingsnow.neoecoae.crafting.planner.graph.*;
 import cn.dancingsnow.neoecoae.crafting.planner.result.*;
-import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic;
 import java.util.*;
 import org.junit.jupiter.api.Test;
@@ -72,8 +71,9 @@ class CycleRouteCompletenessReviewTest {
             mock(appeng.api.networking.crafting.ICraftingService.class), goal, stock, true);
         // Freeze compilation and the clock so the test cuts the shared allowance at the route boundary,
         // not at a machine-dependent elapsed time or during unrelated recipe discovery.
-        var fields = Map.<String, Object>of("compiled", network, "condensation", graph, "activeSelection", initial,
-            "compiledContractGeneration", cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection.reloadGeneration(),
+        var structure = new CompiledStructureCache.Structure(network, graph,
+            cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection.reloadGeneration(), -1L);
+        var fields = Map.<String, Object>of("structure", structure, "activeSelection", initial,
             "planningBudget", new cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget(
                 ECOCancellation.NONE, work.get() + extraWork, Long.MAX_VALUE, () -> 0L));
         for (var entry : fields.entrySet()) {
@@ -128,8 +128,9 @@ class CycleRouteCompletenessReviewTest {
             .multiply(java.math.BigInteger.TWO).subtract(java.math.BigInteger.ONE)), expectedMissing);
         var session = new cn.dancingsnow.neoecoae.crafting.planner.ECOCraftingPlannerService().createSession(
             mock(appeng.api.networking.crafting.ICraftingService.class), goal, stock, true);
-        var fields = Map.<String, Object>of("compiled", network, "condensation", graph, "activeSelection", initial,
-            "compiledContractGeneration", cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection.reloadGeneration(),
+        var structure = new CompiledStructureCache.Structure(network, graph,
+            cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection.reloadGeneration(), -1L);
+        var fields = Map.<String, Object>of("structure", structure, "activeSelection", initial,
             "planningBudget", new cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget(
                 ECOCancellation.NONE, work.get() + extraWork, Long.MAX_VALUE, () -> 0L));
         for (var entry : fields.entrySet()) {
@@ -335,28 +336,4 @@ class CycleRouteCompletenessReviewTest {
             ECOCancellation.NONE);
     }
 
-    private static CompiledPattern pattern(int id, AEKey primary, Map<AEKey, Long> inputs,
-            Map<AEKey, Long> outputs) {
-        var details = mock(IPatternDetails.class, "pattern" + id);
-        var stacks = new ArrayList<GenericStack>();
-        stacks.add(new GenericStack(primary, outputs.get(primary)));
-        outputs.forEach((key, amount) -> { if (!key.equals(primary)) stacks.add(new GenericStack(key, amount)); });
-        var rawInputs = inputs.entrySet().stream().map(entry -> {
-            var input = mock(IPatternDetails.IInput.class);
-            when(input.getPossibleInputs()).thenReturn(new GenericStack[] {new GenericStack(entry.getKey(), entry.getValue())});
-            when(input.getMultiplier()).thenReturn(1L);
-            return input;
-        }).toArray(IPatternDetails.IInput[]::new);
-        when(details.getInputs()).thenReturn(rawInputs);
-        when(details.getOutputs()).thenReturn(stacks);
-        when(details.getPrimaryOutput()).thenReturn(stacks.getFirst());
-        var compiled = inputs.entrySet().stream().map(entry ->
-            new CompiledInput(null, entry.getKey(), entry.getValue(), true, null)).toList();
-        var consumed = inputs.entrySet().stream().map(entry -> new PatternSemantics.Input(null,
-            entry.getKey(), PlannerAmount.of(entry.getValue()), null, PlannerAmount.ZERO)).toList();
-        var semantics = new PatternSemantics(details, null, consumed, stacks, List.of(), List.of(),
-            PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE, true, true, null);
-        return new CompiledPattern(id, details, primary, PlannerAmount.of(outputs.get(primary)),
-            compiled, stacks, true, null, false, semantics);
-    }
 }

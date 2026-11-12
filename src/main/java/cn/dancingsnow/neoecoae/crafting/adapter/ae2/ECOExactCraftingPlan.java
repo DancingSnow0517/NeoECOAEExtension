@@ -35,7 +35,7 @@ public final class ECOExactCraftingPlan implements ICraftingPlan {
         result.exactPatternTimes().forEach((pattern, amount) -> {
             if (amount.signum() > 0) {
                 exact.put(pattern, amount.toBigInteger());
-                counts.put(pattern, bounded(amount.toBigInteger()));
+                counts.put(pattern, bounded(amount));
             }
         });
         tasks = exact;
@@ -43,26 +43,30 @@ public final class ECOExactCraftingPlan implements ICraftingPlan {
         stockAmounts.putAll(result.exactUsedItems());
         // Cycle solvers record startup reservations on the component. They are part of the same
         // order-wide material ledger even when the normal used-items projection is empty.
+        var componentReservations = new LinkedHashMap<AEKey, PlannerAmount>();
         for (var component : result.components()) {
-            component.stockReservations().forEach((key, amount) -> {
-                if (amount == null || amount <= 0) return;
-                stockAmounts.merge(key, PlannerAmount.of(amount), PlannerAmount::max);
+            component.plannerStockReservations().forEach((key, amount) -> {
+                if (amount.signum() <= 0) return;
+                componentReservations.merge(key, amount, PlannerAmount::add);
             });
         }
-        var stock = new LinkedHashMap<AEKey, BigInteger>();
-        var emitted = new LinkedHashMap<AEKey, BigInteger>();
+        componentReservations.forEach((key, amount) -> stockAmounts.merge(key, amount, PlannerAmount::max));
+        var stock = new LinkedHashMap<AEKey, PlannerAmount>();
+        var emitted = new LinkedHashMap<AEKey, PlannerAmount>();
         KeyCounter initial = split(stockAmounts, stock);
         KeyCounter initialEmitted = split(result.exactEmittedItems(), emitted);
         if (forced) result.exactMissingItems().forEach((key, amount) ->
-            stock.merge(key, amount.toBigInteger(), BigInteger::add));
-        deferredStock = stock;
-        deferredEmitted = emitted;
+            stock.merge(key, amount, PlannerAmount::add));
+        deferredStock = cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory.toBigIntegers(stock);
+        deferredEmitted = cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory.toBigIntegers(emitted);
         projection = new appeng.crafting.CraftingPlan(result.plan().finalOutput(), 0,
             false, result.plan().multiplePaths(), initial, initialEmitted, new KeyCounter(), counts);
         // Interpret the full selected graph once. Cycle witnesses and seed protections remain mandatory.
         var interpreted = new ECOPlanningResult(PlanningStatus.SUCCESS,
             (appeng.crafting.CraftingPlan) projection, result.trace(), result.cycles(), result.components(),
             result.executionComponentOrder(), result.calculationNanos(), result.planningId(), result.provenance());
+        interpreted.setExactPatternTimes(result.exactPatternTimes());
+        interpreted.setExactMaterials(stockAmounts, result.exactEmittedItems(), Map.of());
         var contract = interpreted.executionContract();
         if (interpreted.executionPlanError() != null)
             throw new IllegalArgumentException(interpreted.executionPlanError());
@@ -78,7 +82,7 @@ public final class ECOExactCraftingPlan implements ICraftingPlan {
         this.fuzzyPlanningItemIds = java.util.Set.of();
     }
 
-    private static KeyCounter split(Map<AEKey, PlannerAmount> amounts, Map<AEKey, BigInteger> deferred) {
+    private static KeyCounter split(Map<AEKey, PlannerAmount> amounts, Map<AEKey, PlannerAmount> deferred) {
         var initial = new KeyCounter();
         amounts.forEach((key, amount) -> {
             if (amount.signum() <= 0) return;
@@ -88,13 +92,16 @@ public final class ECOExactCraftingPlan implements ICraftingPlan {
                 // The initial window is physically extracted at admission. Defer only the remainder,
                 // otherwise refilling would debit that first window a second time.
                 initial.set(key, Long.MAX_VALUE);
-                deferred.put(key, amount.toBigInteger().subtract(BigInteger.valueOf(Long.MAX_VALUE)));
+                deferred.put(key, amount.subtract(Long.MAX_VALUE));
             }
         });
         return initial;
     }
 
-    public static long bounded(BigInteger amount) { return amount.min(BigInteger.valueOf(Long.MAX_VALUE)).longValueExact(); }
+    public static long bounded(BigInteger amount) { return bounded(PlannerAmount.of(amount)); }
+    public static long bounded(PlannerAmount amount) {
+        return amount.signum() < 0 ? amount.longValueExact() : amount.longValueSaturated();
+    }
     public BigInteger theoreticalBytes() { return storage; }
     public Map<IPatternDetails, BigInteger> exactTasks() { return tasks; }
     public Map<AEKey, BigInteger> deferredStock() { return deferredStock; }

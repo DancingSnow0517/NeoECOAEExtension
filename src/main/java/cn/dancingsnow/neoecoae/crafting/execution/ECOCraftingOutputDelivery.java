@@ -1,5 +1,9 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGrid;
@@ -51,24 +55,17 @@ final class ECOCraftingOutputDelivery {
 
     void deliverStoredFinalOutput() {
         var current = host.getJob();
-        if (current == null) {
+        if (current == null || current.permanentExecutionError != null) {
             return;
         }
         deliverPendingFinalOutputs(current);
-        if (host.getJob() != current || current.finalOutput == null) {
+        if (host.getJob() != current || current.finalOutput == null || current.permanentExecutionError != null) {
             return;
         }
         AEKey key = current.finalOutput.what();
         long storedFinalOutput = host.getInventory().list.get(key);
         if (storedFinalOutput > 0L) {
-            PlannerAmount reserve = PlannerAmount.ZERO;
-            for (var task : current.tasks.entrySet()) {
-                reserve = reserve.add(ECOPhaseScheduler.growingPatternFeedbackReserveExact(
-                    task.getKey(), task.getValue().value, key));
-            }
-            if (current.executionRuntime != null) {
-                reserve = reserve.max(PlannerAmount.of(current.executionRuntime.reservedInputAmount(key)));
-            }
+            PlannerAmount reserve = finalOutputReserve(current, key);
             // Keep material reserved for the next growth phase, then deliver only the excess final output.
             PlannerAmount deliverable = PlannerAmount.of(storedFinalOutput)
                 .subtract(reserve).max(PlannerAmount.ZERO);
@@ -166,29 +163,29 @@ final class ECOCraftingOutputDelivery {
                 || current == null || !jobId.equals(current.link.getCraftingID())
                 || ECOCraftingJobLifecycle.isTerminated(host.cpu.getLevel(), jobId))
             return java.math.BigInteger.ZERO;
-        var max = java.math.BigInteger.valueOf(Long.MAX_VALUE);
-        if (amount.bitLength() <= 63 || !current.exactOrder
+        PlannerAmount quantity = PlannerAmount.of(amount);
+        if (quantity.fitsLong() || !current.exactOrder
                 || !(current.waitingFor instanceof cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory waiting)
-                || waiting.amount(key).compareTo(max) <= 0
+                || waiting.quantity(key).fitsLong()
                 || cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge
                         .strictMatch(host, key, Long.MAX_VALUE, Long.MAX_VALUE) != Long.MAX_VALUE) {
-            return java.math.BigInteger.valueOf(insertForJob(jobId, key, amount.min(max).longValueExact(), mode));
+            return java.math.BigInteger.valueOf(insertForJob(jobId, key, quantity.longValueSaturated(), mode));
         }
         if (mode == Actionable.SIMULATE) return amount;
         receivingExactOutput = true;
         try {
-            var claimed = waiting.amount(key).min(amount);
-            if (!waiting.debit(Map.of(key, claimed))) return java.math.BigInteger.ZERO;
+            var claimed = waiting.quantity(key).min(quantity);
+            if (!waiting.debitQuantities(Map.of(key, claimed))) return java.math.BigInteger.ZERO;
             // ExactInventory commits all keys before notifying listeners. Even if a listener fails,
             // the physical receipt is retained and must not be replayed by its worker.
             try {
                 host.exactInventory().setEnabled(true);
-                host.exactInventory().restore(Map.of(key, amount));
+                host.exactInventory().restoreQuantities(Map.of(key, quantity));
             } catch (RuntimeException listenerFailure) {
                 LOGGER.warn("ECO exact output retained after an inventory listener failed", listenerFailure);
             }
             if (host.getJob() == current) {
-                host.recordCompletedCraftingWork(claimed.min(max).longValueExact(), key.getType());
+                host.recordCompletedCraftingWork(claimed.longValueSaturated(), key.getType());
                 host.taskSchedulerForOutput().recordPhysicalInsert(key);
                 host.taskSchedulerForOutput().progress(appeng.hooks.ticking.TickHandler.instance().getCurrentTick());
             }
@@ -226,7 +223,7 @@ final class ECOCraftingOutputDelivery {
         boolean finalOutputClaim = current.finalOutput != null
                 && request.expectedKey().equals(current.finalOutput.what());
         if (request.mode() == Actionable.SIMULATE) {
-            OutputRoute route = routeClaimedOutput(
+            OutputRoute route = routeFreshClaim(
                     current, request.actualKey(), claim, request.mode(), finalOutputClaim);
             long remaining = finalOutputClaim
                     ? Math.max(0L, current.remainingAmount - route.deliveredAmount())
@@ -250,7 +247,7 @@ final class ECOCraftingOutputDelivery {
         // The waiting inventory is server-thread local. A mismatch can only be caused by a re-entrant callback;
         // route no more than the amount actually removed and retain the uncommitted tail in the CPU.
         claim = Math.min(claim, claimed);
-        OutputRoute route = routeClaimedOutput(
+        OutputRoute route = routeFreshClaim(
                 current, request.actualKey(), claim, Actionable.MODULATE, finalOutputClaim);
 
         if (route.storedInCpu() > 0L) {
@@ -289,37 +286,81 @@ final class ECOCraftingOutputDelivery {
         return new ECOCraftingOutputClaimResult(status, requested, claimed, 0L, 0L, 0L, remaining, false);
     }
 
+    private PlannerAmount finalOutputReserve(ExecutingCraftingJob current, AEKey key) {
+        PlannerAmount reserve = PlannerAmount.ZERO;
+        for (var task : current.tasks.entrySet()) {
+            reserve = reserve.add(ECOPhaseScheduler.growingPatternFeedbackReserveExact(
+                    task.getKey(), task.getValue().value, key));
+        }
+        if (current.executionRuntime != null) {
+            reserve = reserve.max(current.executionRuntime.reservedInputQuantity(key));
+        }
+        return reserve;
+    }
+
+    /** Fresh claims have not entered CPU inventory yet; retain feedback and surplus before routing them. */
+    private OutputRoute routeFreshClaim(ExecutingCraftingJob current, AEKey key, long amount,
+            Actionable mode, boolean finalOutputClaim) {
+        if (!finalOutputClaim) return new OutputRoute(0L, 0L, amount);
+        long routable = Math.min(amount, current.remainingAmount);
+        if (current.finalOutput != null && key.equals(current.finalOutput.what())) {
+            var available = PlannerAmount.of(host.getInventory().list.get(key)).add(PlannerAmount.of(amount))
+                    .subtract(finalOutputReserve(current, key)).max(PlannerAmount.ZERO);
+            routable = available.min(PlannerAmount.of(routable)).longValueExact();
+        }
+        if (routable == 0L) return new OutputRoute(0L, 0L, amount);
+        var route = routeClaimedOutput(current, key, routable, mode, true);
+        return new OutputRoute(route.deliveredToRequester(), route.deliveredToNetwork(),
+                route.storedInCpu() + (amount - routable));
+    }
+
     /** Routes a claimed final output without allowing a failing destination to consume the waiting ledger. */
     private OutputRoute routeClaimedOutput(ExecutingCraftingJob current, AEKey actualKey, long amount,
                                            Actionable mode, boolean finalOutputClaim) {
         if (!finalOutputClaim) {
             return new OutputRoute(0L, 0L, amount);
         }
+        if (current.permanentExecutionError != null) return new OutputRoute(0L, 0L, amount);
 
+        long deliveredToRequester = 0L;
         if (!current.link.isStandalone()) {
             try {
-                long inserted = current.link.insert(actualKey, amount, mode);
-                inserted = clampRoutedAmount(inserted, amount);
-                return new OutputRoute(inserted, 0L, amount - inserted);
+                deliveredToRequester = checkedRoutedAmount(current.link.insert(actualKey, amount, mode), amount);
             } catch (RuntimeException failure) {
-                LOGGER.warn("ECO crafting requester rejected a claimed output; retaining it in the CPU", failure);
+                stopUncertainDelivery(current, failure, mode);
                 return new OutputRoute(0L, 0L, amount);
             }
         }
 
+        long remainder = amount - deliveredToRequester;
+        if (remainder == 0L) return new OutputRoute(deliveredToRequester, 0L, 0L);
+        // A crafting card's destination may fill while the order is running. Return only its explicitly
+        // rejected remainder to ME storage, as AE2 does, so a produced order can release its requester link.
         IGrid grid = host.cpu.getGrid();
         if (grid == null) {
-            return new OutputRoute(0L, 0L, amount);
+            return new OutputRoute(deliveredToRequester, 0L, remainder);
         }
         try {
             long inserted = grid.getStorageService().getInventory().insert(
-                    actualKey, amount, mode, host.cpu.getActionSource());
-            inserted = clampRoutedAmount(inserted, amount);
-            return new OutputRoute(0L, inserted, amount - inserted);
+                    actualKey, remainder, mode, host.cpu.getActionSource());
+            inserted = checkedRoutedAmount(inserted, remainder);
+            return new OutputRoute(deliveredToRequester, inserted, remainder - inserted);
         } catch (RuntimeException failure) {
-            LOGGER.warn("ECO crafting network rejected a claimed output; retaining it in the CPU", failure);
-            return new OutputRoute(0L, 0L, amount);
+            stopUncertainDelivery(current, failure, mode);
+            return new OutputRoute(deliveredToRequester, 0L, remainder);
         }
+    }
+
+    private void stopUncertainDelivery(ExecutingCraftingJob current, RuntimeException failure, Actionable mode) {
+        if (mode == Actionable.SIMULATE) {
+            LOGGER.warn("ECO final output simulation failed", failure);
+            return;
+        }
+        current.failPermanently("FINAL_OUTPUT_DELIVERY_UNCERTAIN");
+        // Cancelling this job must not automatically return the same uncertain inventory either.
+        host.inventoryReturnForPersistence().stop("FINAL_OUTPUT_DELIVERY_UNCERTAIN");
+        LOGGER.error("ECO final output acceptance is unknown; stopping automatic delivery for job {}",
+                current.link.getCraftingID(), failure);
     }
 
     /** Retries dynamic final keys that could not be delivered during their original claim. */
@@ -329,6 +370,7 @@ final class ECOCraftingOutputDelivery {
         }
         // Delivery can re-enter this CPU through the destination, so walk a key snapshot and re-read each amount.
         for (AEKey key : pendingFinalOutputs.keySet().toArray(new AEKey[0])) {
+            if (current.permanentExecutionError != null || host.getJob() != current) return;
             long stored = Math.min(pendingFinalOutputs.getLong(key), host.getInventory().list.get(key));
             if (stored <= 0L) {
                 pendingFinalOutputs.removeLong(key);
@@ -336,6 +378,8 @@ final class ECOCraftingOutputDelivery {
             }
             long amount = Math.min(stored, current.remainingAmount);
             if (amount <= 0L) {
+                // Surplus remains owned by the CPU and is returned normally after the requested amount finishes.
+                pendingFinalOutputs.removeLong(key);
                 continue;
             }
             long inserted = deliverFinalOutputToDestination(current, key, amount);
@@ -359,15 +403,7 @@ final class ECOCraftingOutputDelivery {
     private long deliverFinalOutputToDestination(ExecutingCraftingJob current, AEKey key, long amount) {
         try {
             deliveringFinalOutput = true;
-            long inserted;
-            if (current.link.isStandalone()) {
-                var grid = host.cpu.getGrid();
-                inserted = grid == null ? 0L : grid.getStorageService().getInventory()
-                        .insert(key, amount, Actionable.MODULATE, host.cpu.getActionSource());
-            } else {
-                inserted = current.link.insert(key, amount, Actionable.MODULATE);
-            }
-            return clampRoutedAmount(inserted, amount);
+            return routeClaimedOutput(current, key, amount, Actionable.MODULATE, true).deliveredAmount();
         } catch (RuntimeException failure) {
             LOGGER.error("Final output delivery failed; items remain in the CPU inventory", failure);
             return 0L;
@@ -376,8 +412,10 @@ final class ECOCraftingOutputDelivery {
         }
     }
 
-    private static long clampRoutedAmount(long inserted, long offered) {
-        return inserted <= 0L ? 0L : Math.min(inserted, offered);
+    private static long checkedRoutedAmount(long inserted, long offered) {
+        if (inserted < 0L || inserted > offered)
+            throw new IllegalStateException("Invalid final output acceptance: " + inserted + " for " + offered);
+        return inserted;
     }
 
     private boolean finishIfComplete(ExecutingCraftingJob expected) {
@@ -398,7 +436,7 @@ final class ECOCraftingOutputDelivery {
         ListTag entries = jobData.getListOrEmpty("pendingFinalOutputs");
         for (int index = 0; index < entries.size(); index++) {
             try {
-                GenericStack stack = cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.readStack(registries, entries.getCompoundOrEmpty(index));
+                GenericStack stack = ECOKeyFactory.readTag(registries, entries.getCompoundOrEmpty(index));
                 if (stack != null && stack.amount() > 0L) {
                     pendingFinalOutputs.mergeLong(stack.what(), stack.amount(), NEMath::saturatingAdd);
                 }

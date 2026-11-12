@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.api;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEItemKey;
 import net.minecraft.world.item.ItemStack;
@@ -19,7 +21,7 @@ public record ECOPreparedPattern(ItemStack stack, IPatternDetails details, @Null
             return false;
         }
         if (key != null) {
-            return key.equals(AEItemKey.of(candidate));
+            return key.equals(ECOKeyFactory.item(candidate));
         }
         return ItemStack.isSameItemSameComponents(stack, candidate);
     }
