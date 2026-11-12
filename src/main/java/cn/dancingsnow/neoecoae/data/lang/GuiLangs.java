@@ -916,6 +916,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_report.card.resource_request", "Resource request");
         provider.add("gui.neoecoae.crafting_report.card.exact_hint", "Hold Shift to view complete exact values");
         provider.add("gui.neoecoae.crafting_report.card.exact_shown", "Showing complete exact values");
+        provider.add("gui.neoecoae.crafting_report.cycle_seed", "Cycle seed: borrowed and returned, not consumed");
         provider.add("gui.neoecoae.crafting_report.quantity_unknown", "Quantity unknown");
         provider.add("gui.neoecoae.crafting_report.planning_failed", "Planning incomplete (hover CPU for details)");
         provider.add("gui.neoecoae.crafting_report.solving_large_cycle", "[ECO] Solving large cycle");

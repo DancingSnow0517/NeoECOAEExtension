@@ -31,18 +31,21 @@ final class ECOCycleItemListRenderer {
     private final Blitter hoveredItemBackground;
     private final int x;
     private final int y;
+    private final Predicate<AEKey> cycleSeed;
     private final Predicate<AEKey> missingStartupSeed;
     private StackWithBounds hoveredStack;
     private List<Component> hoveredTooltip;
     private int hoveredMouseX;
     private int hoveredMouseY;
 
-    ECOCycleItemListRenderer(AEBaseScreen<?> screen, int x, int y, Predicate<AEKey> missingStartupSeed) {
+    ECOCycleItemListRenderer(AEBaseScreen<?> screen, int x, int y, Predicate<AEKey> cycleSeed,
+            Predicate<AEKey> missingStartupSeed) {
         this.screen = screen;
         this.itemBackground = screen.getStyle().getImage("cycleItem");
         this.hoveredItemBackground = screen.getStyle().getImage("cycleItemHovered");
         this.x = x;
         this.y = y;
+        this.cycleSeed = cycleSeed;
         this.missingStartupSeed = missingStartupSeed;
     }
 
@@ -67,6 +70,11 @@ final class ECOCycleItemListRenderer {
                 && localMouseY >= cellY && localMouseY < cellY + ROW_HEIGHT - 1;
             boolean selected = selectedComponentId != null && selectedComponentId == entry.componentId();
             (hovered || selected ? hoveredItemBackground : itemBackground).dest(x, cellY).blit(graphics);
+            boolean borrowedSeed = entry.exactMissing().signum() == 0 && cycleSeed.test(item);
+            if (borrowedSeed) {
+                graphics.fill(x, cellY, x + CELL_WIDTH, cellY + ROW_HEIGHT - 1,
+                    ECOExactMaterialTableRenderer.CYCLE_SEED_OVERLAY);
+            }
             int itemX = x + CELL_WIDTH - 19;
             int itemY = cellY + 3;
             List<Component> lines = new java.util.ArrayList<>();
@@ -95,6 +103,9 @@ final class ECOCycleItemListRenderer {
                     tooltip.add(net.minecraft.network.chat.Component.literal("Cycle #" + entry.componentId()));
                 }
                 tooltip.add(totalLine(entry, AmountFormat.FULL));
+                if (borrowedSeed) {
+                    tooltip.add(Component.translatable("gui.neoecoae.crafting_report.cycle_seed"));
+                }
                 if (entry.seedParallelism() >= 0) {
                     tooltip.add(Component.translatable("gui.neoecoae.crafting_report.seed_parallelism", entry.seedParallelism()));
                     tooltip.add(Component.translatable("gui.neoecoae.crafting_report.seed_parallelism_hint"));

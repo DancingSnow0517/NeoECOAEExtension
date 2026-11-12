@@ -25,7 +25,7 @@ final class ECOCraftReportTooltips {
     private ECOCraftReportTooltips() {}
 
     record Material(AEKey key, BigInteger stored, BigInteger missing, BigInteger craft,
-                    @Nullable BigInteger requested, boolean startupSeed, boolean estimatedSeed) {}
+                    @Nullable BigInteger requested, boolean startupSeed, boolean estimatedSeed, boolean cycleSeed) {}
 
     static CraftingListCard.Builder pending(Component status) {
         return pending(status, false);
@@ -105,6 +105,10 @@ final class ECOCraftReportTooltips {
         if (material.estimatedSeed()) {
             card.wrapped(Glyph.INFO,
                 Component.translatable("gui.neoecoae.crafting_report.seed_shortfall_estimate_hint"), CraftingTooltipCard.WARN);
+        }
+        if (material.cycleSeed() && material.missing().signum() == 0) {
+            card.wrapped(Glyph.INFO,
+                Component.translatable("gui.neoecoae.crafting_report.cycle_seed"), CraftingTooltipCard.WARN);
         }
         for (int index = 1; index < keyTooltip.size() - 1; index++) {
             card.wrapped(Glyph.BOOK, keyTooltip.get(index), CraftingTooltipCard.MUTED);

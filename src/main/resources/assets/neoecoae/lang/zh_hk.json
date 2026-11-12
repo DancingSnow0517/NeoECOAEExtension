@@ -763,6 +763,7 @@
   "gui.neoecoae.crafting_report.cycle_unsupported": "檢測到當前求解器無法處理的循環配方。",
   "gui.neoecoae.crafting_report.cycle_not_detected": "未檢測到循環",
   "gui.neoecoae.crafting_report.cycle_planning_enabled": "存在循環",
+  "gui.neoecoae.crafting_report.cycle_seed": "循環種子：借用後歸還，不計入消耗",
   "gui.neoecoae.crafting_report.cycle_planning_disabled": "未開啓循環規劃",
   "gui.neoecoae.crafting_report.missing_startup_seed": "缺少啓動種子",
   "gui.neoecoae.crafting_graph.open": "規劃圖",

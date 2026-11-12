@@ -248,7 +248,7 @@ final class ECOCraftingListImageExport {
     }
 
     private static int cardHeight(Font font, Header header) {
-        return 144 + requestHeight(font, header) + valueHeight(font, header.elapsed())
+        return 136 + requestHeight(font, header) + valueHeight(font, header.elapsed())
             + valueHeight(font, header.bytes())
             + (header.partialBytes() ? font.split(Component.translatable(
                 "gui.neoecoae.crafting_report.card.incomplete_hint"), CARD_WIDTH - 16).size() * LINE_HEIGHT + 4 : 0);
@@ -260,10 +260,9 @@ final class ECOCraftingListImageExport {
         int left = x + 8, right = x + width - 8;
         fitted(graphics, font, Component.literal("✦ ").append(Component.translatable(
             "gui.neoecoae.crafting_report.export_title").withStyle(ChatFormatting.BOLD)),
-            left, y + 10, width - 78, 1, ACCENT, false);
-        fitted(graphics, font, Component.literal("ME CRAFTING"), right, y + 12, 56, 0.85F, SECONDARY, true);
-        graphics.fill(left, y + 30, right, y + 31, 0xFF514064);
-        int rowY = y + 42;
+            left, y + 10, width - 16, 1, ACCENT, false);
+        graphics.fill(left, y + 24, right, y + 25, 0xFF514064);
+        int rowY = y + 34;
         wrapped(graphics, font, header.target(), left, rowY, 120, TEXT, false);
         wrapped(graphics, font, header.requested(), right, rowY, width - 144, REQUEST, true);
         rowY += requestHeight(font, header) + 6;
@@ -300,7 +299,7 @@ final class ECOCraftingListImageExport {
                 left, rowY, width - 16, REQUEST, false) + 4;
         }
         graphics.fill(left, rowY, right, rowY + 1, 0xFF514064);
-        fitted(graphics, font, Component.translatable("gui.neoecoae.crafting_report.export_title"),
+        fitted(graphics, font, Component.translatable("gui.neoecoae.multiblock.materials"),
             left, rowY + 10, (width - 20) / 2, 1, SECONDARY, false);
         fitted(graphics, font, Component.translatable("gui.neoecoae.crafting_report.export_materials", materialCount),
             right, rowY + 10, (width - 20) / 2, 1, ACCENT, true);

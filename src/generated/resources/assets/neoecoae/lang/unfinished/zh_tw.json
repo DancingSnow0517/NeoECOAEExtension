@@ -677,6 +677,7 @@
   "gui.neoecoae.crafting_report.cycle_not_detected_preview": "預覽路線無循環",
   "gui.neoecoae.crafting_report.cycle_planning_disabled": "未開啟迴圈規劃",
   "gui.neoecoae.crafting_report.cycle_planning_enabled": "存在迴圈",
+  "gui.neoecoae.crafting_report.cycle_seed": "迴圈種子：借用後歸還，不計入消耗",
   "gui.neoecoae.crafting_report.cycle_unsupported": "檢測到當前求解器無法處理的迴圈配方。",
   "gui.neoecoae.crafting_report.elapsed": "耗時：%s ms",
   "gui.neoecoae.crafting_report.exact_incomplete": "執行方案未完成，請將游標停留在 CPU 上查看原因",
