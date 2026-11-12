@@ -1,6 +1,9 @@
 package cn.dancingsnow.neoecoae.integration.xei.multiblock;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
+import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
+import cn.dancingsnow.neoecoae.client.model.WorkstationModuleBakedModel;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockPreviewScene;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
@@ -8,6 +11,7 @@ import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.RequiredItem;
+import cn.dancingsnow.neoecoae.recipe.LargeWorkstationModule;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
@@ -43,6 +47,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 
 public class MultiBlockInfoWrapper {
@@ -64,6 +69,7 @@ public class MultiBlockInfoWrapper {
     private final int width;
     private final int height;
     private final IntConsumer expandChanged;
+    private final Consumer<List<RequiredItem>> requiredItemsChanged;
 
     private Scene scene;
     private final java.util.Map<UIElement, List<Component>> controlTooltips = new java.util.IdentityHashMap<>();
@@ -76,6 +82,7 @@ public class MultiBlockInfoWrapper {
     private int layer = -1;
     private int layerMax = 0;
     private boolean formed = false;
+    private ECOWorkstationModules.Module previewModule = ECOWorkstationModules.builtin(LargeWorkstationModule.REGULAR);
 
     private ItemStack selectedItem = ItemStack.EMPTY;
     private ScrollerView requiredItems;
@@ -97,12 +104,29 @@ public class MultiBlockInfoWrapper {
         int height,
         IntConsumer expandChanged
     ) {
+        this(definition, width, height, expandChanged, ignored -> {});
+    }
+
+    public MultiBlockInfoWrapper(
+        MultiBlockDefinition definition,
+        int width,
+        int height,
+        IntConsumer expandChanged,
+        Consumer<List<RequiredItem>> requiredItemsChanged
+    ) {
         this.definition = definition;
-        this.world = new TrackedDummyWorld();
+        this.world = new PreviewWorld();
         this.width = Math.max(width, DEFAULT_WIDTH);
         this.height = Math.max(height, MIN_HEIGHT);
         this.expandChanged = expandChanged;
+        this.requiredItemsChanged = requiredItemsChanged;
         this.expand = definition.getExpandMin();
+    }
+
+    private final class PreviewWorld extends TrackedDummyWorld implements WorkstationModuleBakedModel.PreviewAppearance {
+        @Override public net.minecraft.resources.Identifier previewModule(BlockPos pos) {
+            return getBlockState(pos).getBlock() instanceof ECOIntegratedWorkingStation ? previewModule.id() : null;
+        }
     }
 
     public ModularUI createModularUI() {
@@ -130,7 +154,7 @@ public class MultiBlockInfoWrapper {
 
         UIElement controls = new UIElement().style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
         root.addChild(HostElements.absolute(controls, 132, 1, 32, CONTROL_SIZE));
-        expandButton = cycleButton(this::cycleExpand, 0);
+        expandButton = isWorkstation() ? cycleButton(this::cycleModule, 3) : cycleButton(this::cycleExpand, 0);
         layerButton = cycleButton(this::cycleLayer, 1);
         formedButton = new MiniButton(2).setOnClick(event -> toggleFormed());
         controls.addChildren(HostElements.absolute(expandButton, 0, 0, CONTROL_SIZE, CONTROL_SIZE),
@@ -198,7 +222,16 @@ public class MultiBlockInfoWrapper {
     public List<RequiredItem> getRequiredItems() {
         var context = MultiBlockContext.dummyDelegated(expand, new TrackedDummyWorld());
         definition.createLevel(context);
+        addPreviewCard(context);
         return context.getRequiredItems();
+    }
+
+    private boolean isWorkstation() {
+        return definition.getOwner().value() instanceof ECOIntegratedWorkingStation;
+    }
+
+    private void addPreviewCard(MultiBlockContext.DummyDelegated context) {
+        if (isWorkstation()) context.addRequiredItem(WorkstationPreviewModules.requiredCard(previewModule));
     }
 
     private void onSelect(BlockPos blockPos, Direction direction) {
@@ -228,6 +261,13 @@ public class MultiBlockInfoWrapper {
         createScene();
     }
 
+    private void cycleModule(int step) {
+        previewModule = WorkstationPreviewModules.cycle(previewModule.id(), step);
+        setFormed(true);
+        layer = -1;
+        createScene();
+    }
+
     private void cycleLayer(int step) {
         layer = Math.floorMod(layer + 1 + step, layerMax + 2) - 1;
         setFormed(false);
@@ -235,11 +275,18 @@ public class MultiBlockInfoWrapper {
     }
 
     private void updateControlText() {
-        setControlTooltip(expandButton, List.of(
-            Component.translatable("gui.neoecoae.multiblock.preview.length", expand + 4),
-            Component.translatable("gui.neoecoae.multiblock.preview.length.tooltip",
-                definition.getExpandMin() + 4, definition.getExpandMax() + 4),
-            Component.translatable("gui.neoecoae.multiblock.preview.cycle_hint")));
+        if (isWorkstation()) {
+            setControlTooltip(expandButton, List.of(
+                Component.translatable("gui.neoecoae.multiblock.preview.module", previewModule.title()),
+                Component.translatable("gui.neoecoae.multiblock.preview.module.tooltip"),
+                Component.translatable("gui.neoecoae.multiblock.preview.cycle_hint")));
+        } else {
+            setControlTooltip(expandButton, List.of(
+                Component.translatable("gui.neoecoae.multiblock.preview.length", expand + 4),
+                Component.translatable("gui.neoecoae.multiblock.preview.length.tooltip",
+                    definition.getExpandMin() + 4, definition.getExpandMax() + 4),
+                Component.translatable("gui.neoecoae.multiblock.preview.cycle_hint")));
+        }
         setControlTooltip(layerButton, List.of(layer == -1
             ? Component.translatable("gui.neoecoae.multiblock.preview.layer.all")
             : Component.translatable("gui.neoecoae.multiblock.preview.layer", layer + 1, layerMax + 1),
@@ -265,6 +312,15 @@ public class MultiBlockInfoWrapper {
         MultiBlockContext.DummyDelegated context = MultiBlockContext.dummyDelegated(expand, world);
         context.setFormed(formed);
         definition.createLevel(context);
+        if (isWorkstation()) {
+            for (BlockPos pos : context.allBlocks()) {
+                BlockState state = world.getBlockState(pos);
+                if (state.getBlock() instanceof ECOIntegratedWorkingStation) {
+                    world.setBlockAndUpdate(pos, state.setValue(ECOIntegratedWorkingStation.MODULE, previewModule.legacy()));
+                }
+            }
+            addPreviewCard(context);
+        }
         this.layerMax = context.getYMax();
         layer = Math.clamp(layer, -1, layerMax);
         if (layer == -1) {
@@ -283,6 +339,7 @@ public class MultiBlockInfoWrapper {
         updateControlText();
         infoRows = MultiBlockPreviewInfo.rows(definition.getOwner().value(), context.getRequiredItems());
         updateRequiredItemSlots(context.getRequiredItems());
+        requiredItemsChanged.accept(List.copyOf(context.getRequiredItems()));
     }
 
     /**
@@ -298,7 +355,7 @@ public class MultiBlockInfoWrapper {
         );
         definition.createLevel(context);
 
-        int size = context.getRequiredItems().size();
+        int size = context.getRequiredItems().size() + (isWorkstation() ? 1 : 0);
         requiredItems.viewContainer(view -> view.layout(layout -> layout.height(Math.max(36, ((size + 4) / 5) * 18))));
         for (int i = 0; i < size; i++) {
             RequiredItemSlot slot = new RequiredItemSlot(0);
@@ -370,9 +427,13 @@ public class MultiBlockInfoWrapper {
                 graphics.fill(x + 2, y + 2, x + 6, y + 3, ink);
                 graphics.fill(x + 2, y + 4, x + 6, y + 5, ink);
                 graphics.fill(x + 2, y + 6, x + 6, y + 7, ink);
-            } else {
+            } else if (icon == 2) {
                 graphics.fill(x + 2, y + 2, x + 6, y + 6, ink);
                 graphics.fill(x + 3, y + 3, x + 5, y + 5, 0xffcbccd4);
+            } else {
+                graphics.fill(x + 2, y + 1, x + 6, y + 7, ink);
+                graphics.fill(x + 3, y + 2, x + 5, y + 4, 0xff000000 | previewModule.color());
+                graphics.fill(x + 3, y + 5, x + 5, y + 6, 0xffcbccd4);
             }
         }
     }

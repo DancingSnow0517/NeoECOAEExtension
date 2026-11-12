@@ -78,8 +78,7 @@ public enum LargeWorkstationModule implements StringRepresentable {
     }
 
     public String modelPath(boolean working, boolean smartCooling) {
-        return smartCooling ? modelPath(working).replace("large_integrated_working_station",
-            "large_integrated_working_station_smart_cooling") : modelPath(working);
+        return modelPath(working) + (smartCooling ? "_smart" : "");
     }
 
     public static LargeWorkstationModule fromSourceType(Identifier type) {

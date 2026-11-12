@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.recipe;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKeyType;
@@ -55,14 +57,14 @@ final class DataWorkstationRecipes {
                         if (output.has("modifier")) throw new IllegalArgumentException("Dynamic output modifiers are not supported");
                         var stack = parse(ItemStack.CODEC, ops, output);
                         if (result.isEmpty()) result = stack;
-                        else additionalOutputs.add(GenericStack.fromItemStack(stack));
+                        else additionalOutputs.add(ECOKeyFactory.fromItemStack(stack));
                     }
                 }
                 var outputFluids = fluids(outputs, ops);
                 if (!outputFluids.isEmpty()) {
                     fluidResult = outputFluids.getFirst();
                     for (int i = 1; i < outputFluids.size(); i++) {
-                        additionalOutputs.add(GenericStack.fromFluidStack(outputFluids.get(i)));
+                        additionalOutputs.add(ECOKeyFactory.fromFluidStack(outputFluids.get(i)));
                     }
                 }
                 // Upstream charges idle AE but no per-operation AE for reassembly. The host retains its own idle drain.

@@ -1,11 +1,15 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
+import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
 
 import appeng.api.config.Actionable;
 import cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy;
 import cn.dancingsnow.neoecoae.recipe.WorkstationEnergy;
 import appeng.api.config.PowerMultiplier;
+import appeng.api.config.PowerUnit;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridMultiblock;
@@ -28,9 +32,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.me.cluster.IAEMultiBlock;
-import appeng.util.ReadableNumberConverter;
 import appeng.util.inv.AppEngInternalInventory;
-import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.achievement.ECOAdvancementService;
@@ -55,6 +57,9 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -121,6 +126,10 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     private final LargeWorkstationModuleInventory moduleInventory = new LargeWorkstationModuleInventory(this::moduleChanged);
     /** Accepted ordinary-path batches, bounded by MAX_PENDING_BATCHES backpressure. */
     private final Deque<PendingBatch> pendingBatches = new ArrayDeque<>();
+    private boolean pendingOutputCountValid;
+    private long pendingOutputStackCount;
+    private int communicationUpdateDepth;
+    private boolean communicationUpdatePending;
     @Nullable
     private NEIntegratedWorkingStationCluster cluster;
     @DescSynced
@@ -131,9 +140,12 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     @Persisted
     @DescSynced
     private boolean activeCooling;
+    @DescSynced
+    private boolean fePreferred;
     private int preheatTargetTier = 2;
-    /** Paid work awaiting the next server thermal tick; never persisted or replayed after loading. */
-    private double pendingThermalLoad;
+    /** A paid overclocked work tick awaiting thermal settlement; never persisted or replayed. */
+    private boolean pendingProcessingHeat;
+    private long lastProcessingHeatTick = Long.MIN_VALUE;
     @Persisted
     @DescSynced
     private boolean preheating;
@@ -157,6 +169,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     private final LargeWorkstationEnergyUsage uiFluxUsage = new LargeWorkstationEnergyUsage();
     /** FE already withdrawn from ME but not yet committed; retained if AE/coolant payment fails. */
     private long processingFeBuffer;
+    /** Already withdrawn fractional FE; retained so AE-priced ticks never round FE away. */
+    private double processingFeCredit;
     private LargeWorkstationThermalUsage uiThermalUsage = new LargeWorkstationThermalUsage();
 
     public ECOLargeIntegratedWorkingStationBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
@@ -173,19 +187,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     @Override
     public Set<Direction> getGridConnectableSides(BlockOrientation orientation) {
         if (!formed) return EnumSet.allOf(Direction.class);
-        // Keep physical links to this structure's members, so the communication interface
-        // can still supply the controller's grid services without exposing any cable ports.
-        EnumSet<Direction> sides = EnumSet.noneOf(Direction.class);
-        if (cluster != null && level != null) {
-            for (Direction side : Direction.values()) {
-                BlockPos adjacent = worldPosition.relative(side);
-                if (level.hasChunkAt(adjacent)
-                    && cluster.containsBlockEntity(level.getBlockEntity(adjacent))) {
-                    sides.add(side);
-                }
-            }
-        }
-        return sides;
+        return cluster == null ? EnumSet.noneOf(Direction.class) : cluster.getInternalConnections(this);
     }
 
     @Override
@@ -288,6 +290,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     @Override
+    @Nullable
     public NEIntegratedWorkingStationCluster getCluster() {
         return cluster;
     }
@@ -376,6 +379,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     @Override
     protected FluidTank getInputTank() {
+        if (hasSmartCoolingModule()) return cluster.getSmartCoolingController().tank;
         return cluster == null || cluster.getInputHatch() == null ? super.getInputTank() : cluster.getInputHatch().tank;
     }
 
@@ -427,10 +431,19 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         return activeCooling;
     }
 
+    public boolean isFePreferred() {
+        return fePreferred;
+    }
+
+    public void togglePowerPriority() {
+        fePreferred = !fePreferred;
+        settingsChanged();
+    }
+
     public boolean isOverheated() { return isTemperatureEnabled() && overheated; }
 
     private boolean hasSmartCoolingModule() {
-        return cluster != null && cluster.getInputHatch() != null && cluster.getInputHatch().isSmartCoolingModule();
+        return cluster != null && cluster.getSmartCoolingController() != null;
     }
 
     public int getCoolantPerTick() {
@@ -442,9 +455,14 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     public Component getSmartCoolingStatusText() {
         if (coolingProblemId > 0) return Component.translatable(PauseReason.values()[coolingProblemId].translationKey);
         if (overheated) return Component.translatable(PauseReason.OVERHEATED.translationKey);
-        int target = cluster == null || cluster.getInputHatch() == null ? 75 : cluster.getInputHatch().getTargetTemperature();
+        int target = hasSmartCoolingModule() ? cluster.getSmartCoolingController().getTargetTemperature() : 75;
         return Component.translatable(temperature < target ? "gui.neoecoae.smart_cooling.heating"
             : temperature > target ? "gui.neoecoae.smart_cooling.cooling" : "gui.neoecoae.smart_cooling.holding");
+    }
+
+    /** True while smart cooling is blocked by a supply problem or overheating; read-only for UI state. */
+    public boolean hasSmartCoolingProblem() {
+        return coolingProblemId > 0 || overheated;
     }
 
     private double smartCoolingOperatingPower() {
@@ -494,6 +512,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     public double getTemperature() { return temperature; }
 
+    /** @deprecated Legacy display formatter retained for addon binaries; read {@link #getCoolingTierText()} instead. */
+    @Deprecated(since = "21.2.15", forRemoval = false)
     public Component getSelectedTierText() {
         if (!isTemperatureEnabled()) return coolantModeText();
         int tier = LargeWorkstationOverclock.forTemperature(true, temperature).coolingTier();
@@ -508,11 +528,13 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             : "gui.neoecoae.large_integrated_working_station.preheat.off");
     }
 
+    /** @deprecated Legacy display formatter; use {@link #getTemperature()} and thermal status for new panels. */
+    @Deprecated(since = "21.2.15", forRemoval = false)
     public Component getTemperatureText() {
         if (!isTemperatureEnabled()) return coolantModeText();
-        String heat = String.format(java.util.Locale.ROOT, "%.2f", temperature);
+        String heat = DisplayNumbers.decimal(temperature, 2);
         return overheated ? Component.translatable("gui.neoecoae.large_integrated_working_station.recovery",
-            heat, String.format(java.util.Locale.ROOT, "%.1f", recoveryTicks / 20.0))
+            heat, DisplayNumbers.decimal(recoveryTicks / 20.0, 1))
             : Component.translatable("gui.neoecoae.large_integrated_working_station.temperature", heat);
     }
 
@@ -626,6 +648,10 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (!formed) {
             state = State.UNAVAILABLE;
             reason = Component.empty();
+        } else if (isTemperatureEnabled() && overheated) {
+            // Admission is blocked even if this output has never entered the queue.
+            state = State.WAITING;
+            reason = getPauseReasonText();
         } else if (matches) {
             if (!getMainNode().isActive()) {
                 state = State.WAITING;
@@ -764,6 +790,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             ECOCraftingJobLifecycle.finish(level, selected.craftingJobId, false);
         }
         notifyPatternAborted(selected.unlockStack);
+        pendingOutputCountValid = false;
         pendingBatches.remove(selected);
         PendingBatch first = pendingBatches.peekFirst();
         setProcessingTime(first == null ? 0 : first.progress);
@@ -787,7 +814,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         snapshot.putBoolean("overclocked", overclocked);
         snapshot.putBoolean("activeCooling", activeCooling);
         snapshot.putBoolean("smartCooling", hasSmartCoolingModule());
-        if (hasSmartCoolingModule()) snapshot.putInt("coolingTarget", cluster.getInputHatch().getTargetTemperature());
+        snapshot.putBoolean("fePreferred", fePreferred);
+        if (hasSmartCoolingModule()) snapshot.putInt("coolingTarget", cluster.getSmartCoolingController().getTargetTemperature());
         snapshot.putBoolean("temperatureEnabled", isTemperatureEnabled());
         snapshot.putBoolean("preheating", isTemperatureEnabled() && preheating);
         snapshot.putBoolean("overheated", isTemperatureEnabled() && overheated);
@@ -806,12 +834,20 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         snapshot.putDouble("naturalCoolingPerSecond", thermalRates.naturalCooling());
         snapshot.putDouble("temperatureChangePerSecond", thermalRates.net());
         snapshot.putDouble("energyUsage", uiEnergyUsage.average(level == null ? 0 : level.getGameTime()));
+        snapshot.putDouble("energyPeak", uiEnergyUsage.peak(level == null ? 0 : level.getGameTime()));
         snapshot.putDouble("feUsage", uiFluxUsage.average(level == null ? 0 : level.getGameTime()));
         snapshot.putLong("feBuffer", processingFeBuffer);
         snapshot.putBoolean("appliedFlux", WorkstationFluxEnergy.available());
         snapshot.putDouble("energyStored", getAECurrentPower());
         snapshot.putDouble("energyCapacity", getAEMaxPower());
         snapshot.putDouble("energyScale", Math.max(1.0, getAEMaxPower()));
+        IGrid grid = getMainNode().getGrid();
+        if (grid != null) {
+            snapshot.putDouble("networkAE", grid.getEnergyService().getStoredPower());
+            if (WorkstationFluxEnergy.available()) {
+                snapshot.putLong("networkFE", WorkstationFluxEnergy.stored(grid.getStorageService()));
+            }
+        }
         PendingBatch head = pendingBatches.peekFirst();
         snapshot.putLong("parallelUsed", head == null ? 0 : head.segmented
             ? Math.min(LargeWorkstationOverclock.BASE_PARALLELISM, head.craftCount) : head.craftCount);
@@ -951,8 +987,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     private static boolean recipeOutputMatches(IntegratedWorkingStationRecipe recipe, GenericStack expected) {
         GenericStack output = recipe.hasItemOutput()
-            ? GenericStack.fromItemStack(recipe.itemOutput())
-            : recipe.hasFluidOutput() ? GenericStack.fromFluidStack(recipe.fluidOutput()) : null;
+            ? ECOKeyFactory.fromItemStack(recipe.itemOutput())
+            : recipe.hasFluidOutput() ? ECOKeyFactory.fromFluidStack(recipe.fluidOutput()) : null;
         return output != null && output.what().equals(expected.what()) && output.amount() == expected.amount();
     }
 
@@ -965,6 +1001,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     private void saveLegacy(CompoundTag data, HolderLookup.Provider registries) {
         data.putLong("processingFeBuffer", processingFeBuffer);
+        data.putDouble("processingFeCredit", processingFeCredit);
+        data.putBoolean("fePreferred", fePreferred);
         CompoundTag thermal = new CompoundTag();
         LargeWorkstationThermal.save(thermalState(), thermal);
         data.put("largeWorkstationThermal", thermal);
@@ -983,18 +1021,23 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         CompoundTag data = LegacyNbt.read(input);
         HolderLookup.Provider registries = input.lookup();
         processingFeBuffer = Math.max(0, data.getLongOr("processingFeBuffer", 0L));
+        double restoredCredit = data.getDoubleOr("processingFeCredit", 0.0);
+        processingFeCredit = Double.isFinite(restoredCredit) ? Math.clamp(restoredCredit, 0, Math.nextDown(1.0)) : 0;
+        fePreferred = data.getBooleanOr("fePreferred", false);
         uiThermalUsage = new LargeWorkstationThermalUsage();
         input.readChild("workstationModule", moduleInventory);
         var thermal = LargeWorkstationThermal.load(data.getCompoundOrEmpty("largeWorkstationThermal"));
         temperature = thermal.temperature();
         overheated = thermal.overheated();
         recoveryTicks = thermal.recoveryTicks();
-        pendingThermalLoad = 0;
+        pendingProcessingHeat = false;
+        lastProcessingHeatTick = Long.MIN_VALUE;
         preheatTargetTier = temperature < 20 ? 2 : temperature < 50 ? 6 : 9;
         if (overheated) preheating = false;
         double restoredRefund = data.getDoubleOr("pendingPowerRefund", 0.0);
         pendingPowerRefund = Double.isFinite(restoredRefund) && restoredRefund > 0.0D ? restoredRefund : 0.0D;
         coolingOutput.load(data, registries);
+        pendingOutputCountValid = false;
         pendingBatches.clear();
         ListTag batches = data.getListOrEmpty("pendingBatches");
         setPauseReason(PauseReason.NONE);
@@ -1009,10 +1052,12 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         setProcessingTime(first == null ? 0 : first.progress);
     }
 
+    /** @deprecated Legacy display formatter; use {@link #getAECurrentPower()} and {@link #getAEMaxPower()}. */
+    @Deprecated(since = "21.2.15", forRemoval = false)
     public Component getEnergyText() {
         return Component.translatable("gui.neoecoae.large_integrated_working_station.energy",
-            ReadableNumberConverter.format(getAECurrentPower(), 5),
-            ReadableNumberConverter.format(getAEMaxPower(), 5));
+            DisplayNumbers.compact(getAECurrentPower()),
+            DisplayNumbers.compact(getAEMaxPower()));
     }
 
     public Component getTaskText() {
@@ -1023,6 +1068,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 task.hasItemOutput() ? task.itemOutput().getHoverName() : task.fluidOutput().getHoverName());
     }
 
+    /** @deprecated Legacy single-task formatter; read {@link #getTask()} for the corresponding recipe data. */
+    @Deprecated(since = "21.2.15", forRemoval = false)
     public Component getRecipeText() {
         IntegratedWorkingStationRecipe task = getTask();
         if (task == null) return Component.translatable("gui.neoecoae.large_integrated_working_station.recipe_empty");
@@ -1041,15 +1088,22 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
         retryPendingPowerRefund();
         if (!formed) return super.tickingRequest(node, ticksSinceLastCall);
-        refreshModuleAppearance();
-        transferStoredFluid(inputTank, getInputTank());
-        transferStoredFluid(outputTank, getOutputTank());
-        flushOutputs();
-        if (!getMainNode().isActive()) {
-            setWorking(false);
-            return TickRateModulation.SLOWER;
+        communicationUpdateDepth++;
+        try {
+            refreshModuleAppearance();
+            transferStoredFluid(inputTank, getInputTank());
+            transferStoredFluid(outputTank, getOutputTank());
+            flushOutputs();
+            if (!getMainNode().isActive()) {
+                setWorking(false);
+                return TickRateModulation.SLOWER;
+            }
+            return tickPendingBatch();
+        } finally {
+            // A tick can move coolant, finish portions and dequeue batches. Publish one final
+            // provider update even when one of those operations exits exceptionally.
+            finishCommunicationUpdates();
         }
-        return tickPendingBatch();
     }
 
     public boolean canAcceptPattern() {
@@ -1061,16 +1115,27 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     private long getPendingOutputStackCount() {
+        if (pendingOutputCountValid) return pendingOutputStackCount;
         long count = 0L;
+        counting:
         for (PendingBatch batch : pendingBatches) {
             for (var entry : batch.pendingOutput) {
-                if (entry.getLongValue() > 0L) {
-                    if (count >= MAX_PENDING_OUTPUT_STACKS) return MAX_PENDING_OUTPUT_STACKS;
-                    count++;
-                }
+                if (entry.getLongValue() > 0L && ++count >= MAX_PENDING_OUTPUT_STACKS) break counting;
             }
         }
+        pendingOutputStackCount = count;
+        pendingOutputCountValid = true;
         return count;
+    }
+
+    private void addBatchOutputs(PendingBatch batch, KeyCounter outputs) {
+        pendingOutputCountValid = false;
+        batch.pendingOutput.addAll(outputs);
+    }
+
+    private void removeBatchOutput(PendingBatch batch, AEKey key, long amount) {
+        pendingOutputCountValid = false;
+        batch.pendingOutput.remove(key, amount);
     }
 
     /** Applies AE2 pattern-provider blocking semantics to the controller's owned, pending input ledger. */
@@ -1120,6 +1185,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     private void enqueueBatch(PendingBatch batch, @Nullable KeyCounter[] consumedInputs) {
         boolean wasEmpty = pendingBatches.isEmpty();
+        pendingOutputCountValid = false;
         pendingBatches.addLast(batch);
         if (consumedInputs != null) {
             for (KeyCounter counter : consumedInputs) {
@@ -1209,7 +1275,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (advance <= 0) {
             batch.progress = batch.processingTicks;
             batch.inputTotal.clear();
-            batch.pendingOutput.addAll(batch.outputTotal);
+            addBatchOutputs(batch, batch.outputTotal);
             boolean delivered = deliverBatchOutputs(batch);
             if (delivered) removeFirstBatch(batch);
             if (delivered) setPauseReason(PauseReason.NONE);
@@ -1260,39 +1326,19 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             setPauseReason(PauseReason.FE_MISSING);
             return TickRateModulation.SLOWER;
         }
-        if (flux.amount() > processingFeBuffer) {
-            IGrid grid = getMainNode().getGrid();
-            if (grid != null && WorkstationFluxEnergy.available()) {
-                MEStorage storage = grid.getStorageService().getInventory();
-                var actionSource = IActionSource.ofMachine(this);
-                long missing = flux.amount() - processingFeBuffer;
-                long offered = WorkstationFluxEnergy.extract(storage, missing, Actionable.SIMULATE, actionSource);
-                if (offered > 0) {
-                    processingFeBuffer += WorkstationFluxEnergy.extract(storage, Math.min(missing, offered), Actionable.MODULATE, actionSource);
-                    setChanged();
-                }
-            }
+        ProcessingEnergySource paymentSource;
+        try {
+            paymentSource = processingEnergySource(required, flux.amount());
+            required = paymentSource.requiredAE;
+        } catch (IllegalArgumentException invalidConversion) {
+            setPauseReason(PauseReason.POWER_MISSING);
+            return TickRateModulation.SLOWER;
         }
-        long consumedFe = Math.min(flux.amount(), processingFeBuffer);
-        long substituteFe = flux.amount() - consumedFe;
-        if (substituteFe > 0) {
-            try {
-                required += WorkstationEnergy.aeEquivalent(substituteFe).doubleValue();
-            } catch (IllegalArgumentException invalidConversion) {
-                setPauseReason(PauseReason.POWER_MISSING);
-                return TickRateModulation.SLOWER;
-            }
-            if (!Double.isFinite(required)) {
-                setPauseReason(PauseReason.POWER_MISSING);
-                return TickRateModulation.SLOWER;
-            }
-            source = processingEnergySource(required);
-            if (source.extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG) + 0.001D < required) {
-                setPauseReason(PauseReason.POWER_MISSING);
-                return TickRateModulation.SLOWER;
-            }
+        if (!Double.isFinite(required)
+            || paymentSource.extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG) + 0.001D < required) {
+            setPauseReason(PauseReason.POWER_MISSING);
+            return TickRateModulation.SLOWER;
         }
-        IEnergySource paymentSource = source;
         CoolingTickPlan coolantPayment = legacyCooling;
         LargeWorkstationTickPayment.Result payment = LargeWorkstationTickPayment.commit(
             paymentSource,
@@ -1306,19 +1352,18 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             return TickRateModulation.SLOWER;
         }
 
-        processingFeBuffer -= consumedFe;
         batch.feRemainder = flux.remainder();
-        if (level != null && consumedFe > 0) uiFluxUsage.record(level.getGameTime(), consumedFe);
+        paymentSource.recordUsage();
         recordUiEnergy(required);
         recordSmartCoolingPayment(operatingPower);
         preheating = false;
 
-        if (thermal && overclocked) {
-            var profile = batch.coolingTier > 0 && !batch.segmented ? LargeWorkstationOverclock.forCoolingTier(batch.coolingTier)
-                : LargeWorkstationOverclock.NORMAL;
-            double load = (double) work * batch.thermalWorkMultiplier / profile.maxParallelism();
-            if (batch.legacyTiming) load /= batch.processingTicks;
-            pendingThermalLoad += load;
+        if (thermal && overclocked && work > 0) {
+            long tick = level.getGameTime();
+            if (lastProcessingHeatTick != tick) {
+                lastProcessingHeatTick = tick;
+                pendingProcessingHeat = true;
+            }
         }
         if (batch.segmented) {
             completedWork += work;
@@ -1344,7 +1389,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             // Inputs are already owned by this controller. Once the batch reaches completion, only the output
             // ledger remains recoverable and the original input total must never be replayed.
             batch.inputTotal.clear();
-            batch.pendingOutput.addAll(batch.outputTotal);
+            addBatchOutputs(batch, batch.outputTotal);
             if (deliverBatchOutputs(batch)) removeFirstBatch(batch);
         } else {
             setWorking(true);
@@ -1353,19 +1398,110 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         return TickRateModulation.URGENT;
     }
 
-    private IEnergySource processingEnergySource(double required) {
-        IEnergySource source = this;
-        double available = source.extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG);
-        if (required > 0 && available + 0.001D < required) {
-            IGrid grid = getMainNode().getGrid();
-            if (grid != null && grid.getEnergyService().extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG) > available) {
-                source = grid.getEnergyService();
-            }
-        }
-        return source;
+    private ProcessingEnergySource processingEnergySource(double ae) {
+        return processingEnergySource(ae, 0);
     }
 
-    /** Fill available parallelism from consecutive, equivalent owned work without replaying paid progress. */
+    private ProcessingEnergySource processingEnergySource(double ae, long fe) {
+        return new ProcessingEnergySource(ae, fe);
+    }
+
+    /** One payment combines the selected source with its fallback and remembers each debit for rollback. */
+    private final class ProcessingEnergySource implements IEnergySource {
+        private final IEnergyService network;
+        private final MEStorage storage;
+        private final boolean preferFe = fePreferred;
+        private final BigDecimal requiredFe;
+        private final double requiredAE;
+        private double networkPaid;
+        private double localPaid;
+        private long fluxDebited;
+        private final double previousCredit = processingFeCredit;
+        private double fluxPaid;
+
+        private ProcessingEnergySource(double ae, long fe) {
+            if (!Double.isFinite(ae) || ae < 0 || fe < 0) throw new IllegalArgumentException("Invalid energy budget");
+            double ratio = PowerUnit.AE.convertTo(PowerUnit.FE, PowerMultiplier.CONFIG.multiply(1));
+            if (!Double.isFinite(ratio) || ratio <= 0) throw new IllegalArgumentException("Invalid FE conversion");
+            requiredFe = BigDecimal.valueOf(ae).multiply(BigDecimal.valueOf(ratio)).add(BigDecimal.valueOf(fe));
+            requiredAE = ae + WorkstationEnergy.aeEquivalent(fe).doubleValue();
+            IGrid grid = getMainNode().getGrid();
+            network = grid == null ? null : grid.getEnergyService();
+            storage = grid == null || !WorkstationFluxEnergy.available() ? null : grid.getStorageService().getInventory();
+        }
+
+        @Override
+        public double extractAEPower(double amount, Actionable mode, PowerMultiplier multiplier) {
+            if (!Double.isFinite(amount) || amount <= 0) return 0;
+            // All workstation callers use CONFIG. Keep the source contract valid for other multipliers as well.
+            BigDecimal ratio = BigDecimal.valueOf(PowerUnit.AE.convertTo(PowerUnit.FE, multiplier.multiply(1)));
+            BigDecimal requested = multiplier == PowerMultiplier.CONFIG && amount == requiredAE
+                ? requiredFe : BigDecimal.valueOf(amount).multiply(ratio);
+            BigDecimal remaining = requested;
+            if (!preferFe) remaining = drawAe(network, remaining, ratio, mode, multiplier);
+            remaining = drawFlux(remaining, mode);
+            remaining = drawAe(ECOLargeIntegratedWorkingStationBlockEntity.this, remaining, ratio, mode, multiplier);
+            if (preferFe) remaining = drawAe(network, remaining, ratio, mode, multiplier);
+            if (remaining.signum() == 0) return amount;
+            return Math.min(amount, requested.subtract(remaining).divide(ratio, MathContext.DECIMAL128).doubleValue());
+        }
+
+        private BigDecimal drawAe(@Nullable IEnergySource source, BigDecimal remaining, BigDecimal ratio,
+            Actionable mode, PowerMultiplier multiplier) {
+            if (source == null || remaining.signum() <= 0) return remaining;
+            double wanted = remaining.divide(ratio, MathContext.DECIMAL128).doubleValue();
+            double paid = source.extractAEPower(wanted, mode, multiplier);
+            if (!Double.isFinite(paid) || paid <= 0) return remaining;
+            paid = Math.min(wanted, paid);
+            if (mode == Actionable.MODULATE) {
+                // Keep raw AE here; the configured multiplier is applied exactly once by the source.
+                if (source == network) networkPaid += multiplier.multiply(paid);
+                else localPaid += multiplier.multiply(paid);
+                setChanged();
+            }
+            return paid >= wanted ? BigDecimal.ZERO
+                : remaining.subtract(BigDecimal.valueOf(paid).multiply(ratio)).max(BigDecimal.ZERO);
+        }
+
+        private BigDecimal drawFlux(BigDecimal remaining, Actionable mode) {
+            if (remaining.signum() <= 0) return remaining;
+            BigDecimal credit = BigDecimal.valueOf(processingFeCredit);
+            long whole = remaining.subtract(credit).max(BigDecimal.ZERO).setScale(0, RoundingMode.CEILING)
+                .min(BigDecimal.valueOf(Long.MAX_VALUE)).longValueExact();
+            long buffered = Math.min(whole, processingFeBuffer);
+            long missing = whole - buffered;
+            long offered = missing == 0 || storage == null ? 0
+                : Math.clamp(WorkstationFluxEnergy.extract(storage, missing, mode, IActionSource.ofMachine(ECOLargeIntegratedWorkingStationBlockEntity.this)), 0, missing);
+            long debit = buffered + offered;
+            BigDecimal paid = remaining.min(credit.add(BigDecimal.valueOf(debit)));
+            if (mode == Actionable.MODULATE && paid.signum() > 0) {
+                // Unused withdrawals remain owned here after a failed coolant/energy transaction.
+                processingFeBuffer += offered;
+                processingFeBuffer -= debit;
+                fluxDebited += debit;
+                processingFeCredit = credit.add(BigDecimal.valueOf(debit)).subtract(paid).doubleValue();
+                fluxPaid += paid.doubleValue();
+                setChanged();
+            }
+            return remaining.subtract(paid);
+        }
+
+        private void refund() {
+            processingFeBuffer += fluxDebited;
+            processingFeCredit = previousCredit;
+            if (networkPaid > 0) refundRawPower(network, networkPaid);
+            if (localPaid > 0) refundRawPower(ECOLargeIntegratedWorkingStationBlockEntity.this, localPaid);
+            networkPaid = localPaid = fluxPaid = 0;
+            fluxDebited = 0;
+            setChanged();
+        }
+
+        private void recordUsage() {
+            if (level != null) uiFluxUsage.record(level.getGameTime(), fluxPaid + PowerUnit.AE.convertTo(PowerUnit.FE, localPaid));
+        }
+    }
+
+    /** Fill from ready, equivalent owned work within the same job without replaying paid progress. */
     private void refillPendingBatch(PendingBatch batch) {
         if (batch.segmented) return;
         LargeWorkstationOverclock profile = getCurrentBatchProfile();
@@ -1378,17 +1514,28 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         var iterator = pendingBatches.iterator();
         if (!iterator.hasNext() || iterator.next() != batch) return;
         boolean changed = false;
+        boolean consecutive = true;
         while (iterator.hasNext() && batch.craftCount < profile.maxParallelism()) {
             PendingBatch next = iterator.next();
-            if (next.segmented || next.progress != 0 || next.progressRemainder != 0 || !isCounterEmpty(next.pendingOutput)
-                || next.coolingTier > profile.coolingTier() || next.energyPerCraft != batch.energyPerCraft
+            if (next.segmented || next.progress != 0 || next.progressRemainder != 0 || next.feRemainder != 0
+                || !isCounterEmpty(next.pendingOutput)
+                || !Objects.equals(next.craftingJobId, batch.craftingJobId)) break;
+            // Only pass fully owned, unstarted tasks. Never borrow a later task's missing inputs
+            // ahead of another recipe, or cross a task that may still depend on earlier output.
+            if (!consecutive && !isCounterEmpty(next.missingExtras)) break;
+            if (next.coolingTier > profile.coolingTier() || next.energyPerCraft != batch.energyPerCraft
                 || next.energyMultiplier != batch.energyMultiplier || next.thermalWorkMultiplier != batch.thermalWorkMultiplier
                 || next.processingTicks != batch.processingTicks || next.fePerCraft != batch.fePerCraft
-                || next.legacyTiming != batch.legacyTiming || next.feRemainder != 0
-                || !Objects.equals(next.recipeId, batch.recipeId) || !Objects.equals(next.craftingJobId, batch.craftingJobId)
-                || !Objects.equals(next.unlockStack, batch.unlockStack)) break;
+                || next.legacyTiming != batch.legacyTiming
+                || !Objects.equals(next.recipeId, batch.recipeId)
+                || !Objects.equals(next.unlockStack, batch.unlockStack)) {
+                if (!isCounterEmpty(next.missingExtras)) break;
+                consecutive = false;
+                continue;
+            }
 
             long taken = Math.min(profile.maxParallelism() - batch.craftCount, next.craftCount);
+            if (!consecutive && !canPowerRefilledStep(batch, batch.craftCount + taken)) continue;
             KeyCounter ownedInputs;
             KeyCounter ownedOutputs;
             KeyCounter inputPortion;
@@ -1396,7 +1543,11 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             try {
                 KeyCounter expectedInputs = addCountersExact(next.inputTotal, next.missingExtras);
                 if (!sameCounter(inputsPerCraft, divideCounter(expectedInputs, next.craftCount))
-                    || !sameCounter(outputsPerCraft, divideCounter(next.outputTotal, next.craftCount))) break;
+                    || !sameCounter(outputsPerCraft, divideCounter(next.outputTotal, next.craftCount))) {
+                    if (!isCounterEmpty(next.missingExtras)) break;
+                    consecutive = false;
+                    continue;
+                }
                 inputPortion = scaleCounter(inputsPerCraft, taken);
                 outputPortion = scaleCounter(outputsPerCraft, taken);
                 ownedInputs = addCountersExact(batch.inputTotal, inputPortion);
@@ -1437,20 +1588,38 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         }
     }
 
+    /** Read-only admission for out-of-order refills: preserve a runnable head when its larger step cannot be paid. */
+    private boolean canPowerRefilledStep(PendingBatch batch, long count) {
+        long paidWork = batch.progress * batch.craftCount + batch.progressRemainder;
+        int progress = (int) (paidWork / count);
+        int advance = Math.min(batch.legacyTiming ? getParallelism() : 1, batch.processingTicks - progress);
+        long work = (long) advance * count - paidWork % count;
+        double required = (double) batch.energyPerCraft * work / batch.processingTicks + smartCoolingOperatingPower();
+        try {
+            long flux = LargeWorkstationProcessing.fluxPayment(batch.fePerCraft, work,
+                batch.processingTicks, batch.feRemainder).amount();
+            var source = processingEnergySource(required, flux);
+            return Double.isFinite(source.requiredAE) && source.extractAEPower(source.requiredAE,
+                Actionable.SIMULATE, PowerMultiplier.CONFIG) + 0.001D >= source.requiredAE;
+        } catch (ArithmeticException | IllegalArgumentException invalid) {
+            return false;
+        }
+    }
+
     /** Finish just one portion; remaining inputs, outputs and paid craft steps stay on the same task. */
     private void finishBatchPortion(PendingBatch batch, long count, long remainingPaidWork) {
         if (count == batch.craftCount) {
             batch.progress = batch.processingTicks;
             batch.progressRemainder = 0;
             batch.inputTotal.clear();
-            batch.pendingOutput.addAll(batch.outputTotal);
+            addBatchOutputs(batch, batch.outputTotal);
             return;
         }
         KeyCounter inputs = counterPortion(addCountersExact(batch.inputTotal, batch.missingExtras), count, batch.craftCount);
         KeyCounter outputs = counterPortion(batch.outputTotal, count, batch.craftCount);
         for (var entry : inputs) batch.inputTotal.remove(entry.getKey(), entry.getLongValue());
         for (var entry : outputs) batch.outputTotal.remove(entry.getKey(), entry.getLongValue());
-        batch.pendingOutput.addAll(outputs);
+        addBatchOutputs(batch, outputs);
         batch.craftCount -= count;
         batch.progress = (int) (remainingPaidWork / batch.craftCount);
         batch.progressRemainder = remainingPaidWork % batch.craftCount;
@@ -1489,6 +1658,14 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     private void refundProcessingPower(IEnergySource source, double amount) {
+        if (source instanceof ProcessingEnergySource payment) {
+            payment.refund();
+            return;
+        }
+        refundRawPower(source, PowerMultiplier.CONFIG.multiply(amount));
+    }
+
+    private void refundRawPower(IEnergySource source, double amount) {
         double remaining = source instanceof IEnergyService network
             ? network.injectPower(amount, Actionable.MODULATE)
             : injectAEPower(amount, Actionable.MODULATE);
@@ -1539,8 +1716,14 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     /** Runs independently of AE2's adaptive processing scheduler, including paused and idle machines. */
     public void tickThermal(Level tickLevel, BlockPos pos, BlockState state) {
         if (tickLevel.isClientSide()) return;
-        double processingLoad = pendingThermalLoad;
-        pendingThermalLoad = 0;
+        double processingLoad = pendingProcessingHeat ? 1 : 0;
+        pendingProcessingHeat = false;
+        if (formed && hasSmartCoolingModule() && cluster.getInputHatch() != null) {
+            var manual = cluster.getInputHatch().tank;
+            if (cluster.getSmartCoolingController().acceptsManualCoolant(manual.getFluid())) {
+                transferStoredFluid(manual, getInputTank());
+            }
+        }
         updateSmartCooling();
         if (!isTemperatureEnabled()) {
             uiThermalUsage.clear();
@@ -1574,13 +1757,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 double fraction = Math.min(1, (target - temperature)
                     * LargeWorkstationThermal.TICKS_PER_SECOND / LargeWorkstationThermal.preheatPerSecond(temperature));
                 double required = LargeWorkstationThermal.PREHEAT_AE_PER_TICK * fraction;
-                IEnergySource source = this;
-                IGrid grid = getMainNode().getGrid();
-                if (grid != null && grid.getEnergyService().extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG)
-                    > source.extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG)) {
-                    source = grid.getEnergyService();
-                }
+                ProcessingEnergySource source = processingEnergySource(required);
                 double paid = source.extractAEPower(required, Actionable.MODULATE, PowerMultiplier.CONFIG);
+                source.recordUsage();
                 recordUiEnergy(paid);
                 preheatFraction = Math.clamp(paid / LargeWorkstationThermal.PREHEAT_AE_PER_TICK, 0, fraction);
             }
@@ -1629,19 +1808,20 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             coolingProblemId = PauseReason.COOLANT_TIER_LOW.ordinal();
         } else {
             var regulation = LargeWorkstationThermal.regulate(before, processingLoad,
-                cluster.getInputHatch().getTargetTemperature(), holder.value().maxOverclock(),
+                cluster.getSmartCoolingController().getTargetTemperature(), holder.value().maxOverclock(),
                 COOLANT_PER_PROCESSING_TICK * SMART_COOLING_COOLANT_MULTIPLIER);
             smartCoolingCoolantDemand = regulation.coolantAmount();
             CoolingTickPlan coolant = prepareCoolingTick(holder, regulation.coolantAmount());
             if (coolant != null) {
                 double required = smartCoolingOperatingPower();
-                IEnergySource source = processingEnergySource(required);
+                ProcessingEnergySource source = processingEnergySource(required);
                 if (source.extractAEPower(required, Actionable.SIMULATE, PowerMultiplier.CONFIG) + 0.001D < required) {
                     coolingProblemId = PauseReason.POWER_MISSING.ordinal();
                 } else {
                     var payment = LargeWorkstationTickPayment.commit(source, required,
                         () -> consumeCoolingTick(coolant), amount -> refundProcessingPower(source, amount));
                     if (payment == LargeWorkstationTickPayment.Result.PAID) {
+                        source.recordUsage();
                         recordUiEnergy(required);
                         recordSmartCoolingPayment(required);
                         result = regulation.result();
@@ -1745,6 +1925,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     private void removeFirstBatch(PendingBatch batch) {
         if (pendingBatches.peekFirst() != batch) return;
+        pendingOutputCountValid = false;
         pendingBatches.removeFirst();
         PendingBatch next = pendingBatches.peekFirst();
         setProcessingTime(next == null ? 0 : next.progress);
@@ -1778,7 +1959,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                     throw new IllegalStateException(
                         "Invalid large workstation output insertion amount: " + inserted + " for " + requested);
                 }
-                if (inserted > 0L) batch.pendingOutput.remove(stack.what(), inserted);
+                if (inserted > 0L) removeBatchOutput(batch, stack.what(), inserted);
                 requested -= inserted;
                 if (requested == 0L) continue;
                 // An external CPU can finish while accepting the final output. Its remaining
@@ -1793,7 +1974,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 throw new IllegalStateException(
                     "Invalid large workstation output insertion amount: " + inserted + " for " + requested);
             }
-            if (inserted > 0L) batch.pendingOutput.remove(stack.what(), inserted);
+            if (inserted > 0L) removeBatchOutput(batch, stack.what(), inserted);
             if (inserted < requested) {
                 setOutputBlockedReason(OutputBlockedReason.NETWORK_INSERT);
                 return false;
@@ -1819,8 +2000,19 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     private void requestCommunicationProviderUpdate() {
+        if (communicationUpdateDepth > 0) {
+            communicationUpdatePending = true;
+            return;
+        }
         if (cluster != null && cluster.getCommunication() instanceof ECOLargeIntegratedWorkingStationInterfaceBlockEntity communication) {
             ICraftingProvider.requestUpdate(communication.getMainNode());
+        }
+    }
+
+    private void finishCommunicationUpdates() {
+        if (--communicationUpdateDepth == 0 && communicationUpdatePending) {
+            communicationUpdatePending = false;
+            requestCommunicationProviderUpdate();
         }
     }
 
@@ -1911,16 +2103,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             // Temporary runtime override; preserve recipe durations shown by JEI/EMI.
             processingTicks = 1;
             if (adapted.feAlternative()) {
-                // Prefer AE; choose FE only at acceptance, then preserve this choice across shortages/reloads.
-                IGrid grid = getMainNode().getGrid();
-                double firstTick = (double) energyPerCraft * craftCount / processingTicks;
-                double available = extractAEPower(firstTick, Actionable.SIMULATE, PowerMultiplier.CONFIG);
-                if (grid != null) available = Math.max(available,
-                    grid.getEnergyService().extractAEPower(firstTick, Actionable.SIMULATE, PowerMultiplier.CONFIG));
-                long firstFe = LargeWorkstationProcessing.fluxPayment(fePerCraft, craftCount, processingTicks, 0).amount();
-                if (available + 0.001 < firstTick && WorkstationFluxEnergy.available() && grid != null
-                    && WorkstationFluxEnergy.extract(grid.getStorageService().getInventory(), firstFe,
-                        Actionable.SIMULATE, IActionSource.ofMachine(this)) >= firstFe) energyPerCraft = 0;
+                // Select the ledger once. Later priority changes only change who pays, never the saved price.
+                if (fePreferred) energyPerCraft = 0;
                 else fePerCraft = 0;
             }
             outputTotal = scaleCounter(outputPerCraft, craftCount);
@@ -2089,7 +2273,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (!getMainNode().isActive()) return;
         getMainNode().ifPresent((grid, node) -> {
             MEStorage storage = grid.getStorageService().getInventory();
-            GenericStack item = GenericStack.fromItemStack(outputInv.getStackInSlot(0));
+            GenericStack item = ECOKeyFactory.fromItemStack(outputInv.getStackInSlot(0));
             if (item != null) {
                 long inserted = storage.insert(item.what(), item.amount(), Actionable.MODULATE, IActionSource.ofMachine(this));
                 if (inserted > 0) outputInv.extractItem(0, (int) inserted, false);
@@ -2106,7 +2290,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         return LargeWorkstationUI.create(new LargeWorkstationUI.Config(
             getLegacyFluidCombined(), this::getUiSnapshot, () -> level.registryAccess(), this::returnTaskInputs,
             this::toggleOverclocked, this::toggleActiveCooling,
-            this::togglePreheating, moduleInventory), holder.player);
+            this::togglePreheating, moduleInventory), holder.player, this::isFePreferred, this::togglePowerPriority);
     }
 
     public Button createAutoBuildButton(Player player) {
@@ -2114,7 +2298,12 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             () -> Component.translatable("gui.neoecoae.large_integrated_working_station.auto_build"));
     }
 
-    /** Returns inputs still owned by incomplete batches to the ME network. */
+    /**
+     * Returns inputs still owned by incomplete batches to the ME network.
+     * @deprecated Legacy bulk recovery entry retained for addon binaries. It has no general replacement;
+     * invoke only on the owning server thread, and preserve partially returned batches for retry.
+     */
+    @Deprecated(since = "21.2.15", forRemoval = false)
     public void returnStoredInputs() {
         if (level == null || level.isClientSide()) return;
         var batches = new ArrayList<>(pendingBatches);
@@ -2133,6 +2322,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 ECOCraftingJobLifecycle.finish(level, batch.craftingJobId, false);
             }
             notifyPatternAborted(batch.unlockStack);
+            pendingOutputCountValid = false;
             pendingBatches.remove(batch);
         }
         PendingBatch first = pendingBatches.peekFirst();
@@ -2179,6 +2369,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 }
             }
         }
+        pendingOutputCountValid = false;
         pendingBatches.clear();
     }
 
@@ -2189,6 +2380,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 ECOCraftingJobLifecycle.finish(level, batch.craftingJobId, false);
             }
         }
+        pendingOutputCountValid = false;
         pendingBatches.clear();
         super.clearContent();
         moduleInventory.setStackInSlot(0, ItemStack.EMPTY);
@@ -2371,11 +2563,11 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 || progress >= processingTicks && pendingOutput.isEmpty()) {
                 return null;
             }
-            UUID craftingJobId = tag.read("craftingJobId", net.minecraft.core.UUIDUtil.CODEC).isPresent() ? tag.read("craftingJobId", net.minecraft.core.UUIDUtil.CODEC).orElseThrow() : null;
+            UUID craftingJobId = tag.read("craftingJobId", net.minecraft.core.UUIDUtil.CODEC).orElse(null);
             Identifier recipeId = tag.contains("recipeId")
                 ? Identifier.tryParse(tag.getStringOr("recipeId", "")) : null;
             GenericStack unlockStack = tag.contains("unlockStack")
-                ? GenericStack.readTag(LegacyNbt.input(registries, tag.getCompoundOrEmpty("unlockStack"))) : null;
+                ? ECOKeyFactory.readTag(registries, tag.getCompoundOrEmpty("unlockStack")) : null;
             long createdTick = tag.contains("createdTick")
                 ? tag.getLongOr("createdTick", 0L) : currentTick;
             PendingBatch batch = new PendingBatch(
@@ -2416,7 +2608,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             try {
                 KeyCounter result = new KeyCounter();
                 for (int i = 0; i < entries.size(); i++) {
-                    GenericStack stack = GenericStack.readTag(LegacyNbt.input(registries, entries.getCompoundOrEmpty(i)));
+                    GenericStack stack = ECOKeyFactory.readTag(registries, entries.getCompoundOrEmpty(i));
                     if (stack == null || stack.amount() <= 0
                         || stack.amount() > ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT) return null;
                     long total = result.get(stack.what());

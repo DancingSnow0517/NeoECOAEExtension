@@ -53,9 +53,11 @@ public final class LargeWorkstationTestKeys {
 
     private static @Nullable Object upstream(String name, String field) {
         try {
-            return Class.forName("com.fish_dan_.data_energistics.ae2.key." + name).getField(field).get(null);
-        } catch (ReflectiveOperationException | LinkageError unavailable) {
+            return Class.forName("com.fish_dan_.data_energistics.integration.ae.ae2.key." + name).getField(field).get(null);
+        } catch (ClassNotFoundException | LinkageError unavailable) {
             return null;
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException("Cannot load released Data Energistics key codec", failure);
         }
     }
 }

@@ -39,6 +39,10 @@ import java.util.Map;
  */
 @EventBusSubscriber(modid = NeoECOAE.MOD_ID, value = Dist.CLIENT)
 public final class WorkstationModuleBakedModel extends DelegateBlockStateModel {
+    public interface PreviewAppearance {
+        @Nullable Identifier previewModule(BlockPos pos);
+    }
+
     private static final Identifier WORKSTATION_ID = NeoECOAE.id("integrated_working_station");
     private static final Quadrant[] TURNS = {Quadrant.R0, Quadrant.R90, Quadrant.R180, Quadrant.R270};
     /** model id -> keys indexed by clockwise quarter turns from north. */
@@ -95,8 +99,11 @@ public final class WorkstationModuleBakedModel extends DelegateBlockStateModel {
 
     @Nullable
     private static BlockStateModelPart selected(BlockAndTintGetter level, BlockPos pos, BlockState state) {
-        if (!(level.getBlockEntity(pos) instanceof ECOLargeIntegratedWorkingStationBlockEntity host)) return null;
-        var module = ECOWorkstationModules.find(host.getModuleAppearanceId());
+        Identifier appearance = level instanceof PreviewAppearance preview ? preview.previewModule(pos) : null;
+        if (appearance == null && level.getBlockEntity(pos) instanceof ECOLargeIntegratedWorkingStationBlockEntity host) {
+            appearance = host.getModuleAppearanceId();
+        }
+        var module = appearance == null ? null : ECOWorkstationModules.find(appearance);
         if (module == null) return null;
         boolean working = state.getOptionalValue(ECOIntegratedWorkingStation.WORKING).orElse(false);
         Identifier id = working && module.workingModel() != null ? module.workingModel() : module.idleModel();

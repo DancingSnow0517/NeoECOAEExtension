@@ -13,6 +13,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
 import net.neoforged.neoforge.capabilities.Capabilities;
@@ -294,6 +296,28 @@ public final class MultiBlockPlacementService {
         if (event.isCanceled()) {
             snapshot.restore();
             return false;
+        }
+        BlockState placedState = level.getBlockState(pos);
+        if (!acceptsExisting(level, worldBlock, placedState)) {
+            // Placement listeners may rotate the new block. Keep its derived state and only
+            // restore planned directions; accepted alternative blocks already passed above.
+            if (placedState.is(worldBlock.targetState().getBlock())) {
+                BlockState correctedState = placedState;
+                for (var property : worldBlock.targetState().getProperties()) {
+                    if (property instanceof EnumProperty<?> && property.getValueClass() == Direction.class) {
+                        var directionProperty = (EnumProperty<Direction>) property;
+                        correctedState = correctedState.setValue(directionProperty,
+                            worldBlock.targetState().getValue(directionProperty));
+                    }
+                }
+                if (correctedState != placedState) {
+                    level.setBlock(pos, correctedState, Block.UPDATE_ALL);
+                }
+            }
+            if (!acceptsExisting(level, worldBlock, level.getBlockState(pos))) {
+                snapshot.restore();
+                return false;
+            }
         }
         return true;
     }

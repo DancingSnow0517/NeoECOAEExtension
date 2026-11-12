@@ -14,8 +14,13 @@ import mezz.jei.api.registration.IRecipeCatalystRegistration;
 import mezz.jei.api.registration.IRecipeRegistration;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.RecipeManager;
+import net.neoforged.neoforge.common.crafting.SizedIngredient;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 
 import java.util.List;
+import java.util.Objects;
 
 public class IntegrationWorkingStationCategory extends ModularUIRecipeCategory<RecipeHolder<IntegratedWorkingStationRecipe>> {
     private final IDrawable icon;

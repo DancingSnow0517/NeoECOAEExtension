@@ -83,23 +83,22 @@ class LargeWorkstationLightingTest {
 
     @Test
     void formedBodyKeepsNaturalAmbientOcclusion() throws Exception {
-        for (String variant : List.of("off", "on")) {
+        for (String variant : List.of("off", "on", "off_smart", "on_smart")) {
             var model = CuboidModel.fromStream(new java.io.StringReader(readModel(variant).toString()));
-            assertNotEquals(Boolean.FALSE, model.ambientOcclusion(), variant + " model must retain natural body AO");
+            assertTrue(!Boolean.FALSE.equals(model.ambientOcclusion()), variant + " model must retain natural body AO");
         }
     }
 
     @Test
     void onlyEmissiveFacesBypassAmbientOcclusion() throws Exception {
-        for (String variant : List.of("off", "on")) {
+        for (String variant : List.of("off", "on", "off_smart", "on_smart")) {
             var model = CuboidModel.fromStream(new java.io.StringReader(readModel(variant).toString()));
             int emissiveFaces = 0;
             for (var element : ((UnbakedCuboidGeometry) model.geometry()).elements()) {
                 for (var face : element.faces().values()) {
                     String texture = face.texture();
                     var lighting = face.faceData();
-                    if (texture.equals("#light") || variant.equals("on") && texture.equals("#screen")) {
-                        // 26.1: ExtraFaceData carries a single light_emission value.
+                    if (texture.startsWith("#light") || texture.startsWith("#screen_") || texture.equals("#cooling_screen")) {
                         assertEquals(15, lighting.lightEmission());
                         assertFalse(lighting.ambientOcclusion());
                         assertFalse(element.shade());
@@ -111,7 +110,7 @@ class LargeWorkstationLightingTest {
                     }
                 }
             }
-            assertEquals(variant.equals("on") ? 7 : 5, emissiveFaces);
+            assertEquals(15 + (variant.startsWith("on") ? 6 : 0) + (variant.endsWith("_smart") ? 1 : 0), emissiveFaces);
         }
     }
 

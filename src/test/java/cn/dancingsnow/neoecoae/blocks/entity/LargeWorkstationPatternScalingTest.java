@@ -164,8 +164,9 @@ class LargeWorkstationPatternScalingTest {
     }
 
     @ParameterizedTest @ValueSource(booleans = {false, true})
-    void alternativeEnergyLocksFeOnlyWhenAppliedFluxAndNetworkFeAreAvailable(boolean installed) throws Exception {
+    void alternativeEnergyUsesSelectedPriorityAndNeverRepricesAnAcceptedBatch(boolean preferFe) throws Exception {
         var controller = controller();
+        field(controller, "fePreferred", preferFe);
         doReturn(0.0).when(controller).extractAEPower(anyDouble(), any(), any());
         var grid = mock(appeng.api.networking.IGrid.class, RETURNS_DEEP_STUBS);
         when(controller.getMainNode().getGrid()).thenReturn(grid);
@@ -173,14 +174,18 @@ class LargeWorkstationPatternScalingTest {
         var holders = new KeyCounter[]{counter(AEItemKey.of(Items.IRON_INGOT), 4)};
         try (var flux = mockStatic(cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy.class);
              var recipes = mockStatic(LargeWorkstationRecipes.class, CALLS_REAL_METHODS)) {
-            flux.when(cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy::available).thenReturn(installed);
+            flux.when(cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy::available).thenReturn(false);
             flux.when(() -> cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy.extract(any(), anyLong(), any(), any()))
                 .thenAnswer(call -> call.getArgument(1));
             recipes.when(() -> LargeWorkstationRecipes.getAvailable(controller.getLevel(), LargeWorkstationModule.REGULAR)).thenReturn(List.of(recipe));
             assertTrue(controller.acceptPatternBatch(pattern(4, 2), holders, 1, null));
             var batch = ((Deque<?>) value(controller, "pendingBatches")).getFirst();
-            assertEquals(installed ? 0L : 100L, value(batch, "energyPerCraft"));
-            assertEquals(installed ? 200L : 0L, value(batch, "fePerCraft"));
+            assertEquals(preferFe ? 0L : 100L, value(batch, "energyPerCraft"));
+            assertEquals(preferFe ? 200L : 0L, value(batch, "fePerCraft"));
+            controller.togglePowerPriority();
+            assertEquals(!preferFe, controller.isFePreferred());
+            assertEquals(preferFe ? 0L : 100L, value(batch, "energyPerCraft"));
+            assertEquals(preferFe ? 200L : 0L, value(batch, "fePerCraft"));
             assertEquals(1, value(batch, "processingTicks"));
         }
     }

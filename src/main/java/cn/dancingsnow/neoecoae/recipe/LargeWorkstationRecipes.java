@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.recipe;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationRecipeAdapters;
 
@@ -42,6 +44,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -226,6 +229,7 @@ public final class LargeWorkstationRecipes {
         CACHE.put(owner, new Cache(sources, result, executionRecipes, groups,
             Map.copyOf(recipesById), Map.copyOf(groupsById),
             new EnumMap<>(LargeWorkstationModule.class), new HashMap<>(),
+            new IdentityHashMap<>(), new IdentityHashMap<>(),
             ECOWorkstationRecipeAdapters.revision(),
             ECOWorkstationModules.revision()));
         return result;
@@ -457,59 +461,45 @@ public final class LargeWorkstationRecipes {
 
     @Nullable
     public static LargeWorkstationRecipe find(Level level, KeyCounter inputs, KeyCounter outputs) {
-        return find(executionRecipes(level), inputs, outputs);
-    }
-
-    private static LargeWorkstationRecipe find(List<LargeWorkstationRecipe> recipes, KeyCounter inputs, KeyCounter outputs) {
-        LargeWorkstationRecipe best = null;
-        for (var recipe : recipes) {
-            if (!recipe.matches(inputs, outputs)) continue;
-            if (best == null || COST_ORDER.compare(recipe, best) < 0) best = recipe;
-        }
-        return best;
+        var match = index(level, null).find(inputs, outputs, false);
+        return match == null ? null : match.recipe();
     }
 
     /** Matches original legal batches; proportional viewer grouping never enables fractional operations. */
     @Nullable
     public static PatternMatch findScaled(Level level, KeyCounter inputs, KeyCounter outputs) {
-        return findScaled(executionRecipes(level), inputs, outputs);
+        return index(level, null).find(inputs, outputs, true);
     }
 
     @Nullable
     public static PatternMatch findScaled(Level level, KeyCounter inputs, KeyCounter outputs, Identifier moduleId) {
-        var description = ECOWorkstationModules.resolve(moduleId);
-        if (!description.custom()) return findScaled(level, inputs, outputs, description.legacy());
-        return findScaled(getAvailable(level, moduleId), inputs, outputs);
+        return index(level, moduleId).find(inputs, outputs, true);
     }
 
     @Nullable
     public static PatternMatch findScaled(Level level, KeyCounter inputs, KeyCounter outputs, LargeWorkstationModule module) {
-        return findScaled(getAvailable(level, module), inputs, outputs);
+        return index(level, ECOWorkstationModules.builtin(module).id()).find(inputs, outputs, true);
     }
 
     @Nullable
     static PatternMatch findScaled(List<LargeWorkstationRecipe> recipes, KeyCounter inputs, KeyCounter outputs) {
-        PatternMatch best = null;
-        for (var recipe : recipes) {
-            long multiplier = recipe.matchingMultiplier(inputs, outputs);
-            if (multiplier == 0) continue;
-            try {
-                Math.multiplyExact(recipe.energy(), multiplier);
-                Math.multiplyExact(recipe.feEnergy(), multiplier);
-                Math.toIntExact(Math.multiplyExact((long) recipe.processingTicks(), multiplier));
-                for (var extra : recipe.extraInputs()) Math.multiplyExact(extra.amount(), multiplier);
-            } catch (ArithmeticException overflow) {
-                // An unpayable preferred route must not hide another legal variant of this pattern.
-                continue;
-            }
-            var match = new PatternMatch(recipe, multiplier);
-            if (best == null) best = match;
-            else {
-                int costs = compareCosts(recipe, multiplier, best.recipe(), best.multiplier());
-                if (costs < 0 || costs == 0 && recipe.id().toString().compareTo(best.recipe().id().toString()) < 0) best = match;
-            }
-        }
-        return best;
+        // Standalone lists have no recipe-manager lifecycle and must not enter a global cache.
+        return new LargeWorkstationRecipeIndex(recipes).find(inputs, outputs, true);
+    }
+
+    private static synchronized LargeWorkstationRecipeIndex index(Level level, @Nullable Identifier moduleId) {
+        // Resolve the available list and its owning generation under the same lock as reload invalidation.
+        var recipes = moduleId == null ? executionRecipes(level) : getAvailable(level, moduleId);
+        var cache = cache(level);
+        // Independently supplied recipe lists have no manager generation to retain them under.
+        if (cache == null) return new LargeWorkstationRecipeIndex(recipes);
+        return cache.indexes.computeIfAbsent(recipes,
+            available -> new LargeWorkstationRecipeIndex(available, cache.prepared));
+    }
+
+    static int compareMatches(PatternMatch first, PatternMatch second) {
+        int costs = compareCosts(first.recipe(), first.multiplier(), second.recipe(), second.multiplier());
+        return costs != 0 ? costs : first.recipe().id().toString().compareTo(second.recipe().id().toString());
     }
 
     public record PatternMatch(LargeWorkstationRecipe recipe, long multiplier) {}
@@ -587,7 +577,7 @@ public final class LargeWorkstationRecipes {
                     if (amount > 0) fluid = new SizedFluidIngredient(ingredient, amount);
                 }
                 if (type.equals("advanced_ae:reaction")) {
-                    var output = parse(GenericStack.CODEC, ops, data.get("output"));
+                    var output = parse(ECOKeyFactory.STACK_CODEC, ops, data.get("output"));
                     int count = Math.toIntExact(output.amount());
                     if (output.what() instanceof AEItemKey item) result = item.toStack(count);
                     else if (output.what() instanceof AEFluidKey key) fluidResult = key.toStack(count);
@@ -639,5 +629,7 @@ public final class LargeWorkstationRecipes {
                          Map<Identifier, LargeWorkstationRecipeGroup> groupsById,
                          Map<LargeWorkstationModule, List<LargeWorkstationRecipe>> moduleRecipes,
                          Map<Identifier, List<LargeWorkstationRecipe>> customModuleRecipes,
+                         Map<LargeWorkstationRecipe, LargeWorkstationRecipe.Prepared> prepared,
+                         Map<List<LargeWorkstationRecipe>, LargeWorkstationRecipeIndex> indexes,
                          long adapterRevision, long moduleRevision) {}
 }

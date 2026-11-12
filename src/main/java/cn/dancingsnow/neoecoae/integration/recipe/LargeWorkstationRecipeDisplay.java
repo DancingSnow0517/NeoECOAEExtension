@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.integration.recipe;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.integration.ae2lt.WorkstationLightningInputs;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
-import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationModule;
@@ -23,7 +22,6 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -98,7 +96,7 @@ public final class LargeWorkstationRecipeDisplay {
     }
 
     public static String compactAmount(long amount) {
-        return BigNumberFormatter.formatSI(BigInteger.valueOf(amount), 1);
+        return DisplayNumbers.compact(Math.max(0L, amount));
     }
 
     /** Tooltips retain the complete amount even when the table uses a compact unit. */
@@ -132,16 +130,14 @@ public final class LargeWorkstationRecipeDisplay {
     }
 
     private static Component energyAmount(BigDecimal amount, boolean compact, boolean fe) {
-        String number = compact && amount.compareTo(BigDecimal.valueOf(1000)) >= 0
-            ? BigNumberFormatter.formatSI(amount.toBigInteger(), 1)
-            : DisplayNumbers.grouped(amount.stripTrailingZeros().toPlainString());
+        String number = compact ? DisplayNumbers.compact(amount) : DisplayNumbers.grouped(amount);
         return Component.literal(number + " ").append(Component.literal(fe ? "FE" : "AE")
             .withStyle(fe ? ChatFormatting.DARK_GREEN : ChatFormatting.DARK_PURPLE));
     }
 
     public static Component duration(LargeWorkstationRecipe recipe) {
-        return Component.translatable(PREFIX + "recipe_duration", recipe.processingTicks(),
-            BigDecimal.valueOf(recipe.processingTicks()).divide(BigDecimal.valueOf(20)).stripTrailingZeros().toPlainString());
+        return Component.translatable(PREFIX + "recipe_duration", DisplayNumbers.grouped(recipe.processingTicks()),
+            DisplayNumbers.grouped(BigDecimal.valueOf(recipe.processingTicks()).divide(BigDecimal.valueOf(20))));
     }
 
     private record InfoRow(Component label, Component value) {}
@@ -158,12 +154,12 @@ public final class LargeWorkstationRecipeDisplay {
                 summaryEnergy(recipe)));
         }
         rows.add(new InfoRow(Component.translatable(PREFIX + "time_label"),
-            Component.literal(recipe.processingTicks() + " t (" + recipe.processingTicks() / 20.0 + " s)")));
+            Component.literal(DisplayNumbers.compact(recipe.processingTicks()) + " t (" + DisplayNumbers.compact(recipe.processingTicks() / 20.0) + " s)")));
         if (!recipe.extraInputs().isEmpty()) rows.add(new InfoRow(Component.translatable(PREFIX + "extra_required_label"), extraSummary(recipe.extraInputs())));
         return rows;
     }
     public static Component extra(GenericStack input) {
-        return Component.translatable(PREFIX + "lightning_cost", input.amount(), input.what().getDisplayName());
+        return Component.translatable(PREFIX + "lightning_cost", DisplayNumbers.grouped(input.amount()), input.what().getDisplayName());
     }
     public static List<Component> extraCosts(LargeWorkstationRecipe recipe) {
         return recipe.extraInputs().stream().map(LargeWorkstationRecipeDisplay::extra).toList();
@@ -175,7 +171,7 @@ public final class LargeWorkstationRecipeDisplay {
         var text = Component.empty();
         for (var input : inputs) {
             if (!text.getSiblings().isEmpty()) text.append(", ");
-            String amount = compact ? compactAmount(input.amount()) : Long.toString(input.amount());
+            String amount = compact ? compactAmount(input.amount()) : DisplayNumbers.grouped(input.amount());
             text.append(Component.literal(amount + "x").append(input.what().getDisplayName()));
         }
         return text;

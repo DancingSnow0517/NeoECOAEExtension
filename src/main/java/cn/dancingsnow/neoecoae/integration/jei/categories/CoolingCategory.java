@@ -14,9 +14,12 @@ import mezz.jei.api.registration.IRecipeCatalystRegistration;
 import mezz.jei.api.registration.IRecipeRegistration;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.RecipeManager;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 public class CoolingCategory extends ModularUIRecipeCategory<RecipeHolder<CoolingRecipe>> {
     private final IDrawable icon;

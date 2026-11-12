@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
 
 import appeng.api.crafting.IPatternDetails;
@@ -99,8 +101,10 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
      * <p>Returned methods all go through {@link PatternDiskSupport}, which answers "no disks" when the mod
      * that provides them is absent or has not installed its backend yet.</p>
      */
+    @Nullable
     private AuxiliaryPatternHolder diskHolder;
 
+    @Nullable
     private AuxiliaryPatternHolder diskHolder() {
         AuxiliaryPatternHolder current = diskHolder;
         if (current == null && PatternDiskSupport.available()) {
@@ -530,7 +534,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
             // custom_model_data string 0); the real block item stays unchanged.
             icon.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(List.of(), List.of(), List.of(module.getSerializedName()), List.of()));
         }
-        return AEItemKey.of(icon);
+        return ECOKeyFactory.item(icon);
     }
 
     @Override

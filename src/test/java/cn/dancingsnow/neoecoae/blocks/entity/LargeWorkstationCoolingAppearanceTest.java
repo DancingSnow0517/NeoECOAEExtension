@@ -38,13 +38,13 @@ class LargeWorkstationCoolingAppearanceTest {
     }
 
     @Test
-    void changingTheInstalledHatchSwitchesAppearanceWithoutChangingTheModuleOrFacing() throws Exception {
+    void changingTheRearControllerSwitchesAppearanceWithoutChangingTheModuleOrFacing() throws Exception {
         for (Direction facing : Direction.Plane.HORIZONTAL) {
             var fixture = fixture(facing, true);
             fixture.host().updateState(false);
             assertTrue(fixture.state().get().getValue(ECOIntegratedWorkingStation.SMART_COOLING));
 
-            when(fixture.hatch().isSmartCoolingModule()).thenReturn(false);
+            when(fixture.host().getCluster().getSmartCoolingController()).thenReturn(null);
             fixture.host().updateState(false);
             assertFalse(fixture.state().get().getValue(ECOIntegratedWorkingStation.SMART_COOLING));
             assertEquals(facing, fixture.state().get().getValue(ECOIntegratedWorkingStation.FACING));
@@ -72,7 +72,7 @@ class LargeWorkstationCoolingAppearanceTest {
         assertFalse(fixture.state().get().getValue(ECOIntegratedWorkingStation.SMART_COOLING));
         var next = mock(NEIntegratedWorkingStationCluster.class);
         when(fixture.hatch().isSmartCoolingModule()).thenReturn(true);
-        when(next.getInputHatch()).thenReturn(fixture.hatch());
+        when(next.getSmartCoolingController()).thenReturn(fixture.hatch());
         fixture.host().updateCluster(next);
         assertTrue(fixture.state().get().getValue(ECOIntegratedWorkingStation.SMART_COOLING));
     }
@@ -92,7 +92,7 @@ class LargeWorkstationCoolingAppearanceTest {
             return true;
         });
         when(hatch.isSmartCoolingModule()).thenReturn(smart);
-        when(cluster.getInputHatch()).thenReturn(hatch);
+        when(cluster.getSmartCoolingController()).thenReturn(smart ? hatch : null);
         doReturn(LargeWorkstationModule.ADVANCED_AE).when(host).getInstalledModule();
         doReturn(false).when(host).isWorking();
         field(host, "level", level);

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.recipe;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
@@ -49,7 +51,7 @@ final class AppliedGeneratorsWorkstationRecipes {
         if (items.isEmpty() && fluid == null) {
             throw new IllegalArgumentException("Empty synthesizer input");
         }
-        var output = GenericStack.CODEC.parse(ops, data.get("output")).getOrThrow();
+        var output = ECOKeyFactory.STACK_CODEC.parse(ops, data.get("output")).getOrThrow();
         int count = Math.toIntExact(output.amount());
         if (count <= 0) throw new IllegalArgumentException("Non-positive synthesizer output");
         ItemStack result = ItemStack.EMPTY;

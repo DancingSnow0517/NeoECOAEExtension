@@ -4,21 +4,23 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import appeng.api.orientation.RelativeSide;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.networking.IManagedGridNode;
 import appeng.items.tools.NetworkToolItem;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
+import cn.dancingsnow.neoecoae.gui.common.FluidHatchInterfaceConfig;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
-import cn.dancingsnow.neoecoae.gui.theme.NETextures;
-import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.lowdragmc.lowdraglib2.LDLib2;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.texture.ColorBorderTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
+import com.lowdragmc.lowdraglib2.gui.sync.rpc.RPCEmitter;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -36,7 +38,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEventDispatcher;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.layout.LayoutProperties;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.lowdragmc.lowdraglib2.syncdata.AccessorRegistries;
 import com.google.gson.JsonParser;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -54,11 +55,11 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.nbt.CompoundTag;
-import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
@@ -69,16 +70,107 @@ import org.junit.jupiter.api.Test;
 class WorkstationUIInteractionTest {
     @BeforeAll
     static void bootstrap() throws ClassNotFoundException {
-        InventoryTestBootstrap.initialize();
-        try (var mods = mockStatic(ModList.class); var registrate = mockStatic(NERegistrate.class)) {
-            ModList modList = mock(ModList.class);
-            when(modList.getAllScanData()).thenReturn(List.of());
-            mods.when(ModList::get).thenReturn(modList);
-            registrate.when(() -> NERegistrate.create("neoecoae")).thenReturn(mock(NERegistrate.class));
-            Class.forName(UIElement.class.getName());
-            Class.forName(NETextures.class.getName());
-            AccessorRegistries.init();
+        InventoryTestBootstrap.initializeUi();
+    }
+
+    private static final List<String> SMART_COOLING_TEXTS = List.of(
+        "title", "subtitle", "target-label", "target-range", "target-value", "target-min", "target-max",
+        "status-label", "status", "status-hint", "buffer-label", "buffer-amount", "buffer-target",
+        "energy-label", "energy-value", "coolant-use-label", "coolant-use-value", "help", "help-warning");
+
+    @Test
+    void powerPriorityButtonUsesTheNativeIconsAndUpdatesItsSyncedCard() throws ReflectiveOperationException {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(net.minecraft.client.Minecraft.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            installFont(minecraft);
+            var preferred = new java.util.concurrent.atomic.AtomicBoolean();
+            var snapshot = new CompoundTag();
+            snapshot.putDouble("energyPeak", 12_500);
+            snapshot.putLong("networkFE", Long.MAX_VALUE);
+            snapshot.putDouble("networkAE", 16_000_000);
+            var button = LargeWorkstationUI.powerPriorityButton(preferred::get,
+                () -> preferred.set(!preferred.get()), () -> snapshot);
+            var icon = button.selectId("power-priority-icon").findFirst().orElseThrow();
+            var root = new UIElement().layout(layout -> layout.width(253).height(214))
+                .addChild(HostSideButtonBar.left(button));
+            var ui = new ModularUI(UI.of(root));
+            ui.init(640, 480);
+            assertSame(AETextures.icon(ECOIcon.POWER_UNIT_AE), icon.getStyle().backgroundTexture());
+            var synced = (BindableValue<net.minecraft.nbt.Tag>) button.getChildren().stream()
+                .filter(child -> child instanceof BindableValue<?> value && value.getValue() instanceof CompoundTag)
+                .findFirst().orElseThrow();
+            for (boolean fe : new boolean[] {true, false}) {
+                synced.setValue(priorityState(fe, 0));
+                ui.init(640, 480);
+                assertSame(AETextures.icon(fe ? ECOIcon.POWER_UNIT_FE : ECOIcon.POWER_UNIT_AE), icon.getStyle().backgroundTexture());
+                UIEvent hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+                hover.target = button;
+                UIEventDispatcher.dispatchEvent(hover, false, false, false);
+                assertEquals(1, cn.dancingsnow.neoecoae.gui.common.UiTestRendering.tooltipTexts(hover.hoverTooltips).size());
+                assertTrue(cn.dancingsnow.neoecoae.gui.common.UiTestRendering.tooltipTexts(hover.hoverTooltips).getFirst().getString().contains(
+                    Component.translatable("gui.neoecoae.workstation.power_priority.title").getString()));
+                assertNotNull(cn.dancingsnow.neoecoae.gui.common.UiTestRendering.tooltipComponent(hover.hoverTooltips));
+            }
+            var texts = new LargeWorkstationPowerPriorityCard(false).builder(snapshot).texts();
+            assertEquals("12.5K", translatable(texts, "gui.neoecoae.workstation.card.ae_rate").getArgs()[0]);
+            assertEquals("9.22E", translatable(texts, "gui.neoecoae.workstation.card.fe_amount").getArgs()[0]);
+            assertEquals("16M", translatable(texts, "gui.neoecoae.workstation.card.ae_amount").getArgs()[0]);
+            assertEquals(3, new LargeWorkstationPowerPriorityCard(false).builder(new CompoundTag()).texts().stream()
+                .filter(text -> "—".equals(text.getString())).count());
         }
+    }
+
+    @Test
+    void prioritySwapPreservesMotionAcrossReversalsAndPendingClickAcknowledgements() throws ReflectiveOperationException {
+        var card = new LargeWorkstationPowerPriorityCard(false);
+        card.click();
+        card.advance(0.12);
+        double before = card.position();
+        assertTrue(before > 0 && before < 1);
+        card.click();
+        assertEquals(before, card.position(), "Changing direction must preserve the current position");
+        card.receive(priorityState(true, 1));
+        assertFalse(card.fePreferred(), "The first acknowledgement must preserve the second pending click");
+        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(net.minecraft.client.Minecraft.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            installFont(minecraft);
+            card.builder(new CompoundTag()).build();
+            card.builder(new CompoundTag()).build();
+        }
+        assertEquals(before, card.position(), "Rebuilding the tooltip must not reset the animation");
+        card.advance(0.001);
+        assertTrue(card.position() > before, "Momentum remains continuous before reversing smoothly");
+        card.advance(1);
+        assertEquals(0, card.position());
+        card.receive(priorityState(false, 2));
+        assertFalse(card.fePreferred());
+        assertEquals(0, card.position());
+    }
+
+    @Test
+    void prioritySwapTimingDoesNotDependOnTheRenderingFrameRate() {
+        var reference = new LargeWorkstationPowerPriorityCard(false);
+        reference.click();
+        reference.advance(0.5);
+        double first = reference.position();
+        reference.click();
+        reference.advance(0.5);
+        for (int frames : new int[] {15, 30, 72}) {
+            var card = new LargeWorkstationPowerPriorityCard(false);
+            card.click();
+            for (int frame = 0; frame < frames; frame++) card.advance(0.5 / frames);
+            assertEquals(first, card.position(), 1e-10);
+            card.click();
+            for (int frame = 0; frame < frames; frame++) card.advance(0.5 / frames);
+            assertEquals(reference.position(), card.position(), 1e-10);
+        }
+    }
+
+    private static CompoundTag priorityState(boolean fePreferred, long acknowledgedClicks) {
+        var state = new CompoundTag();
+        state.putBoolean("fePreferred", fePreferred);
+        state.putLong("acknowledgedClicks", acknowledgedClicks);
+        return state;
     }
 
     @Test
@@ -90,21 +182,21 @@ class WorkstationUIInteractionTest {
             UIElement root = SmartCoolingModuleUI.createRoot(smartCoolingHost());
             ModularUI ui = new ModularUI(UI.of(root));
             BindableValue<Component> status = (BindableValue<Component>) root.selectId("status-sync").findFirst().orElseThrow();
+            BindableValue<Component> hint = (BindableValue<Component>) root.selectId("status-hint-sync").findFirst().orElseThrow();
             for (int[] size : List.of(new int[] {320, 240}, new int[] {640, 360}, new int[] {800, 480})) {
                 for (Component state : List.of(
                     Component.translatable("gui.neoecoae.smart_cooling.unformed"),
-                    Component.translatable("gui.neoecoae.smart_cooling.coolant_mode"),
-                    Component.translatable("gui.neoecoae.smart_cooling.status", "80.00",
-                        Component.translatable("gui.neoecoae.smart_cooling.holding")),
-                    Component.translatable("gui.neoecoae.smart_cooling.status", "99.99",
-                        Component.translatable("gui.neoecoae.smart_cooling.running")))) {
+                    Component.translatable("gui.neoecoae.smart_cooling.disabled"),
+                    Component.translatable("gui.neoecoae.smart_cooling.holding"),
+                    Component.translatable("gui.neoecoae.smart_cooling.heating"))) {
                     status.setValue(state);
+                    hint.setValue(Component.translatable("gui.neoecoae.smart_cooling.current", "99.99"));
                     ui.init(size[0], size[1]);
                     assertTrue(root.getPositionX() >= 0 && root.getPositionY() >= 0);
                     assertTrue(root.getPositionX() + root.getSizeWidth() <= size[0]);
                     assertTrue(root.getPositionY() + root.getSizeHeight() <= size[1]);
                     assertEquals(state, ((TextElement) root.selectId("status").findFirst().orElseThrow()).getText());
-                    for (String id : List.of("title", "target-label", "status", "buffer-label", "buffer-amount", "help")) {
+                    for (String id : SMART_COOLING_TEXTS) {
                         TextElement text = (TextElement) root.selectId(id).findFirst().orElseThrow();
                         assertEquals(TextWrap.WRAP, text.getTextStyle().textWrap());
                         assertFalse(text.getTextStyle().textShadow());
@@ -113,17 +205,33 @@ class WorkstationUIInteractionTest {
                         assertTrue(text.getSizeHeight() > 0);
                         assertInside(text, text.getParent());
                     }
-                    List<UIElement> regions = List.of("title", "settings", "status-card", "buffer", "help")
-                        .stream().map(id -> root.selectId(id).findFirst().orElseThrow()).toList();
-                    for (int index = 0; index < regions.size(); index++) {
-                        assertInside(regions.get(index), root);
-                        if (index > 0) assertTrue(regions.get(index - 1).getPositionY()
-                            + regions.get(index - 1).getSizeHeight() <= regions.get(index).getPositionY());
+                    // Rows stack vertically; the two cards of each row sit side by side.
+                    List<List<String>> rows = List.of(List.of("badge"), List.of("settings"),
+                        List.of("status-card", "buffer"), List.of("energy", "coolant-use"), List.of("notes"));
+                    for (int row = 0; row < rows.size(); row++) {
+                        List<UIElement> cards = rows.get(row).stream()
+                            .map(id -> root.selectId(id).findFirst().orElseThrow()).toList();
+                        cards.forEach(card -> assertInside(card, root));
+                        if (cards.size() == 2) assertTrue(cards.get(0).getPositionX() + cards.get(0).getSizeWidth()
+                            <= cards.get(1).getPositionX());
+                        if (row == 0) continue;
+                        for (String above : rows.get(row - 1)) {
+                            UIElement previous = root.selectId(above).findFirst().orElseThrow();
+                            for (UIElement card : cards) {
+                                assertTrue(previous.getPositionY() + previous.getSizeHeight() <= card.getPositionY(), above);
+                            }
+                        }
                     }
                     UIElement label = root.selectId("target-label").findFirst().orElseThrow();
+                    UIElement value = root.selectId("target-value").findFirst().orElseThrow();
+                    UIElement decrease = root.selectId("target-decrease").findFirst().orElseThrow();
                     UIElement field = root.selectId("target").findFirst().orElseThrow();
-                    assertTrue(label.getPositionX() + label.getSizeWidth() <= field.getPositionX());
-                    assertInside(field, field.getParent());
+                    UIElement increase = root.selectId("target-increase").findFirst().orElseThrow();
+                    assertTrue(label.getPositionX() + label.getSizeWidth() <= decrease.getPositionX());
+                    assertTrue(value.getPositionX() + value.getSizeWidth() <= decrease.getPositionX());
+                    assertTrue(decrease.getPositionX() + decrease.getSizeWidth() <= field.getPositionX());
+                    assertTrue(field.getPositionX() + field.getSizeWidth() <= increase.getPositionX());
+                    for (UIElement control : List.of(decrease, field, increase)) assertInside(control, control.getParent());
                 }
             }
         }
@@ -143,16 +251,31 @@ class WorkstationUIInteractionTest {
             }
             field.setText("");
             assertEquals(75, host.getTargetTemperature());
+            assertEquals("75%", ((TextElement) root.selectId("target-value").findFirst().orElseThrow()).getText().getString());
             FluidSlot coolant = (FluidSlot) root.selectId("coolant").findFirst().orElseThrow();
             assertFalse(coolant.isAllowClickFilled());
             assertTrue(coolant.isAllowClickDrained());
+            FluidSlot filter = (FluidSlot) root.selectId("coolant-filter").findFirst().orElseThrow();
+            assertFalse(filter.isAllowClickFilled());
+            assertFalse(filter.isAllowClickDrained());
+            assertNotSame(coolant, filter);
             TextElement amount = (TextElement) root.selectId("buffer-amount").findFirst().orElseThrow();
-            for (int quantity : List.of(2_000, 1_024_000, 0)) {
+            for (int quantity : List.of(2_000, 16_384_000, 0)) {
                 coolant.setValue(quantity == 0 ? FluidStack.EMPTY : new FluidStack(Fluids.WATER, quantity), false);
                 var contents = assertInstanceOf(TranslatableContents.class, amount.getText().getContents());
-                assertEquals("gui.neoecoae.fluid_input_hatch.stored", contents.getKey());
-                assertArrayEquals(new Object[] {String.format(java.util.Locale.ROOT, "%,d", quantity)}, contents.getArgs());
+                assertEquals("gui.neoecoae.smart_cooling.buffer_amount", contents.getKey());
+                String expected = switch (quantity) {
+                    case 2_000 -> "2K";
+                    case 16_384_000 -> "16.3M";
+                    default -> "0";
+                };
+                assertArrayEquals(new Object[] {expected}, contents.getArgs());
             }
+            assertEquals(SmartCoolingModuleUI.Phase.OFFLINE, SmartCoolingModuleUI.phase(host));
+            assertEquals("gui.neoecoae.smart_cooling.unformed",
+                ((TranslatableContents) SmartCoolingModuleUI.status(host).getContents()).getKey());
+            assertEquals("gui.neoecoae.smart_cooling.unformed_hint",
+                ((TranslatableContents) SmartCoolingModuleUI.statusHint(host).getContents()).getKey());
         }
     }
 
@@ -168,34 +291,105 @@ class WorkstationUIInteractionTest {
                 try (var stream = getClass().getClassLoader().getResourceAsStream("assets/neoecoae/lang/" + locale + ".json")) {
                     assertNotNull(stream);
                     var translations = JsonParser.parseString(new String(stream.readAllBytes(), StandardCharsets.UTF_8)).getAsJsonObject();
-                    for (String id : List.of("title", "target-label", "buffer-label", "help")) {
+                    for (String id : SMART_COOLING_TEXTS) {
                         TextElement text = (TextElement) root.selectId(id).findFirst().orElseThrow();
-                        String key = ((TranslatableContents) text.getText().getContents()).getKey();
-                        assertTextFits(splitter, text, translations.get(key).getAsString(), locale);
+                        if (!(text.getText().getContents() instanceof TranslatableContents contents)) continue;
+                        Object[] args = id.equals("buffer-amount") || id.equals("buffer-target")
+                            ? new Object[] {"16,384,000"} : contents.getArgs();
+                        String translated = String.format(java.util.Locale.ROOT,
+                            translations.get(contents.getKey()).getAsString(), args);
+                        assertTextFits(splitter, text, translated, locale);
                     }
                     TextElement status = (TextElement) root.selectId("status").findFirst().orElseThrow();
-                    for (String key : List.of("unformed", "coolant_mode", "status")) {
-                        String translated = translations.get("gui.neoecoae.smart_cooling." + key).getAsString();
-                        if (key.equals("status")) translated = String.format(java.util.Locale.ROOT, translated,
-                            "99.99", translations.get("gui.neoecoae.smart_cooling.running").getAsString());
-                        assertTextFits(splitter, status, translated, locale);
+                    for (String key : List.of("unformed", "unmarked", "disabled", "heating", "cooling", "holding")) {
+                        assertTextFits(splitter, status, translations.get("gui.neoecoae.smart_cooling." + key).getAsString(), locale);
+                    }
+                    TextElement hint = (TextElement) root.selectId("status-hint").findFirst().orElseThrow();
+                    for (String key : List.of("unformed_hint", "coolant_mode", "current")) {
+                        String translated = String.format(java.util.Locale.ROOT,
+                            translations.get("gui.neoecoae.smart_cooling." + key).getAsString(), "99.99");
+                        assertTextFits(splitter, hint, translated, locale);
                     }
                 }
             }
         }
     }
 
+    @Test
+    void smartCoolingMarkerClicksRequestServerEditsWithoutMovingFluidOrItems() throws Exception {
+        try (var ldlib = mockStatic(LDLib2.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            var host = smartCoolingHost();
+            var player = mock(Player.class);
+            when(player.level()).thenReturn(mock(Level.class));
+            var root = SmartCoolingModuleUI.createRoot(host, player);
+            FluidSlot filter = (FluidSlot) root.selectId("coolant-filter").findFirst().orElseThrow();
+            var request = mock(RPCEmitter.class);
+            var field = filter.getClass().getDeclaredField("click");
+            field.setAccessible(true);
+            field.set(filter, request);
+            for (int button : List.of(0, 1)) {
+                UIEvent click = UIEvent.create(UIEvents.MOUSE_DOWN);
+                click.target = filter;
+                click.button = button;
+                UIEventDispatcher.dispatchEvent(click, false, false, false);
+                assertTrue(click.hasHandler);
+                verify(request).send(button);
+            }
+            assertTrue(host.tank.isEmpty());
+            assertTrue(host.getMarkedCoolant().isEmpty());
+            new ModularUI(UI.of(root)).init(320, 240);
+            assertInside(filter, filter.getParent());
+            UIElement title = root.selectId("buffer-label").findFirst().orElseThrow();
+            assertTrue(title.getPositionX() + title.getSizeWidth() <= filter.getPositionX());
+            UIElement stock = root.selectId("coolant").findFirst().orElseThrow();
+            assertTrue(filter.getPositionY() + filter.getSizeHeight() <= stock.getPositionY());
+        }
+    }
+
+    @Test
+    void smartCoolingCanMarkFromTheMainHandWithoutAnInventoryAndStillClearWithAnEmptyCursor() {
+        var host = mock(ECOLargeIntegratedWorkingStationInputHatchBlockEntity.class);
+        when(host.getMarkedCoolant()).thenReturn(FluidStack.EMPTY);
+        var player = mock(Player.class);
+        var menu = mock(AbstractContainerMenu.class);
+        player.containerMenu = menu;
+        var bucket = new ItemStack(Items.WATER_BUCKET);
+        when(player.getMainHandItem()).thenReturn(bucket);
+        when(menu.getCarried()).thenReturn(ItemStack.EMPTY);
+        try (var config = mockStatic(FluidHatchInterfaceConfig.class)) {
+            config.when(() -> FluidHatchInterfaceConfig.click(null, bucket, 1))
+                .thenReturn(new GenericStack(AEFluidKey.of(Fluids.WATER), 1000));
+            SmartCoolingModuleUI.markCoolant(host, player, 1);
+            verify(host).setMarkedCoolant(argThat(fluid -> fluid.getAmount() == 1 && fluid.getFluid() == Fluids.WATER));
+            SmartCoolingModuleUI.markCoolant(host, player, 0);
+            config.verify(() -> FluidHatchInterfaceConfig.click(null, ItemStack.EMPTY, 0));
+            verify(host).setMarkedCoolant(FluidStack.EMPTY);
+            // A container already on the cursor takes precedence over the held item.
+            var carried = new ItemStack(Items.LAVA_BUCKET);
+            when(menu.getCarried()).thenReturn(carried);
+            SmartCoolingModuleUI.markCoolant(host, player, 1);
+            config.verify(() -> FluidHatchInterfaceConfig.click(null, carried, 1));
+            verify(menu, never()).setCarried(any());
+            assertEquals(1, bucket.getCount());
+            assertEquals(1, carried.getCount());
+        }
+    }
+
     private static void assertTextFits(StringSplitter splitter, TextElement text, String translated, String locale) {
-        int lines = splitter.splitLines(translated, Math.round(text.getContentWidth()), Style.EMPTY).size();
         var style = text.getTextStyle();
+        // LDLib wraps at the unscaled width: content width divided by fontSize / 9.
+        int wrapWidth = Math.round(text.getContentWidth() * 9 / style.fontSize());
+        int lines = splitter.splitLines(translated, wrapWidth, Style.EMPTY).size();
         float renderedHeight = lines * style.fontSize() + Math.max(0, lines - 1) * style.lineSpacing();
-        assertTrue(renderedHeight <= text.getContentHeight(), locale + ": " + translated);
+        assertTrue(renderedHeight <= text.getContentHeight(), locale + " " + text.getId() + ": " + translated);
     }
 
     private static ECOLargeIntegratedWorkingStationInputHatchBlockEntity smartCoolingHost() {
         var type = mock(BlockEntityType.class);
         when(type.isValid(any())).thenReturn(true);
         return new ECOLargeIntegratedWorkingStationInputHatchBlockEntity(type, BlockPos.ZERO, Blocks.AIR.defaultBlockState()) {
+            @Override public boolean isSmartCoolingModule() { return true; }
             @Override protected IManagedGridNode createMainNode() { return mock(IManagedGridNode.class, RETURNS_SELF); }
             @Override public void setChanged() {}
             @Override public void markForUpdate() {}
@@ -339,10 +533,12 @@ class WorkstationUIInteractionTest {
 
     @org.junit.jupiter.api.Disabled("26.1 port: needs LDLib2's runtime access transformer (Slot.x/y non-final); the isolated test JVM does not apply ATs")
     @Test
-    void largeArtworkKeepsInventoryContentsAndFluidInsideBakedFrames() {
-        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft(); var factory = mockStatic(ECOModularUI.class)) {
+    void largeArtworkKeepsInventoryContentsAndFluidInsideBakedFrames() throws ReflectiveOperationException {
+        try (var ldlib = mockStatic(LDLib2.class); var factory = mockStatic(ECOModularUI.class);
+             var minecraft = mockStatic(net.minecraft.client.Minecraft.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             LayoutProperties.init();
+            installFont(minecraft);
             AtomicReference<UIElement> captured = new AtomicReference<>();
             Player player = mock(Player.class);
             when(player.getInventory()).thenReturn(new Inventory(player, new net.minecraft.world.entity.EntityEquipment()));
@@ -390,7 +586,7 @@ class WorkstationUIInteractionTest {
                 assertEquals(List.of("large-workstation-overclock", "large-workstation-cooling"),
                     controls.stream().map(UIElement::getId).toList());
                 for (int index = 0; index < controls.size(); index++) {
-                    assertEquals(root.getPositionX() + List.of(102, 146).get(index), controls.get(index).getPositionX());
+                    assertEquals(root.getPositionX() + List.of(102, 120).get(index), controls.get(index).getPositionX());
                     assertEquals(root.getPositionY() + 89, controls.get(index).getPositionY());
                 }
                 for (String id : List.of("temperature-setting", "temperature-info", "cooling-info", "overclock-info")) {
@@ -633,10 +829,11 @@ class WorkstationUIInteractionTest {
     }
 
     @Test
-    void temperatureHoverShowsActualSignedRatesAndHidesThemInCoolantMode() {
-        try (var ldlib = mockStatic(LDLib2.class); var minecraftOptions = cn.dancingsnow.neoecoae.gui.common.ClientTestSupport.minecraft()) {
+    void temperatureHoverShowsActualSignedRatesAndHidesThemInCoolantMode() throws ReflectiveOperationException {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(net.minecraft.client.Minecraft.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             LayoutProperties.init();
+            installFont(minecraft);
             var snapshot = new CompoundTag();
             snapshot.putDouble("temperature", 15.5);
             snapshot.putDouble("temperatureChangePerSecond", 0.123);
@@ -649,26 +846,108 @@ class WorkstationUIInteractionTest {
             UIEvent hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
             hover.target = region;
             UIEventDispatcher.dispatchEvent(hover, false, false, false);
-            var lines = hover.hoverTooltips.tooltips().stream().filter(net.minecraft.network.chat.Component.class::isInstance).map(net.minecraft.network.chat.Component.class::cast).toList();
-            var temperature = assertInstanceOf(net.minecraft.network.chat.contents.TranslatableContents.class, lines.get(1).getContents());
-            assertEquals("15.50", temperature.getArgs()[0]);
-            var net = assertInstanceOf(net.minecraft.network.chat.contents.TranslatableContents.class, lines.get(3).getContents());
-            assertEquals("gui.neoecoae.workstation.temperature_net_rate", net.getKey());
+            // The card keeps the vanilla tooltip frame: a title line followed by the card component.
+            assertEquals(1, cn.dancingsnow.neoecoae.gui.common.UiTestRendering.tooltipTexts(hover.hoverTooltips).size());
+            assertNotNull(cn.dancingsnow.neoecoae.gui.common.UiTestRendering.tooltipComponent(hover.hoverTooltips));
+            var texts = panel.temperatureCardBuilder().texts();
+            assertTrue(texts.stream().anyMatch(text -> "15.50%".equals(text.getString())));
+            // Rows follow the card order: net change, processing heat, active cooling, natural cooling.
+            var net = translatable(texts, "gui.neoecoae.workstation.card.rate");
             assertEquals("+0.12", net.getArgs()[0]);
-            var processing = assertInstanceOf(net.minecraft.network.chat.contents.TranslatableContents.class, lines.get(4).getContents());
-            assertEquals("gui.neoecoae.workstation.temperature_processing_rate", processing.getKey());
-            assertEquals("0.00", processing.getArgs()[0], "Idle telemetry must not substitute theoretical full-load heating");
-            assertFalse(lines.stream().anyMatch(line -> line.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents text
-                && "gui.neoecoae.workstation.temperature_preheat_rate".equals(text.getKey())));
+            var rates = texts.stream().map(Component::getContents)
+                .filter(TranslatableContents.class::isInstance).map(TranslatableContents.class::cast)
+                .filter(text -> "gui.neoecoae.workstation.card.rate_short".equals(text.getKey())).toList();
+            assertEquals("+0.00", rates.getFirst().getArgs()[0], "Idle telemetry must not substitute theoretical full-load heating");
+            assertEquals("-0.10", rates.getLast().getArgs()[0]);
+            assertFalse(texts.stream().anyMatch(text -> text.getContents() instanceof TranslatableContents contents
+                && "gui.neoecoae.workstation.card.preheat".equals(contents.getKey())));
             snapshot.putBoolean("temperatureEnabled", false);
             panel.setValue(snapshot.copy());
             hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
             hover.target = region;
             UIEventDispatcher.dispatchEvent(hover, false, false, false);
-            assertEquals(3, hover.hoverTooltips.tooltips().stream().filter(net.minecraft.network.chat.Component.class::isInstance).map(net.minecraft.network.chat.Component.class::cast).toList().size());
-            assertTrue(hover.hoverTooltips.tooltips().stream().filter(net.minecraft.network.chat.Component.class::isInstance).map(net.minecraft.network.chat.Component.class::cast).toList().stream().noneMatch(line -> line.getContents()
-                instanceof net.minecraft.network.chat.contents.TranslatableContents text && text.getKey().endsWith("_rate")));
+            assertNotNull(cn.dancingsnow.neoecoae.gui.common.UiTestRendering.tooltipComponent(hover.hoverTooltips));
+            assertTrue(panel.temperatureCardBuilder().texts().stream().noneMatch(text -> text.getContents()
+                instanceof TranslatableContents contents && contents.getKey().startsWith("gui.neoecoae.workstation.card.rate")));
         }
+    }
+
+    @Test
+    void overclockEnergyAndModuleHoversAreCards() throws ReflectiveOperationException {
+        try (var ldlib = mockStatic(LDLib2.class); var minecraft = mockStatic(net.minecraft.client.Minecraft.class)) {
+            ldlib.when(LDLib2::isRemote).thenReturn(true);
+            LayoutProperties.init();
+            installFont(minecraft);
+            var snapshot = new CompoundTag();
+            snapshot.putBoolean("overclocked", true);
+            snapshot.putLong("parallelCapacity", 256);
+            snapshot.putDouble("energyUsage", 12.5);
+            snapshot.putDouble("energyStored", 4_000_000);
+            snapshot.putDouble("energyCapacity", 16_000_000);
+            var panel = new LargeWorkstationPanel(new LargeWorkstationUI.Config(new FluidTank(1000),
+                offset -> snapshot.copy(), () -> null, ignored -> {}, () -> {}, () -> {}, () -> {},
+                new ItemStackHandler(1)), mock(Player.class));
+            for (String id : List.of("overclock", "overclock-info", "energy", "module-info", "module-logo")) {
+                UIElement region = collect(panel, UIElement.class).stream()
+                    .filter(element -> ("large-workstation-" + id).equals(element.getId())).findFirst().orElseThrow();
+                UIEvent hover = UIEvent.create(UIEvents.HOVER_TOOLTIPS);
+                hover.target = region;
+                UIEventDispatcher.dispatchEvent(hover, false, false, false);
+                assertEquals(1, cn.dancingsnow.neoecoae.gui.common.UiTestRendering.tooltipTexts(hover.hoverTooltips).size(), id);
+                assertNotNull(cn.dancingsnow.neoecoae.gui.common.UiTestRendering.tooltipComponent(hover.hoverTooltips), id);
+            }
+
+            var overclock = panel.overclockCardBuilder(true).texts();
+            assertTrue(overclock.stream().anyMatch(text -> "256".equals(text.getString())));
+            translatable(overclock, "gui.neoecoae.workstation.card.auto_preheat");
+            translatable(overclock, "gui.neoecoae.workstation.card.preheat_off");
+            assertFalse(panel.overclockCardBuilder(false).texts().stream().anyMatch(text -> text.getString().contains(
+                "gui.neoecoae.workstation.card.mouse_left")), "The info region carries no click hints");
+            snapshot.putBoolean("smartCooling", true);
+            panel.setValue(snapshot.copy());
+            assertFalse(panel.overclockCardBuilder(true).texts().stream().anyMatch(text -> text.getContents()
+                instanceof TranslatableContents contents && "gui.neoecoae.workstation.card.auto_preheat".equals(contents.getKey())),
+                "Smart cooling owns the temperature, so preheat is hidden");
+
+            var energy = panel.energyCardBuilder().texts();
+            assertTrue(energy.stream().anyMatch(text -> "12.5".equals(text.getString())));
+            String quarter = cn.dancingsnow.neoecoae.gui.common.HostText.percent(0.25);
+            assertTrue(energy.stream().anyMatch(text -> quarter.equals(text.getString())), "Bar caption: " + energy);
+
+            snapshot.putDouble("energyUsage", 1_234_567.5);
+            snapshot.putDouble("feUsage", 138_936_320_000D);
+            snapshot.putLong("feBuffer", Long.MAX_VALUE);
+            panel.setValue(snapshot.copy());
+            var largeEnergy = panel.energyCardBuilder().texts();
+            assertTrue(largeEnergy.stream().anyMatch(text -> "1.23M".equals(text.getString())));
+            assertEquals("138G", translatable(largeEnergy, "gui.neoecoae.workstation.card.fe_rate").getArgs()[0]);
+            assertEquals("9.22E", translatable(largeEnergy, "gui.neoecoae.workstation.card.fe_amount").getArgs()[0]);
+            assertEquals("16,000,000", translatable(largeEnergy, "gui.neoecoae.workstation.card.ae_amount").getArgs()[0]);
+
+            var collapsed = translatable(panel.moduleCardBuilder(false).texts(), "gui.neoecoae.workstation.card.card_count_shift");
+            int cards = (Integer) collapsed.getArgs()[0];
+            assertTrue(cards > 0);
+            assertEquals(panel.moduleCardBuilder(false).texts().size() + cards,
+                panel.moduleCardBuilder(true).texts().size(), "Shift lists every supported card");
+        }
+    }
+
+    private static TranslatableContents translatable(List<Component> texts, String key) {
+        return texts.stream().map(Component::getContents).filter(TranslatableContents.class::isInstance)
+            .map(TranslatableContents.class::cast).filter(text -> key.equals(text.getKey())).findFirst().orElseThrow(() ->
+                new AssertionError("Missing " + key + " in " + texts));
+    }
+
+    private static void installFont(org.mockito.MockedStatic<net.minecraft.client.Minecraft> minecraft)
+        throws ReflectiveOperationException {
+        var client = mock(net.minecraft.client.Minecraft.class);
+        var font = mock(net.minecraft.client.gui.Font.class);
+        when(font.width(org.mockito.ArgumentMatchers.any(net.minecraft.network.chat.FormattedText.class)))
+            .thenAnswer(call -> ((net.minecraft.network.chat.FormattedText) call.getArgument(0)).getString().length() * 6);
+        var field = net.minecraft.client.Minecraft.class.getDeclaredField("font");
+        field.setAccessible(true);
+        field.set(client, font);
+        minecraft.when(net.minecraft.client.Minecraft::getInstance).thenReturn(client);
     }
 
     @Test

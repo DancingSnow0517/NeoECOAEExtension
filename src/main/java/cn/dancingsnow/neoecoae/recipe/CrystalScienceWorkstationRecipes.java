@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.recipe;
 
+import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
@@ -100,10 +102,10 @@ final class CrystalScienceWorkstationRecipes {
             : SizedFluidIngredient.of(sourceFluid(fluid), snowballs ? 250 : 1000);
         var outputs = new ArrayList<GenericStack>();
         recipe.getOutput().block().ifPresent(output -> {
-            if (output.block().asItem() != Items.AIR) outputs.add(new GenericStack(AEItemKey.of(output.block().asItem()), 1));
+            if (output.block().asItem() != Items.AIR) outputs.add(new GenericStack(ECOKeyFactory.item(output.block().asItem()), 1));
         });
         recipe.getOutput().fluid().ifPresent(output -> {
-            if (output.fluid() != Fluids.EMPTY) outputs.add(new GenericStack(AEFluidKey.of(sourceFluid(output.fluid())), 1000));
+            if (output.fluid() != Fluids.EMPTY) outputs.add(new GenericStack(ECOKeyFactory.fluid(sourceFluid(output.fluid())), 1000));
         });
         for (var drop : recipe.getDrops()) outputs.add(GenericStack.fromItemStack(drop.create()));
         if ((items.isEmpty() && fluidInput == null) || outputs.isEmpty()) return null;

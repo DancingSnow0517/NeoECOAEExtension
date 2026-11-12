@@ -57,11 +57,21 @@ class AddonWorkstationApiTest {
             assertEquals(50, all.getFirst().extraInputs().getFirst().amount());
             assertTrue(LargeWorkstationRecipes.getAvailable(level, ECOWorkstationModules.builtin(LargeWorkstationModule.REGULAR).id()).isEmpty());
             assertEquals(all, LargeWorkstationRecipes.getAvailable(level, MODULE));
+            var inputs = new appeng.api.stacks.KeyCounter();
+            inputs.add(appeng.api.stacks.AEItemKey.of(Items.IRON_INGOT), 1);
+            var outputs = new appeng.api.stacks.KeyCounter();
+            outputs.add(appeng.api.stacks.AEItemKey.of(Items.GOLD_INGOT), 1);
+            var match = LargeWorkstationRecipes.findScaled(level, inputs, outputs, MODULE);
+            assertNotNull(match);
+            assertSame(match, LargeWorkstationRecipes.findScaled(level, inputs, outputs, MODULE));
+            assertNull(LargeWorkstationRecipes.findScaled(level, inputs, outputs, LargeWorkstationModule.REGULAR));
             assertSame(module, ECOWorkstationModules.fromSourceType(TYPE));
             assertThrows(IllegalArgumentException.class, () -> ECOWorkstationModules.register(5, module));
             assertTrue(ECOWorkstationRecipeAdapters.unregister(ADAPTER));
             assertTrue(LargeWorkstationRecipes.getAll(manager, registries).isEmpty());
             assertTrue(LargeWorkstationRecipes.getAvailable(level, MODULE).isEmpty());
+            assertNull(LargeWorkstationRecipes.findScaled(level, inputs, outputs, MODULE),
+                "Removing an adapter invalidates successful pattern matches as well as recipe lists");
         } finally {
             ECOWorkstationRecipeAdapters.unregister(ADAPTER);
             ECOWorkstationModules.unregister(MODULE);
