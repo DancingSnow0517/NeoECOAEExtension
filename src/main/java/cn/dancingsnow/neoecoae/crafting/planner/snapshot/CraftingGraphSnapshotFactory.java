@@ -33,6 +33,68 @@ import org.jetbrains.annotations.Nullable;
 public final class CraftingGraphSnapshotFactory {
     private CraftingGraphSnapshotFactory() {}
 
+    /** Keeps the planner's explanation when available; imported and legacy jobs use their actual task vector. */
+    public static CraftingGraphSnapshot fromPlan(appeng.api.networking.crafting.ICraftingPlan plan) {
+        var result = plan instanceof cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics diagnostics
+            ? diagnostics.neoecoae$getPlanningResult() : null;
+        if (result == null) result = cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry.find(plan);
+        if (result != null) return create(result);
+        Map<IPatternDetails, PlannerAmount> tasks = new LinkedHashMap<>();
+        if (plan instanceof cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan exact) {
+            exact.exactTasks().forEach((pattern, count) -> tasks.put(pattern, PlannerAmount.of(count)));
+        } else plan.patternTimes().forEach((pattern, count) -> tasks.put(pattern, PlannerAmount.of(count)));
+        Map<AEKey, PlannerAmount> stored = new LinkedHashMap<>();
+        plan.usedItems().forEach(entry -> stored.put(entry.getKey(), PlannerAmount.of(entry.getLongValue())));
+        if (plan instanceof cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan exact)
+            exact.deferredStock().forEach((key, amount) -> stored.merge(key, PlannerAmount.of(amount), PlannerAmount::add));
+        return fromExecution(plan.finalOutput(), tasks, stored);
+    }
+
+    public static CraftingGraphSnapshot fromExecution(GenericStack output, Map<IPatternDetails, PlannerAmount> tasks,
+            Map<AEKey, PlannerAmount> stored) {
+        Map<AEKey, MutableMaterial> materials = new LinkedHashMap<>();
+        materials.computeIfAbsent(output.what(), MutableMaterial::new).exactRequested = PlannerAmount.of(output.amount());
+        stored.forEach((key, amount) -> materials.computeIfAbsent(key, MutableMaterial::new).exactFromInventory = amount);
+        for (var task : tasks.entrySet()) {
+            var view = PatternSemanticAdapters.analyze(task.getKey());
+            for (var product : view.producedOutputs()) {
+                var material = materials.computeIfAbsent(product.what(), MutableMaterial::new);
+                material.exactToCraft = material.exactToCraft.add(task.getValue().multiply(product.amount()));
+                material.exactProduced = material.exactToCraft;
+            }
+            for (var input : view.consumedInputs()) {
+                var material = materials.computeIfAbsent(input.key(), MutableMaterial::new);
+                material.exactConsumed = material.exactConsumed.add(task.getValue()
+                    .multiply(input.amountPerPattern()));
+            }
+        }
+        Map<AEKey, Integer> ids = new LinkedHashMap<>();
+        List<MaterialNode> nodes = new ArrayList<>();
+        for (var material : materials.values()) {
+            material.exactRequested = material.exactRequested.max(material.exactConsumed);
+            material.requested = material.exactRequested.longValueSaturated();
+            material.fromInventory = material.exactFromInventory.longValueSaturated();
+            material.toCraft = material.exactToCraft.longValueSaturated();
+            ids.put(material.key, nodes.size());
+            nodes.add(material.freeze(nodes.size()));
+        }
+        List<PatternNode> patterns = new ArrayList<>();
+        List<Edge> edges = new ArrayList<>();
+        tasks.forEach((pattern, count) -> {
+            int id = patternNodeId(patterns.size());
+            var inputs = inputs(pattern, ids);
+            var outputs = outputs(pattern, ids);
+            patterns.add(new PatternNode(id, displayIdentity(pattern), inputs, outputs, count,
+                CandidateStatus.SELECTED, null, -1));
+            outputs.forEach(item -> edges.add(new Edge(item.materialNodeId(), id, item.plannerAmount(),
+                EdgeKind.PATTERN_OUTPUT, true)));
+            inputs.forEach(item -> edges.add(new Edge(id, item.materialNodeId(), item.plannerAmount(),
+                EdgeKind.PATTERN_INPUT, true)));
+        });
+        return new CraftingGraphSnapshot(ids.get(output.what()), nodes, patterns, edges, List.of(), List.of(),
+            new CraftingGraphSnapshot.Summary("SUCCESS", nodes.size(), patterns.size(), edges.size(), 0, 0));
+    }
+
     public static CraftingGraphSnapshot create(ECOPlanningResult result) {
         LinkedHashMap<AEKey, MutableMaterial> materials = new LinkedHashMap<>();
         AEKey rootKey = collectMaterials(result, materials);

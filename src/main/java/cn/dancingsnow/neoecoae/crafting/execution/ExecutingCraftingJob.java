@@ -30,6 +30,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.math.BigInteger;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -55,6 +56,9 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionMode;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlannedInputAllocation;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
+import cn.dancingsnow.neoecoae.crafting.graph.CraftingGraphProgress;
+import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshotFactory;
 
 public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.ExecutingCraftingJob {
     private static final String NBT_LINK = "link";
@@ -121,6 +125,14 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
     @Nullable
     String permanentExecutionError;
 
+    // Presentation data is retained separately from the shrinking executable task vector.
+    @Nullable private ICraftingPlan graphPlan;
+    @Nullable private CraftingGraphSnapshot graphSnapshot;
+    @Nullable private CompoundTag graphData;
+    private final Set<Integer> graphCompleted = new HashSet<>();
+    private Map<Integer, CraftingGraphProgress.Amounts> graphAmounts = Map.of();
+    @Nullable Boolean graphSuccess;
+
     @FunctionalInterface
     interface CraftingDifferenceListener {
         void onCraftingDifference(AEKey what);
@@ -134,6 +146,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
     ExecutingCraftingJob(ICraftingPlan plan, @Nullable ECOExecutionPlan executionPlan,
             CraftingDifferenceListener postCraftingDifference, CraftingLink link, @Nullable Integer playerId) {
         this.finalOutput = plan.finalOutput();
+        this.graphPlan = plan;
         this.remainingAmount = this.finalOutput.amount();
         this.exactOrder = plan instanceof cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan;
         this.waitingFor = createWaitingInventory(exactOrder, postCraftingDifference);
@@ -200,6 +213,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
 
     ExecutingCraftingJob(CompoundTag data, CraftingDifferenceListener postCraftingDifference, ECOCraftingCPULogic cpu) {
         this.link = new CraftingLink(data.getCompound(NBT_LINK), cpu.cpu);
+        this.graphData = data.contains("craftingGraph", Tag.TAG_COMPOUND) ? data.getCompound("craftingGraph") : null;
 
         this.finalOutput = ECOKeyFactory.readTag(data.getCompound(NBT_FINAL_OUTPUT));
         this.remainingAmount = data.getLong(NBT_REMAINING_AMOUNT);
@@ -333,6 +347,89 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
             result[task.id()] = progress;
         }
         return result;
+    }
+
+    /** The original graph stays stable as tasks dispatch, finish and disappear from the execution ledger. */
+    public CraftingGraphSnapshot craftingGraph() {
+        if (graphSnapshot != null) return graphSnapshot;
+        if (graphData != null) {
+            try {
+                graphSnapshot = CraftingGraphSnapshot.readPersistent(graphData);
+                return graphSnapshot;
+            } catch (RuntimeException unavailable) {
+                // This optional presentation data must never prevent the executable job from recovering.
+                appeng.core.AELog.warn("Cannot restore ECO crafting graph: %s", unavailable.getMessage());
+            }
+        }
+        if (graphPlan != null) {
+            graphSnapshot = CraftingGraphSnapshotFactory.fromPlan(graphPlan);
+            graphPlan = null;
+        } else {
+            // Saves written before live graphs existed have only the remaining task definitions.
+            Map<IPatternDetails, PlannerAmount> remaining = new LinkedHashMap<>();
+            tasks.forEach((pattern, progress) -> remaining.put(pattern, progress.remainingQuantity()));
+            graphSnapshot = CraftingGraphSnapshotFactory.fromExecution(finalOutput, remaining, Map.of());
+        }
+        return graphSnapshot;
+    }
+
+    public CraftingGraphProgress graphProgress(ListCraftingInventory inventory) {
+        var graph = craftingGraph();
+        boolean canceled = Boolean.FALSE.equals(graphSuccess) || link.isCanceled();
+        boolean done = Boolean.TRUE.equals(graphSuccess) || link.isDone();
+        if (canceled) return new CraftingGraphProgress(Set.of(), graphCompleted, graphAmounts, false, true);
+        Map<AEKey, PlannerAmount> pending = new HashMap<>();
+        if (!canceled && !done) {
+            tasks.forEach((pattern, progress) -> {
+                var count = progress.remainingQuantity();
+                for (var output : pattern.getOutputs()) pending.merge(output.what(), count.multiply(output.amount()),
+                    PlannerAmount::add);
+            });
+            deferredEmitted.forEach((key, count) -> pending.merge(key, count, PlannerAmount::add));
+        }
+        Set<Integer> running = new HashSet<>();
+        Map<Integer, CraftingGraphProgress.Amounts> amounts = new LinkedHashMap<>();
+        for (var material : graph.nodes()) {
+            int id = material.nodeId();
+            var activeAmount = done ? BigInteger.ZERO
+                : cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory.quantity(waitingFor, material.key()).toBigInteger();
+            var pendingAmount = done ? BigInteger.ZERO
+                : pending.getOrDefault(material.key(), PlannerAmount.ZERO).toBigInteger();
+            var storedAmount = done && graphAmounts.containsKey(id) ? graphAmounts.get(id).stored()
+                : cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory.quantity(inventory, material.key()).toBigInteger();
+            var produced = material.producedBigInteger().max(material.toCraftBigInteger())
+                .subtract(activeAmount).subtract(pendingAmount).max(BigInteger.ZERO);
+            amounts.put(id, new CraftingGraphProgress.Amounts(storedAmount, activeAmount, pendingAmount, produced));
+            boolean active = activeAmount.signum() > 0;
+            boolean queued = pendingAmount.signum() > 0;
+            if (!active && !queued && material.missingBigInteger().signum() == 0) graphCompleted.add(id);
+            else graphCompleted.remove(id);
+            if (active && material.toCraftBigInteger().signum() > 0 && !suspended && permanentExecutionError == null) {
+                running.add(id);
+            }
+        }
+        graphAmounts = Map.copyOf(amounts);
+        return new CraftingGraphProgress(running, graphCompleted, graphAmounts, suspended, false);
+    }
+
+    void finishCraftingGraph(ListCraftingInventory inventory, boolean success) {
+        // Freeze actual quantities before cancellation clears the waiting inventory or the CPU starts another job.
+        if (graphSnapshot != null) graphProgress(inventory);
+        graphSuccess = success;
+    }
+
+    void inheritCraftingGraph(ExecutingCraftingJob previous) {
+        if (!link.getCraftingID().equals(previous.link.getCraftingID())) return;
+        graphPlan = previous.graphPlan;
+        graphSnapshot = previous.graphSnapshot;
+        graphData = previous.graphData;
+        graphCompleted.addAll(previous.graphCompleted);
+        graphAmounts = previous.graphAmounts;
+    }
+
+    void writeCraftingGraph(CompoundTag data) {
+        if (graphData == null) graphData = craftingGraph().writePersistent();
+        data.put("craftingGraph", graphData);
     }
 
     CompoundTag writeToNBT() {

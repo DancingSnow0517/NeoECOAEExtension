@@ -587,6 +587,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
     }
 
     void setJobFromLifecycle(@Nullable ExecutingCraftingJob nextJob) {
+        if (nextJob != null && this.job != null) nextJob.inheritCraftingGraph(this.job);
         this.job = nextJob;
         viewRevision++;
         super.job = nextJob;
