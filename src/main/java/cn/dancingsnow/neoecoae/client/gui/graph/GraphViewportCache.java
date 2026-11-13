@@ -63,11 +63,13 @@ final class GraphViewportCache implements AutoCloseable {
     void draw(GuiGraphicsExtractor graphics) {
         if (viewport == null || factory == null) return;
         double guiScale = Minecraft.getInstance().getWindow().getGuiScale();
-        var key = new Key(graph, layout, viewport, zoom, new Matrix3x2f(graphics.pose()),
-            graphics.peekScissorStack(), guiScale, resourceVersion);
+        var scissor = graphics.peekScissorStack();
         long now = System.nanoTime();
-        if (!key.equals(recordedKey) || now - recordedAt > MAX_AGE_NANOS) {
-            record(key, now);
+        if (recordedKey == null || !recordedKey.matches(graph, layout, viewport, zoom, graphics.pose(),
+                scissor, guiScale, resourceVersion) || now - recordedAt > MAX_AGE_NANOS) {
+            // A stationary replay needs no new key or pose snapshot.
+            record(new Key(graph, layout, viewport, zoom, new Matrix3x2f(graphics.pose()),
+                scissor, guiScale, resourceVersion), now);
         }
         recording.replay(graphics.guiRenderState);
     }
@@ -104,11 +106,17 @@ final class GraphViewportCache implements AutoCloseable {
     /** Graph and layout compare by identity: a new snapshot is a new picture even if it is equal. */
     private record Key(@Nullable Object graph, @Nullable Object layout, Bounds viewport, float zoom, Matrix3x2f pose,
             @Nullable ScreenRectangle scissor, double guiScale, int resources) {
+        boolean matches(@Nullable Object nextGraph, @Nullable Object nextLayout, Bounds nextViewport, float nextZoom,
+                Matrix3x2f nextPose, @Nullable ScreenRectangle nextScissor, double nextGuiScale, int nextResources) {
+            return graph == nextGraph && layout == nextLayout && zoom == nextZoom && guiScale == nextGuiScale
+                && resources == nextResources && viewport.equals(nextViewport) && pose.equals(nextPose)
+                && Objects.equals(scissor, nextScissor);
+        }
+
         @Override
         public boolean equals(Object other) {
-            return other instanceof Key key && graph == key.graph && layout == key.layout
-                && zoom == key.zoom && guiScale == key.guiScale && resources == key.resources
-                && viewport.equals(key.viewport) && pose.equals(key.pose) && Objects.equals(scissor, key.scissor);
+            return other instanceof Key key && matches(key.graph, key.layout, key.viewport, key.zoom,
+                key.pose, key.scissor, key.guiScale, key.resources);
         }
 
         @Override
