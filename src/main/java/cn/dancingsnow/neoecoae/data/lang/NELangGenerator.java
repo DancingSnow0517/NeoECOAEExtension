@@ -4,6 +4,14 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("command.neoecoae.storage_recover.select_host", "Please right-click a host that is already in infinite mode.");
+        provider.add("command.neoecoae.storage_recover.success", "Infinite storage recovered: %s");
+        provider.add("command.neoecoae.storage_recover.not_found", "No saved infinite storage domain exists for UUID %s.");
+        provider.add("command.neoecoae.storage_recover.invalid_host", "Please right-click a formed host already in infinite mode, with its infinite components installed and no migration or restore in progress.");
+        provider.add("command.neoecoae.storage_recover.occupied", "Recovery refused: the target host must have an empty, healthy domain with no pending restore. Recovering its current UUID may retain existing stock.");
+        provider.add("command.neoecoae.storage_recover.mounted", "Recovery refused: another loaded host is using this UUID.");
+        provider.add("command.neoecoae.storage_recover.invalid_members", "Recovery refused: the host contains invalid, duplicate, foreign or migrating storage members.");
+        provider.add("command.neoecoae.storage_recover.unhealthy", "Recovery refused: the saved domain has unresolved data or persistence failures, or an unfinished restore.");
         provider.add("item.neoecoae.dev_resource_generator", "Development Resource Generator");
         provider.add("neoecoae.configuration.devTools", "Development tools");
         provider.add("neoecoae.configuration.devTools.tooltip", "Development workloads for test networks.");
@@ -211,6 +219,14 @@ public class NELangGenerator {
         provider.add("item.neoecoae.eco_radioactive_chemical_cell_256m", "ECO - LE9 Storage Matrix (Radioactive Chemical)");
         provider.add("item.neoecoae.mega_matter_cell_housing", "ECO MEGA Storage Matrix Housing (Matter)");
         provider.add("item.neoecoae.eco_mega_matter_cell_4g", "ECO - LE9 Storage Matrix (Mega Matter)");
+        provider.add("cell_type.neoecoae.rep_matter", "Replication Matter");
+        provider.add("cell_type.neoecoae.mega_rep_matter", "MEGA Replication Matter");
+        provider.add("item.neoecoae.eco_rep_matter_cell_housing", "ECO Storage Matrix Housing (Replication Matter)");
+        provider.add("item.neoecoae.eco_rep_matter_cell_16m", "ECO - LE4 Storage Matrix (Replication Matter)");
+        provider.add("item.neoecoae.eco_rep_matter_cell_64m", "ECO - LE6 Storage Matrix (Replication Matter)");
+        provider.add("item.neoecoae.eco_rep_matter_cell_256m", "ECO - LE9 Storage Matrix (Replication Matter)");
+        provider.add("item.neoecoae.mega_rep_matter_cell_housing", "ECO MEGA Storage Matrix Housing (Replication Matter)");
+        provider.add("item.neoecoae.eco_mega_rep_matter_cell_4g", "ECO - LE9 Storage Matrix (Mega Replication Matter)");
         provider.add("cell_type.neoecoae.complex_omni", "Complex Omni");
         provider.add("cell_type.neoecoae.lightning", "Lightning");
         provider.add("cell_type.neoecoae.data", "Data");

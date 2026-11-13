@@ -1631,6 +1631,7 @@
   "gui.neoecoae.crafting_report.card.elapsed": "计算耗时",
   "gui.neoecoae.crafting_report.card.bytes": "总字节",
   "gui.neoecoae.crafting_report.card.bytes_partial": "已算字节",
+  "gui.neoecoae.crafting_report.card.lite_mode": "轻量合成模式",
   "gui.neoecoae.crafting_report.card.patterns": "样板总数",
   "gui.neoecoae.crafting_report.card.cycles": "循环总数",
   "gui.neoecoae.crafting_report.card.unknown": "未知",
@@ -1775,5 +1776,14 @@
   "gui.neoecoae.crafting_graph.details.firings": "执行次数：%s",
   "gui.neoecoae.crafting_graph.summary.from_storage": "原料（库存）",
   "gui.neoecoae.crafting_graph.summary.outputs": "产物／余量",
-  "gui.neoecoae.crafting_graph.summary.amount": "%s：%s"
+  "gui.neoecoae.crafting_graph.summary.amount": "%s：%s",
+  "gui.neoecoae.crafting_report.cycle_seed": "循环种子：借用后归还，不计入消耗",
+  "cell_type.neoecoae.rep_matter": "复制物质",
+  "cell_type.neoecoae.mega_rep_matter": "MEGA 复制物质",
+  "item.neoecoae.eco_rep_matter_cell_housing": "ECO 存储矩阵外壳（复制物质）",
+  "item.neoecoae.eco_rep_matter_cell_16m": "ECO - LE4 存储矩阵（复制物质）",
+  "item.neoecoae.eco_rep_matter_cell_64m": "ECO - LE6 存储矩阵（复制物质）",
+  "item.neoecoae.eco_rep_matter_cell_256m": "ECO - LE9 存储矩阵（复制物质）",
+  "item.neoecoae.mega_rep_matter_cell_housing": "ECO MEGA 存储矩阵外壳（复制物质）",
+  "item.neoecoae.eco_mega_rep_matter_cell_4g": "ECO - LE9 存储矩阵（MEGA 复制物质）"
 }

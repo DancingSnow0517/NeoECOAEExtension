@@ -375,7 +375,9 @@ ServerEvents.recipes(event => {
 
 `IECOTier.getPanelTierName()` 提供名称，`getHostMarkerTexture()` 提供标记，`getPanelAtlas(String)` 为当前档位替换完整图集。返回 null 使用默认外观。图集优先级：档位 → 全局 LDLib2 `ui-eco` provider → 原图。替换图保持原尺寸与裁剪布局。
 
-`IECOTier.getCraftConfirmCpuTierGlyph()` 为终端合成确认页提供独立的 13×18 CPU 档位角标，默认返回 null，不绘制角标，旧附属无需新增实现。独立图片可返回 `new ECOCpuTierGlyph(ResourceLocation.parse("addon:textures/gui/tier/l1.png"))`；图集使用五参数构造器 `(texture, u, v, textureWidth, textureHeight)`，裁剪固定为 13×18。内置 L4/L6/L9 沿用 `crafting_widgets.png` 中 `(0,0)/(13,0)/(26,0)` 的数字。此接口与 `getCPUOverlayTexture()` 的 10×10 花纹独立，不自动使用档位名称兜底。菜单同步 `ECO_TIER` 注册表 ID，-1 表示无 ECO CPU；附属的 `getTier() == 0` 也可正常显示自己的角标。
+`IECOTier.getCraftConfirmCpuTierGlyph()` 为终端合成确认页提供独立的 13×18 CPU 档位角标，默认返回 null，不绘制角标，旧附属无需新增实现。独立图片可返回 `new ECOCpuTierGlyph(Identifier.parse("addon:textures/gui/tier/l1.png"))`；图集使用五参数构造器 `(texture, u, v, textureWidth, textureHeight)`，裁剪固定为 13×18。内置 L4/L6/L9 沿用 `crafting_widgets.png` 中 `(0,0)/(13,0)/(26,0)` 的数字。此接口与 `getCPUOverlayTexture()` 的 10×10 花纹独立，不自动使用档位名称兜底。菜单同步 `ECO_TIER` 注册表 ID，-1 表示无 ECO CPU；附属的 `getTier() == 0` 也可正常显示自己的角标。
+
+`IECOTier.getCraftingStatusCpuTierGlyph()` 为正在合成的 CPU 状态页（`ComputationCpuStatusPanel`）提供独立角标，复用上述 `ECOCpuTierGlyph` 构造器和 13×18 裁剪区域，替换 ECO 标记中的 O。默认返回 null，附属档位继续显示 `getPanelTierName()`，内置 L4/L6/L9 保留原有数字。状态页同步所选 CPU 的 `ECO_TIER` 注册表 ID，在客户端解析档位并调用此接口，因此 `getTier() == 0` 的已注册附属档位也可提供角标；无 ECO CPU 或无法解析档位时不绘制自定义角标。此接口与 `getCraftConfirmCpuTierGlyph()` 独立，不自动复用确认页角标。
 
 `StorageHostActionUI.Config` 保留 21.2.13/21.2.14 的 13 参数构造器，旧附属 JAR 可继续链接。该重载的 `definition` 默认 supplier 返回 null，保留建造操作与材料预览；要提供结构场景预览，使用 14 参数构造器，在 `previewPlan` 后传入 `Supplier<MultiBlockDefinition>`。
 
