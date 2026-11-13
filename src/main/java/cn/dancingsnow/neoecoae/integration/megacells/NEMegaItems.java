@@ -108,7 +108,7 @@ public final class NEMegaItems {
 
     /** These names remain available through NELangGenerator even without their optional integrations. */
     private static boolean hasCentralizedLang(String family) {
-        return family.equals("mega_mana") || family.equals("mega_matter");
+        return family.equals("mega_mana") || family.equals("mega_matter") || family.equals("mega_rep_matter");
     }
 
     private static String cellName(String family, ECOTier tier) {

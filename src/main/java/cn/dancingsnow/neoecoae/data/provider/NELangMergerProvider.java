@@ -80,6 +80,7 @@ public class NELangMergerProvider implements DataProvider {
         IModFile file = ModList.get().getModFileById(modid).getFile();
         for (Path root : file.getContents().getContentRoots()) {
             Path langPath = root.resolve("assets").resolve(modid).resolve("lang");
+            if (!Files.isDirectory(langPath)) continue;
             try (Stream<Path> listDir = Files.list(langPath)) {
                 listDir.forEach(p -> {
                     String fileName = p.getFileName().toString();

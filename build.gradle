@@ -110,6 +110,9 @@ repositories {
     }
 }
 
+// Datagen needs the registered optional items and their recipe/model providers.
+def dataGenerationRequested = gradle.startParameter.taskNames.any { it.tokenize(':').last() == 'runData' }
+
 configurations {
     legacyCompileOnly { transitive = false }
     compileOnly.extendsFrom legacyCompileOnly
@@ -121,8 +124,14 @@ configurations {
     compileOnly.extendsFrom integrationApi
     testImplementation.extendsFrom integrationApi
     testRuntimeOnly.extendsFrom integrationRuntime
-    if (project.hasProperty('withIntegrations')) {
+    if (project.hasProperty('withIntegrations') || dataGenerationRequested) {
         localRuntime.extendsFrom integrationApi, integrationRuntime
+    }
+    if (dataGenerationRequested) {
+        // Scripting plugins do not contribute to static asset generation; keep datagen independent of them.
+        localRuntime.exclude group: 'maven.modrinth', module: 'kubejs'
+        localRuntime.exclude group: 'maven.modrinth', module: 'rhino'
+        localRuntime.exclude group: 'maven.modrinth', module: 'better-advanced-tooltips'
     }
 }
 
@@ -288,6 +297,7 @@ neoForge {
 
 sourceSets.main.resources {
     srcDirs 'src/generated/resources', 'src/guidebook/resources'
+    exclude '.cache/**'
 }
 
 sourceSets.main.java {
@@ -308,6 +318,8 @@ sourceSets.main.java {
     exclude 'cn/dancingsnow/neoecoae/integration/dataenergistics/**'
     exclude 'cn/dancingsnow/neoecoae/integration/emi/**'
     exclude 'cn/dancingsnow/neoecoae/integration/megacells/**'
+    // Keep the bridge dormant until a matching 26.1.2 runtime dependency is available.
+    exclude 'cn/dancingsnow/neoecoae/integration/repae2bridge/**'
     exclude 'cn/dancingsnow/neoecoae/mixins/compat/appbot/**'
     exclude 'cn/dancingsnow/neoecoae/mixins/compat/fluxnetworks/**'
     exclude 'cn/dancingsnow/neoecoae/mixins/compat/omnisequence/**'

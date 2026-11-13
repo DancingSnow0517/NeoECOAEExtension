@@ -1,0 +1,20 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoecoae:integration_active",
+      "modid": "rep_ae2_bridge"
+    }
+  ],
+  "type": "ae2:storage_cell_disassembly",
+  "cell": "neoecoae:eco_rep_matter_cell_16m",
+  "cell_disassembly_items": [
+    {
+      "count": 1,
+      "id": "neoecoae:eco_rep_matter_cell_housing"
+    },
+    {
+      "count": 1,
+      "id": "neoecoae:eco_cell_component_16m"
+    }
+  ]
+}

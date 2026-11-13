@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.recipe;
 
+import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -21,7 +22,14 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class LargeWorkstationOptionalIntegrationTest {
-    @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
+    @BeforeAll
+    static void bootstrap() throws ClassNotFoundException {
+        InventoryTestBootstrap.initialize();
+        try (var registrate = mockStatic(NERegistrate.class)) {
+            registrate.when(() -> NERegistrate.create("neoecoae")).thenReturn(mock(NERegistrate.class));
+            Class.forName("cn.dancingsnow.neoecoae.NeoECOAE");
+        }
+    }
 
     @Test void ordinaryRecipeSourcesLoadAndRemainUsableWithoutLightningTechClasses() throws Exception {
         var recipe = recipe("neoecoae:integrated_working_station");

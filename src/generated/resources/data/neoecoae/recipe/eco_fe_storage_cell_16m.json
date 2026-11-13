@@ -1,0 +1,17 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "appflux"
+    }
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "neoecoae:eco_fe_cell_housing",
+    "neoecoae:eco_cell_component_16m"
+  ],
+  "result": {
+    "id": "neoecoae:eco_fe_storage_cell_16m"
+  }
+}

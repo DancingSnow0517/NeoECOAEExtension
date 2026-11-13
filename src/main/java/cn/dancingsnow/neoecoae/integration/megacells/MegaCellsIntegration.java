@@ -112,6 +112,9 @@ public final class MegaCellsIntegration {
         if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("apprep")) {
             addExternalCells("matter", NEMegaExternalItems.registerMatter());
         }
+        if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("rep_ae2_bridge")) {
+            addExternalCells("rep_matter", NEMegaExternalItems.registerRepMatter());
+        }
         if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("appliedcreate")) {
             addExternalCells("stress", NEMegaExternalItems.registerStress());
         }

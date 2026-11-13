@@ -1,7 +1,7 @@
 {
   "neoforge:conditions": [
     {
-      "type": "neoforge:mod_loaded",
+      "type": "neoecoae:integration_active",
       "modid": "mekanism"
     }
   ],

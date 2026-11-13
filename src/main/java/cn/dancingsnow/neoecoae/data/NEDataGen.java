@@ -38,6 +38,7 @@ public class NEDataGen {
     @SubscribeEvent
     public static void gatherClientData(GatherDataEvent.Client event) {
         PackOutput packOutput = event.getGenerator().getPackOutput();
+        event.addProvider(new NERegistryProvider(packOutput, event.getLookupProvider()));
         event.addProvider(new NELangMergerProvider(packOutput));
     }
 }

@@ -1,0 +1,18 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoecoae:integration_active",
+      "modid": "rep_ae2_bridge"
+    }
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "neoecoae:eco_rep_matter_cell_housing",
+    "neoecoae:eco_cell_component_16m"
+  ],
+  "result": {
+    "count": 1,
+    "id": "neoecoae:eco_rep_matter_cell_16m"
+  }
+}

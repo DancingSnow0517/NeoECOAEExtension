@@ -44,6 +44,10 @@ final class NEMegaExternalItems {
         return Matter.CELLS;
     }
 
+    static List<ItemEntry<ECOStorageCellItem>> registerRepMatter() {
+        return RepMatter.CELLS;
+    }
+
     static List<ItemEntry<ECOStorageCellItem>> registerStress() {
         return Stress.CELLS;
     }
@@ -124,6 +128,12 @@ final class NEMegaExternalItems {
         private static final ItemEntry<Item> HOUSING = housing("mega_matter", "Mega Matter");
         private static final List<ItemEntry<ECOStorageCellItem>> CELLS = cells("mega_matter", "Mega Matter",
             ExternalCellKeyTypes.byId("apprep", "m"), NEMegaExternalCellTypes.matter());
+    }
+
+    private static final class RepMatter {
+        private static final ItemEntry<Item> HOUSING = housing("mega_rep_matter", "Mega Replication Matter");
+        private static final List<ItemEntry<ECOStorageCellItem>> CELLS = cells("mega_rep_matter", "Mega Replication Matter",
+            ExternalCellKeyTypes.byId("rep_ae2_bridge", "matter"), NEMegaExternalCellTypes.repMatter());
     }
 
     private static final class Stress {

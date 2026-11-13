@@ -1,0 +1,23 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoecoae:integration_active",
+      "modid": "megacells"
+    },
+    {
+      "type": "neoecoae:integration_active",
+      "modid": "rep_ae2_bridge"
+    }
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "neoecoae:eco_rep_matter_cell_housing",
+    "megacells:mega_item_cell_housing",
+    "neoecoae:crystal_matrix"
+  ],
+  "result": {
+    "count": 1,
+    "id": "neoecoae:mega_rep_matter_cell_housing"
+  }
+}

@@ -166,6 +166,14 @@ file="META-INF/accesstransformer.cfg"
     ordering="AFTER"
     side="BOTH"
 
+# Disabled until a matching 26.1.2 dependency is available.
+# [[dependencies.${mod_id}]]
+#     modId="rep_ae2_bridge"
+#     type="optional"
+#     versionRange="[3.2.0.0.0,)"
+#     ordering="AFTER"
+#     side="BOTH"
+
 [[dependencies.${mod_id}]]
     modId="bigger_ae2"
     type="optional"

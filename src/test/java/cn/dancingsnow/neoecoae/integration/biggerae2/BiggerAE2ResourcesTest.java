@@ -22,12 +22,15 @@ class BiggerAE2ResourcesTest {
                 assertEquals("neoecoae:" + id, recipe.getAsJsonObject("result").get("id").getAsString());
                 var ingredients = recipe.getAsJsonArray("ingredients");
                 assertEquals(2, ingredients.size());
-                assertEquals(channel.housingId(), ingredients.get(0).getAsJsonObject().get("item").getAsString());
+                assertEquals(channel.housingId(), ingredients.get(0).getAsString());
                 assertEquals(BiggerAE2Channel.componentId(singularity),
-                    ingredients.get(1).getAsJsonObject().get("item").getAsString());
+                    ingredients.get(1).getAsString());
                 Set<String> requiredMods = new HashSet<>();
-                recipe.getAsJsonArray("neoforge:conditions").forEach(condition ->
-                    requiredMods.add(condition.getAsJsonObject().get("modid").getAsString()));
+                recipe.getAsJsonArray("neoforge:conditions").forEach(condition -> {
+                    var guard = condition.getAsJsonObject();
+                    assertEquals("neoecoae:integration_active", guard.get("type").getAsString());
+                    requiredMods.add(guard.get("modid").getAsString());
+                });
                 assertEquals(channel.requiredMod == null ? Set.of("bigger_ae2")
                     : Set.of("bigger_ae2", channel.requiredMod), requiredMods);
 

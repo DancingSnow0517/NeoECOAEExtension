@@ -10,6 +10,8 @@ navigation:
 
 Bigger AE2 Quantum matrices are L6 with 128 MiB shared capacity, 65,536 bytes overhead per type and 20 AE/t idle power. Quantum and L9 Digital Singularity each offer items, fluids, chemicals, FE, experience and source: 12 cells total. Quantum's first three channels support five types per cell, the others one. Assemble an ECO housing with the upstream component; empty-cell disassembly returns both. Digital Singularity preserves exact stored amounts, visible in terminal hover text.
 
+Each resource channel is registered only when its required integration is available. The 26.1.2 build currently enables items, fluids, and FE when AppFlux is installed.
+
 ## Digital Singularity Matrices: Network Power Tiers
 
 ECO Digital Singularity matrices require **Bigger AE2**. Item matrices use [bulk compression storage](storage_system.md): without markers they store each item in its original form without compression, with each distinct item counting as one type. Configured markers enable compression and conversion only for the selected chains and restrict inserts to those chains, with one marked chain counting as one type. They support 5 resource types, or 25 with an ECO Bulk Expansion Card. Fluid and chemical matrices each store five resource types. FE, Experience and Source matrices each store one type. Quantities are unlimited.
@@ -32,9 +34,13 @@ Controller, drive and channel power are additional. Insufficient power takes the
 
 Compatibility storage matrices extend the <ItemLink id="neoecoae:eco_drive" /> to key types provided by other mods. A storage subsystem controller can operate matrices of its own tier or any lower tier.
 
-These matrices are registered only when their companion mod is installed. **AE2 Omni Cells** provides the Omni families, **AE2 Lightning Tech** the Lightning family, **AppFlux** the FE family, **Ars Energistique** the Source family, **AppBot** the Mana family, and **AppMek** the Chemical family.
+These matrices are registered only when their companion mod is installed and its integration is enabled. The 26.1.2 build enables storage integrations for **AppFlux**, **AE2 Omni Cells**, **Bigger AE2**, and **Applied Replicatics**. Replication AE2 Bridge, MEGA Cells, and other integrations awaiting adaptation do not register content. Descriptions of unavailable families below are reference information for versions that support them.
 
 The `16M`, `64M`, and `256M` labels identify the recipe component tier and do not always equal the actual storage-byte capacity. The tables below list each matrix's actual AE storage-byte capacity.
+
+## Matter Matrices
+
+Applied Replicatics provides a Replication matter channel. Matter matrices come in LE4, LE6, and LE9 tiers, assembled with a shapeless recipe from a matching ECO storage component and matter-matrix housing. Empty matrices can be disassembled to recover the housing and storage component.
 
 ## Omni Storage Matrices
 
@@ -92,9 +98,9 @@ Only empty matrices can be disassembled with alternate-use. Standard and Complex
 
 ### FE Storage Matrices (AppFlux)
 
-FE storage matrices require **AppFlux** and store Forge Energy (FE) in the ME network. They are crafted in the Integrated Working Station from matching AppFlux energy cores, energy processors, singularities, and an FE housing.
+FE storage matrices require **AppFlux** and store Forge Energy (FE) in the ME network. They use a shapeless recipe combining an FE matrix housing with a matching-tier ECO storage component.
 
-Empty FE storage matrices can be disassembled with alternate-use to recover 10 matching AppFlux energy cores.
+Empty FE storage matrices can be disassembled to recover the FE matrix housing and matching-tier ECO storage component.
 
 | Tier | Capacity | Type Limit | Idle Drain |
 |--------|----------|------------|------------|

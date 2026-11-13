@@ -1,0 +1,36 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoecoae:integration_active",
+      "modid": "megacells"
+    },
+    {
+      "type": "neoecoae:integration_active",
+      "modid": "rep_ae2_bridge"
+    }
+  ],
+  "type": "neoecoae:integrated_working_station",
+  "inputItems": [
+    {
+      "count": 10,
+      "ingredient": "megacells:cell_component_256m"
+    },
+    {
+      "count": 8,
+      "ingredient": "megacells:accumulation_processor"
+    },
+    {
+      "count": 64,
+      "ingredient": "ae2:singularity"
+    },
+    {
+      "count": 1,
+      "ingredient": "neoecoae:mega_rep_matter_cell_housing"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "neoecoae:eco_mega_rep_matter_cell_4g"
+  },
+  "energy": 144000
+}

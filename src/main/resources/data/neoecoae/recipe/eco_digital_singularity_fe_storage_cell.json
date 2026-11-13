@@ -1,23 +1,19 @@
 {
   "neoforge:conditions": [
     {
-      "type": "neoforge:mod_loaded",
+      "type": "neoecoae:integration_active",
       "modid": "bigger_ae2"
     },
     {
-      "type": "neoforge:mod_loaded",
+      "type": "neoecoae:integration_active",
       "modid": "appflux"
     }
   ],
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
-    {
-      "item": "neoecoae:eco_fe_cell_housing"
-    },
-    {
-      "item": "bigger_ae2:digital_singularity_cell_component"
-    }
+    "neoecoae:eco_fe_cell_housing",
+    "bigger_ae2:digital_singularity_cell_component"
   ],
   "result": {
     "count": 1,

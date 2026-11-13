@@ -303,6 +303,7 @@ class ECOStorageHostStatisticsTest {
                 registerType(path);
             }
             when(host.getCluster()).thenReturn(cluster);
+            when(host.getMainNode()).thenReturn(mock(IManagedGridNode.class));
             when(host.getTier()).thenReturn(ECOTier.L9);
             Level level = mock(Level.class);
             when(host.getLevel()).thenReturn(level);

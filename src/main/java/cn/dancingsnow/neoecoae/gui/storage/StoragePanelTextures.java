@@ -153,7 +153,8 @@ final class StoragePanelTextures {
                 "data_energistics:digitalization", "data_energistics:manifest_binary" -> DATA_SWATCH;
             case "neoecoae:radioactive_chemical" -> RADIOACTIVE_SWATCH;
             case "neoecoae:stress", "neoecoae:mega_stress", "appliedcreate:stress" -> STRESS_SWATCH;
-            case "neoecoae:matter", "neoecoae:mega_matter", "apprep:m" -> MATTER_SWATCH;
+            case "neoecoae:matter", "neoecoae:mega_matter", "apprep:m",
+                "neoecoae:rep_matter", "neoecoae:mega_rep_matter", "rep_ae2_bridge:matter" -> MATTER_SWATCH;
             default -> FALLBACK_SWATCH;
         };
     }

@@ -1,19 +1,15 @@
 {
   "neoforge:conditions": [
     {
-      "type": "neoforge:mod_loaded",
+      "type": "neoecoae:integration_active",
       "modid": "bigger_ae2"
     }
   ],
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
-    {
-      "item": "neoecoae:eco_item_cell_housing"
-    },
-    {
-      "item": "bigger_ae2:quantum_cell_component"
-    }
+    "neoecoae:eco_item_cell_housing",
+    "bigger_ae2:quantum_cell_component"
   ],
   "result": {
     "count": 1,
