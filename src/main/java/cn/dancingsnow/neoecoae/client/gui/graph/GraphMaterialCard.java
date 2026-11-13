@@ -5,6 +5,7 @@ import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent
 import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.crafting.graph.ClientCraftingGraph;
+import cn.dancingsnow.neoecoae.crafting.graph.CraftingGraphProgress;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot.MaterialStatus;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingListCard;
 import java.math.BigInteger;
@@ -26,14 +27,17 @@ final class GraphMaterialCard {
     private final ClientCraftingGraph.Node node;
     private final Language language = Language.getInstance();
     private final Font font;
+    private final @Nullable CraftingGraphProgress progress;
     private final ClientTooltipComponent content;
     private final int width, height;
 
-    GraphMaterialCard(ClientCraftingGraph graph, ClientCraftingGraph.Node node, Font font, boolean details) {
+    GraphMaterialCard(ClientCraftingGraph graph, ClientCraftingGraph.Node node, Font font, boolean details,
+            @Nullable CraftingGraphProgress progress) {
         this.graph = graph;
         this.node = node;
         this.font = font;
-        content = ClientTooltipComponent.create(builder(graph, node, details).buildComponent());
+        this.progress = progress;
+        content = ClientTooltipComponent.create(builder(graph, node, details, progress).buildComponent());
         width = content.getWidth(font) + PADDING * 2;
         height = content.getHeight() + PADDING * 2;
     }
@@ -44,11 +48,20 @@ final class GraphMaterialCard {
             && node.material() != null && node.recursion() == null;
     }
 
-    boolean matches(ClientCraftingGraph graph, ClientCraftingGraph.Node node, Font font) {
-        return this.graph == graph && this.node == node && this.font == font && language == Language.getInstance();
+    boolean matches(ClientCraftingGraph graph, ClientCraftingGraph.Node node, Font font,
+            @Nullable CraftingGraphProgress progress) {
+        return this.graph == graph && this.node == node && this.font == font && this.progress == progress
+            && language == Language.getInstance();
     }
 
     static CraftingListCard.Builder builder(ClientCraftingGraph graph, ClientCraftingGraph.Node node, boolean details) {
+        return builder(graph, node, details, null);
+    }
+
+    static CraftingListCard.Builder builder(ClientCraftingGraph graph, ClientCraftingGraph.Node node, boolean details,
+            @Nullable CraftingGraphProgress progress) {
+        if (progress != null && progress.amounts().containsKey(node.material().nodeId()))
+            return liveBuilder(node, details, progress);
         var theme = THEME;
         int primary = theme.text(), muted = theme.faint(), gold = theme.pending(), cyan = theme.accent();
         int green = theme.stock(), red = theme.missing(), divider = theme.line();
@@ -98,6 +111,34 @@ final class GraphMaterialCard {
                 .space(7).divider(divider).space(6)
                 .row(null, 0, label("status"), status, statusColor);
         }
+        return card;
+    }
+
+    private static CraftingListCard.Builder liveBuilder(ClientCraftingGraph.Node node, boolean details,
+            CraftingGraphProgress progress) {
+        var material = node.material();
+        var amounts = progress.amounts().get(material.nodeId());
+        var key = material.key();
+        boolean complete = progress.completed().contains(material.nodeId());
+        int color = progress.cancelled() ? THEME.missing() : complete ? THEME.stock() : THEME.pending();
+        String state = progress.cancelled() ? "gui.neoecoae.crafting_graph.status.cancelled"
+            : progress.paused() ? "gui.neoecoae.cpu.status.suspended"
+            : complete ? "gui.neoecoae.crafting_graph.status.satisfied"
+            : "gui.neoecoae.computation.ui.card.state." + (amounts.active().signum() > 0 ? "crafting" : "scheduled");
+        var card = CraftingListCard.builder().minimumWidth(details ? 272 : 150)
+            .header(CraftingListCard.Glyph.CUBE, key.getDisplayName(), Component.empty(), THEME.accent())
+            .space(8).divider(THEME.line()).space(6)
+            .row(null, 0, label("requested"), value(key, material.requestedBigInteger(), !details, THEME.text()), THEME.text())
+            .space(7).row(null, 0, Component.translatable("gui.neoecoae.computation.ui.card.stored"),
+                value(key, amounts.stored(), !details, THEME.stock()), THEME.muted())
+            .space(7).row(null, 0, Component.translatable("gui.neoecoae.computation.ui.card.crafting"),
+                value(key, amounts.active(), !details, THEME.accent()), THEME.accent())
+            .space(7).row(null, 0, Component.translatable("gui.neoecoae.computation.ui.card.scheduled"),
+                value(key, amounts.pending(), !details, THEME.pending()), THEME.pending())
+            .space(7).row(null, 0, Component.translatable("gui.neoecoae.big_order.completed"),
+                value(key, amounts.produced(), !details, THEME.stock()), THEME.stock())
+            .space(7).divider(THEME.line()).space(6)
+            .row(null, 0, label("status"), Component.translatable(state), color);
         return card;
     }
 

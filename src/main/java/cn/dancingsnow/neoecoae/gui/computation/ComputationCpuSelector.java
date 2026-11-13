@@ -201,11 +201,15 @@ final class ComputationCpuSelector extends BindableValue<CompoundTag> {
     }
 
     static void fittedText(GUIContext context, Font font, String value, float x, float y, int width, float scale, int color) {
+        fittedText(context, font, value, x, y, width, scale, color, false);
+    }
+
+    static void fittedText(GUIContext context, Font font, String value, float x, float y, int width, float scale, int color, boolean shadow) {
         float fittedScale = Math.min(scale, width / (float) Math.max(1, font.width(value)));
         context.graphics.pose().pushPose();
         context.graphics.pose().translate(x, y + (scale - fittedScale) * font.lineHeight / 2, 0);
         context.graphics.pose().scale(fittedScale, fittedScale, 1);
-        context.graphics.drawString(font, value, 0, 0, 0xFF000000 | color, false);
+        context.graphics.drawString(font, value, 0, 0, 0xFF000000 | color, shadow);
         context.graphics.pose().popPose();
     }
 

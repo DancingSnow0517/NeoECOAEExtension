@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.client.gui.graph;
 
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.graph.ClientCraftingGraph;
+import cn.dancingsnow.neoecoae.crafting.graph.CraftingGraphProgress;
 import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -32,6 +33,7 @@ final class GraphMaterialSummary {
     private @Nullable Item hovered;
     private @Nullable Item tooltipItem;
     private @Nullable ClientCraftingGraph tooltipGraph;
+    private @Nullable CraftingGraphProgress tooltipProgress;
     private @Nullable Language tooltipLanguage;
     private List<Component> tooltip = List.of();
 
@@ -235,13 +237,14 @@ final class GraphMaterialSummary {
         section.offset = Math.max(0, Math.min(Math.max(0, section.items.size() - panel.columns()), section.offset + delta));
     }
 
-    List<Component> tooltip(ClientCraftingGraph graph) {
+    List<Component> tooltip(ClientCraftingGraph graph, @Nullable CraftingGraphProgress progress) {
         if (hovered == null) return List.of();
-        if (tooltipItem != hovered || tooltipGraph != graph || tooltipLanguage != Language.getInstance()) {
+        if (tooltipItem != hovered || tooltipGraph != graph || tooltipProgress != progress || tooltipLanguage != Language.getInstance()) {
             tooltipItem = hovered;
             tooltipGraph = graph;
+            tooltipProgress = progress;
             tooltipLanguage = Language.getInstance();
-            var lines = new ArrayList<>(GraphMaterialCard.builder(graph, hovered.node(), false).texts());
+            var lines = new ArrayList<>(GraphMaterialCard.builder(graph, hovered.node(), false, progress).texts());
             for (var section : sections) if (section.items.stream().anyMatch(item -> item == hovered)) {
                 lines.add(1, Component.translatable("gui.neoecoae.crafting_graph.summary.amount", section.title(),
                     RecursiveCycleRenderer.exact(hovered.node().key(), hovered.amount())));
