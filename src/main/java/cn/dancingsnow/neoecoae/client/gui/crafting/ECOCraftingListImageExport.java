@@ -9,6 +9,11 @@ import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexSorting;
 import java.io.IOException;
+import java.io.BufferedOutputStream;
+import java.io.DataOutputStream;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
@@ -17,6 +22,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.UUID;
+import java.util.zip.CRC32;
+import java.util.zip.Deflater;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
@@ -44,7 +51,6 @@ final class ECOCraftingListImageExport {
     private static final int MAX_STRIP_HEIGHT = 1024;
     // Render directly at higher resolution to preserve detail in the table's small text and icons.
     private static final int SCALE = 4;
-    private static final long MAX_IMAGE_PIXELS = 64L * 1024 * 1024;
     private static final int LINE_HEIGHT = 11;
     private static final int CARD_WIDTH = TABLE_WIDTH - 1;
     // The report's light outer panel needs dark text; inset table cells need light text.
@@ -76,11 +82,6 @@ final class ECOCraftingListImageExport {
             int rowsPerPanel = (rows + panels - 1) / panels;
             int entriesPerPanel = Math.multiplyExact(rowsPerPanel, COLUMNS);
             Layout layout = layout(entriesPerPanel, headerHeight, maxHeight);
-            long imageWidth = WIDTH + (long) (panels - 1) * PANEL_STRIDE;
-            if (imageWidth * SCALE * layout.height() * SCALE > MAX_IMAGE_PIXELS) {
-                throw new IllegalArgumentException(Component.translatable(
-                    "gui.neoecoae.crafting_report.export_too_large").getString());
-            }
             Path directory = client.gameDirectory.toPath().resolve("screenshots");
             Files.createDirectories(directory);
             Path file = directory.resolve("neoecoae-plan-"
@@ -140,8 +141,8 @@ final class ECOCraftingListImageExport {
         GuiGraphics graphics = new GuiGraphics(client, client.renderBuffers().bufferSource());
         graphics.flush();
         int imageWidth = Math.addExact(WIDTH, Math.multiplyExact(panels - 1, PANEL_STRIDE));
-        try (NativeImage image = new NativeImage(Math.multiplyExact(imageWidth, SCALE),
-                Math.multiplyExact(layout.height(), SCALE), false)) {
+        try (DiskImage image = new DiskImage(Math.multiplyExact(imageWidth, SCALE),
+                Math.multiplyExact(layout.height(), SCALE), file.getParent())) {
             modelView.setIdentity();
             modelView.translate(0, 0, -2000);
             RenderSystem.applyModelViewMatrix();
@@ -158,8 +159,8 @@ final class ECOCraftingListImageExport {
                             panel == 0 ? header : null, panel == 1 ? legend : List.of(), entries.size(), headerHeight, strip,
                             panel == 0, panel == panels - 1,
                             strip.y() + strip.height() == layout.height())) {
-                        rendered.copyRect(image, sourceX * SCALE, 0, destinationX * SCALE, strip.y() * SCALE,
-                            (sourceEndX - sourceX) * SCALE, rendered.getHeight(), false, false);
+                        image.copy(rendered, sourceX * SCALE, destinationX * SCALE, strip.y() * SCALE,
+                            (sourceEndX - sourceX) * SCALE);
                     }
                 }
             }
@@ -170,6 +171,105 @@ final class ECOCraftingListImageExport {
             modelView.popPose();
             RenderSystem.applyModelViewMatrix();
             RenderSystem.setShaderColor(1, 1, 1, 1);
+        }
+    }
+
+    /** Disk-backed assembly keeps both GPU and native memory bounded for large, full-resolution PNGs. */
+    private static final class DiskImage implements AutoCloseable {
+        private final int width;
+        private final int height;
+        private final int rowBytes;
+        private final Path temporary;
+        private final RandomAccessFile pixels;
+
+        DiskImage(int width, int height, Path directory) throws IOException {
+            this.width = width;
+            this.height = height;
+            this.rowBytes = Math.multiplyExact(width, 4);
+            temporary = Files.createTempFile(directory, ".neoecoae-export-", ".rgba");
+            RandomAccessFile opened = null;
+            try {
+                opened = new RandomAccessFile(temporary.toFile(), "rw");
+                opened.setLength(Math.multiplyExact((long) rowBytes, height));
+                pixels = opened;
+            } catch (IOException | RuntimeException exception) {
+                if (opened != null) opened.close();
+                Files.deleteIfExists(temporary);
+                throw exception;
+            }
+        }
+
+        void copy(NativeImage source, int sourceX, int destinationX, int destinationY, int count) throws IOException {
+            byte[] row = new byte[Math.multiplyExact(count, 4)];
+            for (int y = 0; y < source.getHeight(); y++) {
+                for (int x = 0; x < count; x++) {
+                    int rgba = source.getPixelRGBA(sourceX + x, y);
+                    for (int channel = 0; channel < 4; channel++) {
+                        row[x * 4 + channel] = (byte) (rgba >>> (channel * 8));
+                    }
+                }
+                pixels.seek(((long) destinationY + y) * rowBytes + (long) destinationX * 4);
+                pixels.write(row);
+            }
+        }
+
+        void writeToFile(Path file) throws IOException {
+            boolean complete = false;
+            try (var output = new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(file)))) {
+                output.writeLong(0x89504E470D0A1A0AL);
+                byte[] header = ByteBuffer.allocate(13).putInt(width).putInt(height)
+                    .put((byte) 8).put((byte) 6).put((byte) 0).put((byte) 0).put((byte) 0).array();
+                chunk(output, "IHDR", header, header.length);
+                byte[] row = new byte[Math.addExact(rowBytes, 1)];
+                byte[] compressed = new byte[64 * 1024];
+                Deflater deflater = new Deflater();
+                try {
+                    pixels.seek(0);
+                    for (int y = 0; y < height; y++) {
+                        pixels.readFully(row, 1, rowBytes);
+                        // PNG's Sub filter preserves exact pixels and compresses the repeated table cells well.
+                        row[0] = 1;
+                        for (int x = rowBytes; x > 4; x--) row[x] = (byte) (row[x] - row[x - 4]);
+                        deflater.setInput(row);
+                        while (!deflater.needsInput()) {
+                            int count = deflater.deflate(compressed);
+                            if (count > 0) chunk(output, "IDAT", compressed, count);
+                        }
+                    }
+                    deflater.finish();
+                    while (!deflater.finished()) {
+                        int count = deflater.deflate(compressed);
+                        if (count > 0) chunk(output, "IDAT", compressed, count);
+                    }
+                } finally {
+                    deflater.end();
+                }
+                chunk(output, "IEND", new byte[0], 0);
+                output.flush();
+                complete = true;
+            } finally {
+                if (!complete) Files.deleteIfExists(file);
+            }
+        }
+
+        private static void chunk(DataOutputStream output, String type, byte[] bytes, int count) throws IOException {
+            byte[] name = type.getBytes(StandardCharsets.US_ASCII);
+            CRC32 crc = new CRC32();
+            crc.update(name);
+            crc.update(bytes, 0, count);
+            output.writeInt(count);
+            output.write(name);
+            output.write(bytes, 0, count);
+            output.writeInt((int) crc.getValue());
+        }
+
+        @Override
+        public void close() throws IOException {
+            try {
+                pixels.close();
+            } finally {
+                Files.deleteIfExists(temporary);
+            }
         }
     }
 
