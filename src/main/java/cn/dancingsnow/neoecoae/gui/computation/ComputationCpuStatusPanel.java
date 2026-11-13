@@ -25,6 +25,12 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.crafting.execution.ExecutingCraftingJob;
+import cn.dancingsnow.neoecoae.crafting.graph.CraftingGraphProgress;
+import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
+import cn.dancingsnow.neoecoae.network.CraftingReportStream;
+import cn.dancingsnow.neoecoae.network.MenuDataTransport;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation;
@@ -74,6 +80,7 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.server.level.ServerPlayer;
 import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -98,7 +105,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private static final int FOOTER_X = 97, FOOTER_WIDTH = 233, BUTTON_Y = 196;
     private static final int TEXT = 0x413F54;
     // Header text right of the ECO logo, above the line's low segment (which steps up near x=255).
-    private static final int TIME_X = 152, TIME_Y = 12, TIME_WIDTH = 100;
+    private static final int TIME_X = 152, TIME_Y = 10, TIME_WIDTH = 100;
     // 1.7.10's light text: the list cells are dark, so dark text loses contrast there.
     private static final int TEXT_LIGHT = 0xF2F3F7;
     private static final int STATUS_SYNC_INTERVAL = 10;
@@ -134,6 +141,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     }
 
     private final Source source;
+    private final ServerState server;
     private final BindableValue<CompoundTag> cpuScrollRequest = new BindableValue<>(new CompoundTag());
     private final BindableValue<CompoundTag> itemScrollRequest = new BindableValue<>(new CompoundTag());
     private final BindableValue<CompoundTag> taskScrollRequest = new BindableValue<>(new CompoundTag());
@@ -149,7 +157,9 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private final BindableValue<CompoundTag> itemActionResponse = new BindableValue<>(new CompoundTag()) {
         @Override public BindableValue<CompoundTag> setValue(CompoundTag value, boolean notify) {
             super.setValue(value, notify);
-            if (itemActionsPopup != null && value != null && value.getInt("serial") == selectedSerial) itemActionsPopup.accept(value);
+            if (value != null && value.contains("graphVersion")) {
+                if (graphItemActionResponse != null) graphItemActionResponse.accept(value);
+            } else if (itemActionsPopup != null && value != null && value.getInt("serial") == selectedSerial) itemActionsPopup.accept(value);
             return this;
         }
     };
@@ -181,6 +191,12 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private UIElement cpuHit, itemHit, taskHit;
     // AE2's terminal-style toggle in the shared left rail, like AE2's terminal toolbar.
     private final Button styleButton = HostSideButtonBar.createButton();
+    private final Button graphButton = HostSideButtonBar.createButton();
+    private long graphSequence;
+    private boolean graphPending;
+    private CraftingReportStream.LiveListener graphListener;
+    private Consumer<CompoundTag> graphItemActionResponse;
+    private CraftingGraphProgress graphProgress = CraftingGraphProgress.EMPTY;
     private final UIElement styleIcon = new UIElement();
     private UIElement styleBar;
     private TerminalStyle shownStyle;
@@ -195,10 +211,11 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         this.source = source;
         layout(layout -> layout.width(WIDTH).height(HEIGHT).paddingAll(0));
         setOverflowVisible(true);
-        ServerState server = new ServerState(source, identities);
+        this.server = new ServerState(source, identities);
         var selectCpu = addRPCEvent(RPCEventBuilder.simple(Integer.class, server::select));
         selectionRequest = serial -> selectCpu.send(serial);
         var cpuAction = addRPCEvent(RPCEventBuilder.simple(Integer.class, Integer.class, server::action));
+        var graphRequest = addRPCEvent(RPCEventBuilder.simple(Integer.class, Long.class, server::graph));
         var itemAction = addRPCEvent(RPCEventBuilder.simple(Integer.class, CompoundTag.class, server::itemAction));
         itemActionsPopup = new ComputationItemActionsPopup(request -> itemAction.send(selectedSerial, request));
         var processingDetails = addRPCEvent(RPCEventBuilder.simple(Integer.class, CompoundTag.class, server::processingDetails));
@@ -308,8 +325,64 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         styleButton.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
             List.<Component>of(ButtonToolTips.TerminalStyle.text(), styleTooltip(AEConfig.instance().getTerminalStyle())
                 .withStyle(ChatFormatting.GRAY)), null, null, null));
-        styleBar = HostSideButtonBar.grayLeft(styleButton);
+        graphButton.setId("computation-status-crafting-graph");
+        graphButton.noText().addChild(new UIElement()
+            .layout(layout -> layout.heightPercent(100).setAspectRatio(1f))
+            .style(style -> style.backgroundTexture(AETextures.icon(ECOIcon.CRAFT_HAMMER))));
+        graphButton.setActive(false);
+        HostElements.tooltips(graphButton, Component.translatable("gui.neoecoae.crafting_graph.open"));
+        graphButton.setOnClick(event -> {
+            if (event.button != 0 || graphPending) return;
+            var minecraft = Minecraft.getInstance();
+            if (minecraft.player == null || minecraft.screen == null) return;
+            var menu = minecraft.player.containerMenu;
+            var previous = minecraft.screen;
+            int graphSerial = selectedSerial;
+            long version = ++graphSequence;
+            graphPending = true;
+            graphProgress = CraftingGraphProgress.EMPTY;
+            graphButton.setActive(false);
+            graphListener = new CraftingReportStream.LiveListener() {
+                @Override public void graph(long received, CraftingGraphSnapshot snapshot) {
+                    if (received != version || version != graphSequence) return;
+                    graphPending = false;
+                    if (snapshot.nodes().isEmpty() || minecraft.player == null
+                            || minecraft.player.containerMenu != menu || minecraft.screen != previous) {
+                        CraftingReportStream.stopWatching(menu);
+                        graphListener = null;
+                        if (minecraft.player != null && minecraft.player.containerMenu == menu) graphRequest.send(-1, version);
+                        return;
+                    }
+                    var screen = new cn.dancingsnow.neoecoae.client.gui.graph.ECOCraftingGraphScreen(previous, snapshot)
+                        .withProgress(() -> graphProgress, () -> {
+                            CraftingReportStream.stopWatching(menu);
+                            graphListener = null;
+                            graphItemActionResponse = null;
+                            graphRequest.send(-1, version);
+                        }).withItemActions(request -> {
+                            request.putLong("graphVersion", version);
+                            itemAction.send(graphSerial, request);
+                        });
+                    graphItemActionResponse = response -> {
+                        if (response.getLong("graphVersion") == version) screen.acceptItemAction(response);
+                    };
+                    net.minecraftforge.client.ForgeHooksClient.pushGuiLayer(minecraft, screen);
+                }
+
+                @Override public void progress(long received, CraftingGraphProgress progress) {
+                    if (received == version && version == graphSequence) graphProgress = progress;
+                }
+            };
+            CraftingReportStream.watch(menu, version, graphListener);
+            graphRequest.send(graphSerial, version);
+        });
+        styleBar = HostSideButtonBar.grayLeft(styleButton, graphButton);
         addChildren(back, pauseButton, cancelButton, styleBar, itemActionsPopup);
+    }
+
+    @Override public void detectAndSendChanges() {
+        super.detectAndSendChanges();
+        server.syncGraph();
     }
 
     /** AE2's big scroller, as on the previous status page, centred on the artwork's 6-pixel track. */
@@ -468,6 +541,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         }
         selected = value.contains("selected")
             ? ComputationCpuEntry.read(value.getCompound("selected"), registries) : null;
+        graphButton.setActive(!graphPending && value.getBoolean("graphAvailable"));
         cpuScrollbar.update(cpuOffset, total - rows, rows / 3);
         itemScrollbar.update(itemOffset / ITEM_COLS, maxItemRows(itemTotal, rows), 1);
         taskScrollbar.update(taskOffset, taskTotal - rows, 1);
@@ -660,7 +734,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             : DurationFormatUtils.formatDuration(TimeUnit.NANOSECONDS.toMillis(selected.elapsed()), GuiText.ETAFormat.getLocal());
         ComputationCpuSelector.fittedText(context, font,
             Component.translatable("gui.neoecoae.computation.status.time", elapsed).getString(),
-            x + TIME_X, y + TIME_Y, TIME_WIDTH, 0.75F, TEXT);
+            x + TIME_X, y + TIME_Y, TIME_WIDTH, 1.25F, TEXT_LIGHT);
         // Switch complete acknowledged pages together with the rows used for hit testing.
         cpuPage.advance();
         itemPage.advance();
@@ -951,6 +1025,12 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         private final LinkedHashSet<AEKey> taskOrder = new LinkedHashSet<>();
         private int taskSerial = -1;
         private UUID taskJob;
+        private ExecutingCraftingJob graphJob;
+        private ECOCraftingCPU graphCpu;
+        private UUID graphJobId;
+        private int graphSerial = -1;
+        private long graphVersion, graphTick = Long.MIN_VALUE;
+        private CraftingGraphProgress graphSent;
         private int rows = ROWS;
 
         private ServerState(Source source, CpuSelectionState.Identities<ICraftingCPU> identities) {
@@ -963,6 +1043,51 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         private void refresh() {
             selection.update(source.cpus().get(), ICraftingCPU::isBusy,
                 cpu -> cpu.getName() == null ? null : cpu.getName().getString());
+        }
+
+        private void graph(int serial, long version) {
+            if (!(source.player() instanceof ServerPlayer player) || !source.canInteract().getAsBoolean()) return;
+            if (serial < 0) {
+                if (version != graphVersion) return;
+                graphJob = null;
+                graphCpu = null;
+                graphSerial = -1;
+                graphSent = null;
+                MenuDataTransport.cancel(player, MenuDataTransport.Channel.GRAPH);
+                MenuDataTransport.cancel(player, MenuDataTransport.Channel.GRAPH_PROGRESS);
+                return;
+            }
+            refresh();
+            var target = source.cpus().get().stream().filter(cpu -> selection.serial(cpu) == serial)
+                .findFirst().orElse(null);
+            graphCpu = target instanceof ECOCraftingCPU eco ? eco : null;
+            graphSerial = serial;
+            graphJob = graphCpu == null ? null : graphCpu.getLogic().getJob();
+            graphJobId = graphCpu == null ? null : graphCpu.getLogic().getProcessingJobId();
+            graphVersion = version;
+            graphTick = Long.MIN_VALUE;
+            graphSent = null;
+            MenuDataTransport.cancel(player, MenuDataTransport.Channel.GRAPH);
+            MenuDataTransport.cancel(player, MenuDataTransport.Channel.GRAPH_PROGRESS);
+            CraftingReportStream.send(player, version, true, graphJob == null ? CraftingGraphSnapshot.EMPTY
+                : graphJob.craftingGraph(), ECOCycleItemList.EMPTY);
+        }
+
+        private void syncGraph() {
+            if (graphJob == null || !(source.player() instanceof ServerPlayer player)
+                    || !source.canInteract().getAsBoolean()) return;
+            long tick = source.gameTime().getAsLong();
+            if (graphTick != Long.MIN_VALUE && tick >= graphTick
+                    && tick - graphTick < MenuDataTransport.UPDATE_INTERVAL) return;
+            if (MenuDataTransport.busy(player, MenuDataTransport.Channel.GRAPH_PROGRESS)) return;
+            graphTick = tick;
+            if (graphCpu != null && graphJobId != null
+                    && graphJobId.equals(graphCpu.getLogic().getProcessingJobId())) graphJob = graphCpu.getLogic().getJob();
+            var progress = graphJob.graphProgress(graphCpu.getLogic().getInventory());
+            if (!progress.equals(graphSent)) {
+                CraftingReportStream.sendProgress(player, graphVersion, progress, graphSent);
+                graphSent = progress;
+            }
         }
 
         /** The client reports its stretched row count so the buffered pages cover what it shows. */
@@ -1076,14 +1201,24 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             response.putInt("serial", serial);
             response.putLong("sequence", request.getLong("sequence"));
             response.put("key", request.getCompound("key").copy());
+            boolean graphAction = request.contains("graphVersion");
+            if (graphAction) response.putLong("graphVersion", request.getLong("graphVersion"));
             itemActionResponse = response;
-            var cpu = selection.selected();
+            refresh();
+            var cpu = graphAction ? graphCpu : selection.selected();
             AEKey key = ECOKeyFactory.fromTagGeneric(request.getCompound("key"));
-            if (cpu == null || serial != selection.selectedSerial() || key == null) {
+            if (cpu == null || key == null || (graphAction
+                    ? serial != graphSerial || request.getLong("graphVersion") != graphVersion
+                    : serial != selection.selectedSerial())) {
                 response.putString("error", "gui.neoecoae.processing.task_changed");
                 return;
             }
-            var job = jobId(cpu);
+            var currentJob = jobId(cpu);
+            if (graphAction && currentJob != null && !currentJob.equals(graphJobId)) {
+                response.putString("error", "gui.neoecoae.processing.task_changed");
+                return;
+            }
+            var job = graphAction ? graphJobId : currentJob;
             String action = request.getString("action");
             boolean opening = action.equals("open") || action.equals("open_machine") || action.equals("stop") || action.equals("resume");
             if ((!action.equals("inspect") && !opening) || job == null
@@ -1101,9 +1236,12 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             }
             var grid = eco != null ? eco.getGrid()
                 : cpu instanceof CraftingCPUCluster cluster ? cluster.getGrid() : null;
-            var sources = grid != null && grid.getCraftingService() instanceof appeng.me.service.CraftingService crafting
-                ? cn.dancingsnow.neoecoae.compat.ae2.ECOProviderActions.find(patterns(cpu, key, crafting), crafting)
-                : List.<cn.dancingsnow.neoecoae.compat.ae2.ECOProviderActions.Source>of();
+            List<cn.dancingsnow.neoecoae.compat.ae2.ECOProviderActions.Source> sources = List.of();
+            if (grid != null && grid.getCraftingService() instanceof appeng.me.service.CraftingService crafting) {
+                var producing = patterns(cpu, key, crafting);
+                if (graphAction && producing.isEmpty()) producing = List.copyOf(crafting.getCraftingFor(key));
+                sources = cn.dancingsnow.neoecoae.compat.ae2.ECOProviderActions.find(producing, crafting);
+            }
             var list = new ListTag();
             for (var source : sources) list.add(source.describe());
             response.put("sources", list);
@@ -1242,6 +1380,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             for (ICraftingCPU cpu : selection.bufferedPage()) cpuPage.add(ComputationCpuEntry.sample(cpu, selection.serial(cpu)).write(registries));
             tag.put("cpus", cpuPage);
             ICraftingCPU selectedCpu = selection.selected();
+            tag.putBoolean("graphAvailable", selectedCpu instanceof ECOCraftingCPU eco && eco.getLogic().hasJob());
             writeTier(tag, selectedCpu instanceof ECOCraftingCPU eco ? eco.getTier() : null);
             List<ComputationCpuItemEntry> all = selectedItems(selectedCpu);
             processingCandidates = all.stream().filter(item -> item.active().signum() > 0 || item.pending().signum() > 0).toList();
