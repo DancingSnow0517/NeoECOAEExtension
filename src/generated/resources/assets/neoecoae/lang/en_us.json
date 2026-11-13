@@ -621,6 +621,8 @@
   "gui.neoecoae.crafting_graph.toolbar.missing_off": "Missing only: Off",
   "gui.neoecoae.crafting_graph.toolbar.missing_on": "Missing only: On",
   "gui.neoecoae.crafting_graph.toolbar.root": "Root",
+  "gui.neoecoae.crafting_graph.toolbar.theme_dark": "Theme: Dark",
+  "gui.neoecoae.crafting_graph.toolbar.theme_light": "Theme: Light",
   "gui.neoecoae.crafting_graph.toolbar.view_graph": "View: Graph",
   "gui.neoecoae.crafting_graph.toolbar.view_tree": "View: Tree",
   "gui.neoecoae.crafting_graph.zoom": "Zoom: %s%%",

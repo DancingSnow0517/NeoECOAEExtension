@@ -102,8 +102,9 @@ final class GraphMaterialSummary {
 
     void render(GuiGraphicsExtractor graphics, Font font, int mouseX, int mouseY) {
         hovered = itemAt(mouseX, mouseY);
-        graphics.fill(0, top, width, screenHeight, 0xff11171d);
-        graphics.fill(0, top, width, top + 1, 0xff39464f);
+        var theme = GraphTheme.current();
+        graphics.fill(0, top, width, screenHeight, theme.bar());
+        graphics.fill(0, top, width, top + 1, theme.line());
         if (collapsed) {
             drawHeaders(graphics, font);
 
@@ -135,27 +136,28 @@ final class GraphMaterialSummary {
                 if (item == null) continue;
                 var box = box(panel, column, item);
                 GraphDraw.frame(graphics, box.x(), box.y(), box.x() + box.width(), box.y() + box.height(),
-                    item == hovered ? GraphRenderer.SELECTED : 0xff556675, 1);
+                    item == hovered ? theme.accent() : theme.line(), 1);
                 CompactTreeRenderer.drawAmount(graphics, font, item.compact(), box.x(), box.y() + 20,
-                    box.x() + box.width(), box.y() + box.height(), 0xffecf3f8);
+                    box.x() + box.width(), box.y() + box.height(), theme.text());
             }
-            if (section.items.isEmpty()) cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font, "-", panel.left() + 6, top + 26, 0xff809bab, false);
+            if (section.items.isEmpty()) cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font, "-", panel.left() + 6, top + 26, theme.faint(), false);
         }
 
     }
 
     private void drawHeaders(GuiGraphicsExtractor graphics, Font font) {
+        var theme = GraphTheme.current();
         for (var panel : panels) {
             var section = panel.section();
             boolean overflow = !collapsed && section.items.size() > panel.columns();
             String title = section.title().getString() + " (" + section.items.size() + ")";
             cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font, GraphDraw.fit(font, title, panel.right() - panel.left() - (overflow ? 25 : 4)),
-                panel.left() + 2, top + 5, 0xffa9c5d6, false);
+                panel.left() + 2, top + 5, theme.muted(), false);
             if (overflow) {
                 cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font, "\u2039", panel.right() - 19, top + 5,
-                    section.offset > 0 ? 0xffecf3f8 : 0xff52616b, false);
+                    section.offset > 0 ? theme.text() : theme.faint(), false);
                 cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font, "\u203a", panel.right() - 9, top + 5,
-                    section.offset + panel.columns() < section.items.size() ? 0xffecf3f8 : 0xff52616b, false);
+                    section.offset + panel.columns() < section.items.size() ? theme.text() : theme.faint(), false);
             }
         }
         // Rotate the same chevron used by the horizontal paging controls.
@@ -163,7 +165,7 @@ final class GraphMaterialSummary {
         pose.pushMatrix();
         pose.translate(width - 9, top + HEADER_HEIGHT / 2f);
         pose.rotate((float) Math.toRadians(collapsed ? -90 : 90));
-        cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font, "\u203a", -font.width("\u203a") / 2, -font.lineHeight / 2, 0xffecf3f8, false);
+        cn.dancingsnow.neoecoae.gui.common.GuiDraw.text(graphics, font, "\u203a", -font.width("\u203a") / 2, -font.lineHeight / 2, theme.text(), false);
         pose.popMatrix();
     }
 

@@ -20,15 +20,20 @@ import org.jetbrains.annotations.Nullable;
  * the raster cache draw exactly the same picture.
  */
 final class CompactTreeRenderer {
-    static final int TEXT = 0xffe8edf2;
-    static final int MUTED = 0xffaab3bd;
-    static final int BODY = 0xee171b20;
-    static final int FRAME = 0xff8293a4;
-
     private CompactTreeRenderer() {}
 
     static void drawBody(GuiGraphicsExtractor graphics, GraphLayoutSnapshot.Box box) {
-        GraphDraw.fill(graphics, box.x(), box.y(), box.x() + box.width(), box.y() + box.height(), BODY);
+        GraphDraw.fill(graphics, box.x(), box.y(), box.x() + box.width(), box.y() + box.height(),
+            GraphTheme.current().panel());
+    }
+
+    /** Material status as a bottom strip; the node frame itself stays neutral. */
+    static void drawStatusStrip(GuiGraphicsExtractor graphics, ClientCraftingGraph graph, ClientCraftingGraph.Node node,
+            GraphLayoutSnapshot.Box box) {
+        if (node.material() == null && node.kind() != ClientCraftingGraph.Kind.FOLDER) return;
+        float inset = Math.min(2, box.width() / 4);
+        GraphDraw.fill(graphics, box.x() + inset, box.y() + box.height() - 1.5f,
+            box.x() + box.width() - inset, box.y() + box.height(), nodeBorder(graph, node));
     }
 
     static void drawIcon(GuiGraphicsExtractor graphics, ClientCraftingGraph.Node node, GraphLayoutSnapshot.Box box) {
@@ -52,6 +57,7 @@ final class CompactTreeRenderer {
         Font font = Minecraft.getInstance().font;
         float x = box.x(), y = box.y(), right = x + box.width(), bottom = y + box.height();
         int accent = nodeBorder(graph, node);
+        int text = GraphTheme.current().text(), muted = GraphTheme.current().muted();
         switch (node.kind()) {
             case FOLDER -> {
                 CompactTreeNode metadata = graph.compactTreeNode(node.id());
@@ -59,58 +65,58 @@ final class CompactTreeRenderer {
                 String symbol = metadata.containsCycle() ? "↻" : metadata.containsMissing() ? "!"
                     : metadata.containsUnsupported() ? "?" : "▱";
                 GraphDraw.centeredText(graphics, font, symbol, (x + right) / 2, y + 5, accent, 1);
-                drawAmount(graphics, font, "+" + metadata.hiddenNodeCount(), x, y + 20, right, bottom, TEXT);
+                drawAmount(graphics, font, "+" + metadata.hiddenNodeCount(), x, y + 20, right, bottom, text);
             }
             case MATERIAL, REFERENCE -> {
                 var material = node.material();
                 if (material == null || material.key() == null) {
-                    GraphDraw.centeredText(graphics, font, "↪", (x + right) / 2, y + (box.height() - 9) / 2, MUTED, 1);
+                    GraphDraw.centeredText(graphics, font, "↪", (x + right) / 2, y + (box.height() - 9) / 2, muted, 1);
                     return;
                 }
                 if (box.width() >= GraphLayoutSnapshot.MATERIAL_WIDTH) {
                     GraphDraw.text(graphics, font, GraphDraw.fit(font, nodeTitle(node), box.width() - 35),
-                        x + 29, y + 7, TEXT, 1);
+                        x + 29, y + 7, text, 1);
                     GraphDraw.text(graphics, font, GraphDraw.fit(font, Component.translatable(
                         "gui.neoecoae.crafting_graph.status." + material.status().name().toLowerCase(java.util.Locale.ROOT))
                         .getString(), box.width() - 35), x + 29, y + 18, accent, 1);
                     GraphDraw.text(graphics, font, GraphDraw.fit(font, Component.translatable(
                         "gui.neoecoae.crafting_graph.details.requested", HostText.ae2Amount(material.exactRequested()))
-                        .getString(), box.width() - 14), x + 7, y + 35, MUTED, 1);
+                        .getString(), box.width() - 14), x + 7, y + 35, muted, 1);
                     GraphDraw.text(graphics, font, GraphDraw.fit(font, Component.translatable(
                         "gui.neoecoae.crafting_graph.details.inventory", HostText.ae2Amount(material.exactFromInventory()))
-                        .getString(), box.width() - 14), x + 7, y + 47, MUTED, 1);
+                        .getString(), box.width() - 14), x + 7, y + 47, muted, 1);
                     GraphDraw.text(graphics, font, GraphDraw.fit(font, materialAmount(node), box.width() - 14),
-                        x + 7, y + 59, MUTED, 1);
+                        x + 7, y + 59, muted, 1);
                     return;
                 }
                 if (node.recursion() != null || material.consumedBigInteger().signum() > 0
                         || material.producedBigInteger().signum() > 0 || material.requestedBigInteger().signum() > 0) {
-                    drawAmount(graphics, font, materialAmount(node), x, y + 20, right, bottom, TEXT);
+                    drawAmount(graphics, font, materialAmount(node), x, y + 20, right, bottom, text);
                 }
             }
             case CYCLE_GROUP -> {
                 var cycle = node.cycle();
                 GraphDraw.text(graphics, font, GraphDraw.fit(font, nodeTitle(node), box.width() - 24), x + 6, y + 5,
-                    TEXT, 1);
+                    text, 1);
                 if (cycle != null) GraphDraw.text(graphics, font,
                     GraphDraw.fit(font, GraphRenderer.recursiveModuleSummary(cycle).getString(), box.width() - 12),
-                    x + 6, y + 19, MUTED, 1);
+                    x + 6, y + 19, muted, 1);
                 GraphDraw.text(graphics, font, "↻", right - 14, y + 9, accent, 1);
             }
             case CYCLE_CLUSTER -> {
                 var cluster = node.cluster();
                 GraphDraw.text(graphics, font, GraphDraw.fit(font, nodeTitle(node), box.width() - 24), x + 6, y + 5,
-                    TEXT, 1);
+                    text, 1);
                 if (cluster != null) GraphDraw.text(graphics, font, GraphDraw.fit(font, Component.translatable(
                         "gui.neoecoae.crafting_graph.details.cluster_cycles", cluster.componentIds().size()).getString(),
-                    box.width() - 12), x + 6, y + 19, MUTED, 1);
+                    box.width() - 12), x + 6, y + 19, muted, 1);
                 GraphDraw.text(graphics, font, "◎", right - 14, y + 9, accent, 1);
             }
             case PATTERN -> {
                 var pattern = node.pattern();
                 GraphDraw.centeredText(graphics, font, "⚒", (x + right) / 2, y + 4, accent, 1);
                 if (pattern != null) drawAmount(graphics, font,
-                    "×" + HostText.ae2Amount(pattern.plannerFiringCount().toBigInteger()), x, y + 16, right, bottom, TEXT);
+                    "×" + HostText.ae2Amount(pattern.plannerFiringCount().toBigInteger()), x, y + 16, right, bottom, text);
             }
         }
     }
@@ -168,26 +174,27 @@ final class CompactTreeRenderer {
     }
 
     static int nodeBorder(ClientCraftingGraph graph, ClientCraftingGraph.Node node) {
+        var theme = GraphTheme.current();
         if (node.kind() == ClientCraftingGraph.Kind.FOLDER) {
             var metadata = graph.compactTreeNode(node.id());
-            if (metadata != null && metadata.containsCycle()) return 0xffd59b45;
-            if (metadata != null && metadata.containsMissing()) return 0xffcf5e5e;
-            if (metadata != null && metadata.containsUnsupported()) return 0xffa36c9a;
-            return 0xff788996;
+            if (metadata != null && metadata.containsCycle()) return theme.pending();
+            if (metadata != null && metadata.containsMissing()) return theme.missing();
+            if (metadata != null && metadata.containsUnsupported()) return theme.byproduct();
+            return theme.muted();
         }
-        if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP) return 0xffd59b45;
-        if (node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER) return 0xffcf8f45;
+        if (node.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP || node.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER) {
+            return theme.pending();
+        }
         if (node.kind() == ClientCraftingGraph.Kind.PATTERN) {
             return node.pattern() != null && node.pattern().status() == CraftingGraphSnapshot.CandidateStatus.SELECTED
-                ? 0xff66a182 : 0xff9a5964;
+                ? theme.stock() : theme.missing();
         }
-        if (node.kind() == ClientCraftingGraph.Kind.REFERENCE || node.material() == null) return 0xff8d98a3;
+        if (node.kind() == ClientCraftingGraph.Kind.REFERENCE || node.material() == null) return theme.faint();
         return switch (node.material().status()) {
-            case SATISFIED -> 0xff68a878;
-            case CRAFTING -> 0xff5f9fc5;
-            case MISSING -> 0xffcf5e5e;
-            case UNSUPPORTED -> 0xffa36c9a;
-            case CYCLE -> 0xffd59b45;
+            case SATISFIED -> theme.stock();
+            case CRAFTING, CYCLE -> theme.pending();
+            case MISSING -> theme.missing();
+            case UNSUPPORTED -> theme.byproduct();
         };
     }
 
