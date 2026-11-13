@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.graph.ClientCraftingGraph;
+import cn.dancingsnow.neoecoae.crafting.graph.CraftingGraphProgress;
 import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot;
 import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot.Bounds;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
@@ -17,6 +18,8 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Util;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -24,6 +27,8 @@ import org.jetbrains.annotations.Nullable;
  * replay the same GUI layers, so both paths show an identical picture at every zoom level.
  */
 public final class GraphRenderer implements AutoCloseable {
+    private static final Identifier COMPLETED = Identifier.fromNamespaceAndPath("neoecoae",
+        "textures/gui/graph/completed.png");
     public record Frame(@Nullable ClientCraftingGraph.Node hovered, List<Component> tooltip) {}
     record VisiblePlan(List<GraphLayoutSnapshot.Box> nodes, List<ClientCraftingGraph.Link> edges, int nodeCount) {}
     /** Screen rectangle reserved for the graph canvas. */
@@ -33,6 +38,15 @@ public final class GraphRenderer implements AutoCloseable {
 
     private final GraphVisibilityCache visibility = new GraphVisibilityCache();
     private final GraphViewportCache canvas = new GraphViewportCache();
+    private VisiblePlan livePlan;
+    private ScenePainter liveScene;
+    private ClientCraftingGraph hitGraph;
+    private GraphLayoutSnapshot hitLayout;
+    private float hitX, hitY;
+    private ClientCraftingGraph.Node hitNode;
+    private GraphLayoutSnapshot progressLayout;
+    private Bounds progressArea;
+    private VisiblePlan progressVisible;
     private boolean cachedView;
     private ClientCraftingGraph tooltipGraph;
     private ClientCraftingGraph.Node tooltipNode;
@@ -51,9 +65,24 @@ public final class GraphRenderer implements AutoCloseable {
         return visibleNodes > (previous ? 192 : GraphVisibilityCache.LIVE_LIMIT);
     }
 
+    /** Rendering, clicks and EMI share the same pick result at the displayed camera position. */
+    @Nullable ClientCraftingGraph.Node hit(ClientCraftingGraph graph, GraphLayoutSnapshot layout,
+            float worldX, float worldY) {
+        if (hitGraph == graph && hitLayout == layout && hitX == worldX && hitY == worldY) return hitNode;
+        hitGraph = graph;
+        hitLayout = layout;
+        hitX = worldX;
+        hitY = worldY;
+        hitNode = null;
+        for (var box : layout.query(new Bounds(worldX, worldY, worldX, worldY), 1)) {
+            if (box.contains(worldX, worldY)) hitNode = graph.nodes().get(box.nodeId());
+        }
+        return hitNode;
+    }
+
     Frame render(GuiGraphicsExtractor graphics, ClientCraftingGraph graph, GraphLayoutSnapshot layout,
             float cameraX, float cameraY, float zoom, Viewport viewport, int mouseX, int mouseY,
-            @Nullable Integer selectedId) {
+            @Nullable Integer selectedId, CraftingGraphProgress progress) {
         // Reserve a GUI stratum for the graph before submitting its layers.
         graphics.nextStratum();
 
@@ -70,9 +99,7 @@ public final class GraphRenderer implements AutoCloseable {
         if (viewport.contains(mouseX, mouseY)) {
             float worldX = (mouseX - cameraX) / zoom;
             float worldY = (mouseY - cameraY) / zoom;
-            hovered = layout.query(new Bounds(worldX, worldY, worldX, worldY), Integer.MAX_VALUE).stream()
-                .filter(box -> box.contains(worldX, worldY)).findFirst()
-                .map(box -> graph.nodes().get(box.nodeId())).orElse(null);
+            hovered = hit(graph, layout, worldX, worldY);
         }
         graphics.enableScissor(viewport.left(), viewport.top(), viewport.right(), viewport.bottom());
         var pose = graphics.pose();
@@ -83,12 +110,32 @@ public final class GraphRenderer implements AutoCloseable {
             double pixelsPerUnit = zoom * guiScale;
             if (cachedView) {
                 canvas.draw(graphics);
-            } else new ScenePainter(graph, layout, area.padded(180), pixelsPerUnit, visible.nodes(), visible.edges())
-                .advance(graphics, Long.MAX_VALUE);
+            } else {
+                if (livePlan != visible || liveScene == null || liveScene.graph != graph) {
+                    livePlan = visible;
+                    liveScene = new ScenePainter(graph, layout, area.padded(180), pixelsPerUnit,
+                        visible.nodes(), visible.edges());
+                }
+                liveScene.restart(pixelsPerUnit);
+                liveScene.advance(graphics, Long.MAX_VALUE);
+            }
 
             graphics.nextStratum();
             drawHighlights(graphics, graph, layout, area, selectedId, hovered, pixelsPerUnit);
-
+            graphics.nextStratum();
+            if (!progress.running().isEmpty() || !progress.completed().isEmpty()) {
+                var overlay = visible;
+                if (visible.nodeCount() > GraphVisibilityCache.LIVE_LIMIT) {
+                    if (progressLayout != layout || !area.equals(progressArea)) {
+                        progressLayout = layout;
+                        progressArea = area;
+                        progressVisible = new VisiblePlan(layout.query(area.padded(24 / zoom), Integer.MAX_VALUE),
+                            layout.queryLinks(area), visible.nodeCount());
+                    }
+                    overlay = progressVisible;
+                }
+                drawProgress(graphics, graph, layout, overlay, progress, pixelsPerUnit);
+            }
         } finally {
             pose.popMatrix();
             graphics.disableScissor();
@@ -109,7 +156,15 @@ public final class GraphRenderer implements AutoCloseable {
     @Override
     public void close() {
         canvas.close();
+        progressLayout = null;
+        progressArea = null;
+        progressVisible = null;
         visibility.clear();
+        livePlan = null;
+        liveScene = null;
+        hitGraph = null;
+        hitLayout = null;
+        hitNode = null;
         tooltipGraph = null;
         tooltipNode = null;
         tooltipLanguage = null;
@@ -147,11 +202,83 @@ public final class GraphRenderer implements AutoCloseable {
         GraphDraw.frame(graphics, box.x(), box.y(), box.x() + box.width(), box.y() + box.height(), color, thickness);
     }
 
+    /** Execution changes never invalidate raster tiles; animate and mark completion above the cached scene. */
+    private static void drawProgress(GuiGraphicsExtractor graphics, ClientCraftingGraph graph, GraphLayoutSnapshot layout,
+            VisiblePlan visible, CraftingGraphProgress progress, double pixelsPerUnit) {
+        if (progress.running().isEmpty() && progress.completed().isEmpty()) return;
+        var pose = graphics.pose();
+        pose.pushMatrix();
+        graphics.nextStratum();
+        try {
+            double phase = (Util.getMillis() % 1_200L) / 1_200.0;
+            float half = halfWidth(pixelsPerUnit, 1.35f);
+            for (var link : visible.edges()) {
+                var source = graph.nodes().get(link.fromId());
+                if (!link.selected()) continue;
+                if (graph.isRecursiveCycle()) {
+                    // Recursive rows are checkpoints, not separate live executions of the whole cycle.
+                    var target = graph.nodes().get(link.toId());
+                    if (source == null || source.recursion() == null
+                            || source.recursion().role() != cn.dancingsnow.neoecoae.crafting.graph.RecursiveCycleNode.Role.STEP
+                            || !running(graph, target, progress)) continue;
+                } else if (!running(graph, source, progress)) continue;
+                var points = route(graph, layout, link);
+                if (points.size() < 2) continue;
+                double length = 0;
+                for (int i = 1; i < points.size(); i++) length += distance(points.get(i - 1), points.get(i));
+                if (length <= 0) continue;
+                // One square per active connection follows the complete polyline, including its bends.
+                double remaining = length * (graph.isRecursiveCycle() ? phase : 1 - phase);
+                for (int i = 1; i < points.size(); i++) {
+                    var from = points.get(i - 1);
+                    var to = points.get(i);
+                    double segment = distance(from, to);
+                    if (remaining <= segment && segment > 0) {
+                        float x = (float) (from.x() + (to.x() - from.x()) * remaining / segment);
+                        float y = (float) (from.y() + (to.y() - from.y()) * remaining / segment);
+                        GraphDraw.fill(graphics, x - half, y - half, x + half, y + half,
+                            GraphTheme.current().accent());
+                        break;
+                    }
+                    remaining -= segment;
+                }
+            }
+            for (var box : visible.nodes()) {
+                var node = graph.nodes().get(box.nodeId());
+                if (node == null || node.material() == null || node.kind() == ClientCraftingGraph.Kind.FOLDER
+                        || !progress.completed().contains(node.material().nodeId())) continue;
+                pose.pushMatrix();
+                pose.translate(box.x() + box.width() - 6, box.y() - 2);
+                graphics.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, COMPLETED, 0, 0, 0, 0, 8, 8, 8, 8);
+                pose.popMatrix();
+            }
+        } finally {
+            pose.popMatrix();
+        }
+    }
+
+    private static boolean running(ClientCraftingGraph graph, @Nullable ClientCraftingGraph.Node node,
+            CraftingGraphProgress progress) {
+        if (node == null || node.kind() == ClientCraftingGraph.Kind.FOLDER) return false;
+        if (node.material() != null) return progress.running().contains(node.material().nodeId());
+        if (node.pattern() != null) return node.pattern().outputs().stream()
+            .anyMatch(output -> progress.running().contains(output.materialNodeId()));
+        if (node.cycle() != null) return node.cycle().memberNodeIds().stream().anyMatch(progress.running()::contains);
+        if (node.cluster() != null) return node.cluster().componentIds().stream().anyMatch(component ->
+            graph.source().cycleGroups().stream().filter(cycle -> cycle.componentId() == component)
+                .anyMatch(cycle -> cycle.memberNodeIds().stream().anyMatch(progress.running()::contains)));
+        return false;
+    }
+
+    private static double distance(GraphLayoutSnapshot.Point from, GraphLayoutSnapshot.Point to) {
+        return Math.hypot(to.x() - from.x(), to.y() - from.y());
+    }
+
     /** One scene, painted in phases so a raster tile can stop at any work unit and resume next frame. */
     private static final class ScenePainter implements GraphViewportCache.Painter {
         private final ClientCraftingGraph graph;
         private final GraphLayoutSnapshot layout;
-        private final double pixelsPerUnit;
+        private double pixelsPerUnit;
         private final List<GraphLayoutSnapshot.Box> nodes;
         private final List<ClientCraftingGraph.Link> links;
         private final List<Bounds> rows;
@@ -168,6 +295,11 @@ public final class GraphRenderer implements AutoCloseable {
             rows = graph.isCompactTree() ? layout.queryRowFrames(area) : List.of();
             regions = layout.recursionRegions().stream()
                 .filter(region -> region.bounds().padded(180).intersects(area)).toList();
+        }
+
+        void restart(double nextPixelsPerUnit) {
+            pixelsPerUnit = nextPixelsPerUnit;
+            phase = cursor = 0;
         }
 
         @Override
