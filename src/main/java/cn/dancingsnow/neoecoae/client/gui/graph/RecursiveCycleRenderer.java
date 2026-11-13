@@ -27,21 +27,18 @@ import org.jetbrains.annotations.Nullable;
 
 /** Compact material nodes and execution icons with shared cycle regions at every zoom/cache level. */
 final class RecursiveCycleRenderer {
-    static final int SEED = 0xff5fd0e8, STOCK = 0xff7bb2d4, INPUT = 0xffb48ef0;
-    static final int OUTPUT = 0xfff2c14e, RETAINED = 0xff75c48b, MISSING = 0xffcf5e5e;
-    static final int TEXT = 0xffe6edf3, MUTED = 0xff929ca6, STEP = 0xff83c5be;
-
     private RecursiveCycleRenderer() {}
 
     static int color(Role role) {
+        var theme = GraphTheme.current();
         return switch (role) {
-            case SEED -> SEED;
-            case STOCK -> STOCK;
-            case INPUT -> INPUT;
-            case OUTPUT -> OUTPUT;
-            case RETAINED -> RETAINED;
-            case STEP -> STEP;
-            case UNKNOWN -> MISSING;
+            case SEED -> theme.accent();
+            case STOCK -> theme.checkpoint();
+            case INPUT -> theme.byproduct();
+            case OUTPUT -> theme.pending();
+            case RETAINED -> theme.stock();
+            case STEP -> theme.step();
+            case UNKNOWN -> theme.missing();
         };
     }
 
@@ -63,7 +60,8 @@ final class RecursiveCycleRenderer {
             if (!checkpoint) {
                 String label = recursionText("zone_" + region.role().name().toLowerCase(java.util.Locale.ROOT)).getString();
                 GraphDraw.fill(graphics, bounds.left() + 3, bounds.top() - 5,
-                    bounds.left() + Math.min(bounds.width() - 3, font.width(label) * 0.7f + 7), bounds.top() + 5, 0xff0e1115);
+                    bounds.left() + Math.min(bounds.width() - 3, font.width(label) * 0.7f + 7), bounds.top() + 5,
+                    GraphTheme.current().canvas());
                 text(graphics, font, label, bounds.left() + 5, bounds.top() - 3, bounds.width() - 10, accent, 0.7f);
             }
         }
@@ -71,17 +69,18 @@ final class RecursiveCycleRenderer {
             float x = bounds.left() + 5, y = bounds.top() + 5;
             String label = recursionText(region.role() == Role.SEED ? "seed" : region.role() == Role.RETAINED ? "result" : "row",
                 region.level() / 2).getString();
-            text(graphics, font, label, x, y, bounds.width() - 10, TEXT, 0.85f);
+            text(graphics, font, label, x, y, bounds.width() - 10, GraphTheme.current().text(), 0.85f);
             if (region.role() != Role.STOCK) text(graphics, font,
                 recursionText(region.role() == Role.RETAINED ? "result_hint" : "initial_stock").getString(),
-                x, y + 11, bounds.width() - 10, MUTED, 0.65f);
+                x, y + 11, bounds.width() - 10, GraphTheme.current().muted(), 0.65f);
         }
     }
 
     static void drawBody(GuiGraphics graphics, ClientCraftingGraph.Node node, Box box, double pixelsPerUnit) {
         if (node.key() != null) CompactTreeRenderer.drawBody(graphics, box);
         else if (node.recursion().role() != Role.STEP && node.recursion().role() != Role.UNKNOWN) {
-            GraphDraw.fill(graphics, box.x(), box.y(), box.x() + box.width(), box.y() + box.height(), 0xff252d35);
+            GraphDraw.fill(graphics, box.x(), box.y(), box.x() + box.width(), box.y() + box.height(),
+                GraphTheme.current().panel());
         }
     }
 
@@ -106,21 +105,22 @@ final class RecursiveCycleRenderer {
         if (node.key() != null) {
             CompactTreeRenderer.drawText(graphics, graph, node, box);
             if (detail.role() == Role.RETAINED && detail.amount().isZero()) {
-                GraphDraw.fill(graphics, box.x(), box.y(), box.x() + box.width(), box.y() + box.height(), 0x66434a51);
+                GraphDraw.fill(graphics, box.x(), box.y(), box.x() + box.width(), box.y() + box.height(),
+                    GraphTheme.alpha(GraphTheme.current().faint(), 0x66));
             }
             int border = detail.role() == Role.SEED && detail.balance() != null
                 && detail.balance().seedShortfall() != null && detail.balance().seedShortfall().signum() > 0
-                ? MISSING : CompactTreeRenderer.FRAME;
+                ? GraphTheme.current().missing() : GraphTheme.current().line();
             GraphDraw.frame(graphics, box.x(), box.y(), box.x() + box.width(), box.y() + box.height(), border, thickness);
         } else if (detail.role() == Role.UNKNOWN) {
             GraphDraw.centeredText(graphics, Minecraft.getInstance().font, "?", box.centerX(),
-                box.y() + (box.height() - 9) / 2, MISSING, 1);
+                box.y() + (box.height() - 9) / 2, GraphTheme.current().missing(), 1);
         } else if (detail.role() != Role.STEP) {
             GraphDraw.frame(graphics, box.x(), box.y(), box.x() + box.width(), box.y() + box.height(),
                 color(detail.role()), thickness);
             text(graphics, Minecraft.getInstance().font,
                 detail.role() == Role.SEED ? recursionText("no_seed").getString() : title(node).getString(),
-                box.x() + 4, box.y() + (box.height() - 9) / 2, box.width() - 8, MUTED, 0.8f);
+                box.x() + 4, box.y() + (box.height() - 9) / 2, box.width() - 8, GraphTheme.current().muted(), 0.8f);
         }
     }
 
@@ -131,8 +131,8 @@ final class RecursiveCycleRenderer {
         var fromRole = graph.nodes().get(link.fromId()).recursion().role();
         var toRole = graph.nodes().get(link.toId()).recursion().role();
         boolean external = fromRole == Role.INPUT;
-        int accent = highlight != null ? highlight : external ? INPUT
-            : toRole == Role.OUTPUT ? OUTPUT : toRole == Role.RETAINED ? RETAINED : 0xff8293a4;
+        int accent = highlight != null ? highlight : external ? color(Role.INPUT)
+            : toRole == Role.OUTPUT || toRole == Role.RETAINED ? color(toRole) : GraphTheme.current().edge();
         float half = GraphRenderer.halfWidth(pixelsPerUnit, 0.6f);
         for (int i = 1; i < route.size(); i++) {
             var a = route.get(i - 1); var b = route.get(i);
