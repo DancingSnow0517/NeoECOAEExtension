@@ -39,10 +39,14 @@ final class GraphTileCache<T extends GraphTileCache.Tile> implements AutoCloseab
     }
 
     private final Map<Key, Entry<T>> tiles = new LinkedHashMap<>(16, 0.75f, true);
+    private final List<Entry<T>> drawable = new ArrayList<>(MAX_VISIBLE);
+    private final List<Bounds> unfinished = new ArrayList<>(MAX_VISIBLE);
     private List<Spec> visible = List.of();
     private Object content;
     private double guiScale;
     private int cursor;
+    private boolean hasRange;
+    private int rangeLevel, rangeX0, rangeY0, rangeX1, rangeY1;
 
     void select(Object nextContent, Bounds nextViewport, Bounds drawing, double zoom, double nextGuiScale) {
         if (!Objects.equals(content, nextContent) || guiScale != nextGuiScale) {
@@ -56,6 +60,7 @@ final class GraphTileCache<T extends GraphTileCache.Tile> implements AutoCloseab
         float bottom = Math.min(nextViewport.bottom(), drawing.bottom() + 32);
         if (right <= left || bottom <= top) {
             visible = List.of();
+            hasRange = false;
             return;
         }
         int level = (int) Math.ceil(2 * Math.log(zoom) / Math.log(2));
@@ -71,13 +76,21 @@ final class GraphTileCache<T extends GraphTileCache.Tile> implements AutoCloseab
             if ((long) (x1 - x0 + 1) * (y1 - y0 + 1) <= MAX_VISIBLE) break;
             level--;
         } while (true);
-        List<Spec> requested = new ArrayList<>();
+        // Smooth zoom changes the camera every frame, but only a tile-range change needs new specs.
+        if (hasRange && level == rangeLevel && x0 == rangeX0 && y0 == rangeY0 && x1 == rangeX1 && y1 == rangeY1) return;
+        hasRange = true;
+        rangeLevel = level;
+        rangeX0 = x0;
+        rangeY0 = y0;
+        rangeX1 = x1;
+        rangeY1 = y1;
+        List<Spec> requested = new ArrayList<>((x1 - x0 + 1) * (y1 - y0 + 1));
         for (int y = y0; y <= y1; y++) for (int x = x0; x <= x1; x++) {
             requested.add(new Spec(new Key(level, x, y),
                 new Bounds((float) (x * side), (float) (y * side),
                     (float) ((x + 1.0) * side), (float) ((y + 1.0) * side)), pixelsPerUnit));
         }
-        if (!requested.equals(visible)) visible = List.copyOf(requested);
+        visible = List.copyOf(requested);
     }
 
     boolean needsWork() {
@@ -110,7 +123,7 @@ final class GraphTileCache<T extends GraphTileCache.Tile> implements AutoCloseab
         var iterator = tiles.entrySet().iterator();
         while (iterator.hasNext()) {
             var entry = iterator.next();
-            if (visible.stream().noneMatch(spec -> spec.key().equals(entry.getKey()))) {
+            if (!isVisible(entry.getKey())) {
                 entry.getValue().tile.close();
                 iterator.remove();
                 return;
@@ -119,23 +132,29 @@ final class GraphTileCache<T extends GraphTileCache.Tile> implements AutoCloseab
         throw new IllegalStateException("Visible tile budget exceeds cache capacity");
     }
 
+    private boolean isVisible(Key key) {
+        for (var spec : visible) if (spec.key().equals(key)) return true;
+        return false;
+    }
+
+    /** Reused frame lists; callers finish consuming them before the next query. */
     List<Entry<T>> drawable() {
-        List<Entry<T>> result = new ArrayList<>();
+        drawable.clear();
         for (var spec : visible) {
             var entry = tiles.get(spec.key());
-            if (entry != null && entry.complete) result.add(entry);
+            if (entry != null && entry.complete) drawable.add(entry);
         }
-        return result;
+        return drawable;
     }
 
     /** Unfinished tiles are painted live until their complete replacement is ready. */
     List<Bounds> unfinished() {
-        List<Bounds> result = new ArrayList<>();
+        unfinished.clear();
         for (var spec : visible) {
             var entry = tiles.get(spec.key());
-            if (entry == null || !entry.complete) result.add(spec.bounds());
+            if (entry == null || !entry.complete) unfinished.add(spec.bounds());
         }
-        return result;
+        return unfinished;
     }
 
     List<Spec> visible() { return visible; }
@@ -145,8 +164,11 @@ final class GraphTileCache<T extends GraphTileCache.Tile> implements AutoCloseab
     public void close() {
         tiles.values().forEach(entry -> entry.tile.close());
         tiles.clear();
+        drawable.clear();
+        unfinished.clear();
         visible = List.of();
         content = null;
         cursor = 0;
+        hasRange = false;
     }
 }
