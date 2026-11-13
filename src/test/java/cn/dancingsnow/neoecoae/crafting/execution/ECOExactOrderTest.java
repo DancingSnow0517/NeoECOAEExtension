@@ -25,7 +25,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
 import java.math.BigInteger;
 import java.util.*;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.core.HolderLookup;
+import net.minecraft.core.RegistryAccess;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -264,7 +264,7 @@ class ECOExactOrderTest {
         var pattern = pattern(key);
         var definition = mock(AEItemKey.class);
         when(pattern.getDefinition()).thenReturn(definition);
-        var registries = mock(HolderLookup.Provider.class);
+        var registries = RegistryAccess.EMPTY;
 
         var result = result(key, Map.of(pattern, PlannerAmount.of(quantity)));
         result.setExactMaterials(Map.of(key, PlannerAmount.of(quantity)), Map.of(), Map.of());

@@ -5,6 +5,7 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.*;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.result.*;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -19,6 +20,24 @@ import static org.mockito.Mockito.*;
 
 class ECOCycleBatchDispatchTest {
     @BeforeAll static void bootstrap() { cn.dancingsnow.neoecoae.util.InventoryTestBootstrap.initialize(); }
+
+    @Test void storedExecutionAmountsPreserveNarrowAndWideQuantities() {
+        var tag = new CompoundTag();
+        PlannerAmount[] amounts = {
+            PlannerAmount.ZERO, PlannerAmount.ONE, PlannerAmount.of(Long.MAX_VALUE),
+            PlannerAmount.of(BigInteger.ONE.shiftLeft(63)),
+            PlannerAmount.of(BigInteger.ONE.shiftLeft(128).subtract(BigInteger.ONE)),
+            PlannerAmount.of(BigInteger.ONE.shiftLeft(128).add(BigInteger.ONE))
+        };
+        for (PlannerAmount amount : amounts) {
+            ECOExecutionPlanNbtCodec.writeAmount(tag, "amount", amount);
+            assertEquals(amount, ECOExecutionPlanNbtCodec.readAmount(tag, "amount"));
+        }
+        for (PlannerAmount[] values : List.of(java.util.Arrays.copyOf(amounts, 3), amounts)) {
+            ECOExecutionPlanNbtCodec.writeAmounts(tag, "amounts", values);
+            assertArrayEquals(values, ECOExecutionPlanNbtCodec.readAmounts(tag, "amounts"));
+        }
+    }
 
     @Test void repeatedProcessingCircuitOffersAllRemainingLaps() {
         var f = new Fixture(64, false, false);

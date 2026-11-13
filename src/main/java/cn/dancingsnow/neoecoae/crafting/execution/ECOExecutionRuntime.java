@@ -549,6 +549,53 @@ public final class ECOExecutionRuntime {
         return result;
     }
 
+    /**
+     * Startup seed stock the job has finished borrowing: every cycle phase that owned the key is complete and no
+     * unfinished task can still take it. The job would only hand this stock back when it ends.
+     */
+    Map<AEKey, PlannerAmount> releasedSeedSurplus(appeng.crafting.inv.ListCraftingInventory inventory) {
+        if (progressByTaskId == null) return Map.of();
+        Set<AEKey> released = new java.util.HashSet<>();
+        for (var phase : plan.phases()) {
+            if (completedPhases.get(phase.index())) released.addAll(phase.plannerInitialSeed().keySet());
+        }
+        for (var phase : plan.phases()) {
+            if (!completedPhases.get(phase.index())) released.removeAll(phase.plannerInitialSeed().keySet());
+        }
+        released.removeIf(key -> totalStartupSeedRemaining(key).signum() > 0);
+        if (released.isEmpty()) return Map.of();
+        Map<AEKey, PlannerAmount> reserved = new java.util.HashMap<>();
+        for (var task : plan.tasks()) {
+            PlannerAmount remaining = progressByTaskId[task.id()].remainingQuantity();
+            if (remaining.signum() <= 0) continue;
+            IPatternDetails pattern = pattern(task.id());
+            if (pattern == null) return Map.of();
+            boolean cycleTask = plan.phases().get(task.phaseIndex()).type() != ECOExecutionSchedule.Type.DAG;
+            for (var input : PatternContractReader.read(pattern).inputs()) {
+                GenericStack primary = input.primary();
+                for (GenericStack candidate : input.possible()) {
+                    // A running cycle's working stock and any substitute are not bounded by the planned primary
+                    // amount; a fuzzy input may also take another variant of the same item. Keep all of those.
+                    if (cycleTask || candidate != primary) released.remove(candidate.what());
+                    released.removeIf(key -> !key.equals(candidate.what())
+                        && key.dropSecondary().equals(candidate.what().dropSecondary()));
+                }
+                if (released.contains(primary.what())) {
+                    reserved.merge(primary.what(),
+                        PlannerAmount.of(primary.amount()).multiply(input.multiplier()).multiply(remaining),
+                        PlannerAmount::add);
+                }
+            }
+        }
+        Map<AEKey, PlannerAmount> result = new LinkedHashMap<>();
+        for (AEKey key : released) {
+            PlannerAmount surplus = cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory.quantity(inventory, key)
+                .subtract(reserved.getOrDefault(key, PlannerAmount.ZERO));
+            if (surplus.signum() > 0) result.put(key, surplus);
+        }
+        return result;
+    }
+
     @Nullable
     public AEKey startupSeedShortfall(appeng.crafting.inv.ListCraftingInventory inventory) {
         Map<AEKey, PlannerAmount> totals = protectedStartupSeed(null);

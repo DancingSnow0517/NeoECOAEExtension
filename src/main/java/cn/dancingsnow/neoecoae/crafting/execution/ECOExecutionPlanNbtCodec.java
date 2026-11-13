@@ -35,7 +35,7 @@ public final class ECOExecutionPlanNbtCodec {
     }
 
     static PlannerAmount readAmount(CompoundTag data, String key) {
-        return data.contains(key) ? PlannerAmount.parse(data.getStringOr(key, "0"))
+        return data.get(key) instanceof net.minecraft.nbt.StringTag ? PlannerAmount.parse(data.getStringOr(key, "0"))
             : PlannerAmount.of(data.getLongOr(key, 0L));
     }
 
@@ -50,7 +50,7 @@ public final class ECOExecutionPlanNbtCodec {
     }
 
     static PlannerAmount[] readAmounts(CompoundTag data, String key) {
-        if (data.contains(key)) return Arrays.stream(data.getLongArray(key).orElseGet(() -> new long[0]))
+        if (data.get(key) instanceof net.minecraft.nbt.LongArrayTag) return Arrays.stream(data.getLongArray(key).orElseThrow())
             .mapToObj(PlannerAmount::of).toArray(PlannerAmount[]::new);
         ListTag values = data.getListOrEmpty(key);
         PlannerAmount[] result = new PlannerAmount[values.size()];

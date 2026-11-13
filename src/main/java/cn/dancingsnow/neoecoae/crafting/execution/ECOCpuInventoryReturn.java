@@ -12,6 +12,9 @@ import net.minecraft.nbt.CompoundTag;
 final class ECOCpuInventoryReturn {
     static final int KEYS_PER_TICK = 256;
     private static final long NANOS_PER_PASS = 1_000_000L;
+    private static final long SEED_RETURN_INTERVAL = 20L;
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(ECOCraftingCPULogic.class);
+    private long nextSeedReturnTick = Long.MIN_VALUE;
     private final ECOCraftingCPULogic host;
     private ArrayList<AEKey> keys = new ArrayList<>();
     private int cursor, used;
@@ -39,6 +42,49 @@ final class ECOCpuInventoryReturn {
         data.putBoolean("ecoInventoryReturnRetiring", host.isMarkedForDeletion());
         if (failure == null) data.remove("ecoInventoryReturnFailure");
         else data.putString("ecoInventoryReturnFailure", failure);
+    }
+
+    /**
+     * A running job hands back cycle seeds it has finished borrowing instead of holding them until it ends, so
+     * another order can start from them. Accounting matches the idle return: only the accepted amount leaves the CPU.
+     */
+    void returnReleasedSeeds(ExecutingCraftingJob job, long currentTick) {
+        if (failure != null || currentTick < nextSeedReturnTick) return;
+        nextSeedReturnTick = currentTick + SEED_RETURN_INTERVAL;
+        if (job.executionRuntime == null || job.exactOrder || host.exactInventory().isEnabled()
+                || job.permanentExecutionError != null
+                || host.outputDeliveryForPersistence().hasPendingFinalOutputs()) return;
+        var grid = host.cpu.getGrid();
+        if (grid == null) return;
+        var inventory = host.getInventory();
+        var surplus = job.executionRuntime.releasedSeedSurplus(inventory);
+        if (surplus.isEmpty()) return;
+        var storage = grid.getStorageService().getInventory();
+        var source = host.cpu.getActionSource();
+        for (var entry : surplus.entrySet()) {
+            AEKey key = entry.getKey();
+            // The final output has its own destination and reserve.
+            if (job.finalOutput != null && key.equals(job.finalOutput.what())) continue;
+            long current = inventory.list.get(key);
+            long offered = Math.min(current, entry.getValue().longValueSaturated());
+            if (offered <= 0) continue;
+            long accepted;
+            try {
+                accepted = storage.insert(key, offered, Actionable.MODULATE, source);
+                if (accepted < 0 || accepted > offered) throw new IllegalStateException("Invalid storage acceptance");
+            } catch (RuntimeException uncertain) {
+                // The receiver may have accepted before throwing. Never automatically replay an uncertain transfer.
+                job.failPermanently("SEED_RETURN_UNCERTAIN");
+                stop("SEED_RETURN_UNCERTAIN");
+                LOGGER.error("ECO cycle seed acceptance is unknown; stopping job {}",
+                    job.link.getCraftingID(), uncertain);
+                return;
+            }
+            if (accepted == 0) continue;
+            if (accepted == current) inventory.list.remove(key); else inventory.list.set(key, current - accepted);
+            host.postChange(key);
+            host.markCpuDirty();
+        }
     }
 
     void run(boolean completePass) {
