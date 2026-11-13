@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.storage.infinite;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -49,6 +51,24 @@ class ECOInfiniteStorageDurabilityTest {
     @BeforeAll
     static void bootstrap() {
         InventoryTestBootstrap.initialize();
+    }
+
+    @Test
+    void recoveryFindsNamespacedAndLegacyDomainsWithoutCreatingData(@TempDir Path world) throws Exception {
+        var server = mock(net.minecraft.server.MinecraftServer.class);
+        when(server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)).thenReturn(world);
+        assertFalse(ECOInfiniteStorageDomains.exists(server, UUID.randomUUID()));
+        assertFalse(Files.exists(world.resolve("data")));
+
+        for (String name : java.util.List.of("neoecoae/neoecoae_infinite_%s_v3.dat",
+                "neoecoae_infinite_%s_v3.dat", "neoecoae_infinite_%s.dat")) {
+            UUID id = UUID.randomUUID();
+            Path snapshot = world.resolve("data").resolve(name.formatted(id));
+            Files.createDirectories(snapshot.getParent());
+            Files.write(snapshot, new byte[0]);
+            assertTrue(ECOInfiniteStorageDomains.exists(server, id), snapshot.toString());
+            assertEquals(0, ECOInfiniteStorageDomains.mountedHosts(server, id));
+        }
     }
 
     private static CompoundTag emptySnapshot() {

@@ -676,6 +676,12 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return isInfiniteMode() && infiniteDomainId != null ? infiniteDomainId.toString() : "";
     }
 
+    /** Returns a translated refusal, or null after successfully reattaching the saved domain. */
+    @Nullable
+    public net.minecraft.network.chat.Component recoverInfiniteDomain(UUID domainId) {
+        return infiniteModeController.recoverDomain(domainId);
+    }
+
     public boolean canInsertStorageCell(ItemStack stack) {
         if (!isInfiniteMode()) return !ECOInfiniteStorageMember.isSealed(stack);
         if (ECOInfiniteStorageMember.isMigrating(stack)) {

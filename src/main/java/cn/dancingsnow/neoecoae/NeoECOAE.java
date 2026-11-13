@@ -125,6 +125,9 @@ public class NeoECOAE {
         NeoForge.EVENT_BUS.addListener(cn.dancingsnow.neoecoae.network.MenuDataTransport::stopped);
         NeoForge.EVENT_BUS.addListener(NETooltips::register);
         NeoForge.EVENT_BUS.addListener(NECommands::register);
+        NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.LOWEST, NECommands::onStorageRecoverClick);
+        NeoForge.EVENT_BUS.addListener(NECommands::onPlayerLoggedOut);
+        NeoForge.EVENT_BUS.addListener(NECommands::onServerStopped);
         NeoForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
         NeoForge.EVENT_BUS.addListener(NeoECOAE::onSyncDatapack);
         NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onLevelUnload);
@@ -151,7 +154,7 @@ public class NeoECOAE {
         "appmek", "fluxnetworks",
         // Leaf integrations excluded from compilation in build.gradle.
         "appbot", "arseng", "appliedsoul", "soulplied_energistics", "appliedpneumatics",
-        "appliedcreate", "data_energistics", "megacells"
+        "appliedcreate", "data_energistics", "megacells", "rep_ae2_bridge"
     );
 
     /** {@code true} if the mod is loaded and its integration has been ported to 26.1. */

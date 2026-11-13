@@ -3,20 +3,34 @@ package cn.dancingsnow.neoecoae.command;
 import static net.minecraft.commands.Commands.literal;
 
 import appeng.api.networking.IGrid;
-import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
+import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageDomains;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ReferenceSet;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import net.minecraft.commands.arguments.UuidArgument;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
-import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 
 public final class NECommands {
+    private static final Map<UUID, UUID> STORAGE_RECOVERY = new HashMap<>();
+
     private NECommands() {}
 
     public static void register(RegisterCommandsEvent event) {
@@ -48,10 +62,58 @@ public final class NECommands {
                         return opened ? 1 : 0;
                     })))
             .then(literal("clear_fx_workers").executes(context -> clearFxWorkers(context.getSource())))
+            .then(literal("storage_recover")
+                .then(net.minecraft.commands.Commands.argument("uuid", UuidArgument.uuid())
+                    .executes(context -> {
+                        var source = context.getSource();
+                        ServerPlayer player = source.getPlayerOrException();
+                        UUID domain = UuidArgument.getUuid(context, "uuid");
+                        STORAGE_RECOVERY.remove(player.getUUID());
+                        if (!ECOInfiniteStorageDomains.exists(source.getServer(), domain)) {
+                            source.sendFailure(Component.translatable(
+                                "command.neoecoae.storage_recover.not_found", domain.toString()));
+                            return 0;
+                        }
+                        STORAGE_RECOVERY.put(player.getUUID(), domain);
+                        source.sendSuccess(() -> Component.translatable(
+                            "command.neoecoae.storage_recover.select_host"), false);
+                        return 1;
+                    })))
             .then(literal("storage_report").executes(context -> storageReport(context.getSource(), null))
                 .then(net.minecraft.commands.Commands.argument("pos", net.minecraft.commands.arguments.coordinates.BlockPosArgument.blockPos())
                     .executes(context -> storageReport(context.getSource(),
                         net.minecraft.commands.arguments.coordinates.BlockPosArgument.getLoadedBlockPos(context, "pos"))))));
+    }
+
+    public static void onStorageRecoverClick(PlayerInteractEvent.RightClickBlock event) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || event.getHand() != InteractionHand.MAIN_HAND) return;
+        UUID domain = STORAGE_RECOVERY.get(player.getUUID());
+        if (domain == null) return;
+        if (!net.minecraft.commands.Commands.hasPermission(net.minecraft.commands.Commands.LEVEL_GAMEMASTERS)
+                .test(player.createCommandSourceStack())) {
+            STORAGE_RECOVERY.remove(player.getUUID());
+            return;
+        }
+        if (!(event.getLevel().getBlockEntity(event.getPos()) instanceof ECOStorageSystemBlockEntity host)
+                || !ECOStorageSystemBlock.isPlayerCloseEnough(event.getLevel(), event.getPos(), player)) return;
+        // Consume this interaction even on refusal: a held wrench must not dismantle the recovery target.
+        event.setCanceled(true);
+        event.setCancellationResult(InteractionResult.SUCCESS);
+        Component refusal = host.recoverInfiniteDomain(domain);
+        if (refusal != null) {
+            player.sendSystemMessage(refusal);
+            return;
+        }
+        STORAGE_RECOVERY.remove(player.getUUID());
+        player.sendSystemMessage(Component.translatable("command.neoecoae.storage_recover.success", domain.toString()));
+    }
+
+    public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        STORAGE_RECOVERY.remove(event.getEntity().getUUID());
+    }
+
+    public static void onServerStopped(ServerStoppedEvent event) {
+        STORAGE_RECOVERY.clear();
     }
 
     private static int storageReport(net.minecraft.commands.CommandSourceStack source, net.minecraft.core.BlockPos pos) {
