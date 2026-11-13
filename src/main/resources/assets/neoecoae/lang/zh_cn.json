@@ -1066,6 +1066,8 @@
   "gui.neoecoae.crafting_graph.toolbar.missing_on": "仅缺失：开",
   "gui.neoecoae.crafting_graph.toolbar.missing_off": "仅缺失：关",
   "gui.neoecoae.crafting_graph.toolbar.root": "根节点",
+  "gui.neoecoae.crafting_graph.toolbar.theme_dark": "主题：暗色",
+  "gui.neoecoae.crafting_graph.toolbar.theme_light": "主题：亮色",
   "gui.neoecoae.crafting_graph.toolbar.expand": "展开",
   "gui.neoecoae.crafting_graph.toolbar.collapse": "折叠",
   "gui.neoecoae.crafting_graph.toolbar.expand_all": "全部",

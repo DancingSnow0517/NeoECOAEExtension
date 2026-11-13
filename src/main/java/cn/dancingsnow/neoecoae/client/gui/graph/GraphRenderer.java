@@ -26,12 +26,6 @@ import org.lwjgl.opengl.GL11;
  * scene into raster tiles, so both paths show an identical picture at every zoom level.
  */
 public final class GraphRenderer implements AutoCloseable {
-    static final int SELECTED = 0xfff6c453;
-    static final int ADJACENT = 0xff83c5be;
-    private static final int LINK = 0xff8293a4;
-    private static final int LINK_REJECTED = 0xff66505a;
-    private static final int MISSING = 0xffcf5e5e;
-
     public record Frame(@Nullable ClientCraftingGraph.Node hovered, List<Component> tooltip) {}
     record VisiblePlan(List<GraphLayoutSnapshot.Box> nodes, List<ClientCraftingGraph.Link> edges, int nodeCount) {}
     /** Screen rectangle reserved for the graph canvas. */
@@ -150,17 +144,18 @@ public final class GraphRenderer implements AutoCloseable {
             Bounds area, @Nullable Integer selectedId, @Nullable ClientCraftingGraph.Node hovered,
             double pixelsPerUnit) {
         float thin = halfWidth(pixelsPerUnit, 0.5f) * 2;
+        var theme = GraphTheme.current();
         if (selectedId != null) {
             for (var link : layout.linksAt(selectedId)) {
                 if (!layout.linkBounds(link).intersects(area)) continue;
-                drawLink(graphics, graph, layout, link, SELECTED, pixelsPerUnit);
+                drawLink(graphics, graph, layout, link, theme.accent(), pixelsPerUnit);
                 int neighbor = link.fromId() == selectedId ? link.toId() : link.fromId();
-                outline(graphics, layout.box(neighbor), area, ADJACENT, thin);
+                outline(graphics, layout.box(neighbor), area, theme.muted(), thin);
             }
-            outline(graphics, layout.box(selectedId), area, SELECTED, thin * 2);
+            outline(graphics, layout.box(selectedId), area, theme.accent(), thin * 2);
         }
         if (hovered != null && (selectedId == null || selectedId != hovered.id())) {
-            outline(graphics, layout.box(hovered.id()), area, ADJACENT, thin);
+            outline(graphics, layout.box(hovered.id()), area, theme.muted(), thin);
         }
     }
 
@@ -219,14 +214,15 @@ public final class GraphRenderer implements AutoCloseable {
                     case 0 -> RecursiveCycleRenderer.drawRegion(graphics, regions.get(index), pixelsPerUnit);
                     case 1 -> {
                         var link = links.get(index);
-                        drawLink(graphics, graph, layout, link, link.selected() ? LINK : LINK_REJECTED, pixelsPerUnit);
+                        drawLink(graphics, graph, layout, link, link.selected() ? GraphTheme.current().edge()
+                            : GraphTheme.current().edgeRejected(), pixelsPerUnit);
                     }
                     case 2 -> body(graphics, nodes.get(index));
                     case 3 -> icon(graphics, nodes.get(index));
                     case 4 -> text(graphics, nodes.get(index));
                     case 5 -> {
                         var row = rows.get(index);
-                        GraphDraw.frame(graphics, row.left(), row.top(), row.right(), row.bottom(), LINK,
+                        GraphDraw.frame(graphics, row.left(), row.top(), row.right(), row.bottom(), GraphTheme.current().line(),
                             halfWidth(pixelsPerUnit, 0.5f) * 2);
                     }
                     case 6 -> clusterLabel(graphics, graph.focusedCluster().componentIds().get(index));
@@ -250,7 +246,7 @@ public final class GraphRenderer implements AutoCloseable {
             }
             if (left == Float.MAX_VALUE) return;
             GraphDraw.text(graphics, Minecraft.getInstance().font, recursionText("module", componentId).getString(),
-                left, top - 12, 0xffe2b766, 1);
+                left, top - 12, GraphTheme.current().accent(), 1);
         }
 
         private void body(GuiGraphics graphics, GraphLayoutSnapshot.Box box) {
@@ -279,10 +275,10 @@ public final class GraphRenderer implements AutoCloseable {
             if (!graph.isCompactTree()) {
                 GraphDraw.frame(graphics, box.x(), box.y(), box.x() + box.width(), box.y() + box.height(),
                     CompactTreeRenderer.nodeBorder(graph, node), thin);
-            } else if (node.material() != null
-                    && node.material().status() == CraftingGraphSnapshot.MaterialStatus.MISSING) {
+            } else {
                 GraphDraw.frame(graphics, box.x(), box.y(), box.x() + box.width(), box.y() + box.height(),
-                    MISSING, Math.max(thin, 2));
+                    GraphTheme.current().line(), thin);
+                CompactTreeRenderer.drawStatusStrip(graphics, graph, node, box);
             }
             if (graph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER) {
                 for (var link : layout.linksAt(node.id())) {
@@ -304,7 +300,7 @@ public final class GraphRenderer implements AutoCloseable {
     private static void drawLink(GuiGraphics graphics, ClientCraftingGraph graph, GraphLayoutSnapshot layout,
             ClientCraftingGraph.Link link, int color, double pixelsPerUnit) {
         if (graph.isRecursiveCycle()) {
-            RecursiveCycleRenderer.drawLink(graphics, graph, layout, link, color == SELECTED ? color : null,
+            RecursiveCycleRenderer.drawLink(graphics, graph, layout, link, color == GraphTheme.current().accent() ? color : null,
                 pixelsPerUnit);
             return;
         }
@@ -367,8 +363,9 @@ public final class GraphRenderer implements AutoCloseable {
         float width = font.width(text) * scale + 4;
         float x = (a.x() + b.x()) / 2;
         float y = (a.y() + b.y()) / 2;
-        GraphDraw.fill(graphics, x - width / 2, y - 4.5f, x + width / 2, y + 4.5f, 0xcc171b20);
-        GraphDraw.centeredText(graphics, font, text, x, y - 3.5f, CompactTreeRenderer.MUTED, scale);
+        GraphDraw.fill(graphics, x - width / 2, y - 4.5f, x + width / 2, y + 4.5f,
+            GraphTheme.alpha(GraphTheme.current().panel(), 0xcc));
+        GraphDraw.centeredText(graphics, font, text, x, y - 3.5f, GraphTheme.current().muted(), scale);
     }
 
     private static String edgeAmount(ClientCraftingGraph graph, ClientCraftingGraph.Link link) {

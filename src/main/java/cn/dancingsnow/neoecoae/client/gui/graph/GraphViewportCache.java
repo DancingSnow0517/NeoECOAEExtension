@@ -92,7 +92,8 @@ final class GraphViewportCache implements AutoCloseable {
             target = new TextureTarget(GraphTileCache.TILE_SIZE + 2 * GUARD,
                 GraphTileCache.TILE_SIZE + 2 * GUARD, true, Minecraft.ON_OSX);
             target.setFilterMode(GL11.GL_LINEAR);
-            target.setClearColor(14 / 255f, 17 / 255f, 21 / 255f, 1);
+            int clear = GraphTheme.current().canvas();
+            target.setClearColor((clear >> 16 & 0xff) / 255f, (clear >> 8 & 0xff) / 255f, (clear & 0xff) / 255f, 1);
             target.clear(Minecraft.ON_OSX);
         }
 

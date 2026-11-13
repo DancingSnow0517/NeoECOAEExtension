@@ -1043,6 +1043,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_graph.toolbar.fit_all", "Fit All");
         provider.add("gui.neoecoae.crafting_graph.toolbar.missing_on", "Missing only: On");
         provider.add("gui.neoecoae.crafting_graph.toolbar.missing_off", "Missing only: Off");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.theme_dark", "Theme: Dark");
+        provider.add("gui.neoecoae.crafting_graph.toolbar.theme_light", "Theme: Light");
         provider.add("gui.neoecoae.crafting_graph.toolbar.root", "Root");
         provider.add("gui.neoecoae.crafting_graph.toolbar.expand", "Expand");
         provider.add("gui.neoecoae.crafting_graph.toolbar.collapse", "Collapse");
