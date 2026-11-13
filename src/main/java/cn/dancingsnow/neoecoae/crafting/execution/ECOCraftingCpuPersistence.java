@@ -67,6 +67,11 @@ final class ECOCraftingCpuPersistence {
         }
 
         CompoundTag jobData = job.writeToNBT();
+        try {
+            job.writeCraftingGraph(jobData);
+        } catch (RuntimeException unavailable) {
+            appeng.core.AELog.warn("Cannot save ECO crafting graph: %s", unavailable.getMessage());
+        }
         host.outputDeliveryForPersistence().writePendingFinalOutputs(jobData);
         host.writeJobAttachments(jobData);
         data.put("job", jobData);

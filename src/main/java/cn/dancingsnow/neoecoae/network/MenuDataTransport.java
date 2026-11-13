@@ -19,7 +19,7 @@ import cn.dancingsnow.neoecoae.network.ECONetwork;
 
 /** Main-thread, menu-scoped transport. All bulk channels share one player's tick budget. */
 public final class MenuDataTransport {
-    public enum Channel { TERMINAL, CPU, GRAPH, PATTERNS }
+    public enum Channel { TERMINAL, CPU, GRAPH, PATTERNS, GRAPH_PROGRESS }
     public static final int UPDATE_INTERVAL = 5;
     // Includes a conservative allowance for payload id, framing and chunk metadata.
     public static final int TICK_BYTES = 34 * 1024;

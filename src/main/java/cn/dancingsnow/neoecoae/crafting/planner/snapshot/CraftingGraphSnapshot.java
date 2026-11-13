@@ -20,6 +20,7 @@ import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
@@ -79,6 +80,38 @@ public record CraftingGraphSnapshot(
                 cycle.singleNetOutputs(), cycle.totalNetOutputs(), cycle.availableAmounts(),
                 cycle.exactSingleNetOutputs(), cycle.exactTotalNetOutputs(), cycle.executionCountKnowledge(),
                 cycle.solveStatus(), Recursion.EMPTY)).toList(), fuzzyPlanningItemIds, summary);
+    }
+
+    /** Reuses the graph format, with persistent NBT keys instead of connection-specific registry IDs. */
+    public CompoundTag writePersistent() {
+        var raw = new PersistentBuffer(Unpooled.buffer(256, MAX_UNCOMPRESSED_BYTES));
+        try {
+            writeRaw(raw);
+            var tag = new CompoundTag();
+            tag.putInt("version", 1);
+            tag.putInt("size", raw.readableBytes());
+            byte[] compressed = compress(raw);
+            if (compressed.length > MAX_COMPRESSED_BYTES) throw new IllegalArgumentException("Saved crafting graph too large");
+            tag.putByteArray("data", compressed);
+            return tag;
+        } finally {
+            raw.release();
+        }
+    }
+
+    public static CraftingGraphSnapshot readPersistent(CompoundTag tag) {
+        int size = tag.getInt("size");
+        byte[] bytes = tag.getByteArray("data");
+        if (tag.getInt("version") != 1 || size < 0 || size > MAX_UNCOMPRESSED_BYTES
+                || bytes.length > MAX_COMPRESSED_BYTES) throw new IllegalArgumentException("Invalid saved crafting graph");
+        var raw = new PersistentBuffer(Unpooled.wrappedBuffer(decompress(bytes, size)));
+        try {
+            var graph = new CraftingGraphSnapshot(readRaw(raw));
+            if (raw.isReadable()) throw new IllegalArgumentException("Trailing saved crafting graph data");
+            return graph;
+        } finally {
+            raw.release();
+        }
     }
 
     @Override
@@ -253,14 +286,14 @@ public record CraftingGraphSnapshot(
         public BigInteger consumedBigInteger() { return new BigInteger(exactConsumed); }
         public BigInteger producedBigInteger() { return new BigInteger(exactProduced); }
         private static MaterialNode read(FriendlyByteBuf data) {
-            return new MaterialNode(data.readVarInt(), ECOKeyFactory.readKey(data), data.readVarLong(), data.readVarLong(),
+            return new MaterialNode(data.readVarInt(), readKey(data), data.readVarLong(), data.readVarLong(),
                 data.readVarLong(), data.readVarLong(), data.readEnum(MaterialStatus.class), data.readUtf(),
                 data.readUtf(), data.readUtf(), data.readUtf(), data.readUtf(), data.readUtf());
         }
 
         private void write(FriendlyByteBuf data) {
             data.writeVarInt(nodeId);
-            AEKey.writeKey(data, key);
+            writeKey(data, key);
             data.writeVarLong(requested);
             data.writeVarLong(fromInventory);
             data.writeVarLong(toCraft);
@@ -341,11 +374,11 @@ public record CraftingGraphSnapshot(
         public KeyAmount(AEKey key, long amount) { this(key, PlannerAmount.of(amount)); }
         public long amount() { return plannerAmount.longValueSaturated(); }
         private static KeyAmount read(FriendlyByteBuf data) {
-            return new KeyAmount(ECOKeyFactory.readKey(data), readAmount(data));
+            return new KeyAmount(readKey(data), readAmount(data));
         }
 
         private void write(FriendlyByteBuf data) {
-            AEKey.writeKey(data, key);
+            writeKey(data, key);
             writeAmount(data, plannerAmount);
         }
     }
@@ -491,6 +524,26 @@ public record CraftingGraphSnapshot(
             data.writeVarInt(cycleGroups);
             data.writeVarLong(calculationNanos);
         }
+    }
+
+    private static final class PersistentBuffer extends FriendlyByteBuf {
+
+        private PersistentBuffer(io.netty.buffer.ByteBuf buffer) {
+            super(buffer);
+        }
+    }
+
+    private static AEKey readKey(FriendlyByteBuf data) {
+        if (!(data instanceof PersistentBuffer)) return ECOKeyFactory.readKey(data);
+        var tag = data.readNbt();
+        var key = tag == null ? null : ECOKeyFactory.fromTagGeneric(tag);
+        if (key == null) throw new IllegalArgumentException("Unavailable key in saved crafting graph");
+        return key;
+    }
+
+    private static void writeKey(FriendlyByteBuf data, AEKey key) {
+        if (data instanceof PersistentBuffer) data.writeNbt(key.toTagGeneric());
+        else AEKey.writeKey(data, key);
     }
 
     private interface Reader<T> { T read(FriendlyByteBuf data); }
