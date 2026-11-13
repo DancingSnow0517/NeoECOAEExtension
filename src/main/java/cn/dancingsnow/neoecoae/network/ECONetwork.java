@@ -28,7 +28,7 @@ public final class ECONetwork {
     }
 
     static String protocolVersion(String modVersion) {
-        // Includes the captured lite crafting mode in confirmation-menu synchronization.
-        return "7/" + modVersion;
+        // Includes exact live graph amounts and graph-context item actions.
+        return "9/" + modVersion;
     }
 }

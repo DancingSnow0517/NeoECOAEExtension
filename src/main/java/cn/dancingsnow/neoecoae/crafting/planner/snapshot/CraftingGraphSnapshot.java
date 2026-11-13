@@ -20,6 +20,9 @@ import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
@@ -79,6 +82,38 @@ public record CraftingGraphSnapshot(
                 cycle.singleNetOutputs(), cycle.totalNetOutputs(), cycle.availableAmounts(),
                 cycle.exactSingleNetOutputs(), cycle.exactTotalNetOutputs(), cycle.executionCountKnowledge(),
                 cycle.solveStatus(), Recursion.EMPTY)).toList(), fuzzyPlanningItemIds, summary);
+    }
+
+    /** Reuses the graph format, with persistent NBT keys instead of connection-specific registry IDs. */
+    public CompoundTag writePersistent(HolderLookup.Provider registries) {
+        var raw = new PersistentBuffer(Unpooled.buffer(256, MAX_UNCOMPRESSED_BYTES), registries);
+        try {
+            writeRaw(raw);
+            var tag = new CompoundTag();
+            tag.putInt("version", 1);
+            tag.putInt("size", raw.readableBytes());
+            byte[] compressed = compress(raw);
+            if (compressed.length > MAX_COMPRESSED_BYTES) throw new IllegalArgumentException("Saved crafting graph too large");
+            tag.putByteArray("data", compressed);
+            return tag;
+        } finally {
+            raw.release();
+        }
+    }
+
+    public static CraftingGraphSnapshot readPersistent(CompoundTag tag, HolderLookup.Provider registries) {
+        int size = tag.getIntOr("size", 0);
+        byte[] bytes = tag.getByteArray("data").orElseGet(() -> new byte[0]);
+        if (tag.getIntOr("version", 0) != 1 || size < 0 || size > MAX_UNCOMPRESSED_BYTES
+                || bytes.length > MAX_COMPRESSED_BYTES) throw new IllegalArgumentException("Invalid saved crafting graph");
+        var raw = new PersistentBuffer(Unpooled.wrappedBuffer(decompress(bytes, size)), registries);
+        try {
+            var graph = new CraftingGraphSnapshot(readRaw(raw));
+            if (raw.isReadable()) throw new IllegalArgumentException("Trailing saved crafting graph data");
+            return graph;
+        } finally {
+            raw.release();
+        }
     }
 
     @Override
@@ -253,14 +288,14 @@ public record CraftingGraphSnapshot(
         public BigInteger consumedBigInteger() { return new BigInteger(exactConsumed); }
         public BigInteger producedBigInteger() { return new BigInteger(exactProduced); }
         private static MaterialNode read(RegistryFriendlyByteBuf data) {
-            return new MaterialNode(data.readVarInt(), ECOKeyFactory.readKey(data), data.readVarLong(), data.readVarLong(),
+            return new MaterialNode(data.readVarInt(), readKey(data), data.readVarLong(), data.readVarLong(),
                 data.readVarLong(), data.readVarLong(), data.readEnum(MaterialStatus.class), data.readUtf(),
                 data.readUtf(), data.readUtf(), data.readUtf(), data.readUtf(), data.readUtf());
         }
 
         private void write(RegistryFriendlyByteBuf data) {
             data.writeVarInt(nodeId);
-            AEKey.writeKey(data, key);
+            writeKey(data, key);
             data.writeVarLong(requested);
             data.writeVarLong(fromInventory);
             data.writeVarLong(toCraft);
@@ -341,11 +376,11 @@ public record CraftingGraphSnapshot(
         public KeyAmount(AEKey key, long amount) { this(key, PlannerAmount.of(amount)); }
         public long amount() { return plannerAmount.longValueSaturated(); }
         private static KeyAmount read(RegistryFriendlyByteBuf data) {
-            return new KeyAmount(ECOKeyFactory.readKey(data), readAmount(data));
+            return new KeyAmount(readKey(data), readAmount(data));
         }
 
         private void write(RegistryFriendlyByteBuf data) {
-            AEKey.writeKey(data, key);
+            writeKey(data, key);
             writeAmount(data, plannerAmount);
         }
     }
@@ -491,6 +526,28 @@ public record CraftingGraphSnapshot(
             data.writeVarInt(cycleGroups);
             data.writeVarLong(calculationNanos);
         }
+    }
+
+    private static final class PersistentBuffer extends RegistryFriendlyByteBuf {
+        private final HolderLookup.Provider lookups;
+
+        private PersistentBuffer(io.netty.buffer.ByteBuf buffer, HolderLookup.Provider lookups) {
+            super(buffer, RegistryAccess.EMPTY);
+            this.lookups = lookups;
+        }
+    }
+
+    private static AEKey readKey(RegistryFriendlyByteBuf data) {
+        if (!(data instanceof PersistentBuffer persistent)) return ECOKeyFactory.readKey(data);
+        var tag = data.readNbt();
+        var key = tag == null ? null : ECOKeyFactory.fromTagGeneric(persistent.lookups, tag);
+        if (key == null) throw new IllegalArgumentException("Unavailable key in saved crafting graph");
+        return key;
+    }
+
+    private static void writeKey(RegistryFriendlyByteBuf data, AEKey key) {
+        if (data instanceof PersistentBuffer persistent) data.writeNbt(cn.dancingsnow.neoecoae.crafting.ECOLegacyAENbt.writeKey(persistent.lookups, key));
+        else AEKey.writeKey(data, key);
     }
 
     private interface Reader<T> { T read(RegistryFriendlyByteBuf data); }

@@ -157,6 +157,25 @@ class GraphStreamTest {
         verify(host, never()).neoecoae$setDiagnostics(eq(20L), any(), any());
     }
 
+    @Test void lateProgressIsConsumedAfterClosingOrReplacingTheGraph() {
+        var menu = mock(AbstractContainerMenu.class);
+        var listener = mock(CraftingReportStream.LiveListener.class);
+        var progress = new cn.dancingsnow.neoecoae.crafting.graph.CraftingGraphProgress(
+            java.util.Set.of(1), java.util.Set.of(2));
+        CraftingReportStream.watch(menu, 21, listener);
+        for (boolean closed : List.of(false, true)) {
+            if (closed) CraftingReportStream.stopWatching(menu);
+            var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries());
+            try {
+                buf.writeVarLong(closed ? 21 : 20);
+                progress.write(buf);
+                CraftingReportStream.receiveProgress(menu, buf);
+                assertFalse(buf.isReadable(), "Late progress must satisfy the menu transport framing contract");
+            } finally { buf.release(); }
+        }
+        verifyNoInteractions(listener);
+    }
+
     private static RegistryAccess registries() {
         return RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
     }

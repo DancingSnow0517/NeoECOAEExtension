@@ -30,6 +30,7 @@ final class MenuDataCodecs {
                     host.neoecoae$applyExactAmounts(serial, full, stored, active, pending);
             }
             case GRAPH -> CraftingReportStream.receive(menu, buf);
+            case GRAPH_PROGRESS -> CraftingReportStream.receiveProgress(menu, buf);
             case PATTERNS -> {
                 var pos = buf.readBlockPos();
                 var tag = cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewCodec.read(buf);
