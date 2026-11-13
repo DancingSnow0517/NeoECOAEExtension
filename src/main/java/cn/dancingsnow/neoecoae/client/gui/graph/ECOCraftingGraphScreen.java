@@ -95,6 +95,7 @@ public final class ECOCraftingGraphScreen extends Screen {
         addButton(tr("toolbar.fit_all"), this::fitAll);
         depthButton = addButton(depthLabel(), this::cycleDepth);
         missingButton = addButton(tr(missingOnly ? "toolbar.missing_on" : "toolbar.missing_off"), this::toggleMissingOnly);
+        addButton(tr(GraphTheme.current().light() ? "toolbar.theme_light" : "toolbar.theme_dark"), this::toggleTheme);
         int searchWidth = Math.min(180, Math.max(60, width - toolbarX - 8));
         if (toolbarX + searchWidth + 5 > width) {
             toolbarX = 5;
@@ -145,8 +146,10 @@ public final class ECOCraftingGraphScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, width, height, 0xff0e1115);
-        graphics.fill(0, 0, width, toolbarHeight, 0xff242a31);
+        var theme = GraphTheme.current();
+        graphics.fill(0, 0, width, height, theme.canvas());
+        graphics.fill(0, 0, width, toolbarHeight, theme.bar());
+        graphics.fill(0, toolbarHeight - 1, width, toolbarHeight, theme.line());
         int contentTop = graphContentTop();
         boolean overGraph = overGraph(mouseX, mouseY);
         int graphMouseX = overGraph ? mouseX : -1_000_000;
@@ -156,12 +159,13 @@ public final class ECOCraftingGraphScreen extends Screen {
             graphMouseX, graphMouseY, selectedId);
         hovered = frame.hovered();
         super.render(graphics, mouseX, mouseY, partialTick);
-        graphics.fill(0, infoTop(), width, materialSummary.top(), 0xff0e1115);
+        graphics.fill(0, infoTop(), width, materialSummary.top(), theme.bar());
+        graphics.fill(0, infoTop(), width, infoTop() + 1, theme.line());
         drawBreadcrumb(graphics);
         drawStats(graphics);
         materialSummary.render(graphics, font, mouseX, mouseY);
         if (graph.isRecursiveCycle()) RecursiveCycleRenderer.text(graphics, font, recursionOverview.getString(),
-            7, toolbarHeight + 7, width - 14, RecursiveCycleRenderer.TEXT, 0.85f);
+            7, toolbarHeight + 7, width - 14, theme.text(), 0.85f);
         if (selectedId != null) {
             if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) drawCycleDetails(graphics);
             else if (graph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER) drawClusterDetails(graphics);
@@ -191,7 +195,7 @@ public final class ECOCraftingGraphScreen extends Screen {
     }
 
     private void drawBreadcrumb(GuiGraphics graphics) {
-        graphics.drawString(font, breadcrumbText(), 7, infoTop() + 5, 0xffc6d0da, false);
+        graphics.drawString(font, breadcrumbText(), 7, infoTop() + 5, GraphTheme.current().text(), false);
     }
 
     private String breadcrumbText() {
@@ -208,10 +212,10 @@ public final class ECOCraftingGraphScreen extends Screen {
         String zoomLabel = tr("zoom", Math.round(zoom * 100)).getString();
         String hint = tr("controls").getString();
         int right = width - font.width(zoomLabel) - 7;
-        graphics.drawString(font, zoomLabel, Math.max(7, right), infoTop() + 5, 0xffc6d0da, false);
+        graphics.drawString(font, zoomLabel, Math.max(7, right), infoTop() + 5, GraphTheme.current().text(), false);
         int hintRight = right - 10;
         String shownHint = fit(hint, Math.max(0, hintRight - font.width(breadcrumbText()) - 19));
-        graphics.drawString(font, shownHint, hintRight - font.width(shownHint), infoTop() + 5, 0xff8e9aa6, false);
+        graphics.drawString(font, shownHint, hintRight - font.width(shownHint), infoTop() + 5, GraphTheme.current().faint(), false);
     }
 
     private void drawCycleDetails(GuiGraphics graphics) {
@@ -223,9 +227,9 @@ public final class ECOCraftingGraphScreen extends Screen {
         int left = width - panelWidth - 8;
         int top = graphContentTop() + 8;
         int lines = 8;
-        graphics.fill(left, top, width - 8, top + 10 + lines * 12, 0xdd171b20);
+        panel(graphics, left, top, width - 8, top + 10 + lines * 12);
         graphics.drawString(font, tr("details.cycle_title", cycle.componentId()), left + 7, top + 6,
-            0xffe2b766, false);
+            GraphTheme.current().accent(), false);
         int y = top + 19;
         y = textLine(graphics, left, panelWidth, y, "status", statusText(cycle.status()));
         y = textLine(graphics, left, panelWidth, y, "seed", summarizeAmounts(cycle.requiredSeed()));
@@ -234,11 +238,17 @@ public final class ECOCraftingGraphScreen extends Screen {
         y = line(graphics, left, y, "recursion_layers", cycle.recursion().layers().size());
         String hint = !cycle.recursion().complete() ? "unknown_hint"
             : cycle.status().equals("SOLVED") || cycle.status().equals("NOT_REQUIRED") ? "direction" : "conditional";
-        graphics.drawWordWrap(font, GraphRenderer.recursionText(hint), left + 7, y, panelWidth - 14, 0xffaeb8c2);
+        graphics.drawWordWrap(font, GraphRenderer.recursionText(hint), left + 7, y, panelWidth - 14, GraphTheme.current().muted());
+    }
+
+    private static void panel(GuiGraphics graphics, int left, int top, int right, int bottom) {
+        var theme = GraphTheme.current();
+        graphics.fill(left, top, right, bottom, theme.line());
+        graphics.fill(left + 1, top + 1, right - 1, bottom - 1, GraphTheme.alpha(theme.panel(), 0xf2));
     }
 
     private int line(GuiGraphics graphics, int left, int y, String keySuffix, int value) {
-        graphics.drawString(font, tr("details." + keySuffix, value), left + 7, y, 0xffaeb8c2, false);
+        graphics.drawString(font, tr("details." + keySuffix, value), left + 7, y, GraphTheme.current().muted(), false);
         return y + 12;
     }
 
@@ -248,21 +258,21 @@ public final class ECOCraftingGraphScreen extends Screen {
         int panelWidth = Math.min(250, Math.max(1, width - 16));
         int left = width - panelWidth - 8;
         int top = graphContentTop() + 8;
-        graphics.fill(left, top, width - 8, top + 70, 0xdd171b20);
+        panel(graphics, left, top, width - 8, top + 70);
         graphics.drawString(font, tr("details.cluster_title", cluster.clusterId()), left + 7, top + 6,
-            0xffe2b766, false);
+            GraphTheme.current().accent(), false);
         int y = top + 20;
         y = line(graphics, left, y, "cluster_cycles", cluster.componentIds().size());
         y = line(graphics, left, y, "cluster_flows", cluster.flows().size());
-        graphics.drawString(font, tr("details.cluster_hint"), left + 7, y, 0xffaeb8c2, false);
+        graphics.drawString(font, tr("details.cluster_hint"), left + 7, y, GraphTheme.current().muted(), false);
     }
 
     private int textLine(GuiGraphics graphics, int left, int panelWidth, int y, String keySuffix, Component value) {
         Component label = tr("details." + keySuffix + "_label");
         int valueX = left + 7 + font.width(label);
-        graphics.drawString(font, label, left + 7, y, 0xffaeb8c2, false);
+        graphics.drawString(font, label, left + 7, y, GraphTheme.current().muted(), false);
         graphics.drawString(font, fit(value.getString(), panelWidth - 14 - font.width(label)), valueX, y,
-            0xffe2b766, false);
+            GraphTheme.current().accent(), false);
         return y + 12;
     }
 
@@ -522,6 +532,13 @@ public final class ECOCraftingGraphScreen extends Screen {
         refreshControls();
     }
 
+    private void toggleTheme() {
+        GraphTheme.toggle();
+        materialDetails = null;
+        materialTooltip = null;
+        refreshControls();
+    }
+
     private void refreshControls() {
         // Reflow translated labels without rebuilding the graph or resetting its camera.
         init();
@@ -696,11 +713,11 @@ public final class ECOCraftingGraphScreen extends Screen {
         int left = width - panelWidth - 8;
         int top = graphContentTop() + 8;
         int lines = 9;
-        graphics.fill(left, top, width - 8, top + 12 + lines * 12, 0xdd171b20);
+        panel(graphics, left, top, width - 8, top + 12 + lines * 12);
         graphics.drawString(font, node.kind() == ClientCraftingGraph.Kind.FOLDER
                 ? Component.translatable("gui.neoecoae.crafting_graph.details.folder")
                 : Component.literal(fit(CompactTreeRenderer.nodeTitle(node), panelWidth - 14)), left + 7,
-            top + 6, node.kind() == ClientCraftingGraph.Kind.FOLDER ? 0xff9fb3c2 : 0xffe2b766, false);
+            top + 6, node.kind() == ClientCraftingGraph.Kind.FOLDER ? GraphTheme.current().muted() : GraphTheme.current().accent(), false);
         int y = top + 20;
         if (node.kind() == ClientCraftingGraph.Kind.FOLDER) {
             var folder = graph.compactTreeNode(node.id());
@@ -736,14 +753,14 @@ public final class ECOCraftingGraphScreen extends Screen {
     private int detailLine(GuiGraphics graphics, int left, int y, String keySuffix, long value) {
         graphics.drawString(font,
             Component.translatable("gui.neoecoae.crafting_graph.details." + keySuffix, value),
-            left + 7, y, 0xffaeb8c2, false);
+            left + 7, y, GraphTheme.current().muted(), false);
         return y + 12;
     }
 
     private int detailTextLine(GuiGraphics graphics, int left, int y, String keySuffix, Component value) {
         graphics.drawString(font,
             Component.translatable("gui.neoecoae.crafting_graph.details." + keySuffix, value),
-            left + 7, y, 0xffaeb8c2, false);
+            left + 7, y, GraphTheme.current().muted(), false);
         return y + 12;
     }
 
@@ -782,13 +799,14 @@ public final class ECOCraftingGraphScreen extends Screen {
         int left = search.getX();
         int top = search.getY() + search.getHeight();
         int right = left + search.getWidth();
-        graphics.fill(left, top, right, top + searchSuggestions.size() * 18 + 2, 0xf020252b);
+        var theme = GraphTheme.current();
+        panel(graphics, left, top, right, top + searchSuggestions.size() * 18 + 2);
         for (int i = 0; i < searchSuggestions.size(); i++) {
             ClientCraftingGraph.Node node = searchSuggestions.get(i);
             int rowTop = top + 1 + i * 18;
             if (mouseX >= left && mouseX < right && mouseY >= rowTop && mouseY < rowTop + 18)
-                graphics.fill(left, rowTop, right, rowTop + 18, 0xff3a4650);
-            graphics.drawString(font, fit(node.label(), search.getWidth() - 8), left + 4, rowTop + 5, 0xffe8edf2, false);
+                graphics.fill(left + 1, rowTop, right - 1, rowTop + 18, theme.hover());
+            graphics.drawString(font, fit(node.label(), search.getWidth() - 8), left + 4, rowTop + 5, theme.text(), false);
         }
     }
 
