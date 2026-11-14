@@ -403,9 +403,10 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         return new CraftingGraphProgress(running, graphCompleted, graphAmounts, suspended, false);
     }
 
-    void finishCraftingGraph(HolderLookup.Provider registries, ListCraftingInventory inventory, boolean success) {
+    void finishCraftingGraph(@Nullable HolderLookup.Provider registries, ListCraftingInventory inventory, boolean success) {
         // Freeze actual quantities before cancellation clears the waiting inventory or the CPU starts another job.
-        if (graphSnapshot != null) graphProgress(registries, inventory);
+        // A detached CPU can still be cancelled; retain its last graph quantities without a world context.
+        if (graphSnapshot != null && registries != null) graphProgress(registries, inventory);
         graphSuccess = success;
     }
 

@@ -33,6 +33,7 @@ final class ECOCraftReportTooltips {
 
     static CraftingListCard.Builder pending(Component status, boolean liteCrafting) {
         var card = statisticsHeader(null).divider().wrapped(null, status, CraftingTooltipCard.MUTED);
+        if (liteCrafting) card.divider().wrapped(Glyph.INFO, text("lite_mode"), CraftingTooltipCard.MUTED);
         return card;
     }
 
@@ -66,6 +67,7 @@ final class ECOCraftReportTooltips {
             card.divider().wrapped(Glyph.INFO, text("incomplete"), CraftingTooltipCard.WARN)
                 .wrapped(null, text("incomplete_hint"), CraftingTooltipCard.MUTED);
         }
+        if (liteCrafting) card.divider().wrapped(Glyph.INFO, text("lite_mode"), CraftingTooltipCard.MUTED);
         return card;
     }
 

@@ -131,7 +131,8 @@ final class ECOCraftingJobLifecycleController {
         }
         if (success && host.bigOrder.finishChild()) return;
         // Standalone links may have no nexus to retain markDone(); keep the final live-graph state explicit.
-        finishingJob.finishCraftingGraph(host.cpu.getLevel().registryAccess(), host.getInventory(), success);
+        var level = host.cpu.getLevel();
+        finishingJob.finishCraftingGraph(level == null ? null : level.registryAccess(), host.getInventory(), success);
         var context = host.createJobContext(finishingJob);
         long remainingAmount = finishingJob.remainingAmount;
         long completedAmount = Math.max(0L, context.requestedAmount() - remainingAmount);
