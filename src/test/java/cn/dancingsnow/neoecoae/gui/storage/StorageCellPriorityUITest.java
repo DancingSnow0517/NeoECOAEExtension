@@ -91,9 +91,7 @@ class StorageCellPriorityUITest {
     @Test
     void clientOpenAndEditsSendInstallationIdentityAndPreserveOtherCellActions() throws Exception {
         var fixture = new Fixture();
-        var clientSide = Level.class.getDeclaredField("isClientSide");
-        clientSide.setAccessible(true);
-        clientSide.setBoolean(fixture.player.level(), true);
+        when(fixture.player.level().isClientSide()).thenReturn(true);
         try (var factory = mockStatic(StoragePriorityUI.class)) {
             factory.when(() -> StoragePriorityUI.createFloatingPanel(any())).thenAnswer(call -> {
                 fixture.config.set(call.getArgument(0));

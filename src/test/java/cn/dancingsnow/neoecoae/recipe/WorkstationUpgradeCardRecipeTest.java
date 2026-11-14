@@ -78,7 +78,7 @@ class WorkstationUpgradeCardRecipeTest {
             String mod = variant.equals("aelt") ? "ae2lt" : variant;
             var conditions = json.getAsJsonArray("neoforge:conditions");
             assertEquals(1, conditions.size());
-            assertEquals("neoforge:mod_loaded", conditions.get(0).getAsJsonObject().get("type").getAsString());
+            assertEquals("neoecoae:integration_active", conditions.get(0).getAsJsonObject().get("type").getAsString());
             assertEquals(mod, conditions.get(0).getAsJsonObject().get("modid").getAsString());
             switch (variant) {
                 case "advanced_ae" -> {

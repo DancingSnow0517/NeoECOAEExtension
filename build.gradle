@@ -158,6 +158,8 @@ dependencies {
     // KubeJS nests tiny-java-server via jar-in-jar; the plain-JVM test classpath does not unpack it, and
     // RecipesKubeEvent's static init needs it. Keep the version in sync with KubeJS's META-INF/jarjar.
     testRuntimeOnly("dev.latvian.apps:tiny-java-server:1.0.0-build.45") { transitive = false }
+    // Automatic-order integration contracts exercise the published 26.1.2 requester state machine.
+    testRuntimeOnly("maven.modrinth:merequester:asqYZIpt") { transitive = false } // 26.1.2-1.5.1
     // Recipe-adapter targets: only needed at test/dev runtime.
     integrationRuntime("maven.modrinth:applied-generators:zqlEPjwN") // 0.3.1+26.1.2
     integrationRuntime("maven.modrinth:ae2-crystal-science:9wyPpLcp") // 26.1.2-1.1.12

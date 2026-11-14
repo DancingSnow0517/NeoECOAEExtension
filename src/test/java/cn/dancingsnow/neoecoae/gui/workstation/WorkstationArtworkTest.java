@@ -96,7 +96,7 @@ class WorkstationArtworkTest {
                         .getAsJsonObject().getAsJsonObject("textures");
                     for (var entry : textures.entrySet()) {
                         String[] id = entry.getValue().getAsString().split(":", 2);
-                        String path = "/assets/" + id[0] + "/textures/" + id[1] + ".png";
+                        String path = texturePath(id[0], id[1]);
                         try (var texture = getClass().getResourceAsStream(path)) {
                             assertNotNull(texture, model + " references missing texture " + path);
                             var image = ImageIO.read(texture);
@@ -123,24 +123,35 @@ class WorkstationArtworkTest {
             assertEquals(16, card.getHeight());
         }
         assertNull(getClass().getResource(root + "item/integrated_working_station_modules/appgen.png.mcmeta"));
-        for (String family : new String[] {"light_compat/appgen", "light_compat/appgen_on", "screen_compat/appgen_on"}) {
-            String path = root + "block/working_station/controller_formed/controller_formed_" + family;
-            try (var actualStream = getClass().getResourceAsStream(path + ".png");
-                 var expectedStream = getClass().getResourceAsStream(path.replace("appgen", "other") + ".png")) {
-                assertNotNull(actualStream);
-                assertNotNull(expectedStream);
-                var actual = ImageIO.read(actualStream);
-                var expected = ImageIO.read(expectedStream);
-                assertEquals(expected.getWidth(), actual.getWidth());
-                assertEquals(expected.getHeight(), actual.getHeight());
-                boolean recolored = false;
-                for (int y = 0; y < actual.getHeight(); y++) for (int x = 0; x < actual.getWidth(); x++) {
-                    assertEquals(expected.getRGB(x, y) >>> 24, actual.getRGB(x, y) >>> 24);
-                    recolored |= actual.getRGB(x, y) != expected.getRGB(x, y);
-                }
-                assertTrue(recolored, family);
+        String paletteRoot = root + "block/working_station/controller_formed/colormap/";
+        try (var appgenStream = getClass().getResourceAsStream(paletteRoot + "appgen.png");
+             var normalStream = getClass().getResourceAsStream(paletteRoot + "normal.png")) {
+            assertNotNull(appgenStream);
+            assertNotNull(normalStream);
+            var appgen = ImageIO.read(appgenStream);
+            var normal = ImageIO.read(normalStream);
+            assertEquals(1, appgen.getHeight());
+            assertEquals(normal.getWidth(), appgen.getWidth());
+            assertTrue(appgen.getWidth() >= 7);
+            boolean recolored = false;
+            for (int x = 0; x < 7; x++) {
+                assertEquals(normal.getRGB(x, 0) >>> 24, appgen.getRGB(x, 0) >>> 24);
+                recolored |= normal.getRGB(x, 0) != appgen.getRGB(x, 0);
             }
-            if (family.endsWith("_on")) assertNotNull(getClass().getResource(path + ".png.mcmeta"));
+            assertTrue(recolored, "Applied Generators must have its own controller colors");
+        }
+        for (boolean working : new boolean[] {false, true}) {
+            try (var stream = getClass().getResourceAsStream("/assets/neoecoae/models/"
+                    + LargeWorkstationModule.APPLIED_GENERATORS.modelPath(working) + ".json")) {
+                assertNotNull(stream);
+                var textures = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8))
+                    .getAsJsonObject().getAsJsonObject("textures");
+                assertFalse(textures.isEmpty());
+                for (var entry : textures.entrySet()) {
+                    assertTrue(entry.getValue().getAsString().contains("/colored/appgen/"));
+                    assertNotNull(getClass().getResource(texturePath("neoecoae", entry.getValue().getAsString().substring(9))));
+                }
+            }
         }
     }
 
@@ -185,6 +196,27 @@ class WorkstationArtworkTest {
                 }
             }
         }
+    }
+
+    /** Generated atlas sprites must resolve to a registered palette and a real shared mask. */
+    private String texturePath(String namespace, String texture) throws IOException {
+        String prefix = "block/working_station/controller_formed/colored/";
+        if (namespace.equals("neoecoae") && texture.startsWith(prefix)) {
+            String[] parts = texture.substring(prefix.length()).split("/", 2);
+            try (var atlas = getClass().getResourceAsStream("/assets/minecraft/atlases/blocks.json")) {
+                assertNotNull(atlas);
+                var source = JsonParser.parseReader(new InputStreamReader(atlas, StandardCharsets.UTF_8))
+                    .getAsJsonObject().getAsJsonArray("sources").asList().stream().map(e -> e.getAsJsonObject())
+                    .filter(e -> e.get("type").getAsString().equals("neoecoae:workstation_palette"))
+                    .findFirst().orElseThrow();
+                var palette = source.getAsJsonObject("palettes").get(parts[0]);
+                assertNotNull(palette, texture);
+                String[] id = palette.getAsString().split(":", 2);
+                assertNotNull(getClass().getResource("/assets/" + id[0] + "/textures/" + id[1] + ".png"));
+            }
+            texture = "block/working_station/controller_formed/" + parts[1].replaceFirst("_working$", "");
+        }
+        return "/assets/" + namespace + "/textures/" + texture + ".png";
     }
 
     private BufferedImage read(String file) throws IOException {

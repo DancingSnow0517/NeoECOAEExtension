@@ -37,6 +37,16 @@ class StorageCellDisassemblyTest {
     @BeforeAll
     static void bootstrap() {
         InventoryTestBootstrap.initialize();
+        var registry = (net.minecraft.core.MappedRegistry<net.minecraft.core.component.DataComponentType<?>>)
+            net.minecraft.core.registries.BuiltInRegistries.DATA_COMPONENT_TYPE;
+        var uuid = com.wintercogs.ae2omnicells.common.init.OCDataComponents.CELL_UUID;
+        if (!registry.containsKey(uuid.getId())) {
+            registry.unfreeze(false);
+            net.minecraft.core.Registry.register(registry, uuid.getId(),
+                net.minecraft.core.component.DataComponentType.<java.util.UUID>builder()
+                    .persistent(net.minecraft.core.UUIDUtil.CODEC).build());
+            registry.freeze();
+        }
     }
 
     @ParameterizedTest
@@ -53,6 +63,8 @@ class StorageCellDisassemblyTest {
         ItemStack stack = mock(ItemStack.class);
         when(stack.getItem()).thenReturn(item);
         when(stack.getCount()).thenReturn(1);
+        when(stack.getOrDefault(eq(net.minecraft.core.component.DataComponents.CUSTOM_DATA), any()))
+            .thenReturn(net.minecraft.world.item.component.CustomData.EMPTY);
         // 26.1: the server path is selected by `level instanceof ServerLevel`.
         Level level = state.equals("client") ? mock(Level.class) : mock(ServerLevel.class);
         when(level.isClientSide()).thenReturn(state.equals("client"));
@@ -83,6 +95,8 @@ class StorageCellDisassemblyTest {
         ItemStack housing = new ItemStack(Items.IRON_INGOT);
 
         try (var interaction = mockStatic(InteractionUtil.class);
+             var lifecycle = mockStatic(net.neoforged.neoforge.server.ServerLifecycleHooks.class);
+             var metadata = mockStatic(com.wintercogs.ae2omnicells.common.me.IAEUniversalCell.class);
              var membership = mockStatic(ECOInfiniteStorageMember.class);
              var recipes = mockStatic(StorageCellDisassemblyRecipe.class);
              var basic = mockStatic(ECOStorageCellItem.class);
@@ -93,6 +107,9 @@ class StorageCellDisassemblyTest {
                      ((KeyCounter) invocation.getArgument(0)).addAll(contents);
                      return null;
                  }).when(delegate).getAvailableStacks(any(KeyCounter.class)))) {
+            var server = mock(net.minecraft.server.MinecraftServer.class);
+            when(server.isSameThread()).thenReturn(true);
+            lifecycle.when(net.neoforged.neoforge.server.ServerLifecycleHooks::getCurrentServer).thenReturn(server);
             interaction.when(() -> InteractionUtil.isInAlternateUseMode(player)).thenReturn(true);
             recipes.when(() -> StorageCellDisassemblyRecipe.getDisassemblyResult(any(ServerLevel.class), eq(item)))
                 .thenReturn(List.of(housing));

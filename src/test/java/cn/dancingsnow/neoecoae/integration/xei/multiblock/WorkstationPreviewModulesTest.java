@@ -36,7 +36,7 @@ class WorkstationPreviewModulesTest {
                 assertEquals(modules.get(Math.floorMod(i - 1, modules.size())), WorkstationPreviewModules.cycle(modules.get(i).id(), -1));
             }
             assertTrue(WorkstationPreviewModules.requiredCard(modules.getFirst()).isEmpty());
-            assertSame(BuiltInRegistries.ITEM.get(addon.upgradeCard()), WorkstationPreviewModules.requiredCard(addon).getItem());
+            assertSame(BuiltInRegistries.ITEM.getValue(addon.upgradeCard()), WorkstationPreviewModules.requiredCard(addon).getItem());
             assertTrue(WorkstationPreviewModules.requiredCard(absent).isEmpty());
             assertEquals(addon.idleModel(), WorkstationPreviewModules.cycle(
                 modules.get(modules.indexOf(addon) - 1).id(), 1).idleModel());
@@ -54,7 +54,8 @@ class WorkstationPreviewModulesTest {
             assertFalse(WorkstationPreviewModules.available().stream().anyMatch(m -> m.id().equals(ECOWorkstationModules.builtin(builtin).id())));
             registry.unfreeze(false);
             try {
-                Registry.register(registry, builtin.upgradeCardId(), new Item(new Item.Properties()));
+                Registry.register(registry, builtin.upgradeCardId(), new Item(new Item.Properties().setId(
+                    net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.ITEM, builtin.upgradeCardId()))));
             } finally {
                 registry.freeze();
             }

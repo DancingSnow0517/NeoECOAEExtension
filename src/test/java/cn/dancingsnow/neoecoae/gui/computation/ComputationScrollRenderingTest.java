@@ -60,8 +60,16 @@ class ComputationScrollRenderingTest {
     private org.mockito.MockedStatic<appeng.api.stacks.AEKeyTypesInternal> keyTypes;
 
     private Object previousMissingContentItem;
+    private org.mockito.MockedStatic<LDLib2> ldlib;
+    private org.mockito.MockedStatic<AEConfig> aeConfig;
 
     @org.junit.jupiter.api.BeforeEach void registerKeyTypes() throws Exception {
+        ldlib = mockStatic(LDLib2.class, CALLS_REAL_METHODS);
+        ldlib.when(LDLib2::isRemote).thenReturn(true);
+        var clientConfig = mock(AEConfig.class);
+        when(clientConfig.getTerminalStyle()).thenReturn(appeng.api.config.TerminalStyle.SMALL);
+        aeConfig = mockStatic(AEConfig.class);
+        aeConfig.when(AEConfig::instance).thenReturn(clientConfig);
         keyTypes = mockStatic(appeng.api.stacks.AEKeyTypesInternal.class);
         keyTypes.when(appeng.api.stacks.AEKeyTypesInternal::getRegistry)
             .thenReturn(cn.dancingsnow.neoecoae.gui.common.GuiTestKeys.REGISTRY);
@@ -77,34 +85,33 @@ class ComputationScrollRenderingTest {
 
     @org.junit.jupiter.api.AfterEach void closeKeyTypes() throws Exception {
         keyTypes.close();
+        aeConfig.close();
+        ldlib.close();
         var itemField = appeng.core.definitions.ItemDefinition.class.getDeclaredField("item");
         itemField.setAccessible(true);
         itemField.set(appeng.core.definitions.AEItems.MISSING_CONTENT, previousMissingContentItem);
     }
 
     @Test void statusRetainsBothPagesAndIgnoresEarlierScrollReplies() throws Exception {
-        // 26.1: LDLib2 DataBindingBuilder.build() needs a side; these are client-side views.
-        try (var ldlibSide = org.mockito.Mockito.mockStatic(com.lowdragmc.lowdraglib2.LDLib2.class)) {
-            ldlibSide.when(com.lowdragmc.lowdraglib2.LDLib2::isRemote).thenReturn(true);
-            var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
-            panel.setValue(snapshot(0, 0, 1), false);
-            scroll(panel, "scrollCpuTo", 3);
-            scroll(panel, "scrollCpuTo", 6);
-            scroll(panel, "scrollItemsTo", 3);
-            scroll(panel, "scrollItemsTo", 6);
-            assertDrawn(panel, 1);
+        var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
+        panel.setValue(snapshot(0, 0, 1), false);
+        scroll(panel, "scrollCpuTo", 3);
+        scroll(panel, "scrollCpuTo", 6);
+        scroll(panel, "scrollItemsTo", 3);
+        scroll(panel, "scrollItemsTo", 6);
+        assertDrawn(panel, 1);
 
-            panel.setValue(snapshot(3, 3, 4, 1, 1), false);
-            assertEquals(6, field(panel, "cpuOffset"));
-            assertEquals(6, field(panel, "itemOffset"));
-            assertDrawn(panel, 1);
+        panel.setValue(snapshot(3, 3, 4, 1, 1), false);
+        assertEquals(6, field(panel, "cpuOffset"));
+        assertEquals(6, field(panel, "itemOffset"));
+        assertDrawn(panel, 1);
 
         panel.setValue(snapshot(6, 6, 7, 2, 2), false);
         assertFalse((boolean) field(panel, "cpuScrollPending"));
         assertFalse((boolean) field(panel, "itemScrollPending"));
         assertDrawn(panel, 7);
-        }
     }
+
 
     @Test void selectingAnotherCpuClearsAnUnfinishedItemScroll() throws Exception {
         var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
@@ -165,43 +172,36 @@ class ComputationScrollRenderingTest {
     }
 
     @Test void sidebarKeepsItsPageVisibleUntilTheLatestScrollReply() throws Exception {
-        // 26.1: LDLib2 DataBindingBuilder.build() needs a side; these are client-side views.
-        try (var ldlibSide = org.mockito.Mockito.mockStatic(com.lowdragmc.lowdraglib2.LDLib2.class)) {
-            ldlibSide.when(com.lowdragmc.lowdraglib2.LDLib2::isRemote).thenReturn(true);
-            var selector = new ComputationCpuSelector(config(), ignored -> {}, new CpuSelectionState.Identities<>());
-            selector.setValue(sidebarSnapshot(0, 1, 0), false);
-            scroll(selector, "scrollTo", 2);
-            scroll(selector, "scrollTo", 4);
-            assertDrawn(selector, 1);
-            selector.setValue(sidebarSnapshot(2, 3, 1), false);
-            assertEquals(4, field(selector, "offset"));
-            assertDrawn(selector, 1);
-            selector.setValue(sidebarSnapshot(4, 5, 2), false);
-            assertDrawn(selector, 5);
-        }
+        var selector = new ComputationCpuSelector(config(), ignored -> {}, new CpuSelectionState.Identities<>());
+        selector.setValue(sidebarSnapshot(0, 1, 0), false);
+        scroll(selector, "scrollTo", 2);
+        scroll(selector, "scrollTo", 4);
+        assertDrawn(selector, 1);
+        selector.setValue(sidebarSnapshot(2, 3, 1), false);
+        assertEquals(4, field(selector, "offset"));
+        assertDrawn(selector, 1);
+        selector.setValue(sidebarSnapshot(4, 5, 2), false);
+        assertDrawn(selector, 5);
     }
+
 
     @Test void returningToTheOriginalOffsetCannotAcknowledgeAnOldSnapshot() throws Exception {
-        // 26.1: LDLib2 DataBindingBuilder.build() needs a side; these are client-side views.
-        try (var ldlibSide = org.mockito.Mockito.mockStatic(com.lowdragmc.lowdraglib2.LDLib2.class)) {
-            ldlibSide.when(com.lowdragmc.lowdraglib2.LDLib2::isRemote).thenReturn(true);
-            var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
-            panel.setValue(snapshot(0, 0, 1), false);
-            scroll(panel, "scrollCpuTo", 3);
-            scroll(panel, "scrollCpuTo", 0);
-            panel.setValue(snapshot(0, 0, 1), false);
-            assertTrue((boolean) field(panel, "cpuScrollPending"));
-            panel.setValue(snapshot(3, 0, 4, 1, 0), false);
-            assertEquals(0, field(panel, "cpuOffset"));
-            assertDrawn(panel, 1);
-            panel.setValue(snapshot(0, 0, 1, 2, 0), false);
-            assertFalse((boolean) field(panel, "cpuScrollPending"));
-        }
+        var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
+        panel.setValue(snapshot(0, 0, 1), false);
+        scroll(panel, "scrollCpuTo", 3);
+        scroll(panel, "scrollCpuTo", 0);
+        panel.setValue(snapshot(0, 0, 1), false);
+        assertTrue((boolean) field(panel, "cpuScrollPending"));
+        panel.setValue(snapshot(3, 0, 4, 1, 0), false);
+        assertEquals(0, field(panel, "cpuOffset"));
+        assertDrawn(panel, 1);
+        panel.setValue(snapshot(0, 0, 1, 2, 0), false);
+        assertFalse((boolean) field(panel, "cpuScrollPending"));
     }
 
+
     @Test void tooltipCollectionUsesTheUiMousePositionWithoutCoordinatesInTheEvent() throws Exception {
-        try (var ldlib = mockStatic(com.lowdragmc.lowdraglib2.LDLib2.class)) {
-            ldlib.when(com.lowdragmc.lowdraglib2.LDLib2::isRemote).thenReturn(true);
+        {
             com.lowdragmc.lowdraglib2.gui.ui.layout.LayoutProperties.init();
             var panel = new ComputationCpuStatusPanel(config(), new CpuSelectionState.Identities<>());
             var ui = com.lowdragmc.lowdraglib2.gui.ui.ModularUI.of(com.lowdragmc.lowdraglib2.gui.ui.UI.of(panel));
@@ -249,8 +249,7 @@ class ComputationScrollRenderingTest {
     @ValueSource(strings = {"jei"})
     void recipeLookupFollowsTheRenderedItemAndTaskPages(String viewer) throws Exception {
         var previousIngredients = LDLibJEIPlugin.ingredientManager;
-        try (var fonts = mockStatic(com.lowdragmc.lowdraglib2.gui.LDLibFonts.class);
-             var ldlib = mockStatic(LDLib2.class)) {
+        try (var fonts = mockStatic(com.lowdragmc.lowdraglib2.gui.LDLibFonts.class)) {
             ldlib.when(LDLib2::isRemote).thenReturn(true);
             ldlib.when(() -> LDLib2.id(anyString())).thenAnswer(call ->
                 Identifier.fromNamespaceAndPath("ldlib2", call.getArgument(0)));
@@ -420,10 +419,8 @@ class ComputationScrollRenderingTest {
         var drawn = new ArrayList<Integer>();
         try (var minecraft = mockStatic(Minecraft.class);
              var rows = mockStatic(ComputationCpuSelector.class);
-             var keys = mockStatic(AEKeyRendering.class);
-             var aeConfig = mockStatic(AEConfig.class)) {
+             var keys = mockStatic(AEKeyRendering.class)) {
             minecraft.when(Minecraft::getInstance).thenReturn(client);
-            aeConfig.when(AEConfig::instance).thenReturn(mock(AEConfig.class));
             rows.when(() -> ComputationCpuSelector.drawCpuRow(any(), any(), any(), anyFloat(), anyFloat(),
                 anyBoolean(), any(), any(), anyFloat())).thenAnswer(call -> {
                     drawn.add(((ComputationCpuEntry) call.getArgument(2)).serial());

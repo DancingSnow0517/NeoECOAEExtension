@@ -193,7 +193,7 @@ class LargeWorkstationPatternScalingTest {
     private static ECOLargeIntegratedWorkingStationBlockEntity controller() throws Exception {
         var controller = mock(ECOLargeIntegratedWorkingStationBlockEntity.class, CALLS_REAL_METHODS);
         field(controller, "formed", true);
-        field(controller, "level", mock(Level.class));
+        field(controller, "level", InventoryTestBootstrap.level());
         field(controller, "pendingBatches", new ArrayDeque<>());
         field(controller, "moduleInventory", new LargeWorkstationModuleInventory(() -> { }));
         doReturn(new FluidTank(4000)).when(controller).getInputTank();

@@ -22,9 +22,9 @@ class ECOStorageOptimizationScopeTest {
             loading.when(net.neoforged.fml.loading.LoadingModList::get).thenReturn(mods);
             org.mockito.Mockito.when(mods.getMods()).thenReturn(List.of(ae2));
             org.mockito.Mockito.when(ae2.getModId()).thenReturn("ae2");
-            org.mockito.Mockito.when(ae2.getVersion()).thenReturn(new org.apache.maven.artifact.versioning.DefaultArtifactVersion("19.2.18"));
+            org.mockito.Mockito.when(ae2.getVersion()).thenReturn(new org.apache.maven.artifact.versioning.DefaultArtifactVersion("26.1.13-beta"));
             assertTrue(plugin.shouldApplyMixin("appeng.api.stacks.KeyCounter", "example.KeyCounterSnapshotMixin"));
-            org.mockito.Mockito.when(ae2.getVersion()).thenReturn(new org.apache.maven.artifact.versioning.DefaultArtifactVersion("19.2.19"));
+            org.mockito.Mockito.when(ae2.getVersion()).thenReturn(new org.apache.maven.artifact.versioning.DefaultArtifactVersion("26.1.14-beta"));
             assertFalse(plugin.shouldApplyMixin("appeng.api.stacks.KeyCounter", "example.KeyCounterSnapshotMixin"));
             assertTrue(plugin.shouldApplyMixin("appeng.me.storage.NetworkStorage", "example.NetworkStorageMixin"));
         }

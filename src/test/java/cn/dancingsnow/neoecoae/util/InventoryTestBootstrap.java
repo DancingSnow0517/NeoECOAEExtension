@@ -17,6 +17,14 @@ import static org.mockito.Mockito.*;
 public final class InventoryTestBootstrap {
     private InventoryTestBootstrap() {}
 
+    /** A world with the real built-in registry context used by serialization paths. */
+    public static net.minecraft.world.level.Level level() {
+        var level = mock(net.minecraft.world.level.Level.class);
+        when(level.registryAccess()).thenReturn(net.minecraft.core.RegistryAccess.fromRegistryOfRegistries(
+            net.minecraft.core.registries.BuiltInRegistries.REGISTRY));
+        return level;
+    }
+
     public static void initializeUi() throws ClassNotFoundException {
         initialize();
         try (var mods = mockStatic(ModList.class); var registrate = mockStatic(NERegistrate.class)) {

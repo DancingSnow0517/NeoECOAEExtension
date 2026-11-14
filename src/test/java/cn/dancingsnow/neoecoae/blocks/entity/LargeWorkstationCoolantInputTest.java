@@ -79,7 +79,7 @@ class LargeWorkstationCoolantInputTest {
             @Override
             public void markForUpdate() {}
         };
-        var level = mock(Level.class);
+        var level = InventoryTestBootstrap.level();
         recipeAccess = mockStatic(appeng.crafting.RecipeAccess.class);
         hatch.setLevel(level);
         recipeAccess.when(() -> appeng.crafting.RecipeAccess.byType(any(), eq(NERecipeTypes.COOLING.get()))).thenReturn(List.of(cooling(Fluids.WATER)));

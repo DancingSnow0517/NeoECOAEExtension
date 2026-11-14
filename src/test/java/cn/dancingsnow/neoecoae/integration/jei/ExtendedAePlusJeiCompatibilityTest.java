@@ -23,11 +23,12 @@ class ExtendedAePlusJeiCompatibilityTest {
     }
 
     @Test
-    void dataEnergisticsEncodingHooksDoNotLinkRemovedEaepUploadClasses() throws IOException {
-        for (String name : Set.of(
-                "com/fish_dan_/data_energistics/mixin/ae/extendedaeplus/EaepPatternEncodingTermMenuMixin",
-                "com/fish_dan_/data_energistics/mixin/ae/extendedaeplus/EaepPatternUploadRecordMixin")) {
-            assertReferencedClassesAvailable(name, "com/extendedae_plus/");
+    void unportedDataEnergisticsCannotActivateItsLegacyEncodingHooks() {
+        try (var mods = org.mockito.Mockito.mockStatic(net.neoforged.fml.ModList.class)) {
+            var modList = org.mockito.Mockito.mock(net.neoforged.fml.ModList.class);
+            mods.when(net.neoforged.fml.ModList::get).thenReturn(modList);
+            org.mockito.Mockito.when(modList.isLoaded("data_energistics")).thenReturn(true);
+            assertFalse(cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("data_energistics"));
         }
     }
 

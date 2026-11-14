@@ -237,13 +237,13 @@ class ECOStickyDispatchIntegrationTest {
         when(server.getLevel(Level.OVERWORLD)).thenReturn(world);
         when(world.hasChunkAt(pos)).thenReturn(true);
         when(world.getBlockEntity(pos)).thenReturn(controller);
-        when(controller.getProcessingStatus(f.outputs[0])).thenReturn(
-            new cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.Machine(
+        var machineStatus = new cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.Machine(
                 net.minecraft.network.chat.Component.literal("Workstation"), "minecraft:overworld [62, -60, -97]",
                 "", 0, 0, 0,
                 cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.State.WAITING,
                 net.minecraft.network.chat.Component.translatable(
-                    "gui.neoecoae.large_integrated_working_station.pause.overheated")));
+                    "gui.neoecoae.large_integrated_working_station.pause.overheated"));
+        when(controller.getProcessingStatus(f.outputs[0])).thenReturn(machineStatus);
         var progress = f.logic.getProcessingProgress(f.outputs[0]);
         assertEquals(1, progress.machineCount());
         assertEquals(cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.State.WAITING, progress.state());

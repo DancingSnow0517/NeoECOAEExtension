@@ -12,7 +12,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class SmartCoolingModelResourceTest {
     private static final Path ROOT = Path.of("src/main/resources/assets/neoecoae");
-    private static final String TEXTURES = "textures/block/working_station/controller_formed/";
 
     @Test
     void allTextureFilesAreDecodablePngs() throws Exception {
@@ -60,57 +59,44 @@ class SmartCoolingModelResourceTest {
     }
 
     @Test
-    void lightLayersCoverOnlyTheTwoInputFacesAndRetainFullBrightness() throws Exception {
+    void smartControllerScreenIsEmissiveWithoutLightingTheCasing() throws Exception {
         for (boolean working : new boolean[] {false, true}) {
             var smart = read("models/" + LargeWorkstationModule.REGULAR.modelPath(working, true) + ".json");
-            var glow = smart.getAsJsonArray("elements").asList().stream().map(e -> e.getAsJsonObject())
-                .filter(e -> e.has("name") && e.get("name").getAsString().equals("input_hatch_light"))
+            var elements = smart.getAsJsonArray("elements").asList().stream().map(e -> e.getAsJsonObject()).toList();
+            var screen = elements.stream().filter(e -> e.get("name").getAsString().equals("back_screen"))
                 .findFirst().orElseThrow();
-            assertFalse(glow.get("shade").getAsBoolean());
-            assertEquals(JsonParser.parseString("[16,-16,16]"), glow.get("from"));
-            assertEquals(JsonParser.parseString("[32,0,32]"), glow.get("to"));
-            assertEquals(java.util.Set.of("east", "south"), glow.getAsJsonObject("faces").keySet());
-            for (var face : glow.getAsJsonObject("faces").entrySet()) {
-                var light = face.getValue().getAsJsonObject().getAsJsonObject("neoforge_data");
-                // 26.1: NeoForge ExtraFaceData has a single light_emission instead of block_light/sky_light.
-                assertEquals(15, light.get("light_emission").getAsInt());
-                assertFalse(light.get("ambient_occlusion").getAsBoolean());
+            assertFalse(screen.get("shade").getAsBoolean());
+            assertEquals(JsonParser.parseString("[3,3,32]"), screen.get("from"));
+            assertEquals(JsonParser.parseString("[13,13,32]"), screen.get("to"));
+            assertEquals(java.util.Set.of("south"), screen.getAsJsonObject("faces").keySet());
+            var face = screen.getAsJsonObject("faces").getAsJsonObject("south");
+            assertEquals("#cooling_screen", face.get("texture").getAsString());
+            assertEquals(15, face.getAsJsonObject("neoforge_data").get("light_emission").getAsInt());
+            assertFalse(face.getAsJsonObject("neoforge_data").get("ambient_occlusion").getAsBoolean());
+            var bodies = elements.stream().filter(e -> e.get("name").getAsString().startsWith("body")).toList();
+            assertFalse(bodies.isEmpty());
+            for (var body : bodies) for (var entry : body.getAsJsonObject("faces").entrySet()) {
+                assertFalse(entry.getValue().getAsJsonObject().has("neoforge_data"), "Casing must follow world light");
             }
         }
     }
 
     @Test
-    void animationMasksFollowTheDisplayWhileLeavingTheDarkCasingUnlit() throws Exception {
-        for (String kind : new String[] {"front", "side"}) {
-            var base = ImageIO.read(ROOT.resolve(TEXTURES + "smart_cooling_module_" + kind + ".png").toFile());
-            var glow = ImageIO.read(ROOT.resolve(TEXTURES + "smart_cooling_module_" + kind + "_light.png").toFile());
-            assertEquals(base.getWidth(), glow.getWidth());
-            assertEquals(base.getHeight(), glow.getHeight());
-            int lit = 0, darkCasing = 0;
-            for (int y = 0; y < base.getHeight(); y++) for (int x = 0; x < base.getWidth(); x++) {
-                int pixel = glow.getRGB(x, y);
-                if ((pixel >>> 24) != 0) {
-                    lit++;
-                    assertEquals(base.getRGB(x, y), pixel);
-                }
-                if ((base.getRGB(x, y) & 0xFFFFFF) == 0x393749) {
-                    darkCasing++;
-                    assertEquals(0, pixel >>> 24, "Casing must follow world light");
-                }
-                if (kind.equals("side") && x >= 4 && x <= 11 && y >= 4 && y <= 11) {
-                    assertEquals(0, pixel >>> 24, "Metal fins must follow world light");
-                }
-            }
-            assertTrue(lit > 0);
-            assertTrue(darkCasing > 0);
-            assertTrue(lit < base.getWidth() * base.getHeight() / 2);
+    void coolingScreenAnimationResolvesEveryFrameForBothWorkingStates() throws Exception {
+        String texture = "block/working_station/cooling_controller/screen_on";
+        for (boolean working : new boolean[] {false, true}) {
+            var smart = read("models/" + LargeWorkstationModule.REGULAR.modelPath(working, true) + ".json");
+            assertEquals("neoecoae:" + texture, smart.getAsJsonObject("textures").get("cooling_screen").getAsString());
         }
-        var animation = read(TEXTURES + "smart_cooling_module_front_light.png.mcmeta").getAsJsonObject("animation");
-        assertEquals(4, animation.get("frametime").getAsInt());
-        assertFalse(animation.get("interpolate").getAsBoolean());
-        var glow = ImageIO.read(ROOT.resolve(TEXTURES + "smart_cooling_module_front_light.png").toFile());
-        assertEquals(16, glow.getWidth());
-        assertEquals(12 * 16, glow.getHeight());
+        var screen = ImageIO.read(ROOT.resolve("textures/" + texture + ".png").toFile());
+        assertEquals(16, screen.getWidth());
+        assertEquals(64, screen.getHeight());
+        var animation = read("textures/" + texture + ".png.mcmeta").getAsJsonObject("animation");
+        assertTrue(animation.get("frametime").getAsInt() > 0);
+        assertEquals(JsonParser.parseString("[0,1,2,3,2,1]"), animation.get("frames"));
+        for (var frame : animation.getAsJsonArray("frames")) {
+            assertTrue(frame.getAsInt() >= 0 && frame.getAsInt() < screen.getHeight() / screen.getWidth());
+        }
     }
 
     private static JsonObject read(String path) throws Exception {

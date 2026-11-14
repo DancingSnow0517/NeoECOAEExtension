@@ -128,13 +128,14 @@ class ECOKeyFactoryTest {
 
     @Test void changedDefaultComponentsCannotReuseOrPoisonThePreviousPrototype() {
         KeyReuse.configure(true);
-        MutableDefaultsItem item = register("prototypes", new MutableDefaultsItem());
+        MutableDefaultsItem item = register("prototypes", new MutableDefaultsItem("prototypes"));
         ItemStack oldStack = new ItemStack(item);
         AEItemKey oldKey = ECOKeyFactory.item(oldStack);
         Object epoch = KeyReuse.epoch();
         item.defaults = net.minecraft.core.component.DataComponentMap.builder().addAll(item.components())
             .set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("new defaults"))
             .build();
+        item.builtInRegistryHolder().bindComponents(item.defaults);
         ItemStack newStack = new ItemStack(item);
         assertTrue(oldStack.isComponentsPatchEmpty());
         assertTrue(newStack.isComponentsPatchEmpty());
@@ -150,7 +151,7 @@ class ECOKeyFactoryTest {
 
     @Test void subclassDefaultFactoriesStillRunAndUnregisteredOwnersAreNotRetained() {
         KeyReuse.configure(true);
-        var item = register("custom_default", new MutableDefaultsItem() {
+        var item = register("custom_default", new MutableDefaultsItem("custom_default") {
             int calls;
             @Override public ItemStack getDefaultInstance() {
                 var stack = new ItemStack(this);
@@ -162,7 +163,9 @@ class ECOKeyFactoryTest {
         assertNotEquals(AEItemKey.of(item), AEItemKey.of(item));
         assertNotEquals(ECOKeyFactory.item(item), ECOKeyFactory.item(item));
         ((net.minecraft.core.MappedRegistry<?>) net.minecraft.core.registries.BuiltInRegistries.ITEM).unfreeze(false);
-        var unregistered = new net.minecraft.world.item.Item(new net.minecraft.world.item.Item.Properties());
+        var unregistered = new net.minecraft.world.item.Item(new net.minecraft.world.item.Item.Properties().setId(net.minecraft.resources.ResourceKey.create(
+            net.minecraft.core.registries.Registries.ITEM, net.minecraft.resources.Identifier.parse("eco_key_factory_test:late_registered"))));
+        unregistered.builtInRegistryHolder().bindComponents(Items.IRON_INGOT.components());
         assertFalse(unregistered.builtInRegistryHolder().isBound());
         assertNull(KeyReuse.itemSlot(KeyReuse.epoch(), unregistered));
         assertNotSame(ECOKeyFactory.item(unregistered), ECOKeyFactory.item(unregistered));
@@ -195,7 +198,7 @@ class ECOKeyFactoryTest {
     @Test void publicSubclassFactoriesRetainDynamicDerivedMetadata() {
         KeyReuse.configure(true);
         int[] maximum = {64};
-        var item = register("dynamic_maximum", new MutableDefaultsItem() {
+        var item = register("dynamic_maximum", new MutableDefaultsItem("dynamic_maximum") {
             @Override public int getMaxStackSize(ItemStack stack) { return maximum[0]; }
         });
         var stack = new ItemStack(item);
@@ -229,13 +232,16 @@ class ECOKeyFactoryTest {
 
     private static <T extends net.minecraft.world.item.Item> T register(String name, T item) {
         ((net.minecraft.core.MappedRegistry<?>) net.minecraft.core.registries.BuiltInRegistries.ITEM).unfreeze(false);
-        return net.minecraft.core.Registry.register(net.minecraft.core.registries.BuiltInRegistries.ITEM,
+        net.minecraft.core.Registry.register(net.minecraft.core.registries.BuiltInRegistries.ITEM,
             "eco_key_factory_test:" + name, item);
+        cn.dancingsnow.neoecoae.util.TestComponents.bindAll();
+        return item;
     }
 
     private static class MutableDefaultsItem extends net.minecraft.world.item.Item {
         net.minecraft.core.component.DataComponentMap defaults;
-        MutableDefaultsItem() { super(new Properties()); }
+        MutableDefaultsItem(String name) { super(new Properties().setId(net.minecraft.resources.ResourceKey.create(
+            net.minecraft.core.registries.Registries.ITEM, net.minecraft.resources.Identifier.fromNamespaceAndPath("eco_key_factory_test", name)))); }
         @Override public net.minecraft.core.component.DataComponentMap components() {
             return defaults == null ? super.components() : defaults;
         }

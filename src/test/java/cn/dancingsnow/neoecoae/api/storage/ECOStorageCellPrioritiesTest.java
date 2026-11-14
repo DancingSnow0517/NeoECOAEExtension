@@ -87,9 +87,7 @@ class ECOStorageCellPrioritiesTest {
     void clientCanReadButCannotMutateOrSelect() throws Exception {
         var fixture = new Fixture();
         var level = fixture.first.level();
-        var clientSide = Level.class.getDeclaredField("isClientSide");
-        clientSide.setAccessible(true);
-        clientSide.setBoolean(level, true);
+        when(level.isClientSide()).thenReturn(true);
         fixture.drive.priority = 7;
         assertEquals(7, fixture.access.getPriority(fixture.first, fixture.target()));
         fixture.access.select(fixture.first, fixture.target());

@@ -40,6 +40,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class BiggerAE2BulkStorageCellTest {
+    private org.mockito.MockedStatic<appeng.api.upgrades.UpgradeInventories> upgradeInventories;
+
     @Test
     void tooltipHasNativeColoredTypeCountCompressionStatusAndOptionalNativeContentPreview() {
         var stack = stack();
@@ -98,9 +100,19 @@ class BiggerAE2BulkStorageCellTest {
 
     @BeforeEach
     void compressionRecipes() {
+        // AE2's upgrade item registrations are absent from this isolated storage fixture.
+        var emptyUpgrades = mock(IUpgradeInventory.class);
+        upgradeInventories = mockStatic(appeng.api.upgrades.UpgradeInventories.class);
+        upgradeInventories.when(() -> appeng.api.upgrades.UpgradeInventories.forItem(any(), anyInt()))
+            .thenReturn(emptyUpgrades);
         ECOCompressionService.install(List.of(new BulkUnits(List.of(AEItemKey.of(Items.IRON_NUGGET),
             AEItemKey.of(Items.IRON_INGOT), AEItemKey.of(Items.IRON_BLOCK)),
             List.of(BigInteger.ONE, BigInteger.valueOf(9), BigInteger.valueOf(81)))));
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void closeUpgrades() {
+        upgradeInventories.close();
     }
 
     @Test
@@ -327,16 +339,14 @@ class BiggerAE2BulkStorageCellTest {
     }
 
     private static ItemStack stack() {
-        var item = mock(BiggerAE2BulkStorageCellItem.class, CALLS_REAL_METHODS);
-        doReturn(ECOTier.L9).when(item).getTier();
-        doReturn(AEKeyType.items()).when(item).getKeyType();
-        doReturn(new ECOCellType(Component.literal("Test"), 5)).when(item).getCellType();
-        doReturn(5).when(item).getTotalTypes();
-        doReturn(Long.MAX_VALUE).when(item).getBytes();
-        doReturn(65_536).when(item).getBytesPerType();
-        doReturn(mock(IUpgradeInventory.class)).when(item).getUpgrades(any());
-        var stack = spy(new ItemStack(Items.PAPER));
-        doReturn(item).when(stack).getItem();
-        return stack;
+        var id = net.minecraft.resources.Identifier.fromNamespaceAndPath("bulk_test", "cell_" + java.util.UUID.randomUUID().toString().replace("-", ""));
+        var registry = (net.minecraft.core.MappedRegistry<net.minecraft.world.item.Item>) net.minecraft.core.registries.BuiltInRegistries.ITEM;
+        registry.unfreeze(false);
+        var item = new BiggerAE2BulkStorageCellItem(new net.minecraft.world.item.Item.Properties().setId(
+            net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.ITEM, id)),
+            () -> new ECOCellType(Component.literal("Test"), 5));
+        net.minecraft.core.Registry.register(registry, id, item);
+        cn.dancingsnow.neoecoae.util.TestComponents.bindAll();
+        return new ItemStack(item);
     }
 }

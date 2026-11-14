@@ -23,7 +23,11 @@ import static org.mockito.Mockito.*;
 class DevToolsConfigTest {
     private final ModConfig config = mock(ModConfig.class);
 
-    @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
+    @BeforeAll static void bootstrap() {
+        InventoryTestBootstrap.initialize();
+        // Initialize the config before entering Mockito's unfinished when(...).thenReturn(...).
+        assertNotNull(DevToolsConfig.SPEC);
+    }
 
     @AfterEach void unload() {
         when(config.getSpec()).thenReturn(DevToolsConfig.SPEC);

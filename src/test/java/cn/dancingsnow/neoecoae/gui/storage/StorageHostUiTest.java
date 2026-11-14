@@ -364,7 +364,7 @@ class StorageHostUiTest {
             for (UIElement caption : List.of(stored, drain, bytes, usage)) UiTestRendering.drawBackgroundAdditional(caption, context);
             var rendered = org.mockito.ArgumentCaptor.forClass(net.minecraft.network.chat.FormattedText.class);
             verify(font, times(3)).substrByWidth(rendered.capture(), anyInt());
-            assertEquals(Component.translatable("gui.neoecoae.storage.ui.energy", "12G", "22G"), rendered.getAllValues().get(0));
+            assertEquals(Component.translatable("gui.neoecoae.storage.ui.energy", "12G", Component.literal("22G")), rendered.getAllValues().get(0));
             assertEquals(Component.literal("75.0%"), rendered.getAllValues().get(2));
             verify(pose).translate(208F, 312F);
             // The 32px text at 0.75 scale ends at x=368, the capacity bar's right edge.
@@ -376,7 +376,7 @@ class StorageHostUiTest {
             clearInvocations(font, pose, context.graphics);
             UiTestRendering.drawBackgroundAdditional(stored, context);
             UiTestRendering.drawBackgroundAdditional(usage, context);
-            verify(font).substrByWidth(eq(Component.translatable("gui.neoecoae.storage.ui.energy", "0", "22G")), anyInt());
+            verify(font).substrByWidth(eq(Component.translatable("gui.neoecoae.storage.ui.energy", "0", Component.literal("22G"))), anyInt());
             verify(context.graphics, times(1)).text(eq(font), any(net.minecraft.util.FormattedCharSequence.class), eq(0), eq(0), anyInt(), eq(false));
         }
     }
