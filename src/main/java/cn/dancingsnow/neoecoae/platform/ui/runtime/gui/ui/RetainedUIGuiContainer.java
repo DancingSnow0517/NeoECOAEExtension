@@ -7,15 +7,19 @@ import net.minecraft.client.renderer.Rect2i;
 
 /** Keeps a fixed source layout usable when it is taller than the current GUI viewport. */
 public final class RetainedUIGuiContainer extends ModularUIGuiContainer {
+    private final ModularUI retainedUI;
     private float renderScale=1;
     private cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.utils.ModularUITooltipComponent contentTooltip;
 
     public RetainedUIGuiContainer(com.lowdragmc.lowdraglib.gui.modular.ModularUI ui,int windowId){
         super(ui,windowId);
+        retainedUI=((UIElement)ui.mainGroup).getModularUI();
     }
 
     @Override public void init(){
         var root=(UIElement)modularUI.mainGroup;
+        // LDLib closes the menu when a recipe screen replaces it, then reuses this screen on return.
+        if(retainedUI!=null&&root.getModularUI()!=retainedUI)root.attachUI(retainedUI);
         // Apply page switches and terminal row changes before LDLib calculates the origin.
         root.arrange();
         int contentWidth=Math.round(root.getSizeWidth());
@@ -37,6 +41,11 @@ public final class RetainedUIGuiContainer extends ModularUIGuiContainer {
         width=(int)Math.ceil(viewportWidth/renderScale);
         height=(int)Math.ceil(viewportHeight/renderScale);
         super.init();
+    }
+
+    @Override public void removed(){
+        if(retainedUI!=null)retainedUI.pointerUp();
+        super.removed();
     }
 
     public static float scaleToFit(int width,int height,float contentWidth,float contentHeight){
