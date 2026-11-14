@@ -5,6 +5,7 @@ import appeng.api.orientation.OrientationStrategies;
 import appeng.api.orientation.RelativeSide;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.blocks.NENetworkSwitchBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -23,6 +24,16 @@ public final class NENetworkSwitchUtil {
             || switchPos.equals(switchPosition(controllerPos, state, true));
     }
     public static boolean canUseNetworkSwitch(IECOTier tier) { return tier.getTier() == ECOTier.L9.getTier(); }
+    /** Both exchange modules replace the casing of their own subsystem only. */
+    public static boolean isCompatibleSwitch(BlockState state, BlockState casing) {
+        if (casing.is(NEBlocks.CRAFTING_CASING.get())) {
+            return state.is(NEBlocks.CRAFTING_NETWORK_SWITCH.get())
+                || state.is(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH.get());
+        }
+        return casing.is(NEBlocks.COMPUTATION_CASING.get())
+            && (state.is(NEBlocks.COMPUTATION_NETWORK_SWITCH.get())
+                || state.is(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.get()));
+    }
     public static void setFormed(net.minecraft.server.level.ServerLevel level, BlockPos pos, boolean formed) {
         BlockState state = level.getBlockState(pos);
         if (state.hasProperty(NENetworkSwitchBlock.FORMED) && state.getValue(NENetworkSwitchBlock.FORMED) != formed) level.setBlock(pos, state.setValue(NENetworkSwitchBlock.FORMED, formed), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);

@@ -1,6 +1,17 @@
 package cn.dancingsnow.neoecoae.uiprobe;
 
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
+import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.crafting.graph.ClientCraftingGraph;
+import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutEngine;
+import cn.dancingsnow.neoecoae.crafting.graph.RecursiveCycleNode;
+import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.multiblock.network.NENetworkSwitchUtil;
+import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
+import cn.dancingsnow.neoecoae.multiblock.placement.WorldPlannedBlock;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.ValueWire;
+import cn.dancingsnow.neoecoae.storage.transfer.ECOCreativeExtractionFilter;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
@@ -20,6 +31,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import net.minecraft.core.BlockPos;
@@ -111,6 +123,11 @@ public final class DedicatedUiProbe {
             }
         });
         check("formed workstation snapshot and stale holder actions", () -> workstation(level, player, pos));
+        check("Long menu argument framing", DedicatedUiProbe::longWire);
+        check("native creative storage routing and scope", DedicatedUiProbe::creativeRouting);
+        check("build bounds and missing-material placement", () -> buildPlacement(level, player));
+        check("network-switch preview reuse", () -> switchPreview(level));
+        check("recursive graph centered materials and separate ports", DedicatedUiProbe::recursiveGraph);
         results.put("java", System.getProperty("java.version"));
         results.put("failures", failures);
         results.put("menus", menus);
@@ -203,6 +220,129 @@ public final class DedicatedUiProbe {
         menu.broadcastChanges();
         require(player.containerMenu != menu, "Stale menu did not close");
         require(contents.getItem(0).getCount() == 3, "Stale menu changed owned items");
+    }
+
+    private static void longWire() {
+        for (long expected : new long[] {Long.MIN_VALUE, -1, 0, 1, 1L << 53, Long.MAX_VALUE}) {
+            var wire = new FriendlyByteBuf(Unpooled.buffer());
+            try {
+                ValueWire.write(wire, Integer.class, 19);
+                ValueWire.write(wire, Long.class, expected);
+                ValueWire.write(wire, Boolean.class, true);
+                require(ValueWire.read(wire, Integer.class).equals(19), "CPU identity lost");
+                require(ValueWire.read(wire, Long.class).equals(expected), "Long request changed");
+                require(ValueWire.read(wire, Boolean.class).equals(true) && !wire.isReadable(), "RPC framing changed");
+            } finally { wire.release(); }
+        }
+    }
+
+    private static void creativeRouting() {
+        var key = appeng.api.stacks.AEItemKey.of(Items.STONE);
+        var source = appeng.api.networking.security.IActionSource.empty();
+        var stack = appeng.core.definitions.AEItems.ITEM_CELL_CREATIVE.stack();
+        appeng.items.contents.CellConfig.create(stack).setStack(0, new appeng.api.stacks.GenericStack(key, 1));
+        var creative = appeng.api.storage.StorageCells.getCellInventory(stack, null);
+        require(creative instanceof ECOCreativeExtractionFilter.CreativeStorage, "Native creative mixin was not applied");
+        var wrapped = new appeng.api.storage.SupplierStorage(() -> new appeng.me.storage.DelegatingMEInventory(creative));
+        require(ECOCreativeExtractionFilter.extract(wrapped, key, 128, source) == 0, "Accessor wrappers hid creative input");
+        var finite = appeng.api.storage.StorageCells.getCellInventory(appeng.core.definitions.AEItems.ITEM_CELL_256K.stack(), null);
+        require(finite != null, "Missing ordinary 256K inventory");
+        var network = new appeng.me.storage.NetworkStorage();
+        network.mount(100, wrapped);
+        network.mount(0, finite);
+        long inserted = ECOCreativeExtractionFilter.transfer(false,
+            () -> network.insert(key, 128, appeng.api.config.Actionable.MODULATE, source));
+        require(inserted == 128 && finite.getAvailableStacks().get(key) == 128, "Native creative output swallowed stock");
+        require(network.insert(key, 1, appeng.api.config.Actionable.MODULATE, source) == 1
+            && finite.getAvailableStacks().get(key) == 128, "IO scope changed ordinary AE2 insertion");
+        require(ECOCreativeExtractionFilter.extract(network, key, 128, source) == 128
+            && finite.getAvailableStacks().get(key) == 0, "Native mixed input bypassed the finite inventory");
+    }
+
+    private static void buildPlacement(ServerLevel level, ServerPlayer player) {
+        var pos = new BlockPos(50, 100, 50);
+        level.getChunkAt(pos);
+        level.setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
+        player.getInventory().clearContent();
+        var session = new MultiBlockBuildSession(List.of(new WorldPlannedBlock(pos,
+            Blocks.STONE.defaultBlockState(), new ItemStack(Items.STONE, 3))), 0);
+        require(MultiBlockPlacementService.tickBuild(level, session, player)
+            == MultiBlockPlacementService.PlacementTickResult.MISSING_ITEMS, "Missing material was reported as blocked space");
+        require(level.getBlockState(pos).isAir() && !session.isFinished(), "Missing material placed or advanced a block");
+        player.getInventory().setItem(0, new ItemStack(Items.STONE, 3));
+        require(MultiBlockPlacementService.tickBuild(level, session, player)
+            == MultiBlockPlacementService.PlacementTickResult.COMPLETED, "Owned materials did not complete placement");
+        require(level.getBlockState(pos).is(Blocks.STONE) && player.getInventory().getItem(0).isEmpty(), "Placement changed material custody");
+        var floor = new BlockPos(72, level.getMinBuildHeight(), 72);
+        level.getChunkAt(floor);
+        var plan = MultiBlockPlacementService.preview(level, floor, NEBlocks.INTEGRATED_WORKING_STATION.getDefaultState(),
+            NEMultiBlocks.LARGE_INTEGRATED_WORKING_STATION, 1, false);
+        require(plan.getConflictPositions().stream().anyMatch(level::isOutsideBuildHeight), "Preview accepted blocks below build height");
+        var ceiling = new BlockPos(72, level.getMaxBuildHeight() - 1, 72);
+        var controllerState = NEBlocks.CRAFTING_SYSTEM_L9.getDefaultState();
+        level.setBlockAndUpdate(ceiling, controllerState);
+        var controller = (cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity) level.getBlockEntity(ceiling);
+        var definition = controller.getBuildDefinition();
+        var upperPlan = MultiBlockPlacementService.preview(level, ceiling, controllerState, definition, definition.getExpandMin(), false);
+        require(upperPlan.getConflictPositions().stream().anyMatch(level::isOutsideBuildHeight), "Preview accepted blocks above build height");
+    }
+
+    private static void switchPreview(ServerLevel level) {
+        var pos = new BlockPos(72, 100, 72);
+        level.getChunkAt(pos);
+        var state = NEBlocks.CRAFTING_SYSTEM_L9.getDefaultState();
+        level.setBlockAndUpdate(pos, state);
+        var controller = (cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity) level.getBlockEntity(pos);
+        var definition = controller.getBuildDefinition();
+        require(definition != null, "Missing crafting structure definition");
+        for (boolean mirrored : new boolean[] {false, true}) {
+            level.setBlockAndUpdate(NENetworkSwitchUtil.switchPosition(pos, state, false), Blocks.AIR.defaultBlockState());
+            level.setBlockAndUpdate(NENetworkSwitchUtil.switchPosition(pos, state, true), Blocks.AIR.defaultBlockState());
+            var switchPos = NENetworkSwitchUtil.switchPosition(pos, state, mirrored);
+            level.setBlockAndUpdate(switchPos, NEBlocks.CRAFTING_NETWORK_SWITCH.getDefaultState());
+            var own = MultiBlockPlacementService.preview(level, pos, state, definition, definition.getExpandMin(), mirrored);
+            require(!own.getConflictPositions().contains(switchPos) && own.getReusedBlockCount() == 1,
+                "Compatible switch was not reused in mirror mode " + mirrored);
+            level.setBlockAndUpdate(switchPos, NEBlocks.COMPUTATION_NETWORK_SWITCH.getDefaultState());
+            var foreign = MultiBlockPlacementService.preview(level, pos, state, definition, definition.getExpandMin(), mirrored);
+            require(foreign.getConflictPositions().contains(switchPos), "A computation switch replaced crafting casing");
+        }
+    }
+
+    private static void recursiveGraph() throws Exception {
+        var stone = appeng.api.stacks.AEItemKey.of(Items.STONE);
+        var dirt = appeng.api.stacks.AEItemKey.of(Items.DIRT);
+        var nodes = new LinkedHashMap<Integer, ClientCraftingGraph.Node>();
+        var roles = new RecursiveCycleNode.Role[] {RecursiveCycleNode.Role.SEED, RecursiveCycleNode.Role.INPUT,
+            RecursiveCycleNode.Role.STEP, RecursiveCycleNode.Role.STOCK, RecursiveCycleNode.Role.STOCK,
+            RecursiveCycleNode.Role.STEP, RecursiveCycleNode.Role.RETAINED, RecursiveCycleNode.Role.RETAINED,
+            RecursiveCycleNode.Role.OUTPUT};
+        int[] levels = {0, 0, 1, 2, 2, 3, 4, 4, 4};
+        for (int id = 0; id < roles.length; id++) {
+            var key = roles[id] == RecursiveCycleNode.Role.STEP ? null : id == 4 || id == 7 ? dirt : stone;
+            nodes.put(id, new ClientCraftingGraph.Node(id, ClientCraftingGraph.Kind.RECURSION, "probe", key,
+                null, null, null, null, new RecursiveCycleNode(roles[id], levels[id], PlannerAmount.of(1), null)));
+        }
+        var links = new ArrayList<ClientCraftingGraph.Link>();
+        for (int[] pair : new int[][] {{0, 2}, {1, 2}, {2, 3}, {2, 4}, {3, 5}, {4, 5}, {5, 6}, {5, 7}, {3, 8}})
+            links.add(new ClientCraftingGraph.Link(pair[0], pair[1], 1L, CraftingGraphSnapshot.EdgeKind.CYCLE_INTERNAL, true));
+        var constructor = ClientCraftingGraph.class.getDeclaredConstructor(CraftingGraphSnapshot.class,
+            ClientCraftingGraph.View.class, int.class, int.class, Map.class, List.class);
+        constructor.setAccessible(true);
+        var graph = (ClientCraftingGraph) constructor.newInstance(CraftingGraphSnapshot.EMPTY,
+            ClientCraftingGraph.View.CYCLE_FOCUS, 5, -1, nodes, links);
+        var backendConstructor = Class.forName("cn.dancingsnow.neoecoae.crafting.graph.RecursiveCycleLayout").getDeclaredConstructor();
+        backendConstructor.setAccessible(true);
+        var layout = ((GraphLayoutEngine) backendConstructor.newInstance()).layout(graph, 1);
+        require(Math.abs(layout.box(0).centerY() - layout.box(2).centerY()) < 0.01f, "Seed material was not centered");
+        require(!layout.edgePoints(links.get(4)).get(0).equals(layout.edgePoints(links.get(8)).get(0)), "Delivery and stock shared a port");
+        var bounds = layout.bounds();
+        for (var link : links) {
+            require(layout.edgePoints(link).size() >= 2, "An edge lost its route");
+            for (var point : layout.edgePoints(link)) require(Float.isFinite(point.x()) && Float.isFinite(point.y())
+                && point.x() >= bounds.left() && point.x() <= bounds.right()
+                && point.y() >= bounds.top() && point.y() <= bounds.bottom(), "Route escaped the graph viewport bounds");
+        }
     }
 
     private static FriendlyByteBuf encode(ModularUI ui) {

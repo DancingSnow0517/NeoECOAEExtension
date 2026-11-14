@@ -21,7 +21,8 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Set;
 
 /** ECO-only view of an AE2 creative cell; AE2 remains responsible for all storage operations. */
-public final class ECOCreativeCell implements IECOStorageCell, cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage {
+public final class ECOCreativeCell implements IECOStorageCell, cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage,
+        cn.dancingsnow.neoecoae.storage.transfer.ECOCreativeExtractionFilter.CreativeStorage {
     private static final ECOCellType TYPE = new ECOCellType(
         Component.translatable("item.ae2.creative_cell"), 1, false);
     private final StorageCell delegate;

@@ -186,7 +186,8 @@ public interface INEMultiblockBuildHost {
             return;
         }
 
-        switch (MultiBlockPlacementService.tickBuild(serverLevel, preview.buildSession, buildPlayer)) {
+        var placement = MultiBlockPlacementService.tickBuild(serverLevel, preview.buildSession, buildPlayer);
+        switch (placement) {
             case WAITING -> {}
             case ADVANCED -> syncPreview(
                     preview.buildSession.getRemainingBlockCount(),
@@ -209,12 +210,14 @@ public interface INEMultiblockBuildHost {
                                 ? "gui.neoecoae.multiblock.status.conflicts_detected"
                                 : "gui.neoecoae.multiblock.status.build_complete");
             }
-            case BLOCKED -> {
+            case MISSING_ITEMS, BLOCKED -> {
                 int remainingBlocks = preview.buildSession.getRemainingBlockCount();
+                buildPlayer.displayClientMessage(MultiBlockPlacementService.placementFailureMessage(
+                    buildPlayer, placement, preview.buildSession.getCurrentBlock()), false);
                 clearBuildSession();
                 syncPreview(
                         remainingBlocks,
-                        1,
+                        placement == MultiBlockPlacementService.PlacementTickResult.BLOCKED ? 1 : 0,
                         preview.previewReusedBlocks,
                         preview.previewRequiredItems,
                         "gui.neoecoae.multiblock.status.build_interrupted");
@@ -301,8 +304,18 @@ public interface INEMultiblockBuildHost {
         setSelectedBuildLength(getSelectedBuildLength());
         MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(
                 serverLevel, getHostPos(), getHostBlockState(), definition, getSelectedBuildLength(), mirrored);
+        if (!plan.getConflictPositions().isEmpty()) {
+            BlockPos conflict = plan.getConflictPositions().get(0);
+            serverPlayer.displayClientMessage(Component.translatable("gui.neoecoae.multiblock.build_space_blocked",
+                conflict.getX(), conflict.getY(), conflict.getZ()), false);
+            syncPreview(plan.getMissingBlocks().size(), plan.getConflictPositions().size(), plan.getReusedBlockCount(),
+                plan.getRequiredItemCount(), "gui.neoecoae.multiblock.status.conflicts_detected");
+            return;
+        }
         if (!serverPlayer.isCreative()
                 && !MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems())) {
+            serverPlayer.displayClientMessage(MultiBlockPlacementService.missingItemsMessage(serverPlayer,
+                plan.getRequiredItems()), false);
             syncPreview(
                     plan.getMissingBlocks().size(),
                     plan.getConflictPositions().size(),

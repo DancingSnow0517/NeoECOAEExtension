@@ -263,7 +263,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
     private boolean validateCasingOrNetworkSwitch(ServerLevel level, BlockPos controllerPos, IECOTier tier, Direction top, Direction down, Direction side) {
         BlockPos center = controllerPos.relative(side);
         BlockState state = level.getBlockState(center);
-        boolean sw = state.is(NEBlocks.CRAFTING_NETWORK_SWITCH.get()) || state.is(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH.get());
+        boolean sw = NENetworkSwitchUtil.isCompatibleSwitch(state, NEBlocks.CRAFTING_CASING.getDefaultState());
         if (!state.is(NEBlocks.CRAFTING_CASING.get()) && !sw) return false;
         if (sw && !NENetworkSwitchUtil.canUseNetworkSwitch(tier)) return false;
         return validateBlock(level, center.relative(top), (candidateState, reference) -> candidateState.is(reference.get()), NEBlocks.CRAFTING_CASING)

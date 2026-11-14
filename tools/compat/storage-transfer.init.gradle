@@ -1,0 +1,27 @@
+// Run with build-local.ps1 -GradleArguments @('-I', 'tools/compat/storage-transfer.init.gradle',
+//     'checkStorageTransfer', '--offline'). Fixtures stay outside the release source sets.
+gradle.afterProject { project ->
+    def checkClasses = project.layout.buildDirectory.dir('compat/storage-transfer-check/classes')
+    def checkClasspath = project.sourceSets.main.runtimeClasspath + project.sourceSets.main.compileClasspath
+    def compileCheck = project.tasks.register('compileStorageTransferCheck', JavaCompile) {
+        dependsOn project.tasks.named('classes')
+        source project.file('tools/compat/StorageInterfaceTransferCheck.java')
+        classpath = checkClasspath
+        destinationDirectory.set(checkClasses)
+        javaCompiler.set(project.javaToolchains.compilerFor {
+            languageVersion = JavaLanguageVersion.of(17)
+        })
+        options.release = 17
+        options.encoding = 'UTF-8'
+        options.compilerArgs.add('-proc:none')
+    }
+    project.tasks.register('checkStorageTransfer', JavaExec) {
+        dependsOn compileCheck
+        classpath = project.files(checkClasses) + checkClasspath
+        javaLauncher.set(project.javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(17)
+        })
+        mainClass.set('StorageInterfaceTransferCheck')
+        if (project.hasProperty('storageTransferCases')) args(project.property('storageTransferCases').split(','))
+    }
+}

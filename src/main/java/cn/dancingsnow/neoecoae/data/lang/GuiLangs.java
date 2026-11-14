@@ -416,6 +416,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.multiblock.status.structure_ready", "Structure ready");
         provider.add("gui.neoecoae.multiblock.status.ready_to_build", "Ready to build");
         provider.add("gui.neoecoae.multiblock.status.not_enough_items", "Not enough items");
+        provider.add("gui.neoecoae.multiblock.build_missing_item", "%s x %s");
+        provider.add("gui.neoecoae.multiblock.build_space_blocked", "Not enough space or position unavailable: %s, %s, %s. Clear this position and try again.");
         provider.add("gui.neoecoae.multiblock.status.conflicts_detected", "Conflicts detected");
         provider.add("gui.neoecoae.multiblock.status.build_in_progress", "Build in progress");
         provider.add("gui.neoecoae.multiblock.status.idle", "Idle");

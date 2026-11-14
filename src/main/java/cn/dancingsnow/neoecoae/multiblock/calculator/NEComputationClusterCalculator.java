@@ -302,7 +302,7 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
     private boolean validateCasingOrNetworkSwitch(ServerLevel level, BlockPos controllerPos, IECOTier tier, Direction top, Direction down, Direction side) {
         BlockPos center = controllerPos.relative(side);
         BlockState state = level.getBlockState(center);
-        boolean sw = state.is(NEBlocks.COMPUTATION_NETWORK_SWITCH.get()) || state.is(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.get());
+        boolean sw = NENetworkSwitchUtil.isCompatibleSwitch(state, NEBlocks.COMPUTATION_CASING.getDefaultState());
         if (!state.is(NEBlocks.COMPUTATION_CASING.get()) && !sw) return false;
         if (sw && !NENetworkSwitchUtil.canUseNetworkSwitch(tier)) return false;
         return validateBlock(level, center.relative(top), (candidateState, reference) -> candidateState.is(reference.get()), NEBlocks.COMPUTATION_CASING)

@@ -200,6 +200,7 @@ final class ECOStorageInterfaceTransfer {
             for (int pass = 0; pass < 2 && inserted < amount; pass++) {
                 for (MEStorage inventory : candidates) {
                     if (inserted >= amount) break;
+                    if (cn.dancingsnow.neoecoae.storage.transfer.ECOCreativeExtractionFilter.excludesInsert(inventory)) continue;
                     boolean bulk = inventory instanceof IECOStorageCell cell && cell.prioritizesMarkedInserts();
                     if (bulk != (pass == 0)) continue;
                     inserted += inventory.insert(key, amount - inserted, mode, source);
@@ -215,7 +216,11 @@ final class ECOStorageInterfaceTransfer {
             // Loaded/migrated stock can outlive an insertion rule. Never exclude it from extraction by type.
             for (MEStorage inventory : inventories) {
                 if (extracted >= amount) break;
-                extracted += inventory.extract(key, amount - extracted, mode, source);
+                long requested = amount - extracted;
+                extracted += cn.dancingsnow.neoecoae.storage.transfer.ECOCreativeExtractionFilter.isActive(mode)
+                    ? cn.dancingsnow.neoecoae.storage.transfer.ECOCreativeExtractionFilter.extractSource(inventory,
+                        key, mode, () -> inventory.extract(key, requested, mode, source))
+                    : inventory.extract(key, requested, mode, source);
             }
             return extracted;
         }

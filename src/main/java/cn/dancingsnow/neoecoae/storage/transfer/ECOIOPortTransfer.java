@@ -77,8 +77,9 @@ public final class ECOIOPortTransfer {
         transferring = true;
         try {
             return StorageBusTransferFilter.transfer(excludeStorageBuses,
-                () -> transferContents(grid, hostStorage, fillHost, ignoreCreativeInput, excludeStorageBuses,
-                    source, filter, tick, Math.max(1, Math.min(20, outputIntervalTicks)), Math.max(1, outputFlushThreshold)));
+                () -> ECOCreativeExtractionFilter.transfer(fillHost && ignoreCreativeInput,
+                    () -> transferContents(grid, hostStorage, fillHost, ignoreCreativeInput, excludeStorageBuses,
+                        source, filter, tick, Math.max(1, Math.min(20, outputIntervalTicks)), Math.max(1, outputFlushThreshold))));
         } finally {
             transferring = false;
         }

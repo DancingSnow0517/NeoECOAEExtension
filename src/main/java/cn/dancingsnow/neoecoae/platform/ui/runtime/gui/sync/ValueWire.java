@@ -14,6 +14,7 @@ public final class ValueWire {
     public static void write(FriendlyByteBuf buffer,Class<?> type,Object value) {
         buffer.writeBoolean(value!=null);if(value==null)return;
         if(type==Integer.class)buffer.writeVarInt((Integer)value);
+        else if(type==Long.class)buffer.writeVarLong((Long)value);
         else if(type==Boolean.class)buffer.writeBoolean((Boolean)value);
         else if(type==Float.class)buffer.writeFloat((Float)value);
         else if(type==String.class)buffer.writeUtf((String)value,32767);
@@ -27,6 +28,7 @@ public final class ValueWire {
     public static Object read(FriendlyByteBuf buffer,Class<?> type) {
         if(!buffer.readBoolean())return null;
         if(type==Integer.class)return buffer.readVarInt();
+        if(type==Long.class)return buffer.readVarLong();
         if(type==Boolean.class)return buffer.readBoolean();
         if(type==Float.class)return buffer.readFloat();
         if(type==String.class)return buffer.readUtf(32767);

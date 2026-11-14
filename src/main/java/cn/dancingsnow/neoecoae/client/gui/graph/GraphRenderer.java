@@ -512,6 +512,10 @@ public final class GraphRenderer implements AutoCloseable {
 
     /** Tangent-aligned triangle so curved or diagonal routes do not snap to four directions. */
     static void drawArrowHead(GuiGraphics graphics, List<GraphLayoutSnapshot.Point> route, int color) {
+        drawArrowHead(graphics, route, color, 1);
+    }
+
+    static void drawArrowHead(GuiGraphics graphics, List<GraphLayoutSnapshot.Point> route, int color, float scale) {
         var end = cn.dancingsnow.neoecoae.platform.JdkCompat.last(route);
         GraphLayoutSnapshot.Point previous = route.get(route.size() - 2);
         for (int i = route.size() - 2; i >= 0 && previous.equals(end); i--) previous = route.get(i);
@@ -520,10 +524,10 @@ public final class GraphRenderer implements AutoCloseable {
         float length = Math.max(0.001f, (float) Math.hypot(dx, dy));
         float unitX = dx / length;
         float unitY = dy / length;
-        float baseX = end.x() - unitX * 6f;
-        float baseY = end.y() - unitY * 6f;
-        float normalX = -unitY * 3.5f;
-        float normalY = unitX * 3.5f;
+        float baseX = end.x() - unitX * 6f * scale;
+        float baseY = end.y() - unitY * 6f * scale;
+        float normalX = -unitY * 3.5f * scale;
+        float normalY = unitX * 3.5f * scale;
         GraphDraw.triangle(graphics, end.x(), end.y(), baseX + normalX, baseY + normalY,
             baseX - normalX, baseY - normalY, color);
     }

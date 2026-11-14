@@ -10,6 +10,7 @@ import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.StorageListingAccumulator;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot;
 import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
+import cn.dancingsnow.neoecoae.storage.transfer.ECOCreativeExtractionFilter;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import org.spongepowered.asm.mixin.Mixin;
@@ -118,7 +119,8 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, Netwo
                 var iterator = inventoryList.iterator();
                 while (iterator.hasNext() && remaining.signum() > 0) {
                     MEStorage inventory = iterator.next();
-                    if (isQueuedForRemoval(inventory) || !(inventory instanceof ECOBigIntegerStorage exact)) continue;
+                    if (isQueuedForRemoval(inventory) || ECOCreativeExtractionFilter.excludesInsert(inventory)
+                            || !(inventory instanceof ECOBigIntegerStorage exact)) continue;
                     if (inventory.isPreferredStorageFor(what, source)) {
                         remaining = remaining.subtract(insertExact(exact, what, remaining, mode, source));
                     } else {
@@ -127,7 +129,8 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, Netwo
                 }
                 for (MEStorage inventory : secondPassInventories) {
                     if (remaining.signum() <= 0) break;
-                    if (!isQueuedForRemoval(inventory) && inventory instanceof ECOBigIntegerStorage exact) {
+                    if (!isQueuedForRemoval(inventory) && !ECOCreativeExtractionFilter.excludesInsert(inventory)
+                            && inventory instanceof ECOBigIntegerStorage exact) {
                         remaining = remaining.subtract(insertExact(exact, what, remaining, mode, source));
                     }
                 }
@@ -150,6 +153,16 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, Netwo
             throw new IllegalStateException("Invalid storage insertion result: " + inserted + " for " + offered);
         }
         return inserted;
+    }
+
+    @WrapOperation(
+        method = "insert",
+        at = @At(value = "INVOKE", target = "Lappeng/api/storage/MEStorage;insert(Lappeng/api/stacks/AEKey;JLappeng/api/config/Actionable;Lappeng/api/networking/security/IActionSource;)J")
+    )
+    private long neoecoae$excludeCreativeOutput(MEStorage storage, AEKey key, long amount,
+            Actionable mode, IActionSource source, Operation<Long> original) {
+        if (ECOCreativeExtractionFilter.excludesInsert(storage)) return 0L;
+        return original.call(storage, key, amount, mode, source);
     }
 
     @WrapOperation(

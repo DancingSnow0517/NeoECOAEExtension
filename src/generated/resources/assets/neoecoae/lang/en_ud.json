@@ -900,6 +900,8 @@
   "gui.neoecoae.multiblock.status.idle": "ǝןpI",
   "gui.neoecoae.multiblock.status.length_updated": "pǝʇɐpdn ɥʇbuǝן pןınᗺ",
   "gui.neoecoae.multiblock.status.no_definition": "uoıʇıuıɟǝp ǝɹnʇɔnɹʇs oN",
+  "gui.neoecoae.multiblock.build_missing_item": "%s x %s",
+  "gui.neoecoae.multiblock.build_space_blocked": "˙uıɐbɐ ʎɹʇ puɐ uoıʇısod sıɥʇ ɹɐǝןƆ ˙%s '%s '%s :ǝןqɐןıɐʌɐun uoıʇısod ɹo ǝɔɐds ɥbnouǝ ʇoN",
   "gui.neoecoae.multiblock.status.not_enough_items": "sɯǝʇı ɥbnouǝ ʇoN",
   "gui.neoecoae.multiblock.status.ready_to_build": "pןınq oʇ ʎpɐǝᴚ",
   "gui.neoecoae.multiblock.status.structure_ready": "ʎpɐǝɹ ǝɹnʇɔnɹʇS",

@@ -95,8 +95,14 @@ final class RecursiveCycleRenderer {
         pose.pushPose();
         pose.translate(box.x() + (box.width() - ECOIcon.CRAFT_HAMMER.width) / 2,
             box.y() + (box.height() - ECOIcon.CRAFT_HAMMER.height) / 2, 0);
-        ECOIcon.CRAFT_HAMMER.blit(graphics, 0, 0, 0);
-        pose.popPose();
+        int tint = GraphTheme.current().light() ? GraphTheme.current().text() : 0xffffffff;
+        graphics.setColor((tint >> 16 & 0xff) / 255f, (tint >> 8 & 0xff) / 255f, (tint & 0xff) / 255f, 1);
+        try {
+            ECOIcon.CRAFT_HAMMER.blit(graphics, 0, 0, 0);
+        } finally {
+            graphics.setColor(1, 1, 1, 1);
+            pose.popPose();
+        }
     }
 
     static void drawText(GuiGraphics graphics, ClientCraftingGraph graph, ClientCraftingGraph.Node node, Box box,
@@ -139,7 +145,15 @@ final class RecursiveCycleRenderer {
             if (external) GraphDraw.dashedLine(graphics, a.x(), a.y(), b.x(), b.y(), accent, half);
             else GraphDraw.segment(graphics, a.x(), a.y(), b.x(), b.y(), accent, half);
         }
-        GraphRenderer.drawArrowHead(graphics, route, accent);
+        var target = graph.nodes().get(link.toId());
+        int incoming = 0;
+        for (var other : layout.linksAt(link.toId())) {
+            if (other.toId() == link.toId() && (target.key() != null
+                || (graph.nodes().get(other.fromId()).recursion().role() == Role.INPUT) == external)) incoming++;
+        }
+        var targetBox = layout.box(link.toId());
+        float span = toRole == Role.OUTPUT || external && target.key() == null ? targetBox.width() : targetBox.height();
+        GraphRenderer.drawArrowHead(graphics, route, accent, Math.min(1, span / (incoming + 1) / 8));
     }
 
     static Component title(ClientCraftingGraph.Node node) {

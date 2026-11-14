@@ -1,8 +1,12 @@
 package cn.dancingsnow.neoecoae.multiblock.placement;
 
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
+import cn.dancingsnow.neoecoae.multiblock.network.NENetworkSwitchUtil;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -29,6 +33,7 @@ public final class MultiBlockPlacementService {
         WAITING,
         ADVANCED,
         COMPLETED,
+        MISSING_ITEMS,
         BLOCKED
     }
 
@@ -73,6 +78,13 @@ public final class MultiBlockPlacementService {
         List<BlockPos> conflictPositions = new ArrayList<>();
         List<RequiredItem> requiredItems = new ArrayList<>();
         int reusedBlockCount = 0;
+        var controller = level.getBlockEntity(controllerPos);
+        boolean acceptsSwitch = (controller instanceof ECOCraftingSystemBlockEntity crafting
+                && NENetworkSwitchUtil.canUseNetworkSwitch(crafting.getTier()))
+            || (controller instanceof ECOComputationSystemBlockEntity computation
+                && NENetworkSwitchUtil.canUseNetworkSwitch(computation.getTier()));
+        BlockPos switchPos = acceptsSwitch
+            ? NENetworkSwitchUtil.switchPosition(controllerPos, controllerState, mirrored) : null;
 
         for (PlannedBlock plannedBlock : context.getPlannedBlocks()) {
             if (plannedBlock.relativePos().equals(MultiBlockRotation.CONTROLLER_ANCHOR)) {
@@ -83,8 +95,14 @@ public final class MultiBlockPlacementService {
             WorldPlannedBlock worldBlock = new WorldPlannedBlock(worldPos, targetState, plannedBlock.requiredItem().copy());
             allBlocks.add(worldBlock);
 
+            if (!isBuildPositionAvailable(level, worldPos)) {
+                conflictPositions.add(worldPos);
+                continue;
+            }
             BlockState existingState = level.getBlockState(worldPos);
-            if (existingState.equals(targetState)) {
+            if (existingState.equals(targetState)
+                    || (acceptsSwitch && worldPos.equals(switchPos)
+                        && NENetworkSwitchUtil.isCompatibleSwitch(existingState, targetState))) {
                 reusedBlockCount++;
                 continue;
             }
@@ -122,7 +140,15 @@ public final class MultiBlockPlacementService {
             return PlacementTickResult.WAITING;
         }
 
-        if (!placeBuildBlock(level, session.getCurrentBlock(), player)) {
+        WorldPlannedBlock current = session.getCurrentBlock();
+        if (!isBuildPositionAvailable(level, current.worldPos()) || !level.mayInteract(player, current.worldPos())) {
+            return PlacementTickResult.BLOCKED;
+        }
+        if (!player.isCreative() && !level.getBlockState(current.worldPos()).equals(current.targetState())
+                && countMatchingItems(player, current.requiredItem()) < current.requiredItem().getCount()) {
+            return PlacementTickResult.MISSING_ITEMS;
+        }
+        if (!placeBuildBlock(level, current, player)) {
             return PlacementTickResult.BLOCKED;
         }
         session.advance(PLACEMENT_DELAY_TICKS);
@@ -130,8 +156,7 @@ public final class MultiBlockPlacementService {
     }
 
     private static boolean placeBuildBlock(ServerLevel level, WorldPlannedBlock worldBlock, ServerPlayer player) {
-        if (!level.hasChunkAt(worldBlock.worldPos())
-            || !level.getWorldBorder().isWithinBounds(worldBlock.worldPos())
+        if (!isBuildPositionAvailable(level, worldBlock.worldPos())
             || !level.mayInteract(player, worldBlock.worldPos())) return false;
         BlockState existingState = level.getBlockState(worldBlock.worldPos());
         if (existingState.equals(worldBlock.targetState())) return true;
@@ -145,6 +170,11 @@ public final class MultiBlockPlacementService {
         return true;
     }
 
+    private static boolean isBuildPositionAvailable(Level level, BlockPos pos) {
+        return level.hasChunkAt(pos) && !level.isOutsideBuildHeight(pos)
+            && level.getWorldBorder().isWithinBounds(pos);
+    }
+
     public static boolean hasRequiredItems(Player player, List<RequiredItem> requiredItems) {
         for (RequiredItem requiredItem : requiredItems) {
             if (countMatchingItems(player, requiredItem.stack()) < requiredItem.count()) {
@@ -152,6 +182,29 @@ public final class MultiBlockPlacementService {
             }
         }
         return true;
+    }
+
+    /** Uses the same nested-inventory lookup as admission and consumption. */
+    public static Component missingItemsMessage(Player player, List<RequiredItem> requiredItems) {
+        var missing = Component.empty();
+        for (RequiredItem required : requiredItems) {
+            int shortage = required.count() - countMatchingItems(player, required.stack());
+            if (shortage <= 0) continue;
+            if (!missing.getSiblings().isEmpty()) missing.append(Component.literal(", "));
+            missing.append(Component.translatable("gui.neoecoae.multiblock.build_missing_item",
+                required.stack().getHoverName(), shortage));
+        }
+        return Component.translatable("gui.neoecoae.multiblock.status.not_enough_items")
+            .append(Component.literal(": ")).append(missing);
+    }
+
+    /** Shared interruption feedback for the host UI and retained terminal build route. */
+    public static Component placementFailureMessage(Player player, PlacementTickResult result, WorldPlannedBlock block) {
+        if (result == PlacementTickResult.MISSING_ITEMS) {
+            return missingItemsMessage(player, List.of(new RequiredItem(block.requiredItem(), block.requiredItem().getCount())));
+        }
+        BlockPos pos = block.worldPos();
+        return Component.translatable("gui.neoecoae.multiblock.build_space_blocked", pos.getX(), pos.getY(), pos.getZ());
     }
 
     public static int countMatchingItems(Player player, ItemStack target) {

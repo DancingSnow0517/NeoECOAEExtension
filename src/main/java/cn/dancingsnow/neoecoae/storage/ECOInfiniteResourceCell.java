@@ -26,7 +26,8 @@ import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
  * {@code freeBytes * amountPerByte}, which overflows for a cell whose total capacity is
  * {@link Long#MAX_VALUE}; leaning on them would silently degrade the cell into an ordinary one.
  */
-public class ECOInfiniteResourceCell extends ECOStorageCell implements ExactAmountSource {
+public class ECOInfiniteResourceCell extends ECOStorageCell implements ExactAmountSource,
+        cn.dancingsnow.neoecoae.storage.transfer.ECOCreativeExtractionFilter.CreativeStorage {
 
     /** Offered amount for the locked keys; the project-wide "unbounded" sentinel, rendered as ∞. */
     private static final long OFFERED_AMOUNT = Long.MAX_VALUE;
