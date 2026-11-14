@@ -15,13 +15,16 @@
       "tag": "c:dusts/redstone"
     },
     "C": {
-      "tag": "c:ingots/black_tungsten_alloy"
+      "tag": "c:ingots/obsidian"
+    },
+    "D": {
+      "tag": "c:gems/data_crystal"
     }
   },
   "pattern": [
     "ABA",
     "B B",
-    "CCC"
+    "CDC"
   ],
   "result": {
     "count": 1,

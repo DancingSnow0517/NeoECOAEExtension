@@ -1022,12 +1022,8 @@ public class NEItems {
         String level = tier.name().substring(1);
         return REGISTRATE.<ECOStorageCellItem>item(name, p -> new ECOBulkStorageCellItem(
                 p.stacksTo(1).rarity(rarity), tier, NECellTypes.BULK_ITEM, 1))
+            // Keep disassembly for legacy disks without competing with normal-cell assembly recipes.
             .recipe((ctx, prov) -> {
-                ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
-                    .requires(ECO_ITEM_CELL_HOUSING)
-                    .requires(component)
-                    .unlockedBy("has_component", RegistrateRecipeProvider.has(component))
-                    .save(prov);
                 StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(
                     ctx.get(), List.of(ECO_ITEM_CELL_HOUSING.asStack(), component.asStack()));
                 prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);

@@ -7,21 +7,31 @@
   ],
   "parent": "minecraft:recipes/root",
   "criteria": {
-    "has_black_tungsten_alloy": {
-      "conditions": {
-        "items": [
-          {
-            "items": "#c:ingots/black_tungsten_alloy"
-          }
-        ]
-      },
-      "trigger": "minecraft:inventory_changed"
-    },
     "has_crystal_matrix": {
       "conditions": {
         "items": [
           {
             "items": "neoecoae:crystal_matrix"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_data_crystal": {
+      "conditions": {
+        "items": [
+          {
+            "items": "#c:gems/data_crystal"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_obsidian_ingot": {
+      "conditions": {
+        "items": [
+          {
+            "items": "#c:ingots/obsidian"
           }
         ]
       },
@@ -49,7 +59,8 @@
       "has_the_recipe",
       "has_crystal_matrix",
       "has_redstone",
-      "has_black_tungsten_alloy"
+      "has_obsidian_ingot",
+      "has_data_crystal"
     ]
   ],
   "rewards": {
