@@ -42,6 +42,9 @@ public class InventorySlots extends UIElement {
         var current = element.getSlot();
         // Explicit bindings can carry restrictions such as the held workstation's locked slot.
         if (!(current instanceof LocalSlot) && current != automaticBindings.get(element)) return;
+        // Restoring the same screen must preserve native slot IDs shared with the server.
+        if (current == automaticBindings.get(element)
+                && current.container == inventory && current.getContainerSlot() == index) return;
         var slot = new Slot(inventory, index, 0, 0);
         element.bind(slot);
         automaticBindings.put(element, slot);

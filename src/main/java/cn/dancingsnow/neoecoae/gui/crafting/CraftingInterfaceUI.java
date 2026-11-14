@@ -274,15 +274,17 @@ public final class CraftingInterfaceUI {
         };
         scrollbar.style(style -> style.backgroundTexture(NETextures.PATTERN_MANAGER_SCROLLBAR_TRACK));
         scrollbar.addEventListener(UIEvents.MOUSE_DOWN, event -> {
+            ModularUI ui = scrollbar.getModularUI();
+            if (event.button != 0 || ui == null) return;
             double max = state.getMaxScrollOffset();
-            if (event.button != 0 || max <= 0) return;
+            if (max <= 0) return;
             float localY = getLocalY(scrollbar, event.x, event.y) - SCROLLBAR_BORDER;
             double thumbY = state.getScrollOffset() / max * SCROLLBAR_TRAVEL;
             // A press on the handle retains its grab point; a track press centers it under the pointer.
             if (localY < thumbY || localY >= thumbY + SCROLLBAR_THUMB_HEIGHT) {
                 state.setScrollOffset((localY - SCROLLBAR_THUMB_HEIGHT / 2.0) / SCROLLBAR_TRAVEL * max);
             } else state.stopScrolling();
-            scrollbar.getModularUI().getDragHandler().startDrag((float) state.getScrollOffset(), null, scrollbar);
+            ui.getDragHandler().startDrag((float) state.getScrollOffset(), null, scrollbar);
             event.stopImmediatePropagation();
         });
         scrollbar.addEventListener(UIEvents.DRAG_SOURCE_UPDATE, event -> {
