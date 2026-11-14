@@ -17,6 +17,7 @@ import appeng.items.storage.StorageCellTooltipComponent;
 import cn.dancingsnow.neoecoae.recipe.StorageCellDisassemblyRecipe;
 import appeng.util.ConfigInventory;
 import appeng.util.InteractionUtil;
+import appeng.util.prioritylist.FuzzyPriorityList;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
@@ -148,6 +149,14 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         }
         lines.add(bytesUsedLine(handler.getUsedBytes(), handler.getTotalBytes()));
         lines.add(Tooltips.typesUsed(handler.getStoredItemTypes(), handler.getTotalItemTypes()));
+        if (!handler.getPartitionList().isEmpty()) {
+            var listMode = handler.getPartitionListMode() == IncludeExclude.WHITELIST
+                ? GuiText.Included : GuiText.Excluded;
+            var matchingMode = handler.getPartitionList() instanceof FuzzyPriorityList
+                ? GuiText.Fuzzy : GuiText.Precise;
+            lines.add(GuiText.Partitioned.withSuffix(" - ")
+                .append(listMode.text()).append(" ").append(matchingMode.text()));
+        }
     }
 
     /**
