@@ -27,6 +27,8 @@ public final class ECOWorkstationMachineStatus {
     private static final java.util.Set<Class<?>> FAILED_READERS = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     public static List<Target> targets(ICraftingProvider provider) {
+        var mmcr = cn.dancingsnow.neoecoae.compat.mmcr.ECOMmcrPatternDispatch.processingRoot(provider);
+        if (mmcr != null) return List.of(mmcr);
         if (provider instanceof ECOProcessingTargetProvider observable) {
             var target = observable.neoecoae$getProcessingTarget();
             return target == null ? List.of() : List.of(target);

@@ -20,6 +20,8 @@ public final class ECOPatternIntegrations {
         cn.dancingsnow.neoecoae.crafting.execution.ECOProcessingMonitor.initialize();
         cn.dancingsnow.neoecoae.compat.ae2.ECORemoteProviderLocator.initialize();
         cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge.initialize();
+        cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingStatusRegistry.register(id("mmcr_processing"),
+            new cn.dancingsnow.neoecoae.compat.processing.MmcrProcessingStatus());
         if (ThunderboltApi.OVERLOAD != null) {
             ECOPatternSemanticsRegistry.register(id("thunderbolt_semantics"), 200,
                 new ThunderPatternSemanticAdapter());
