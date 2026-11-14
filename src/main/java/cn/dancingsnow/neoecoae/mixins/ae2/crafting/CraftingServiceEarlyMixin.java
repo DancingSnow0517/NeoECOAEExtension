@@ -1,13 +1,10 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.crafting;
 
-import appeng.api.config.Actionable;
 import appeng.api.networking.crafting.*;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.stacks.AEKey;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.platform.mixin.CraftingServiceEarlyBridge;
 import com.google.common.collect.ImmutableSet;
-import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.spongepowered.asm.mixin.Mixin;
@@ -18,13 +15,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 /** Order-sensitive provider callbacks run before normal-priority providers on Mixin 0.8.5. */
 @Mixin(value = CraftingService.class, priority = 1500, remap = false)
 public abstract class CraftingServiceEarlyMixin {
-    // Route the remainder to ECO after AE2 and any addon CPU loops have finished.
-    // AdvancedAE overwrites this method, so local-variable load ordinals are not stable.
-    @ModifyReturnValue(method = "insertIntoCpus", at = @At("RETURN"), require = 1, allow = 1)
-    private long neoecoae$insert(long inserted, AEKey key, long amount, Actionable mode) {
-        return ((CraftingServiceEarlyBridge) this).neoecoae$earlyInsertIntoCpus(inserted, key, amount, mode);
-    }
-
     // Run before automatic selectors: multiple INVOKE_ASSIGN callbacks can be inserted in reverse
     // execution order, letting another addon return before an explicitly selected ECO CPU is handled.
     // Capture shared arguments independently of Cosmolite's additional notification flag.

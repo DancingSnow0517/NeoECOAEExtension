@@ -497,9 +497,11 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
 
     }
 
-    @Override
-    @Unique
-    public long neoecoae$earlyInsertIntoCpus(long inserted, AEKey what, long amount, Actionable type) {
+    // Wrap the complete addon insertion chain, including cancellable RETURN callbacks.
+    // Shanhai and AdvancedAE can overwrite the body, so its local variables are not stable.
+    @WrapMethod(method = "insertIntoCpus", require = 1, allow = 1)
+    private long neoecoae$insertIntoCpus(AEKey what, long amount, Actionable type, Operation<Long> original) {
+        long inserted = original.call(what, amount, type);
         if (this.neoecoae$computationClusters.isEmpty() || inserted >= amount) return inserted;
         for (NEComputationCluster cluster : this.neoecoae$computationClusters) {
             if (cluster != null) {
