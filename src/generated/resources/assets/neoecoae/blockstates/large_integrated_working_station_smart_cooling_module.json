@@ -1,18 +1,18 @@
 {
   "variants": {
     "facing=east": {
-      "model": "neoecoae:block/large_integrated_working_station_cooling_controller",
+      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_module",
       "y": 90
     },
     "facing=north": {
-      "model": "neoecoae:block/large_integrated_working_station_cooling_controller"
+      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_module"
     },
     "facing=south": {
-      "model": "neoecoae:block/large_integrated_working_station_cooling_controller",
+      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_module",
       "y": 180
     },
     "facing=west": {
-      "model": "neoecoae:block/large_integrated_working_station_cooling_controller",
+      "model": "neoecoae:block/large_integrated_working_station_smart_cooling_module",
       "y": 270
     }
   }

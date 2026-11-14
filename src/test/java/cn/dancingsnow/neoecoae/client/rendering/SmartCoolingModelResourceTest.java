@@ -15,6 +15,33 @@ class SmartCoolingModelResourceTest {
     private static final String TEXTURES = "textures/block/working_station/controller_formed/";
 
     @Test
+    void allTextureFilesAreDecodablePngs() throws Exception {
+        try (var paths = Files.walk(ROOT.resolve("textures"))) {
+            for (var path : paths.filter(p -> p.toString().endsWith(".png")).toList()) {
+                try (var input = Files.newInputStream(path)) {
+                    assertArrayEquals(new byte[] {(byte) 137, 80, 78, 71, 13, 10, 26, 10},
+                        input.readNBytes(8), path.toString());
+                }
+                assertNotNull(ImageIO.read(path.toFile()), path.toString());
+            }
+        }
+    }
+
+    @Test
+    void smartCoolingItemUsesTheExistingCoolingControllerModel() throws Exception {
+        var generated = Path.of("src/generated/resources/assets/neoecoae");
+        var item = JsonParser.parseString(Files.readString(generated.resolve(
+            "items/large_integrated_working_station_smart_cooling_module.json"))).getAsJsonObject();
+        var modelId = item.getAsJsonObject("model").get("model").getAsString();
+        var model = JsonParser.parseString(Files.readString(generated.resolve(
+            "models/" + modelId.substring("neoecoae:".length()) + ".json"))).getAsJsonObject();
+        assertEquals("neoecoae:block/large_integrated_working_station_cooling_controller",
+            model.get("parent").getAsString());
+        assertTrue(Files.isRegularFile(ROOT.resolve(
+            "models/block/large_integrated_working_station_cooling_controller.json")));
+    }
+
+    @Test
     void ordinaryModelsStaySeparateAndEverySmartThemeRetainsItsModuleTextures() throws Exception {
         for (boolean working : new boolean[] {false, true}) {
             var ordinary = read("models/" + LargeWorkstationModule.REGULAR.modelPath(working) + ".json");
