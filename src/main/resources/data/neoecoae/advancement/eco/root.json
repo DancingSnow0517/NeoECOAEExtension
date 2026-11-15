@@ -4,10 +4,10 @@
       "id": "neoecoae:energized_crystal"
     },
     "title": {
-      "text": "Neo ECO AE Extension"
+      "translate": "advancements.neoecoae.root.title"
     },
     "description": {
-      "text": "从盈能水晶到无限存储，构建你的 ECO 网络"
+      "translate": "advancements.neoecoae.root.description"
     },
     "background": "neoecoae:gui/advancements/background",
     "frame": "task",

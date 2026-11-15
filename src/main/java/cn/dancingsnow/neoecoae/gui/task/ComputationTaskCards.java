@@ -88,7 +88,7 @@ public final class ComputationTaskCards {
         var misses = Component.empty();
         for (String code : codes) {
             if (code.equals("FAST_PATH_HIT")) continue;
-            if (!misses.getSiblings().isEmpty()) misses.append("；");
+            if (!misses.getSiblings().isEmpty()) misses.append("; ");
             misses.append(fastPathReason(code));
         }
         return Component.translatable(codes.contains("FAST_PATH_HIT")

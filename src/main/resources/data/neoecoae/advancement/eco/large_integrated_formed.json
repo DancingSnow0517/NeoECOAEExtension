@@ -5,10 +5,10 @@
       "id": "neoecoae:integrated_working_station"
     },
     "title": {
-      "text": "集大成者"
+      "translate": "advancements.neoecoae.large_integrated_formed.title"
     },
     "description": {
-      "text": "第一次让大型集成工作站成型"
+      "translate": "advancements.neoecoae.large_integrated_formed.description"
     },
     "frame": "goal",
     "show_toast": true,

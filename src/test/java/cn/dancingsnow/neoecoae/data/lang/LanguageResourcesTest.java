@@ -79,6 +79,7 @@ class LanguageResourcesTest {
             || key.startsWith("cell_type.") || key.startsWith("recipe_type.") || key.startsWith("item.")
             || key.startsWith("block.") || key.startsWith("upgrade.") || key.startsWith("category.")
             || key.startsWith("emi.category.") || key.startsWith("neoecoae.configuration.")
+            || key.startsWith("advancements.neoecoae.")
             || key.equals("neoecoae.unknow_cell_type");
     }
 

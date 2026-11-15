@@ -5,10 +5,10 @@
       "id": "neoecoae:storage_system_l9"
     },
     "title": {
-      "text": "别问，问就是算力"
+      "translate": "advancements.neoecoae.host_l9.title"
     },
     "description": {
-      "text": "第一次获得任意一种 9 级主机"
+      "translate": "advancements.neoecoae.host_l9.description"
     },
     "frame": "goal",
     "show_toast": true,

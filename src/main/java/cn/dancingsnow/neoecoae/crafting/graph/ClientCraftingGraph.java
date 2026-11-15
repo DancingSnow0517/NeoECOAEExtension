@@ -11,6 +11,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
 /** Client-only presentation model. It never references planner or solver classes. */
@@ -157,12 +158,15 @@ public final class ClientCraftingGraph {
         for (var cycle : snapshot.cycleGroups()) {
             if (clusterByComponent.containsKey(cycle.componentId())) continue;
             int id = cycleVisualId(cycle.componentId());
-            nodes.put(id, new Node(id, Kind.CYCLE_GROUP, "递归模块 #" + cycle.componentId(), null, null, null, cycle));
+            nodes.put(id, new Node(id, Kind.CYCLE_GROUP,
+                Component.translatable("gui.neoecoae.crafting_graph.recursion.module", cycle.componentId()).getString(),
+                null, null, null, cycle));
         }
         for (CycleCluster cluster : clusters) {
             int id = clusterVisualId(cluster.clusterId());
-            nodes.put(id, new Node(id, Kind.CYCLE_CLUSTER, "递归模块组 #" + cluster.clusterId(), null, null,
-                null, null, cluster));
+            nodes.put(id, new Node(id, Kind.CYCLE_CLUSTER,
+                Component.translatable("gui.neoecoae.crafting_graph.recursion.modules", cluster.clusterId()).getString(),
+                null, null, null, null, cluster));
         }
         for (var pattern : snapshot.patterns()) {
             if (!advanced && pattern.status() != CraftingGraphSnapshot.CandidateStatus.SELECTED) continue;

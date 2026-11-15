@@ -405,6 +405,106 @@ public class NELangGenerator {
         provider.add("neoecoae.unknow_cell_type", "Unknown cell type");
 
         provider.add("tooltip.neoecoae.budding_energized_crystal_block", "Obtained by striking Budding Certus Quartz with lightning");
+
+        provider.add("advancements.neoecoae.root.title", "Neo ECO AE Extension");
+        provider.add("advancements.neoecoae.root.description", "From energized crystal to infinite storage, build your ECO network");
+        provider.add("advancements.neoecoae.energized_crystal_lightning.title", "Look, It's Sparkling");
+        provider.add("advancements.neoecoae.energized_crystal_lightning.description", "Obtain Energized Crystal with lightning for the first time");
+        provider.add("advancements.neoecoae.host_l4.title", "Finally Usable");
+        provider.add("advancements.neoecoae.host_l4.description", "Obtain any Tier 4 host controller for the first time");
+        provider.add("advancements.neoecoae.host_l6.title", "Much Faster Now");
+        provider.add("advancements.neoecoae.host_l6.description", "Obtain any Tier 6 host controller for the first time");
+        provider.add("advancements.neoecoae.host_l9.title", "Pure Computing Power");
+        provider.add("advancements.neoecoae.host_l9.description", "Obtain any Tier 9 host controller for the first time");
+        provider.add("advancements.neoecoae.infinite_component.title", "Endless");
+        provider.add("advancements.neoecoae.infinite_component.description", "Obtain an infinite storage component for the first time");
+        provider.add("advancements.neoecoae.integrated_working_station.title", "All-in-One Mastery");
+        provider.add("advancements.neoecoae.integrated_working_station.description", "Obtain an Integrated Working Station for the first time");
+        provider.add("advancements.neoecoae.large_integrated_formed.title", "The Grand Synthesizer");
+        provider.add("advancements.neoecoae.large_integrated_formed.description", "Form a Large Integrated Working Station for the first time");
+
+        provider.add("upgrade.neoecoae.aluminum_alloy_upgrade", "Aluminum Alloy Upgrade");
+        provider.add("upgrade.neoecoae.black_tungsten_alloy_upgrade", "Black Tungsten Alloy Upgrade");
+        provider.add("item.neoecoae.integrated_working_station_module_aelt", "AE2 Lightning Technologies Integrated Working Station Upgrade Card");
+        provider.add("item.neoecoae.integrated_working_station_module_data_energistics", "Data Energistics Integrated Working Station Upgrade Card");
+        provider.add("item.neoecoae.eco_bulk_item_cell_housing", "ECO Bulk Item Storage Matrix Housing");
+        provider.add("item.neoecoae.eco_mega_upgrade_card", "ECO Bulk Expansion Card");
+        provider.add("item.neoecoae.eco_mega_long_bulk_cell", "ECO Bulk Storage Matrix");
+        provider.add("soulkey.description", "Soul");
+        provider.add("tooltip.neoecoae.megacells.housing", "MEGA Cells housing for %s storage matrices");
+
+        provider.add("cell_type.neoecoae.air", "Air");
+        provider.add("cell_type.neoecoae.experience", "Experience");
+        provider.add("cell_type.neoecoae.soul", "Soul");
+        provider.add("cell_type.neoecoae.stress", "Stress");
+        provider.add("cell_type.neoecoae.mega_air", "MEGA Air");
+        provider.add("cell_type.neoecoae.mega_data", "MEGA Data");
+        provider.add("cell_type.neoecoae.mega_experience", "MEGA Experience");
+        provider.add("cell_type.neoecoae.mega_soul", "MEGA Soul");
+        provider.add("cell_type.neoecoae.mega_source", "MEGA Source");
+        provider.add("cell_type.neoecoae.mega_stress", "MEGA Stress");
+
+        provider.add("item.neoecoae.eco_air_cell_housing", "ECO Storage Matrix Housing (Air)");
+        provider.add("item.neoecoae.eco_air_cell_16m", "ECO - LE4 Storage Matrix (Air)");
+        provider.add("item.neoecoae.eco_air_cell_64m", "ECO - LE6 Storage Matrix (Air)");
+        provider.add("item.neoecoae.eco_air_cell_256m", "ECO - LE9 Storage Matrix (Air)");
+
+        provider.add("item.neoecoae.eco_chemical_cell_housing", "ECO Storage Matrix Housing (Chemical)");
+        provider.add("item.neoecoae.eco_chemical_storage_cell_16m", "ECO - LE4 Storage Matrix (Chemical)");
+        provider.add("item.neoecoae.eco_chemical_storage_cell_64m", "ECO - LE6 Storage Matrix (Chemical)");
+        provider.add("item.neoecoae.eco_chemical_storage_cell_256m", "ECO - LE9 Storage Matrix (Chemical)");
+
+        provider.add("item.neoecoae.eco_experience_cell_housing", "ECO Storage Matrix Housing (Experience)");
+        provider.add("item.neoecoae.eco_experience_cell_16m", "ECO - LE4 Storage Matrix (Experience)");
+        provider.add("item.neoecoae.eco_experience_cell_64m", "ECO - LE6 Storage Matrix (Experience)");
+        provider.add("item.neoecoae.eco_experience_cell_256m", "ECO - LE9 Storage Matrix (Experience)");
+
+        provider.add("item.neoecoae.eco_lightning_cell_housing", "ECO Lightning Storage Matrix Housing");
+        provider.add("item.neoecoae.eco_lightning_cell_16m", "ECO - LE4 Storage Matrix (Lightning)");
+        provider.add("item.neoecoae.eco_lightning_cell_64m", "ECO - LE6 Storage Matrix (Lightning)");
+        provider.add("item.neoecoae.eco_lightning_cell_256m", "ECO - LE9 Storage Matrix (Lightning)");
+
+        provider.add("item.neoecoae.eco_soul_cell_housing", "ECO Storage Matrix Housing (Soul)");
+        provider.add("item.neoecoae.eco_soul_cell_16m", "ECO - LE4 Storage Matrix (Soul)");
+        provider.add("item.neoecoae.eco_soul_cell_64m", "ECO - LE6 Storage Matrix (Soul)");
+        provider.add("item.neoecoae.eco_soul_cell_256m", "ECO - LE9 Storage Matrix (Soul)");
+
+        provider.add("item.neoecoae.eco_source_cell_housing", "ECO Storage Matrix Housing (Source)");
+        provider.add("item.neoecoae.eco_source_storage_cell_16m", "ECO - LE4 Storage Matrix (Source)");
+        provider.add("item.neoecoae.eco_source_storage_cell_64m", "ECO - LE6 Storage Matrix (Source)");
+        provider.add("item.neoecoae.eco_source_storage_cell_256m", "ECO - LE9 Storage Matrix (Source)");
+
+        provider.add("item.neoecoae.eco_spent_nuclear_waste_cell_housing", "ECO Spent Nuclear Waste Storage Matrix Housing");
+        provider.add("item.neoecoae.eco_spent_nuclear_waste_cell_16m", "ECO - LE4 Storage Matrix (Spent Nuclear Waste)");
+        provider.add("item.neoecoae.eco_spent_nuclear_waste_cell_64m", "ECO - LE6 Storage Matrix (Spent Nuclear Waste)");
+        provider.add("item.neoecoae.eco_spent_nuclear_waste_cell_256m", "ECO - LE9 Storage Matrix (Spent Nuclear Waste)");
+
+        provider.add("item.neoecoae.eco_stress_cell_housing", "ECO Storage Matrix Housing (Stress)");
+        provider.add("item.neoecoae.eco_stress_cell_16m", "ECO - LE4 Storage Matrix (Stress)");
+        provider.add("item.neoecoae.eco_stress_cell_64m", "ECO - LE6 Storage Matrix (Stress)");
+        provider.add("item.neoecoae.eco_stress_cell_256m", "ECO - LE9 Storage Matrix (Stress)");
+
+        provider.add("item.neoecoae.eco_mega_item_cell_4g", "ECO - LE9 Storage Matrix (Mega Item)");
+        provider.add("item.neoecoae.eco_mega_fluid_cell_4g", "ECO - LE9 Storage Matrix (Mega Fluid)");
+        provider.add("item.neoecoae.eco_mega_chemical_cell_4g", "ECO - LE9 Storage Matrix (Mega Chemical)");
+        provider.add("item.neoecoae.eco_mega_energy_cell_4g", "ECO - LE9 Storage Matrix (Mega Energy)");
+        provider.add("item.neoecoae.eco_mega_air_cell_4g", "ECO - LE9 Storage Matrix (Mega Air)");
+        provider.add("item.neoecoae.eco_mega_experience_cell_4g", "ECO - LE9 Storage Matrix (Mega Experience)");
+        provider.add("item.neoecoae.eco_mega_soul_cell_4g", "ECO - LE9 Storage Matrix (Mega Soul)");
+        provider.add("item.neoecoae.eco_mega_source_cell_4g", "ECO - LE9 Storage Matrix (Mega Source)");
+        provider.add("item.neoecoae.eco_mega_stress_cell_4g", "ECO - LE9 Storage Matrix (Mega Stress)");
+        provider.add("item.neoecoae.eco_mega_data_cell_4g", "ECO - LE9 Storage Matrix (Mega Data)");
+
+        provider.add("item.neoecoae.mega_item_cell_housing", "ECO MEGA Storage Matrix Housing (Item)");
+        provider.add("item.neoecoae.mega_fluid_cell_housing", "ECO MEGA Storage Matrix Housing (Fluid)");
+        provider.add("item.neoecoae.mega_chemical_cell_housing", "ECO MEGA Storage Matrix Housing (Chemical)");
+        provider.add("item.neoecoae.mega_energy_cell_housing", "ECO MEGA Storage Matrix Housing (Energy)");
+        provider.add("item.neoecoae.mega_air_cell_housing", "ECO MEGA Storage Matrix Housing (Air)");
+        provider.add("item.neoecoae.mega_experience_cell_housing", "ECO MEGA Storage Matrix Housing (Experience)");
+        provider.add("item.neoecoae.mega_soul_cell_housing", "ECO MEGA Storage Matrix Housing (Soul)");
+        provider.add("item.neoecoae.mega_source_cell_housing", "ECO MEGA Storage Matrix Housing (Source)");
+        provider.add("item.neoecoae.mega_stress_cell_housing", "ECO MEGA Storage Matrix Housing (Stress)");
+        provider.add("item.neoecoae.mega_data_cell_housing", "ECO MEGA Storage Matrix Housing (Data)");
     }
 
     private static void addLangs(RegistrateLangProvider provider, String key, String... langs) {
