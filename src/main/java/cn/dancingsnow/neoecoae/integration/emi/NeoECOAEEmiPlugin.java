@@ -9,6 +9,8 @@ import cn.dancingsnow.neoecoae.integration.emi.recipe.IntegrationWorkingStationE
 import cn.dancingsnow.neoecoae.integration.emi.recipe.MultiblockEmiRecipe;
 import cn.dancingsnow.neoecoae.client.gui.crafting.ECOCraftConfirmScreen;
 import cn.dancingsnow.neoecoae.client.gui.graph.ECOCraftingGraphScreen;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib.gui.modular.ModularUIGuiContainer;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
@@ -25,6 +27,7 @@ import dev.emi.emi.api.forge.ForgeEmiStack;
 import dev.emi.emi.api.recipe.EmiRecipeCategory;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
+import dev.emi.emi.api.widget.Bounds;
 import cn.dancingsnow.neoecoae.platform.recipe.SizedIngredient;
 import cn.dancingsnow.neoecoae.platform.recipe.SizedFluidIngredient;
 import org.jetbrains.annotations.NotNull;
@@ -43,6 +46,14 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
 
     @Override
     public void register(EmiRegistry registry) {
+        // EMI's default container bounds require an item slot. ECO also has fluid-only menus,
+        // such as smart cooling; their native ModularUI already supplies the correct bounds.
+        // Keep LDLib's existing stack, exclusion-area and drag/drop handlers in charge.
+        registry.addScreenBoundsProvider(ModularUIGuiContainer.class, screen -> {
+            var ui = screen.modularUI;
+            if (!(ui.mainGroup instanceof UIElement)) return null;
+            return new Bounds(ui.getGuiLeft(), ui.getGuiTop(), ui.getWidth(), ui.getHeight());
+        });
         registry.removeRecipes(recipe -> {
             if (cn.dancingsnow.neoecoae.integration.xei.HiddenEasterEggRecipes.isHidden(recipe.getId())) return true;
             var backing = recipe.getBackingRecipe();
