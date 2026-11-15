@@ -52,7 +52,7 @@ jobs:
           path: build/libs/${{ steps.properties.outputs.mod_id }}-${{ steps.var.outputs.version }}.jar
 
       - name: Publish GitHub-only beta
-        if: github.event.release.tag_name == '21.2.18-beta'
+        if: github.event.release.tag_name == '21.2.18-beta' || github.event.release.tag_name == '21.2.18-beta2'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -63,7 +63,7 @@ jobs:
             "build/libs/${{ steps.properties.outputs.mod_id }}-${{ steps.var.outputs.version }}-sources.jar"
 
       - name: Publish Mod
-        if: github.event.release.tag_name != '21.2.18-beta'
+        if: github.event.release.tag_name != '21.2.18-beta' && github.event.release.tag_name != '21.2.18-beta2'
         uses: Kir-Antipov/mc-publish@v3.3.1
         with:
           name: "${{ steps.properties.outputs.mod_name }} v${{ steps.var.outputs.version }}"
