@@ -216,7 +216,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
             calculator.calculateMultiblock(serverLevel, worldPosition);
             serverLevel.getServer().executeIfPossible(() -> {
-                if (!isRemoved() && level == serverLevel) {
+                if (level == serverLevel && canUpdateMultiblock()) {
                     rebuildMultiblock();
                     // A restored batch is loaded before the AE2 grid finishes booting.  Re-forming the
                     // multiblock therefore does not necessarily register a tick immediately; explicitly
@@ -231,8 +231,15 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         }
     }
 
+    private boolean canUpdateMultiblock() {
+        return level instanceof ServerLevel serverLevel
+            && !isRemoved()
+            && !serverLevel.getServer().isStopped()
+            && !notLoaded();
+    }
+
     public void updateState(boolean updateExposed) {
-        if (level == null || level.isClientSide || isRemoved()) return;
+        if (!canUpdateMultiblock()) return;
         BlockState state = level.getBlockState(worldPosition);
         if (state.getBlock() instanceof ECOIntegratedWorkingStation) {
             BlockState next = state
@@ -260,6 +267,13 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (formed != value) {
             boolean wasFormed = formed;
             formed = value;
+            PendingBatch batch = pendingBatches.peekFirst();
+            setProcessingTime(value && batch != null ? batch.progress : 0);
+            cachedTask = null;
+            setPowerSides(value ? EnumSet.noneOf(Direction.class) : EnumSet.allOf(Direction.class));
+            // Unload still detaches the cluster, but must not query chunks or reconnect grid nodes.
+            // Accepted batches and their inputs/outputs remain owned by this controller for reload.
+            if (!canUpdateMultiblock()) return;
             if (!wasFormed && value && level instanceof ServerLevel serverLevel) {
                 ECOAdvancementService.awardNearest(
                     serverLevel,
@@ -270,12 +284,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                     null
                 );
             }
-            PendingBatch batch = pendingBatches.peekFirst();
-            setProcessingTime(value && batch != null ? batch.progress : 0);
-            cachedTask = null;
             super.onChangeTank();
             updateState(true);
-            setPowerSides(value ? EnumSet.noneOf(Direction.class) : EnumSet.allOf(Direction.class));
             if (getMainNode().isReady()) {
                 onGridConnectableSidesChanged();
             }
@@ -319,21 +329,30 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     public void updateMultiBlock(BlockPos changedPos) {
+        if (!canUpdateMultiblock()) return;
         if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
             calculator.updateMultiblockAfterNeighborUpdate(serverLevel, worldPosition, changedPos);
         }
     }
 
     public void rebuildMultiblock() {
+        if (!canUpdateMultiblock()) return;
         if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
             calculator.calculateMultiblock(serverLevel, worldPosition);
         }
     }
 
     @Override
-    public void setRemoved() {
+    public void onChunkUnloaded() {
         disconnect(false);
+        super.onChunkUnloaded();
+    }
+
+    @Override
+    public void setRemoved() {
         super.setRemoved();
+        // Mark removal before dismantling the cluster, as its callbacks can reach updateState().
+        disconnect(false);
     }
 
     public void breakCluster() {
