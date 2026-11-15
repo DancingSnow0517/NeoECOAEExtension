@@ -8,6 +8,7 @@ import appeng.helpers.patternprovider.PatternProviderLogic;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission.StopReason;
 import cn.dancingsnow.neoecoae.compat.processing.ProcessingReflection;
+import cn.dancingsnow.neoecoae.compat.ae2.ECOUnboundedInputCapacity;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.lang.reflect.*;
@@ -86,7 +87,39 @@ public final class ECOAe2LtDirectDispatch {
             return directional(pattern) ? 1L : Integer.MAX_VALUE;
         }
 
-        public ECOBatchAdmission submit(IPatternDetails pattern, KeyCounter[] prototype, long copies) {
+        public boolean hasUnboundedInputCapacity(IPatternDetails pattern, KeyCounter[] inputs) {
+            if (directional(pattern) || !allowsBatch()) return false;
+            try {
+                Object host = a.host.get(logic);
+                if (!(a.level.invoke(host) instanceof ServerLevel level)) return false;
+                boolean wireless = a.mode.invoke(host).toString().equals("WIRELESS");
+                List<?> targets = wireless ? (List<?>) a.connections.invoke(logic, level, level.getGameTime())
+                        : (List<?>) a.directions.invoke(logic);
+                for (Object address : targets) {
+                    Target target;
+                    if (wireless) target = wirelessTarget(level, address, pattern);
+                    else {
+                        Object context = a.normalTarget.invoke(logic, level, address, pattern);
+                        target = context == null ? null : new Target(level, a.contextTarget.invoke(context), context);
+                    }
+                    if (target != null && unbounded(target, pattern, inputs)) return true;
+                }
+            } catch (ReflectiveOperationException | RuntimeException unavailable) { /* Keep ordinary learning. */ }
+            return false;
+        }
+
+        private boolean unbounded(Target target, IPatternDetails pattern, KeyCounter[] inputs)
+                throws ReflectiveOperationException {
+            if (!(boolean) a.supportsBatch.invoke(target.address, target.level, pattern)) return false;
+            if (a.unboundedInputs != null) return (boolean) a.unboundedInputs.invoke(target.address, target.level, inputs);
+            // Earlier AE2LT builds have no adapter declaration; the native AE2 inventory remains queryable.
+            return ECOUnboundedInputCapacity.forTarget(target.level,
+                    (net.minecraft.core.BlockPos) a.pos.invoke(target.address),
+                    (Direction) a.face.invoke(target.address), inputs);
+        }
+
+        public ECOBatchAdmission submit(IPatternDetails pattern, KeyCounter[] prototype, long copies,
+                long finiteTargetLimit) {
             if (copies <= 0) return ECOBatchAdmission.rejected(StopReason.TRANSPORT_LIMIT);
             if (!allowsBatch()) return ECOBatchAdmission.rejected(StopReason.TARGET_UNAVAILABLE);
             try {
@@ -141,7 +174,7 @@ public final class ECOAe2LtDirectDispatch {
                         Object context = a.normalTarget.invoke(logic, level, direction, pattern);
                         if (context != null) resolved.add(new Target(level, a.contextTarget.invoke(context), context));
                     }
-                    return submitDistributed(pattern, canonical, prototype, copies, cost, level, resolved, null);
+                    return submitDistributed(pattern, canonical, prototype, copies, finiteTargetLimit, cost, level, resolved, null);
                 }
                 Object scheduler = a.wirelessDispatch.get(logic);
                 boolean fast = a.speed.invoke(host).toString().equals("FAST");
@@ -151,14 +184,14 @@ public final class ECOAe2LtDirectDispatch {
                         : new Object[]{targets, level.getGameTime(), fast, mode};
                 a.prepare.invoke(scheduler, preparation);
                 if (mode.toString().equals("SINGLE_TARGET")) {
-                    return submitSingleTarget(pattern, canonical, prototype, copies, cost, level,
+                    return submitSingleTarget(pattern, canonical, prototype, copies, finiteTargetLimit, cost, level,
                             scheduler, mode, fast, targets.size());
                 }
                 // Reuse provider-owned, pattern-scoped fairness across CPU visits. ECO still owns
                 // batch growth; only physical target selection and accepted-copy counts are shared.
                 Object pass = a.fairPass.invoke(scheduler, canonical, level.getGameTime());
                 try {
-                    return submitDistributed(pattern, canonical, prototype, copies, cost, level, List.of(), pass);
+                    return submitDistributed(pattern, canonical, prototype, copies, finiteTargetLimit, cost, level, List.of(), pass);
                 } finally {
                     a.closePass.invoke(pass);
                 }
@@ -169,7 +202,7 @@ public final class ECOAe2LtDirectDispatch {
         }
 
         private ECOBatchAdmission submitDistributed(IPatternDetails pattern, Object canonical, KeyCounter[] prototype,
-                long copies, double cost, ServerLevel level, List<Target> targets, @Nullable Object pass)
+                long copies, long finiteTargetLimit, double cost, ServerLevel level, List<Target> targets, @Nullable Object pass)
                 throws ReflectiveOperationException {
             int targetCount = pass == null ? targets.size() : ((Number) a.fairSize.invoke(pass)).intValue();
             if (targetCount == 0) return ECOBatchAdmission.rejected(
@@ -199,7 +232,7 @@ public final class ECOAe2LtDirectDispatch {
                             ((Number) a.fairAllowance.invoke(pass, connection)).longValue()));
                     a.fairRaise.invoke(pass, connection, share);
                 }
-                Chunk chunk = pushChunk(target, pattern, canonical, prototype, share, cost, pass != null);
+                Chunk chunk = pushChunk(target, pattern, canonical, prototype, share, finiteTargetLimit, cost, pass != null);
                 if (!chunk.valid()) return ECOBatchAdmission.indeterminate();
                 accepted += chunk.accepted;
                 if (chunk.inserted) inserted += chunk.accepted;
@@ -234,7 +267,7 @@ public final class ECOAe2LtDirectDispatch {
         }
 
         private ECOBatchAdmission submitSingleTarget(IPatternDetails pattern, Object canonical, KeyCounter[] prototype,
-                long copies, double cost, ServerLevel level, Object scheduler, Object mode, boolean fast, int targets)
+                long copies, long finiteTargetLimit, double cost, ServerLevel level, Object scheduler, Object mode, boolean fast, int targets)
                 throws ReflectiveOperationException {
             var receipt = new Chunk[1];
             Class<?> callback = a.single.getParameterTypes()[5];
@@ -245,7 +278,7 @@ public final class ECOAe2LtDirectDispatch {
                             receipt[0] = new Chunk(0, 0, false, StopReason.TARGET_UNAVAILABLE);
                             return a.hardFail;
                         }
-                        Chunk chunk = pushChunk(target, pattern, canonical, prototype, copies, cost, true);
+                        Chunk chunk = pushChunk(target, pattern, canonical, prototype, copies, finiteTargetLimit, cost, true);
                         receipt[0] = chunk;
                         if (!chunk.valid()) return a.globalAbort;
                         return chunk.accepted > 0 ? a.success
@@ -282,14 +315,17 @@ public final class ECOAe2LtDirectDispatch {
         }
 
         private Chunk pushChunk(Target target, IPatternDetails pattern, Object canonical, KeyCounter[] prototype,
-                long copies, double cost, boolean wireless) throws ReflectiveOperationException {
+                long copies, long finiteTargetLimit, double cost, boolean wireless) throws ReflectiveOperationException {
             int count = (int) Math.min(Integer.MAX_VALUE, copies);
+            if (a.batchLimit != null) count = (int) Math.min(count,
+                    ((Number) a.batchLimit.invoke(target.address, target.level)).longValue());
             if (!allowsBatch() || (boolean) a.blocked.invoke(logic, target.context, canonical)) {
                 return new Chunk(count, 0, false, StopReason.TARGET_UNAVAILABLE);
             }
             a.before.invoke(a.autoReturn.get(logic), target.level, target.address);
             // A machine lacking a counted transport can only own one physical transaction.
             if (!(boolean) a.supportsBatch.invoke(target.address, target.level, pattern)) count = 1;
+            else if (!unbounded(target, pattern, prototype)) count = (int) Math.min(count, finiteTargetLimit);
             a.setBypass.invoke(null, true);
             try {
                 Object receipt = a.chunk.invoke(logic, target.context, pattern, canonical,
@@ -355,7 +391,7 @@ public final class ECOAe2LtDirectDispatch {
         final Field node, host, catalog, overflow, source, autoReturn, normalDispatch, wirelessDispatch, connectionsDirty;
         final Constructor<?> context;
         final Object complete, success, softFail, hardFail, globalAbort;
-        final @Nullable Method blockingMode;
+        final @Nullable Method blockingMode, unboundedInputs, batchLimit;
         final Method flush, flushLocal, localOverflow, sendList, lock, resolve, level, mode, refresh, backpressure,
                 connections, directions, cost, contains, dimension, pos, canAccept, normalTarget, contextTarget,
                 blocked, before, supportsBatch, chunk, owned, abort, inserted, sendDirection, face, send, wake, save, empty, setBypass,
@@ -413,6 +449,13 @@ public final class ECOAe2LtDirectDispatch {
             dimension = method(connection, "dimension", 0); pos = method(target, "pos", 0);
             face = method(target, "boundFace", 0); canAccept = method(target, "canAccept", 3);
             supportsBatch = method(target, "supportsBatch", 2);
+            Method inputDeclaration, configuredLimit;
+            try { inputDeclaration = method(target, "hasUnboundedInputCapacity", 2); }
+            catch (NoSuchMethodException unavailable) { inputDeclaration = null; }
+            try { configuredLimit = method(target, "batchCopyLimit", 1); }
+            catch (NoSuchMethodException unavailable) { configuredLimit = null; }
+            unboundedInputs = inputDeclaration;
+            batchLimit = configuredLimit;
             alive = method(target, "isAlive", 1);
             blocked = method(type, "isBatchTargetBlocked", 2);
             before = method(autoReturn.getType(), "beforeDispatch", 2);

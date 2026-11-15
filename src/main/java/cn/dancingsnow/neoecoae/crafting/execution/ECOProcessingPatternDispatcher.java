@@ -18,6 +18,7 @@ import cn.dancingsnow.neoecoae.compat.ae2.ECOProviderPatternIntrospection;
 import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch;
 import cn.dancingsnow.neoecoae.compat.mmcr.ECOMmcrPatternDispatch;
 import cn.dancingsnow.neoecoae.compat.ae2.ECOProcessingExecutionPattern;
+import cn.dancingsnow.neoecoae.compat.ae2.ECOUnboundedInputCapacity;
 import cn.dancingsnow.neoecoae.compat.mekenergistics.ECOMekEnergisticsBatchCapability;
 import cn.dancingsnow.neoecoae.compat.ae2.ECOExternalProviderBlocking;
 import cn.dancingsnow.neoecoae.compat.advanced_ae.ECOAdvancedAEPatternScaling;
@@ -220,7 +221,11 @@ final class ECOProcessingPatternDispatcher {
             claimAttempt(request.pattern());
             visitAttempts++;
             long availableTransport = mmcr == null ? transportLimit : Math.min(transportLimit, mmcr.availableBatchSize());
-            long offer = Math.min(ramp.offer(limit - ramp.owned), availableTransport);
+            boolean declaredCapacity = mmcr != null || (direct != null
+                    ? direct.hasUnboundedInputCapacity(request.pattern(), request.inputs())
+                    : ECOUnboundedInputCapacity.forProvider(logic, request.inputs()));
+            long finiteTargetOffer = ramp.offer(limit - ramp.owned);
+            long offer = Math.min(declaredCapacity ? limit - ramp.owned : finiteTargetOffer, availableTransport);
             var plan = planning.plan(offer, limit - ramp.owned, onePower, service, ECOBatchMode.LINEAR);
             if (plan == null) {
                 ramp.pause(tick);
@@ -240,7 +245,8 @@ final class ECOProcessingPatternDispatcher {
                         request.inventory(), request.level(), request.job().link.getCraftingID(),
                         () -> energy.reserve(service, onePower, plan.craftCount()), batch -> {
                             mark.accept(provider);
-                            if (direct != null) return direct.submit(request.pattern(), request.inputs(), batch.craftCount());
+                            if (direct != null) return direct.submit(request.pattern(), request.inputs(),
+                                    batch.craftCount(), finiteTargetOffer);
                             if (mmcr != null) return mmcr.submit(batch.inputCounters(), batch.craftCount());
                             // Only this external API boundary needs an AE2 pattern-shaped execution view.
                             // The task, plan and accounting retain the original pattern identity.
@@ -264,7 +270,7 @@ final class ECOProcessingPatternDispatcher {
                 throw failure;
             }
             if (admission.status() != ECOBatchAdmission.Status.ACCEPTED) {
-                if (ramp.record(offer, admission, tick)) continue;
+                if (declaredCapacity ? ramp.recordDeclared(offer, admission, tick) : ramp.record(offer, admission, tick)) continue;
                 break;
             }
             try {
@@ -277,7 +283,7 @@ final class ECOProcessingPatternDispatcher {
                 request.job().failPermanently("POST_ACCEPT_PROCESSING_ACCOUNTING_FAILURE");
                 throw failure;
             }
-            if (!ramp.record(offer, admission, tick)) break;
+            if (!(declaredCapacity ? ramp.recordDeclared(offer, admission, tick) : ramp.record(offer, admission, tick))) break;
         }
         // Every accepted chunk is already settled. The caller only consumes the accepted count;
         // rebuilding aggregate long stacks here would overflow perfectly valid exact orders.
@@ -436,6 +442,16 @@ final class ECOProcessingPatternDispatcher {
             void pause(long currentTick) {
                 nextDispatchTick = currentTick + 1;
                 nextFallbackTick = currentTick + 1;
+            }
+
+            /** A declared bound needs settlement, never capacity proofs or smaller retry probes. */
+            boolean recordDeclared(long offered, ECOBatchAdmission admission, long currentTick) {
+                owned += admission.acceptedCrafts();
+                if (admission.fullyInsertedCrafts() != offered || !admission.canContinue()) {
+                    pause(currentTick);
+                    return false;
+                }
+                return true;
             }
 
             /** Settled ownership, physical proof and the reason for stopping are independent. */
