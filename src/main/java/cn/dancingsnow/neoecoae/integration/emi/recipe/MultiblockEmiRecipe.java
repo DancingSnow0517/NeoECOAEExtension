@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.emi.recipe;
 
 import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
+import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapper;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
@@ -10,6 +11,7 @@ import com.lowdragmc.lowdraglib2.utils.virtuallevel.TrackedDummyWorld;
 import dev.emi.emi.api.recipe.EmiRecipeCategory;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
+import dev.emi.emi.api.widget.WidgetHolder;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
@@ -24,15 +26,23 @@ public class MultiblockEmiRecipe extends ModularUIEMIRecipe {
     }
 
     private MultiblockEmiRecipe(MultiBlockDefinition definition, RecipeState recipeState) {
-        super(recipe -> new MultiBlockInfoWrapper(
-            definition,
-            recipe.getDisplayWidth(),
-            recipe.getDisplayHeight(),
-            recipeState::setExpand,
-            recipeState::setRequiredItems
-        ).createModularUI());
+        super(recipe -> {
+            recipeState.preview = new MultiBlockInfoWrapper(
+                definition, recipe.getDisplayWidth(), recipe.getDisplayHeight(),
+                recipeState::setExpand, recipeState::setRequiredItems);
+            return recipeState.preview.createModularUI();
+        });
         this.definition = definition;
         this.recipeState = recipeState;
+    }
+
+    @Override
+    public void addWidgets(WidgetHolder widgets) {
+        // Reopening the module's usages must restore its variant even when EMI reuses the UI.
+        if (recipeState.preview != null) {
+            recipeState.preview.setSmartCooling(definition == NEMultiBlocks.SMART_COOLING_WORKING_STATION);
+        }
+        super.addWidgets(widgets);
     }
 
     @Override
@@ -56,7 +66,10 @@ public class MultiblockEmiRecipe extends ModularUIEMIRecipe {
 
     @Override
     public @Nullable ResourceLocation getId() {
-        return definition.getOwner().unwrapKey().map(key -> key.location().withPrefix("/")).orElse(null);
+        return definition.getOwner().unwrapKey().map(key -> {
+            var id = key.location().withPrefix("/");
+            return definition == NEMultiBlocks.SMART_COOLING_WORKING_STATION ? id.withSuffix("/smart_cooling") : id;
+        }).orElse(null);
     }
 
     @Override
@@ -70,6 +83,7 @@ public class MultiblockEmiRecipe extends ModularUIEMIRecipe {
     }
 
     private static final class RecipeState {
+        private MultiBlockInfoWrapper preview;
         private int expand = 1;
         private List<RequiredItem> requiredItems;
 

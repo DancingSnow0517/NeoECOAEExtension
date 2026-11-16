@@ -550,6 +550,9 @@ public class GuiLangs {
         provider.add("gui.neoecoae.multiblock.preview.length.tooltip", "Structure length (%d-%d)");
         provider.add("gui.neoecoae.multiblock.preview.module", "Upgrade card model: %s");
         provider.add("gui.neoecoae.multiblock.preview.module.tooltip", "Cycle registered upgrade cards and preview their formed appearance");
+        provider.add("gui.neoecoae.multiblock.preview.smart_cooling.on", "Smart cooling module: on");
+        provider.add("gui.neoecoae.multiblock.preview.smart_cooling.off", "Smart cooling module: off");
+        provider.add("gui.neoecoae.multiblock.preview.smart_cooling.tooltip", "Toggle the smart cooling module and update the structure and materials");
         provider.add("gui.neoecoae.multiblock.preview.layer", "Layer %d/%d");
         provider.add("gui.neoecoae.multiblock.preview.layer.all", "All Layers");
         provider.add("gui.neoecoae.multiblock.preview.layer.tooltip", "Show a single layer");

@@ -28,6 +28,7 @@ public class MultiBlockInfoCategory extends ModularUIRecipeCategory<MultiBlockIn
 
     @Override
     public void setRecipe(IRecipeLayoutBuilder builder, MultiBlockInfoWrapper recipe, IFocusGroup focuses) {
+        recipe.setSmartCooling(recipe.getDefinition() == NEMultiBlocks.SMART_COOLING_WORKING_STATION);
         super.setRecipe(builder, recipe, focuses);
         builder.addInvisibleIngredients(RecipeIngredientRole.OUTPUT)
             .addItemLike(recipe.getDefinition().getOwner().value());
@@ -66,7 +67,7 @@ public class MultiBlockInfoCategory extends ModularUIRecipeCategory<MultiBlockIn
     }
 
     public static void registerRecipeCatalysts(IRecipeCatalystRegistration registration) {
-        NEMultiBlocks.DEFINITIONS.stream().map(it -> it.getOwner().value())
+        NEMultiBlocks.DEFINITIONS.stream().map(it -> it.getOwner().value()).distinct()
             .forEach(it -> registration.addRecipeCatalyst(it, NeoECOAEJeiPlugin.MULTIBLOCK_TYPE));
     }
 }

@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.xei.multiblock;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
 import cn.dancingsnow.neoecoae.client.model.WorkstationModuleBakedModel;
@@ -75,12 +76,14 @@ public class MultiBlockInfoWrapper {
     private Button expandButton;
     private Button layerButton;
     private Button formedButton;
+    private Button smartCoolingButton;
     private UIElement selectedSlot;
 
     private int expand = 1;
     private int layer = -1;
     private int layerMax = 0;
     private boolean formed = false;
+    private boolean smartCooling;
     private ECOWorkstationModules.Module previewModule = ECOWorkstationModules.builtin(LargeWorkstationModule.REGULAR);
 
     private ItemStack selectedItem = ItemStack.EMPTY;
@@ -114,6 +117,7 @@ public class MultiBlockInfoWrapper {
         Consumer<List<RequiredItem>> requiredItemsChanged
     ) {
         this.definition = definition;
+        this.smartCooling = definition == NEMultiBlocks.SMART_COOLING_WORKING_STATION;
         this.world = new TrackedDummyWorld() {
             @Override public ModelData getModelData(BlockPos pos) {
                 return getBlockState(pos).getBlock() instanceof ECOIntegratedWorkingStation
@@ -134,7 +138,7 @@ public class MultiBlockInfoWrapper {
             .setText(definition.getName())
             .textStyle(style -> style.adaptiveWidth(false).adaptiveHeight(false)
                 .fontSize(8).textWrap(TextWrap.HOVER_ROLL).textColor(TITLE_COLOR).textShadow(false)),
-            4, 0, 124, TOOLBAR_HEIGHT));
+            4, 0, isWorkstation() ? 112 : 124, TOOLBAR_HEIGHT));
 
         UIElement artwork = new UIElement().style(style -> style.backgroundTexture(BACKGROUND));
         root.addChild(HostElements.absolute(artwork, 0, TOOLBAR_HEIGHT, DEFAULT_WIDTH, 138));
@@ -151,13 +155,19 @@ public class MultiBlockInfoWrapper {
         sceneContainer.addChild(selectedSlot);
 
         UIElement controls = new UIElement().style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
-        root.addChild(HostElements.absolute(controls, 132, 1, 32, CONTROL_SIZE));
+        root.addChild(HostElements.absolute(controls, isWorkstation() ? 120 : 132, 1,
+            isWorkstation() ? 44 : 32, CONTROL_SIZE));
+        int controlOffset = isWorkstation() ? 12 : 0;
+        if (isWorkstation()) {
+            smartCoolingButton = new MiniButton(4).setOnClick(event -> setSmartCooling(!smartCooling));
+            controls.addChild(HostElements.absolute(smartCoolingButton, 0, 0, CONTROL_SIZE, CONTROL_SIZE));
+        }
         expandButton = isWorkstation() ? cycleButton(this::cycleModule, 3) : cycleButton(this::cycleExpand, 0);
         layerButton = cycleButton(this::cycleLayer, 1);
         formedButton = new MiniButton(2).setOnClick(event -> toggleFormed());
-        controls.addChildren(HostElements.absolute(expandButton, 0, 0, CONTROL_SIZE, CONTROL_SIZE),
-            HostElements.absolute(layerButton, 12, 0, CONTROL_SIZE, CONTROL_SIZE),
-            HostElements.absolute(formedButton, 24, 0, CONTROL_SIZE, CONTROL_SIZE));
+        controls.addChildren(HostElements.absolute(expandButton, controlOffset, 0, CONTROL_SIZE, CONTROL_SIZE),
+            HostElements.absolute(layerButton, controlOffset + 12, 0, CONTROL_SIZE, CONTROL_SIZE),
+            HostElements.absolute(formedButton, controlOffset + 24, 0, CONTROL_SIZE, CONTROL_SIZE));
 
         UIElement info = new UIElement().style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
         artwork.addChild(HostElements.absolute(info, 5, 99, 62, 34));
@@ -217,13 +227,25 @@ public class MultiBlockInfoWrapper {
 
     public List<RequiredItem> getRequiredItems() {
         var context = MultiBlockContext.dummyDelegated(expand, new TrackedDummyWorld());
-        definition.createLevel(context);
+        previewDefinition().createLevel(context);
         addPreviewCard(context);
         return context.getRequiredItems();
     }
 
     private boolean isWorkstation() {
         return definition.getOwner().value() instanceof ECOIntegratedWorkingStation;
+    }
+
+    private MultiBlockDefinition previewDefinition() {
+        if (!isWorkstation()) return definition;
+        return smartCooling ? NEMultiBlocks.SMART_COOLING_WORKING_STATION
+            : NEMultiBlocks.LARGE_INTEGRATED_WORKING_STATION;
+    }
+
+    public void setSmartCooling(boolean enabled) {
+        if (!isWorkstation() || smartCooling == enabled) return;
+        smartCooling = enabled;
+        if (scene != null) createScene();
     }
 
     private void addPreviewCard(MultiBlockContext.DummyDelegated context) {
@@ -272,6 +294,9 @@ public class MultiBlockInfoWrapper {
 
     private void updateControlText() {
         if (isWorkstation()) {
+            setControlTooltip(smartCoolingButton, List.of(
+                Component.translatable("gui.neoecoae.multiblock.preview.smart_cooling." + (smartCooling ? "on" : "off")),
+                Component.translatable("gui.neoecoae.multiblock.preview.smart_cooling.tooltip")));
             setControlTooltip(expandButton, List.of(
                 Component.translatable("gui.neoecoae.multiblock.preview.module", previewModule.title()),
                 Component.translatable("gui.neoecoae.multiblock.preview.module.tooltip"),
@@ -307,7 +332,7 @@ public class MultiBlockInfoWrapper {
         world.clear();
         MultiBlockContext.DummyDelegated context = MultiBlockContext.dummyDelegated(expand, world);
         context.setFormed(formed);
-        definition.createLevel(context);
+        previewDefinition().createLevel(context);
         if (isWorkstation()) {
             for (BlockPos pos : context.allBlocks()) {
                 BlockState state = world.getBlockState(pos);
@@ -349,7 +374,7 @@ public class MultiBlockInfoWrapper {
             definition.getExpandMax(),
             new TrackedDummyWorld()
         );
-        definition.createLevel(context);
+        (isWorkstation() ? NEMultiBlocks.SMART_COOLING_WORKING_STATION : definition).createLevel(context);
 
         int size = context.getRequiredItems().size() + (isWorkstation() ? 1 : 0);
         requiredItems.viewContainer(view -> view.layout(layout -> layout.height(Math.max(36, ((size + 4) / 5) * 18))));
@@ -412,7 +437,8 @@ public class MultiBlockInfoWrapper {
             var graphics = context.graphics;
             graphics.fill(x, y, x + 8, y + 8, 0xff878fa5);
             graphics.fill(x + 1, y + 1, x + 7, y + 7,
-                icon == 2 && formed ? 0xffb9d4c4 : getState() == State.DEFAULT ? 0xffcbccd4 : 0xfff2f2f2);
+                (icon == 2 && formed || icon == 4 && smartCooling) ? 0xffb9d4c4
+                    : getState() == State.DEFAULT ? 0xffcbccd4 : 0xfff2f2f2);
             int ink = 0xff3f3d52;
             if (icon == 0) {
                 graphics.fill(x + 1, y + 3, x + 7, y + 4, ink);
@@ -425,6 +451,10 @@ public class MultiBlockInfoWrapper {
             } else if (icon == 2) {
                 graphics.fill(x + 2, y + 2, x + 6, y + 6, ink);
                 graphics.fill(x + 3, y + 3, x + 5, y + 5, 0xffcbccd4);
+            } else if (icon == 4) {
+                graphics.fill(x + 3, y + 1, x + 5, y + 5, ink);
+                graphics.fill(x + 2, y + 4, x + 6, y + 7, ink);
+                graphics.fill(x + 3, y + 5, x + 5, y + 6, 0xff75c9e8);
             } else {
                 graphics.fill(x + 2, y + 1, x + 6, y + 7, ink);
                 graphics.fill(x + 3, y + 2, x + 5, y + 4, 0xff000000 | previewModule.color());

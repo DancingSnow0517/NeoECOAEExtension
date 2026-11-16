@@ -1,0 +1,94 @@
+{
+  "variants": {
+    "facing=east,formed=false,storage_mode=input": {
+      "model": "neoecoae:block/large_integrated_working_station_interface",
+      "y": 90
+    },
+    "facing=east,formed=false,storage_mode=output": {
+      "model": "neoecoae:block/large_integrated_working_station_interface",
+      "y": 90
+    },
+    "facing=east,formed=false,storage_mode=storage": {
+      "model": "neoecoae:block/large_integrated_working_station_interface",
+      "y": 90
+    },
+    "facing=east,formed=true,storage_mode=input": {
+      "model": "neoecoae:block/large_integrated_working_station_interface",
+      "y": 90
+    },
+    "facing=east,formed=true,storage_mode=output": {
+      "model": "neoecoae:block/large_integrated_working_station_interface",
+      "y": 90
+    },
+    "facing=east,formed=true,storage_mode=storage": {
+      "model": "neoecoae:block/large_integrated_working_station_interface",
+      "y": 90
+    },
+    "facing=north,formed=false,storage_mode=input": {
+      "model": "neoecoae:block/large_integrated_working_station_interface"
+    },
+    "facing=north,formed=false,storage_mode=output": {
+      "model": "neoecoae:block/large_integrated_working_station_interface"
+    },
+    "facing=north,formed=false,storage_mode=storage": {
+      "model": "neoecoae:block/large_integrated_working_station_interface"
+    },
+    "facing=north,formed=true,storage_mode=input": {
+      "model": "neoecoae:block/large_integrated_working_station_interface"
+    },
+    "facing=north,formed=true,storage_mode=output": {
+      "model": "neoecoae:block/large_integrated_working_station_interface"
+    },
+    "facing=north,formed=true,storage_mode=storage": {
+      "model": "neoecoae:block/large_integrated_working_station_interface"
+    },
+    "facing=south,formed=false,storage_mode=input": {
+      "model": "neoecoae:block/large_integrated_working_station_interface",
+      "y": 180
+    },
+    "facing=south,formed=false,storage_mode=output": {
+      "model": "neoecoae:block/large_integrated_working_station_interface",
+      "y": 180
+    },
+    "facing=south,formed=false,storage_mode=storage": {
+      "model": "neoecoae:block/large_integrated_working_station_interface",
+      "y": 180
+    },
+    "facing=south,formed=true,storage_mode=input": {
+      "model": "neoecoae:block/large_integrated_working_station_interface",
+      "y": 180
+    },
+    "facing=south,formed=true,storage_mode=output": {
+      "model": "neoecoae:block/large_integrated_working_station_interface",
+      "y": 180
+    },
+    "facing=south,formed=true,storage_mode=storage": {
+      "model": "neoecoae:block/large_integrated_working_station_interface",
+      "y": 180
+    },
+    "facing=west,formed=false,storage_mode=input": {
+      "model": "neoecoae:block/large_integrated_working_station_interface",
+      "y": 270
+    },
+    "facing=west,formed=false,storage_mode=output": {
+      "model": "neoecoae:block/large_integrated_working_station_interface",
+      "y": 270
+    },
+    "facing=west,formed=false,storage_mode=storage": {
+      "model": "neoecoae:block/large_integrated_working_station_interface",
+      "y": 270
+    },
+    "facing=west,formed=true,storage_mode=input": {
+      "model": "neoecoae:block/large_integrated_working_station_interface",
+      "y": 270
+    },
+    "facing=west,formed=true,storage_mode=output": {
+      "model": "neoecoae:block/large_integrated_working_station_interface",
+      "y": 270
+    },
+    "facing=west,formed=true,storage_mode=storage": {
+      "model": "neoecoae:block/large_integrated_working_station_interface",
+      "y": 270
+    }
+  }
+}

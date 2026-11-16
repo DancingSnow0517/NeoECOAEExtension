@@ -698,11 +698,13 @@ public class NEBlocks {
         .register();
 
     public static final BlockEntry<ECOMachineInterface<NEIntegratedWorkingStationCluster>> LARGE_INTEGRATED_WORKING_STATION_INTERFACE = REGISTRATE
-        .block("large_integrated_working_station_interface", ECOMachineInterface<NEIntegratedWorkingStationCluster>::new)
+        .<ECOMachineInterface<NEIntegratedWorkingStationCluster>>block("large_integrated_working_station_interface",
+            ECOLargeIntegratedWorkingStationInterface::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(p -> p.strength(5.0F, 6.0F).requiresCorrectToolForDrops())
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate((ctx, prov) -> {})
+        .blockstate((ctx, prov) -> prov.horizontalBlock(ctx.get(), prov.models().getExistingFile(
+            prov.modLoc("block/large_integrated_working_station_interface"))))
         .recipe((ctx, prov) -> IntegratedWorkingStationRecipe.builder()
             .require(LARGE_INTEGRATED_WORKING_STATION_CASING, 4)
             .require(AEBlocks.INTERFACE)

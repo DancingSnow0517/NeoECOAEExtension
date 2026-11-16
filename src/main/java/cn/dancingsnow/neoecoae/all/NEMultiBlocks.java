@@ -29,7 +29,8 @@ import java.util.List;
 public class NEMultiBlocks {
     public static final List<MultiBlockDefinition> DEFINITIONS = new ArrayList<>();
 
-    public static final MultiBlockDefinition LARGE_INTEGRATED_WORKING_STATION = createLargeIntegratedWorkingStation();
+    public static final MultiBlockDefinition LARGE_INTEGRATED_WORKING_STATION = createLargeIntegratedWorkingStation(false);
+    public static final MultiBlockDefinition SMART_COOLING_WORKING_STATION = createLargeIntegratedWorkingStation(true);
 
     public static final MultiBlockDefinition STORAGE_SYSTEM_L4 = storageSystem(
         NEBlocks.STORAGE_SYSTEM_L4,
@@ -83,7 +84,7 @@ public class NEMultiBlocks {
         NEBlocks.CRAFTING_PARALLEL_CORE_L9
     );
 
-    private static MultiBlockDefinition createLargeIntegratedWorkingStation() {
+    private static MultiBlockDefinition createLargeIntegratedWorkingStation(boolean smartCooling) {
         BlockState casing = NEBlocks.LARGE_INTEGRATED_WORKING_STATION_CASING.getDefaultState();
         return MultiBlockDefinition.builder(NEBlocks.INTEGRATED_WORKING_STATION)
             // Upper layer: casing, controller, casing in front and three casings behind it.
@@ -91,18 +92,25 @@ public class NEMultiBlocks {
             .setBlock(pos(1, 1, 0), NEBlocks.INTEGRATED_WORKING_STATION.getDefaultState())
             .setBlock(pos(2, 1, 0), casing)
             .setBlock(pos(0, 1, 1), casing)
-            .setBlock(pos(1, 1, 1), casing)
+            .setBlock(pos(1, 1, 1), smartCooling
+                ? NEBlocks.LARGE_INTEGRATED_WORKING_STATION_SMART_COOLING_MODULE.getDefaultState()
+                    .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING, Direction.SOUTH)
+                : casing)
             .setBlock(pos(2, 1, 1), casing)
             // Lower layer: three casings in front and output, communication, input behind them.
             .setBlock(pos(0, 0, 0), casing)
             .setBlock(pos(1, 0, 0), casing)
             .setBlock(pos(2, 0, 0), casing)
             .setBlock(pos(0, 0, 1), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH.getDefaultState())
-            .setBlock(pos(1, 0, 1), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE.getDefaultState())
+            .setBlock(pos(1, 0, 1), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE.getDefaultState()
+                .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING, Direction.SOUTH))
             .setBlock(pos(2, 0, 1), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH.getDefaultState())
             .onFormed((blockPos, level) -> {
                 BlockState state = level.getBlockState(blockPos);
                 BlockState next = MultiBlockContext.formedPreviewState(state);
+                if (next.hasProperty(cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation.SMART_COOLING)) {
+                    next = next.setValue(cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation.SMART_COOLING, smartCooling);
+                }
                 if (next.hasProperty(ECOMachineCasing.INVISIBLE)) {
                     next = next.setValue(ECOMachineCasing.INVISIBLE, true);
                 }
