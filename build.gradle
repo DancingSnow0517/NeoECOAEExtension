@@ -270,7 +270,10 @@ dependencies {
         // pin an older CurseForge build into runtimeClasspath's consistent-resolution set.
         exclude group: "curse.maven", module: "jade-324717"
         exclude group: "top.theillusivec4.curios", module: "curios-neoforge"
+        // Its open-ended Nuggets range queries Maven version metadata on every cache expiry.
+        exclude group: "com.hollingsworth.nuggets", module: "nuggets-neoforge-1.21"
     }
+    implementation("com.hollingsworth.nuggets:nuggets-neoforge-1.21:1.0.11.42")
     implementation("curse.maven:ars-energistique-905641:6203425")
 
     compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}")
