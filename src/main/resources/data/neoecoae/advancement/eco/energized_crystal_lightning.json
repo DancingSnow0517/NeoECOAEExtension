@@ -5,10 +5,10 @@
       "id": "neoecoae:energized_crystal"
     },
     "title": {
-      "text": "你看，他亮闪闪的"
+      "translate": "advancement.neoecoae.eco.energized_crystal_lightning.title"
     },
     "description": {
-      "text": "第一次用闪电获得盈能水晶"
+      "translate": "advancement.neoecoae.eco.energized_crystal_lightning.description"
     },
     "frame": "task",
     "show_toast": true,

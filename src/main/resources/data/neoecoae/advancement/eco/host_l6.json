@@ -5,10 +5,10 @@
       "id": "neoecoae:storage_system_l6"
     },
     "title": {
-      "text": "这下快多了"
+      "translate": "advancement.neoecoae.eco.host_l6.title"
     },
     "description": {
-      "text": "第一次获得任意一种 6 级主机"
+      "translate": "advancement.neoecoae.eco.host_l6.description"
     },
     "frame": "task",
     "show_toast": true,

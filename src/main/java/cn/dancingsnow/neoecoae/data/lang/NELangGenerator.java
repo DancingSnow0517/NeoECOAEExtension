@@ -4,6 +4,23 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("advancement.neoecoae.eco.root.title", "Neo ECO AE Extension");
+        provider.add("advancement.neoecoae.eco.root.description", "From Energized Crystals to infinite storage, build your ECO network");
+        provider.add("advancement.neoecoae.eco.energized_crystal_lightning.title", "Look, It Sparkles!");
+        provider.add("advancement.neoecoae.eco.energized_crystal_lightning.description", "Obtain an Energized Crystal using lightning for the first time");
+        provider.add("advancement.neoecoae.eco.host_l4.title", "Finally Up and Running");
+        provider.add("advancement.neoecoae.eco.host_l4.description", "Obtain any Level 4 host for the first time");
+        provider.add("advancement.neoecoae.eco.host_l6.title", "Now That's Faster");
+        provider.add("advancement.neoecoae.eco.host_l6.description", "Obtain any Level 6 host for the first time");
+        provider.add("advancement.neoecoae.eco.host_l9.title", "All About Computing Power");
+        provider.add("advancement.neoecoae.eco.host_l9.description", "Obtain any Level 9 host for the first time");
+        provider.add("advancement.neoecoae.eco.infinite_component.title", "To Infinity");
+        provider.add("advancement.neoecoae.eco.infinite_component.description", "Obtain an Infinite Component for the first time");
+        provider.add("advancement.neoecoae.eco.integrated_working_station.title", "Bringing It All Together");
+        provider.add("advancement.neoecoae.eco.integrated_working_station.description", "Obtain an Integrated Working Station for the first time");
+        provider.add("advancement.neoecoae.eco.large_integrated_formed.title", "The Complete Package");
+        provider.add("advancement.neoecoae.eco.large_integrated_formed.description", "Form a Large Integrated Working Station for the first time");
+
         provider.add("command.neoecoae.storage_recover.select_host", "Please right-click a host that is already in infinite mode.");
         provider.add("command.neoecoae.storage_recover.success", "Infinite storage recovered: %s");
         provider.add("command.neoecoae.storage_recover.not_found", "No saved infinite storage domain exists for UUID %s.");

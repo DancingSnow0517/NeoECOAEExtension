@@ -5,10 +5,10 @@
       "id": "neoecoae:integrated_working_station"
     },
     "title": {
-      "text": "融会贯通"
+      "translate": "advancement.neoecoae.eco.integrated_working_station.title"
     },
     "description": {
-      "text": "第一次获得集成工作站"
+      "translate": "advancement.neoecoae.eco.integrated_working_station.description"
     },
     "frame": "task",
     "show_toast": true,
