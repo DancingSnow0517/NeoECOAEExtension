@@ -36,6 +36,10 @@ public final class ECOThunderboltMixinPlugin implements IMixinConfigPlugin {
         if (mixinClassName.endsWith(".Ae2LtIOPortMenuMixin")) {
             return present("com/moakiee/ae2lt/menu/OverloadedIOPortMenu.class");
         }
+        if (mixinClassName.endsWith(".Ae2LtWorkstationWirelessMixin")) {
+            return hasMethod("com/moakiee/ae2lt/grid/wirelesslink/MultiblockLinkReadiness.class",
+                "canKeepVirtualConnection", "(Lappeng/api/networking/IGridNode;)Z");
+        }
         if (mixinClassName.endsWith(".Ae2LtTimeWheelCraftingCpuLogicMixin")) {
             return present("com/moakiee/ae2lt/crafting/timewheel/Ae2LtTimeWheelCraftingCpuLogic.class");
         }
