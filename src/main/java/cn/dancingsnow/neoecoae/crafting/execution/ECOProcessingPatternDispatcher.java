@@ -327,6 +327,7 @@ final class ECOProcessingPatternDispatcher {
         if (Contract.forProvider(provider) != null) return false;
         // A successful push can still own overflow. Require a live observation of AE2's send buffer.
         if (ECOAe2LtDirectDispatch.isProvider(provider)) {
+            // Missing transport hooks allow only the caller's original one-copy fallback, never ordinary scaling.
             return direct != null
                     && isProcessingPattern(ECOProviderPatternIntrospection.unwrap(request.pattern()))
                     && request.pattern().getInputs().length > 0 && !request.pattern().getOutputs().isEmpty()

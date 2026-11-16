@@ -20,6 +20,7 @@ import org.jetbrains.annotations.Nullable;
 /** ECO-only transport adapter. Never calls getBatchCapacity, pushBatch or either AE2LT ramp. */
 public final class ECOAe2LtDirectDispatch {
     private static final String LOGIC = "com.moakiee.ae2lt.logic.provider.OverloadedPatternProviderLogic";
+    private static final String LEGACY_LOGIC = "com.moakiee.ae2lt.logic.OverloadedPatternProviderLogic";
     private static final ClassValue<Optional<Access>> ACCESS = new ClassValue<>() {
         protected Optional<Access> computeValue(Class<?> type) {
             try { return Optional.of(new Access(type)); }
@@ -28,6 +29,7 @@ public final class ECOAe2LtDirectDispatch {
     };
     private ECOAe2LtDirectDispatch() {}
 
+    /** Recognition survives an unavailable transport so known providers cannot enter ordinary scaling. */
     public static boolean isProvider(Object provider) { return logic(provider) != null; }
     @Nullable public static Session open(Object provider) {
         Object logic = logic(provider);
@@ -48,7 +50,7 @@ public final class ECOAe2LtDirectDispatch {
         if (provider == null) return null;
         if (!visited.add(provider)) return null;
         for (Class<?> type = provider.getClass(); type != null; type = type.getSuperclass()) {
-            if (type.getName().equals(LOGIC)) return provider;
+            if (type.getName().equals(LOGIC) || type.getName().equals(LEGACY_LOGIC)) return provider;
         }
         try {
             Method accessor = ProcessingReflection.publicNoArgMethod(provider.getClass(), "getLogic");
@@ -470,7 +472,9 @@ public final class ECOAe2LtDirectDispatch {
             wake = method(type, "alertGridTick", 0); save = method(type, "saveChanges", 0);
             Class<?> power = Class.forName("com.moakiee.ae2lt.logic.energy.PowerCostUtil", false, type.getClassLoader());
             cost = method(power, "totalCost", 1);
-            Class<?> registry = Class.forName("com.moakiee.ae2lt.logic.provider.EjectModeRegistry", false, type.getClassLoader());
+            // Both classes moved together; the field type also preserves the layout for addon subclasses.
+            Class<?> registry = Class.forName(normalDispatch.getType().getPackageName() + ".EjectModeRegistry",
+                    false, type.getClassLoader());
             setBypass = method(registry, "setBypass", 1);
         }
     }
