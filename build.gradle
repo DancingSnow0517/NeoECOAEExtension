@@ -71,12 +71,16 @@ def pinned = { String mod ->
     "porting.pinned:${releaseJars[mod].name.take(releaseJars[mod].name.length() - 4)}:${releaseVersions[mod]}"
 }
 repositories {
-    ivy {
-        name = 'VerifiedReleaseJars'
-        url = uri('libs/pinned')
-        patternLayout { artifact '[artifact].[ext]' }
-        metadataSources { artifact() }
-        content { includeGroup 'porting.pinned' }
+    exclusiveContent {
+        forRepository {
+            ivy {
+                name = 'VerifiedReleaseJars'
+                url = uri('libs/pinned')
+                patternLayout { artifact '[artifact].[ext]' }
+                metadataSources { artifact() }
+            }
+        }
+        filter { includeGroup 'porting.pinned' }
     }
     mavenCentral()
     maven {
