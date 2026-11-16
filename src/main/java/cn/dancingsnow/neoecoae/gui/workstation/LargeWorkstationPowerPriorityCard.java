@@ -112,8 +112,12 @@ final class LargeWorkstationPowerPriorityCard {
             pose.scale(scale, scale, 1);
             int background = ColorUtils.blendColor(0xFF111319, color, Mth.lerp(emphasis, 0.10f, 0.21f));
             graphics.flush();
-            DrawerHelper.drawFilledFrameRoundBox(graphics, Rect.ofRelative(-26, -24, 52, 48),
-                0.7f, new Vector4f(4), background, ColorUtils.blendColor(background, color, emphasis * 0.65f));
+            var bounds = Rect.ofRelative(-26, -24, 52, 48);
+            var radius = new Vector4f(4);
+            // Separate fill and inward border draws are available in both LDLib 1.0.33.b and 1.0.52.a.
+            DrawerHelper.drawRoundBox(graphics, bounds, radius, background);
+            DrawerHelper.drawFrameRoundBox(graphics, bounds, -0.7f, radius, new Vector4f(3.3f),
+                ColorUtils.blendColor(background, color, emphasis * 0.65f));
             pose.pushPose();
             try {
                 pose.translate(0, -13, 0);

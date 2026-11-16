@@ -4,6 +4,7 @@ run/
 runs/
 .idea/
 .vscode/
+.claude/worktrees/
 *.iml
 *.log
 logs/

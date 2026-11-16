@@ -1279,6 +1279,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
                 try {
                     if (!(this.source.player() instanceof net.minecraft.server.level.ServerPlayer player)
                         || target.isEmpty() || !target.get().open(player)) response.putString("error", "gui.neoecoae.processing.open_unavailable");
+                    else response.putBoolean("close", true);
                 } catch (RuntimeException | LinkageError unsupported) {
                     response.putString("error", "gui.neoecoae.processing.open_unavailable");
                 }

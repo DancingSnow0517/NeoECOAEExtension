@@ -4,6 +4,7 @@ import com.lowdragmc.lowdraglib.gui.factory.UIFactory;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -18,12 +19,16 @@ import org.slf4j.LoggerFactory;
 /** Opens GT's own UI through LDLib, without requiring a client-loaded target chunk or linking GT classes. */
 final class ECORemoteMachineUI {
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae");
-    private record Holder(BlockEntity blockEntity, Object machine) {}
+    private record Holder(BlockEntity blockEntity, IUIHolder machine, CompoundTag updateTag) {}
     private static final UIFactory<Holder> FACTORY = new UIFactory<>(new ResourceLocation("neoecoae", "remote_pattern_machine")) {
         @Override protected ModularUI createUITemplate(Holder holder, Player player) {
-            if (holder == null || !(holder.machine() instanceof IUIHolder machine)) return null;
+            if (holder == null) return null;
             try {
-                return machine.createUI(player);
+                var ui = holder.machine().createUI(player);
+                if (ui == null) LOGGER.warn("Remote machine {} at {} returned no UI on {}",
+                    holder.machine().getClass().getName(), holder.blockEntity().getBlockPos(),
+                    player.level().isClientSide ? "client" : "server");
+                return ui;
             } catch (RuntimeException | LinkageError unsupported) {
                 LOGGER.warn("Failed to create remote machine UI for {} at {}", holder.machine().getClass().getName(),
                     holder.blockEntity().getBlockPos(), unsupported);
@@ -40,10 +45,7 @@ final class ECORemoteMachineUI {
             var be = holder.blockEntity();
             buffer.writeBlockPos(be.getBlockPos());
             buffer.writeVarInt(Block.getId(be.getBlockState()));
-            // LDLib's update tag contains the client fields and avoids loading server-only persisted inventories.
-            var data = be.getUpdateTag().copy();
-            data.putString("id", BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(be.getType()).toString());
-            buffer.writeNbt(data);
+            buffer.writeNbt(holder.updateTag());
         }
     };
 
@@ -56,17 +58,36 @@ final class ECORemoteMachineUI {
             var state = Block.stateById(buffer.readVarInt());
             var data = buffer.readNbt();
             var level = net.minecraft.client.Minecraft.getInstance().level;
-            if (data == null || level == null) return null;
+            if (data == null || level == null) {
+                LOGGER.warn("Cannot restore remote machine UI at {}: missing update tag or client level", pos);
+                return null;
+            }
             var id = ResourceLocation.tryParse(data.getString("id"));
             var type = id == null ? null : BuiltInRegistries.BLOCK_ENTITY_TYPE.get(id);
-            if (type == null || !type.isValid(state)) return null;
+            if (type == null || !type.isValid(state)) {
+                LOGGER.warn("Cannot restore remote machine UI host {} at {} for block state {}", id, pos, state);
+                return null;
+            }
             try {
-                var blockEntity = type.create(pos, state);
-                if (blockEntity == null) return null;
-                // Sync listeners may inspect the world while applying the opening snapshot.
-                blockEntity.setLevel(level);
-                blockEntity.handleUpdateTag(data);
-                return new Holder(blockEntity, ECOProviderActions.member(blockEntity, "getMetaMachine"));
+                // GT's native factory uses the world's machine, including its initialized UI state.
+                // Read the complete snapshot above even when reusing it: widget data follows in this buffer.
+                var blockEntity = level.hasChunkAt(pos) ? level.getBlockEntity(pos) : null;
+                if (blockEntity == null || blockEntity.isRemoved() || blockEntity.getType() != type
+                    || !blockEntity.getBlockState().is(state.getBlock())) {
+                    blockEntity = type.create(pos, state);
+                    if (blockEntity == null) {
+                        LOGGER.warn("Remote machine UI host {} at {} could not be created", id, pos);
+                        return null;
+                    }
+                    // Distant targets still use a snapshot; listeners need the level before applying it.
+                    blockEntity.setLevel(level);
+                    blockEntity.handleUpdateTag(data);
+                }
+                if (!(ECOProviderActions.member(blockEntity, "getMetaMachine") instanceof IUIHolder machine)) {
+                    LOGGER.warn("Remote machine UI host {} at {} does not expose an LDLib UI holder", id, pos);
+                    return null;
+                }
+                return new Holder(blockEntity, machine, data);
             } catch (RuntimeException | LinkageError unsupported) {
                 LOGGER.warn("Failed to restore remote machine UI host {} at {}", id, pos, unsupported);
                 return null;
@@ -76,6 +97,27 @@ final class ECORemoteMachineUI {
 
     static void initialize() { UIFactory.register(FACTORY); }
     static boolean open(BlockEntity blockEntity, Object machine, ServerPlayer player) {
-        return FACTORY.openUI(new Holder(blockEntity, machine), player);
+        if (!(machine instanceof IUIHolder uiHolder)) {
+            LOGGER.warn("Remote machine UI host at {} does not expose an LDLib UI holder", blockEntity.getBlockPos());
+            return false;
+        }
+        Holder holder;
+        try {
+            // Capture client fields before LDLib closes the current menu. Persisted inventories are not a UI snapshot.
+            var data = blockEntity.getUpdateTag().copy();
+            data.putString("id", BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(blockEntity.getType()).toString());
+            holder = new Holder(blockEntity, uiHolder, data);
+        } catch (RuntimeException | LinkageError unsupported) {
+            LOGGER.warn("Failed to capture remote machine UI host {} at {}", machine.getClass().getName(),
+                blockEntity.getBlockPos(), unsupported);
+            return false;
+        }
+        try {
+            return FACTORY.openUI(holder, player);
+        } catch (RuntimeException | LinkageError unsupported) {
+            LOGGER.warn("Failed to open remote machine UI for {} at {}", machine.getClass().getName(),
+                blockEntity.getBlockPos(), unsupported);
+            return false;
+        }
     }
 }
