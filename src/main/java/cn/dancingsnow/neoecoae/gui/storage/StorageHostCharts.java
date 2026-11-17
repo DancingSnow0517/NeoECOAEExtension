@@ -39,6 +39,8 @@ final class StorageHostCharts {
     private final TypePanel typePanel;
     private final ItemStack hostItem;
     private final Supplier<IECOTier> panelTier;
+    private StoragePanelState shareSnapshot;
+    private List<ResourceShare> shares;
 
     StorageHostCharts(StoragePanelSync sync, int pageSize, ItemStack hostItem, Supplier<IECOTier> panelTier) {
         this.sync = sync;
@@ -321,10 +323,19 @@ final class StorageHostCharts {
 
     private abstract class StackedBar extends AnimatedBar {
         final List<Component> hoveredTooltip = new ArrayList<>();
+        private List<ResourceShare> lastShares;
+        private int lastWidth;
+        private List<CapacitySegment> segments;
 
         void drawSegments(GUIContext context, StoragePanelState snapshot, int filledWidth) {
             hoveredTooltip.clear();
-            var segments = capacitySegments(snapshot, filledWidth);
+            if (filledWidth <= 0) return;
+            var currentShares = resourceShares(snapshot);
+            if (lastShares != currentShares || lastWidth != filledWidth) {
+                segments = capacitySegments(currentShares, filledWidth);
+                lastShares = currentShares;
+                lastWidth = filledWidth;
+            }
             if (segments.isEmpty()) return;
             // Reveal fixed byte-share boundaries rather than rescaling every segment during opening.
             int revealedWidth = Math.round(filledWidth * opening.value(1));
@@ -511,29 +522,42 @@ final class StorageHostCharts {
     }
     private record ResourceColor(int swatch, int color,
         net.minecraft.resources.ResourceLocation channel, net.minecraft.resources.ResourceLocation texture) {}
+    private record ResourceShare(ResourceColor resource, BigInteger cumulativeBytes) {}
 
-    /** Divide the supplied filled width by exact stored bytes, merging aliases and preserving amounts beyond long. */
-    static List<CapacitySegment> capacitySegments(StoragePanelState state, int availableWidth) {
-        int width = Math.max(0, availableWidth);
-        if (width <= 0) return List.of();
+    private List<ResourceShare> resourceShares(StoragePanelState snapshot) {
+        if (shareSnapshot == snapshot) return shares;
         Map<ResourceColor, BigInteger> amounts = new LinkedHashMap<>();
-        for (StoragePanelState.TypeLine type : state.types()) {
+        for (StoragePanelState.TypeLine type : snapshot.types()) {
             if (type.exactUsedBytes().signum() <= 0) continue;
             amounts.merge(new ResourceColor(type.swatch(), type.color(), type.channel(), type.swatchTexture()), type.exactUsedBytes(), BigInteger::add);
         }
-        BigInteger total = amounts.values().stream().reduce(BigInteger.ZERO, BigInteger::add);
-        if (total.signum() <= 0) return List.of();
         var resources = amounts.entrySet().stream().sorted(
             Comparator.<Map.Entry<ResourceColor, BigInteger>, BigInteger>comparing(Map.Entry::getValue).reversed()
                 .thenComparingInt(entry -> entry.getKey().swatch()).thenComparingInt(entry -> entry.getKey().color())
                 .thenComparing(entry -> String.valueOf(entry.getKey().channel()))).toList();
-        List<CapacitySegment> segments = new ArrayList<>();
+        List<ResourceShare> ordered = new ArrayList<>(resources.size());
         BigInteger accumulated = BigInteger.ZERO;
-        int previous = 0;
         for (var resource : resources) {
             accumulated = accumulated.add(resource.getValue());
-            int end = accumulated.multiply(BigInteger.valueOf(width)).add(total.shiftRight(1)).divide(total).intValue();
-            if (end > previous) segments.add(new CapacitySegment(resource.getKey().swatch(), resource.getKey().color(), end - previous, resource.getKey().channel(), resource.getKey().texture()));
+            ordered.add(new ResourceShare(resource.getKey(), accumulated));
+        }
+        shares = List.copyOf(ordered);
+        shareSnapshot = snapshot;
+        return shares;
+    }
+
+    private static List<CapacitySegment> capacitySegments(List<ResourceShare> shares, int width) {
+        if (shares.isEmpty()) return List.of();
+        BigInteger total = shares.getLast().cumulativeBytes();
+        BigInteger half = total.shiftRight(1);
+        BigInteger pixels = BigInteger.valueOf(width);
+        List<CapacitySegment> segments = new ArrayList<>(shares.size());
+        int previous = 0;
+        for (var share : shares) {
+            int end = share.cumulativeBytes().multiply(pixels).add(half).divide(total).intValue();
+            var resource = share.resource();
+            if (end > previous) segments.add(new CapacitySegment(resource.swatch(), resource.color(), end - previous,
+                resource.channel(), resource.texture()));
             previous = end;
         }
         return List.copyOf(segments);
