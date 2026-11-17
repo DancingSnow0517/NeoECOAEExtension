@@ -394,12 +394,12 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     private LargeWorkstationOverclock getCurrentBatchProfile() {
-        if (!isTemperatureEnabled()) {
-            CoolingRecipe holder = getCoolingRecipeForInput();
-            return LargeWorkstationOverclock.forCoolant(overclocked, activeCooling,
-                holder == null ? 0 : holder.maxOverclock());
-        }
-        return LargeWorkstationOverclock.forTemperature(overclocked, temperature);
+        return isTemperatureEnabled() ? LargeWorkstationOverclock.forTemperature(overclocked, temperature)
+            : getCoolantBatchProfile(getCoolingRecipeForInput());
+    }
+
+    private LargeWorkstationOverclock getCoolantBatchProfile(@Nullable CoolingRecipe recipe) {
+        return LargeWorkstationOverclock.forCoolant(overclocked, activeCooling, recipe == null ? 0 : recipe.maxOverclock());
     }
 
     public boolean isTemperatureEnabled() {
@@ -792,19 +792,21 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         snapshot.putBoolean("smartCooling", hasSmartCoolingModule());
         snapshot.putBoolean("fePreferred", fePreferred);
         if (hasSmartCoolingModule()) snapshot.putInt("coolingTarget", cluster.getSmartCoolingController().getTargetTemperature());
-        snapshot.putBoolean("temperatureEnabled", isTemperatureEnabled());
-        snapshot.putBoolean("preheating", isTemperatureEnabled() && preheating);
-        snapshot.putBoolean("overheated", isTemperatureEnabled() && overheated);
-        snapshot.putInt("recoveryTicks", isTemperatureEnabled() ? recoveryTicks : 0);
+        boolean thermal = isTemperatureEnabled();
+        snapshot.putBoolean("temperatureEnabled", thermal);
+        snapshot.putBoolean("preheating", thermal && preheating);
+        snapshot.putBoolean("overheated", thermal && overheated);
+        snapshot.putInt("recoveryTicks", thermal ? recoveryTicks : 0);
         snapshot.putBoolean("ignoreUpgradeCards", NEConfig.largeWorkstationIgnoreUpgradeCards);
-        snapshot.putInt("currentTier", isTemperatureEnabled()
-            ? LargeWorkstationOverclock.forTemperature(true, temperature).coolingTier() : getCurrentBatchProfile().coolingTier());
         CoolingRecipe coolantRecipe = getCoolingRecipeForInput();
+        LargeWorkstationOverclock tierProfile = thermal ? LargeWorkstationOverclock.forTemperature(true, temperature)
+            : getCoolantBatchProfile(coolantRecipe);
+        snapshot.putInt("currentTier", tierProfile.coolingTier());
         snapshot.putInt("coolantTier", coolingTierForRecipe(coolantRecipe));
         snapshot.putInt("coolantPerTick", getCoolantPerTick());
         snapshot.putInt("coolantMaxOverclock", coolantRecipe == null ? 0 : coolantRecipe.maxOverclock());
-        snapshot.putDouble("temperature", isTemperatureEnabled() ? temperature : 0);
-        var thermalRates = isTemperatureEnabled()
+        snapshot.putDouble("temperature", thermal ? temperature : 0);
+        var thermalRates = thermal
             ? uiThermalUsage.rates(level == null ? 0 : level.getGameTime()) : LargeWorkstationThermalUsage.Rates.ZERO;
         snapshot.putDouble("processingHeatPerSecond", thermalRates.processing());
         snapshot.putDouble("preheatPerSecond", thermalRates.preheat());
@@ -829,7 +831,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         PendingBatch head = pendingBatches.peekFirst();
         snapshot.putLong("parallelUsed", head == null ? 0 : head.segmented
             ? Math.min(LargeWorkstationOverclock.BASE_PARALLELISM, head.craftCount) : head.craftCount);
-        snapshot.putLong("parallelCapacity", getMaxBatchParallelism());
+        snapshot.putLong("parallelCapacity", thermal ? getMaxBatchParallelism() : tierProfile.maxParallelism());
         LargeWorkstationModule module = LargeWorkstationModule.REGULAR;
         if (head != null && head.recipeId != null && level != null) {
             var adapted = LargeWorkstationRecipes.getById(level, head.recipeId);

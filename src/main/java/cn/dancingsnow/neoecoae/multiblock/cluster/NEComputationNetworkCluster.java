@@ -105,41 +105,11 @@ public class NEComputationNetworkCluster {
         if (members.size() != 8) {
             return false;
         }
-        List<EndgameHost> topology = new ArrayList<>(members.size());
         for (NEComputationCluster member : members) {
             ECOComputationSystemBlockEntity controller = member.getController();
-            if (controller == null) {
-                return false;
-            }
-            topology.add(new EndgameHost(
-                controller.getTier().getTier() == ECOTier.L9.getTier(),
-                controller.getSelectedBuildLength() == controller.getMaxBuildLength(),
-                controller.hasHighEnergyNetworkSwitch(),
-                hasAllDriveSlotsFilled(member)
-            ));
-        }
-        return isEndgameTopologyEligible(topology);
-    }
-
-    static boolean isEndgameTopologyEligible(List<EndgameHost> topology) {
-        if (topology == null || topology.size() != 8) {
-            return false;
-        }
-        for (EndgameHost host : topology) {
-            if (host == null || !host.maxTier() || !host.maxBuildLength()
-                || !host.highEnergyNetworkSwitch() || !host.allDriveSlotsFilled()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    static boolean areAllDriveSlotsFilled(List<ItemStack> driveStacks) {
-        if (driveStacks == null || driveStacks.isEmpty()) {
-            return false;
-        }
-        for (ItemStack stack : driveStacks) {
-            if (stack == null || stack.isEmpty() || !(stack.getItem() instanceof ECOComputationCellItem)) {
+            if (controller == null || controller.getTier().getTier() != ECOTier.L9.getTier()
+                || controller.getSelectedBuildLength() != controller.getMaxBuildLength()
+                || !controller.hasHighEnergyNetworkSwitch() || !hasAllDriveSlotsFilled(member)) {
                 return false;
             }
         }
@@ -147,15 +117,19 @@ public class NEComputationNetworkCluster {
     }
 
     private static boolean hasAllDriveSlotsFilled(NEComputationCluster member) {
-        List<ItemStack> driveStacks = new ArrayList<>(
-            member.getUpperDrives().size() + member.getLowerDrives().size());
-        for (ECOComputationDriveBlockEntity drive : member.getUpperDrives()) {
-            driveStacks.add(drive.getCellStack());
+        var upper = member.getUpperDrives();
+        var lower = member.getLowerDrives();
+        return !(upper.isEmpty() && lower.isEmpty()) && allFilled(upper) && allFilled(lower);
+    }
+
+    private static boolean allFilled(List<ECOComputationDriveBlockEntity> drives) {
+        for (ECOComputationDriveBlockEntity drive : drives) {
+            ItemStack stack = drive.getCellStack();
+            if (stack == null || stack.isEmpty() || !(stack.getItem() instanceof ECOComputationCellItem)) {
+                return false;
+            }
         }
-        for (ECOComputationDriveBlockEntity drive : member.getLowerDrives()) {
-            driveStacks.add(drive.getCellStack());
-        }
-        return areAllDriveSlotsFilled(driveStacks);
+        return true;
     }
 
     /**
@@ -174,7 +148,7 @@ public class NEComputationNetworkCluster {
                 wrongLength |= controller.getSelectedBuildLength() != controller.getMaxBuildLength();
                 noHighEnergySwitch |= !controller.hasHighEnergyNetworkSwitch();
             }
-            drivesMissing |= !hasAllDriveSlotsFilled(member);
+            if (!drivesMissing) drivesMissing = !hasAllDriveSlotsFilled(member);
         }
         if (wrongTier) blockers.add("tier");
         if (wrongLength) blockers.add("max_length");
@@ -186,13 +160,6 @@ public class NEComputationNetworkCluster {
     public List<String> getEndgameBlockers() {
         return endgameBlockers(members);
     }
-
-    record EndgameHost(
-        boolean maxTier,
-        boolean maxBuildLength,
-        boolean highEnergyNetworkSwitch,
-        boolean allDriveSlotsFilled
-    ) {}
 
     public int getTotalThreads() {
         if (isEndgameEligible()) {
