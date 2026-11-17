@@ -258,11 +258,9 @@ public final class ECOBulkMarkingService {
         ECOStorageSystemBlockEntity host, long threshold
     ) {
         var grid = host.getMainNode().getGrid();
-        KeyCounter available = host.collectLocalStorageStacksForIntegration();
-        if (grid != null && !host.isStorageInterfaceTransferMode()) {
-            available = new KeyCounter();
-            grid.getStorageService().getInventory().getAvailableStacks(available);
-        }
+        KeyCounter available = grid != null && !host.isStorageInterfaceTransferMode()
+            ? grid.getStorageService().getInventory().getAvailableStacks()
+            : host.collectLocalStorageStacksForIntegration();
         List<Candidate> candidates = new ArrayList<>();
         for (Object2LongMap.Entry<AEKey> entry : available) {
             // Unbounded sources may still be marked so the player can see/use the chain. They

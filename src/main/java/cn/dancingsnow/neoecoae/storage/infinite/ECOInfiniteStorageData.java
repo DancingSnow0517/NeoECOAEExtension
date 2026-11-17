@@ -41,12 +41,6 @@ public final class ECOInfiniteStorageData extends SavedData {
 
     public enum DomainStatus {HEALTHY, DEGRADED, RECOVERY_READ_ONLY, UNAVAILABLE}
 
-    interface KeyCodec {
-        CompoundTag encode(AEKey key);
-
-        AEKey decode(CompoundTag tag);
-    }
-
     private record Restore(UUID transaction, Set<UUID> targets, String failure,
                            Map<UUID, ECOInfiniteStorageEngine.RestoreTargetAmounts> plan) {
     }
@@ -65,7 +59,6 @@ public final class ECOInfiniteStorageData extends SavedData {
     private long revision;
     // Last sequence of the retired write-ahead journal already folded into this snapshot.
     private long journalSequence;
-    private KeyCodec codec;
     private Path persistenceTarget;
     private HolderLookup.Provider persistenceRegistries;
     private long writeVersion;
@@ -136,12 +129,7 @@ public final class ECOInfiniteStorageData extends SavedData {
     }
 
     public static ECOInfiniteStorageData load(CompoundTag tag, HolderLookup.Provider registries) {
-        return load(tag, registries, null);
-    }
-
-    static ECOInfiniteStorageData load(CompoundTag tag, HolderLookup.Provider registries, KeyCodec codec) {
         ECOInfiniteStorageData data = createNew();
-        data.codec = codec;
         int version = tag.getInt("version");
         if (version < 1 || version > CURRENT_VERSION || tag.getBoolean("journal")) {
             data.markUnreadable("Unsupported or unresolved infinite storage format: " + version);
@@ -161,8 +149,7 @@ public final class ECOInfiniteStorageData extends SavedData {
                         : !amountTag.contains("long", Tag.TAG_LONG))
                     throw new IllegalArgumentException("Invalid amount");
                 HugeAmount amount = HugeAmount.read(amountTag);
-                AEKey key = codec == null ? ECOKeyFactory.fromTagGeneric(registries, entry.getCompound("key"))
-                        : codec.decode(entry.getCompound("key"));
+                AEKey key = ECOKeyFactory.fromTagGeneric(registries, entry.getCompound("key"));
                 if (key == null) throw new IllegalArgumentException("Unknown key");
                 Restore restore = null;
                 if (entry.contains("restore")) {
@@ -230,7 +217,7 @@ public final class ECOInfiniteStorageData extends SavedData {
         ListTag entries = new ListTag();
         amounts.forEach((key, amount) -> {
             CompoundTag entry = new CompoundTag();
-            entry.put("key", codec == null ? key.toTagGeneric(registries) : codec.encode(key));
+            entry.put("key", key.toTagGeneric(registries));
             entry.put("amount", amount.write());
             Restore restore = restores.get(key);
             if (restore != null) {
@@ -483,9 +470,7 @@ public final class ECOInfiniteStorageData extends SavedData {
                 if (sequence != data.journalSequence + 1L) {
                     throw new IOException("Non-contiguous infinite-domain journal sequence " + sequence);
                 }
-                AEKey key = data.codec == null
-                        ? ECOKeyFactory.fromTagGeneric(registries, record.getCompound("key"))
-                        : data.codec.decode(record.getCompound("key"));
+                AEKey key = ECOKeyFactory.fromTagGeneric(registries, record.getCompound("key"));
                 long amount = record.getLong("amount");
                 if (key == null || amount <= 0L) throw new IOException("Invalid infinite-domain journal change");
                 if (record.getBoolean("added")) {

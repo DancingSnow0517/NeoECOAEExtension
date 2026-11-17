@@ -298,13 +298,11 @@ final class AepdPatternDiskBackend implements PatternDiskSupport.Backend {
             for (int disk = 0; disk < first.size(); disk++) {
                 PatternDiskContents left = first.get(disk);
                 PatternDiskContents right = second.get(disk);
-                if (left == null || right == null) {
-                    if (left != right) {
-                        return false;
-                    }
+                if (left == right) {
                     continue;
                 }
-                if (left.capacity() != right.capacity() || !Objects.equals(left.type(), right.type())) {
+                if (left == null || right == null || left.capacity() != right.capacity()
+                    || !Objects.equals(left.type(), right.type())) {
                     return false;
                 }
                 if (!samePatterns(left.patterns(), right.patterns())) {

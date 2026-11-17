@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
+import net.neoforged.fml.ModList;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import org.jetbrains.annotations.Nullable;
 
@@ -45,7 +46,9 @@ public final class BiggerAE2SingularityPowerService implements IGridService, IGr
 
     @Override
     public void addNode(IGridNode node, @Nullable CompoundTag savedData) {
-        if (node.getOwner() instanceof ECODriveBlockEntity drive) nodes.put(node, drive);
+        if (node.getOwner() instanceof ECODriveBlockEntity drive && ModList.get().isLoaded("bigger_ae2")) {
+            nodes.put(node, drive);
+        }
     }
 
     @Override

@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
 public final class ECOCellMutationBatch implements AutoCloseable {
     private static final ThreadLocal<ECOCellMutationBatch> ACTIVE = new ThreadLocal<>();
     // Persistence obligations must retain their owner until they succeed or the server-stop drain reports failure.
-    private static final Set<ECOStorageCell> RETRY = new LinkedHashSet<>();
+    private static final LinkedHashSet<ECOStorageCell> RETRY = new LinkedHashSet<>();
     // Server-thread owned. Keyed by host so a host can flush its own cells before its stack is read or leaves it.
     private static final Map<ISaveProvider, Set<ECOStorageCell>> DEFERRED = new LinkedHashMap<>();
     private final ECOCellMutationBatch parent;
@@ -74,19 +74,15 @@ public final class ECOCellMutationBatch implements AutoCloseable {
     }
 
     public static void retry() {
-        int remaining = 16;
-        for (ECOStorageCell cell : new java.util.ArrayList<>(RETRY)) {
-            if (remaining-- <= 0) break;
-            // Failed entries are re-added at the tail by flush(), so one permanently failing
-            // cell cannot starve every persistence obligation queued behind it.
-            RETRY.remove(cell);
+        if (RETRY.isEmpty()) return;
+        for (ECOStorageCell cell : RETRY.stream().limit(16).toList()) {
             flush(cell);
         }
     }
 
     public static void drainRetries() {
         flushDeferred();
-        for (ECOStorageCell cell : new java.util.ArrayList<>(RETRY)) flush(cell);
+        for (ECOStorageCell cell : new ArrayList<>(RETRY)) flush(cell);
         if (!RETRY.isEmpty()) {
             LoggerFactory.getLogger(ECOCellMutationBatch.class)
                 .error("{} ECO cell persistence operation(s) still failed during server shutdown", RETRY.size());
@@ -129,8 +125,12 @@ public final class ECOCellMutationBatch implements AutoCloseable {
             cell.flushBatchedChanges();
             RETRY.remove(cell);
         } catch (RuntimeException e) {
-            if (RETRY.add(cell)) LoggerFactory.getLogger(ECOCellMutationBatch.class)
-                .error("ECO cell component save failed; in-memory contents retained for retry", e);
+            if (RETRY.add(cell)) {
+                LoggerFactory.getLogger(ECOCellMutationBatch.class)
+                    .error("ECO cell component save failed; in-memory contents retained for retry", e);
+            } else {
+                RETRY.addLast(cell);
+            }
         }
     }
 }
