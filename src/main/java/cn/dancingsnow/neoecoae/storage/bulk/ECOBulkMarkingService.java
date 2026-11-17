@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.storage.bulk;
 import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.config.Actionable;
+import appeng.api.networking.IGrid;
 import appeng.api.storage.MEStorage;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
@@ -113,10 +114,7 @@ public final class ECOBulkMarkingService {
         if (targets.isEmpty()) {
             return result(Status.NO_BULK_CELL);
         }
-        var grid = host.getMainNode().getGrid();
-        Set<AEKey> unboundedKeys = new HashSet<>();
-        if (grid != null) unboundedKeys.addAll(ECOPlannerInventory.collectUnboundedKeys(grid));
-        collectUnboundedKeys(drives, unboundedKeys);
+        Set<AEKey> unboundedKeys = migrate ? collectUnboundedKeys(host.getMainNode().getGrid(), drives) : Set.of();
         // Mark-only is the convenience scan governed by the configured threshold. Once the
         // player explicitly requests migration, include every positive-stock recognised chain;
         // otherwise a small but valid stock (for example 512 copper ingots) is silently skipped.
@@ -137,10 +135,7 @@ public final class ECOBulkMarkingService {
         TargetCell selected = findTargetCell(host, position, drives);
         if (selected == null) return result(Status.NO_BULK_CELL);
 
-        var grid = host.getMainNode().getGrid();
-        Set<AEKey> unboundedKeys = new HashSet<>();
-        if (grid != null) unboundedKeys.addAll(ECOPlannerInventory.collectUnboundedKeys(grid));
-        collectUnboundedKeys(drives, unboundedKeys);
+        Set<AEKey> unboundedKeys = collectUnboundedKeys(host.getMainNode().getGrid(), drives);
         return markCandidates(host, drives, List.of(selected),
             collectCandidates(host, threshold), true, unboundedKeys);
     }
@@ -167,10 +162,7 @@ public final class ECOBulkMarkingService {
             return new cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.MigrationResult(
                 Status.NO_BULK_CELL, 0L);
         }
-        Set<AEKey> unboundedKeys = new HashSet<>();
-        var grid = host.getMainNode().getGrid();
-        if (grid != null) unboundedKeys.addAll(ECOPlannerInventory.collectUnboundedKeys(grid));
-        collectUnboundedKeys(drives, unboundedKeys);
+        Set<AEKey> unboundedKeys = collectUnboundedKeys(host.getMainNode().getGrid(), drives);
         long transferred = transferMarkedChains(host, drives, List.of(selected), unboundedKeys);
         if (transferred > 0L) host.notifyStorageConfigurationChanged();
         return new cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration.MigrationResult(
@@ -184,10 +176,8 @@ public final class ECOBulkMarkingService {
         var drives = host.getStorageDrivesForIntegration();
         TargetCell selected = findTargetCell(host, position, drives);
         if (selected == null) return List.of();
-        Set<AEKey> unboundedKeys = new HashSet<>();
         var grid = host.getMainNode().getGrid();
-        if (grid != null) unboundedKeys.addAll(ECOPlannerInventory.collectUnboundedKeys(grid));
-        collectUnboundedKeys(drives, unboundedKeys);
+        Set<AEKey> unboundedKeys = collectUnboundedKeys(grid, drives);
         Set<AEItemKey> items = new HashSet<>();
         IActionSource source = IActionSource.ofMachine(host);
         for (var drive : drives) {
@@ -218,10 +208,8 @@ public final class ECOBulkMarkingService {
         TargetCell selected = findTargetCell(host, position, drives);
         if (selected == null) return List.of();
 
-        Set<AEKey> unboundedKeys = new HashSet<>();
         var grid = host.getMainNode().getGrid();
-        if (grid != null) unboundedKeys.addAll(ECOPlannerInventory.collectUnboundedKeys(grid));
-        collectUnboundedKeys(drives, unboundedKeys);
+        Set<AEKey> unboundedKeys = collectUnboundedKeys(grid, drives);
         Set<AEItemKey> items = new HashSet<>();
         IActionSource source = IActionSource.ofMachine(host);
         for (var drive : drives) {
@@ -256,10 +244,12 @@ public final class ECOBulkMarkingService {
         ECOStorageSystemBlockEntity host, long threshold
     ) {
         var grid = host.getMainNode().getGrid();
-        KeyCounter available = host.collectLocalStorageStacksForIntegration();
+        KeyCounter available;
         if (grid != null && !host.isStorageInterfaceTransferMode()) {
             available = new KeyCounter();
             grid.getStorageService().getInventory().getAvailableStacks(available);
+        } else {
+            available = host.collectLocalStorageStacksForIntegration();
         }
         List<Candidate> candidates = new ArrayList<>();
         for (Object2LongMap.Entry<AEKey> entry : available) {
@@ -309,7 +299,8 @@ public final class ECOBulkMarkingService {
         return null;
     }
 
-    private static void collectUnboundedKeys(List<ECODriveBlockEntity> drives, Set<AEKey> target) {
+    private static Set<AEKey> collectUnboundedKeys(IGrid grid, List<ECODriveBlockEntity> drives) {
+        Set<AEKey> target = grid == null ? new HashSet<>() : ECOPlannerInventory.collectUnboundedKeys(grid);
         for (ECODriveBlockEntity drive : drives) {
             var cell = drive.getCellInventory();
             if (cell instanceof ECOCreativeCell creative) target.addAll(creative.configuredKeys());
@@ -319,6 +310,7 @@ public final class ECOBulkMarkingService {
                 });
             }
         }
+        return target;
     }
 
     private static List<TargetCell> collectTargetCells(

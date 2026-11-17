@@ -7,6 +7,7 @@ import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.storage.StorageByteAccounting;
 import cn.dancingsnow.neoecoae.storage.StoragePerformance;
+import cn.dancingsnow.neoecoae.storage.persistence.StorageTotal;
 
 import java.math.BigInteger;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
@@ -427,6 +428,6 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
 
     private static final class MutableTypeStats {
         private long types;
-        private final MutableInfiniteStorageTotal total = new MutableInfiniteStorageTotal();
+        private final StorageTotal total = new StorageTotal();
     }
 }

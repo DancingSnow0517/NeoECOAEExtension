@@ -8,12 +8,12 @@ import java.math.BigInteger;
  * Server-thread statistic; large totals accumulate small transfers without allocating on every operation.
  * Past Long.MAX_VALUE the exact base is a {@link HugeAmount}: U128 below 2^128, segmented magnitudes beyond.
  */
-final class StorageTotal {
+public final class StorageTotal {
     /** The whole total while {@link #base} is null; otherwise a pending signed delta on top of it. */
     private long value;
     private HugeAmount base;
 
-    void add(long amount) {
+    public void add(long amount) {
         if (base == null) {
             if (amount <= Long.MAX_VALUE - value) value += amount;
             else {
@@ -23,26 +23,21 @@ final class StorageTotal {
         } else accumulate(amount);
     }
 
-    void subtract(long amount) {
+    public void subtract(long amount) {
         if (base == null) {
             if (amount > value) throw new IllegalArgumentException("Negative storage total");
             value -= amount;
         } else accumulate(-amount);
     }
 
-    void add(BigInteger amount) {
+    public void add(BigInteger amount) {
         if (amount.signum() < 0) subtract(HugeAmount.of(amount.negate()));
         else add(HugeAmount.of(amount));
     }
 
-    void subtract(BigInteger amount) {
-        if (amount.signum() < 0) add(HugeAmount.of(amount.negate()));
-        else subtract(HugeAmount.of(amount));
-    }
+    public void add(HugeAmount amount) { set(exact().add(amount)); }
 
-    void add(HugeAmount amount) { set(exact().add(amount)); }
-
-    void subtract(HugeAmount amount) {
+    public void subtract(HugeAmount amount) {
         HugeAmount total = exact();
         if (total.compareTo(amount) < 0) throw new IllegalArgumentException("Negative storage total");
         set(total.subtract(amount));
@@ -85,7 +80,7 @@ final class StorageTotal {
         base = null;
     }
 
-    HugeAmount snapshot() {
+    public HugeAmount snapshot() {
         if (base != null) set(exact());
         return base == null ? HugeAmount.of(value) : base;
     }

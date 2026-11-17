@@ -144,12 +144,14 @@ public final class GTLFastInfinityTransfer {
         boolean alreadyRetired = current.sameContents(after);
         boolean sourceChanged = !current.sameContents(before.amounts());
         // A runtime failure during native per-key cache updates may have retired only a subset.
-        StorageAmounts expectedCurrent = new StorageAmounts();
-        before.amounts().forEach((key, amount) -> {
-            if (selected.amounts().get(key).isZero() || !current.get(key).isZero()) expectedCurrent.set(key, amount);
-        });
-        if (!current.sameContents(expectedCurrent))
-            throw new IllegalStateException("Sealed GTL disk differs from its saved transfer snapshot");
+        if (sourceChanged && !alreadyRetired) {
+            StorageAmounts expectedCurrent = new StorageAmounts();
+            before.amounts().forEach((key, amount) -> {
+                if (selected.amounts().get(key).isZero() || !current.get(key).isZero()) expectedCurrent.set(key, amount);
+            });
+            if (!current.sameContents(expectedCurrent))
+                throw new IllegalStateException("Sealed GTL disk differs from its saved transfer snapshot");
+        }
         if (sourceChanged && !target.hasMigrationReceipt(journal.transaction()))
             throw new IllegalStateException("Retired GTL disk has no destination receipt");
         target.beginTransfer(journal.transaction());

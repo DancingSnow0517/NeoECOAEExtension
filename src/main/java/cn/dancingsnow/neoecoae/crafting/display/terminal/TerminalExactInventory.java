@@ -22,7 +22,7 @@ final class TerminalExactInventory {
     private final ReferenceOpenHashSet<MEStorage> captured = new ReferenceOpenHashSet<>();
     private final ReferenceOpenHashSet<MEStorage> seen = new ReferenceOpenHashSet<>();
     private final ObjectOpenHashSet<AEKey> changed = new ObjectOpenHashSet<>();
-    private final ObjectOpenHashSet<AEKey> exceptional = new ObjectOpenHashSet<>();
+    private final ObjectOpenHashSet<AEKey> mountOverrides = new ObjectOpenHashSet<>();
     private final StorageListingAccumulator listing = new StorageListingAccumulator();
     private final KeyCounter scratch = new KeyCounter();
     private boolean collecting;
@@ -40,7 +40,7 @@ final class TerminalExactInventory {
         captured.clear();
         seen.clear();
         changed.clear();
-        exceptional.clear();
+        mountOverrides.clear();
         generation = Long.MIN_VALUE;
     }
 
@@ -90,10 +90,12 @@ final class TerminalExactInventory {
             mounts.keySet().removeIf(source -> !seen.contains(source));
             generation = currentGeneration;
 
-            exceptional.clear();
-            network.visitOversizedTotals((key, amount) -> exceptional.add(key));
-            for (Mount mount : mounts.values()) exceptional.addAll(mount.values.keySet());
-            for (AEKey key : exceptional) {
+            mountOverrides.clear();
+            for (Mount mount : mounts.values()) mountOverrides.addAll(mount.values.keySet());
+            network.visitOversizedTotals((key, amount) -> {
+                if (!mountOverrides.contains(key)) result.put(key, ExactAmount.finite(amount));
+            });
+            for (AEKey key : mountOverrides) {
                 long visible = inventory.getLong(key);
                 PlannerAmount total = PlannerAmount.of(network.listedTotal(key, visible));
                 boolean infinite = false;
