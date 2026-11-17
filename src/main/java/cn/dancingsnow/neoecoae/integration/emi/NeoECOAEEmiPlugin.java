@@ -10,6 +10,7 @@ import cn.dancingsnow.neoecoae.integration.emi.recipe.MultiblockEmiRecipe;
 import cn.dancingsnow.neoecoae.client.gui.crafting.ECOCraftConfirmScreen;
 import cn.dancingsnow.neoecoae.client.gui.graph.ECOCraftingGraphScreen;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.RetainedUIGuiContainer;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUIGuiContainer;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
@@ -49,10 +50,18 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
         // EMI's default container bounds require an item slot. ECO also has fluid-only menus,
         // such as smart cooling; their native ModularUI already supplies the correct bounds.
         // Keep LDLib's existing stack, exclusion-area and drag/drop handlers in charge.
-        registry.addScreenBoundsProvider(ModularUIGuiContainer.class, screen -> {
-            var ui = screen.modularUI;
+        // Class-specific providers match the exact screen class in EMI, not its subclasses.
+        // ECO opens RetainedUIGuiContainer, so use the generic hook with our own type guard.
+        registry.addGenericScreenBoundsProvider(screen -> {
+            if (!(screen instanceof ModularUIGuiContainer container)) return null;
+            var ui = container.modularUI;
             if (!(ui.mainGroup instanceof UIElement)) return null;
-            return new Bounds(ui.getGuiLeft(), ui.getGuiTop(), ui.getWidth(), ui.getHeight());
+            float scale = container instanceof RetainedUIGuiContainer retained ? retained.getRenderScale() : 1;
+            int left = (int) Math.floor(ui.getGuiLeft() * scale);
+            int top = (int) Math.floor(ui.getGuiTop() * scale);
+            int right = (int) Math.ceil((ui.getGuiLeft() + ui.getWidth()) * scale);
+            int bottom = (int) Math.ceil((ui.getGuiTop() + ui.getHeight()) * scale);
+            return new Bounds(left, top, right - left, bottom - top);
         });
         registry.removeRecipes(recipe -> {
             if (cn.dancingsnow.neoecoae.integration.xei.HiddenEasterEggRecipes.isHidden(recipe.getId())) return true;
