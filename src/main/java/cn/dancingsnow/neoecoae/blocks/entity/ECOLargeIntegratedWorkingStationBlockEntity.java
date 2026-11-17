@@ -267,8 +267,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (formed != value) {
             boolean wasFormed = formed;
             formed = value;
-            PendingBatch batch = pendingBatches.peekFirst();
-            setProcessingTime(value && batch != null ? batch.progress : 0);
             cachedTask = null;
             setPowerSides(value ? EnumSet.noneOf(Direction.class) : EnumSet.allOf(Direction.class));
             // Unload still detaches the cluster, but must not query chunks or reconnect grid nodes.
@@ -371,6 +369,18 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             if (node != null) nodes.add(node);
         }
         return nodes.iterator();
+    }
+
+    @Override
+    public int getProcessingTime() {
+        if (!formed) return super.getProcessingTime();
+        var batch = pendingBatches.peekFirst();
+        return batch == null ? 0 : batch.progress;
+    }
+
+    @Override
+    public void setProcessingTime(int value) {
+        if (!formed) super.setProcessingTime(value);
     }
 
     @Override
@@ -795,10 +805,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         notifyPatternAborted(selected.unlockStack);
         pendingOutputCountValid = false;
         pendingBatches.remove(selected);
-        PendingBatch first = pendingBatches.peekFirst();
-        setProcessingTime(first == null ? 0 : first.progress);
-        setWorking(first != null);
-        cachedTask = null;
+        refreshAfterBatchReturn();
         setPauseReason(PauseReason.NONE);
         refreshModuleAppearance();
         setChanged();
@@ -1044,8 +1051,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 pendingBatches.addLast(batch);
             }
         }
-        PendingBatch first = pendingBatches.peekFirst();
-        setProcessingTime(first == null ? 0 : first.progress);
     }
 
     /** @deprecated Legacy display formatter; use {@link #getAECurrentPower()} and {@link #getAEMaxPower()}. */
@@ -1180,7 +1185,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     private void enqueueBatch(PendingBatch batch, @Nullable KeyCounter[] consumedInputs) {
-        boolean wasEmpty = pendingBatches.isEmpty();
         pendingOutputCountValid = false;
         pendingBatches.addLast(batch);
         if (consumedInputs != null) {
@@ -1188,7 +1192,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 if (counter != null) counter.clear();
             }
         }
-        if (wasEmpty) setProcessingTime(batch.progress);
         setPauseReason(PauseReason.NONE);
         cachedTask = null;
         setChanged();
@@ -1199,7 +1202,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         PendingBatch batch = pendingBatches.peekFirst();
         if (batch == null) {
             setWorking(false);
-            setProcessingTime(0);
             setPauseReason(PauseReason.NONE);
             return TickRateModulation.SLOWER;
         }
@@ -1208,7 +1210,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         // is temporarily waiting for a destination. Keep the controller screen on until the batch
         // is actually removed from the queue.
         setWorking(true);
-        setProcessingTime(batch.progress);
         boolean terminal = batch.craftingJobId != null
             && ECOCraftingJobLifecycle.isTerminated(level, batch.craftingJobId);
         if (terminal) {
@@ -1369,7 +1370,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 batch.progress = (int) (completedWork / batch.craftCount);
                 batch.progressRemainder = completedWork % batch.craftCount;
             }
-            setProcessingTime(batch.progress);
             setPauseReason(PauseReason.NONE);
             if (!isCounterEmpty(batch.pendingOutput) && deliverBatchOutputs(batch)
                 && batch.progress >= batch.processingTicks) removeFirstBatch(batch);
@@ -1378,7 +1378,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         }
         batch.progress += advance;
         batch.progressRemainder = 0;
-        setProcessingTime(batch.progress);
         setPauseReason(PauseReason.NONE);
         if (batch.progress >= batch.processingTicks) {
             batch.progress = batch.processingTicks;
@@ -1577,7 +1576,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             changed = true;
         }
         if (changed) {
-            setProcessingTime(batch.progress);
             cachedTask = null;
             setChanged();
             requestCommunicationProviderUpdate();
@@ -1923,9 +1921,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (pendingBatches.peekFirst() != batch) return;
         pendingOutputCountValid = false;
         pendingBatches.removeFirst();
-        PendingBatch next = pendingBatches.peekFirst();
-        setProcessingTime(next == null ? 0 : next.progress);
-        if (next != null) {
+        if (!pendingBatches.isEmpty()) {
             setWorking(true);
         }
         cachedTask = null;
@@ -2321,13 +2317,16 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             pendingOutputCountValid = false;
             pendingBatches.remove(batch);
         }
-        PendingBatch first = pendingBatches.peekFirst();
-        setProcessingTime(first == null ? 0 : first.progress);
-        setWorking(first != null);
-        cachedTask = null;
+        refreshAfterBatchReturn();
         setPauseReason(PauseReason.NONE);
         setChanged();
         requestCommunicationProviderUpdate();
+    }
+
+    private void refreshAfterBatchReturn() {
+        if (!formed) return;
+        setWorking(!pendingBatches.isEmpty());
+        cachedTask = null;
     }
 
     private void autoBuild(Player player) {

@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.all;
 
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockRequirement;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
@@ -21,6 +22,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
@@ -86,16 +88,18 @@ public class NEMultiBlocks {
 
     private static MultiBlockDefinition createLargeIntegratedWorkingStation(boolean smartCooling) {
         BlockState casing = NEBlocks.LARGE_INTEGRATED_WORKING_STATION_CASING.getDefaultState();
+        BlockState module = NEBlocks.LARGE_INTEGRATED_WORKING_STATION_SMART_COOLING_MODULE.getDefaultState();
+        var facing = BlockStateProperties.HORIZONTAL_FACING;
+        var coolingSlot = smartCooling ? ECOMultiblockRequirement.of(module.setValue(facing, Direction.SOUTH))
+            : new ECOMultiblockRequirement(casing, facing.getPossibleValues().stream()
+                .map(direction -> module.setValue(facing, direction)).toList());
         return MultiBlockDefinition.builder(NEBlocks.INTEGRATED_WORKING_STATION)
             // Upper layer: casing, controller, casing in front and three casings behind it.
             .setBlock(pos(0, 1, 0), casing)
             .setBlock(pos(1, 1, 0), NEBlocks.INTEGRATED_WORKING_STATION.getDefaultState())
             .setBlock(pos(2, 1, 0), casing)
             .setBlock(pos(0, 1, 1), casing)
-            .setBlock(pos(1, 1, 1), smartCooling
-                ? NEBlocks.LARGE_INTEGRATED_WORKING_STATION_SMART_COOLING_MODULE.getDefaultState()
-                    .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING, Direction.SOUTH)
-                : casing)
+            .setRequirement(pos(1, 1, 1), coolingSlot)
             .setBlock(pos(2, 1, 1), casing)
             // Lower layer: three casings in front and output, communication, input behind them.
             .setBlock(pos(0, 0, 0), casing)
@@ -103,7 +107,7 @@ public class NEMultiBlocks {
             .setBlock(pos(2, 0, 0), casing)
             .setBlock(pos(0, 0, 1), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_OUTPUT_HATCH.getDefaultState())
             .setBlock(pos(1, 0, 1), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INTERFACE.getDefaultState()
-                .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING, Direction.SOUTH))
+                .setValue(facing, Direction.SOUTH))
             .setBlock(pos(2, 0, 1), NEBlocks.LARGE_INTEGRATED_WORKING_STATION_INPUT_HATCH.getDefaultState())
             .onFormed((blockPos, level) -> {
                 BlockState state = level.getBlockState(blockPos);

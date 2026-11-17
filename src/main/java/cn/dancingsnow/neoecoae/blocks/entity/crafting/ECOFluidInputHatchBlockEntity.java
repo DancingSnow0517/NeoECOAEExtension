@@ -96,6 +96,7 @@ public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyField
             }
             return;
         }
+        if (tank.getSpace() <= 0) return;
         for (Direction face : Direction.values()) {
             IFluidHandler sourceHandler = level.getCapability(Capabilities.FluidHandler.BLOCK, pos.relative(face), face.getOpposite());
             if (sourceHandler != null) {

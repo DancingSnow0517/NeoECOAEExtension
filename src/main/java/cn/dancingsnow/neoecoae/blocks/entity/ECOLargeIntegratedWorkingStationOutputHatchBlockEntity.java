@@ -45,6 +45,7 @@ public class ECOLargeIntegratedWorkingStationOutputHatchBlockEntity
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
+        if (tank.isEmpty()) return;
         var cluster = getCluster();
         for (Direction face : Direction.values()) {
             BlockPos neighborPos = pos.relative(face);

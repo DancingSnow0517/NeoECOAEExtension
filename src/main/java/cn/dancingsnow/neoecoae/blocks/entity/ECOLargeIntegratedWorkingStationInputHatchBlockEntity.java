@@ -125,6 +125,7 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
             }
             return;
         }
+        if (tank.getSpace() <= 0) return;
         var cluster = getCluster();
         for (Direction face : Direction.values()) {
             BlockPos neighborPos = pos.relative(face);

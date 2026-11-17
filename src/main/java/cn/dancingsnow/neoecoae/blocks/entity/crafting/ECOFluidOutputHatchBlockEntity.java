@@ -47,6 +47,7 @@ public class ECOFluidOutputHatchBlockEntity extends cn.dancingsnow.neoecoae.bloc
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
+        if (tank.isEmpty()) return;
         for (Direction face : Direction.values()) {
             IFluidHandler targetHandler = level.getCapability(Capabilities.FluidHandler.BLOCK, pos.relative(face), face.getOpposite());
             if (targetHandler != null) {

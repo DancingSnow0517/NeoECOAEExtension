@@ -56,6 +56,7 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import lombok.Getter;
 import lombok.Setter;
@@ -66,7 +67,6 @@ import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeHolder;
@@ -186,7 +186,12 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     @DescSynced
     private final EnumSet<RelativeSide> allowOutputs = EnumSet.allOf(RelativeSide.class);
 
-    private boolean dirty = false;
+    private boolean dirty = true;
+
+    private @Nullable ResourceLocation standaloneRecipeId;
+    private int standaloneSteps;
+    private int standaloneEnergy;
+    private double standalonePaid;
 
     protected @Nullable IntegratedWorkingStationRecipe cachedTask = null;
 
@@ -250,8 +255,13 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     }
 
     public int getMaxProcessingTime() {
+        if (standaloneRecipeId != null) return standaloneSteps;
         var task = getTask();
-        return task == null ? MAX_PROCESSING_STEPS : (int) Math.min(Integer.MAX_VALUE, (long) task.processingTicks() * 2);
+        return task == null ? MAX_PROCESSING_STEPS : processingSteps(task);
+    }
+
+    private static int processingSteps(IntegratedWorkingStationRecipe task) {
+        return (int) Math.min(Integer.MAX_VALUE, (long) task.processingTicks() * 2);
     }
 
     @Override
@@ -276,6 +286,17 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         this.upgrades.readFromNBT(data, "upgrades", registries);
         this.configManager.readFromNBT(data, registries);
         shouldAutoExport = configManager.getSetting(Settings.AUTO_EXPORT) == YesNo.YES;
+        resetStandaloneProcessing();
+        if (data.contains("standaloneJob")) {
+            var job = data.getCompound("standaloneJob");
+            standaloneRecipeId = ResourceLocation.tryParse(job.getString("recipe"));
+            standaloneSteps = job.getInt("steps");
+            standaloneEnergy = job.getInt("energy");
+            standalonePaid = job.getDouble("paid");
+            processingTime = job.getInt("progress");
+            if (standaloneRecipeId == null || standaloneSteps <= 0 || processingTime < 0 || processingTime > standaloneSteps
+                || !(standalonePaid >= 0 && standalonePaid <= standaloneEnergy)) resetStandaloneProcessing();
+        }
     }
 
     @Override
@@ -285,6 +306,15 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         data.put("outputTank", this.outputTank.writeToNBT(registries, new CompoundTag()));
         upgrades.writeToNBT(data, "upgrades", registries);
         configManager.writeToNBT(data, registries);
+        if (standaloneRecipeId != null && (processingTime > 0 || standalonePaid > 0)) {
+            var job = new CompoundTag();
+            job.putString("recipe", standaloneRecipeId.toString());
+            job.putInt("steps", standaloneSteps);
+            job.putInt("energy", standaloneEnergy);
+            job.putDouble("paid", standalonePaid);
+            job.putInt("progress", processingTime);
+            data.put("standaloneJob", job);
+        }
     }
 
     @Override
@@ -333,35 +363,23 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         return configManager.getSetting(Settings.AUTO_EXPORT) == YesNo.YES && (!this.outputInv.getStackInSlot(0).isEmpty() || !this.getOutputTank().getFluid().isEmpty());
     }
 
-    private boolean hasCraftWork() {
-        var task = this.getTask();
-        if (task != null) {
-            if (task.hasItemOutput() && outputInv.insertItem(0, task.itemOutput(), true).isEmpty()) {
-                return true;
-            }
-            if (task.hasFluidOutput()) {
-                FluidStack fluidOutput = task.fluidOutput();
-                if (getOutputTank().fill(fluidOutput, IFluidHandler.FluidAction.SIMULATE) == fluidOutput.getAmount()) {
-                    return true;
-                }
-
-            }
-        }
-
-        this.setProcessingTime(0);
-        return this.isWorking();
+    private boolean canPlaceOutputs(@Nullable IntegratedWorkingStationRecipe task) {
+        return task != null && (task.hasItemOutput() || task.hasFluidOutput())
+            && (!task.hasItemOutput() || outputInv.insertItem(0, task.itemOutput(), true).isEmpty())
+            && (!task.hasFluidOutput() || getOutputTank().fill(task.fluidOutput(), IFluidHandler.FluidAction.SIMULATE)
+                == task.fluidOutput().getAmount());
     }
 
     @Nullable
     public IntegratedWorkingStationRecipe getTask() {
         if (this.cachedTask == null && level != null) {
-
-            this.cachedTask = findRecipe(level);
+            var holder = findRecipe(level);
+            this.cachedTask = holder == null ? null : holder.value();
         }
         return this.cachedTask;
     }
 
-    private @Nullable IntegratedWorkingStationRecipe findRecipe(Level level) {
+    private @Nullable RecipeHolder<IntegratedWorkingStationRecipe> findRecipe(Level level) {
         List<ItemStack> inputs = new ArrayList<>();
         for (var x = 0; x < this.inputInv.size(); x++) {
             inputs.add(this.inputInv.getStackInSlot(x));
@@ -370,160 +388,120 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             NERecipeTypes.INTEGRATED_WORKING_STATION.get(),
             new IntegratedWorkingStationRecipe.Input(inputs, this.getInputTank().getFluid()),
             level
-        ).map(RecipeHolder::value).orElse(null);
+        ).orElse(null);
+    }
+
+    private void resetStandaloneProcessing() {
+        standaloneRecipeId = null;
+        standaloneSteps = 0;
+        standaloneEnergy = 0;
+        standalonePaid = 0;
+        processingTime = 0;
+        cachedTask = null;
+        dirty = true;
+    }
+
+    private void refreshStandaloneTask(Level level) {
+        var holder = findRecipe(level);
+        var recipeId = holder == null ? null : holder.id();
+        if (!Objects.equals(recipeId, standaloneRecipeId)) {
+            resetStandaloneProcessing();
+            standaloneRecipeId = recipeId;
+            if (holder != null) {
+                standaloneSteps = processingSteps(holder.value());
+                standaloneEnergy = holder.value().energy();
+            }
+            setChanged();
+        }
+        cachedTask = holder == null ? null : holder.value();
     }
 
     @Override
     public TickingRequest getTickingRequest(IGridNode iGridNode) {
-        return new TickingRequest(1, 20, !hasAutoExportWork() && !this.hasCraftWork());
+        return new TickingRequest(1, 20, standaloneRecipeId == null && !hasAutoExportWork() && !canPlaceOutputs(getTask()));
     }
 
     @Override
     public TickRateModulation tickingRequest(IGridNode iGridNode, int ticksSinceLastCall) {
+        if (level != null && (dirty || cachedTask == null || standaloneRecipeId == null)) refreshStandaloneTask(level);
         if (this.dirty) {
-            // Check if running recipe is still valid
-            if (level != null) {
-                var recipe = findRecipe(level);
-                if (recipe == null) {
-                    this.setProcessingTime(0);
-                    this.setWorking(false);
-                    this.cachedTask = null;
-                }
-            }
             this.markForUpdate();
             this.dirty = false;
         }
 
-        if (this.hasCraftWork()) {
+        var task = cachedTask;
+        if (canPlaceOutputs(task)) {
             this.setWorking(true);
-            getMainNode().ifPresent(grid -> {
-                IEnergyService eg = grid.getEnergyService();
-                IEnergySource src = this;
+            getMainNode().ifPresent(grid -> advanceStandaloneProcessing(grid.getEnergyService()));
 
-                final int speedFactor =
-                    switch (this.upgrades.getInstalledUpgrades(AEItems.SPEED_CARD)) {
-                        case 0 -> 2; // 100 ticks
-                        case 1 -> 3; // 66 ticks
-                        case 2 -> 5; // 40 ticks
-                        case 3 -> 10; // 20 ticks
-                        case 4 -> 50; // 4 ticks
-                        default -> 2; // 100 ticks
-                    };
-
-                final int progressReq = getMaxProcessingTime() - this.getProcessingTime();
-                final float powerRatio = progressReq < speedFactor ? (float) progressReq / speedFactor : 1;
-                final int requiredTicks = Mth.ceil((float) getMaxProcessingTime() / speedFactor);
-                final int powerConsumption = Mth.floor(((float) getTask().energy() / requiredTicks) * powerRatio);
-                final double powerThreshold = powerConsumption - 0.01;
-
-                double powerReq = this.extractAEPower(powerConsumption, Actionable.SIMULATE, PowerMultiplier.CONFIG);
-
-                if (powerReq <= powerThreshold) {
-                    src = eg;
-                    var oldPowerReq = powerReq;
-                    powerReq = eg.extractAEPower(powerConsumption, Actionable.SIMULATE, PowerMultiplier.CONFIG);
-                    if (oldPowerReq > powerReq) {
-                        src = this;
-                        powerReq = oldPowerReq;
-                    }
-                }
-
-                if (powerReq > powerThreshold) {
-                    src.extractAEPower(powerConsumption, Actionable.MODULATE, PowerMultiplier.CONFIG);
-                    this.setProcessingTime(this.getProcessingTime() + speedFactor);
-                } else if (powerReq != 0) {
-                    var progressRatio = src == this
-                        ? powerReq / powerConsumption
-                        : (powerReq - 10 * eg.getIdlePowerUsage()) / powerConsumption;
-                    var factor = Mth.floor(progressRatio * speedFactor);
-
-                    if (factor > 1) {
-                        var extracted = src.extractAEPower(
-                            (double) (powerConsumption * factor) / speedFactor,
-                            Actionable.MODULATE,
-                            PowerMultiplier.CONFIG);
-                        var actualFactor = (int) Math.floor(extracted / powerConsumption * speedFactor);
-                        this.setProcessingTime(this.getProcessingTime() + actualFactor);
-                    }
-                }
-            });
-
-            if (this.getProcessingTime() >= this.getMaxProcessingTime()) {
-                final IntegratedWorkingStationRecipe out = this.getTask();
-                if (out != null) {
-                    final ItemStack itemOut = out.itemOutput();
-                    final FluidStack fluidOut = out.fluidOutput();
-
-                    boolean itemCanInsert = true;
-                    boolean fluidCanInsert = true;
-
-                    if (!itemOut.isEmpty()) {
-                        itemCanInsert = this.outputInv.insertItem(0, itemOut, true).isEmpty();
-                    }
-
-                    if (!fluidOut.isEmpty()) {
-                        fluidCanInsert = this.getOutputTank().fill(fluidOut, IFluidHandler.FluidAction.SIMULATE) >= fluidOut.getAmount() - 0.01;
-                    }
-
-                    // Only execute if both outputs can be placed; otherwise keep progress to retry later
-                    if (itemCanInsert && fluidCanInsert) {
-                        // perform actual insertion
-                        boolean itemInserted = true;
-                        boolean fluidInserted = true;
-
-                        if (!itemOut.isEmpty()) {
-                            itemInserted = this.outputInv.insertItem(0, itemOut, false).isEmpty();
-                        }
-
-                        if (!fluidOut.isEmpty()) {
-                            int added = this.getOutputTank().fill(fluidOut, IFluidHandler.FluidAction.EXECUTE);
-                            fluidInserted = added >= fluidOut.getAmount() - 0.01;
-                        }
-
-                        if (itemInserted && fluidInserted) {
-                            // consume inputs
-                            for (SizedIngredient itemInput : out.inputItems()) {
-                                int remaining = itemInput.count();
-                                for (int x = 0; x < this.inputInv.size(); x++) {
-                                    var stack = this.inputInv.getStackInSlot(x);
-                                    if (itemInput.ingredient().test(stack)) {
-                                        if (stack.getCount() > remaining) {
-                                            stack.shrink(remaining);
-                                            remaining = 0;
-                                        } else {
-                                            remaining -= stack.getCount();
-                                            stack.setCount(0);
-                                        }
-                                        this.inputInv.setItemDirect(x, stack);
-                                    }
-
-                                    if (remaining <= 0) {
-                                        break;
-                                    }
-                                }
-                            }
-
-                            FluidStack fluidStack = this.getInputTank().getFluid();
-                            if (out.inputFluid().test(fluidStack)) {
-                                getInputTank().drain(fluidStack.copyWithAmount(out.inputFluid().amount()), IFluidHandler.FluidAction.EXECUTE);
-                            }
-
-                            this.setProcessingTime(0);
-                            this.saveChanges();
-                            this.cachedTask = null;
-                            this.setWorking(false);
-                        }
-                    }
-                }
-            }
-        } else {
+            if (processingTime == standaloneSteps && !dirty && canPlaceOutputs(task)) finishStandaloneRecipe(task);
+        } else if (isWorking()) {
+            setWorking(false);
         }
 
         if (this.pushOutResult()) {
             return TickRateModulation.URGENT;
         }
 
-        return this.hasCraftWork() ? TickRateModulation.URGENT : this.hasAutoExportWork() ? TickRateModulation.SLOWER : TickRateModulation.SLEEP;
+        return canPlaceOutputs(getTask()) ? TickRateModulation.URGENT : hasAutoExportWork() ? TickRateModulation.SLOWER : TickRateModulation.SLEEP;
+    }
+
+    private void finishStandaloneRecipe(IntegratedWorkingStationRecipe task) {
+        if (task.hasItemOutput() && !outputInv.insertItem(0, task.itemOutput(), false).isEmpty()) return;
+        if (task.hasFluidOutput()
+            && getOutputTank().fill(task.fluidOutput(), IFluidHandler.FluidAction.EXECUTE) != task.fluidOutput().getAmount()) return;
+
+        for (SizedIngredient input : task.inputItems()) {
+            int remaining = input.count();
+            for (int slot = 0; slot < inputInv.size() && remaining > 0; slot++) {
+                var stack = inputInv.getStackInSlot(slot);
+                if (!stack.isEmpty() && input.ingredient().test(stack)) {
+                    int taken = Math.min(remaining, stack.getCount());
+                    stack.shrink(taken);
+                    inputInv.setItemDirect(slot, stack);
+                    remaining -= taken;
+                }
+            }
+        }
+        if (!task.inputFluid().ingredient().isEmpty()) {
+            getInputTank().drain(task.inputFluid().amount(), IFluidHandler.FluidAction.EXECUTE);
+        }
+        resetStandaloneProcessing();
+        saveChanges();
+        setWorking(false);
+    }
+
+    private void advanceStandaloneProcessing(IEnergyService grid) {
+        int speed = switch (upgrades.getInstalledUpgrades(AEItems.SPEED_CARD)) {
+            case 1 -> 3;
+            case 2 -> 5;
+            case 3 -> 10;
+            case 4 -> 50;
+            default -> 2;
+        };
+        int target = processingTime + Math.min(speed, standaloneSteps - processingTime);
+        long cost = Math.ceilDiv((long) standaloneEnergy * target, standaloneSteps);
+        double paid = cost > standalonePaid ? drawStandalonePower(grid, cost - standalonePaid) : 0;
+        if (paid > 0) standalonePaid = Math.min(cost, standalonePaid + paid);
+        int funded = standalonePaid >= cost ? target : (int) ((long) standalonePaid * standaloneSteps / standaloneEnergy);
+        if (processingTime != funded || paid > 0) {
+            processingTime = funded;
+            setChanged();
+        }
+    }
+
+    private double drawStandalonePower(IEnergyService grid, double requested) {
+        IEnergySource source = this;
+        double available = extractAEPower(requested, Actionable.SIMULATE, PowerMultiplier.CONFIG);
+        if (available < requested) {
+            double network = grid.extractAEPower(requested, Actionable.SIMULATE, PowerMultiplier.CONFIG);
+            if (network < requested - 0.01) network -= 10 * grid.getIdlePowerUsage();
+            if (network > available) {
+                source = grid;
+                available = network;
+            }
+        }
+        return available > 0 ? source.extractAEPower(Math.min(requested, available), Actionable.MODULATE, PowerMultiplier.CONFIG) : 0;
     }
 
     private boolean pushOutResult() {
@@ -549,9 +527,11 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                 FluidStack outFluid = this.getOutputTank().getFluid();
                 GenericStack fluid = ECOKeyFactory.fromFluidStack(outFluid);
                 if (fluid != null && fluid.what() != null) {
-                    var extracted = this.getOutputTank().drain(outFluid, IFluidHandler.FluidAction.EXECUTE).getAmount();
-                    var inserted = target.insert(fluid.what(), extracted, Actionable.MODULATE, source);
-                    this.getOutputTank().fill(outFluid.copyWithAmount((int) (extracted - inserted)), IFluidHandler.FluidAction.EXECUTE);
+                    var extracted = this.getOutputTank().drain(outFluid, IFluidHandler.FluidAction.EXECUTE);
+                    var inserted = target.insert(fluid.what(), extracted.getAmount(), Actionable.MODULATE, source);
+                    if (inserted < extracted.getAmount()) {
+                        this.getOutputTank().fill(extracted.copyWithAmount(extracted.getAmount() - (int) inserted), IFluidHandler.FluidAction.EXECUTE);
+                    }
 
                     if (this.getOutputTank().getFluidAmount() == 0) clearFluidOut();
 
