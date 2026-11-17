@@ -162,6 +162,8 @@ public final class EcoApiExample {
 
 [CraftingGraphSnapshot](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/snapshot/CraftingGraphSnapshot.java) 的 `materialReport()` 只提供材料阶段的数据。完整图中 `CycleGroup.recursion()` 提供初始库存和有界的精确检查点；`RecursionLayer` 的投入、库存和配方次数均使用 PlannerAmount，`folded` 表示折叠了重复步骤。`Recursion.complete()` 也可描述补足缺料后的条件执行过程，不代替提交合同的可执行判定。报告线协议现为 7，服务器与客户端必须使用匹配协议。
 
+服务端分多个 tick 序列化菜单报告字段，只有大页生成后独立的字节数组在后台压缩。传输结束前，不要修改已提交的图和循环列表。客户端仍按完整版本接收结果；请使用就绪标志，不要假设报告在下一个 tick 就已到达。
+
 ### 精确父订单
 
 `ECOBigOrderRequest` 接受正 `BigInteger`，当前上限为 1024 位十进制数字。使用上例的 `submitBigOrder`，显式目标必须是合格 ECO CPU 或网络公布的空闲 ECO 占位 CPU。普通 AE2 CPU 不解释父订单载体。

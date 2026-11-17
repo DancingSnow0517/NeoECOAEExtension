@@ -4,7 +4,9 @@ import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.stacks.AEKey;
 import appeng.menu.guisync.PacketWritable;
+import com.google.common.collect.Iterators;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.math.BigInteger;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus;
@@ -37,25 +39,36 @@ public record ECOCycleItemList(List<Entry> items) implements PacketWritable {
 
     @Override
     public void writeToPacket(RegistryFriendlyByteBuf data) {
+        writeCount(data);
+        for (Entry item : items) item.writeToPacket(data);
+    }
+
+    private void writeCount(RegistryFriendlyByteBuf data) {
         if (items.size() > 100_000) throw new IllegalArgumentException("Too many cycle items");
         data.writeVarInt(items.size());
-        for (Entry item : items) {
-            AEKey.writeKey(data, item.what());
-            writeBigInteger(data, item.exactConsumed());
-            writeBigInteger(data, item.exactProduced());
-            writeBigInteger(data, item.exactSingleNetOutput());
-            writeBigInteger(data, item.exactTotalNetOutput());
-            writeBigInteger(data, item.exactMissing());
-            data.writeEnum(item.executionCountKnowledge());
-            data.writeEnum(item.solveStatus());
-            data.writeVarInt(item.componentId());
-            data.writeLong(item.seedParallelism());
-        }
+    }
+
+    public Iterator<PacketWritable> packetFields() {
+        return Iterators.concat(Iterators.<PacketWritable>singletonIterator(this::writeCount), items.iterator());
     }
 
     public record Entry(AEKey what, BigInteger exactConsumed, BigInteger exactProduced,
             BigInteger exactSingleNetOutput, BigInteger exactTotalNetOutput, BigInteger exactMissing,
-            ExecutionCountKnowledge executionCountKnowledge, CycleSolveStatus solveStatus, int componentId, long seedParallelism) {
+            ExecutionCountKnowledge executionCountKnowledge, CycleSolveStatus solveStatus, int componentId, long seedParallelism) implements PacketWritable {
+        @Override
+        public void writeToPacket(RegistryFriendlyByteBuf data) {
+            AEKey.writeKey(data, what);
+            writeBigInteger(data, exactConsumed);
+            writeBigInteger(data, exactProduced);
+            writeBigInteger(data, exactSingleNetOutput);
+            writeBigInteger(data, exactTotalNetOutput);
+            writeBigInteger(data, exactMissing);
+            data.writeEnum(executionCountKnowledge);
+            data.writeEnum(solveStatus);
+            data.writeVarInt(componentId);
+            data.writeLong(seedParallelism);
+        }
+
         public Entry(AEKey what, BigInteger exactConsumed, BigInteger exactProduced,
                 BigInteger exactSingleNetOutput, BigInteger exactTotalNetOutput, BigInteger exactMissing,
                 ExecutionCountKnowledge executionCountKnowledge, CycleSolveStatus solveStatus, int componentId) {

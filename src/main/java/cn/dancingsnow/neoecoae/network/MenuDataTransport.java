@@ -31,11 +31,16 @@ public final class MenuDataTransport {
     private MenuDataTransport() {}
 
     public static boolean busy(ServerPlayer player, Channel channel) {
+        return (channel == Channel.GRAPH && CraftingReportStream.encoding(player)) || queued(player, channel);
+    }
+
+    static boolean queued(ServerPlayer player, Channel channel) {
         var queue = OUTGOING.get(player);
         return queue != null && queue.stream().anyMatch(t -> t.menu == player.containerMenu && t.channel == channel);
     }
 
     public static void cancel(ServerPlayer player, Channel channel) {
+        if (channel == Channel.GRAPH) CraftingReportStream.cancel(player);
         var queue = OUTGOING.get(player);
         if (queue != null) queue.removeIf(t -> t.channel == channel);
     }
@@ -69,6 +74,7 @@ public final class MenuDataTransport {
     }
 
     public static void tick(ServerTickEvent.Post event) {
+        CraftingReportStream.tick(event.getServer());
         var it = OUTGOING.entrySet().iterator();
         while (it.hasNext()) {
             var entry = it.next();

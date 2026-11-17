@@ -9,9 +9,6 @@ import appeng.client.gui.StackWithBounds;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.style.PaletteColor;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
-import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
-import cn.dancingsnow.neoecoae.gui.common.HostText;
-import java.math.BigInteger;
 import java.util.List;
 import java.util.function.Predicate;
 import net.minecraft.client.Minecraft;
@@ -128,18 +125,12 @@ final class ECOCycleItemListRenderer {
         }
     }
 
-    private static String formatAmount(BigInteger amount, AmountFormat format) {
-        return format == AmountFormat.FULL
-            ? BigNumberFormatter.format(amount, 1, true)
-            : HostText.ae2Amount(amount);
-    }
-
     private static Component totalLine(ECOCycleItemList.Entry entry, AmountFormat format) {
         if (entry.exactMissing().signum() > 0) {
             return Component.translatable(entry.seedShortfallIsEstimate()
                     ? "gui.neoecoae.crafting_report.seed_shortfall_estimate"
                     : "gui.neoecoae.crafting_graph.details.missing",
-                formatAmount(entry.exactMissing(), format));
+                ECOExactMaterialTableRenderer.formatAmount(entry.what(), entry.exactMissing(), format));
         }
         if (!entry.totalNetOutputKnown() && entry.displayedTotal().signum() == 0) {
             return Component.translatable("gui.neoecoae.crafting_report.quantity_unknown");
@@ -147,7 +138,8 @@ final class ECOCycleItemListRenderer {
         String translationKey = entry.isCycleProduct()
             ? "gui.neoecoae.crafting_report.total_produced"
             : "gui.neoecoae.crafting_report.total_consumed";
-        return Component.translatable(translationKey, formatAmount(entry.displayedTotal(), format));
+        return Component.translatable(translationKey,
+            ECOExactMaterialTableRenderer.formatAmount(entry.what(), entry.displayedTotal(), format));
     }
 
     int getScrollableRows(int size) {

@@ -162,6 +162,8 @@ Materials and the graph share `neoecoae$getDisplayedPlanRevision()`. Receive mat
 
 [CraftingGraphSnapshot](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/snapshot/CraftingGraphSnapshot.java) exposes material-stage data through `materialReport()`. In a complete graph, `CycleGroup.recursion()` provides initial stock and bounded exact checkpoints. Each `RecursionLayer` carries PlannerAmount inputs, inventory and firing counts; `folded` marks repeated steps represented together. `Recursion.complete()` may describe execution conditional on supplying missing materials and does not replace the submission contract's executability check. The report wire protocol is now 7; server and client protocols must match.
 
+The server serializes menu report fields over successive ticks. Only compression of large, detached byte arrays runs in the background. Treat the submitted graph and cycle lists as immutable until the transfer finishes. Clients still receive one complete revision; use the readiness flags rather than assuming the report arrives on the next tick.
+
 ### Exact parent orders
 
 `ECOBigOrderRequest` accepts positive `BigInteger` totals, currently limited to 1024 decimal digits. The helper's explicit target must be an eligible ECO CPU or its advertised idle ECO placeholder; ordinary AE2 CPUs cannot interpret the parent carrier.

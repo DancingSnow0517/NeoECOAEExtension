@@ -4,6 +4,8 @@ import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.stacks.AEKey;
 import appeng.menu.guisync.PacketWritable;
+import com.google.common.collect.Iterators;
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -14,8 +16,10 @@ import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ExactCycleAmount;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
@@ -133,20 +137,49 @@ public record CraftingGraphSnapshot(
 
     /** Each page is compressed independently and fits the existing queued menu transport. */
     public void writeToPages(net.minecraft.core.RegistryAccess registries, PacketWritable trailer, Consumer<Page> output) {
-        var raw = new RegistryFriendlyByteBuf(Unpooled.buffer(256, MAX_UNCOMPRESSED_BYTES), registries);
-        try {
-            writeRaw(raw);
-            trailer.writeToPacket(raw);
-            int offset = 0;
-            while (raw.isReadable()) {
-                byte[] bytes = new byte[Math.min(Page.MAX_BYTES, raw.readableBytes())];
-                raw.readBytes(bytes);
-                output.accept(new Page(offset, !raw.isReadable(), bytes));
-                offset += bytes.length;
+        try (var cursor = pages(registries, Iterators.singletonIterator(trailer))) {
+            while (true) {
+                Page page = cursor.advance();
+                if (page != null) {
+                    output.accept(page);
+                    if (page.last()) return;
+                }
             }
-        } finally {
-            raw.release();
         }
+    }
+
+    public PageCursor pages(RegistryAccess registries, Iterator<PacketWritable> trailer) {
+        return new PageCursor(registries, Iterators.concat(packetFields(), trailer));
+    }
+
+    public static final class PageCursor implements AutoCloseable {
+        private final Iterator<PacketWritable> fields;
+        private final RegistryFriendlyByteBuf raw;
+        private int offset;
+
+        private PageCursor(RegistryAccess registries, Iterator<PacketWritable> fields) {
+            this.fields = fields;
+            raw = new RegistryFriendlyByteBuf(Unpooled.buffer(256, MAX_UNCOMPRESSED_BYTES), registries);
+        }
+
+        public @Nullable Page advance() {
+            int target = Math.min(Page.MAX_BYTES, raw.readableBytes() + 256 * 1024);
+            long started = System.nanoTime();
+            int count = 0;
+            while (raw.readableBytes() < target && fields.hasNext()) {
+                fields.next().writeToPacket(raw);
+                if ((++count & 15) == 0 && System.nanoTime() - started >= 2_000_000L) break;
+            }
+            if (raw.readableBytes() < Page.MAX_BYTES && fields.hasNext()) return null;
+            byte[] bytes = new byte[Math.min(Page.MAX_BYTES, raw.readableBytes())];
+            raw.readBytes(bytes);
+            var page = new Page(offset, !raw.isReadable() && !fields.hasNext(), bytes);
+            raw.discardReadBytes();
+            offset += bytes.length;
+            return page;
+        }
+
+        @Override public void close() { raw.release(); }
     }
 
     /** Reads a fully reassembled report, leaving its cycle-item trailer for the caller. */
@@ -185,12 +218,19 @@ public record CraftingGraphSnapshot(
 
         @Override
         public void writeToPacket(RegistryFriendlyByteBuf data) {
-            var raw = new RegistryFriendlyByteBuf(Unpooled.wrappedBuffer(bytes), data.registryAccess());
+            compressed().writeToPacket(data);
+        }
+
+        public PacketWritable compressed() {
+            var raw = Unpooled.wrappedBuffer(bytes);
             try {
-                data.writeVarInt(offset);
-                data.writeBoolean(last);
-                data.writeVarInt(bytes.length);
-                data.writeByteArray(compress(raw));
+                byte[] encoded = compress(raw);
+                return data -> {
+                    data.writeVarInt(offset);
+                    data.writeBoolean(last);
+                    data.writeVarInt(bytes.length);
+                    data.writeByteArray(encoded);
+                };
             } finally {
                 raw.release();
             }
@@ -198,13 +238,13 @@ public record CraftingGraphSnapshot(
     }
 
     private void writeRaw(RegistryFriendlyByteBuf data) {
-        data.writeVarInt(rootNodeId);
-        writeList(data, nodes, MaterialNode::write);
-        writeList(data, patterns, PatternNode::write);
-        writeList(data, edges, Edge::write);
-        writeList(data, cycleGroups, CycleGroup::write);
-        writeList(data, fuzzyPlanningItemIds, (itemId, output) -> output.writeResourceLocation(itemId));
-        summary.write(data);
+        packetFields().forEachRemaining(field -> field.writeToPacket(data));
+    }
+
+    private Iterator<PacketWritable> packetFields() {
+        return Iterators.concat(field(data -> data.writeVarInt(rootNodeId)), fields(nodes, MaterialNode::write),
+            groups(patterns, PatternNode::packetFields), batches(edges, Edge::write), groups(cycleGroups, CycleGroup::packetFields),
+            fields(fuzzyPlanningItemIds, (item, data) -> data.writeResourceLocation(item)), field(summary::write));
     }
 
     private static Decoded readCompressed(RegistryFriendlyByteBuf data) {
@@ -224,17 +264,12 @@ public record CraftingGraphSnapshot(
         }
     }
 
-    private static byte[] compress(RegistryFriendlyByteBuf input) {
+    private static byte[] compress(ByteBuf input) {
         try {
             var output = new ByteArrayOutputStream(Math.max(64, input.readableBytes() / 4));
             var deflater = new Deflater(Deflater.BEST_SPEED);
             try (var stream = new DeflaterOutputStream(output, deflater)) {
-                byte[] chunk = new byte[8192];
-                while (input.isReadable()) {
-                    int count = Math.min(chunk.length, input.readableBytes());
-                    input.readBytes(chunk, 0, count);
-                    stream.write(chunk, 0, count);
-                }
+                input.readBytes(stream, input.readableBytes());
             } finally {
                 deflater.end();
             }
@@ -340,15 +375,16 @@ public record CraftingGraphSnapshot(
                 readNullableString(data), data.readVarInt());
         }
 
-        private void write(RegistryFriendlyByteBuf data) {
-            data.writeVarInt(patternNodeId);
-            data.writeUtf(displayIdentity);
-            writeList(data, inputs, Relationship::write);
-            writeList(data, outputs, Relationship::write);
-            writeAmount(data, plannerFiringCount);
-            data.writeEnum(status);
-            writeNullableString(data, rejectionReason);
-            data.writeVarInt(componentId);
+        private Iterator<PacketWritable> packetFields() {
+            return Iterators.concat(field(data -> {
+                data.writeVarInt(patternNodeId);
+                data.writeUtf(displayIdentity);
+            }), fields(inputs, Relationship::write), fields(outputs, Relationship::write), field(data -> {
+                writeAmount(data, plannerFiringCount);
+                data.writeEnum(status);
+                writeNullableString(data, rejectionReason);
+                data.writeVarInt(componentId);
+            }));
         }
     }
 
@@ -458,24 +494,14 @@ public record CraftingGraphSnapshot(
                 data.readEnum(ExecutionCountKnowledge.class), data.readEnum(CycleSolveStatus.class), Recursion.read(data));
         }
 
-        private void write(RegistryFriendlyByteBuf data) {
-            data.writeVarInt(componentId);
-            writeIntList(data, memberNodeIds);
-            writeList(data, internalEdges, Edge::write);
-            data.writeUtf(status);
-            writeList(data, requiredOutputs, KeyAmount::write);
-            writeList(data, externalInputs, KeyAmount::write);
-            writeList(data, requiredSeed, KeyAmount::write);
-            writeList(data, patternTimes, PatternAmount::write);
-            writeIntList(data, executionWitness);
-            writeList(data, singleNetOutputs, KeyAmount::write);
-            writeList(data, totalNetOutputs, KeyAmount::write);
-            writeList(data, availableAmounts, KeyAmount::write);
-            writeList(data, exactSingleNetOutputs, ExactKeyAmount::write);
-            writeList(data, exactTotalNetOutputs, ExactKeyAmount::write);
-            data.writeEnum(executionCountKnowledge);
-            data.writeEnum(solveStatus);
-            recursion.write(data);
+        private Iterator<PacketWritable> packetFields() {
+            return Iterators.concat(field(data -> data.writeVarInt(componentId)), integers(memberNodeIds),
+                batches(internalEdges, Edge::write), field(data -> data.writeUtf(status)),
+                fields(requiredOutputs, KeyAmount::write), fields(externalInputs, KeyAmount::write),
+                fields(requiredSeed, KeyAmount::write), fields(patternTimes, PatternAmount::write), integers(executionWitness),
+                fields(singleNetOutputs, KeyAmount::write), fields(totalNetOutputs, KeyAmount::write), fields(availableAmounts, KeyAmount::write),
+                fields(exactSingleNetOutputs, ExactKeyAmount::write), fields(exactTotalNetOutputs, ExactKeyAmount::write),
+                field(data -> { data.writeEnum(executionCountKnowledge); data.writeEnum(solveStatus); }), recursion.packetFields());
         }
 
         private static List<ExactKeyAmount> exact(List<KeyAmount> values) {
@@ -490,10 +516,9 @@ public record CraftingGraphSnapshot(
         private static Recursion read(RegistryFriendlyByteBuf data) {
             return new Recursion(readList(data, KeyAmount::read), readList(data, RecursionLayer::read), data.readBoolean());
         }
-        private void write(RegistryFriendlyByteBuf data) {
-            writeList(data, initialInventory, KeyAmount::write);
-            writeList(data, layers, RecursionLayer::write);
-            data.writeBoolean(complete);
+        private Iterator<PacketWritable> packetFields() {
+            return Iterators.concat(fields(initialInventory, KeyAmount::write), groups(layers, RecursionLayer::packetFields),
+                field(data -> data.writeBoolean(complete)));
         }
     }
 
@@ -503,11 +528,9 @@ public record CraftingGraphSnapshot(
             return new RecursionLayer(readList(data, KeyAmount::read), readList(data, KeyAmount::read),
                 readList(data, PatternAmount::read), data.readBoolean());
         }
-        private void write(RegistryFriendlyByteBuf data) {
-            writeList(data, addedInputs, KeyAmount::write);
-            writeList(data, inventory, KeyAmount::write);
-            writeList(data, patternTimes, PatternAmount::write);
-            data.writeBoolean(folded);
+        private Iterator<PacketWritable> packetFields() {
+            return Iterators.concat(fields(addedInputs, KeyAmount::write), fields(inventory, KeyAmount::write),
+                fields(patternTimes, PatternAmount::write), field(data -> data.writeBoolean(folded)));
         }
     }
 
@@ -571,10 +594,26 @@ public record CraftingGraphSnapshot(
         return result;
     }
 
-    private static <T> void writeList(RegistryFriendlyByteBuf data, List<T> values, Writer<T> writer) {
-        if (values.size() > 1_000_000) throw new IllegalArgumentException("Invalid graph list size: " + values.size());
-        data.writeVarInt(values.size());
-        for (T value : values) writer.write(value, data);
+    private static Iterator<PacketWritable> field(PacketWritable field) {
+        return Iterators.singletonIterator(field);
+    }
+
+    private static Iterator<PacketWritable> size(int count) {
+        if (count > 1_000_000) throw new IllegalArgumentException("Invalid graph list size: " + count);
+        return field(data -> data.writeVarInt(count));
+    }
+
+    private static <T> Iterator<PacketWritable> groups(List<T> values, Function<T, Iterator<PacketWritable>> fields) {
+        return Iterators.concat(size(values.size()), Iterators.concat(Iterators.transform(values.iterator(), fields::apply)));
+    }
+
+    private static <T> Iterator<PacketWritable> fields(List<T> values, Writer<T> writer) {
+        return Iterators.concat(size(values.size()), Iterators.transform(values.iterator(), value -> data -> writer.write(value, data)));
+    }
+
+    private static <T> Iterator<PacketWritable> batches(List<T> values, Writer<T> writer) {
+        return Iterators.concat(size(values.size()), Iterators.transform(Iterators.partition(values.iterator(), 32),
+            batch -> data -> { for (T value : batch) writer.write(value, data); }));
     }
 
     private static List<Integer> readIntList(RegistryFriendlyByteBuf data) {
@@ -585,10 +624,8 @@ public record CraftingGraphSnapshot(
         return result;
     }
 
-    private static void writeIntList(RegistryFriendlyByteBuf data, List<Integer> values) {
-        if (values.size() > 1_000_000) throw new IllegalArgumentException("Invalid graph integer list size");
-        data.writeVarInt(values.size());
-        for (int value : values) data.writeVarInt(value);
+    private static Iterator<PacketWritable> integers(List<Integer> values) {
+        return batches(values, (value, data) -> data.writeVarInt(value));
     }
 
     private static @Nullable String readNullableString(RegistryFriendlyByteBuf data) {

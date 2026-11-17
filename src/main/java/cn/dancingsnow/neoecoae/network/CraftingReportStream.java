@@ -4,17 +4,24 @@ import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.crafting.graph.CraftingGraphProgress;
+import appeng.menu.guisync.PacketWritable;
 import io.netty.buffer.Unpooled;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+import net.minecraft.Util;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 
 /** Publishes a report atomically after all of its independently compressed pages arrive. */
 public final class CraftingReportStream {
+    private static final Map<ServerPlayer, Outgoing> OUTGOING = new HashMap<>();
     private static final Map<AbstractContainerMenu, Incoming> INCOMING = new WeakHashMap<>();
     private static final Map<AbstractContainerMenu, LiveSubscription> LIVE = new WeakHashMap<>();
 
@@ -75,19 +82,47 @@ public final class CraftingReportStream {
 
     public static void send(ServerPlayer player, long version, boolean completeGraph,
             CraftingGraphSnapshot snapshot, ECOCycleItemList cycles) {
+        send(player, version, completeGraph, snapshot, cycles, error ->
+            org.slf4j.LoggerFactory.getLogger(CraftingReportStream.class).error("Could not encode crafting graph {}", version, error));
+    }
+
+    public static void send(ServerPlayer player, long version, boolean completeGraph,
+            CraftingGraphSnapshot snapshot, ECOCycleItemList cycles, Consumer<RuntimeException> onFailure) {
         if (MenuDataTransport.busy(player, MenuDataTransport.Channel.GRAPH)) {
             throw new IllegalStateException("Crafting report is still in flight");
         }
-        try {
-            snapshot.writeToPages(player.registryAccess(), cycles, page -> MenuDataTransport.sendQueued(player,
-                MenuDataTransport.Channel.GRAPH, buf -> {
-                    buf.writeVarLong(version);
-                    buf.writeBoolean(completeGraph);
-                    page.writeToPacket(buf);
-                }));
-        } catch (RuntimeException error) {
-            MenuDataTransport.cancel(player, MenuDataTransport.Channel.GRAPH);
-            throw error;
+        cancel(player);
+        OUTGOING.put(player, new Outgoing(player.containerMenu, version, completeGraph,
+            snapshot.pages(player.registryAccess(), cycles.packetFields()), onFailure));
+    }
+
+    static boolean encoding(ServerPlayer player) {
+        var report = OUTGOING.get(player);
+        return report != null && report.menu == player.containerMenu;
+    }
+
+    static void cancel(ServerPlayer player) {
+        var removed = OUTGOING.remove(player);
+        if (removed != null) removed.close();
+    }
+
+    static void tick(MinecraftServer server) {
+        var reports = OUTGOING.entrySet().iterator();
+        while (reports.hasNext()) {
+            var entry = reports.next();
+            var player = entry.getKey();
+            var report = entry.getValue();
+            if (player.getServer() != server) continue;
+            if (!player.hasDisconnected() && player.containerMenu == report.menu) {
+                if (MenuDataTransport.queued(player, MenuDataTransport.Channel.GRAPH)) continue;
+                try {
+                    if (!report.advance(player)) continue;
+                } catch (RuntimeException error) {
+                    report.onFailure.accept(error);
+                }
+            }
+            report.close();
+            reports.remove();
         }
     }
 
@@ -138,7 +173,56 @@ public final class CraftingReportStream {
         LIVE.keySet().removeIf(previous -> previous != menu);
     }
 
-    static void clear() { INCOMING.clear(); LIVE.clear(); }
+    static void clear() {
+        OUTGOING.values().forEach(Outgoing::close);
+        OUTGOING.clear();
+        INCOMING.clear();
+        LIVE.clear();
+    }
+
+    private static final class Outgoing implements AutoCloseable {
+        private final AbstractContainerMenu menu;
+        private final long version;
+        private final boolean completeGraph;
+        private final CraftingGraphSnapshot.PageCursor cursor;
+        private final Consumer<RuntimeException> onFailure;
+        private CompletableFuture<PacketWritable> compression;
+        private boolean last;
+
+        private Outgoing(AbstractContainerMenu menu, long version, boolean completeGraph,
+                CraftingGraphSnapshot.PageCursor cursor, Consumer<RuntimeException> onFailure) {
+            this.menu = menu;
+            this.version = version;
+            this.completeGraph = completeGraph;
+            this.cursor = cursor;
+            this.onFailure = onFailure;
+        }
+
+        private boolean advance(ServerPlayer player) {
+            if (compression == null) {
+                var page = cursor.advance();
+                if (page == null) return false;
+                last = page.last();
+                compression = page.bytes().length > MenuDataTransport.TICK_BYTES
+                    ? CompletableFuture.supplyAsync(page::compressed, Util.backgroundExecutor())
+                    : CompletableFuture.completedFuture(page.compressed());
+            }
+            if (!compression.isDone()) return false;
+            var encoded = compression.join();
+            compression = null;
+            MenuDataTransport.sendQueued(player, MenuDataTransport.Channel.GRAPH, buf -> {
+                buf.writeVarLong(version);
+                buf.writeBoolean(completeGraph);
+                encoded.writeToPacket(buf);
+            });
+            return last;
+        }
+
+        @Override public void close() {
+            if (compression != null) compression.cancel(false);
+            cursor.close();
+        }
+    }
 
     private static final class Incoming {
         final long version;
