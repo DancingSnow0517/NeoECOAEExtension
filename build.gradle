@@ -23,6 +23,7 @@ def runtimeProfiles = [
         base          : [],
         extended      : ['expatternprovider', 'glodium'],
         advanced      : ['advanced_ae', 'geckolib'],
+        datagen       : ['expatternprovider', 'glodium', 'advanced_ae', 'geckolib'],
         plus          : ['expatternprovider', 'glodium', 'extendedae_plus'],
         lightning     : ['ae2lt', 'thunderbolt'],
         omni          : ['ae2omnicells'],
@@ -39,7 +40,8 @@ runtimeProfiles.storageAll = runtimeProfiles.storage + [
 // Applied Botanics 1.5.2 links a client renderer in its dedicated-server constructor.
 // Keep full client coverage; the key-reuse server harness exercises the allocating channels separately.
 runtimeProfiles.keyReuse = runtimeProfiles.storageAll - ['appbot', 'botania']
-def portingProfile = providers.gradleProperty('portingProfile').getOrElse('base')
+def dataRequested = gradle.startParameter.taskNames.any { it == 'runData' || it == ':runData' }
+def portingProfile = providers.gradleProperty('portingProfile').getOrElse(dataRequested ? 'datagen' : 'base')
 def jeiVersion = providers.gradleProperty('jeiVersion').getOrElse('15.48.0.177')
 if (!runtimeProfiles.containsKey(portingProfile)) {
     throw new GradleException("Unknown portingProfile '${portingProfile}'; choose ${runtimeProfiles.keySet()}")
@@ -139,7 +141,7 @@ dependencies {
     // KubeJS
     modImplementation "dev.architectury:architectury-forge:9.2.14"
     modImplementation "dev.latvian.mods:rhino-forge:2001.2.3-build.10"
-    modImplementation "dev.latvian.mods:kubejs-forge:2001.6.5-build.26"
+    add(dataRequested ? 'modCompileOnly' : 'modImplementation', 'dev.latvian.mods:kubejs-forge:2001.6.5-build.26')
 }
 
 legacyForge {

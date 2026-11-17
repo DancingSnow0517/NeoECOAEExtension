@@ -41,6 +41,7 @@ Neo ECO AE Extension 是 [ECO AE Extension](https://github.com/sddsd2332/NovaEng
 - 版本下载：[GitHub Releases](https://github.com/DancingSnow0517/NeoECOAEExtension/releases)，以及上方的 Modrinth、CurseForge。
 - 问题反馈：[本项目 Issues](https://github.com/DancingSnow0517/NeoECOAEExtension/issues)。请提供 Minecraft、Forge、本模组及相关前置版本、复现步骤和必要日志。
 - Windows 下使用 `./build-local.ps1 build` 选择 Java 17 并构建。干净检出后，先运行 `python tools/compat/bootstrap.py` 恢复固定版本的构建依赖。
+- 使用 `./build-local.ps1 runData` 重新生成资源。默认数据生成配置会加载 ExtendedAE 和 AdvancedAE 配方构造器；KubeJS 只参与编译，不参与生成。提交前请检查 `src/generated/resources` 的变化。
 
 ## 项目关系
 

@@ -27,6 +27,7 @@ import com.tterrag.registrate.util.DataIngredient;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import net.minecraft.ChatFormatting;
 import net.minecraft.data.recipes.RecipeCategory;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.data.recipes.ShapelessRecipeBuilder;
 import net.minecraft.data.recipes.SmithingTransformRecipeBuilder;
@@ -280,6 +281,7 @@ public class NEItems {
                 new ResourceLocation("item/empty_slot_ingot")
             )
         ))
+        .lang(item -> BuiltInRegistries.ITEM.getKey(item).toLanguageKey("item"))
         .recipe((ctx, prov) -> {
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(NETags.Items.ALUMINUM_ALLOY_INGOT)
@@ -387,6 +389,7 @@ public class NEItems {
                 new ResourceLocation("item/empty_slot_ingot")
             )
         ))
+        .lang(item -> BuiltInRegistries.ITEM.getKey(item).toLanguageKey("item"))
         .recipe((ctx, prov) -> {
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT)

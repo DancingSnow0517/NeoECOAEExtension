@@ -41,6 +41,7 @@ Optional integrations require the corresponding mods and their prerequisites. Se
 - Releases: [GitHub](https://github.com/DancingSnow0517/NeoECOAEExtension/releases), Modrinth and CurseForge above.
 - Bug reports: [this project's issue tracker](https://github.com/DancingSnow0517/NeoECOAEExtension/issues). Include Minecraft, Forge, NeoECOAE and dependency versions, reproduction steps and relevant logs.
 - On Windows, use `./build-local.ps1 build` to select Java 17 and build the project. For a clean checkout, first run `python tools/compat/bootstrap.py` to restore the pinned build dependencies.
+- Run `./build-local.ps1 runData` to regenerate resources. Its default profile loads the ExtendedAE and AdvancedAE recipe builders; KubeJS is needed for compilation, not generation. Review the changes under `src/generated/resources` before committing them.
 
 ## Project relationship
 

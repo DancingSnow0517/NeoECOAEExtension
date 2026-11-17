@@ -18,7 +18,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
-@EventBusSubscriber(modid = NeoECOAE.MOD_ID)
+@EventBusSubscriber(modid = NeoECOAE.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
 public class NEDataGen {
     public static void configureDataGen() {
         REGISTRATE.addDataGenerator(ProviderType.LANG, NELangGenerator::accept);
