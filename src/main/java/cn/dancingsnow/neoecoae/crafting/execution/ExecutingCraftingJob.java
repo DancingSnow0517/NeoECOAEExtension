@@ -30,8 +30,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.math.BigInteger;
 
+import org.apache.commons.lang3.mutable.MutableObject;
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.nbt.CompoundTag;
@@ -131,7 +133,8 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
     @Nullable private CompoundTag graphData;
     private final Set<Integer> graphCompleted = new HashSet<>();
     private Map<Integer, CraftingGraphProgress.Amounts> graphAmounts = Map.of();
-    @Nullable Boolean graphSuccess;
+    @Nullable private Boolean graphSuccess;
+    @Nullable private MutableObject<ExecutingCraftingJob> liveGraphJob;
 
     @FunctionalInterface
     interface CraftingDifferenceListener {
@@ -373,6 +376,15 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         return graphSnapshot;
     }
 
+    public Supplier<ExecutingCraftingJob> followCraftingGraph() {
+        if (liveGraphJob == null) liveGraphJob = new MutableObject<>(this);
+        return liveGraphJob::getValue;
+    }
+
+    public boolean isCraftingGraphFinished() {
+        return graphSuccess != null;
+    }
+
     public CraftingGraphProgress graphProgress(ListCraftingInventory inventory) {
         var graph = craftingGraph();
         boolean canceled = Boolean.FALSE.equals(graphSuccess) || link.isCanceled();
@@ -420,6 +432,8 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
 
     void inheritCraftingGraph(ExecutingCraftingJob previous) {
         if (!link.getCraftingID().equals(previous.link.getCraftingID())) return;
+        liveGraphJob = previous.liveGraphJob;
+        if (liveGraphJob != null) liveGraphJob.setValue(this);
         graphPlan = previous.graphPlan;
         graphSnapshot = previous.graphSnapshot;
         graphData = previous.graphData;

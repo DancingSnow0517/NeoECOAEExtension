@@ -17,7 +17,6 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.TextElement;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.TextField;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
-import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.util.WindowDragHelper;
 import com.google.gson.JsonObject;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyDisplay;
@@ -31,14 +30,6 @@ import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
 public final class StoragePriorityUI {
-    private static final int[] POSITIVE_STEPS = {1, 10, 100, 1000};
-    private static final int[] NEGATIVE_STEPS = {-1, -10, -100, -1000};
-    private static final int WINDOW_WIDTH = 176;
-    private static final int WINDOW_HEIGHT = 125;
-    private static final int BUTTON_TOP = 30;
-    private static final int BUTTON_BOTTOM = 72;
-    private static final int[] BUTTON_X = {20, 48, 82, 120};
-    private static final int[] BUTTON_WIDTH = {22, 28, 32, 38};
     private static final ResourceLocation JSON_LAYOUT =
         new ResourceLocation("neoecoae", "screens/storage/storage_priority");
 
@@ -129,20 +120,6 @@ public final class StoragePriorityUI {
         return button;
     }
 
-    private static void addAmountButtons(UIElement window, Config config, int[] steps, int top) {
-        for (int index = 0; index < steps.length; index++) {
-            int buttonX = BUTTON_X[index];
-            int buttonWidth = BUTTON_WIDTH[index];
-            window.addChild(priorityButton(steps[index], config.changePriority())
-                .layout(layout -> layout
-                    .positionType(TaffyPosition.ABSOLUTE)
-                    .left(buttonX)
-                    .top(top)
-                    .width(buttonWidth)
-                    .height(20)));
-        }
-    }
-
     private static AE2TextButton priorityButton(int step, IntConsumer changePriority) {
         AE2TextButton button = new AE2TextButton(step > 0 ? "+" + step : String.valueOf(step));
         button.setOnServerClick(event -> changePriority.accept(step));
@@ -204,30 +181,5 @@ public final class StoragePriorityUI {
 
     private static void helpTextStyle(TextElement.TextStyle style) {
         style.adaptiveHeight(true).adaptiveWidth(false).textWrap(TextWrap.NONE).textColor(0x413f54).textShadow(false);
-    }
-
-    private static final class PriorityBackButton extends Button {
-        private PriorityBackButton() {
-            noText();
-        }
-
-        @Override
-        public void drawBackgroundAdditional(GUIContext guiContext) {
-            IGuiTexture texture = isFocused()
-                ? AETextures.icon(ECOIcon.TAB_BUTTON_BACKGROUND_FOCUS)
-                : AETextures.icon(ECOIcon.TAB_BUTTON_BACKGROUND);
-            float size = isFocused() ? 22 : 20;
-            guiContext.drawTexture(texture, getPositionX(), getPositionY(), size, size);
-        }
-
-        @Override
-        public void drawContents(GUIContext guiContext) {
-            super.drawContents(guiContext);
-            guiContext.drawTexture(AETextures.icon(ECOIcon.BACK),
-                getPositionX() + 2,
-                getPositionY() + 1,
-                16,
-                16);
-        }
     }
 }

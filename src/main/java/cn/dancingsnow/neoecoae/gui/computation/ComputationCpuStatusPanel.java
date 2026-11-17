@@ -1025,7 +1025,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         private final LinkedHashSet<AEKey> taskOrder = new LinkedHashSet<>();
         private int taskSerial = -1;
         private UUID taskJob;
-        private ExecutingCraftingJob graphJob;
+        private Supplier<ExecutingCraftingJob> graphJob;
         private ECOCraftingCPU graphCpu;
         private UUID graphJobId;
         private int graphSerial = -1;
@@ -1062,15 +1062,16 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
                 .findFirst().orElse(null);
             graphCpu = target instanceof ECOCraftingCPU eco ? eco : null;
             graphSerial = serial;
-            graphJob = graphCpu == null ? null : graphCpu.getLogic().getJob();
+            var job = graphCpu == null ? null : graphCpu.getLogic().getJob();
+            graphJob = job == null ? null : job.followCraftingGraph();
             graphJobId = graphCpu == null ? null : graphCpu.getLogic().getProcessingJobId();
             graphVersion = version;
             graphTick = Long.MIN_VALUE;
             graphSent = null;
             MenuDataTransport.cancel(player, MenuDataTransport.Channel.GRAPH);
             MenuDataTransport.cancel(player, MenuDataTransport.Channel.GRAPH_PROGRESS);
-            CraftingReportStream.send(player, version, true, graphJob == null ? CraftingGraphSnapshot.EMPTY
-                : graphJob.craftingGraph(), ECOCycleItemList.EMPTY);
+            CraftingReportStream.send(player, version, true, job == null ? CraftingGraphSnapshot.EMPTY
+                : job.craftingGraph(), ECOCycleItemList.EMPTY);
         }
 
         private void syncGraph() {
@@ -1081,13 +1082,13 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
                     && tick - graphTick < MenuDataTransport.UPDATE_INTERVAL) return;
             if (MenuDataTransport.busy(player, MenuDataTransport.Channel.GRAPH_PROGRESS)) return;
             graphTick = tick;
-            if (graphCpu != null && graphJobId != null
-                    && graphJobId.equals(graphCpu.getLogic().getProcessingJobId())) graphJob = graphCpu.getLogic().getJob();
-            var progress = graphJob.graphProgress(graphCpu.getLogic().getInventory());
+            var job = graphJob.get();
+            var progress = job.graphProgress(graphCpu.getLogic().getInventory());
             if (!progress.equals(graphSent)) {
                 CraftingReportStream.sendProgress(player, graphVersion, progress, graphSent);
                 graphSent = progress;
             }
+            if (job.isCraftingGraphFinished()) graphJob = null;
         }
 
         /** The client reports its stretched row count so the buffered pages cover what it shows. */

@@ -224,8 +224,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
         if (neoecoae$sentGraph == neoecoae$craftingGraph && neoecoae$sentCycles == neoecoae$cycleItems) {
             if (neoecoae$graphPending && !cn.dancingsnow.neoecoae.network.MenuDataTransport.busy(player,
                     cn.dancingsnow.neoecoae.network.MenuDataTransport.Channel.GRAPH)) {
-                neoecoae$sendReport(player, neoecoae$craftingGraph, true);
-                neoecoae$graphPending = false;
+                neoecoae$sendReport(player, true);
             }
             return;
         }
@@ -248,27 +247,26 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
         if (dataSync.hasChanges()) {
             NetworkHandler.instance().sendTo(new GuiDataSyncPacket(menu.containerId, dataSync::writeUpdate), player);
         }
-        // Keep the exact table on the critical path, then send graph details after those rows have been sent.
-        // Both payloads describe the same displayed plan, including its submission revision.
-        neoecoae$graphPending = neoecoae$sendReport(player, neoecoae$craftingGraph.materialReport(), false);
+        neoecoae$sendReport(player, false);
         neoecoae$sentGraph = neoecoae$craftingGraph;
         neoecoae$sentCycles = neoecoae$cycleItems;
     }
 
     @Unique
-    private boolean neoecoae$sendReport(ServerPlayer player, CraftingGraphSnapshot snapshot, boolean completeGraph) {
+    private void neoecoae$sendReport(ServerPlayer player, boolean followUp) {
+        var graph = neoecoae$craftingGraph;
+        boolean completeGraph = followUp || (graph.patterns().isEmpty() && graph.edges().isEmpty() && graph.cycleGroups().isEmpty());
         try {
             cn.dancingsnow.neoecoae.network.CraftingReportStream.send(player,
-                neoecoae$diagnosticsVersion, completeGraph, snapshot, neoecoae$cycleItems);
-            return true;
+                neoecoae$diagnosticsVersion, completeGraph, completeGraph ? graph : graph.materialReport(), neoecoae$cycleItems);
+            neoecoae$graphPending = !completeGraph;
         } catch (RuntimeException error) {
-            neoecoae$reportSyncFailure = completeGraph ? 2 : 1;
+            neoecoae$graphPending = false;
+            neoecoae$reportSyncFailure = followUp ? 2 : 1;
             org.slf4j.LoggerFactory.getLogger("neoecoae").error(
                 "[craft-confirm] Failed to encode {} for revision {} (materials={}, patterns={}, edges={}, cycles={})",
-                completeGraph ? "crafting graph" : "material report", neoecoae$diagnosticsVersion,
-                snapshot.nodes().size(), snapshot.patterns().size(), snapshot.edges().size(),
-                snapshot.cycleGroups().size(), error);
-            return false;
+                followUp ? "crafting graph" : "material report", neoecoae$diagnosticsVersion,
+                graph.nodes().size(), graph.patterns().size(), graph.edges().size(), graph.cycleGroups().size(), error);
         }
     }
 

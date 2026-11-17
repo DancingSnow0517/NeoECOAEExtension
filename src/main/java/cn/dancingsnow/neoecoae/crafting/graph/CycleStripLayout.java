@@ -16,7 +16,10 @@ import java.util.Set;
  * Edges that jump back (the loop closure) or skip ahead run through dedicated horizontal lanes below the row.
  * External inputs drop in from above and boundary outputs leave below. Every route is orthogonal, which keeps
  * pixel-aligned GUI lines crisp and makes the flow direction readable at any zoom.</p>
+ *
+ * @deprecated Retained for callers that need the strip layout. Use {@link GraphLayout} for the built-in layout selection.
  */
+@Deprecated
 public final class CycleStripLayout implements GraphLayoutEngine {
     public static final float MATERIAL_WIDTH = 36;
     public static final float MATERIAL_HEIGHT = 36;
