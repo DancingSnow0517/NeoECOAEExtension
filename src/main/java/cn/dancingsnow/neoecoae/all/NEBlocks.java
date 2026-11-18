@@ -718,7 +718,7 @@ public class NEBlocks {
         .item()
         .model((ctx, prov) -> {})
         .build()
-        .lang("Large Integrated Working Station Communication Interface")
+        .lang("Large Integrated Working Station Smart Pattern Bus")
         .register();
 
     // ************************************ //
