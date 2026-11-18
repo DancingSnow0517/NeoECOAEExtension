@@ -115,7 +115,7 @@ Alternatively, place only the controller, open its screen and click **Auto-build
 
 ## Connecting to the network and adding patterns
 
-Connect a cable to the **smart pattern bus** and the workstation appears on the ME network as a pattern provider. Open the smart pattern bus and insert processing patterns that list every item and fluid input and output of the recipe. Then request crafts as with any pattern provider; materials and products move through the ME network.
+Connect a cable to the **smart pattern bus** and the workstation appears on the ME network as a pattern provider. Insert processing patterns that list every item and fluid input and output of the recipe. The network can read supported patterns and dispatch materials even if the upgrade card is missing or incorrect. Tasks that need a card pause until a compatible one is installed, then resume without a new order.
 
 The workstation's own recipes and compatible recipes appear in JEI / EMI under **Large Integrated Working Station**. The single-block station cannot process these compatible recipes.
 
@@ -163,7 +163,7 @@ An installed module switches the controller lights, screen and pattern bus circu
 </GameScene>
 
 - **Any one matching module works.** Identical products from several mods share one JEI / EMI entry with every usable module listed on the right; install any of them. Hover a module to see that route's batch output, processing time and cost. Each route keeps its own minimum batch: if Extended AE makes 4 per batch and Crystal Science 32, the Crystal Science module requires batches of 32.
-- **Changing modules keeps your tasks.** The smart pattern bus refreshes its available patterns and the machine changes to the module's theme color. Accepted tasks keep their materials and progress and can finish.
+- **Changing modules keeps your tasks.** The machine changes to the module's theme color without hiding patterns. Tasks that already passed the card check keep their materials and progress and do not repeat the check.
 - **Servers can ignore modules.** `largeWorkstationIgnoreUpgradeCards` defaults to `false`. Set it to `true` and reopen the world or restart the server to allow every compatible recipe without a module.
 
 Route-specific rules:
@@ -312,5 +312,5 @@ JEI / EMI list energy, processing time and any additional requirements below eac
 | A task only uses 256 after cooling down | Temporary portion mode; it recovers once overclocked and back at its original threshold |
 | Temperature keeps rising with cooling on | Heating exceeds cooling; use a stronger coolant or check the coolant level and output hatch |
 | With Cryotheum, temperature keeps falling and drops a tier | Cooling exceeds heating; use a weaker coolant or the smart cooling controller |
-| Compatible recipe patterns are unavailable | Check the installed upgrade module and that the request meets the route's minimum batch |
+| A task reports a missing or incorrect upgrade card | Install a card supported by the recipe. If the pattern is missing from the network, check that the structure is formed and the pattern's materials, outputs and batch size match a supported recipe. |
 | Overheat recovery doesn't advance or resets | Supply real Cryotheum Solution with Active Cooling on and a clear output hatch, without interruptions or reloads |

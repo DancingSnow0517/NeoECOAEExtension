@@ -276,6 +276,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.large_integrated_working_station.pause.coolant_insufficient", "Cooling: Insufficient coolant");
         provider.add("gui.neoecoae.large_integrated_working_station.pause.coolant_output_blocked", "Cooling: Coolant output blocked");
         provider.add("gui.neoecoae.large_integrated_working_station.pause.power_missing", "Paused: Low power");
+        provider.add("gui.neoecoae.large_integrated_working_station.pause.module_mismatch", "Paused: Missing or incorrect upgrade card");
         provider.add("gui.neoecoae.large_integrated_working_station.pause.output_blocked", "Paused: Output blocked");
         provider.add("gui.neoecoae.large_integrated_working_station.pause.input_return_blocked", "Paused: Input return blocked");
         provider.add("gui.neoecoae.large_integrated_working_station.pause.output_blocked.detail.unknown", " (delivery reason unavailable)");
@@ -357,7 +358,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.workstation.card.card_slot", "Upgrade card slot");
         provider.add("gui.neoecoae.workstation.card.card_slot_hint", "Each slot holds one upgrade card that unlocks its recipe category.");
         provider.add("gui.neoecoae.workstation.card.regular_always", "Regular recipes are always available");
-        provider.add("gui.neoecoae.workstation.card.module_swap", "Swapping cards only affects new tasks; accepted tasks still finish.");
+        provider.add("gui.neoecoae.workstation.card.module_swap", "Tasks waiting for a card resume with a compatible one; authorized tasks can finish.");
         provider.add("gui.neoecoae.workstation.card.supported_cards", "Supported upgrade cards");
         provider.add("gui.neoecoae.workstation.card.card_count", "%s types");
         provider.add("gui.neoecoae.workstation.card.card_count_shift", "%s types \u00b7 Shift to view");
@@ -397,7 +398,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.workstation.module_cards", "Supported upgrade cards:");
         provider.add("gui.neoecoae.workstation.module_slot_empty", "Insert a workstation upgrade card");
         provider.add("gui.neoecoae.workstation.module_slot_hint", "One card unlocks its recipe family; native recipes remain available.");
-        provider.add("gui.neoecoae.workstation.module_swap_hint", "Changing cards affects new requests; accepted tasks can finish.");
+        provider.add("gui.neoecoae.workstation.module_swap_hint", "Tasks waiting for a card resume with a compatible one; authorized tasks can finish.");
         provider.add("gui.neoecoae.workstation.module_card_install", "Install in the module slot of a formed large workstation.");
         provider.add("gui.neoecoae.workstation.module_card_blank", "Blank card: regular recipes; no additional recipe family.");
         provider.add("gui.neoecoae.workstation.module_card_unlock", "Unlocks: %s");

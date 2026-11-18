@@ -329,7 +329,7 @@ public final class LargeWorkstationRecipes {
         return recipe.feEnergy() == 0 ? 0 : recipe.energy() == 0 ? 1 : recipe.feAlternative() ? 2 : 3;
     }
 
-    private static synchronized List<LargeWorkstationRecipe> executionRecipes(Level level) {
+    public static synchronized List<LargeWorkstationRecipe> getSupportedRecipes(Level level) {
         getAll(level);
         return CACHE.get(level.getRecipeManager()).executionRecipes;
     }
@@ -425,7 +425,7 @@ public final class LargeWorkstationRecipes {
 
     private static synchronized LargeWorkstationRecipeIndex index(Level level, @Nullable ResourceLocation moduleId) {
         // Resolve the available list and its owning generation under the same lock as reload invalidation.
-        var recipes = moduleId == null ? executionRecipes(level) : getAvailable(level, moduleId);
+        var recipes = moduleId == null ? getSupportedRecipes(level) : getAvailable(level, moduleId);
         var cache = CACHE.get(level.getRecipeManager());
         // Independently supplied recipe lists have no manager generation to retain them under.
         if (cache == null) return new LargeWorkstationRecipeIndex(recipes);
