@@ -516,7 +516,7 @@
   "gui.neoecoae.crafting.virtual_reason.topology": "網絡拓撲條件未滿足",
   "gui.neoecoae.crafting.virtual_status.title": "無限模式狀態",
   "gui.neoecoae.crafting.virtual_status.infinite": "已處於無限模式狀態",
-  "gui.neoecoae.crafting.mode_switch_blocked": "正處於工作狀態不可切換",
+  "gui.neoecoae.crafting.mode_switch_blocked": "處於運行狀態時無法更改超頻與冷卻",
   "gui.neoecoae.crafting.planning.ignore_substitutions.on": "開啟深度規劃模式",
   "gui.neoecoae.crafting.planning.ignore_substitutions.off": "關閉深度規劃模式",
   "gui.neoecoae.crafting.planning.substitution_pattern_count": "目前有 %d 個開啟替代的樣板",

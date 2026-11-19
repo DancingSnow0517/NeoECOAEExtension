@@ -353,7 +353,7 @@
   "gui.neoecoae.crafting.fast_path_reason.verified_stack_validation_failed": "Verified stack validation failed",
   "gui.neoecoae.crafting.fast_planner.off": "ECO Fast Planning: Disabled",
   "gui.neoecoae.crafting.fast_planner.on": "ECO Fast Planning: Enabled",
-  "gui.neoecoae.crafting.mode_switch_blocked": "Cannot switch while a crafting task is running",
+  "gui.neoecoae.crafting.mode_switch_blocked": "Cannot change overclocking or cooling while running",
   "gui.neoecoae.crafting.no_tasks": "No active tasks",
   "gui.neoecoae.crafting.overclock.off": "Enable Overclock",
   "gui.neoecoae.crafting.overclock.on": "Disable Overclock",

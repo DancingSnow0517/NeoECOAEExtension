@@ -37,7 +37,7 @@ public final class CraftingHostPanelUI {
     private CraftingHostPanelUI() {}
 
     public record Config(
-        Supplier<Component> title, Supplier<Component> statusNotice, IntSupplier networkMultiplier,
+        Supplier<Component> title, Supplier<Component> modeSwitchNotice, IntSupplier networkMultiplier,
         BooleanSupplier networkConnected, BooleanSupplier overclocked, BooleanSupplier virtualMode, Runnable toggleOverclocked,
         BooleanSupplier activeCooling, Runnable toggleActiveCooling, IntSupplier activeWorkerCores,
         IntSupplier workerCores, IntSupplier singleCoreCapacity, LongSupplier ftParallelCapacity,

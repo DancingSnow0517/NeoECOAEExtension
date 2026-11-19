@@ -353,7 +353,7 @@
   "gui.neoecoae.crafting.fast_path_reason.verified_stack_validation_failed": "已驗證物品棧校驗失敗",
   "gui.neoecoae.crafting.fast_planner.off": "ECO 快速規劃：已禁用",
   "gui.neoecoae.crafting.fast_planner.on": "ECO 快速規劃：已啓用",
-  "gui.neoecoae.crafting.mode_switch_blocked": "正值工作，不可切換",
+  "gui.neoecoae.crafting.mode_switch_blocked": "方運作，不可易超頻與冷卻",
   "gui.neoecoae.crafting.no_tasks": "無冶務",
   "gui.neoecoae.crafting.overclock.off": "啟超頻",
   "gui.neoecoae.crafting.overclock.on": "止超頻",

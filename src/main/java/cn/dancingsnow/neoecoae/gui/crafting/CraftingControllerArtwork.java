@@ -11,8 +11,10 @@ import cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.Config;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
@@ -60,6 +62,7 @@ final class CraftingControllerArtwork extends UIElement {
     private final CraftingControllerViewState view = new CraftingControllerViewState();
     private final CraftingControllerTooltips tooltips = new CraftingControllerTooltips(view);
     private final HostProgressAnimation opening = new HostProgressAnimation();
+    private final BindableValue<Component> modeSwitchNotice = new BindableValue<>(Component.empty());
 
     CraftingControllerArtwork(Config config, Supplier<IECOTier> panelTier) {
         this(config, panelTier, () -> HostPanelTextureState.EMPTY);
@@ -77,6 +80,9 @@ final class CraftingControllerArtwork extends UIElement {
                 .left(x).top(38).width(16).height(16).paddingAll(0));
         }
         CraftingControllerSync.attach(this, config, view, this::updateWorkerSlots);
+        modeSwitchNotice.bind(DataBindingBuilder.componentS2C(config.modeSwitchNotice()).build());
+        modeSwitchNotice.setDisplay(false);
+        addChild(modeSwitchNotice);
         layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(0).top(0).width(UI_WIDTH).height(UI_HEIGHT));
 
         addChild(tooltipRegion(9, 29, 16, 34,
@@ -128,6 +134,7 @@ final class CraftingControllerArtwork extends UIElement {
     @Override
     public void drawBackgroundAdditional(GUIContext context) {
         context.drawTexture(NETextures.Crafting.controller(panelTier), getPositionX(), getPositionY(), UI_WIDTH, UI_HEIGHT);
+        drawModeSwitchNotice(context);
         drawHeader(context);
         if (!hostItem.isEmpty()) {
             context.graphics.renderItem(hostItem, Math.round(getPositionX()) + 9,
@@ -139,6 +146,15 @@ final class CraftingControllerArtwork extends UIElement {
         drawCoreCells(context);
         drawBars(context);
         drawInfoRows(context);
+    }
+
+    private void drawModeSwitchNotice(GUIContext context) {
+        Component notice = modeSwitchNotice.getValue();
+        float availableHeight = getPositionY() - 1.0F;
+        if (notice.getString().isEmpty() || availableHeight <= 0.0F) return;
+        float lineHeight = Minecraft.getInstance().font.lineHeight;
+        float height = Math.min(lineHeight, availableHeight);
+        drawStatisticText(context, notice, 0, -height - 1.0F, UI_WIDTH, height / lineHeight, true);
     }
 
     private void drawHeader(GUIContext context) {
@@ -379,7 +395,7 @@ final class CraftingControllerArtwork extends UIElement {
         return text;
     }
 
-    private void drawStatisticText(GUIContext context, Component text, int x, int y, int width,
+    private void drawStatisticText(GUIContext context, Component text, int x, float y, int width,
                                    float preferredScale, boolean centered) {
         Font font = Minecraft.getInstance().font;
         float scale = Math.min(preferredScale, (width - 1.0F) / Math.max(1, font.width(text)));

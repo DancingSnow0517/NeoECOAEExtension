@@ -76,6 +76,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.fluids.FluidStack;
+import org.apache.commons.lang3.mutable.MutableLong;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -128,7 +129,6 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     @Getter(AccessLevel.NONE)
     private int runningThreadCount = 0;
-    private long modeSwitchBlockedNoticeUntilMs = 0L;
 
     @Getter(AccessLevel.NONE)
     private int threadCount = 0;
@@ -865,7 +865,6 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
-        clearExpiredModeSwitchBlockedNotice();
         long startNanos = System.nanoTime();
         try {
             buildController.tick(level);
@@ -886,16 +885,19 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     private CraftingHostPanelUI.Config createCraftingPanelConfig(Player player) {
+        MutableLong modeSwitchNoticeUntil = new MutableLong();
+        Runnable showModeSwitchNotice = () -> modeSwitchNoticeUntil.setValue(Util.getMillis() + MODE_SWITCH_NOTICE_DURATION_MS);
         return new CraftingHostPanelUI.Config(
             this::getCraftingDisplayTitle,
-            this::getCraftingStatusNotice,
+            () -> Util.getMillis() < modeSwitchNoticeUntil.longValue()
+                ? Component.translatable("gui.neoecoae.crafting.mode_switch_blocked") : Component.empty(),
             () -> Math.max(1, getCapabilitySnapshot().networkMultiplier()),
             () -> getMainNode().isOnline() && getMainNode().getGrid() != null,
             this::isOverclocked,
             () -> getCapabilitySnapshot().virtualMode(),
-            () -> setOverclocked(player, !isOverclocked()),
+            () -> setOverclocked(player, !isOverclocked(), showModeSwitchNotice),
             this::isActiveCooling,
-            () -> setActiveCooling(player, !isActiveCooling()),
+            () -> setActiveCooling(player, !isActiveCooling(), showModeSwitchNotice),
             this::getPooledActiveWorkerCount,
             this::getPooledWorkerCount,
             this::getSingleCoreProcessingCapacity,
@@ -1066,17 +1068,6 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         return getRunningThreadCount() > 0;
     }
 
-    private Component getModeSwitchBlockedNotice() {
-        return Util.getMillis() < modeSwitchBlockedNoticeUntilMs
-            ? Component.translatable("gui.neoecoae.crafting.mode_switch_blocked")
-            : Component.empty();
-    }
-
-    Component getCraftingStatusNotice() {
-        Component modeNotice = getModeSwitchBlockedNotice();
-        return modeNotice.getString().isEmpty() ? getVirtualCraftingBlockedNotice() : modeNotice;
-    }
-
     Component getVirtualCraftingBlockedNotice() {
         if (!isFullVirtualCraftingMode()) return Component.empty();
         int coolantTier = getDisplayedCoolingMaxOverclock();
@@ -1171,22 +1162,10 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         return result;
     }
 
-    private void clearExpiredModeSwitchBlockedNotice() {
-        if (modeSwitchBlockedNoticeUntilMs != 0L && Util.getMillis() >= modeSwitchBlockedNoticeUntilMs) {
-            modeSwitchBlockedNoticeUntilMs = 0L;
-            markForUpdate();
-        }
-    }
-
-    private void showModeSwitchBlockedNotice() {
-        modeSwitchBlockedNoticeUntilMs = Util.getMillis() + MODE_SWITCH_NOTICE_DURATION_MS;
-        markForUpdate();
-    }
-
-    private void setOverclocked(Player player, boolean overclocked) {
+    private void setOverclocked(Player player, boolean overclocked, Runnable onBlocked) {
         if (!canPlayerInteract(player)) return;
         if (hasRunningCrafting()) {
-            showModeSwitchBlockedNotice();
+            onBlocked.run();
             return;
         }
         if (cluster != null && cluster.getNetworkCluster() != null) {
@@ -1196,10 +1175,10 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         }
     }
 
-    private void setActiveCooling(Player player, boolean activeCooling) {
+    private void setActiveCooling(Player player, boolean activeCooling, Runnable onBlocked) {
         if (!canPlayerInteract(player)) return;
         if (hasRunningCrafting()) {
-            showModeSwitchBlockedNotice();
+            onBlocked.run();
             return;
         }
         if (cluster != null && cluster.getNetworkCluster() != null) {
