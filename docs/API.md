@@ -411,6 +411,29 @@ When constructing panels such as [StorageHostUI](../src/main/java/cn/dancingsnow
 
 Register `ECOCellModels.register` and `ECOComputationModels.registerCellModel/registerCableModel` on the client. Cables support `(tier, hostBlock)` entries. Additional models returned by dynamic providers require `registerAdditionalModel` before baking. Panel providers change images, not button semantics.
 
+### Workstation color palettes
+
+An addon can reuse the large integrated workstation's screen and light masks without copying them or registering Java code. Add a `neoecoae:workstation_palette` source to the addon's `assets/minecraft/atlases/blocks.json`. Minecraft combines sources from that file across resource packs, so the addon only needs to list its own palette:
+
+```json
+{
+  "sources": [
+    {
+      "type": "neoecoae:workstation_palette",
+      "palettes": {
+        "addon:amber": "addon:block/workstation/colormap/amber"
+      }
+    }
+  ]
+}
+```
+
+The value in this example loads `assets/addon/textures/block/workstation/colormap/amber.png`. Supply a one-row PNG with at least seven swatches: screen dark, middle, light; lamp dark, light; and bright frames for the working dark and light lamps, in that order.
+
+The key chooses the generated sprite namespace and directory. For `addon:amber` the prefix is `addon:block/working_station/controller_formed/colored/amber/`. Append `controller_formed_screen_on/dark`, `controller_formed_screen_on/middle`, or `controller_formed_screen_on/light` for the screen; `controller_formed_light/dark` or `controller_formed_light/light` for the idle lamps; and `controller_formed_light/dark_working` or `controller_formed_light/light_working` for the animated lamps. Use the resulting sprite IDs directly as model texture values, without `textures/` or `.png`.
+
+Short keys such as `normal` still use the `neoecoae` namespace, regardless of the palette image's namespace. An explicit PNG at a generated sprite's texture path takes precedence over the generated sprite.
+
 ## Integration diagnostics
 
 [ECOCraftingServiceDiagnostics.neoecoae$describeCpuSelection](../src/main/java/cn/dancingsnow/neoecoae/api/me/diagnostics/ECOCraftingServiceDiagnostics.java) describes CPU eligibility; [ECOPatternPushDiagnostics.neoecoae$getPushDiagnostics](../src/main/java/cn/dancingsnow/neoecoae/api/me/diagnostics/ECOPatternPushDiagnostics.java) reports recent push failure. Diagnostics do not authorize replay, refunds or skipped checks.

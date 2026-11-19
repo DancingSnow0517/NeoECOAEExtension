@@ -411,6 +411,29 @@ ServerEvents.recipes(event => {
 
 `ECOCellModels.register`、`ECOComputationModels.registerCellModel/registerCableModel` 在客户端注册模型。线缆支持 `(tier, hostBlock)` 专用条目；动态模型提供器返回的额外模型须在烘焙前用 `registerAdditionalModel` 声明。面板 provider 只更换图片，不改变按钮或业务语义。
 
+### 工作站染色色板
+
+附属可以复用大型集成工作站的屏幕和灯光遮罩，不必复制遮罩或编写 Java 注册代码。在附属自己的 `assets/minecraft/atlases/blocks.json` 添加 `neoecoae:workstation_palette` 来源。Minecraft 会合并各资源包中此文件的来源列表，附属只需要声明自己的色板：
+
+```json
+{
+  "sources": [
+    {
+      "type": "neoecoae:workstation_palette",
+      "palettes": {
+        "addon:amber": "addon:block/workstation/colormap/amber"
+      }
+    }
+  ]
+}
+```
+
+示例中的值读取 `assets/addon/textures/block/workstation/colormap/amber.png`。提供一张单行 PNG，至少包含七个色样，依次为屏幕暗色、中间色、亮色，灯光暗层、亮层，以及工作时暗层、亮层各自的高亮帧。
+
+键决定生成 sprite 的命名空间和目录。`addon:amber` 的前缀为 `addon:block/working_station/controller_formed/colored/amber/`。屏幕追加 `controller_formed_screen_on/dark`、`controller_formed_screen_on/middle` 或 `controller_formed_screen_on/light`；非工作灯光追加 `controller_formed_light/dark` 或 `controller_formed_light/light`；工作动画灯光追加 `controller_formed_light/dark_working` 或 `controller_formed_light/light_working`。模型纹理值直接使用拼好的 sprite ID，不加 `textures/` 或 `.png`。
+
+`normal` 等短键仍使用 `neoecoae` 命名空间，与色板图片所属命名空间无关。在生成 sprite 对应的纹理路径提供实体 PNG 时，优先使用该 PNG。
+
 ## 接入诊断
 
 [ECOCraftingServiceDiagnostics.neoecoae$describeCpuSelection](../src/main/java/cn/dancingsnow/neoecoae/api/me/diagnostics/ECOCraftingServiceDiagnostics.java) 查询 CPU 资格，[ECOPatternPushDiagnostics.neoecoae$getPushDiagnostics](../src/main/java/cn/dancingsnow/neoecoae/api/me/diagnostics/ECOPatternPushDiagnostics.java) 查询最近推送失败。诊断只读，不授权重放、退款或跳过校验。

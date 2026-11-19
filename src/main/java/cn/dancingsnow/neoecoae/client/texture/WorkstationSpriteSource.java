@@ -32,7 +32,8 @@ import org.slf4j.LoggerFactory;
 @EventBusSubscriber(modid = NeoECOAE.MOD_ID, value = Dist.CLIENT)
 public record WorkstationSpriteSource(Map<String, ResourceLocation> palettes) implements SpriteSource {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
-    public static final MapCodec<WorkstationSpriteSource> CODEC = Codec.unboundedMap(Codec.STRING, ResourceLocation.CODEC)
+    private static final Codec<String> PALETTE_KEY_CODEC = Codec.STRING.validate(key -> ResourceLocation.read(key).map(id -> key));
+    public static final MapCodec<WorkstationSpriteSource> CODEC = Codec.unboundedMap(PALETTE_KEY_CODEC, ResourceLocation.CODEC)
         .fieldOf("palettes").xmap(WorkstationSpriteSource::new, WorkstationSpriteSource::palettes);
     private static final SpriteSourceType TYPE = new SpriteSourceType(CODEC);
     private static final String ROOT = "block/working_station/controller_formed/";
@@ -62,6 +63,8 @@ public record WorkstationSpriteSource(Map<String, ResourceLocation> palettes) im
         // Palette strips are inputs, not atlas sprites: their one-pixel height would lower the mipmap limit.
         output.removeAll(palettes.values()::contains);
         palettes.forEach((name, palette) -> {
+            var paletteId = name.indexOf(ResourceLocation.NAMESPACE_SEPARATOR) >= 0 ? ResourceLocation.parse(name) : NeoECOAE.id(name);
+            var spriteDirectory = paletteId.withPath(path -> ROOT + "colored/" + path + "/");
             // Scope the cache to this reload so resource-pack changes replace every palette.
             Supplier<int[]> colors = Suppliers.memoize(() -> {
                 try {
@@ -76,16 +79,16 @@ public record WorkstationSpriteSource(Map<String, ResourceLocation> palettes) im
             for (Layer layer : LAYERS) {
                 var texture = TEXTURE_ID_CONVERTER.idToFile(NeoECOAE.id(ROOT + layer.path()));
                 manager.getResource(texture).ifPresentOrElse(resource -> {
-                    add(manager, output, resource, name, layer, colors, false);
-                    if (layer.brightIndex() >= 0) add(manager, output, resource, name, layer, colors, true);
+                    add(manager, output, resource, spriteDirectory, layer, colors, false);
+                    if (layer.brightIndex() >= 0) add(manager, output, resource, spriteDirectory, layer, colors, true);
                 }, () -> LOGGER.warn("Missing workstation mask {}", texture));
             }
         });
     }
 
-    private static void add(ResourceManager manager, Output output, Resource mask, String palette, Layer layer,
+    private static void add(ResourceManager manager, Output output, Resource mask, ResourceLocation spriteDirectory, Layer layer,
                             Supplier<int[]> colors, boolean working) {
-        var sprite = NeoECOAE.id(ROOT + "colored/" + palette + "/" + layer.path() + (working ? "_working" : ""));
+        var sprite = spriteDirectory.withSuffix(layer.path() + (working ? "_working" : ""));
         // An explicitly supplied sprite still takes precedence over the generated colors.
         var replacement = manager.getResource(TEXTURE_ID_CONVERTER.idToFile(sprite));
         if (replacement.isPresent()) {
