@@ -13,7 +13,7 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
-import cn.dancingsnow.neoecoae.compat.ae2.ECOExternalProviderBlocking;
+import cn.dancingsnow.neoecoae.integration.ae2.ECOExternalProviderBlocking;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;

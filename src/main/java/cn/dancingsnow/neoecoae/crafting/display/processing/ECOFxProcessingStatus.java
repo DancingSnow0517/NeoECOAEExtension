@@ -1,8 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.display.processing;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
-import appeng.api.stacks.AEItemKey;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingStatusReader;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.Machine;

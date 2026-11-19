@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.storage.infinite;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.crafting.amount.U128;
 import cn.dancingsnow.neoecoae.crafting.amount.UnsignedLongArray;
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.math.BigInteger;
 import java.util.function.BiConsumer;

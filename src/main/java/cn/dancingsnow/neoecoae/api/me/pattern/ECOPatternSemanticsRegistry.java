@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.api.me.pattern;
 
-import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;

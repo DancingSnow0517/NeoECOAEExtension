@@ -2,27 +2,20 @@ package cn.dancingsnow.neoecoae.crafting.execution;
 
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.config.Actionable;
-import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGrid;
-import appeng.api.networking.crafting.ICraftingLink;
-import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEKey;
-import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
-import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputClaimRequest;
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputClaimResult;
 import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPhaseScheduler;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.network.chat.Component;
 import net.minecraft.core.HolderLookup;
 import it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap;
 import org.jetbrains.annotations.Nullable;
@@ -167,7 +160,7 @@ final class ECOCraftingOutputDelivery {
         if (quantity.fitsLong() || !current.exactOrder
                 || !(current.waitingFor instanceof cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory waiting)
                 || waiting.quantity(key).fitsLong()
-                || cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge
+                || cn.dancingsnow.neoecoae.integration.thunderbolt.ECOOverloadCpuAccountingBridge
                         .strictMatch(host, key, Long.MAX_VALUE, Long.MAX_VALUE) != Long.MAX_VALUE) {
             return java.math.BigInteger.valueOf(insertForJob(jobId, key, quantity.longValueSaturated(), mode));
         }

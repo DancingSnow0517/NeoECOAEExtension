@@ -18,8 +18,8 @@ import appeng.crafting.execution.CraftingCpuHelper;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
-import cn.dancingsnow.neoecoae.compat.ae2.ECOExternalProviderBlocking;
-import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtDirectDispatch;
+import cn.dancingsnow.neoecoae.integration.ae2.ECOExternalProviderBlocking;
+import cn.dancingsnow.neoecoae.integration.ae2lt.ECOAe2LtDirectDispatch;
 import appeng.hooks.ticking.TickHandler;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -78,7 +78,7 @@ final class ECOCraftingProviderDispatcher {
                 || fastPath.supportsBatch(provider)
                 || ECOParallelCraftingProviders.find(provider) != null
                 || ECOAe2LtDirectDispatch.open(provider) != null
-                || cn.dancingsnow.neoecoae.compat.omnisequence.ECOOmniSequenceDirectDispatch.isEligible(provider)
+                || cn.dancingsnow.neoecoae.integration.omnisequence.ECOOmniSequenceDirectDispatch.isEligible(provider)
                 || processing.supports(provider, null)
                 // The ordinary one-copy budget must not hide a target whose batch lane still has submissions left.
                 || processing.mayAttemptBatch(provider, pattern);
@@ -180,7 +180,7 @@ final class ECOCraftingProviderDispatcher {
             var plan = ECOBatchDispatchPlanning.plan(request, provider, 1, 1, singlePower,
                     energyService, ECOBatchMode.SINGLE);
             if (plan == null) continue;
-            var overload = cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge.prepare(
+            var overload = cn.dancingsnow.neoecoae.integration.thunderbolt.ECOOverloadCpuAccountingBridge.prepare(
                     owner, request.pattern(), request.job().link.getCraftingID(),
                     request.job().finalOutput == null ? null : request.job().finalOutput.what(),
                     request.job().waitingFor.list);
@@ -308,10 +308,10 @@ final class ECOCraftingProviderDispatcher {
             ECODispatchStallDiagnostics diagnostics,
             Consumer<ICraftingProvider> markProviderAttempt,
             Runnable markNormalResume) {
-        if (!cn.dancingsnow.neoecoae.compat.omnisequence.ECOOmniSequenceDirectDispatch.isLoaded()) {
+        if (!cn.dancingsnow.neoecoae.integration.omnisequence.ECOOmniSequenceDirectDispatch.isLoaded()) {
             return null;
         }
-        try (var omni = cn.dancingsnow.neoecoae.compat.omnisequence.ECOOmniSequenceDirectDispatch.open(
+        try (var omni = cn.dancingsnow.neoecoae.integration.omnisequence.ECOOmniSequenceDirectDispatch.open(
                 provider, request.pattern(), request.inputs(), request.allowedCrafts())) {
             if (omni == null) {
                 return null;

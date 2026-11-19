@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
 

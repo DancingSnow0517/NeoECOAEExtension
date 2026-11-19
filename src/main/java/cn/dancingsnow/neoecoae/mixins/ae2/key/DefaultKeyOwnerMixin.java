@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.key;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.DefaultKeyOwner;
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuseSlot;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.DefaultKeyOwner;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuseSlot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.material.Fluid;
 import org.spongepowered.asm.mixin.Mixin;

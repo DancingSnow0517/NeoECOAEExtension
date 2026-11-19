@@ -192,16 +192,10 @@ dependencies {
     // jarJar is non-transitive and Minecraft already ships fastutil). Runs get it below, after the neoForge block.
     jarJar(implementation("com.y271727uy:computatio")) {
         version {
-            strictly '[0.1.0,0.2.0)'
-            prefer '0.1.0'
+            strictly '[0.1.1,0.2.0)'
+            prefer '0.1.1'
         }
     }
-
-    // Differential test against Computatio (test branch only).
-    testImplementation(platform('org.junit:junit-bom:5.10.2'))
-    testImplementation('org.junit.jupiter:junit-jupiter')
-    testImplementation('org.mockito:mockito-core:5.15.2')
-    testRuntimeOnly('org.junit.platform:junit-platform-launcher')
 
     compileOnly("org.appliedenergistics:guideme:${guideMeVersion}:api")
     runtimeOnly("org.appliedenergistics:guideme:${guideMeVersion}")
@@ -306,24 +300,6 @@ tasks.withType(Test).configureEach {
     enabled = false
 }
 
-// Test branch: the differential test needs Minecraft/AE2 types on the test classpath, like the former contract tests.
-sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
-sourceSets.test.runtimeClasspath += sourceSets.main.compileClasspath
-
-// Test branch: NeoECO's original BoundedCycleSolver against Computatio on random cyclic components.
-tasks.register('computatioEquivalence', Test) {
-    description = "Differential test: NeoECO's cycle solver against the Computatio library."
-    group = 'verification'
-    testClassesDirs = sourceSets.test.output.classesDirs
-    classpath = sourceSets.test.runtimeClasspath
-    useJUnitPlatform()
-    filter { includeTestsMatching 'cn.dancingsnow.neoecoae.crafting.planner.cycle.ComputatioEquivalenceTest' }
-    environment 'NEOECO_EQUIV_SAMPLES', providers.environmentVariable('NEOECO_EQUIV_SAMPLES').getOrElse('3000')
-    testLogging { showStandardStreams = true; exceptionFormat = 'full' }
-    maxHeapSize = '2g'
-}
-tasks.matching { it.name == 'computatioEquivalence' }.configureEach { enabled = true }
-
 neoForge {
     version = project.neo_version
 
@@ -377,7 +353,7 @@ neoForge {
 // MC 1.21.1 runs do not load plain Java libraries by themselves. MDG creates this configuration once the neoForge
 // block is configured, so the dependency is declared here rather than in the main dependencies block.
 dependencies {
-    additionalRuntimeClasspath("com.y271727uy:computatio:0.1.0")
+    additionalRuntimeClasspath("com.y271727uy:computatio:0.1.1")
 }
 
 sourceSets.main.java {
@@ -394,8 +370,6 @@ configurations {
     runtimeClasspath.extendsFrom localRuntime
 }
 
-// The dev launcher discovers Curios only when its JAR is in run/mods. Keep it
-// off the Java module path to avoid loading the same module twice.
 // Create's embedded Registrate would otherwise duplicate our runtimeClasspath copy.
 abstract class PrepareCreateDevMod extends DefaultTask {
     @InputFile
@@ -447,7 +421,18 @@ def prepareBiggerAE2DevMod = tasks.register('prepareBiggerAE2DevMod', PrepareCre
 }
 
 def installCuriosDevMod = tasks.register("installCuriosDevMod", Copy) {
-    from(configurations.curiosDevMod, configurations.devMods)
+    // The dev launcher discovers Curios from run/mods. Keep it off the Java module path.
+    from(configurations.curiosDevMod)
+    into(layout.projectDirectory.dir("run/mods"))
+}
+
+neoForge.runs.configureEach {
+    taskBefore(installCuriosDevMod)
+}
+
+def installClientDevMods = tasks.register("installClientDevMods", Copy) {
+    dependsOn(installCuriosDevMod)
+    from(configurations.devMods)
     from(prepareCreateDevMod.flatMap { it.preparedJar })
     from(prepareBiggerAE2DevMod.flatMap { it.preparedJar })
     into(layout.projectDirectory.dir("run/mods"))
@@ -463,7 +448,7 @@ def installCuriosDevMod = tasks.register("installCuriosDevMod", Copy) {
 }
 
 tasks.named("runClient").configure {
-    dependsOn(installCuriosDevMod)
+    dependsOn(installClientDevMods)
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {

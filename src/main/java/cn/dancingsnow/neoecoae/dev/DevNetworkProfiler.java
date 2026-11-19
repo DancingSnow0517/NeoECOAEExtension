@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.dev;
 
 import appeng.api.implementations.blockentities.IChestOrDrive;
 import appeng.blockentity.AEBaseBlockEntity;
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuse;
 import cn.dancingsnow.neoecoae.config.DevToolsConfig;
 import com.google.gson.GsonBuilder;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;

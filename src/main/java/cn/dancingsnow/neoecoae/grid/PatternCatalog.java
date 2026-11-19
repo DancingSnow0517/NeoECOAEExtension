@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.grid;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.crafting.IPatternDetails;
@@ -9,7 +9,6 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridServiceProvider;
 import appeng.api.stacks.AEItemKey;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
-import appeng.core.definitions.AEItems;
 import appeng.api.inventories.InternalInventory;
 import appeng.helpers.patternprovider.PatternContainer;
 import cn.dancingsnow.neoecoae.api.ECOPatternInsertion;

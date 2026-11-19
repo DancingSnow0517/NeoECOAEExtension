@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.crafting.execution.fastpath;
 
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
-import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection;
 import java.util.List;
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;

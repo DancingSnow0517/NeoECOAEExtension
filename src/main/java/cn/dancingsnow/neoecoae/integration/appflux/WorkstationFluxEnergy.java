@@ -28,7 +28,7 @@ public final class WorkstationFluxEnergy {
     }
 
     private static final class Access {
-        private static final AEKey KEY = cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOFluxKeys.of(
+        private static final AEKey KEY = cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOFluxKeys.of(
             com.glodblock.github.appflux.common.me.key.type.EnergyType.FE);
     }
 }
