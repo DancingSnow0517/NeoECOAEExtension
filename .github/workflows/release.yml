@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   build:
-    if: startsWith(github.event.release.tag_name, '20.')
+    if: startsWith(github.event.release.tag_name, '20.') && github.event.release.tag_name != '20.5.9-beta'
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
