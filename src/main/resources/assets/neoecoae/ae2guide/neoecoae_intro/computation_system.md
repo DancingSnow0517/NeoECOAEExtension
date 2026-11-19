@@ -240,3 +240,5 @@ Self-growing cycles (for example crystal seed loops) keep their minimal startup 
 ### ECO Smart Doubling
 
 The ECO Smart Doubling button in the left toolbar controls new batch dispatches throughout the ME network and defaults to enabled. When disabled, each submission is capped at the smaller of the CPU actual parallelism and 16,384 crafts, for both ordinary and exact orders. Blocking mode still takes priority, and accepted batches keep their existing execution rules. Computation hosts save the setting and share the current value when connected to the same ME network.
+
+For AE2LT overloaded pattern providers, ECO sets the maximum number of crafts per submission, and the provider batches them according to its own Adaptive Doubling setting. With Adaptive Doubling off, the provider sends one copy per push.

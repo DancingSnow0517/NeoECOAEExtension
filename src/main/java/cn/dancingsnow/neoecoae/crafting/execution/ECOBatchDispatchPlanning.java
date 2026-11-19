@@ -83,6 +83,11 @@ final class ECOBatchDispatchPlanning {
         }
 
         ECOBatchPlan plan(long capacity, long quota, double singlePower, IEnergyService energy, ECOBatchMode mode) {
+            return plan(capacity, quota, singlePower, 0.0, energy, mode);
+        }
+
+        ECOBatchPlan plan(long capacity, long quota, double singlePower, double idleReserve,
+                IEnergyService energy, ECOBatchMode mode) {
             long upper = Math.min(request.allowedCrafts(), Math.min(arithmetic,
                     Math.min(Math.max(0, capacity), Math.max(0, quota))));
             if (request.job().executionRuntime != null && request.candidate() != null) {
@@ -123,8 +128,12 @@ final class ECOBatchDispatchPlanning {
                     waiting = Math.min(waiting, (Long.MAX_VALUE - stored) / output.getLongValue());
                 }
             }
-            long affordable = ECOBatchCraftingHelper.maxAffordableCrafts(singlePower, Math.min(material, waiting),
-                    amount -> energy.extractAEPower(amount, Actionable.SIMULATE, PowerMultiplier.CONFIG));
+            long affordable = ECOBatchCraftingHelper.maxAffordableCrafts(singlePower, Math.min(material, waiting), amount -> {
+                double requested = amount + idleReserve;
+                return Double.isFinite(requested)
+                        ? energy.extractAEPower(requested, Actionable.SIMULATE, PowerMultiplier.CONFIG) - idleReserve
+                        : 0.0;
+            });
             return PLANNER.plan(new ECOBatchPlanRequest(identity, request.allowedCrafts(), material,
                     Math.max(0, capacity), affordable, waiting, Math.max(0, quota), arithmetic,
                     Long.MAX_VALUE, Long.MAX_VALUE, mode));
