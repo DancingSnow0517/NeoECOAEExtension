@@ -165,7 +165,6 @@ dependencies {
     devMods("curse.maven:applied-soul-1337114:8711537") { transitive = false }
     devMods("curse.maven:soulplied-energistics-1143614:8333758") { transitive = false }
     devMods("curse.maven:experiencelib-1156551:7705470") { transitive = false }
-    // Useless Mod's laser drill adapters require the generic DrillRecipe API from 3.6.36.
     devMods("curse.maven:industrial-foregoing-266515:7073719") { transitive = false }
     devMods("curse.maven:industrial-foregoing-souls-904394:6235883") { transitive = false }
     devMods("curse.maven:titanium-287342:7951516") { transitive = false }
@@ -189,7 +188,20 @@ dependencies {
     devMods("maven.modrinth:applied-generators:InEKowoU") { transitive = false }
     api("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
     jarJar("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
-    jarJar(api("com.y271727uy:computatio:0.1.0"))
+    // Computatio is a plain Java library: jar-in-jar carries it in the release jar (only Computatio itself; MDG's
+    // jarJar is non-transitive and Minecraft already ships fastutil). Runs get it below, after the neoForge block.
+    jarJar(implementation("com.y271727uy:computatio")) {
+        version {
+            strictly '[0.1.0,0.2.0)'
+            prefer '0.1.0'
+        }
+    }
+
+    // Differential test against Computatio (test branch only).
+    testImplementation(platform('org.junit:junit-bom:5.10.2'))
+    testImplementation('org.junit.jupiter:junit-jupiter')
+    testImplementation('org.mockito:mockito-core:5.15.2')
+    testRuntimeOnly('org.junit.platform:junit-platform-launcher')
 
     compileOnly("org.appliedenergistics:guideme:${guideMeVersion}:api")
     runtimeOnly("org.appliedenergistics:guideme:${guideMeVersion}")
@@ -198,9 +210,6 @@ dependencies {
         version { strictly(ae2_version) }
     }
 
-    // Optional alloy-furnace scaled dispatch API; not bundled or installed in the dev runtime.
-    // Requires 2.3.7.2+ for AlloyFurnaceBigIntegerTarget public API (introduced 2026-09-18)
-    compileOnly("maven.modrinth:a-useless-mod:VX1feqRC") { transitive = false } // 1.21.1-2.3.8
 
     // Optional transfer fast path. Never place this on the default runtime classpath.
 
@@ -297,6 +306,24 @@ tasks.withType(Test).configureEach {
     enabled = false
 }
 
+// Test branch: the differential test needs Minecraft/AE2 types on the test classpath, like the former contract tests.
+sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
+sourceSets.test.runtimeClasspath += sourceSets.main.compileClasspath
+
+// Test branch: NeoECO's original BoundedCycleSolver against Computatio on random cyclic components.
+tasks.register('computatioEquivalence', Test) {
+    description = "Differential test: NeoECO's cycle solver against the Computatio library."
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching 'cn.dancingsnow.neoecoae.crafting.planner.cycle.ComputatioEquivalenceTest' }
+    environment 'NEOECO_EQUIV_SAMPLES', providers.environmentVariable('NEOECO_EQUIV_SAMPLES').getOrElse('3000')
+    testLogging { showStandardStreams = true; exceptionFormat = 'full' }
+    maxHeapSize = '2g'
+}
+tasks.matching { it.name == 'computatioEquivalence' }.configureEach { enabled = true }
+
 neoForge {
     version = project.neo_version
 
@@ -345,6 +372,12 @@ neoForge {
             sourceSet(sourceSets.main)
         }
     }
+}
+
+// MC 1.21.1 runs do not load plain Java libraries by themselves. MDG creates this configuration once the neoForge
+// block is configured, so the dependency is declared here rather than in the main dependencies block.
+dependencies {
+    additionalRuntimeClasspath("com.y271727uy:computatio:0.1.0")
 }
 
 sourceSets.main.java {

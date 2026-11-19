@@ -138,7 +138,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
                     processingMonitor.dispatched(event);
                     ECOCraftingLifecycle.firePatternDispatched(event);
                 });
-        this.fastPathDispatcher = new ECOCraftingFastPathDispatcher(this, energyTransaction, dispatchAccounting);
+        this.fastPathDispatcher = new ECOCraftingFastPathDispatcher(energyTransaction, dispatchAccounting);
         this.providerDispatcher = new ECOCraftingProviderDispatcher(
                 this, fastPathDispatcher, energyTransaction, dispatchAccounting);
         this.taskScheduler = new ECOCraftingTaskScheduler(providerDispatcher);
@@ -290,7 +290,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
     /**
      * 普通合成提供者调用的兼容适配器。候选项和提供者的顺序由调度器管理；
-     * 此处将各提供者特有的 AE2、Thunderbolt 和 Useless 调用行为保留在所属 CPU 中。
+     * 此处将各提供者特有的 AE2 和 Thunderbolt 调用行为保留在所属 CPU 中。
      */
     private boolean invokeNormalProvider(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
         if (provider instanceof ECOCraftingPatternBusBlockEntity) {
@@ -312,7 +312,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
         // 兼容性约定：
         // 必须在 ECOCraftingCPULogic 中原样保留此 ICraftingProvider.pushPattern 调用。
-        // Useless 和 Thunderbolt 的集成可能针对其所属类、方法描述符或调用点进行包装。
+        // Thunderbolt 的集成可能针对其所属类、方法描述符或调用点进行包装。
         return provider.pushPattern(request.pattern(), request.inputs());
     }
 
