@@ -40,6 +40,7 @@ public final class ECOPlanMaterialValidator {
 
         Map<AEKey, PlannerAmount> supply = new LinkedHashMap<>();
         Map<AEKey, PlannerAmount> demand = new LinkedHashMap<>();
+        Map<AEKey, PlannerAmount> workingStock = new LinkedHashMap<>();
         List<InputDemand> componentInsensitiveDemands = new ArrayList<>();
         Map<IPatternDetails, List<CompiledInput>> compiledInputs = compiledInputs(network);
         // Only usedItems are transferred into the crafting CPU when the plan is submitted. Unreserved network
@@ -72,7 +73,10 @@ public final class ECOPlanMaterialValidator {
                 if (inputs == null) {
                     return new Issue(null, PlannerAmount.ZERO, PlannerAmount.ZERO, "NULL_PATTERN_INPUTS");
                 }
-                for (IPatternDetails.IInput input : inputs) {
+                List<CompiledInput> compiled = compiledInputs.get(pattern);
+                Map<AEKey, PlannerAmount> simultaneous = null;
+                for (int slot = 0; slot < inputs.length; slot++) {
+                    IPatternDetails.IInput input = inputs[slot];
                     if (input == null) {
                         return new Issue(null, PlannerAmount.ZERO, PlannerAmount.ZERO, "NULL_PATTERN_INPUT");
                     }
@@ -89,9 +93,14 @@ public final class ECOPlanMaterialValidator {
                         // returned damage/component keys per firing would recreate the false material cycle.
                         continue;
                     }
-                    PlannerAmount inputAmount = PlannerAmount.of(primary.amount())
-                        .multiply(input.getMultiplier()).multiply(times);
-                    if (ignoresComponents(compiledInputs.get(pattern), input)) {
+                    PlannerAmount inputAmount = PlannerAmount.of(primary.amount()).multiply(input.getMultiplier());
+                    if (liteCrafting && compiled != null && compiled.get(slot).reusable()) {
+                        if (simultaneous == null) simultaneous = new LinkedHashMap<>();
+                        simultaneous.merge(primary.what(), inputAmount, PlannerAmount::add);
+                        continue;
+                    }
+                    inputAmount = inputAmount.multiply(times);
+                    if (ignoresComponents(compiled, input)) {
                         componentInsensitiveDemands.add(new InputDemand(primary.what(), inputAmount, pattern, input));
                     } else {
                         add(demand, primary.what(), inputAmount);
@@ -103,12 +112,16 @@ public final class ECOPlanMaterialValidator {
                         add(supply, remaining, PlannerAmount.of(input.getMultiplier()).multiply(times));
                     }
                 }
+                if (simultaneous != null) {
+                    simultaneous.forEach((key, count) -> workingStock.merge(key, count, PlannerAmount::max));
+                }
             }
         } catch (RuntimeException rejected) {
             return new Issue(null, PlannerAmount.ZERO, PlannerAmount.ZERO,
                 "PATTERN_CONTRACT_FAILED:" + rejected.getClass().getSimpleName());
         }
 
+        workingStock.forEach((key, count) -> add(demand, key, count));
         add(demand, finalGoal, PlannerAmount.of(finalAmount));
         for (var entry : demand.entrySet()) {
             PlannerAmount supplied = consumeSupply(supply, entry.getKey(), entry.getValue(), false);
