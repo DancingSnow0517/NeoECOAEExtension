@@ -138,6 +138,12 @@ repositories {
     }
     maven { url "https://maven.shedaniel.me/" }
     maven { url "https://maven.minecraftforge.net/" }
+    maven {
+        url = uri('https://y271727uy.github.io/Computatio/')
+        content {
+            includeModule('com.y271727uy', 'computatio')
+        }
+    }
 }
 
 configurations {
@@ -183,6 +189,7 @@ dependencies {
     devMods("maven.modrinth:applied-generators:InEKowoU") { transitive = false }
     api("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
     jarJar("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
+    jarJar(api("com.y271727uy:computatio:0.1.0"))
 
     compileOnly("org.appliedenergistics:guideme:${guideMeVersion}:api")
     runtimeOnly("org.appliedenergistics:guideme:${guideMeVersion}")
