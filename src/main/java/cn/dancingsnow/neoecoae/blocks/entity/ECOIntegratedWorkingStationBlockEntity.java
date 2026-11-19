@@ -363,11 +363,13 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         return configManager.getSetting(Settings.AUTO_EXPORT) == YesNo.YES && (!this.outputInv.getStackInSlot(0).isEmpty() || !this.getOutputTank().getFluid().isEmpty());
     }
 
-    private boolean canPlaceOutputs(@Nullable IntegratedWorkingStationRecipe task) {
-        return task != null && (task.hasItemOutput() || task.hasFluidOutput())
-            && (!task.hasItemOutput() || outputInv.insertItem(0, task.itemOutput(), true).isEmpty())
-            && (!task.hasFluidOutput() || getOutputTank().fill(task.fluidOutput(), IFluidHandler.FluidAction.SIMULATE)
-                == task.fluidOutput().getAmount());
+    private boolean hasCraftWork(@Nullable IntegratedWorkingStationRecipe task) {
+        if (task == null || (!task.hasItemOutput() && !task.hasFluidOutput())) return false;
+        if (task.hasItemOutput() && !outputInv.insertItem(0, task.itemOutput(), true).isEmpty()) return false;
+        if (!task.hasFluidOutput()) return true;
+
+        var fluidOutput = task.fluidOutput();
+        return getOutputTank().fill(fluidOutput, IFluidHandler.FluidAction.SIMULATE) == fluidOutput.getAmount();
     }
 
     @Nullable
@@ -418,7 +420,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
     @Override
     public TickingRequest getTickingRequest(IGridNode iGridNode) {
-        return new TickingRequest(1, 20, standaloneRecipeId == null && !hasAutoExportWork() && !canPlaceOutputs(getTask()));
+        return new TickingRequest(1, 20, standaloneRecipeId == null && !hasAutoExportWork() && !hasCraftWork(getTask()));
     }
 
     @Override
@@ -430,11 +432,19 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         }
 
         var task = cachedTask;
-        if (canPlaceOutputs(task)) {
+        if (hasCraftWork(task)) {
             this.setWorking(true);
             getMainNode().ifPresent(grid -> advanceStandaloneProcessing(grid.getEnergyService()));
 
-            if (processingTime == standaloneSteps && !dirty && canPlaceOutputs(task)) finishStandaloneRecipe(task);
+            if (processingTime == standaloneSteps && !dirty && hasCraftWork(task)) {
+                var itemOutput = task.itemOutput();
+                var fluidOutput = task.fluidOutput();
+                if ((itemOutput.isEmpty() || outputInv.insertItem(0, itemOutput, false).isEmpty())
+                    && (fluidOutput.isEmpty() || getOutputTank().fill(fluidOutput, IFluidHandler.FluidAction.EXECUTE)
+                        == fluidOutput.getAmount())) {
+                    finishStandaloneRecipe(task);
+                }
+            }
         } else if (isWorking()) {
             setWorking(false);
         }
@@ -443,14 +453,10 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             return TickRateModulation.URGENT;
         }
 
-        return canPlaceOutputs(getTask()) ? TickRateModulation.URGENT : hasAutoExportWork() ? TickRateModulation.SLOWER : TickRateModulation.SLEEP;
+        return hasCraftWork(getTask()) ? TickRateModulation.URGENT : hasAutoExportWork() ? TickRateModulation.SLOWER : TickRateModulation.SLEEP;
     }
 
     private void finishStandaloneRecipe(IntegratedWorkingStationRecipe task) {
-        if (task.hasItemOutput() && !outputInv.insertItem(0, task.itemOutput(), false).isEmpty()) return;
-        if (task.hasFluidOutput()
-            && getOutputTank().fill(task.fluidOutput(), IFluidHandler.FluidAction.EXECUTE) != task.fluidOutput().getAmount()) return;
-
         for (SizedIngredient input : task.inputItems()) {
             int remaining = input.count();
             for (int slot = 0; slot < inputInv.size() && remaining > 0; slot++) {
