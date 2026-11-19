@@ -28,7 +28,7 @@ public final class ECOStorageLifecycleEvents {
      * Release integrated-server state. World data, including infinite domains, was already saved by vanilla shutdown.
      */
     public static void onServerStopped(ServerStoppedEvent event) {
-        cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse.invalidate();
+        cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuse.invalidate();
         MinecraftServer server = event.getServer();
         PatternBusUpdateScheduler.clear(server);
         NELogicalNetworkManager.clearAll();

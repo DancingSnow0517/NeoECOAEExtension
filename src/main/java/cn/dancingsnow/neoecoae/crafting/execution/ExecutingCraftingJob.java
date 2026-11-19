@@ -18,16 +18,12 @@
 
 package cn.dancingsnow.neoecoae.crafting.execution;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.math.BigInteger;
@@ -43,7 +39,6 @@ import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.networking.crafting.ICraftingPlan;
-import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingLink;
@@ -52,10 +47,6 @@ import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOGrowthDispatchBarrier;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionPlan;
-import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionSchedule;
-import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPhaseScheduler;
-import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionMode;
-import cn.dancingsnow.neoecoae.crafting.planner.result.PlannedInputAllocation;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.crafting.graph.CraftingGraphProgress;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
@@ -145,7 +136,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         }
         // EAEP's vanilla/quantum mixins do not run on ECO's independent executor.
         // Use the normal persisted ledger so missing inputs survive reload and follow normal insertion/cancellation.
-        for (var entry : cn.dancingsnow.neoecoae.compat.extendedaeplus.EAEPForcedCrafting.manualMissing(plan)) {
+        for (var entry : cn.dancingsnow.neoecoae.integration.extendedaeplus.EAEPForcedCrafting.manualMissing(plan)) {
             waitingFor.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE);
             timeTracker.addMaxItems(entry.getLongValue(), entry.getKey().getType());
         }
@@ -160,7 +151,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
         // ECO plans already carry base recipes and a verified execution schedule. Only
         // imported plans need EAEP automatic wrappers converted back to logical crafts.
         if (executionPlan == null && !exactOrder) {
-            var normalized = cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExternalPatternNormalization
+            var normalized = cn.dancingsnow.neoecoae.integration.extendedaeplus.ECOExternalPatternNormalization
                     .normalizeQuantities(plan.patternTimes());
             tasks.clear();
             normalized.forEach((pattern, count) -> {

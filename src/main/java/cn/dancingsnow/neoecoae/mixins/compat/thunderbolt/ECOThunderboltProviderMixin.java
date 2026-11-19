@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.mixins.compat.thunderbolt;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.KeyCounter;
-import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOThunderboltBatchBridge;
+import cn.dancingsnow.neoecoae.integration.thunderbolt.ECOThunderboltBatchBridge;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider;
 import org.spongepowered.asm.mixin.Mixin;

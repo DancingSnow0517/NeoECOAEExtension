@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.crafting.execution;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
-import appeng.crafting.CraftingLink;
 import appeng.me.service.CraftingService;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -17,7 +16,7 @@ final class ECOCraftingCpuPersistence {
 
     void read(CompoundTag data, HolderLookup.Provider registries) {
         host.inventoryReturnForPersistence().read(data);
-        cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge.clear(host);
+        cn.dancingsnow.neoecoae.integration.thunderbolt.ECOOverloadCpuAccountingBridge.clear(host);
         host.taskSchedulerForPersistence().reset();
         host.jobAttachmentsForPersistence().reset();
         host.outputDeliveryForPersistence().clearPendingFinalOutputs();

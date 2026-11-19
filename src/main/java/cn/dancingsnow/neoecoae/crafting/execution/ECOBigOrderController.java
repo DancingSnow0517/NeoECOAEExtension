@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.execution;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderProgress;
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderRequest;
@@ -15,7 +15,6 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.crafting.execution.CraftingCpuHelper;
-import cn.dancingsnow.neoecoae.api.me.bigorder.*;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOBigOrderPlanner;
 import net.minecraft.core.HolderLookup;

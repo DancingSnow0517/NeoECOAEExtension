@@ -165,7 +165,6 @@ dependencies {
     devMods("curse.maven:applied-soul-1337114:8711537") { transitive = false }
     devMods("curse.maven:soulplied-energistics-1143614:8333758") { transitive = false }
     devMods("curse.maven:experiencelib-1156551:7705470") { transitive = false }
-    // Useless Mod's laser drill adapters require the generic DrillRecipe API from 3.6.36.
     devMods("curse.maven:industrial-foregoing-266515:7073719") { transitive = false }
     devMods("curse.maven:industrial-foregoing-souls-904394:6235883") { transitive = false }
     devMods("curse.maven:titanium-287342:7951516") { transitive = false }
@@ -189,7 +188,14 @@ dependencies {
     devMods("maven.modrinth:applied-generators:InEKowoU") { transitive = false }
     api("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
     jarJar("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
-    jarJar(api("com.y271727uy:computatio:0.1.0"))
+    // Computatio is a plain Java library: jar-in-jar carries it in the release jar (only Computatio itself; MDG's
+    // jarJar is non-transitive and Minecraft already ships fastutil). Runs get it below, after the neoForge block.
+    jarJar(implementation("com.y271727uy:computatio")) {
+        version {
+            strictly '[0.1.1,0.2.0)'
+            prefer '0.1.1'
+        }
+    }
 
     compileOnly("org.appliedenergistics:guideme:${guideMeVersion}:api")
     runtimeOnly("org.appliedenergistics:guideme:${guideMeVersion}")
@@ -198,9 +204,6 @@ dependencies {
         version { strictly(ae2_version) }
     }
 
-    // Optional alloy-furnace scaled dispatch API; not bundled or installed in the dev runtime.
-    // Requires 2.3.7.2+ for AlloyFurnaceBigIntegerTarget public API (introduced 2026-09-18)
-    compileOnly("maven.modrinth:a-useless-mod:VX1feqRC") { transitive = false } // 1.21.1-2.3.8
 
     // Optional transfer fast path. Never place this on the default runtime classpath.
 
@@ -347,6 +350,12 @@ neoForge {
     }
 }
 
+// MC 1.21.1 runs do not load plain Java libraries by themselves. MDG creates this configuration once the neoForge
+// block is configured, so the dependency is declared here rather than in the main dependencies block.
+dependencies {
+    additionalRuntimeClasspath("com.y271727uy:computatio:0.1.1")
+}
+
 sourceSets.main.java {
     if (!enableAppBotIntegration) {
         exclude 'cn/dancingsnow/neoecoae/integration/appbot/**'
@@ -361,8 +370,6 @@ configurations {
     runtimeClasspath.extendsFrom localRuntime
 }
 
-// The dev launcher discovers Curios only when its JAR is in run/mods. Keep it
-// off the Java module path to avoid loading the same module twice.
 // Create's embedded Registrate would otherwise duplicate our runtimeClasspath copy.
 abstract class PrepareCreateDevMod extends DefaultTask {
     @InputFile
@@ -414,7 +421,18 @@ def prepareBiggerAE2DevMod = tasks.register('prepareBiggerAE2DevMod', PrepareCre
 }
 
 def installCuriosDevMod = tasks.register("installCuriosDevMod", Copy) {
-    from(configurations.curiosDevMod, configurations.devMods)
+    // The dev launcher discovers Curios from run/mods. Keep it off the Java module path.
+    from(configurations.curiosDevMod)
+    into(layout.projectDirectory.dir("run/mods"))
+}
+
+neoForge.runs.configureEach {
+    taskBefore(installCuriosDevMod)
+}
+
+def installClientDevMods = tasks.register("installClientDevMods", Copy) {
+    dependsOn(installCuriosDevMod)
+    from(configurations.devMods)
     from(prepareCreateDevMod.flatMap { it.preparedJar })
     from(prepareBiggerAE2DevMod.flatMap { it.preparedJar })
     into(layout.projectDirectory.dir("run/mods"))
@@ -430,7 +448,7 @@ def installCuriosDevMod = tasks.register("installCuriosDevMod", Copy) {
 }
 
 tasks.named("runClient").configure {
-    dependsOn(installCuriosDevMod)
+    dependsOn(installClientDevMods)
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {

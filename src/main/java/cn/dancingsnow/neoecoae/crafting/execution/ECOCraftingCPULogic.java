@@ -9,20 +9,15 @@ import cn.dancingsnow.neoecoae.api.me.completion.ECOVirtualCraftingCompletionSin
 import cn.dancingsnow.neoecoae.api.me.dispatch.ECOCraftingCpuContext;
 import cn.dancingsnow.neoecoae.api.me.dispatch.ECOCraftingDispatchPolicyRegistry;
 import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingJobContext;
-import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingJobResult;
 import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingLifecycle;
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputClaimRequest;
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputClaimResult;
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputClaimSink;
-import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
-import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.progress.ECOCraftingProgressSink;
-import cn.dancingsnow.neoecoae.api.me.progress.ECOCraftingProgressSnapshot;
 import cn.dancingsnow.neoecoae.api.me.progress.ECOCraftingProgressView;
 import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle;
 
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -37,9 +32,6 @@ import org.slf4j.LoggerFactory;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 
 import appeng.api.config.Actionable;
@@ -57,12 +49,8 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
-import appeng.core.AELog;
 import appeng.core.network.ClientboundPacket;
 import appeng.core.network.clientbound.CraftingJobStatusPacket;
-import appeng.crafting.CraftingLink;
-import appeng.crafting.execution.CraftingCpuHelper;
-import appeng.crafting.execution.CraftingSubmitResult;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
@@ -72,8 +60,6 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOSingleCraftingExecutor;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPhaseScheduler;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
-import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 
 public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic
         implements ECOCraftingProgressSink,
@@ -138,7 +124,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
                     processingMonitor.dispatched(event);
                     ECOCraftingLifecycle.firePatternDispatched(event);
                 });
-        this.fastPathDispatcher = new ECOCraftingFastPathDispatcher(this, energyTransaction, dispatchAccounting);
+        this.fastPathDispatcher = new ECOCraftingFastPathDispatcher(energyTransaction, dispatchAccounting);
         this.providerDispatcher = new ECOCraftingProviderDispatcher(
                 this, fastPathDispatcher, energyTransaction, dispatchAccounting);
         this.taskScheduler = new ECOCraftingTaskScheduler(providerDispatcher);
@@ -290,7 +276,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
     /**
      * 普通合成提供者调用的兼容适配器。候选项和提供者的顺序由调度器管理；
-     * 此处将各提供者特有的 AE2、Thunderbolt 和 Useless 调用行为保留在所属 CPU 中。
+     * 此处将各提供者特有的 AE2 和 Thunderbolt 调用行为保留在所属 CPU 中。
      */
     private boolean invokeNormalProvider(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
         if (provider instanceof ECOCraftingPatternBusBlockEntity) {
@@ -312,7 +298,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
         // 兼容性约定：
         // 必须在 ECOCraftingCPULogic 中原样保留此 ICraftingProvider.pushPattern 调用。
-        // Useless 和 Thunderbolt 的集成可能针对其所属类、方法描述符或调用点进行包装。
+        // Thunderbolt 的集成可能针对其所属类、方法描述符或调用点进行包装。
         return provider.pushPattern(request.pattern(), request.inputs());
     }
 
@@ -326,13 +312,13 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         // AE2 Utility 通过此方法中的真实调用点重定向带 NBT 物品的等待库存匹配；
         // 结果继续交给输出交付组件，避免破坏当前的任务校验、记账和完成流程。
         long accepted = current.waitingFor.extract(what, amount, Actionable.SIMULATE);
-        accepted = cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge
+        accepted = cn.dancingsnow.neoecoae.integration.thunderbolt.ECOOverloadCpuAccountingBridge
                 .strictMatch(this, what, accepted, current.waitingFor.list.get(what));
         // AE2 Utility 还会重定向此方法中的真实 matches 调用，用于判断最终产物交付阶段。
         boolean matchesFinalOutput = current.finalOutput != null && what.matches(current.finalOutput);
         long strict = outputDelivery.insert(what, amount, type, accepted, matchesFinalOutput);
         if (job != current || strict >= amount) return strict;
-        return strict + cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge
+        return strict + cn.dancingsnow.neoecoae.integration.thunderbolt.ECOOverloadCpuAccountingBridge
                 .claim(this, current.link.getCraftingID(), what, amount - strict, type);
     }
 

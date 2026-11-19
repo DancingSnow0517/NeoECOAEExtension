@@ -1,9 +1,9 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.key;
 
 import appeng.api.stacks.AEFluidKey;
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.FluidKeyComponents;
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.FluidKeyComponents;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuse;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.world.level.material.Fluid;

@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.crafting.IPatternDetails;
@@ -63,7 +63,7 @@ public final class ECOProcessingMonitor implements ECOCraftingJobAttachment {
             bind(event.job().craftingJobId());
             // MMCR dispatch records a confirmed controller when possible. Its intermediate port must not
             // overwrite that narrower observation with every linked controller after accounting fires.
-            if (cn.dancingsnow.neoecoae.compat.mmcr.ECOMmcrPatternDispatch.processingRoot(event.provider()) != null) return;
+            if (cn.dancingsnow.neoecoae.integration.mmcr.ECOMmcrPatternDispatch.processingRoot(event.provider()) != null) return;
             var destinations = ECOWorkstationMachineStatus.targets(event.provider());
             for (var output : event.pattern().getOutputs()) {
                 if (output.amount() <= 0) continue;
@@ -76,7 +76,7 @@ public final class ECOProcessingMonitor implements ECOCraftingJobAttachment {
 
     /** A native workstation has a fixed destination even when its safety latch prevents the first push. */
     void considered(UUID id, IPatternDetails pattern, ICraftingProvider provider) {
-        var mmcr = cn.dancingsnow.neoecoae.compat.mmcr.ECOMmcrPatternDispatch.processingRoot(provider);
+        var mmcr = cn.dancingsnow.neoecoae.integration.mmcr.ECOMmcrPatternDispatch.processingRoot(provider);
         if (mmcr != null) {
             bind(id);
             for (var output : pattern.getOutputs()) {

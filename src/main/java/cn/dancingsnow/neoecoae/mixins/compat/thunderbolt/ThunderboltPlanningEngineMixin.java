@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.mixins.compat.thunderbolt;
 
 import appeng.api.networking.IGrid;
-import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOThunderboltPlanningBridge;
+import cn.dancingsnow.neoecoae.integration.thunderbolt.ECOThunderboltPlanningBridge;
 import com.moakiee.thunderbolt.api.crafting.CraftingPlanningEngine;
 import com.moakiee.thunderbolt.api.crafting.PlanningAttemptContext;
 import com.moakiee.thunderbolt.api.crafting.PlanningRequest;

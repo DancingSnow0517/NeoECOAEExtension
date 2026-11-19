@@ -1,12 +1,11 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
 
 import appeng.api.client.AEKeyRendering;
-import appeng.api.stacks.AEFluidKey;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.LargeWorkstationOverclock;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingListCard;
