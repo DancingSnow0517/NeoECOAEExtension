@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
+import cn.dancingsnow.neoecoae.gui.common.ShiftQuickMove;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import appeng.api.storage.cells.CellState;
@@ -233,17 +234,23 @@ public final class StorageHostUI {
     }
 
     public static UIElement create(Config config, Supplier<IECOTier> panelTier) {
-        return NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config, panelTier, null));
+        return create(config, panelTier, null);
     }
 
     public static UIElement create(Config config, Supplier<IECOTier> panelTier, Supplier<BlockState> hostState) {
-        return NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config, panelTier, hostState));
+        var context = new JsonContext(config, panelTier, hostState);
+        UIElement root = NeoUiJsonLoader.load(JSON_LAYOUT, context);
+        context.insertionDrag.attachRoot(root);
+        context.extractionDrag.attachRoot(root);
+        return root;
     }
 
     private static final class JsonContext implements NeoUiJsonContext {
         private final Config config;
         private final Supplier<IECOTier> panelTier;
         private final Supplier<BlockState> hostState;
+        private final ShiftQuickMove insertionDrag = new ShiftQuickMove();
+        private final ShiftQuickMove extractionDrag = new ShiftQuickMove();
         private StoragePanelSync sync;
         private StorageHostCharts charts;
         private int columns;
@@ -269,9 +276,13 @@ public final class StorageHostUI {
                     charts = new StorageHostCharts(sync, columns * 3, config.hostItem().get(), panelTier);
                     yield root;
                 }
-                case "storage_cell_grid" -> new StorageCellGrid(sync, columns, config, panelTier);
+                case "storage_cell_grid" -> new StorageCellGrid(sync, columns, config, panelTier, extractionDrag);
                 case "infinite_component_slot" -> infiniteComponentSlot(config);
-                case "player_inventory" -> playerInventory();
+                case "player_inventory" -> {
+                    InventorySlots inventory = playerInventory();
+                    inventory.apply(slot -> insertionDrag.addMenuSlot(slot, 1));
+                    yield inventory;
+                }
                 default -> charts.create(custom, definition);
             };
         }

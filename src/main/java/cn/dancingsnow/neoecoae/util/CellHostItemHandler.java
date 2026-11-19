@@ -22,22 +22,17 @@ public class CellHostItemHandler implements IItemHandler {
 
     @Override
     public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-        if (host.getCellStack() != null) {
+        if (stack.isEmpty()) return ItemStack.EMPTY;
+        ItemStack installed = host.getCellStack();
+        if ((installed != null && !installed.isEmpty()) || !host.canExtractCell() || !host.isItemValid(stack)) {
             return stack;
-        } else {
-            if (stack.isEmpty()) {
-                return ItemStack.EMPTY;
-            }
-            if (!host.isItemValid(stack)) {
-                return stack;
-            }
-            if (!simulate) {
-                host.setCellStack(stack.copyWithCount(1));
-            }
-            ItemStack copy = stack.copy();
-            copy.shrink(1);
-            return copy;
         }
+        if (!simulate) {
+            ItemStack cell = stack.copyWithCount(1);
+            host.setCellStack(cell);
+            if (host.getCellStack() != cell) return stack;
+        }
+        return stack.getCount() == 1 ? ItemStack.EMPTY : stack.copyWithCount(stack.getCount() - 1);
     }
 
     @Override

@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
@@ -17,17 +18,26 @@ final class ComputationCellUi {
         ItemStack carried = menu.getCarried();
         if (!ItemStack.matches(expected, carried)) return false;
         ECOComputationDriveBlockEntity drive = findDrive(host, position);
-        if (drive == null || drive.getCellStack() != null && !drive.getCellStack().isEmpty()
-            || !drive.canExtractCell() || !drive.isItemValid(carried)) return false;
-
-        ItemStack installed = carried.copyWithCount(1);
-        drive.setCellStack(installed);
-        // The real setter retains this reference; a rejected installation must not consume the cursor item.
-        if (drive.getCellStack() != installed) return false;
-        carried.shrink(1);
-        if (carried.isEmpty()) menu.setCarried(ItemStack.EMPTY);
+        if (drive == null) return false;
+        ItemStack remaining = drive.getItemHandler().insertItem(0, carried, false);
+        if (remaining == carried) return false;
+        menu.setCarried(remaining);
         menu.broadcastChanges();
         return true;
+    }
+
+    static ItemStack quickMove(ECOComputationSystemBlockEntity host, Player player, ItemStack stack, boolean mirrored) {
+        var cluster = host.getCluster();
+        if (cluster == null || !host.isFormed() || !host.canPlayerInteract(player)) return stack;
+        for (var row : List.of(cluster.getUpperDrives(), cluster.getLowerDrives())) {
+            var drives = ComputationDriveLayout.nearest(row, host.getBlockPos());
+            for (var drive : mirrored ? drives.reversed() : drives) {
+                if (drive.isRemoved()) continue;
+                stack = drive.getItemHandler().insertItem(0, stack, false);
+                if (stack.isEmpty()) return stack;
+            }
+        }
+        return stack;
     }
 
     static boolean extract(ECOComputationSystemBlockEntity host, Player player, BlockPos position,
@@ -45,18 +55,14 @@ final class ComputationCellUi {
 
         var inventory = player.getInventory();
         var menu = player.containerMenu;
+        if (!menu.getCarried().isEmpty()) return false;
         int destination = -1;
         if (toInventory) {
-            for (int i = 0; i < inventory.items.size(); i++) {
-                ItemStack existing = inventory.getItem(i);
-                if (existing.isEmpty()) {
-                    destination = i;
-                    break;
-                }
+            destination = inventory.getSlotWithRemainingSpace(drive.getCellStack());
+            if (destination < 0 || destination >= inventory.items.size()) {
+                destination = inventory.getFreeSlot();
             }
             if (destination < 0) return false;
-        } else {
-            if (!menu.getCarried().isEmpty()) return false;
         }
 
         // Retain the actual stack: unmounting may persist its latest cell components in place.
@@ -64,7 +70,8 @@ final class ComputationCellUi {
         drive.setCellStack(null);
         if (drive.getCellStack() != null) return false;
         if (toInventory) {
-            inventory.setItem(destination, cell);
+            ItemStack existing = inventory.getItem(destination);
+            inventory.setItem(destination, existing.isEmpty() ? cell : existing.copyWithCount(existing.getCount() + 1));
             inventory.setChanged();
         } else {
             menu.setCarried(cell);

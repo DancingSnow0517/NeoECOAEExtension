@@ -54,6 +54,7 @@
     "ae2.storage.StorageLevelWatcherMixin",
     "ae2.storage.StoredEnergyAmountMixin",
     "ldlib.AsyncThreadDataMixin",
+    "ldlib.ModularUIContainerMenuMixin",
     "minecraft.LightningBoltMixin",
     "minecraft.PlayerRemoteMachineReachMixin"
   ],

@@ -20,12 +20,7 @@ final class ComputationDriveLayout {
         int slots = ComputationControllerPanelState.SLOT_COUNT;
         List<ComputationDriveEntry> entries = new ArrayList<>(Collections.nCopies(slots, ComputationDriveEntry.EMPTY));
         if (drives == null) return entries;
-        List<ECOComputationDriveBlockEntity> nearest = drives.stream()
-            .sorted(Comparator.<ECOComputationDriveBlockEntity>comparingInt(
-                ECOMultiblockParts::order)
-                .thenComparingDouble(drive -> drive.getBlockPos().distSqr(controller)))
-            .limit(slots)
-            .toList();
+        var nearest = nearest(drives, controller);
         for (int slot = 0; slot < nearest.size(); slot++) {
             ECOComputationDriveBlockEntity drive = nearest.get(slot);
             ItemStack stack = drive.getCellStack();
@@ -33,5 +28,14 @@ final class ComputationDriveLayout {
                 new ComputationDriveEntry(drive.getBlockPos(), stack == null ? ItemStack.EMPTY : stack));
         }
         return entries;
+    }
+
+    static List<ECOComputationDriveBlockEntity> nearest(List<ECOComputationDriveBlockEntity> drives, BlockPos controller) {
+        return drives.stream()
+            .sorted(Comparator.<ECOComputationDriveBlockEntity>comparingInt(
+                ECOMultiblockParts::order)
+                .thenComparingDouble(drive -> drive.getBlockPos().distSqr(controller)))
+            .limit(ComputationControllerPanelState.SLOT_COUNT)
+            .toList();
     }
 }

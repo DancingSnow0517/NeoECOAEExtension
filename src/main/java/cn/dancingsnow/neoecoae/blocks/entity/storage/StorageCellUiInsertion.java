@@ -17,16 +17,21 @@ final class StorageCellUiInsertion {
         ECODriveBlockEntity drive = host.getCluster().getDrives().stream()
             .filter(candidate -> !candidate.isRemoved() && Objects.equals(candidate.getBlockPos(), position))
             .findFirst().orElse(null);
-        if (drive == null || drive.getCellStack() != null && !drive.getCellStack().isEmpty()
-            || !drive.canExtractCell() || !drive.isItemValid(carried)) return false;
-
-        ItemStack installed = carried.copyWithCount(1);
-        drive.setCellStack(installed);
-        // The real setter retains this reference; a rejected installation must not consume the cursor item.
-        if (drive.getCellStack() != installed) return false;
-        carried.shrink(1);
-        if (carried.isEmpty()) menu.setCarried(ItemStack.EMPTY);
+        if (drive == null) return false;
+        ItemStack remaining = drive.HANDLER.insertItem(0, carried, false);
+        if (remaining == carried) return false;
+        menu.setCarried(remaining);
         menu.broadcastChanges();
         return true;
+    }
+
+    static ItemStack quickMove(ECOStorageSystemBlockEntity host, Player player, ItemStack stack) {
+        if (!host.canPlayerInteract(player) || !host.isFormed()) return stack;
+        for (var drive : host.getStorageUiDrives()) {
+            if (drive == null || drive.isRemoved()) continue;
+            stack = drive.HANDLER.insertItem(0, stack, false);
+            if (stack.isEmpty()) break;
+        }
+        return stack;
     }
 }

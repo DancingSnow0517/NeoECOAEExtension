@@ -29,18 +29,11 @@ final class StorageCellUiExtraction {
 
         var inventory = player.getInventory();
         var menu = player.containerMenu;
+        if (!menu.getCarried().isEmpty()) return false;
         int destination = -1;
         if (toInventory) {
-            for (int i = 0; i < inventory.items.size(); i++) {
-                ItemStack existing = inventory.getItem(i);
-                if (existing.isEmpty()) {
-                    destination = i;
-                    break;
-                }
-            }
+            destination = inventory.getFreeSlot();
             if (destination < 0) return false;
-        } else {
-            if (!menu.getCarried().isEmpty()) return false;
         }
 
         // Retain the actual stack: unmounting may persist its latest cell components in place.
