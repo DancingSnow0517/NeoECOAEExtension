@@ -17,6 +17,7 @@ group = mod_group_id
 def enableAppBotIntegration = providers.gradleProperty('enableAppBotIntegration')
     .map { it.toBoolean() }
     .getOrElse(true)
+def guideMeVersion = '21.1.20'
 
 base {
     archivesName = mod_id
@@ -183,8 +184,8 @@ dependencies {
     api("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
     jarJar("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
 
-    compileOnly("org.appliedenergistics:guideme:21.1.1:api")
-    runtimeOnly("org.appliedenergistics:guideme:21.1.1")
+    compileOnly("org.appliedenergistics:guideme:${guideMeVersion}:api")
+    runtimeOnly("org.appliedenergistics:guideme:${guideMeVersion}")
 
     implementation("org.appliedenergistics:appliedenergistics2:${ae2_version}") {
         version { strictly(ae2_version) }
