@@ -7,8 +7,12 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.resources.model.ModelResourceLocation;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -16,6 +20,8 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.model.BakedModelWrapper;
 import net.neoforged.neoforge.client.model.data.ModelData;
+import net.neoforged.neoforge.client.model.data.ModelProperty;
+import net.neoforged.neoforge.common.util.TriState;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -27,6 +33,8 @@ public final class CoolingControllerBakedModel extends BakedModelWrapper<BakedMo
     private static final Direction[] DIRECTIONS = Direction.values();
     private static final Set<String> CONTROLLERS = Set.of(
         "computation_cooling_controller_l4", "computation_cooling_controller_l6", "computation_cooling_controller_l9");
+    private static final ResourceLocation GUIDEBOOK_LEVEL = ResourceLocation.fromNamespaceAndPath("guideme", "guidebook");
+    private static final ModelProperty<Boolean> GUIDEBOOK_PREVIEW = new ModelProperty<>();
 
     public CoolingControllerBakedModel(BakedModel originalModel) {
         super(originalModel);
@@ -50,10 +58,24 @@ public final class CoolingControllerBakedModel extends BakedModelWrapper<BakedMo
     }
 
     @Override
+    public ModelData getModelData(BlockAndTintGetter level, BlockPos pos, BlockState state, ModelData data) {
+        var original = originalModel.getModelData(level, pos, state, data);
+        if (level instanceof Level scene && GUIDEBOOK_LEVEL.equals(scene.dimension().location())) {
+            return original.derive().with(GUIDEBOOK_PREVIEW, true).build();
+        }
+        return original;
+    }
+
+    @Override
+    public TriState useAmbientOcclusion(BlockState state, ModelData data, RenderType renderType) {
+        return data.has(GUIDEBOOK_PREVIEW) ? TriState.FALSE : super.useAmbientOcclusion(state, data, renderType);
+    }
+
+    @Override
     public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource random,
                                     ModelData data, @Nullable RenderType renderType) {
-        // Breaking overlays and model previews query without a chunk render layer.
-        return renderType == null ? originalModel.getQuads(state, side, random, data, null) : List.of();
+        return renderType == null || data.has(GUIDEBOOK_PREVIEW)
+            ? originalModel.getQuads(state, side, random, data, renderType) : List.of();
     }
 
     public void renderFixed(BlockState state, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
