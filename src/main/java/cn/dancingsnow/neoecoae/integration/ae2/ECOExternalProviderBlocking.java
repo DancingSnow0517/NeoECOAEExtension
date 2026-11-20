@@ -9,7 +9,7 @@ import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.LargeWorkstationPatternProvider;
 import cn.dancingsnow.neoecoae.integration.advanced_ae.ECOAdvancedAEPatternScaling;
-import cn.dancingsnow.neoecoae.integration.processing.ProcessingReflection;
+import cn.dancingsnow.neoecoae.integration.common.processing.ProcessingReflection;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Set;

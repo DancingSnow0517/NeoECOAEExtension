@@ -71,3 +71,9 @@ java -version
 - 用户要求提交时，只暂存当前任务的明确路径，检查 `git diff --cached --check` 与暂存内容，使用清晰的中文提交信息；未经要求不提交或推送。
 - 不提交缓存、日志、临时测试产物或无关文件，不用破坏性恢复清理用户工作区。
 - `docs/` 仅保留中英文 API；长期协作约定在本文件维护，避免新增重复流程说明或一次性验收记录。
+
+## 额外
+
+- `mixin` 加载管理需要到`ECOMixinLoadConfig`
+- 集成类按照 `integration/<modid>/` 去存放
+- 集成类涉及到共用代码需要存放到 `integration/common/`

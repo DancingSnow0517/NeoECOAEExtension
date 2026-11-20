@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.mixins;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import net.neoforged.fml.loading.LoadingModList;
 import org.objectweb.asm.ClassReader;
@@ -17,6 +18,20 @@ import org.slf4j.LoggerFactory;
  */
 public final class ECOMixinLoadConfig implements IMixinConfigPlugin {
     private static final String MIXIN_PACKAGE = "cn.dancingsnow.neoecoae.mixins.";
+    private static final String THUNDERBOLT_MIXINS = "compat.thunderbolt.";
+    private static final String OMNI_SEQUENCE_MIXINS = "compat.omnisequence.";
+    private static final String KEY_REUSE_MIXINS = "ae2.keyreuse.";
+    private static final Map<String, List<String>> REQUIRED_MODS = Map.of(
+        "compat.advancedae.", List.of("advanced_ae"),
+        "compat.ae2omnicells.", List.of("ae2omnicells"),
+        "compat.appbot.", List.of("appbot", "botania"),
+        "compat.extendedae.", List.of("extendedae"),
+        "compat.fluxnetworks.", List.of("fluxnetworks"),
+        "compat.merequester.", List.of("merequester"),
+        OMNI_SEQUENCE_MIXINS, List.of("molecularmanipulator"),
+        THUNDERBOLT_MIXINS, List.of("thunderbolt"),
+        "jei.client.", List.of("jei")
+    );
     private static final String THUNDERBOLT_API = "com/moakiee/thunderbolt/api/crafting/";
     private static final String PLANNING_REQUEST = "L" + THUNDERBOLT_API + "PlanningRequest;";
     private static final String PLANNING_CAPTURE = "(Lappeng/api/networking/IGrid;" + PLANNING_REQUEST
@@ -40,29 +55,26 @@ public final class ECOMixinLoadConfig implements IMixinConfigPlugin {
                 && mod.getVersion().toString().equals("19.2.18"));
         }
 
-        if (mixin.startsWith("compat.thunderbolt.")) {
-            return isModLoaded("thunderbolt")
-                && supportsThunderboltMixin(targetClassName, mixin.substring("compat.thunderbolt.".length()));
+        for (var requirement : REQUIRED_MODS.entrySet()) {
+            if (mixin.startsWith(requirement.getKey())
+                    && !requirement.getValue().stream().allMatch(ECOMixinLoadConfig::isModLoaded)) {
+                return false;
+            }
         }
 
-        return switch (mixin.substring(0, mixin.lastIndexOf('.'))) {
-            case "compat.advancedae.accessor", "compat.advancedae.crafting" -> isModLoaded("advanced_ae");
-            case "compat.ae2omnicells" -> isModLoaded("ae2omnicells");
-            case "compat.appbot" -> isModLoaded("appbot") && isModLoaded("botania");
-            case "compat.extendedae" -> isModLoaded("extendedae");
-            case "compat.fluxnetworks" -> isModLoaded("fluxnetworks");
-            case "compat.merequester" -> isModLoaded("merequester");
-            case "compat.omnisequence" -> isModLoaded("molecularmanipulator") && supportsOmniBatchApi();
-            case "jei.client" -> isModLoaded("jei");
-            case "ae2.keyreuse" -> switch (mixin) {
-                case "ae2.keyreuse.MatterKeyReuseMixin" -> supportsSharedKey(targetClassName,
+        if (mixin.startsWith(THUNDERBOLT_MIXINS)) {
+            return supportsThunderboltMixin(targetClassName, mixin.substring(THUNDERBOLT_MIXINS.length()));
+        }
+        if (mixin.startsWith(KEY_REUSE_MIXINS)) {
+            return switch (mixin.substring(KEY_REUSE_MIXINS.length())) {
+                case "MatterKeyReuseMixin" -> supportsSharedKey(targetClassName,
                     "Lcom/buuz135/replication/api/matter_fluid/MatterStack;", false);
-                case "ae2.keyreuse.MekanismKeyReuseMixin" -> supportsSharedKey(targetClassName,
+                case "MekanismKeyReuseMixin" -> supportsSharedKey(targetClassName,
                     "Lmekanism/api/chemical/ChemicalStack;", true);
                 default -> false;
             };
-            default -> true;
-        };
+        }
+        return !mixin.startsWith(OMNI_SEQUENCE_MIXINS) || supportsOmniBatchApi();
     }
 
     private static boolean isModLoaded(String modId) {

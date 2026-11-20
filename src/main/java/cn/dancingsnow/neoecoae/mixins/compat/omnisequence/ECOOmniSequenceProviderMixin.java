@@ -6,7 +6,9 @@ import com.atir.molecularmanipulator.api.crafting.OmniBatchAdmission;
 import com.atir.molecularmanipulator.api.crafting.OmniBatchCraftingProvider;
 import com.atir.molecularmanipulator.api.crafting.OmniBatchProbe;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
 
+@Pseudo
 @Mixin(value = ECOCraftingPatternBusBlockEntity.class, remap = false)
 public abstract class ECOOmniSequenceProviderMixin implements OmniBatchCraftingProvider {
     @Override
