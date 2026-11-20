@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.integration;
 import appeng.api.crafting.IPatternDetails;
 import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternWrappers;
 import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemanticsRegistry;
+import cn.dancingsnow.neoecoae.integration.mmcr.processing.MmcrProcessingStatus;
 import cn.dancingsnow.neoecoae.integration.thunderbolt.ThunderPatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.integration.thunderbolt.ThunderboltApi;
 import java.lang.reflect.Method;
@@ -20,7 +21,7 @@ public final class ECOPatternIntegrations {
         cn.dancingsnow.neoecoae.integration.ae2.ECORemoteProviderLocator.initialize();
         cn.dancingsnow.neoecoae.integration.thunderbolt.ECOOverloadCpuAccountingBridge.initialize();
         cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingStatusRegistry.register(id("mmcr_processing"),
-            new cn.dancingsnow.neoecoae.integration.processing.MmcrProcessingStatus());
+            new MmcrProcessingStatus());
         if (ThunderboltApi.OVERLOAD != null) {
             ECOPatternSemanticsRegistry.register(id("thunderbolt_semantics"), 200,
                 new ThunderPatternSemanticAdapter());

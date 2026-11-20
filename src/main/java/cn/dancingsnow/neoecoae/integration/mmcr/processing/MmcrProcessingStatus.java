@@ -1,6 +1,6 @@
-package cn.dancingsnow.neoecoae.integration.processing;
+package cn.dancingsnow.neoecoae.integration.mmcr.processing;
 
-import static cn.dancingsnow.neoecoae.integration.processing.ProcessingReflection.*;
+import static cn.dancingsnow.neoecoae.integration.common.processing.ProcessingReflection.*;
 
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingStatusReader;
 import cn.dancingsnow.neoecoae.integration.mmcr.ECOMmcrPatternDispatch;

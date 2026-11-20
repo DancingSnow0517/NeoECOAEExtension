@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.mmcr;
 
-import static cn.dancingsnow.neoecoae.integration.processing.ProcessingReflection.*;
+import static cn.dancingsnow.neoecoae.integration.common.processing.ProcessingReflection.*;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGrid;
