@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.execution;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 
 import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.compat.ae2craftingtime.ECOCraftingTimeCompat;
 
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
@@ -136,6 +137,7 @@ final class ECOCraftingOutputDelivery {
             host.taskSchedulerForOutput().recordPhysicalInsert(what);
             current.waitingFor.extract(what, accepted, Actionable.MODULATE);
             host.recordCompletedCraftingWork(accepted, what.getType());
+            if (!current.exactOrder) ECOCraftingTimeCompat.accept(host.cpu, what, accepted);
             host.markCpuDirty();
             host.taskSchedulerForOutput().progress(appeng.hooks.ticking.TickHandler.instance().getCurrentTick());
         }
@@ -265,6 +267,7 @@ final class ECOCraftingOutputDelivery {
             }
         }
         host.recordCompletedCraftingWork(claim, request.actualKey().getType());
+        if (!current.exactOrder) ECOCraftingTimeCompat.accept(host.cpu, request.expectedKey(), claim);
         if (finalOutputClaim) {
             current.remainingAmount = Math.max(0L, current.remainingAmount - route.deliveredAmount());
         }

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.compat.ae2craftingtime.ECOCraftingTimeCompat;
+
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
@@ -112,6 +114,7 @@ final class ECOCraftingJobLifecycleController {
 
         host.markCpuDirty();
         host.notifyJobOwner(job, CraftingJobStatusPacket.Status.STARTED);
+        if (!job.exactOrder) ECOCraftingTimeCompat.start(host.cpu, grid, plan, src);
 
         if (requester != null) {
             var linkReq = new CraftingLink(
@@ -166,6 +169,7 @@ final class ECOCraftingJobLifecycleController {
         host.taskSchedulerForLifecycle().reset();
         host.storeItems();
         host.outputDeliveryForPersistence().clearPendingFinalOutputs();
+        if (!finishingJob.exactOrder) ECOCraftingTimeCompat.finish(host.cpu, success);
         ECOCraftingLifecycle.fireJobFinished(context, result);
         host.bigOrder.clear();
     }

@@ -7,6 +7,7 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingDispatchEvent;
 import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingJobContext;
+import cn.dancingsnow.neoecoae.compat.ae2craftingtime.ECOCraftingTimeCompat;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -105,8 +106,20 @@ final class ECOCraftingDispatchAccounting {
             }
             beforeNotifications.run();
             if (provider != null) {
+                var context = contextFactory.apply(job);
+                if (!job.exactOrder && ECOCraftingTimeCompat.available()
+                        && context.cpu() instanceof ECOCraftingCPU cpu) {
+                    for (var output : result.outputs()) {
+                        if (!virtual || !output.what().equals(job.finalOutput.what())) {
+                            ECOCraftingTimeCompat.expect(cpu, output.what(), output.amount());
+                        }
+                    }
+                    for (var remainder : result.remainders()) {
+                        ECOCraftingTimeCompat.expect(cpu, remainder.what(), remainder.amount());
+                    }
+                }
                 dispatchEvent.accept(new ECOCraftingDispatchEvent(
-                        contextFactory.apply(request.job()), request.pattern(), result.acceptedCrafts(), provider));
+                        context, request.pattern(), result.acceptedCrafts(), provider));
             }
             for (var output : request.pattern().getOutputs()) {
                 postChange.accept(output.what());

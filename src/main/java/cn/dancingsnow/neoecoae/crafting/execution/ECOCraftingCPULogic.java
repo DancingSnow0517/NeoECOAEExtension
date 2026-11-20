@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.compat.ae2craftingtime.ECOCraftingTimeCompat;
+
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 
 import cn.dancingsnow.neoecoae.api.me.attachment.ECOCraftingJobAttachments;
@@ -822,6 +824,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         }
         if (job != null && job.suspended != suspended) {
             job.suspended = suspended;
+            if (!job.exactOrder) ECOCraftingTimeCompat.setSuspended(cpu, suspended);
             taskScheduler.progress(TickHandler.instance().getCurrentTick());
             markCpuDirty();
         }
