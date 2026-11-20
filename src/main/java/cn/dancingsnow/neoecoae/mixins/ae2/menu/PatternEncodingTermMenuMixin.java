@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.menu;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.config.Actionable;
 import appeng.api.crafting.PatternDetailsHelper;

@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.jei.multiblock;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.stacks.GenericStack;
 import appeng.menu.me.items.PatternEncodingTermMenu;

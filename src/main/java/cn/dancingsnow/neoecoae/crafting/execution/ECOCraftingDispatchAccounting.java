@@ -7,7 +7,7 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingDispatchEvent;
 import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingJobContext;
-import cn.dancingsnow.neoecoae.compat.ae2craftingtime.ECOCraftingTimeCompat;
+import cn.dancingsnow.neoecoae.integration.ae2craftingtime.ECOCraftingTimeCompat;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,7 +78,7 @@ final class ECOCraftingDispatchAccounting {
             Runnable beforeNotifications, ICraftingProvider provider) {
         var job = request.job();
         audit(request, result.acceptedCrafts(), result.outputs(), result.remainders(), "dispatch", () -> {
-            boolean virtual = cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusVirtualCrafting
+            boolean virtual = cn.dancingsnow.neoecoae.integration.extendedaeplus.ECOExtendedAEPlusVirtualCrafting
                     .isEnabled(provider) && !job.exactOrder && hasTerminalVirtualOutput(request);
             for (var output : result.outputs()) {
                 boolean virtualOutput = virtual && output.what().equals(job.finalOutput.what());

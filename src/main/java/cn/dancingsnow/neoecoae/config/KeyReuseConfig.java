@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.config;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuse;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.config.ModConfigEvent;

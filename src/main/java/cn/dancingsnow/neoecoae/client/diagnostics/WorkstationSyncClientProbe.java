@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.client.diagnostics;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.core.definitions.AEItems;
 import appeng.menu.SlotSemantics;

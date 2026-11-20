@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.crafting.IPatternDetails;
@@ -11,7 +11,7 @@ import cn.dancingsnow.neoecoae.api.me.attachment.ECOCraftingJobAttachmentRegistr
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingTargetProvider.Target;
 import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingDispatchEvent;
 import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingJobResult;
-import cn.dancingsnow.neoecoae.compat.gregtech.ECOGregTechMachineStatus;
+import cn.dancingsnow.neoecoae.integration.gregtech.ECOGregTechMachineStatus;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
 import java.util.ArrayDeque;
 import java.util.LinkedHashMap;

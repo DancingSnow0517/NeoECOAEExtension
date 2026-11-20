@@ -4,7 +4,7 @@ import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
 import appeng.util.inv.filter.IAEItemFilter;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
-import cn.dancingsnow.neoecoae.compat.ae2lt.ECOIOPortInputFilter;
+import cn.dancingsnow.neoecoae.integration.ae2lt.ECOIOPortInputFilter;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.world.item.ItemStack;

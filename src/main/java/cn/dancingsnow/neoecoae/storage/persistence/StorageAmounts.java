@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.storage.persistence;
 
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.storage.StoragePerformance;
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 import cn.dancingsnow.neoecoae.storage.infinite.HugeAmount;
 import cn.dancingsnow.neoecoae.crafting.amount.UnsignedLongArray;
 import cn.dancingsnow.neoecoae.crafting.amount.U128;

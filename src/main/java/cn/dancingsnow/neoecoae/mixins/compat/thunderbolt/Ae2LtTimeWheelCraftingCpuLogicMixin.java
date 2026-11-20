@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.mixins.compat.thunderbolt;
 
-import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtCancellationBridge;
-import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtJobDispatch;
+import cn.dancingsnow.neoecoae.integration.ae2lt.ECOAe2LtCancellationBridge;
+import cn.dancingsnow.neoecoae.integration.ae2lt.ECOAe2LtJobDispatch;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.KeyCounter;

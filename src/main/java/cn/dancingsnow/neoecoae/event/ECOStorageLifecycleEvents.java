@@ -35,7 +35,7 @@ public final class ECOStorageLifecycleEvents {
         catch (java.io.IOException failure) { org.slf4j.LoggerFactory.getLogger(ECOStorageLifecycleEvents.class)
             .warn("Cannot write requested storage performance report", failure); }
         StoragePerformance.reset();
-        cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse.invalidate();
+        cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuse.invalidate();
         MinecraftServer server = event.getServer();
         PatternBusUpdateScheduler.clear(server);
         NELogicalNetworkManager.clearAll();

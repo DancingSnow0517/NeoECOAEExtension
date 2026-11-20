@@ -14,7 +14,7 @@ import net.minecraft.server.level.ServerPlayer;
 import cn.dancingsnow.neoecoae.gui.common.FluidInputHatchUI;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.util.LongFluidTank;
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.IUpgradeableObject;

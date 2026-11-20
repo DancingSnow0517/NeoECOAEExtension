@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.execution;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderProgress;
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderRequest;

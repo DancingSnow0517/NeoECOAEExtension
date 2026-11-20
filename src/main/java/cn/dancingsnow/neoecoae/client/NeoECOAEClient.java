@@ -43,7 +43,7 @@ import cn.dancingsnow.neoecoae.network.ECONetwork;
 public class NeoECOAEClient {
     @SubscribeEvent
     public static void onKeyReuseDisconnect(net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
-        cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse.invalidate();
+        cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuse.invalidate();
     }
 
     public static void initialize(IEventBus modBus) {
@@ -56,7 +56,7 @@ public class NeoECOAEClient {
         modBus.addListener(NeoECOAEClient::onClientSetup);
         modBus.addListener((net.minecraftforge.client.event.RegisterClientReloadListenersEvent event) ->
             event.registerReloadListener((net.minecraft.server.packs.resources.ResourceManagerReloadListener) manager -> {
-                cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse.invalidate();
+                cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuse.invalidate();
                 cn.dancingsnow.neoecoae.client.gui.graph.GraphRenderer.resourcesReloaded();
                 cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture.clearDimensionCache();
                 cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.style.StylesheetManager.INSTANCE.setResourceOpener(manager::open);

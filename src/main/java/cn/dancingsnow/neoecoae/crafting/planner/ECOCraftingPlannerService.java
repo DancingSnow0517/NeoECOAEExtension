@@ -27,7 +27,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.solve.PlannerInventorySnapshot;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic;
 import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection;
 
 import java.util.HashSet;
 import java.util.List;

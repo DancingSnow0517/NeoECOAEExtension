@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.mixins.compat.gregtech;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.KeyCounter;
-import cn.dancingsnow.neoecoae.compat.gregtech.ECOGregTechProcessingDispatch;
+import cn.dancingsnow.neoecoae.integration.gregtech.ECOGregTechProcessingDispatch;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import org.spongepowered.asm.mixin.Mixin;

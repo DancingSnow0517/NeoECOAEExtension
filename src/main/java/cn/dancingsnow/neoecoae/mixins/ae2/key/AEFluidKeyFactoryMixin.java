@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.key;
 
 import appeng.api.stacks.AEFluidKey;
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse;
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuseSlot;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuse;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuseSlot;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.material.Fluid;
 import org.spongepowered.asm.mixin.Mixin;

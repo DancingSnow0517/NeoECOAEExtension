@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.platform.nbt;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.config.FuzzyMode;
 import appeng.api.stacks.GenericStack;

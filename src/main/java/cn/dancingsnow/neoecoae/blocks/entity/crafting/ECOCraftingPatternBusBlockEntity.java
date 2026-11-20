@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import cn.dancingsnow.neoecoae.platform.JdkCompat;
 
@@ -32,7 +32,7 @@ import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingTargetProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOJobAwareCraftingProvider;
-import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOThunderboltBatchBridge;
+import cn.dancingsnow.neoecoae.integration.thunderbolt.ECOThunderboltBatchBridge;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution;

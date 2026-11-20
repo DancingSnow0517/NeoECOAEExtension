@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
-import cn.dancingsnow.neoecoae.compat.ae2craftingtime.ECOCraftingTimeCompat;
+import cn.dancingsnow.neoecoae.integration.ae2craftingtime.ECOCraftingTimeCompat;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingListCard;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingMachineActions;
@@ -1271,11 +1271,11 @@ public final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> 
             }
             var grid = eco != null ? eco.getGrid()
                 : cpu instanceof CraftingCPUCluster cluster ? cluster.getGrid() : null;
-            List<cn.dancingsnow.neoecoae.compat.ae2.ECOProviderActions.Source> sources = List.of();
+            List<cn.dancingsnow.neoecoae.integration.ae2.ECOProviderActions.Source> sources = List.of();
             if (grid != null && grid.getCraftingService() instanceof appeng.me.service.CraftingService crafting) {
                 var producing = patterns(cpu, key, crafting);
                 if (graphAction && producing.isEmpty()) producing = List.copyOf(crafting.getCraftingFor(key));
-                sources = cn.dancingsnow.neoecoae.compat.ae2.ECOProviderActions.find(producing, crafting);
+                sources = cn.dancingsnow.neoecoae.integration.ae2.ECOProviderActions.find(producing, crafting);
             }
             var list = new ListTag();
             for (var source : sources) list.add(source.describe());
@@ -1285,7 +1285,7 @@ public final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> 
             var targets = eco == null ? List.<cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingTargetProvider.Target>of()
                 : eco.getLogic().getProcessingMonitor().machineTargets(key);
             // GT machines open their own LDLib UI; every other machine (and FX cores, as their host) uses its block.
-            var machines = cn.dancingsnow.neoecoae.compat.ae2.ECOProviderActions.findMachines(targets, cpu instanceof ECOCraftingCPU value ? value.getLevel() : null);
+            var machines = cn.dancingsnow.neoecoae.integration.ae2.ECOProviderActions.findMachines(targets, cpu instanceof ECOCraftingCPU value ? value.getLevel() : null);
             var blockMachines = new ArrayList<ECOProcessingMachineActions.Machine>();
             if (this.source.player() != null) {
                 for (var machine : ECOProcessingMachineActions.find(this.source.player().getServer(), targets)) {

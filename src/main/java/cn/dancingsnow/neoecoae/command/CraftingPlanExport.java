@@ -9,7 +9,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
-import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;

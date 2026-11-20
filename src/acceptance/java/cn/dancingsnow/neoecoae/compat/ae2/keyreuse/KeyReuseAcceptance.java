@@ -1,10 +1,10 @@
-package cn.dancingsnow.neoecoae.compat.ae2.keyreuse;
+package cn.dancingsnow.neoecoae.integration.ae2.keyreuse;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOFluxKeys;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOFluxKeys;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOChemicalKeys;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOChemicalKeys;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;

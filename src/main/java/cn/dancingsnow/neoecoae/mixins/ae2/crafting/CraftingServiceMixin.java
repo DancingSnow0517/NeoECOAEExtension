@@ -547,7 +547,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         ECOCraftingCPU owner = neoecoae$findCpuForJob(jobId);
         if (owner != null) return owner.getLogic().insertExactForJob(jobId, key, amount, mode);
         for (var cpu : getCpus()) {
-            var accepted = cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtCraftingAdapter
+            var accepted = cn.dancingsnow.neoecoae.integration.ae2lt.ECOAe2LtCraftingAdapter
                     .insertExactCpuOutput(cpu, jobId, key, amount, mode);
             if (accepted.signum() > 0) return accepted;
         }
