@@ -52,7 +52,7 @@ public class NeoECOAEClient {
     @SubscribeEvent
     public static void onRegisterReloadListeners(net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent event) {
         event.registerReloadListener((net.minecraft.server.packs.resources.ResourceManagerReloadListener) manager ->
-            cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse.invalidate());
+            cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuse.invalidate());
         event.registerReloadListener((net.minecraft.server.packs.resources.ResourceManagerReloadListener) manager ->
             cn.dancingsnow.neoecoae.client.gui.graph.GraphRenderer.resourcesReloaded());
     }
@@ -85,7 +85,7 @@ public class NeoECOAEClient {
 
     @SubscribeEvent
     public static void onKeyReuseDisconnect(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
-        cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse.invalidate();
+        cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuse.invalidate();
     }
 
     @SubscribeEvent

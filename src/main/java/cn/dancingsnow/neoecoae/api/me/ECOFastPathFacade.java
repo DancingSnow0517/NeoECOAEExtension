@@ -10,10 +10,8 @@ import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOJobAwareCraftingProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
-import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
-import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusMatrixBridge;
-import cn.dancingsnow.neoecoae.compat.useless.ECOUselessBatchProviderBridge;
-import cn.dancingsnow.neoecoae.compat.ae2.ECOExternalProviderBlocking;
+import cn.dancingsnow.neoecoae.integration.extendedaeplus.ECOExtendedAEPlusMatrixBridge;
+import cn.dancingsnow.neoecoae.integration.ae2.ECOExternalProviderBlocking;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOStatefulBatchPlanner;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOParallelProviderAdapter;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
@@ -55,16 +53,14 @@ public final class ECOFastPathFacade {
     public static boolean supports(ICraftingProvider provider) {
         return provider instanceof ECOFastPathDispatchProvider
             || ECOParallelCraftingProviders.find(provider) instanceof ECOFastPathDispatchProvider
-            || ECOExtendedAEPlusMatrixBridge.supportsProvider(provider)
-            || ECOUselessBatchProviderBridge.supports(provider);
+            || ECOExtendedAEPlusMatrixBridge.supportsProvider(provider);
     }
 
     @Nullable
     public static ECOFastPathDispatchProvider resolveProvider(ICraftingProvider provider) {
         if (provider instanceof ECOFastPathDispatchProvider nativeProvider) return nativeProvider;
         if (ECOParallelCraftingProviders.find(provider) instanceof ECOFastPathDispatchProvider adapted) return adapted;
-        var matrix = ECOExtendedAEPlusMatrixBridge.adapt(provider);
-        return matrix != null ? matrix : ECOUselessBatchProviderBridge.adapt(provider);
+        return ECOExtendedAEPlusMatrixBridge.adapt(provider);
     }
 
     /** Null means no resources moved and ordinary dispatch is available. craftCount is the live upper bound. */

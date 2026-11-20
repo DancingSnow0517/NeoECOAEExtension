@@ -7,9 +7,9 @@ import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlo
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingTargetProvider;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingStatusReader;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingStatusRegistry;
-import cn.dancingsnow.neoecoae.compat.processing.AssemblerMatrixProcessingStatus;
-import cn.dancingsnow.neoecoae.compat.processing.MekanismProcessingStatus;
-import cn.dancingsnow.neoecoae.compat.processing.ProcessingReflection;
+import cn.dancingsnow.neoecoae.integration.processing.AssemblerMatrixProcessingStatus;
+import cn.dancingsnow.neoecoae.integration.processing.MekanismProcessingStatus;
+import cn.dancingsnow.neoecoae.integration.processing.ProcessingReflection;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.Machine;
 import java.util.ArrayDeque;
 import java.util.LinkedHashMap;
@@ -27,7 +27,7 @@ public final class ECOWorkstationMachineStatus {
     private static final java.util.Set<Class<?>> FAILED_READERS = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     public static List<Target> targets(ICraftingProvider provider) {
-        var mmcr = cn.dancingsnow.neoecoae.compat.mmcr.ECOMmcrPatternDispatch.processingRoot(provider);
+        var mmcr = cn.dancingsnow.neoecoae.integration.mmcr.ECOMmcrPatternDispatch.processingRoot(provider);
         if (mmcr != null) return List.of(mmcr);
         if (provider instanceof ECOProcessingTargetProvider observable) {
             var target = observable.neoecoae$getProcessingTarget();

@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
-import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtCpuStatus;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2lt.ECOAe2LtCpuStatus;
 
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingListCard;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingMachineActions;
@@ -1287,11 +1287,11 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             response.putUUID("job", job);
             var grid = cpu instanceof ECOCraftingCPU eco ? eco.getGrid()
                 : cpu instanceof CraftingCPUCluster cluster ? cluster.getGrid() : null;
-            List<cn.dancingsnow.neoecoae.compat.ae2.ECOProviderActions.Source> sources = List.of();
+            List<cn.dancingsnow.neoecoae.integration.ae2.ECOProviderActions.Source> sources = List.of();
             if (grid != null && grid.getCraftingService() instanceof appeng.me.service.CraftingService crafting) {
                 var producing = patterns(cpu, key, crafting);
                 if (graphAction && producing.isEmpty()) producing = List.copyOf(crafting.getCraftingFor(key));
-                sources = cn.dancingsnow.neoecoae.compat.ae2.ECOProviderActions.find(producing, crafting);
+                sources = cn.dancingsnow.neoecoae.integration.ae2.ECOProviderActions.find(producing, crafting);
             }
             var list = new ListTag();
             for (var source : sources) list.add(source.describe(this.source.registries()));

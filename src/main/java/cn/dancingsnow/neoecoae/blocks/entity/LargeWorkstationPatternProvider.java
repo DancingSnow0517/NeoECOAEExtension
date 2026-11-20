@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.config.LockCraftingMode;
 import appeng.api.crafting.IPatternDetails;
@@ -22,7 +22,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingTargetProvider;
-import cn.dancingsnow.neoecoae.compat.extendedaeplus.ECOExtendedAEPlusBlocking;
+import cn.dancingsnow.neoecoae.integration.extendedaeplus.ECOExtendedAEPlusBlocking;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.PatternProviderLogicAccessor;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
 import cn.dancingsnow.neoecoae.integration.ae2pattern.PatternDiskSupport;

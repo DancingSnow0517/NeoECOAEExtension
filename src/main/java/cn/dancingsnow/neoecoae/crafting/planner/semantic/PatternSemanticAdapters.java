@@ -6,7 +6,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemantics;
 import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemanticsRegistry;
-import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.util.ArrayList;
 import java.util.List;

@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.execution.fastpath;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
@@ -13,7 +13,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;

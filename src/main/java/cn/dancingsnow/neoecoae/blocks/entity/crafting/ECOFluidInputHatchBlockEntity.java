@@ -1,9 +1,8 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.networking.security.IActionSource;
-import appeng.api.stacks.AEFluidKey;
 import appeng.api.util.IConfigManager;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.IUpgradeableObject;
