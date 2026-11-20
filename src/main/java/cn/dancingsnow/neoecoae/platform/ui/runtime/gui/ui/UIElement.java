@@ -7,13 +7,16 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.rpc.*;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.*;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyDisplay;
+import com.lowdragmc.lowdraglib.gui.ingredient.Target;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import com.lowdragmc.lowdraglib.utils.Position;
 import com.lowdragmc.lowdraglib.utils.Size;
 import java.util.*;
 import java.util.function.Consumer;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 
@@ -70,6 +73,22 @@ public class UIElement extends WidgetGroup {
     protected void onModularUIChanged(UIEvent event){}
     private void detach(){rpcCallbacks.clear();modularUI=null;onRemoved();children.forEach(UIElement::detach);}
     public ModularUI getModularUI(){return modularUI;}
+    @Override public List<Target> getPhantomTargets(Object ingredient){
+        var targets=super.getPhantomTargets(ingredient);
+        if(targets.isEmpty()||getParentElement()!=null||!(Minecraft.getInstance().screen instanceof RetainedUIGuiContainer screen)
+            ||screen.modularUI.mainGroup!=this||screen.getRenderScale()==1)return targets;
+        return targets.stream().<Target>map(target->new Target(){
+            @Override public Rect2i getArea(){
+                var area=target.getArea();
+                int left=(int)Math.ceil(screen.toScreen(area.getX()));
+                int top=(int)Math.ceil(screen.toScreen(area.getY()));
+                int right=(int)Math.ceil(screen.toScreen(area.getX()+area.getWidth()));
+                int bottom=(int)Math.ceil(screen.toScreen(area.getY()+area.getHeight()));
+                return new Rect2i(left,top,right-left,bottom-top);
+            }
+            @Override public void accept(Object value){target.accept(value);}
+        }).toList();
+    }
     public UIElement setDisplay(boolean value){
         display=value;
         // Match LDLib2: runtime visibility must also override a JSON display:none.

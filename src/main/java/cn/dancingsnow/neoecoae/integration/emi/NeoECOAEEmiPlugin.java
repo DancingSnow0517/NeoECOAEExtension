@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.client.gui.graph.ECOCraftingGraphScreen;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationCpuStatusPanel;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.RetainedUIGuiContainer;
+import com.lowdragmc.lowdraglib.emi.ModularUIEmiHandlers;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUIGuiContainer;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
@@ -50,7 +51,6 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
     public void register(EmiRegistry registry) {
         // EMI's default container bounds require an item slot. ECO also has fluid-only menus,
         // such as smart cooling; their native ModularUI already supplies the correct bounds.
-        // Keep LDLib's existing stack, exclusion-area and drag/drop handlers in charge.
         // Class-specific providers match the exact screen class in EMI, not its subclasses.
         // ECO opens RetainedUIGuiContainer, so use the generic hook with our own type guard.
         registry.addGenericScreenBoundsProvider(screen -> {
@@ -64,6 +64,7 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
             int bottom = (int) Math.ceil((ui.getGuiTop() + ui.getHeight()) * scale);
             return new Bounds(left, top, right - left, bottom - top);
         });
+        registry.addDragDropHandler(RetainedUIGuiContainer.class, ModularUIEmiHandlers.DRAG_DROP_HANDLER::dropStack);
         registry.addStackProvider(RetainedUIGuiContainer.class, (screen, x, y) -> {
             if (screen.modularUI.mainGroup instanceof ComputationCpuStatusPanel panel) {
                 var key = panel.getRecipeViewerKeyOverMouse(x, y);
