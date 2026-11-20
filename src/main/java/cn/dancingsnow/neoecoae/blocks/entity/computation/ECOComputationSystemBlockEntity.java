@@ -133,7 +133,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
             GuideButton.create(holder.player, "neoecoae:neoecoae_intro/computation_system.md"), this::getTier, this::getBlockState,
             MultiblockBuildUI.create(this, holder.player));
         return ECOModularUI.create(root, holder.player,
-            stack -> ComputationCellUi.quickMove(this, holder.player, stack, mirrored));
+            (stack, simulate) -> ComputationCellUi.quickMove(this, holder.player, stack, simulate));
     }
 
     private ComputationControllerUI.Config createComputationPanelConfig(Player player) {

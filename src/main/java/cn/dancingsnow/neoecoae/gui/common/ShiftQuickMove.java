@@ -8,11 +8,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import net.minecraft.client.Minecraft;
 import net.minecraft.world.inventory.ClickType;
 
-/** Shift-drag routing for native menu slots and host-owned display slots. */
+/** Client-side Shift-drag routing for native menu slots and host-owned display slots. */
 public final class ShiftQuickMove {
-    private static final String MESSAGE = "neoecoae:shift_quick_move";
     private final Map<ItemSlot, Runnable> actions = new HashMap<>();
     private final Set<ItemSlot> visited = new HashSet<>();
     private int button = -1;
@@ -25,8 +25,8 @@ public final class ShiftQuickMove {
         root.addEventListener(UIEvents.MOUSE_MOVE, event -> {
             if (button == -1) return;
             var modularUI = root.getModularUI();
-            if (!event.isShiftDown() || modularUI == null || !root.isMouseDown(button)
-                || !modularUI.getMenu().getCarried().isEmpty()) {
+            var menu = modularUI == null ? null : modularUI.getMenu();
+            if (!event.isShiftDown() || menu == null || !root.isMouseDown(button) || !menu.getCarried().isEmpty()) {
                 button = -1;
                 return;
             }
@@ -50,9 +50,12 @@ public final class ShiftQuickMove {
             var modularUI = slot.getModularUI();
             var player = modularUI == null ? null : modularUI.player;
             var menu = modularUI == null ? null : modularUI.getMenu();
-            if (player != null && menu == player.containerMenu && menu.stillValid(player)
+            var gameMode = Minecraft.getInstance().gameMode;
+            if (gameMode != null && player != null && menu == player.containerMenu && menu.stillValid(player)
                 && menu.getCarried().isEmpty()) {
-                menu.clicked(slot.getSlot().index, dragButton, ClickType.QUICK_MOVE, player);
+                // Goes through the vanilla click packet so the server performs the move, not just client prediction.
+                gameMode.handleInventoryMouseClick(menu.containerId, slot.getSlot().index, dragButton,
+                    ClickType.QUICK_MOVE, player);
             }
         });
         slot.addEventListener(UIEvents.MOUSE_DOWN, event -> {
@@ -62,7 +65,6 @@ public final class ShiftQuickMove {
 
     public void addSlot(ItemSlot slot, Runnable action) {
         actions.put(slot, action);
-        slot.onMessage(MESSAGE, ignored -> actions.get(slot).run());
     }
 
     public boolean begin(ItemSlot slot, UIEvent event) {

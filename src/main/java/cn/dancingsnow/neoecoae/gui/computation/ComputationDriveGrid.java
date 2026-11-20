@@ -133,7 +133,7 @@ final class ComputationDriveGrid extends UIElement {
             if (event.button != 0 && event.button != 1 || interacting) return;
             var drive = entry();
             if (drive.position() == null) return;
-            if (extractionDrag.begin(this, event)) {
+            if (event.button == 0 && extractionDrag.begin(this, event)) {
                 quickExtract();
                 return;
             }

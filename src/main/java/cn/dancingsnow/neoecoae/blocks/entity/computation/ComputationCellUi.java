@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
 import cn.dancingsnow.neoecoae.blocks.entity.DriveCellUiTransfer;
+import cn.dancingsnow.neoecoae.gui.computation.ComputationControllerPanelState;
 import java.util.Objects;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
@@ -22,18 +22,19 @@ final class ComputationCellUi {
         return drive != null && DriveCellUiTransfer.insert(drive, player, carried);
     }
 
-    static ItemStack quickMove(ECOComputationSystemBlockEntity host, Player player, ItemStack stack,
-        boolean mirrored) {
+    /** Fills the drives shown on the panel, upper row first, each row nearest the controller first. */
+    static ItemStack quickMove(ECOComputationSystemBlockEntity host, Player player, ItemStack stack, boolean simulate) {
         var cluster = host.getCluster();
-        if (cluster == null || !host.isFormed() || !host.canPlayerInteract(player)) return stack;
+        if (player.level().isClientSide || stack.isEmpty() || cluster == null || !host.isFormed()
+            || !host.canPlayerInteract(player)) return stack;
         for (var row : List.of(cluster.getUpperDrives(), cluster.getLowerDrives())) {
-            List<ECOComputationDriveBlockEntity> drives = new ArrayList<>(row);
-            drives.sort(Comparator.comparingDouble(drive -> drive.getBlockPos().distSqr(host.getBlockPos())));
-            for (int index = mirrored ? drives.size() - 1 : 0;
-                mirrored ? index >= 0 : index < drives.size(); index += mirrored ? -1 : 1) {
-                var drive = drives.get(index);
+            List<ECOComputationDriveBlockEntity> drives = row.stream()
+                .sorted(Comparator.comparingDouble(drive -> drive.getBlockPos().distSqr(host.getBlockPos())))
+                .limit(ComputationControllerPanelState.SLOT_COUNT)
+                .toList();
+            for (var drive : drives) {
                 if (drive.isRemoved()) continue;
-                stack = drive.getItemHandler().insertItem(0, stack, false);
+                stack = drive.getItemHandler().insertItem(0, stack, simulate);
                 if (stack.isEmpty()) return stack;
             }
         }

@@ -182,7 +182,7 @@ final class StorageCellGrid extends UIElement {
             if (event.button != 0 && event.button != 1 || interacting) return;
             var cell = cell(index);
             if (cell.position() == null) return;
-            if (extractionDrag != null && extractionDrag.begin(this, event)) {
+            if (event.button == 0 && extractionDrag != null && extractionDrag.begin(this, event)) {
                 quickExtract();
                 return;
             }

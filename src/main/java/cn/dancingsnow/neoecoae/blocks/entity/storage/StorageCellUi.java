@@ -19,11 +19,14 @@ final class StorageCellUi {
         return drive != null && DriveCellUiTransfer.insert(drive, player, carried);
     }
 
-    static ItemStack quickMove(ECOStorageSystemBlockEntity host, Player player, ItemStack stack) {
-        if (!host.canPlayerInteract(player) || !host.isFormed()) return stack;
+    static ItemStack quickMove(ECOStorageSystemBlockEntity host, Player player, ItemStack stack, boolean simulate) {
+        if (player.level().isClientSide || stack.isEmpty() || !host.isFormed() || !host.canPlayerInteract(player)) {
+            return stack;
+        }
         for (var drive : host.getStorageUiDrives()) {
             if (drive == null || drive.isRemoved()) continue;
-            stack = drive.HANDLER.insertItem(0, stack, false);
+            // Each drive holds one disk, so a simulated pass may hand the same remainder to every empty drive.
+            stack = drive.HANDLER.insertItem(0, stack, simulate);
             if (stack.isEmpty()) break;
         }
         return stack;
