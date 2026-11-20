@@ -73,6 +73,7 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
             }
             data = AEUniversalCellData.computeIfAbsentCellDataForItemStack(stack);
             if (data == null) return null;
+            data.setDirty();
             id = getStorageId(stack);
         }
         if (host != null && !claimUniqueStorage(stack, host)) return null;
