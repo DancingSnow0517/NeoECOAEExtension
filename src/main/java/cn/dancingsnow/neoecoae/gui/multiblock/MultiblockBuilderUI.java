@@ -184,7 +184,7 @@ public final class MultiblockBuilderUI {
         ScrollerView materials = new ScrollerView().scrollerStyle(style -> style.mode(ScrollerMode.VERTICAL)
             .horizontalScrollDisplay(ScrollDisplay.NEVER).verticalScrollDisplay(ScrollDisplay.NEVER));
         materials.style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
-        materials.viewPort(view -> view.layout(layout -> layout.paddingAll(0))
+        materials.viewPort(view -> view.layout(layout -> layout.width(90).height(36).paddingAll(0))
             .style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
         int[] count = {Math.min(MATERIAL_SLOT_COUNT, getRequiredItems(config).size())};
         int initialRows = Math.max(2, (count[0] + MATERIAL_COLUMNS - 1) / MATERIAL_COLUMNS);
