@@ -33,6 +33,7 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvent;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
+import com.lowdragmc.lowdraglib.gui.widget.PhantomFluidWidget;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.DoubleSupplier;
@@ -40,9 +41,11 @@ import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.fluids.FluidStack;
@@ -261,6 +264,26 @@ public final class SmartCoolingModuleUI {
                 if (event.button != 0 && event.button != 1) return;
                 click.send(event.button);
                 event.stopImmediatePropagation();
+            });
+            // Use the same JEI/EMI fluid target and packet as the fluid input hatch.
+            addWidget(new PhantomFluidWidget(null, 0, 0, 0, 18, 18, () -> {
+                FluidStack fluid = value();
+                return com.lowdragmc.lowdraglib.side.fluid.FluidStack.create(
+                    fluid.getFluid(), fluid.getAmount(), fluid.getTag());
+            }, fluid -> {
+                if (!canEdit(host, player, this)) return;
+                host.setMarkedCoolant(fluid == null || fluid.isEmpty() ? FluidStack.EMPTY
+                    : new FluidStack(fluid.getFluid(), 1, fluid.getTag()));
+            }) {
+                @Override
+                public void drawInBackground(GuiGraphics graphics, int mouseX, int mouseY, float ticks) {}
+
+                @Override
+                public void handleClientAction(int id, FriendlyByteBuf buffer) {
+                    if (id == 2 && canEdit(host, player, MarkedCoolantSlot.this)) {
+                        super.handleClientAction(id, buffer);
+                    }
+                }
             });
             addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
                 var lines = new java.util.ArrayList<Component>();

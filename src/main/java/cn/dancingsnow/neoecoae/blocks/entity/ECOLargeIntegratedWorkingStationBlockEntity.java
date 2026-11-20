@@ -1756,18 +1756,19 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         preheating = false;
         coolingProblemId = PauseReason.NONE.ordinal();
         CoolingRecipe holder = getCoolingRecipeForInput();
+        int coolingTier = coolingTierForRecipe(holder);
         if (!getMainNode().isActive()) {
             coolingProblemId = PauseReason.POWER_MISSING.ordinal();
         } else if (holder == null) {
             coolingProblemId = PauseReason.COOLANT_MISSING.ordinal();
-        } else if (LargeWorkstationOverclock.forCoolantCapability(holder.maxOverclock()) == null) {
+        } else if (coolingTier == 0) {
             coolingProblemId = PauseReason.COOLANT_TIER_LOW.ordinal();
         } else if (overheated && !new ResourceLocation("neoecoae", "cryotheum_solution")
             .equals(BuiltInRegistries.FLUID.getKey(getInputTank().getFluid().getFluid()))) {
             coolingProblemId = PauseReason.COOLANT_TIER_LOW.ordinal();
         } else {
             var regulation = LargeWorkstationThermal.regulate(before, processingLoad,
-                cluster.getSmartCoolingController().getTargetTemperature(), holder.maxOverclock(),
+                cluster.getSmartCoolingController().getTargetTemperature(), coolingTier,
                 COOLANT_PER_PROCESSING_TICK * SMART_COOLING_COOLANT_MULTIPLIER);
             smartCoolingCoolantDemand = regulation.coolantAmount();
             CoolingTickPlan coolant = prepareCoolingTick(holder, regulation.coolantAmount());
