@@ -122,6 +122,12 @@ jobs:
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
           curseforge-id: 1460639
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          curseforge-dependencies: |
+            ldlib(required)
+            applied-energistics-2(required)
+            jei(optional)
+            guideme(optional)
+            jade(optional)
           loaders: forge
           game-versions: '1.20.1'
           java: '17'
