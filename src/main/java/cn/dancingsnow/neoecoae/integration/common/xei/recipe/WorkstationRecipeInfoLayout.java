@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.integration.recipe;
+package cn.dancingsnow.neoecoae.integration.common.xei.recipe;
 
 /** Pixel geometry shared by both viewers; additional card rows expand the footer, never cover inputs. */
 public record WorkstationRecipeInfoLayout(int cardCount, int textRows) {

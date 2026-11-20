@@ -7,9 +7,9 @@ import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlo
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingTargetProvider;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingStatusReader;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingStatusRegistry;
-import cn.dancingsnow.neoecoae.integration.processing.AssemblerMatrixProcessingStatus;
-import cn.dancingsnow.neoecoae.integration.processing.MekanismProcessingStatus;
-import cn.dancingsnow.neoecoae.integration.processing.ProcessingReflection;
+import cn.dancingsnow.neoecoae.integration.common.processing.AssemblerMatrixProcessingStatus;
+import cn.dancingsnow.neoecoae.integration.mekanism.processing.MekanismProcessingStatus;
+import cn.dancingsnow.neoecoae.integration.common.processing.ProcessingReflection;
 import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.Machine;
 import java.util.ArrayDeque;
 import java.util.LinkedHashMap;

@@ -7,7 +7,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission.StopReason;
-import cn.dancingsnow.neoecoae.integration.processing.ProcessingReflection;
+import cn.dancingsnow.neoecoae.integration.common.processing.ProcessingReflection;
 import cn.dancingsnow.neoecoae.integration.ae2.ECOUnboundedInputCapacity;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ReferenceSet;

@@ -141,7 +141,7 @@ public final class ECOOmniSequenceDirectDispatch {
                 return provider;
             }
             try {
-                Method m = cn.dancingsnow.neoecoae.integration.processing.ProcessingReflection
+                Method m = cn.dancingsnow.neoecoae.integration.common.processing.ProcessingReflection
                     .publicNoArgMethod(provider.getClass(), "getLogic");
                 if (m == null) return provider;
                 Object logic = m.invoke(provider);

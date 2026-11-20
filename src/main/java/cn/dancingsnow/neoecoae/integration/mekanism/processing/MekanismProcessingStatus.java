@@ -1,8 +1,8 @@
-package cn.dancingsnow.neoecoae.integration.processing;
+package cn.dancingsnow.neoecoae.integration.mekanism.processing;
 
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
-import static cn.dancingsnow.neoecoae.integration.processing.ProcessingReflection.*;
+import static cn.dancingsnow.neoecoae.integration.common.processing.ProcessingReflection.*;
 
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingStatusReader;
