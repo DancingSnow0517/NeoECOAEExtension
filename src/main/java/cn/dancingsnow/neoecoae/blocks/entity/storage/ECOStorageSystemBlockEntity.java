@@ -340,7 +340,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         ), this::getTier, this::getBlockState);
         actionUI.addTo(root, MultiblockBuildUI.create(this, holder.player));
         root.addChild(cellPriorityWindow);
-        return ECOModularUI.create(root, holder.player);
+        return ECOModularUI.create(root, holder.player,
+            stack -> StorageCellUi.quickMove(this, holder.player, stack));
     }
 
     @Nullable

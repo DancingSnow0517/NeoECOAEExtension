@@ -31,11 +31,12 @@ public final class DriveCellUiTransfer {
 
         var inventory = player.getInventory();
         var menu = player.containerMenu;
+        if (!menu.getCarried().isEmpty()) return false;
         int destination = -1;
         if (toInventory) {
             destination = inventory.getFreeSlot();
             if (destination < 0) return false;
-        } else if (!menu.getCarried().isEmpty()) return false;
+        }
 
         drive.setCellStack(null);
         if (drive.getCellStack() != null) return false;

@@ -19,6 +19,16 @@ final class StorageCellUi {
         return drive != null && DriveCellUiTransfer.insert(drive, player, carried);
     }
 
+    static ItemStack quickMove(ECOStorageSystemBlockEntity host, Player player, ItemStack stack) {
+        if (!host.canPlayerInteract(player) || !host.isFormed()) return stack;
+        for (var drive : host.getStorageUiDrives()) {
+            if (drive == null || drive.isRemoved()) continue;
+            stack = drive.HANDLER.insertItem(0, stack, false);
+            if (stack.isEmpty()) break;
+        }
+        return stack;
+    }
+
     static boolean extract(ECOStorageSystemBlockEntity host, Player player, BlockPos position,
         UUID expected, boolean toInventory) {
         if (player.level().isClientSide || !host.isFormed() || host.getCluster() == null || expected == null) return false;

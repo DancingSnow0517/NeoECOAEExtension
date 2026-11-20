@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.gui.common.ShiftQuickMove;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.impl.DataBindingBuilder;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.rpc.RPCEmitter;
@@ -29,14 +30,16 @@ final class ComputationDriveGrid extends UIElement {
     private static final int COLUMN_PITCH = 18;
     private static final int ROW_PITCH = 36;
     private final ComputationControllerUI.Config config;
+    private final ShiftQuickMove extractionDrag;
     private final RPCEmitter extraction;
     private final RPCEmitter insertion;
     private List<ComputationDriveEntry> upper = Collections.nCopies(COLUMNS, ComputationDriveEntry.EMPTY);
     private List<ComputationDriveEntry> lower = Collections.nCopies(COLUMNS, ComputationDriveEntry.EMPTY);
     private boolean interacting;
 
-    ComputationDriveGrid(ComputationControllerUI.Config config) {
+    ComputationDriveGrid(ComputationControllerUI.Config config, ShiftQuickMove extractionDrag) {
         this.config = config;
+        this.extractionDrag = extractionDrag;
         extraction = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, ItemStack.class, Boolean.class, Boolean.class,
             (position, expected, shift) -> isOpenMenu() && config.driveExtractor().extract(position, expected, shift)));
         insertion = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, ItemStack.class, Boolean.class,
@@ -113,6 +116,7 @@ final class ComputationDriveGrid extends UIElement {
                 .top(row * ROW_PITCH).width(16).height(16).paddingAll(0));
             style(style -> style.backgroundTexture(IGuiTexture.EMPTY).overflowVisible(true));
             slotStyle(style -> style.hoverOverlay(NETextures.AE2_SLOT_HIGHLIGHT));
+            extractionDrag.addSlot(this, this::quickExtract);
         }
 
         private ComputationDriveEntry entry() {
@@ -129,6 +133,10 @@ final class ComputationDriveGrid extends UIElement {
             if (event.button != 0 && event.button != 1 || interacting) return;
             var drive = entry();
             if (drive.position() == null) return;
+            if (extractionDrag.begin(this, event)) {
+                quickExtract();
+                return;
+            }
             var mui = getModularUI();
             if (mui == null || mui.getMenu() == null) return;
             ItemStack carried = mui.getMenu().getCarried();
@@ -141,6 +149,13 @@ final class ComputationDriveGrid extends UIElement {
                 interacting = true;
                 if (!extraction.send((Boolean success) -> interacting = false,
                     drive.position(), drive.stack().copy(), UIElement.isShiftDown())) interacting = false;
+            }
+        }
+
+        private void quickExtract() {
+            var drive = entry();
+            if (!interacting && drive.position() != null && !drive.stack().isEmpty()) {
+                extraction.send(ignored -> {}, drive.position(), drive.stack().copy(), true);
             }
         }
 

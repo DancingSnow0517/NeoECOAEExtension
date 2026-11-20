@@ -3,6 +3,8 @@ package cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.item.ItemStack;
+import java.util.function.UnaryOperator;
 
 /** Constructs a native LDLib1 menu from the retained ECO element tree. */
 public final class ModularUI {
@@ -13,9 +15,11 @@ public final class ModularUI {
     private int lastMouseDownButton=-1;
     private float mouseDownX,mouseDownY,lastMouseX,lastMouseY;
     private final DragHandler dragHandler=new DragHandler();
+    private final UnaryOperator<ItemStack> hostQuickMove;
     @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
     public ModularUI(UI ui){this(ui,net.minecraft.client.Minecraft.getInstance().player);}
-    public ModularUI(UI ui,Player player){this.ui=ui;this.player=player;ui.root().attachUI(this);}
+    public ModularUI(UI ui,Player player){this(ui,player,ItemStack::copy);}
+    public ModularUI(UI ui,Player player,UnaryOperator<ItemStack> hostQuickMove){this.ui=ui;this.player=player;this.hostQuickMove=hostQuickMove;ui.root().attachUI(this);}
     public com.lowdragmc.lowdraglib.gui.modular.ModularUI nativeUI(IUIHolder holder){
         if(nativeUI==null){for(var sheet:ui.stylesheets())sheet.apply(ui.root());ui.root().arrange();
             nativeUI=new com.lowdragmc.lowdraglib.gui.modular.ModularUI(ui.root(),holder,player);
@@ -23,6 +27,7 @@ public final class ModularUI {
         return nativeUI;
     }
     public AbstractContainerMenu getMenu(){return nativeUI==null?null:nativeUI.getModularUIContainer();}
+    public ItemStack quickMoveIntoHost(ItemStack stack){return hostQuickMove.apply(stack);}
     public boolean hasValidHolder(){return nativeUI!=null&&nativeUI.holder!=null&&!nativeUI.holder.isInvalid();}
     public UI getUi(){return ui;}
     public UIElement getRootElement(){return ui.root();}

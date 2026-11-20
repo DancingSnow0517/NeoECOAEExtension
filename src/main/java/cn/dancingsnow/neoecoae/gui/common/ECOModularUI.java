@@ -6,14 +6,20 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UI;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.style.StylesheetManager;
 import java.util.List;
+import java.util.function.UnaryOperator;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 
 /** Shared construction policy for ECO's synchronized LDLib2 menus. */
 public final class ECOModularUI {
     private ECOModularUI() {}
 
     public static ModularUI create(UIElement root, Player player) {
+        return create(root, player, stack -> stack);
+    }
+
+    public static ModularUI create(UIElement root, Player player, UnaryOperator<ItemStack> hostQuickMove) {
         return new ModularUI(UI.of(root,
-            List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), player);
+            List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), player, hostQuickMove);
     }
 }

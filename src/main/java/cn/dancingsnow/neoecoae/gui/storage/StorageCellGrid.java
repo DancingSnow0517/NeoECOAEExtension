@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import java.util.function.Supplier;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
+import cn.dancingsnow.neoecoae.gui.common.ShiftQuickMove;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.storage.ECOStorageCellSettings;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
@@ -30,6 +31,7 @@ final class StorageCellGrid extends UIElement {
     private final StoragePanelSync sync;
     private final int columns;
     private final Supplier<IECOTier> panelTier;
+    private final ShiftQuickMove extractionDrag;
     private final RPCEmitter extraction;
     private final RPCEmitter insertion;
     private final RPCEmitter migrateMarked;
@@ -46,9 +48,15 @@ final class StorageCellGrid extends UIElement {
     }
 
     StorageCellGrid(StoragePanelSync sync, int columns, StorageHostUI.Config config, Supplier<IECOTier> panelTier) {
+        this(sync, columns, config, panelTier, null);
+    }
+
+    StorageCellGrid(StoragePanelSync sync, int columns, StorageHostUI.Config config, Supplier<IECOTier> panelTier,
+        ShiftQuickMove extractionDrag) {
         this.sync = sync;
         this.panelTier = panelTier;
         this.columns = columns;
+        this.extractionDrag = extractionDrag;
         extraction = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, UUID.class, Boolean.class, Boolean.class,
             (position, expected, shift) -> isOpenMenu(config) && config.cellExtractor().extract(position, expected, shift)));
         insertion = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, ItemStack.class, Boolean.class,
@@ -161,6 +169,7 @@ final class StorageCellGrid extends UIElement {
                 .top(index / columns * 18).width(16).height(16).paddingAll(0));
             style(style -> style.backgroundTexture(IGuiTexture.EMPTY).overflowVisible(true));
             slotStyle(style -> style.hoverOverlay(NETextures.AE2_SLOT_HIGHLIGHT));
+            if (extractionDrag != null) extractionDrag.addSlot(this, this::quickExtract);
         }
 
         @Override public ItemStack getValue() { return cell(index).stack(); }
@@ -173,6 +182,10 @@ final class StorageCellGrid extends UIElement {
             if (event.button != 0 && event.button != 1 || interacting) return;
             var cell = cell(index);
             if (cell.position() == null) return;
+            if (extractionDrag != null && extractionDrag.begin(this, event)) {
+                quickExtract();
+                return;
+            }
             if (event.button == 1 && cell.interactionId() != null && ECOStorageCellSettings.canConfigure(cell.stack())) {
                 openActionsPopup(cell, index, event);
                 return;
@@ -189,6 +202,14 @@ final class StorageCellGrid extends UIElement {
                 interacting = true;
                 if (!extraction.send((Boolean success) -> interacting = false,
                     cell.position(), cell.interactionId(), UIElement.isShiftDown())) interacting = false;
+            }
+        }
+
+        private void quickExtract() {
+            var cell = cell(index);
+            if (!interacting && !actionsPopup.isOpen() && cell.position() != null
+                && cell.interactionId() != null && !cell.stack().isEmpty()) {
+                extraction.send(ignored -> {}, cell.position(), cell.interactionId(), true);
             }
         }
 

@@ -52,6 +52,7 @@
     "ae2.storage.StorageServiceMixin",
     "ae2.storage.StoredEnergyAmountMixin",
     "ldlib.AsyncThreadDataMixin",
+    "ldlib.ModularUIContainerQuickMoveMixin",
     "minecraft.LightningBoltMixin",
     "minecraft.RecipeManagerAccessor",
     "ae2.menu.CraftingStatusSuspensionMixin",

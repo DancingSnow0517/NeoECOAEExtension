@@ -4,6 +4,7 @@ import appeng.api.config.CpuSelectionMode;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.IHostPanelTextureProvider.Part;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureState;
+import cn.dancingsnow.neoecoae.gui.common.ShiftQuickMove;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureSync;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
@@ -182,6 +183,8 @@ public final class ComputationControllerUI {
         });
         listToggle.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
             List.of(Component.translatable("gui.neoecoae.computation.ui.cpu_list")), null, null, null));
+        ShiftQuickMove insertionDrag = new ShiftQuickMove();
+        ShiftQuickMove extractionDrag = new ShiftQuickMove();
         UIElement root = NeoUiJsonLoader.load(LAYOUT, new NeoUiJsonContext() {
             @Override
             public IECOTier panelTier() { return panelTier.get(); }
@@ -190,7 +193,7 @@ public final class ComputationControllerUI {
             public UIElement createCustom(JsonObject node) {
                 return switch (node.has("name") ? node.get("name").getAsString() : "") {
                     case "computation_artwork" -> new ComputationControllerArtwork(config, panelState, panelTier, textures);
-                    case "computation_drive_grid" -> new ComputationDriveGrid(config);
+                    case "computation_drive_grid" -> new ComputationDriveGrid(config, extractionDrag);
                     case "computation_cpu_selector" -> selector;
                     case "computation_status" -> status;
                     case "computation_switch" -> createSwitch(config,
@@ -209,11 +212,14 @@ public final class ComputationControllerUI {
                     && element instanceof InventorySlots inventory) {
                     inventory.hotbar.layout(layout -> layout.marginTop(4));
                     inventory.apply(slot -> slot.style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
+                    inventory.apply(slot -> insertionDrag.addMenuSlot(slot, 1));
                     inventory.getChildren().forEach(child -> child.style(style ->
                         style.backgroundTexture(IGuiTexture.EMPTY)));
                 }
             }
         });
+        insertionDrag.attachRoot(root);
+        extractionDrag.attachRoot(root);
         rootRef[0] = root;
         root.setOverflowVisible(true);
         root.addChild(textures);
