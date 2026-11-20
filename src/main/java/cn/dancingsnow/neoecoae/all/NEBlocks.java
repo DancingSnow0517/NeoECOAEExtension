@@ -623,7 +623,6 @@ public class NEBlocks {
             .require(AEBlocks.SKY_STONE_BLOCK, 2)
             .require(AEItems.ENGINEERING_PROCESSOR, 2)
             .require(NETags.Items.ENERGIZED_FLUIX_CRYSTAL_BLOCK)
-            .require(NEItems.ECO_CELL_COMPONENT_64M)
             .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 8)
             .require(NEItems.SUPERCONDUCTING_PROCESSOR, 8)
             .require(NEItems.CRYSTAL_MATRIX, 8)
