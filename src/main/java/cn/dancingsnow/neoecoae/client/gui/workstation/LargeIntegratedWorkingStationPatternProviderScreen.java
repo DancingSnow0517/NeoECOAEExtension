@@ -5,7 +5,7 @@ import appeng.client.gui.style.ScreenStyle;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.widgets.Scrollbar;
 import cn.dancingsnow.neoecoae.client.gui.widget.WorkstationInterfaceUpgradesPanel;
-import cn.dancingsnow.neoecoae.mixins.client.ae2.WorkstationInterfaceWidgetContainerAccessor;
+import cn.dancingsnow.neoecoae.mixins.ae2.client.WorkstationInterfaceWidgetContainerAccessor;
 import appeng.api.upgrades.Upgrades;
 import appeng.menu.SlotSemantics;
 import appeng.menu.slot.AppEngSlot;

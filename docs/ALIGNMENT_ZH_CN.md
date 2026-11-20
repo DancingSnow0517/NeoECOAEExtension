@@ -20,7 +20,7 @@
 | 物品数据用 NBT，主线用 DataComponents | `platform/nbt/NECellNbt.java`、`NEItemData.java` |
 | GTCEu / GTL 联动 | `compat/gregtech/`、`mixins/compat/gregtech/`、`storage/transfer/GTLFastInfinityTransfer.java`、`recipe/profile/`、`config/RecipeProfileConfig.java` |
 | KubeJS 6 的写法，主线是 Schema 写法 | `integration/kubejs/schema/` |
-| Forge 渲染修补（Embeddium、区块重建） | `client/rendering/EmbeddiumFixedGeometry.java`、`mixins/client/minecraft/ChunkRebuildTaskMixin.java` |
+| Forge 渲染修补（Embeddium、区块重建） | `client/rendering/EmbeddiumFixedGeometry.java`、`mixins/minecraft/client/ChunkRebuildTaskMixin.java` |
 | 工作站模型适配 Forge 图集 | `SpriteSourcesAccessor`（`f50999a3`） |
 | 统一的可选附属 mixin 插件 | `mixins/compat/ECOOptionalAddonMixinPlugin.java` |
 | 诊断探针、移植验证工具 | `client/diagnostics/`、`platform/diagnostics/`、`tools/`、`validation/`、`src/acceptance/` |

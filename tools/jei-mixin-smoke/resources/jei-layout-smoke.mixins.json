@@ -1,7 +1,7 @@
 {
   "required": true,
   "minVersion": "0.8",
-  "package": "cn.dancingsnow.neoecoae.mixins.client.jei",
+  "package": "cn.dancingsnow.neoecoae.mixins.jei.client",
   "compatibilityLevel": "JAVA_17",
   "mixins": ["RecipeLayoutMixin", "RecipeLayoutBuilderMixin"],
   "injectors": {"defaultRequire": 1}

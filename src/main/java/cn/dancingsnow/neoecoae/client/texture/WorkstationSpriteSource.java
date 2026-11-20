@@ -27,7 +27,7 @@ public record WorkstationSpriteSource(Map<String, ResourceLocation> palettes) im
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     public static final Codec<WorkstationSpriteSource> CODEC = Codec.unboundedMap(Codec.STRING, ResourceLocation.CODEC)
         .fieldOf("palettes").xmap(WorkstationSpriteSource::new, WorkstationSpriteSource::palettes).codec();
-    private static final SpriteSourceType TYPE = cn.dancingsnow.neoecoae.mixins.client.minecraft.SpriteSourcesAccessor
+    private static final SpriteSourceType TYPE = cn.dancingsnow.neoecoae.mixins.minecraft.client.SpriteSourcesAccessor
         .neoecoae$register("neoecoae:workstation_palette", CODEC);
     private static final String ROOT = "block/working_station/controller_formed/";
     private static final List<Layer> LAYERS = List.of(

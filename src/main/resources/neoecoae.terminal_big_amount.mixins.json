@@ -1,14 +1,14 @@
 {
   "required": false,
   "minVersion": "0.8",
-  "package": "cn.dancingsnow.neoecoae.mixins.terminalbigamount",
+  "package": "cn.dancingsnow.neoecoae.mixins.ae2",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
-    "MEStorageMenuExactAmountMixin"
+    "terminalbigamount.MEStorageMenuExactAmountMixin"
   ],
   "client": [
-    "client.MEStorageScreenExactAmountMixin",
-    "client.RepoExactAmountMixin"
+    "client.terminalbigamount.MEStorageScreenExactAmountMixin",
+    "client.terminalbigamount.RepoExactAmountMixin"
   ],
   "server": [],
   "injectors": {
