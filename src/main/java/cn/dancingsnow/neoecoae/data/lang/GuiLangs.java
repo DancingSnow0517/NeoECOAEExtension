@@ -495,6 +495,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.computation.settings.frequency", "Network frequency: %s / %s");
         provider.add("gui.neoecoae.computation.settings.back", "Back to CPU List");
         provider.add("gui.neoecoae.computation.status.time", "Time: %s");
+        provider.add("gui.neoecoae.computation.status.eta", "ETA: %s");
         provider.add("gui.neoecoae.computation.ui.control_heading", "Controls");
         provider.add("gui.neoecoae.computation.ui.switch.substitutions", "Deep");
         provider.add("gui.neoecoae.computation.ui.switch.cycle_planning", "Cycle");

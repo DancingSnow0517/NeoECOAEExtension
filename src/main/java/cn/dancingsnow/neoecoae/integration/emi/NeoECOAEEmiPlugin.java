@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.integration.emi.recipe.IntegrationWorkingStationE
 import cn.dancingsnow.neoecoae.integration.emi.recipe.MultiblockEmiRecipe;
 import cn.dancingsnow.neoecoae.client.gui.crafting.ECOCraftConfirmScreen;
 import cn.dancingsnow.neoecoae.client.gui.graph.ECOCraftingGraphScreen;
+import cn.dancingsnow.neoecoae.gui.computation.ComputationCpuStatusPanel;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.RetainedUIGuiContainer;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUIGuiContainer;
@@ -62,6 +63,13 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
             int right = (int) Math.ceil((ui.getGuiLeft() + ui.getWidth()) * scale);
             int bottom = (int) Math.ceil((ui.getGuiTop() + ui.getHeight()) * scale);
             return new Bounds(left, top, right - left, bottom - top);
+        });
+        registry.addStackProvider(RetainedUIGuiContainer.class, (screen, x, y) -> {
+            if (screen.modularUI.mainGroup instanceof ComputationCpuStatusPanel panel) {
+                var key = panel.getRecipeViewerKeyOverMouse(x, y);
+                if (key != null) return interaction(key);
+            }
+            return EmiStackInteraction.EMPTY;
         });
         registry.removeRecipes(recipe -> {
             if (cn.dancingsnow.neoecoae.integration.xei.HiddenEasterEggRecipes.isHidden(recipe.getId())) return true;
@@ -129,7 +137,7 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
         return EmiIngredient.of(list, ingredient.amount());
     }
 
-    private static EmiStackInteraction interaction(AEKey key) {
+    public static EmiStackInteraction interaction(AEKey key) {
         if (key instanceof AEItemKey item) {
             return new EmiStackInteraction(EmiStack.of(item.toStack()), null, false);
         }

@@ -167,6 +167,7 @@
   "gui.neoecoae.computation.settings.frequency": "Network frequency: %s / %s",
   "gui.neoecoae.computation.settings.substitutions": "Deep Planning Mode",
   "gui.neoecoae.computation.settings.title": "Computation System Settings",
+  "gui.neoecoae.computation.status.eta": "ETA: %s",
   "gui.neoecoae.computation.status.time": "Time: %s",
   "gui.neoecoae.computation.ui.card.available": "Available",
   "gui.neoecoae.computation.ui.card.built": "Built %s",

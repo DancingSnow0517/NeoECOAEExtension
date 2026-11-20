@@ -12,6 +12,12 @@ import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
 import cn.dancingsnow.neoecoae.integration.jei.categories.LargeWorkingStationCategory;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import com.lowdragmc.lowdraglib.jei.ClickableIngredient;
+import mezz.jei.api.constants.VanillaTypes;
+import mezz.jei.api.forge.ForgeTypes;
 import net.minecraft.client.Minecraft;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
@@ -22,6 +28,7 @@ import mezz.jei.api.registration.IRecipeCategoryRegistration;
 import mezz.jei.api.registration.IRecipeRegistration;
 import mezz.jei.api.registration.IRecipeTransferRegistration;
 import mezz.jei.api.runtime.IJeiRuntime;
+import mezz.jei.api.runtime.IClickableIngredient;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.Recipe;
 import org.jetbrains.annotations.Nullable;
@@ -85,6 +92,23 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
     }
 
     public static @Nullable IJeiRuntime runtime() { return runtime; }
+
+    public static @Nullable IClickableIngredient<?> clickableIngredient(AEKey key, double mouseX, double mouseY) {
+        var currentRuntime = runtime;
+        if (currentRuntime == null) return null;
+        var manager = currentRuntime.getIngredientManager();
+        if (key instanceof AEItemKey item) {
+            return manager.createTypedIngredient(VanillaTypes.ITEM_STACK, item.toStack(1), false)
+                .<IClickableIngredient<?>>map(ingredient -> new ClickableIngredient<>(ingredient,
+                    (int) mouseX - 8, (int) mouseY - 8, 16, 16)).orElse(null);
+        }
+        if (key instanceof AEFluidKey fluid) {
+            return manager.createTypedIngredient(ForgeTypes.FLUID_STACK, fluid.toStack(1), false)
+                .<IClickableIngredient<?>>map(ingredient -> new ClickableIngredient<>(ingredient,
+                    (int) mouseX - 8, (int) mouseY - 8, 16, 16)).orElse(null);
+        }
+        return null;
+    }
 
     @Override
     public void onRuntimeUnavailable() {

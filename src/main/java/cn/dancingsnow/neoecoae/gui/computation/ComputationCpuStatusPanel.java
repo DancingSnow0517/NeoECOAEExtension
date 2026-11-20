@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.compat.ae2craftingtime.ECOCraftingTimeCompat;
+
 import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
 
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingListCard;
@@ -88,7 +90,7 @@ import org.jetbrains.annotations.Nullable;
  * The 427x226 ECO crafting status page (stretches downwards with AE2's terminal style). A: CPU list, B: crafting status in AE2 order, C: running tasks in
  * processing state order, D: search that moves matches to B's first cell, E: AE2's suspend/cancel controls.
  */
-final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
+public final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private final HostProgressAnimation opening = new HostProgressAnimation();
     static final int WIDTH = 427, HEIGHT = 226, ROWS = 7;
     private static final int ROW_WIDTH = 67, ROW_HEIGHT = 22, ROW_STRIDE = 23, LIST_Y = 27;
@@ -172,6 +174,7 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
     private final ComputationScrollPage<ComputationCpuItemEntry> itemPage = new ComputationScrollPage<>(ITEM_ROWS, ITEM_COLS);
     private final ComputationScrollPage<ComputationCpuItemEntry> taskPage = new ComputationScrollPage<>(ROWS, 1);
     private ComputationCpuEntry selected;
+    private long estimatedRemainingMillis = -1L;
     private int selectedSerial = -1, total, cpuOffset, itemTotal, itemOffset, taskTotal, taskOffset;
     private int tier;
     private boolean tierBuiltin = true;
@@ -541,6 +544,8 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         }
         selected = value.contains("selected")
             ? ComputationCpuEntry.read(value.getCompound("selected"), registries) : null;
+        estimatedRemainingMillis = value.contains("profiledRemainingMillis")
+            ? value.getLong("profiledRemainingMillis") : -1L;
         graphButton.setActive(!graphPending && value.getBoolean("graphAvailable"));
         cpuScrollbar.update(cpuOffset, total - rows, rows / 3);
         itemScrollbar.update(itemOffset / ITEM_COLS, maxItemRows(itemTotal, rows), 1);
@@ -622,6 +627,31 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
             event.hoverTooltips = new HoverTooltips(List.of(),
                 ComputationCards.item(AEKeyRendering.getTooltip(item.key()), item), null, null);
         });
+    }
+
+    @Override
+    public Object getXEIIngredientOverMouse(double mouseX, double mouseY) {
+        AEKey key = getRecipeViewerKeyOverMouse(mouseX, mouseY);
+        if (key == null) return super.getXEIIngredientOverMouse(mouseX, mouseY);
+        if (net.minecraftforge.fml.ModList.get().isLoaded("jei")) {
+            var jeiIngredient = cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin.clickableIngredient(key, mouseX, mouseY);
+            if (jeiIngredient != null) return jeiIngredient;
+        }
+        return net.minecraftforge.fml.ModList.get().isLoaded("emi")
+            ? cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin.interaction(key) : null;
+    }
+
+    public @Nullable AEKey getRecipeViewerKeyOverMouse(double mouseX, double mouseY) {
+        if (!effectivelyVisible() || !isAllowXEIIngredientOverMouse() || getModularUI() == null) return null;
+        UIElement hit = getModularUI().hitTestAtScreen((float) mouseX, (float) mouseY);
+        if (hit == itemHit) {
+            var item = itemAt((float) mouseX, (float) mouseY);
+            if (item != null) return item.key();
+        } else if (hit == taskHit) {
+            var item = taskAt((float) mouseX, (float) mouseY);
+            if (item != null) return item.key();
+        }
+        return null;
     }
 
     @FunctionalInterface
@@ -732,8 +762,12 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
         // Elapsed time of the selected job, in the header space between the logo and the line's raised step.
         String elapsed = selected == null || selected.status().equals("idle") || selected.elapsed() <= 0 ? "--"
             : DurationFormatUtils.formatDuration(TimeUnit.NANOSECONDS.toMillis(selected.elapsed()), GuiText.ETAFormat.getLocal());
+        var time = estimatedRemainingMillis >= 0
+            ? Component.translatable("gui.neoecoae.computation.status.eta",
+                DurationFormatUtils.formatDuration(estimatedRemainingMillis, GuiText.ETAFormat.getLocal()))
+            : Component.translatable("gui.neoecoae.computation.status.time", elapsed);
         ComputationCpuSelector.fittedText(context, font,
-            Component.translatable("gui.neoecoae.computation.status.time", elapsed).getString(),
+            time.getString(),
             x + TIME_X, y + TIME_Y, TIME_WIDTH, 1.25F, TEXT_LIGHT);
         // Switch complete acknowledged pages together with the rows used for hit testing.
         cpuPage.advance();
@@ -1396,7 +1430,14 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
                     }
                 }
             }
-            if (selectedCpu != null) tag.put("selected", ComputationCpuEntry.sample(selectedCpu, selection.selectedSerial()).write(registries));
+            if (selectedCpu != null) {
+                var entry = ComputationCpuEntry.sample(selectedCpu, selection.selectedSerial());
+                tag.put("selected", entry.write(registries));
+                if (selectedCpu instanceof ECOCraftingCPU eco && entry.status().equals("running")) {
+                    ECOCraftingTimeCompat.remainingMillis(eco).ifPresent(millis ->
+                        tag.putLong("profiledRemainingMillis", (long) Math.ceil(millis)));
+                }
+            }
             // Detailed processing progress is synced separately for the rows the client shows (see processingSnapshot).
             Map<AEKey, ComputationCpuItemEntry> visible = new LinkedHashMap<>();
             tag.putInt("itemTotal", all.size());
