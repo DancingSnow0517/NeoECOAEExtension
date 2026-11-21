@@ -132,7 +132,7 @@ final class AepdPatternDiskBackend implements PatternDiskSupport.Backend {
     public boolean insertAuxiliary(InternalInventory slots, ItemStack pattern, Level level) {
         List<Integer> claimed = new ArrayList<>();
         List<Integer> empty = new ArrayList<>();
-        for (int slot = 0; slot < slots.size(); slot++) {
+        for (int slot = 0, size = slots.size(); slot < size; slot++) {
             ItemStack disk = slots.getStackInSlot(slot);
             if (!PatternDiskApi.canAccept(disk, pattern, level)) {
                 continue;
@@ -176,7 +176,7 @@ final class AepdPatternDiskBackend implements PatternDiskSupport.Backend {
             return List.of();
         }
         List<IPatternDetails> decoded = new ArrayList<>();
-        for (int slot = 0; slot < slots.size(); slot++) {
+        for (int slot = 0, size = slots.size(); slot < size; slot++) {
             PatternDiskContents contents = PatternDiskApi.contents(slots.getStackInSlot(slot));
             if (contents != null) {
                 decoded.addAll(PatternDiskApi.decodePatterns(contents, level));
@@ -187,7 +187,7 @@ final class AepdPatternDiskBackend implements PatternDiskSupport.Backend {
 
     @Override
     public boolean canAcceptAuxiliary(InternalInventory slots, ItemStack pattern, Level level) {
-        for (int slot = 0; slot < slots.size(); slot++) {
+        for (int slot = 0, size = slots.size(); slot < size; slot++) {
             if (PatternDiskApi.canAccept(slots.getStackInSlot(slot), pattern, level)) {
                 return true;
             }
@@ -237,7 +237,7 @@ final class AepdPatternDiskBackend implements PatternDiskSupport.Backend {
 
         @Override
         public boolean hasAuxiliaryRoom() {
-            for (int slot = 0; slot < slots.size(); slot++) {
+            for (int slot = 0, size = slots.size(); slot < size; slot++) {
                 ItemStack stack = slots.getStackInSlot(slot);
                 if (!PatternDiskApi.isPatternDisk(stack)) {
                     continue;
@@ -326,7 +326,7 @@ final class AepdPatternDiskBackend implements PatternDiskSupport.Backend {
 
         private List<ItemStack> disksInSlots() {
             List<ItemStack> found = new ArrayList<>();
-            for (int slot = 0; slot < slots.size(); slot++) {
+            for (int slot = 0, size = slots.size(); slot < size; slot++) {
                 ItemStack stack = slots.getStackInSlot(slot);
                 if (PatternDiskApi.isPatternDisk(stack)) {
                     found.add(stack);

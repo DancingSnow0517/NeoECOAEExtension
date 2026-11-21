@@ -753,13 +753,18 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         };
     }
 
+    /**
+     * Hatch fluid moves every tick while cooling runs, so this must stay cheap. The advertised pattern list
+     * does not depend on tank contents (see {@code LargeWorkstationPatternProvider#getAvailablePatterns}), and
+     * acceptance checks such as {@code isBusy} read live state, so no crafting-provider refresh is requested
+     * here: a refresh would remount every pattern and bump the provider revision, resetting ECO cursors.
+     */
     public void onChangeTankFromHatch() {
         super.onChangeTank();
         cachedTask = null;
         setChanged();
         markForUpdate();
         getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
-        requestCommunicationProviderUpdate();
     }
 
     @Override
