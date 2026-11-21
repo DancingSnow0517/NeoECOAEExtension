@@ -11,6 +11,7 @@ import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.IManagedGridNode;
 import appeng.api.orientation.BlockOrientation;
 import appeng.blockentity.grid.AENetworkedBlockEntity;
+import appeng.blockentity.networking.CreativeEnergyCellBlockEntity;
 import appeng.me.cluster.IAEMultiBlock;
 import appeng.me.helpers.BlockEntityNodeListener;
 import appeng.me.helpers.IGridConnectedBlockEntity;
@@ -19,6 +20,7 @@ import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.NENetworkSwitchBlock;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
+import com.google.common.collect.Iterables;
 import com.lowdragmc.lowdraglib2.syncdata.holder.ISyncMangedHolder;
 import lombok.Getter;
 import lombok.Setter;
@@ -158,6 +160,11 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     /** The exact value last applied to the AE2 node; empty before the first power update. */
     public final java.util.OptionalDouble appliedIdlePower() {
         return Double.isNaN(appliedIdlePower) ? java.util.OptionalDouble.empty() : java.util.OptionalDouble.of(appliedIdlePower);
+    }
+
+    public final boolean hasCreativeEnergy() {
+        var grid = getMainNode().getGrid();
+        return grid != null && Iterables.contains(grid.getMachineClasses(), CreativeEnergyCellBlockEntity.class);
     }
 
     public void updateMultiBlock(BlockPos changedPos) {
