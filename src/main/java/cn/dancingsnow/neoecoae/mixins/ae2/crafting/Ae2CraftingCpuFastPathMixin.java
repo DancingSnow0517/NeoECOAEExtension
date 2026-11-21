@@ -6,6 +6,7 @@ import appeng.crafting.execution.ExecutingCraftingJob;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.service.CraftingService;
+import cn.dancingsnow.neoecoae.api.me.ECOExternalCrafting;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuFastPath;
 import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle;
 import net.minecraft.nbt.CompoundTag;
@@ -37,10 +38,7 @@ public abstract class Ae2CraftingCpuFastPathMixin {
     @Inject(method = "executeCrafting", at = @At("HEAD"), cancellable = true)
     private void neoecoae$dispatch(int maxPatterns, CraftingService crafting, IEnergyService energy,
             Level level, CallbackInfoReturnable<Integer> cir) {
-        // OmniSequence owns extraction/accounting and has an ECO provider adapter.
-        // Thunderbolt's outer batch loop falls back here for ECO providers, which
-        // deliberately do not implement its foreign batch-provider interface.
-        if (net.minecraftforge.fml.ModList.get().isLoaded("molecularmanipulator")) return;
+        if (ECOExternalCrafting.ownsDispatch(this)) return;
         if (job instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob paused && paused.neoecoae$suspended()) { cir.setReturnValue(0); return; }
         try {
             int consumed = neoecoae$fastPath().execute(this, job, inventory, maxPatterns, crafting, energy, level);

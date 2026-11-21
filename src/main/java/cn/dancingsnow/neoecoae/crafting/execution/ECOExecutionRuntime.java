@@ -81,9 +81,15 @@ public final class ECOExecutionRuntime {
     private final Object2LongOpenHashMap<AEKey> startupSeedGenerations = new Object2LongOpenHashMap<>();
     private long startupSeedGeneration;
     private boolean reconciledEmptyCandidates;
+    private final @Nullable java.util.function.IntToLongFunction externalRemaining;
 
     public ECOExecutionRuntime(ECOExecutionPlan plan, Map<Integer, IPatternDetails> patternsById) {
         this(plan, toPatternArray(plan, patternsById), null);
+    }
+
+    public static ECOExecutionRuntime forExternalCpu(ECOExecutionPlan plan, Map<Integer, IPatternDetails> patternsById,
+            java.util.function.IntToLongFunction remaining) {
+        return new ECOExecutionRuntime(plan, toPatternArray(plan, patternsById), null, Objects.requireNonNull(remaining));
     }
 
     ECOExecutionRuntime(ECOExecutionPlan plan, Map<Integer, IPatternDetails> patternsById,
@@ -91,10 +97,16 @@ public final class ECOExecutionRuntime {
         this(plan, toPatternArray(plan, patternsById), progressByTaskId);
     }
 
-    @SuppressWarnings("unchecked")
     ECOExecutionRuntime(ECOExecutionPlan plan, IPatternDetails[] patternsById,
             ExecutingCraftingJob.TaskProgress[] progressByTaskId) {
+        this(plan, patternsById, progressByTaskId, null);
+    }
+
+    @SuppressWarnings("unchecked")
+    private ECOExecutionRuntime(ECOExecutionPlan plan, IPatternDetails[] patternsById,
+            ExecutingCraftingJob.TaskProgress[] progressByTaskId, @Nullable java.util.function.IntToLongFunction externalRemaining) {
         this.plan = Objects.requireNonNull(plan, "plan");
+        this.externalRemaining = externalRemaining;
         this.patternsById = Objects.requireNonNull(patternsById, "patternsById");
         if (this.patternsById.length != plan.tasks().size()) {
             throw new IllegalArgumentException("Execution pattern binding shape changed");
@@ -317,7 +329,7 @@ public final class ECOExecutionRuntime {
     }
 
     /** Commit scheduler state only after the provider has accepted the extracted inputs. */
-    java.math.BigInteger exactAllowance(DispatchCandidate candidate, java.math.BigInteger remaining) {
+    public java.math.BigInteger exactAllowance(DispatchCandidate candidate, java.math.BigInteger remaining) {
         return exactAllowance(candidate, PlannerAmount.of(remaining)).toBigInteger();
     }
 
@@ -330,7 +342,7 @@ public final class ECOExecutionRuntime {
         return witnessed ? remaining.min(PlannerAmount.of(candidate.maxDispatchCount())) : remaining;
     }
 
-    void onAcceptedExact(DispatchCandidate candidate, java.math.BigInteger count, KeyCounter[] inputs) {
+    public void onAcceptedExact(DispatchCandidate candidate, java.math.BigInteger count, KeyCounter[] inputs) {
         onAcceptedExact(candidate, PlannerAmount.of(count), inputs);
     }
 
@@ -559,7 +571,7 @@ public final class ECOExecutionRuntime {
         return null;
     }
 
-    void writeToNBT(CompoundTag data) {
+    public void writeToNBT(CompoundTag data) {
         data.putIntArray("stepCursor", stepCursor);
         data.putIntArray("dynamicCursor", dynamicCursor);
         ListTag phases = new ListTag();
@@ -598,7 +610,16 @@ public final class ECOExecutionRuntime {
 
     static ECOExecutionRuntime fromNBT(ECOExecutionPlan plan, Map<Integer, IPatternDetails> patternsById,
             ExecutingCraftingJob.TaskProgress[] progressByTaskId, CompoundTag data) {
-        ECOExecutionRuntime runtime = new ECOExecutionRuntime(plan, patternsById, progressByTaskId);
+        return restore(new ECOExecutionRuntime(plan, patternsById, progressByTaskId), data);
+    }
+
+    public static ECOExecutionRuntime restoreExternalCpu(ECOExecutionPlan plan, Map<Integer, IPatternDetails> patternsById,
+            java.util.function.IntToLongFunction remaining, CompoundTag data) {
+        return restore(forExternalCpu(plan, patternsById, remaining), data);
+    }
+
+    private static ECOExecutionRuntime restore(ECOExecutionRuntime runtime, CompoundTag data) {
+        var plan = runtime.plan;
         int[] stepCursor = data.getIntArray("stepCursor");
         int[] dynamicCursor = data.getIntArray("dynamicCursor");
         if (stepCursor.length != runtime.stepCursor.length || dynamicCursor.length != runtime.dynamicCursor.length) {
@@ -822,6 +843,7 @@ public final class ECOExecutionRuntime {
     }
 
     private long taskRemaining(int taskId, @Nullable Map<IPatternDetails, Long> remainingTasks) {
+        if (externalRemaining != null) return Math.max(0L, externalRemaining.applyAsLong(taskId));
         if (progressByTaskId != null) {
             var progress = progressByTaskId[taskId];
             return progress == null ? 0L : Math.max(0L, progress.value);
@@ -834,7 +856,7 @@ public final class ECOExecutionRuntime {
     }
 
     /** Keep the witnessed first firing, but let surplus stock fund additional copies without starving peers. */
-    long limitCycleBatch(DispatchCandidate candidate, KeyCounter[] inputs,
+    public long limitCycleBatch(DispatchCandidate candidate, KeyCounter[] inputs,
             appeng.crafting.inv.ListCraftingInventory inventory, long upper) {
         int phaseIndex = candidate.phaseIndex();
         var phase = plan.phases().get(phaseIndex);
@@ -961,6 +983,12 @@ public final class ECOExecutionRuntime {
             protectedSeedByOwner[ownerPhase + 1] = cached;
         }
         return cached;
+    }
+
+    public Map<AEKey, java.math.BigInteger> exactProtectedStartupSeed(@Nullable DispatchCandidate candidate) {
+        Map<AEKey, java.math.BigInteger> result = new LinkedHashMap<>();
+        protectedStartupSeed(candidate).forEach((key, amount) -> result.put(key, amount.toBigInteger()));
+        return Map.copyOf(result);
     }
 
     private Map<AEKey, PlannerAmount> buildProtectedStartupSeed(int ownerPhase) {

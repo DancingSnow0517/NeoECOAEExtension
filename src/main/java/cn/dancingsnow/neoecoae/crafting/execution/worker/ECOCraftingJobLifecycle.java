@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.execution.worker;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import cn.dancingsnow.neoecoae.api.me.ECOExternalCrafting;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -36,7 +37,11 @@ public final class ECOCraftingJobLifecycle extends SavedData {
     public static void finish(@Nullable Level level, @Nullable UUID jobId, boolean completed) {
         if (jobId == null) return;
         var data = get(level);
-        if (data != null && data.terminatedJobs.putIfAbsent(jobId, completed) == null) data.setDirty();
+        if (data != null && !data.terminatedJobs.containsKey(jobId)) {
+            if (!completed) ECOExternalCrafting.jobCanceled(level, jobId);
+            data.terminatedJobs.put(jobId, completed);
+            data.setDirty();
+        }
     }
 
     /**
@@ -70,8 +75,13 @@ public final class ECOCraftingJobLifecycle extends SavedData {
         CompoundTag link = cpuData.getCompound("job").getCompound("link");
         if (!link.hasUUID("craftId")) return;
         var data = get(level);
-        if (data != null && Boolean.FALSE.equals(data.terminatedJobs.remove(link.getUUID("craftId")))) {
-            data.setDirty();
+        if (data != null) {
+            var jobId = link.getUUID("craftId");
+            if (Boolean.FALSE.equals(data.terminatedJobs.get(jobId))) {
+                data.terminatedJobs.remove(jobId);
+                data.setDirty();
+            }
+            if (!data.terminatedJobs.containsKey(jobId)) ECOExternalCrafting.jobRestored(level, jobId);
         }
     }
 

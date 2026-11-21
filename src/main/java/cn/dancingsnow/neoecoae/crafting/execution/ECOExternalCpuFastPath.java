@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.execution;
 import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
 
 import appeng.api.config.Actionable;
+import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.execution.CraftingCpuHelper;
@@ -10,7 +11,6 @@ import appeng.crafting.inv.ListCraftingInventory;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
-import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
 import cn.dancingsnow.neoecoae.integration.ae2.ECOExternalProviderBlocking;
 import net.minecraft.nbt.CompoundTag;
@@ -44,7 +44,7 @@ public final class ECOExternalCpuFastPath {
 
     /** Native ECO workers and workstation queues own atomic batch admission. */
     private static boolean isEcoFastPathProvider(Object provider) {
-        return provider instanceof ECOFastPathDispatchProvider
+        return (provider instanceof ICraftingProvider crafting && ECOFastPathFacade.supportsNativeProvider(crafting))
             || ECOParallelCraftingProviders.find(provider) != null;
     }
 
