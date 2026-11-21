@@ -46,8 +46,17 @@ public class ECOFluidOutputHatchBlockEntity extends cn.dancingsnow.neoecoae.bloc
         tank.readFromNBT(registries, data);
     }
 
+    /**
+     * After a pass over every face moves nothing, wait this long before probing neighbours again. Not
+     * persisted: a reload simply probes on its first tick.
+     */
+    private static final long IDLE_TRANSFER_BACKOFF_TICKS = 20L;
+    private long nextTransferTick;
+
     public void tick(Level level, BlockPos pos, BlockState state) {
         if (tank.isEmpty()) return;
+        long now = level.getGameTime();
+        if (now < nextTransferTick) return;
         for (Direction face : Direction.values()) {
             IFluidHandler targetHandler = level.getCapability(Capabilities.FluidHandler.BLOCK, pos.relative(face), face.getOpposite());
             if (targetHandler != null) {
@@ -56,6 +65,7 @@ public class ECOFluidOutputHatchBlockEntity extends cn.dancingsnow.neoecoae.bloc
                 }
             }
         }
+        nextTransferTick = now + IDLE_TRANSFER_BACKOFF_TICKS;
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {

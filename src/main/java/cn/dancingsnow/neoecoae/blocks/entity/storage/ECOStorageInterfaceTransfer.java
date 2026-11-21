@@ -70,8 +70,9 @@ final class ECOStorageInterfaceTransfer {
             cn.dancingsnow.neoecoae.config.NEConfig.storageOutputFlushThreshold
         );
         if (moved > 0L) {
+            // No markForUpdate: nothing the client renders depends on the moved amount, and this runs every
+            // tick while transferring, so a block update here re-sends the host to every tracking player.
             host.setChanged();
-            host.markForUpdate();
         }
         return moved;
     }

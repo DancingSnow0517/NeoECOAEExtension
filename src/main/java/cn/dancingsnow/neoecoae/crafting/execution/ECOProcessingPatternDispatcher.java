@@ -23,6 +23,7 @@ import cn.dancingsnow.neoecoae.integration.mekenergistics.ECOMekEnergisticsBatch
 import cn.dancingsnow.neoecoae.integration.ae2.ECOExternalProviderBlocking;
 import cn.dancingsnow.neoecoae.integration.advanced_ae.ECOAdvancedAEPatternScaling;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
+import cn.dancingsnow.neoecoae.integration.common.processing.ProcessingReflection;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import java.util.List;
@@ -44,6 +45,7 @@ final class ECOProcessingPatternDispatcher {
     /** One continuously accepting pattern may use half of a tick; other ready tasks keep the rest. */
     static final int MAX_ATTEMPTS_PER_PATTERN_PER_TICK = MAX_ATTEMPTS_PER_TICK / 2;
     static final int MAX_ATTEMPTS_PER_VISIT = 32;
+    private static final String[] PROVIDER_MODE_METHODS = {"getProviderMode", "getWirelessDispatchMode", "getPushDirection"};
     private static final ClassValue<Boolean> HAS_LOGIC = new ClassValue<>() {
         @Override protected Boolean computeValue(Class<?> type) {
             try {
@@ -308,8 +310,10 @@ final class ECOProcessingPatternDispatcher {
 
     private static Object providerLogic(ICraftingProvider provider) {
         if (provider instanceof PatternProviderLogic || ECOAdvancedAEPatternScaling.isProvider(provider)) return provider;
+        java.lang.reflect.Method getLogic = ProcessingReflection.publicNoArgMethod(provider.getClass(), "getLogic");
+        if (getLogic == null) return null;
         try {
-            return provider.getClass().getMethod("getLogic").invoke(provider);
+            return getLogic.invoke(provider);
         } catch (ReflectiveOperationException | RuntimeException unavailable) {
             return null;
         }
@@ -349,12 +353,13 @@ final class ECOProcessingPatternDispatcher {
                 || request.pattern().getOutputs().isEmpty()
                 || !request.pattern().supportsPushInputsToExternalInventory()) return false;
         // Known directional/wireless provider modes split one push across targets and are not atomic here.
-        for (String method : new String[]{"getProviderMode", "getWirelessDispatchMode", "getPushDirection"}) {
+        for (String name : PROVIDER_MODE_METHODS) {
+            // Resolved once per class, absence included: absence is normal for the stock provider.
+            java.lang.reflect.Method method = ProcessingReflection.publicNoArgMethod(provider.getClass(), name);
+            if (method == null) continue;
             try {
-                Object value = provider.getClass().getMethod(method).invoke(provider);
+                Object value = method.invoke(provider);
                 if (value != null && !value.toString().equalsIgnoreCase("NORMAL")) return false;
-            } catch (NoSuchMethodException ignored) {
-                // Absence is normal for the stock provider.
             } catch (ReflectiveOperationException | RuntimeException unavailable) { return false; }
         }
         return true;

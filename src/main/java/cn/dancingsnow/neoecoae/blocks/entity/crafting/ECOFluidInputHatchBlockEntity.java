@@ -84,6 +84,13 @@ public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyField
     /** Exact amount in mB, including stock above the handler's int-sized view. */
     public long getStoredFluidAmount() { return tank.getStoredAmount(); }
 
+    /**
+     * After a pass over every face moves nothing, wait this long before probing neighbours again. Not
+     * persisted: a reload simply probes on its first tick.
+     */
+    private static final long IDLE_TRANSFER_BACKOFF_TICKS = 20L;
+    private long nextTransferTick;
+
     public void tick(Level level, BlockPos pos, BlockState state) {
         if (level.isClientSide) return;
         if (hasNetworkPullCard()) {
@@ -96,6 +103,8 @@ public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyField
             return;
         }
         if (tank.getSpace() <= 0) return;
+        long now = level.getGameTime();
+        if (now < nextTransferTick) return;
         for (Direction face : Direction.values()) {
             IFluidHandler sourceHandler = level.getCapability(Capabilities.FluidHandler.BLOCK, pos.relative(face), face.getOpposite());
             if (sourceHandler != null) {
@@ -104,6 +113,7 @@ public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyField
                 }
             }
         }
+        nextTransferTick = now + IDLE_TRANSFER_BACKOFF_TICKS;
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {

@@ -1814,7 +1814,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 setChanged();
             }
         }
-        if (tickLevel.getGameTime() % 20 == 0) markForUpdate();
+        // Thermal fields are @DescSynced; LDLib's passive sync pushes them when they change, so no periodic
+        // full block update is sent here.
     }
 
     private void tickSmartTemperature(double processingLoad) {
@@ -1861,7 +1862,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         }
         uiThermalUsage.record(level.getGameTime(), before, result);
         applyThermalState(result.state());
-        if (level.getGameTime() % 20 == 0) markForUpdate();
+        // Thermal fields are @DescSynced and synced passively by LDLib; see tickThermal.
     }
 
     private void settleThermalTick(long tick, double processingLoad, double preheatFraction, int coolingTier, boolean consumed) {

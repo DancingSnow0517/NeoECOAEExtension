@@ -44,8 +44,17 @@ public class ECOLargeIntegratedWorkingStationOutputHatchBlockEntity
         }
     }
 
+    /**
+     * After a pass over every face moves nothing, wait this long before probing neighbours again. Not
+     * persisted: a reload simply probes on its first tick.
+     */
+    private static final long IDLE_TRANSFER_BACKOFF_TICKS = 20L;
+    private long nextTransferTick;
+
     public void tick(Level level, BlockPos pos, BlockState state) {
         if (tank.isEmpty()) return;
+        long now = level.getGameTime();
+        if (now < nextTransferTick) return;
         var cluster = getCluster();
         for (Direction face : Direction.values()) {
             BlockPos neighborPos = pos.relative(face);
@@ -59,6 +68,7 @@ public class ECOLargeIntegratedWorkingStationOutputHatchBlockEntity
                 return;
             }
         }
+        nextTransferTick = now + IDLE_TRANSFER_BACKOFF_TICKS;
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {

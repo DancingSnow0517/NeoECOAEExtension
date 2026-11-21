@@ -138,7 +138,9 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
                     powerMultiply = controller.getTier().getOverclockedCrafterPowerMultiply();
                 }
                 int overlockTimes = controller.getExecutionOverclockTimes();
-                TickRateModulation rate = TickRateModulation.IDLE;
+                // Start from SLEEP so a worker whose threads are all idle stops ticking. Every path that hands
+                // a thread work (or leaves it recovery to retry) wakes this node through wakeTickingDevice().
+                TickRateModulation rate = TickRateModulation.SLEEP;
                 for (ECOCraftingThread thread : craftingThreads) {
                     TickRateModulation r = thread.tick(controller, overlockTimes, powerMultiply, ticksSinceLastCall);
                     if (r.ordinal() > rate.ordinal()) {
@@ -156,7 +158,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
                 controller.recordPerformanceSample(System.nanoTime() - startNanos);
             }
         } else {
-            TickRateModulation rate = TickRateModulation.IDLE;
+            TickRateModulation rate = TickRateModulation.SLEEP;
             for (ECOCraftingThread thread : craftingThreads) {
                 TickRateModulation outputRate = thread.tickOutputOnly();
                 if (outputRate != null && outputRate.ordinal() > rate.ordinal()) rate = outputRate;
@@ -512,9 +514,8 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
                 recoveredAll = false;
             }
         }
-        if (recoveredAll) {
-            wakeTickingDevice();
-        }
+        // A partial recovery leaves the thread busy with a retry pending; it must tick to retry it.
+        wakeTickingDevice();
         return recoveredAll;
     }
 
