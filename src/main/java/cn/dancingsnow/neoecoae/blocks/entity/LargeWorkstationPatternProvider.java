@@ -26,8 +26,6 @@ import cn.dancingsnow.neoecoae.integration.extendedaeplus.ECOExtendedAEPlusBlock
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.PatternProviderLogicAccessor;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
-import cn.dancingsnow.neoecoae.storage.StoragePerformance;
-import cn.dancingsnow.neoecoae.storage.StoragePerformance.Counter;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashSet;
@@ -344,7 +342,6 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
             return compatiblePatterns;
         }
         boolean contextChanged = lastController != controller || lastRecipes != recipes;
-        StoragePerformance.count(Counter.WORKSTATION_CATALOG_REBUILD);
         if (decodeAllSlots || contextChanged) {
             compatibleSlotPatterns.clear();
             ensureOccupiedPatternSlots();

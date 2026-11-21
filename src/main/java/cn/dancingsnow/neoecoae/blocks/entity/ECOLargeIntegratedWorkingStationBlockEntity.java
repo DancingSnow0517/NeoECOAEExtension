@@ -51,8 +51,6 @@ import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
-import cn.dancingsnow.neoecoae.storage.StoragePerformance;
-import cn.dancingsnow.neoecoae.storage.StoragePerformance.Counter;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
@@ -437,7 +435,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         int limit = getMaxBatchParallelism();
         if (lastParallelLimit != limit) {
             lastParallelLimit = limit;
-            StoragePerformance.count(Counter.WORKSTATION_LIMIT_CHANGE);
             getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
         }
     }
@@ -894,7 +891,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
             var entries = new ListTag();
             if (rebuild) {
-                StoragePerformance.count(Counter.WORKSTATION_PAGE_REBUILD);
                 int index = 0;
                 for (PendingBatch batch : pendingBatches) {
                     if (index++ < taskOffset) continue;
@@ -920,7 +916,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     private CompoundTag encodeUiTask(PendingBatch batch, boolean current) {
-        StoragePerformance.count(Counter.WORKSTATION_ROW_ENCODE);
         CompoundTag entry = new CompoundTag();
         entry.putUUID("id", batch.interactionId);
         entry.putInt("progress", (int) ((long) batch.progress * 200 / batch.processingTicks));

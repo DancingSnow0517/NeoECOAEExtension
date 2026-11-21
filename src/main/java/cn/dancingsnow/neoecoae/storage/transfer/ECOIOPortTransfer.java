@@ -14,8 +14,6 @@ import cn.dancingsnow.neoecoae.storage.StorageInterfaceFilter;
 import cn.dancingsnow.neoecoae.storage.StorageListingDelta;
 import cn.dancingsnow.neoecoae.storage.StorageListingVersion;
 import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
-import cn.dancingsnow.neoecoae.storage.StoragePerformance;
-import cn.dancingsnow.neoecoae.storage.StoragePerformance.Counter;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMaps;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountCollector;
@@ -141,7 +139,6 @@ public final class ECOIOPortTransfer {
             Iterable<it.unimi.dsi.fastutil.objects.Object2LongMap.Entry<AEKey>> entries =
                 available == null ? Object2LongMaps.fastIterable(listedAmounts) : available;
             for (var entry : entries) {
-                StoragePerformance.count(Counter.TRANSFER_KEY_DISCOVERY_VISIT);
                 if (entry.getLongValue() > 0L) {
                     listed++;
                     if (filter.test(entry.getKey())) queue.add(entry.getKey());
@@ -157,7 +154,6 @@ public final class ECOIOPortTransfer {
         int keysRemaining = Math.min(KEYS_PER_TICK, queue.size());
         while (keysRemaining-- > 0 && !queue.isEmpty()) {
             var key = queue.first();
-            StoragePerformance.count(Counter.TRANSFER_KEY_ATTEMPT);
             // Also recheck pending keys after a filter or interface change.
             if (!filter.test(key)) { queue.removeFirst(); continue; }
             long amount = availableAmount(available, key);

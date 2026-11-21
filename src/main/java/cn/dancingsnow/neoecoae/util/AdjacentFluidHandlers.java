@@ -1,7 +1,5 @@
 package cn.dancingsnow.neoecoae.util;
 
-import cn.dancingsnow.neoecoae.storage.StoragePerformance;
-import cn.dancingsnow.neoecoae.storage.StoragePerformance.Counter;
 import java.util.EnumMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -38,10 +36,8 @@ public final class AdjacentFluidHandlers {
 
     @Nullable
     public IFluidHandler get(ServerLevel level, BlockPos origin, Direction direction) {
-        StoragePerformance.count(Counter.HATCH_FACE_VISIT);
         var side = sides.computeIfAbsent(direction, face -> new Side(level, origin, face));
         if (side.dirty) {
-            StoragePerformance.count(Counter.HATCH_CAPABILITY_REFRESH);
             side.handler = side.cache.getCapability();
             side.dirty = false;
             if (side.handler == null) candidateFaces &= ~(1 << direction.ordinal());

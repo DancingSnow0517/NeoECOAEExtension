@@ -1,8 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
 import cn.dancingsnow.neoecoae.api.me.provider.ECOCraftingProviderRevision;
-import cn.dancingsnow.neoecoae.storage.StoragePerformance;
-import cn.dancingsnow.neoecoae.storage.StoragePerformance.Counter;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.util.ArrayList;
@@ -49,8 +47,6 @@ final class ECOProviderCursor {
                 || (!(service instanceof ECOCraftingProviderRevision) && cursor.tick != tick)) {
             var snapshot = new ArrayList<ICraftingProvider>();
             providers.get().forEach(snapshot::add);
-            StoragePerformance.count(Counter.PROVIDER_SNAPSHOT_REBUILD);
-            StoragePerformance.add(Counter.PROVIDER_SNAPSHOT_VISIT, snapshot.size());
             cursor = new Cursor(snapshot, tick, revision);
             if (previous != null && !previous.providers.isEmpty()) {
                 var nextProvider = previous.providers.get(previous.next);
@@ -68,7 +64,6 @@ final class ECOProviderCursor {
             @Override
             public boolean hasNext() {
                 while (next == null && checked < snapshot.size()) {
-                    StoragePerformance.count(Counter.PROVIDER_CANDIDATE_VISIT);
                     var provider = snapshot.get((start + checked++) % snapshot.size());
                     if (!eligible.test(provider)) continue;
                     boolean busy = provider.isBusy();

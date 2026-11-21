@@ -28,8 +28,6 @@ import cn.dancingsnow.neoecoae.storage.ECOCreativeCell;
 import cn.dancingsnow.neoecoae.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.storage.ECOInfiniteResourceCell;
 import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
-import cn.dancingsnow.neoecoae.storage.StoragePerformance;
-import cn.dancingsnow.neoecoae.storage.StoragePerformance.Counter;
 import cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell;
 import cn.dancingsnow.neoecoae.storage.bulk.ECOCompressionService;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
@@ -140,7 +138,6 @@ final class ECOStorageInterfaceTransfer {
             if (!changed) return cachedCombinedStorage;
         }
 
-        StoragePerformance.count(Counter.TRANSFER_HOST_REBUILD);
         List<MEStorage> cells = new ArrayList<>();
         if (cachedInfiniteStorage != null) cells.add(cachedInfiniteStorage);
         installed.clear();
@@ -163,7 +160,6 @@ final class ECOStorageInterfaceTransfer {
     }
 
     private IECOStorageCell installedCell(ECODriveBlockEntity drive) {
-        StoragePerformance.count(Counter.TRANSFER_DRIVE_VISIT);
         return drive.isInstalledStorageAvailable() ? drive.getCellInventory() : null;
     }
 
@@ -259,7 +255,6 @@ final class ECOStorageInterfaceTransfer {
         private void refreshInsertionOrder() {
             polledPriorities.forEach(this::refreshPriority);
             if (orderedInserts != null) return;
-            StoragePerformance.count(Counter.TRANSFER_ORDER_REBUILD);
             var sorted = new ArrayList<>(inventories);
             sorted.sort((left, right) -> Integer.compare(priorities.getInt(right), priorities.getInt(left)));
             orderedInserts = List.copyOf(sorted);
@@ -289,7 +284,6 @@ final class ECOStorageInterfaceTransfer {
                 : key instanceof AEFluidKey ? fluidInserts : orderedInserts;
             for (MEStorage inventory : candidates) {
                 if (inserted >= amount) break;
-                StoragePerformance.count(Counter.TRANSFER_CELL_ATTEMPT);
                 inserted += inventory.insert(key, amount - inserted, mode, source);
             }
             return inserted;
@@ -297,7 +291,6 @@ final class ECOStorageInterfaceTransfer {
 
         private static int storagePriority(MEStorage inventory) {
             if (!(inventory instanceof IECOStorageCell cell)) return 0;
-            StoragePerformance.count(Counter.TRANSFER_PRIORITY_READ);
             int priority = cell.getStoragePriority();
             // Keep third-party/mock cells that only implement the legacy marked-insert flag
             // ahead of ordinary storage while the new local priority API is absent.
@@ -310,7 +303,6 @@ final class ECOStorageInterfaceTransfer {
             long extracted = 0L;
             for (MEStorage inventory : inventories) {
                 if (extracted >= amount) break;
-                StoragePerformance.count(Counter.TRANSFER_CELL_ATTEMPT);
                 extracted += inventory.extract(key, amount - extracted, mode, source);
             }
             return extracted;

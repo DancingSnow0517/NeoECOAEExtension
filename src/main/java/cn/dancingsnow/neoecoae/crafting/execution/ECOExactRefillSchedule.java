@@ -4,7 +4,6 @@ import appeng.api.stacks.AEKey;
 import appeng.api.storage.MEStorage;
 import appeng.hooks.ticking.TickHandler;
 import cn.dancingsnow.neoecoae.storage.ECOCreativeSupply;
-import cn.dancingsnow.neoecoae.storage.StoragePerformance;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -29,9 +28,7 @@ final class ECOExactRefillSchedule {
     ECOExactRefillSchedule(MEStorage storage, Set<AEKey> missingKeys, long now) {
         this.storage = storage;
         this.changes = ECOCreativeSupply.get(storage);
-        StoragePerformance.count(StoragePerformance.Counter.EXACT_REFILL_BIND);
         for (AEKey key : missingKeys) {
-            StoragePerformance.count(StoragePerformance.Counter.EXACT_REFILL_BIND_KEY_VISITS);
             schedule(key, now);
         }
     }

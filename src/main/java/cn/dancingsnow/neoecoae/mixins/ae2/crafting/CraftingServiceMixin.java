@@ -111,12 +111,6 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         neoecoae$providerRevision++;
     }
 
-    @Inject(method = {"refreshNodeCraftingProvider", "refreshGlobalCraftingProvider"}, at = @At("HEAD"))
-    private void neoecoae$countProviderRefresh(CallbackInfo ci) {
-        cn.dancingsnow.neoecoae.storage.StoragePerformance.count(
-            cn.dancingsnow.neoecoae.storage.StoragePerformance.Counter.GRID_PROVIDER_REFRESH);
-    }
-
     @Unique
     private static final String NEOECOAE_LITE_CRAFTING_MODE_KEY =
             "neoecoaeLiteCraftingMode";

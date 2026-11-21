@@ -64,9 +64,7 @@ public final class ECOCreativeSupply {
 
     private void updateCandidates(ECOCreativeCell cell, boolean add) {
         candidateRevision++;
-        StoragePerformance.count(StoragePerformance.Counter.CREATIVE_INDEX_CELL_UPDATES);
         for (AEKey key : cell.configuredKeys()) {
-            StoragePerformance.count(StoragePerformance.Counter.CREATIVE_INDEX_KEY_VISITS);
             if (add) {
                 candidates.computeIfAbsent(key, ignored -> new HashSet<>()).add(cell);
                 stockChanged(key);
@@ -91,7 +89,6 @@ public final class ECOCreativeSupply {
         var listeners = refillListeners.get(key);
         if (listeners == null) return;
         for (var listener : listeners) {
-            StoragePerformance.count(StoragePerformance.Counter.EXACT_REFILL_NOTIFICATION_VISITS);
             listener.accept(key);
         }
     }
@@ -100,13 +97,11 @@ public final class ECOCreativeSupply {
 
     public static BigInteger extract(IGrid grid, AEKey key, BigInteger requested, IActionSource source) {
         if (requested.signum() <= 0) return BigInteger.ZERO;
-        StoragePerformance.count(StoragePerformance.Counter.CREATIVE_INDEX_LOOKUPS);
         if (!(grid.getStorageService().getInventory() instanceof Source indexed)) return BigInteger.ZERO;
         var supply = indexed.neoecoae$activeRefillSupply();
         var matching = supply == null ? null : supply.candidates.get(key);
         if (matching == null) return BigInteger.ZERO;
         for (var creative : matching) {
-            StoragePerformance.count(StoragePerformance.Counter.CREATIVE_CANDIDATE_VISITS);
             var drive = creative.drive();
             if (drive == null || drive.isRemoved() || !drive.isMounted() || !drive.isOnline()
                     || drive.getMainNode().getGrid() != grid || drive.getCellInventory() != creative) continue;

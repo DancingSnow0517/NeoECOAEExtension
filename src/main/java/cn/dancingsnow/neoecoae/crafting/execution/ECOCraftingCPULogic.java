@@ -61,7 +61,6 @@ import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOSingleCraftingExec
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.storage.ECOCreativeSupply;
-import cn.dancingsnow.neoecoae.storage.StoragePerformance;
 
 public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic
         implements ECOCraftingProgressSink,
@@ -741,13 +740,11 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
                 AEKey key = schedule.poll(now);
                 if (key == null) break;
                 PlannerAmount missing = current.deferredStock.get(key);
-                StoragePerformance.count(StoragePerformance.Counter.EXACT_REFILL_ATTEMPTS);
                 PlannerAmount taken;
                 try {
                     taken = PlannerAmount.of(ECOCreativeSupply.extract(grid, key, missing.toBigInteger(), source));
                     if (taken.signum() == 0) {
                         long wanted = missing.longValueSaturated();
-                        StoragePerformance.count(StoragePerformance.Counter.EXACT_REFILL_FINITE_CALLS);
                         long extracted = storage.extract(key, wanted, Actionable.MODULATE, source);
                         if (extracted < 0 || extracted > wanted) {
                             throw new IllegalStateException("Invalid exact material extraction");

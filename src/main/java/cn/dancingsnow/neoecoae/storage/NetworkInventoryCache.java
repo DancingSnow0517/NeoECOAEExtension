@@ -123,11 +123,9 @@ public final class NetworkInventoryCache {
     public boolean refresh(Mounts storage, KeyCounter published, Object2LongMap<AEKey> amounts,
             ObjLongConsumer<AEKey> changes, BiConsumer<MEStorage, KeyCounter> fullListing) {
         if (refreshing) return false;
-        long measured = StoragePerformance.start();
         // Both scopes change what a listing returns for the current caller only.
         boolean scoped = StorageBusTransferFilter.isActive();
         if (ExactAmountCollector.isActive() || scoped && !allowBusScopedViews) {
-            StoragePerformance.count(StoragePerformance.Counter.CACHE_SCOPED_FALLBACK);
             valid = false;
             return false;
         }
@@ -142,8 +140,6 @@ public final class NetworkInventoryCache {
             if (!storage.neoecoae$distinctMountsGuaranteed() && !distinct(inventories)) return;
             long mountGeneration = storage.neoecoae$mountGeneration();
             if (!valid || repairPublished && ++refreshes >= FULL_REBUILD_INTERVAL) {
-                if (valid) StoragePerformance.count(StoragePerformance.Counter.CACHE_REPAIR);
-                StoragePerformance.count(StoragePerformance.Counter.CACHE_REBUILD);
                 valid = false;
                 refreshes = 0;
                 rebuild(inventories, published, amounts, fullListing);
@@ -179,7 +175,6 @@ public final class NetworkInventoryCache {
             throw failure;
         } finally {
             refreshing = false;
-            StoragePerformance.end(StoragePerformance.Phase.CACHE_REFRESH, measured);
         }
     }
 
@@ -205,7 +200,6 @@ public final class NetworkInventoryCache {
         totals.clear();
         int current = nextEpoch();
         for (MEStorage inventory : inventories) {
-            StoragePerformance.count(StoragePerformance.Counter.CACHE_MOUNT_VISIT);
             Mount mount = new Mount(inventory);
             mount.version = mount.currentVersion();
             mount.identity = mount.currentIdentity();
@@ -253,7 +247,6 @@ public final class NetworkInventoryCache {
 
     private void updateMount(MEStorage inventory, boolean remounted, Object2LongMap<AEKey> amounts,
             BiConsumer<MEStorage, KeyCounter> fullListing, int current) {
-        StoragePerformance.count(StoragePerformance.Counter.CACHE_MOUNT_VISIT);
         Mount mount = mounts.get(inventory);
         boolean added = mount == null;
         if (added) mount = new Mount(inventory);
@@ -265,16 +258,12 @@ public final class NetworkInventoryCache {
             mounts.put(inventory, mount);
             for (var entry : Object2LongMaps.fastIterable(mount.content)) adjust(amounts, entry.getKey(), entry.getLongValue());
         } else if (remounted || viewChanged || version == StorageListingVersion.UNKNOWN || version != mount.version) {
-            if (remounted) StoragePerformance.count(StoragePerformance.Counter.CACHE_REMOUNT);
-            if (version == StorageListingVersion.UNKNOWN) StoragePerformance.count(StoragePerformance.Counter.CACHE_UNKNOWN_VERSION);
             if (!remounted && !viewChanged && mount.delta != null
                     && applyChanges(mount.delta, mount, version, amounts)) {
                 mount.version = version;
                 mount.epoch = current;
                 return;
             }
-            StoragePerformance.count(mount.delta == null ? StoragePerformance.Counter.CACHE_NO_DELTA
-                : StoragePerformance.Counter.CACHE_EXPIRED_DELTA);
             Object2LongOpenHashMap<AEKey> fresh = flatScratch;
             fresh.clear();
             list(inventory, fresh, fullListing);
@@ -289,8 +278,6 @@ public final class NetworkInventoryCache {
             old.clear();
             flatScratch = old;
             mount.content = fresh;
-        } else {
-            StoragePerformance.count(StoragePerformance.Counter.CACHE_UNCHANGED);
         }
         mount.version = version;
         mount.identity = identity;
@@ -304,8 +291,7 @@ public final class NetworkInventoryCache {
             return false;
         }
         Object2LongOpenHashMap<AEKey> content = mount.content;
-        boolean applied = delta.neoecoae$visitListingChanges(mount.version, version, (key, now) -> {
-            StoragePerformance.count(StoragePerformance.Counter.CACHE_CHANGED_KEYS);
+        return delta.neoecoae$visitListingChanges(mount.version, version, (key, now) -> {
             long before = content.getLong(key);
             if (now == before) return;
             adjust(amounts, key, now - before);
@@ -313,8 +299,6 @@ public final class NetworkInventoryCache {
             if (now == 0L) content.removeLong(key);
             else content.put(key, now);
         });
-        if (applied) StoragePerformance.count(StoragePerformance.Counter.CACHE_DELTA);
-        return applied;
     }
 
     private void publish(KeyCounter published, Object2LongMap<AEKey> amounts) {
@@ -414,7 +398,6 @@ public final class NetworkInventoryCache {
     }
 
     private void list(MEStorage inventory, Object2LongOpenHashMap<AEKey> out, BiConsumer<MEStorage, KeyCounter> fullListing) {
-        StoragePerformance.count(StoragePerformance.Counter.CACHE_FULL);
         // Only the public listing boundary needs AE2's grouped/fuzzy counter. Mounts retain a flat long map.
         scratch.clear();
         try {
@@ -423,7 +406,6 @@ public final class NetworkInventoryCache {
             scratch.removeZeros();
             out.clear();
             for (var entry : scratch) out.put(entry.getKey(), entry.getLongValue());
-            if (StoragePerformance.ENABLED) StoragePerformance.add(StoragePerformance.Counter.CACHE_LISTED_KEYS, out.size());
         } finally {
             // Retain capacity only; a scratch native counter must not become a second lasting inventory mirror.
             scratch.clear();
