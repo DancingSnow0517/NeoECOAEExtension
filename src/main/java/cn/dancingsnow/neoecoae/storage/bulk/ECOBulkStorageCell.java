@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
@@ -49,7 +50,24 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
     private int cachedSlots;
     private long filterRevision = -1;
     private List<AEItemKey> cachedFilters = List.of();
+    private List<IPatternDetails> conversionPatterns;
+    private Set<IPatternDetails> conversionPatternSet = Set.of();
+    private long conversionRevision = -1;
+    @Nullable private Runnable conversionChanged;
     private record Account(BulkUnits units, BigInteger amount) {}
+
+    public void setConversionChangeListener(@Nullable Runnable listener) {
+        conversionChanged = listener;
+    }
+
+    public void invalidateConversionPatterns() {
+        conversionPatterns = null;
+        if (conversionChanged != null) conversionChanged.run();
+    }
+
+    public boolean hasPendingOutputs() {
+        return !pending.isEmpty();
+    }
 
     public ECOBulkStorageCell(ItemStack stack, @Nullable ISaveProvider container) {
         this(stack, container, Map.of(), false);
@@ -135,14 +153,17 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
         List<GenericStack> markers = stack.getOrDefault(AEComponents.STORAGE_CELL_CONFIG_INV, List.of());
         int slots = (int) getTotalItemTypes();
         long revision = ECOCompressionService.revision();
-        if (filterRevision == revision && cachedSlots == slots && markers.equals(cachedMarkers)) return cachedFilters;
+        if (filterRevision == revision && cachedSlots == slots && markers.equals(cachedMarkers)) {
+            cachedMarkers = markers;
+            return cachedFilters;
+        }
         List<AEItemKey> result = new ArrayList<>();
         for (int i = 0; i < Math.min(markers.size(), slots); i++) {
             GenericStack marker = markers.get(i);
             if (marker != null && marker.what() instanceof AEItemKey item
                     && result.stream().noneMatch(existing -> ECOCompressionService.sameChain(existing, item))) result.add(item);
         }
-        cachedMarkers = new ArrayList<>(markers); cachedSlots = slots; filterRevision = revision;
+        cachedMarkers = markers; cachedSlots = slots; filterRevision = revision;
         cachedFilters = List.copyOf(result);
         return cachedFilters;
     }
@@ -260,6 +281,7 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
         if (amount <= 0 || !(what instanceof AEItemKey item)) return 0;
         Map<AEItemKey, Account> available = effectiveAccounts();
         long remaining = amount;
+        boolean definitionsChanged = false;
         for (var iterator = available.entrySet().iterator(); iterator.hasNext() && remaining > 0;) {
             var entry = iterator.next(); Account account = entry.getValue();
             BigInteger factor = account.units().factor(item);
@@ -270,12 +292,16 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
             remaining -= taken;
             if (mode == Actionable.MODULATE) {
                 BigInteger after = account.amount().subtract(factor.multiply(BigInteger.valueOf(taken)));
-                if (after.signum() == 0) iterator.remove();
-                else entry.setValue(new Account(account.units(), after));
+                if (after.signum() == 0) {
+                    iterator.remove();
+                    definitionsChanged |= !allowUnconfiguredInserts && account.units().compressible()
+                        && getEffectiveConfiguredFilters().stream().noneMatch(account.units()::contains);
+                } else entry.setValue(new Account(account.units(), after));
             }
         }
         if (remaining != amount && mode == Actionable.MODULATE) {
             commitAccounts(available);
+            if (definitionsChanged) invalidateConversionPatterns();
             saveChanges();
         }
         return amount - remaining;
@@ -313,9 +339,15 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
 
     public List<IPatternDetails> getConversionPatterns() {
         refreshUnresolved();
+        long currentRevision = ECOCompressionService.revision();
+        if (conversionPatterns != null && conversionRevision == currentRevision && filterInputsUnchanged(currentRevision)) {
+            return conversionPatterns;
+        }
         Map<BulkUnits, Integer> definitions = new LinkedHashMap<>();
-        for (AEItemKey marker : getEffectiveConfiguredFilters()) definitions.put(ECOCompressionService.units(marker),
-            ECOCompressionService.units(marker).cutoff(cutoffs.getOrDefault(ECOCompressionService.units(marker).items().getFirst(), marker)));
+        for (AEItemKey marker : getEffectiveConfiguredFilters()) {
+            BulkUnits units = ECOCompressionService.units(marker);
+            definitions.put(units, units.cutoff(cutoffs.getOrDefault(units.items().getFirst(), marker)));
+        }
         if (!allowUnconfiguredInserts) accounts.forEach((key, account) -> {
             if (isCurrent(account.units())) definitions.put(account.units(), cutoff(key, account));
         });
@@ -327,7 +359,19 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
                 else result.add(new ECOBulkConversionPattern(units.items().get(i), ratio, units.items().get(i + 1), 1));
             }
         });
-        return List.copyOf(result);
+        conversionRevision = currentRevision;
+        conversionPatternSet = Set.copyOf(result);
+        return conversionPatterns = List.copyOf(result);
+    }
+
+    public boolean supportsConversion(IPatternDetails pattern) {
+        getConversionPatterns();
+        return conversionPatternSet.contains(pattern);
+    }
+
+    private boolean filterInputsUnchanged(long revision) {
+        return filterRevision == revision && cachedSlots == getTotalItemTypes()
+            && stack.getOrDefault(AEComponents.STORAGE_CELL_CONFIG_INV, List.of()) == cachedMarkers;
     }
     @Override public AEItemKey cycleCompressionCutoff(AEItemKey item, int delta) {
         BulkUnits units = ECOCompressionService.units(item);
@@ -355,7 +399,8 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
 
     public void setCompressionCutoff(AEItemKey selected) {
         BulkUnits units = ECOCompressionService.units(selected);
-        cutoffs.put(units.items().getFirst(), selected);
+        if (selected.equals(cutoffs.put(units.items().getFirst(), selected))) return;
+        invalidateConversionPatterns();
         saveChanges();
     }
 
@@ -451,7 +496,10 @@ public final class ECOBulkStorageCell extends ECOStorageCell implements IECOBulk
         try {
             var saved = unresolved.copy(); int previous = saved.size(); unresolved.clear();
             for (Tag raw : saved) recover((CompoundTag) raw);
-            if (unresolved.size() != previous) saveChanges();
+            if (unresolved.size() != previous) {
+                invalidateConversionPatterns();
+                saveChanges();
+            }
         } finally { recovering = false; }
     }
     private void recover(CompoundTag envelope) {

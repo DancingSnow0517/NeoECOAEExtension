@@ -142,7 +142,6 @@ final class ECOInfiniteStorageModeController {
 
     private void syncModeChanges(ECOStorageHostMode previous) {
         if (previous != host.storageHostMode()) {
-            host.storageInterfaceTransfer().invalidateInfiniteStorageView();
             host.infiniteRestore().invalidateExtractionCheck();
             host.invalidateStorageStatistics();
             host.refreshDriveStorageProviders();
@@ -499,7 +498,7 @@ final class ECOInfiniteStorageModeController {
     @Nullable
     ECOInfiniteStorageEngine getEngine() {
         if (!(host.getLevel() instanceof ServerLevel serverLevel) || host.infiniteDomainId() == null) {
-            release();
+            if (mountedDomainId != null) release();
             return null;
         }
         MinecraftServer server = serverLevel.getServer();

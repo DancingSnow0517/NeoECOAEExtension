@@ -115,6 +115,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private boolean infiniteExitRequested;
     private transient boolean infiniteComponentsDirty = true;
     private transient boolean infiniteMembersDirty = true;
+    private transient int cachedMissingInfiniteMembers = -1;
     @Persisted
     @DescSynced
     @Nullable
@@ -587,6 +588,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         storagePriority = priority;
         setChanged();
         markForUpdate();
+        refreshBulkCraftingPublication();
         refreshDriveStorageProviders();
     }
 
@@ -619,6 +621,28 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return cluster == null ? List.of() : cluster.getDrives();
     }
 
+    void bulkDriveChanged(ECODriveBlockEntity drive, boolean removed) {
+        if (!(level instanceof ServerLevel) || isServerStopping()) return;
+        bulkCrafting.driveChanged(drive, removed);
+        bulkCrafting.refreshPublication();
+    }
+
+    public void refreshBulkCraftingPublication() {
+        if (level instanceof ServerLevel && !isRemoved() && !isServerStopping()) bulkCrafting.refreshPublication();
+    }
+
+    void queueBulkCraftingPublication() {
+        var grid = getMainNode().getGrid();
+        if (grid != null && grid.getService(cn.dancingsnow.neoecoae.api.IECOPatternStorageService.class)
+                instanceof cn.dancingsnow.neoecoae.grid.PatternCatalog catalog) catalog.enqueueBulkPublication(this);
+    }
+
+    @Override
+    public void onMainNodeStateChanged(appeng.api.networking.IGridNodeListener.State reason) {
+        super.onMainNodeStateChanged(reason);
+        if (level instanceof ServerLevel && !isServerStopping()) queueBulkCraftingPublication();
+    }
+
     /** Drives eligible for the shared cell-priority API; addons may expose their own drive implementations. */
     public List<? extends IECOConfigurableCellDrive> getConfigurableCellDrives() {
         return getStorageDrivesForIntegration();
@@ -631,12 +655,24 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (level == null || level.isClientSide) {
             return;
         }
+        interfaceTransfer.invalidateHostStorage();
+        refreshStorageConfiguration();
+    }
+
+    void refreshStorageConfiguration() {
         invalidateInfiniteMembers();
         invalidateStorageStatistics();
         infiniteRestore.invalidateExtractionCheck();
         setChanged();
         markForUpdate();
         refreshDriveStorageProviders();
+    }
+
+    void driveStorageAvailabilityChanged() {
+        interfaceTransfer.invalidateHostStorage();
+        infiniteMembersDirty = true;
+        cachedMissingInfiniteMembers = -1;
+        if (!isStorageServerStopping()) infiniteModeController.membersChanged();
     }
 
     @Override
@@ -714,6 +750,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         for (ECODriveBlockEntity drive : cluster.getDrives()) {
             if (ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), infiniteDomainId)) {
                 if (infiniteMemberIds.add(ECOInfiniteStorageMember.identity(drive.getCellStack()))) {
+                    cachedMissingInfiniteMembers = -1;
                     drive.setChanged();
                     setChanged();
                 }
@@ -724,20 +761,26 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     public void invalidateInfiniteMembers() {
         infiniteMembersDirty = true;
+        cachedMissingInfiniteMembers = -1;
         infiniteModeController.membersChanged();
     }
 
     public int getMissingInfiniteMembers() {
         if (!isInfiniteMode()) return 0;
+        boolean serverThread = level instanceof ServerLevel server && server.getServer().isSameThread();
+        if (serverThread && cachedMissingInfiniteMembers >= 0) return cachedMissingInfiniteMembers;
         java.util.Set<UUID> missing = new java.util.HashSet<>(infiniteMemberIds);
         if (cluster != null && infiniteDomainId != null) {
             for (ECODriveBlockEntity drive : cluster.getDrives()) {
-                if (ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), infiniteDomainId)) {
-                    ECOInfiniteStorageMember.getIdentity(drive.getCellStack()).ifPresent(missing::remove);
+                var stack = drive.getInstalledCellStack();
+                if (drive.isInstalledStorageAvailable() && ECOInfiniteStorageMember.isMemberOf(stack, infiniteDomainId)) {
+                    ECOInfiniteStorageMember.getIdentity(stack).ifPresent(missing::remove);
                 }
             }
         }
-        return missing.size() + invalidInfiniteMemberIds.size() + invalidInfiniteMigrationSourceIds.size();
+        int result = missing.size() + invalidInfiniteMemberIds.size() + invalidInfiniteMigrationSourceIds.size();
+        if (serverThread) cachedMissingInfiniteMembers = result;
+        return result;
     }
 
     boolean hasInvalidInfiniteMembers() {
@@ -759,6 +802,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     private void loadInfiniteMembers(CompoundTag tag) {
         infiniteMembersDirty = true;
+        cachedMissingInfiniteMembers = -1;
         infiniteMemberIds.clear();
         invalidInfiniteMemberIds.clear();
         for (var value : tag.getList("infiniteMemberIds", net.minecraft.nbt.Tag.TAG_STRING)) {
@@ -829,6 +873,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     public void onStorageInterfaceModeChanged() {
         if (level == null || level.isClientSide) return;
+        interfaceTransfer.invalidateHostStorage();
         ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
         if (level.getBlockState(worldPosition).hasProperty(ECOStorageSystemBlock.STORAGE_MODE)) {
             var mode = storageInterface == null ? cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode.STORAGE
@@ -836,6 +881,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             level.setBlockAndUpdate(worldPosition, level.getBlockState(worldPosition)
                     .setValue(ECOStorageSystemBlock.STORAGE_MODE, mode));
         }
+        refreshBulkCraftingPublication();
         refreshDriveStorageProviders();
         setChanged();
         markForUpdate();
@@ -879,19 +925,25 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (nextCluster == null) {
             infiniteModeController.release();
         }
+        interfaceTransfer.invalidateHostStorage();
+        cachedMissingInfiniteMembers = -1;
+        bulkCrafting.topologyChanged();
         super.updateCluster(nextCluster);
         invalidateInfiniteMembers();
         infiniteModeController.refreshHostAccess();
+        refreshBulkCraftingPublication();
     }
 
     @Override
     public void onChunkUnloaded() {
+        bulkCrafting.detach();
         infiniteModeController.release();
         super.onChunkUnloaded();
     }
 
     @Override
     public void setRemoved() {
+        bulkCrafting.detach();
         infiniteModeController.release();
         super.setRemoved();
     }
@@ -968,7 +1020,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     void setStorageHostMode(ECOStorageHostMode mode) {
         if (hostMode == mode) return;
         hostMode = mode;
+        interfaceTransfer.invalidateInfiniteStorageView();
         infiniteModeController.hostModeChanged();
+        refreshBulkCraftingPublication();
     }
 
     boolean consumeInfiniteComponentsDirty() {

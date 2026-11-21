@@ -20,6 +20,8 @@ import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
 import cn.dancingsnow.neoecoae.api.PatternStorageHost;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
+import cn.dancingsnow.neoecoae.storage.bulk.ECOCompressionService;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
@@ -110,6 +112,9 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
     private final Map<PatternStorageHost, Integer> indexedSlotCounts = new IdentityHashMap<>();
     private final Set<PatternStorageHost> untrackedHosts = new LinkedHashSet<>();
     private final LinkedHashSet<ECOCraftingPatternBusBlockEntity> diskBuses = new LinkedHashSet<>();
+    private final Set<ECOStorageSystemBlockEntity> bulkHosts = new LinkedHashSet<>();
+    private final Set<ECOStorageSystemBlockEntity> dirtyBulkHosts = new LinkedHashSet<>();
+    private long bulkCompressionRevision = -1;
     private record WritableHostKey(long position, long sequence) {}
     private final Map<PatternStorageHost, WritableHostKey> writableHostKeys = new IdentityHashMap<>();
     private final TreeMap<WritableHostKey, IECOPatternStorage> writableHosts = new TreeMap<>(
@@ -151,6 +156,10 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
     @Override
     public void addNode(IGridNode gridNode, @Nullable CompoundTag savedData) {
         IGridServiceProvider.super.addNode(gridNode, savedData);
+        if (gridNode.getOwner() instanceof ECOStorageSystemBlockEntity host) {
+            bulkHosts.add(host);
+            dirtyBulkHosts.add(host);
+        }
         invalidateExternalPatternIndex();
         IECOPatternStorage service = gridNode.getService(IECOPatternStorage.class);
         if (service == null) return;
@@ -166,6 +175,10 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
     @Override
     public void removeNode(IGridNode gridNode) {
         IGridServiceProvider.super.removeNode(gridNode);
+        if (gridNode.getOwner() instanceof ECOStorageSystemBlockEntity host) {
+            bulkHosts.remove(host);
+            dirtyBulkHosts.remove(host);
+        }
         IECOPatternStorage removed = patternStorages.remove(gridNode);
         if (removed == preferredStorage) {
             preferredStorage = null;
@@ -861,6 +874,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
 
     @Override
     public void onServerEndTick() {
+        flushBulkPublications();
         externalPatternTick++;
         if (!externalPatternClaimTicks.isEmpty()) {
             List<UUID> expired = new ArrayList<>();
@@ -1091,6 +1105,24 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                 updateWritableHost(host);
             }
         }
+    }
+
+    public void enqueueBulkPublication(ECOStorageSystemBlockEntity host) {
+        if (bulkHosts.contains(host)) dirtyBulkHosts.add(host);
+    }
+
+    public void flushBulkPublications() {
+        var server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        if (server == null || !server.isSameThread()) return;
+        long revision = ECOCompressionService.revision();
+        if (bulkCompressionRevision != revision) {
+            bulkCompressionRevision = revision;
+            dirtyBulkHosts.addAll(bulkHosts);
+        }
+        if (dirtyBulkHosts.isEmpty()) return;
+        var current = List.copyOf(dirtyBulkHosts);
+        dirtyBulkHosts.clear();
+        for (var host : current) host.refreshBulkCraftingPublication();
     }
 
     private void reconcileDiskBuses() {

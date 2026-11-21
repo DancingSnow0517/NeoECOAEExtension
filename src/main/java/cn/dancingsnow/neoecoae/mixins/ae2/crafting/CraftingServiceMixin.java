@@ -83,6 +83,16 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     @Unique
     private volatile long neoecoae$providerRevision;
 
+    @Inject(method = "beginCraftingCalculation", at = @At("HEAD"))
+    private void neoecoae$publishBulkBeforePlanning(net.minecraft.world.level.Level level,
+            appeng.api.networking.crafting.ICraftingSimulationRequester requester, AEKey what, long amount,
+            appeng.api.networking.crafting.CalculationStrategy strategy, CallbackInfoReturnable<?> cir) {
+        if (!(level instanceof net.minecraft.server.level.ServerLevel serverLevel)
+                || !serverLevel.getServer().isSameThread()) return;
+        var service = grid.getService(cn.dancingsnow.neoecoae.api.IECOPatternStorageService.class);
+        if (service instanceof cn.dancingsnow.neoecoae.grid.PatternCatalog catalog) catalog.flushBulkPublications();
+    }
+
     @Override
     public long neoecoae$getProviderRevision() {
         return neoecoae$providerRevision;
@@ -99,6 +109,12 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     }, at = @At("HEAD"))
     private void neoecoae$invalidateProviderCursors(CallbackInfo ci) {
         neoecoae$providerRevision++;
+    }
+
+    @Inject(method = {"refreshNodeCraftingProvider", "refreshGlobalCraftingProvider"}, at = @At("HEAD"))
+    private void neoecoae$countProviderRefresh(CallbackInfo ci) {
+        cn.dancingsnow.neoecoae.storage.StoragePerformance.count(
+            cn.dancingsnow.neoecoae.storage.StoragePerformance.Counter.GRID_PROVIDER_REFRESH);
     }
 
     @Unique
