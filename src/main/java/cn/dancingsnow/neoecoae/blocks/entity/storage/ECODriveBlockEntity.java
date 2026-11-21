@@ -16,6 +16,8 @@ import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.storage.DeferredCellPersistence;
 import cn.dancingsnow.neoecoae.storage.ECOCellMutationBatch;
+import cn.dancingsnow.neoecoae.storage.ECOCreativeCell;
+import cn.dancingsnow.neoecoae.storage.ECOCreativeSupply;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
@@ -336,7 +338,25 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         }
         super.onMainNodeStateChanged(reason);
         online = getMainNode().isOnline();
+        updateCreativeAvailability();
         setChanged();
+    }
+
+    @Override
+    protected void onMainNodeGridChanged() {
+        if (isServerStopping()) return;
+        online = getMainNode().isOnline();
+        updateCreativeAvailability();
+    }
+
+    private void updateCreativeAvailability() {
+        if (!(cachedCellInventory instanceof ECOCreativeCell creative)) return;
+        var grid = getMainNode().getGrid();
+        if (grid == null) return;
+        if (grid.getStorageService().getInventory() instanceof ECOCreativeSupply.Source storage) {
+            var supply = storage.neoecoae$activeRefillSupply();
+            if (supply != null) supply.availabilityChanged(creative, online);
+        }
     }
 
     @Override
@@ -410,6 +430,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         if (level == null || level.isClientSide) {
             return;
         }
+        if (cachedCellInventory instanceof ECOCreativeCell) invalidateCellInventoryCache();
         updateCellState();
         setChanged();
         markForUpdate();

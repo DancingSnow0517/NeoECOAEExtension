@@ -139,12 +139,31 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
     @Override
     public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
         super.loadTag(data, registries);
+        releaseExactRefillSchedules();
         Arrays.fill(cpus, null);
         Arrays.fill(deferredInit, null);
         for (int i = 0; i < cpus.length; i++) {
             if (data.contains("CPU" + i)) {
                 deferredInit[i] = data.getCompound("CPU" + i);
             }
+        }
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        releaseExactRefillSchedules();
+        super.onChunkUnloaded();
+    }
+
+    @Override
+    public void setRemoved() {
+        releaseExactRefillSchedules();
+        super.setRemoved();
+    }
+
+    private void releaseExactRefillSchedules() {
+        for (ECOCraftingCPU cpu : cpus) {
+            if (cpu != null) cpu.getLogic().releaseExactRefillSchedule();
         }
     }
 
@@ -284,6 +303,7 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
     }
 
     public void deactivate(ECOCraftingCPU cpu) {
+        cpu.getLogic().releaseExactRefillSchedule();
         for (int i = 0; i < cpus.length; i++) {
             if (cpus[i] == cpu) {
                 cpus[i] = null;

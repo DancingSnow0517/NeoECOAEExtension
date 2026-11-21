@@ -14,6 +14,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
@@ -27,12 +28,17 @@ public final class ECOCreativeCell implements IECOStorageCell {
     private final StorageCell delegate;
     private final Set<AEKey> configured;
     private final int configSlots;
+    @Nullable private final ECODriveBlockEntity drive;
 
-    ECOCreativeCell(StorageCell delegate, int configSlots) {
+    ECOCreativeCell(StorageCell delegate, int configSlots, @Nullable ECODriveBlockEntity drive) {
         this.delegate = delegate;
-        this.configured = delegate.getAvailableStacks().keySet();
+        this.configured = Set.copyOf(delegate.getAvailableStacks().keySet());
         this.configSlots = configSlots;
+        this.drive = drive;
     }
+
+    @Nullable
+    public ECODriveBlockEntity drive() { return drive; }
 
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
@@ -133,7 +139,8 @@ public final class ECOCreativeCell implements IECOStorageCell {
         @Override
         public @Nullable IECOStorageCell getCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
             StorageCell delegate = CreativeCellHandler.INSTANCE.getCellInventory(stack, host);
-            return delegate == null ? null : new ECOCreativeCell(delegate, CellConfig.create(stack).size());
+            return delegate == null ? null : new ECOCreativeCell(delegate, CellConfig.create(stack).size(),
+                host instanceof ECODriveBlockEntity drive ? drive : null);
         }
     }
 }
