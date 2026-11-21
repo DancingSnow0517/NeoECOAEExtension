@@ -23,8 +23,6 @@ public record ECOForceCraftStartFlagC2SPacket(int containerId, boolean forceStar
             if (!(context.player() instanceof ServerPlayer player)) return;
             var current = player.containerMenu;
             var logger = org.slf4j.LoggerFactory.getLogger("neoecoae");
-            logger.info("[craft-submit] Server received: container={}, currentContainer={}, forced={}",
-                packet.containerId, current == null ? null : current.containerId, packet.forceStart);
             if (!(current instanceof CraftConfirmMenu menu) || menu.containerId != packet.containerId) {
                 logger.warn("[craft-submit] Rejected packet: reason=MENU_MISMATCH, container={}", packet.containerId);
                 return;

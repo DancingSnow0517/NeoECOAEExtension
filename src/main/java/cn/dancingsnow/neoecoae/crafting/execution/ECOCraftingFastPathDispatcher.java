@@ -7,8 +7,6 @@ import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 
 import java.util.function.Consumer;
-import java.util.Set;
-import java.util.HashSet;
 
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -26,10 +24,6 @@ import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelpe
  */
 final class ECOCraftingFastPathDispatcher {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
-    // Server-thread only; release diagnostics when this CPU starts another job.
-    private final Set<ExactDiagnosticKey> exactDiagnostics = new HashSet<>();
-    private java.util.UUID diagnosticJob;
-    private record ExactDiagnosticKey(Object provider, Object pattern, String reason) {}
 
     private final ECOCraftingEnergyTransaction energyTransaction;
     private final ECOCraftingDispatchAccounting accounting;
@@ -56,62 +50,33 @@ final class ECOCraftingFastPathDispatcher {
             @Nullable Long dispatchLimit) {
         if (!request.job().exactOrder
                 || !(request.inventory() instanceof cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory inventory)) {
-            exactDiagnostic(request, provider, "not-an-exact-inventory", null);
             return null;
         }
         var target = ECOFastPathFacade.resolveProvider(provider);
-        if (target == null) {
-            exactDiagnostic(request, provider, "no-fast-path-adapter", null);
-            return null;
-        }
+        if (target == null) return null;
         var initialRequest = request.job().tasks.get(request.pattern()).remainingQuantity();
         var requested = dispatchLimit == null ? initialRequest
             : initialRequest.min(PlannerAmount.of(dispatchLimit));
-        exactDiagnostic(request, provider, "requested", requested);
         var runtime = request.job().executionRuntime;
         if (runtime != null) requested = runtime.exactAllowance(request.candidate(), requested);
-        exactDiagnostic(request, provider, "after-runtime-allowance", requested);
-        var runtimeAllowance = requested;
         if (!Double.isFinite(singlePower) || singlePower < 0) return null;
         if (singlePower > 0) {
             requested = PlannerAmount.of(ECOBatchCraftingHelper.maxAffordableCrafts(singlePower, requested.toBigInteger(),
                 offer -> energyService.extractAEPower(offer, appeng.api.config.Actionable.SIMULATE,
                     appeng.api.config.PowerMultiplier.CONFIG)));
-            if (requested.signum() <= 0) {
-                exactDiagnostic(request, provider, "energy-limit", requested);
-                return null;
-            }
+            if (requested.signum() <= 0) return null;
         }
-        exactDiagnostic(request, provider, "after-energy-allowance", requested);
         var context = cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext.create(request.pattern(),
             request.inputs(), request.outputs(), request.remainders(), request.level(), request.job().link.getCraftingID());
-        var energyAllowance = requested;
-        var materialAllowance = new PlannerAmount[1];
         var batch = cn.dancingsnow.neoecoae.crafting.execution.batch.ECOExactBatchPlanner.prepare(
             target, context, inventory, requested,
-            runtime == null ? java.util.Map.of() : runtime.protectedStartupSeed(request.candidate()),
-            amount -> {
-                materialAllowance[0] = amount;
-                exactDiagnostic(request, provider, "after-material-allowance", amount);
-            });
-        if (batch == null) {
-            exactDiagnostic(request, provider, "provider-rejected-or-long-only", requested);
-            return null;
-        }
-        exactDiagnostic(request, provider, "provider-admitted", batch.craftQuantity(),
-            () -> "initial=" + initialRequest + " runtime=" + runtimeAllowance
-                + " energy=" + energyAllowance + " material=" + materialAllowance[0]);
+            runtime == null ? java.util.Map.of() : runtime.protectedStartupSeed(request.candidate()));
+        if (batch == null) return null;
         var energy = energyTransaction.reserve(energyService, singlePower, batch.craftCount());
-        if (energy == null) {
-            exactDiagnostic(request, provider, "exact-energy-reservation-failed", batch.craftQuantity());
-            return null;
-        }
+        if (energy == null) return null;
         recordAttempt.accept(provider);
         try {
-            if (!batch.submit(energy)) {
-                exactDiagnostic(request, provider, "provider-commit-rejected", batch.craftQuantity());
-                return null;
-            }
+            if (!batch.submit(energy)) return null;
         } catch (ECOIndeterminateBatchException failure) {
             request.job().failPermanently("INDETERMINATE_EXACT_BATCH_ACCEPTANCE");
             throw failure;
@@ -123,26 +88,6 @@ final class ECOCraftingFastPathDispatcher {
             throw failure;
         }
         return batch.craftCount();
-    }
-
-    private void exactDiagnostic(ECOCraftingDispatchRequest request, ICraftingProvider provider,
-            String reason, PlannerAmount amount) {
-        exactDiagnostic(request, provider, reason, amount, () -> "");
-    }
-
-    private void exactDiagnostic(ECOCraftingDispatchRequest request, ICraftingProvider provider,
-            String reason, PlannerAmount amount, java.util.function.Supplier<String> details) {
-        var jobId = request.job().link.getCraftingID();
-        if (!java.util.Objects.equals(jobId, diagnosticJob)) {
-            exactDiagnostics.clear();
-            diagnosticJob = jobId;
-        }
-        var key = new ExactDiagnosticKey(provider, request.pattern(), reason);
-        if (exactDiagnostics.size() < 4096 && exactDiagnostics.add(key)) {
-            LOGGER.warn("[big-order] exact dispatch diagnostic reason={} requested={} provider={} job={} pattern={} inputs={} limits={}",
-                reason, amount, provider.getClass().getName(), jobId,
-                request.pattern().getOutputs(), java.util.Arrays.toString(request.inputs()), details.get());
-        }
     }
 
     /**

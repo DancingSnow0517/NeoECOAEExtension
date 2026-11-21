@@ -17,22 +17,14 @@ public final class ECOExactBatchPlanner {
     public static @Nullable PreparedBatch prepare(ECOFastPathDispatchProvider provider,
             ECOBatchDispatchContext context, ECOExactInventory inventory, BigInteger requested,
             Map<AEKey, Long> protectedSeeds) {
-        return prepare(provider, context, inventory, requested, protectedSeeds, ignored -> {});
-    }
-
-    /** Reports the material-limited request before asking the provider for admission. */
-    public static @Nullable PreparedBatch prepare(ECOFastPathDispatchProvider provider,
-            ECOBatchDispatchContext context, ECOExactInventory inventory, BigInteger requested,
-            Map<AEKey, Long> protectedSeeds, java.util.function.Consumer<BigInteger> materialAllowance) {
         Map<AEKey, PlannerAmount> exactSeeds = new java.util.LinkedHashMap<>();
         protectedSeeds.forEach((key, amount) -> exactSeeds.put(key, PlannerAmount.of(amount)));
-        return prepare(provider, context, inventory, PlannerAmount.of(requested), exactSeeds,
-                amount -> materialAllowance.accept(amount.toBigInteger()));
+        return prepare(provider, context, inventory, PlannerAmount.of(requested), exactSeeds);
     }
 
     public static @Nullable PreparedBatch prepare(ECOFastPathDispatchProvider provider,
             ECOBatchDispatchContext context, ECOExactInventory inventory, PlannerAmount requested,
-            Map<AEKey, PlannerAmount> protectedSeeds, java.util.function.Consumer<PlannerAmount> materialAllowance) {
+            Map<AEKey, PlannerAmount> protectedSeeds) {
         if (!inventory.isEnabled() || requested.signum() <= 0) return null;
         var initialRequest = requested;
         var unitInputs = ECOExactInventory.totalsQuantities(context.inputItems(), PlannerAmount.ONE);
@@ -42,7 +34,6 @@ public final class ECOExactBatchPlanner {
             requested = requested.min(available.divide(input.getValue()));
         }
         requested = new ECOBatchPlanner().planExact(initialRequest, requested, initialRequest, initialRequest);
-        materialAllowance.accept(requested);
         if (requested.signum() <= 0) return null;
         var admission = provider.eco$prepareExactFastPath(context, requested.toBigInteger());
         if (admission == null) return null;

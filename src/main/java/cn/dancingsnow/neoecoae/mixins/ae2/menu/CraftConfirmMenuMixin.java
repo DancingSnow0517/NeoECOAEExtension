@@ -390,8 +390,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         }
         final ICraftingSubmitResult submitted;
         try {
-            NEOECOAE_LOGGER.info("[big-order-submit] Submitting to CPU: container={}, output={}, forced={}, waitingForMaterials={}, cpu={}",
-                menu.containerId, result.finalOutput(), forced, waitingForMaterials, neoecoae$describeCpu(cpu));
             if (waitingForMaterials) {
                 // A missing cycle has no executable schedule. Publish a persistent parent and let
                 // its planner create complete children after stock (including startup seeds) arrives.
@@ -414,7 +412,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         }
         menu.setAutoStart(false);
         if (submitted.successful()) {
-            NEOECOAE_LOGGER.info("[big-order-submit] Accepted: container={}, output={}", menu.containerId, result.finalOutput());
             result = null;
             neoecoae$confirmedPlanningResult = null;
             menu.getHost().returnToMainMenu(menu.getPlayer(), menu);
@@ -431,10 +428,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             reason, menu.containerId, result == null ? null : result.finalOutput(), neoecoae$getPlanningStatus(),
             neoecoae$describeCpu(selectedCpu), failure.errorCode(), failure.errorDetail());
     }
-
-    @Unique
-    private String neoecoae$lastStartDiagnostic;
-    @Unique private long neoecoae$nextStartDiagnosticTick;
 
     @Shadow
     private ICraftingPlan result;
@@ -517,8 +510,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$confirmedPlanningResult = null;
         neoecoae$originalOptions = null;
         neoecoae$liteCraftingMode = false;
-        neoecoae$lastStartDiagnostic = null;
-        neoecoae$nextStartDiagnosticTick = 0;
     }
 
     /**
@@ -889,47 +880,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         Collections.sort(entries);
         ((CraftingPlanSummaryAccessor) (Object) summary).neoecoae$setEntries(entries);
         return summary;
-    }
-
-    @Inject(method = "broadcastChanges", at = @At("TAIL"))
-    private void logDisabledStartButton(CallbackInfo ci) {
-        var menu = (CraftConfirmMenu) (Object) this;
-        if (menu.isClientSide() || result == null
-                || !neoecoae$ecoPlannerAvailable && !NEConfig.ecoCraftSubmissionDebug) {
-            return;
-        }
-        long tick = menu.getLevel().getGameTime();
-        if (tick < neoecoae$nextStartDiagnosticTick) return;
-        neoecoae$nextStartDiagnosticTick = tick + 20;
-        PlanningStatus status = neoecoae$getPlanningStatus();
-        boolean unrepresentable = status == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE;
-        if (unrepresentable && neoecoae$bigOrderCpu
-                || !noCPU && !result.simulation() && !unrepresentable) {
-            if (neoecoae$lastStartDiagnostic != null) {
-                NEOECOAE_LOGGER.info("[ECO-CRAFT-SUBMIT] Server start gate cleared: container={}", menu.containerId);
-                neoecoae$lastStartDiagnostic = null;
-            }
-            return;
-        }
-
-        IGrid grid = getGrid();
-        String cpuDetails = grid != null
-            && grid.getCraftingService() instanceof ECOCraftingServiceDiagnostics diagnostics
-            ? diagnostics.neoecoae$describeCpuSelection(result, getActionSrc())
-            : "crafting service diagnostics unavailable";
-        String reason = unrepresentable ? "NO_ELIGIBLE_ECO_CPU"
-            : noCPU ? "NO_MATCHING_CPU" : "SIMULATION_REQUIRES_FORCE";
-        String diagnostic = reason + ":" + status + ":" + result.bytes() + ":" + result.simulation()
-            + ":" + neoecoae$describeCpu(selectedCpu) + ":" + cpuDetails;
-        if (diagnostic.equals(neoecoae$lastStartDiagnostic)) return;
-        neoecoae$lastStartDiagnostic = diagnostic;
-        NEOECOAE_LOGGER.warn(
-            "[ECO-CRAFT-SUBMIT] Start disabled: reason={}, container={}, player={}, output={}, amount={}, bytes={}, simulation={}, noCPU={}, "
-                + "planningStatus={}, selectedCpu={}\n{}",
-            reason, menu.containerId,
-            getActionSrc().player().map(player -> player.getGameProfile().getName()).orElse("<machine>"),
-            result.finalOutput().what(), result.finalOutput().amount(), result.bytes(), result.simulation(), noCPU,
-            status, neoecoae$describeCpu(selectedCpu), cpuDetails);
     }
 
     @Unique
