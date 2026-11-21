@@ -260,7 +260,7 @@ final class ECOCraftingTaskScheduler {
                         },
                         (providerCandidate, busy) -> ECOCraftingDispatchPolicyRegistry.isProviderAvailable(
                                 cpuContext, providerCandidate, busy));
-                if (providers.isEmpty()) {
+                if (!providers.hasNext()) {
                     logReason(current, candidate, "no-ready-provider", () -> "provider availability or dispatch policy rejected all providers");
                     stallDiagnostics.noReadyProvider();
                     if (providerEligibility[0] || !providerEligibility[1]) releasePreferredPattern(pattern);
@@ -352,7 +352,7 @@ final class ECOCraftingTaskScheduler {
                     break;
                 }
                 logReason(current, candidate, "provider-dispatch-not-accepted",
-                        () -> "providersTried=" + providers.size() + " allowedCrafts=" + dispatchCandidate.maxDispatchCount());
+                        () -> "providerAttempted=" + providerAttempted[0] + " allowedCrafts=" + dispatchCandidate.maxDispatchCount());
                 if (providerAttempted[0]) releasePreferredPattern(pattern);
                 if (candidate.blocksOrderedPhase()) blockedOrderedPhases.set(candidate.phaseIndex());
             }
