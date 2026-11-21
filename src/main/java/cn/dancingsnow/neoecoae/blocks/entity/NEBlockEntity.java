@@ -26,6 +26,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -252,6 +255,25 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
             tag.put(syncManagedHolder.getSyncTag(), syncManagedHolder.serializeInitialData(registries));
         }
         return tag;
+    }
+
+    @Override
+    public void handleUpdateTag(CompoundTag tag, HolderLookup.Provider registries) {
+        if (tag.contains("#upd", Tag.TAG_BYTE_ARRAY) && this instanceof ISyncMangedHolder holder
+                && tag.get(holder.getSyncTag()) instanceof CompoundTag managed) {
+            var ae2 = new CompoundTag();
+            ae2.putByteArray("#upd", tag.getByteArray("#upd"));
+            super.handleUpdateTag(ae2, registries);
+            holder.deserializeInitialData(registries, managed);
+        } else {
+            super.handleUpdateTag(tag, registries);
+        }
+    }
+
+    @Override
+    public void onDataPacket(Connection connection, ClientboundBlockEntityDataPacket packet,
+                             HolderLookup.Provider registries) {
+        if (!packet.getTag().isEmpty()) handleUpdateTag(packet.getTag(), registries);
     }
 
     private Iterator<IGridNode> getMultiblockNodes() {
