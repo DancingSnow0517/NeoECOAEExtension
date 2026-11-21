@@ -816,6 +816,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.host.crafting.host_type.high_energy", "High-Energy");
         provider.add("gui.neoecoae.host.crafting.host_type.normal", "Normal");
         provider.add("gui.neoecoae.crafting.ui.energy_usage", "Energy Usage");
+        provider.add("gui.neoecoae.crafting.ui.creative_energy", "Creative Energy");
         provider.add("gui.neoecoae.crafting.performance", "Performance");
         provider.add("gui.neoecoae.crafting.task.status.running", "Running");
         provider.add("gui.neoecoae.crafting.task.status.queued", "Queued");

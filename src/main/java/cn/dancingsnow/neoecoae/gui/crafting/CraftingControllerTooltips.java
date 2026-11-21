@@ -94,7 +94,12 @@ final class CraftingControllerTooltips {
     }
 
     List<Component> energyTooltip() {
-        return List.of(Component.translatable("gui.neoecoae.crafting.ui.energy_usage"),
+        Component title = Component.translatable("gui.neoecoae.crafting.ui.energy_usage");
+        if (view.creativeEnergy) {
+            return List.of(title, Component.translatable("gui.neoecoae.crafting.ui.creative_energy")
+                .withColor(HostText.CREATIVE_ENERGY));
+        }
+        return List.of(title,
             Component.literal(DisplayNumbers.compact(view.energyUsage) + " AE/t"),
             Tooltips.ofPercent(view.state.energyPermille() / (double) CraftingControllerPanelState.FULL));
     }

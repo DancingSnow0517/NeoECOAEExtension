@@ -909,6 +909,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
                 ? 1 : CraftingHostPanelUI.formatRecipeTimeTicks(getExecutionOverclockTimes()),
             this::getPerformanceAverageNanos,
             this::getMaxEnergyUsage,
+            this::hasCreativeEnergy,
             this::getDisplayedCoolantAmount,
             this::getDisplayedCoolantCapacity,
             this::getDisplayedCoolingMaxOverclock,

@@ -323,7 +323,7 @@ final class CraftingControllerArtwork extends UIElement {
         drawHorizontalProgress(context, 121, 114, PROGRESS_BAR_WIDTH,
             CraftingControllerPanelState.permille(1, view.executionTicks), 8, 122);
         int height = Math.round(GAUGE_INTERIOR_HEIGHT * opening.value(
-            view.state.energyPermille() / (double) CraftingControllerPanelState.FULL));
+            view.creativeEnergy ? 1.0D : view.state.energyPermille() / (double) CraftingControllerPanelState.FULL));
         if (height > 0) sprite(context, 0, 115 + 46 - height, 8, height, 176, 78 + 46 - height, 8, height);
         drawFluidGauge(context, 195, view.coolantFluid, view.coolantAmount, view.coolantCapacity, 209);
         drawFluidGauge(context, 226, view.outputFluid, view.outputFluid.getAmount(), view.outputCapacity, 240);

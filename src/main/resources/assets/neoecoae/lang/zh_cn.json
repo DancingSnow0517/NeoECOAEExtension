@@ -993,6 +993,7 @@
   "gui.neoecoae.host.crafting.host_type.high_energy": "高能",
   "gui.neoecoae.host.crafting.host_type.normal": "普通",
   "gui.neoecoae.crafting.ui.energy_usage": "能耗",
+  "gui.neoecoae.crafting.ui.creative_energy": "创造能源",
   "gui.neoecoae.crafting.performance": "性能",
   "tooltip.neoecoae.storage.infinite_component_locked": "无法取出无限组件：当前内容无法安全回落到普通矩阵",
   "tooltip.neoecoae.storage.infinite_migration_locked": "该存储矩阵正在迁移至无限存储，暂时无法取出",
