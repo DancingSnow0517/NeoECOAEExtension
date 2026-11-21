@@ -8,13 +8,13 @@ import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.implementations.blockentities.PatternContainerGroup;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.inventories.BaseInternalInventory;
+import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.IUpgradeableObject;
 import appeng.api.upgrades.UpgradeInventories;
 import appeng.core.definitions.AEItems;
 import appeng.util.inv.filter.IAEItemFilter;
 import appeng.util.inv.AppEngInternalInventory;
-import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
@@ -25,12 +25,15 @@ import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingTargetProvider;
 import cn.dancingsnow.neoecoae.integration.extendedaeplus.ECOExtendedAEPlusBlocking;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.PatternProviderLogicAccessor;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
-import cn.dancingsnow.neoecoae.integration.ae2pattern.PatternDiskSupport;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
+import cn.dancingsnow.neoecoae.storage.StoragePerformance;
+import cn.dancingsnow.neoecoae.storage.StoragePerformance.Counter;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -56,7 +59,14 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
     private final ECOLargeIntegratedWorkingStationInterfaceBlockEntity host;
     private final IUpgradeInventory capacityUpgrades;
     private final InternalInventory visiblePatternInventory = new EffectivePatternInventory();
+    private final BitSet occupiedPatternSlots = new BitSet(MAX_PATTERN_SLOTS);
+    private final TreeMap<Integer, IPatternDetails> compatibleSlotPatterns = new TreeMap<>();
+    private boolean occupiedSlotsKnown;
+    private boolean decodeAllSlots = true;
+    private List<IPatternDetails> compatibleDiskPatterns = List.of();
+    private boolean diskPatternsDirty = true;
     private List<IPatternDetails> compatiblePatterns = List.of();
+    private Set<IPatternDetails> compatiblePatternSet = Set.of();
     private Set<AEItemKey> advertisedKeys = Set.of();
     private int advertisementRevision;
     private boolean compatiblePatternsDirty = true;
@@ -131,19 +141,33 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
 
     private void onCapacityUpgradesChanged() {
         host.saveChanges();
-        host.onPatternSlotsChanged();
+        host.onPatternSlotsChanged(-1);
         host.markForUpdate();
-        updatePatterns();
     }
 
     int getRequiredPatternRows() {
-        InternalInventory inventory = super.getPatternInv();
-        for (int slot = inventory.size() - 1; slot >= 0; slot--) {
-            if (!inventory.getStackInSlot(slot).isEmpty()) {
-                return Math.max(getUnlockedPatternRows(), slot / PATTERN_COLUMNS + 1);
+        if (host.getLevel() != null && host.getLevel().isClientSide()) {
+            var inventory = super.getPatternInv();
+            for (int slot = inventory.size() - 1; slot >= 0; slot--) {
+                if (!inventory.getStackInSlot(slot).isEmpty()) {
+                    return Math.max(getUnlockedPatternRows(), slot / PATTERN_COLUMNS + 1);
+                }
             }
+            return getUnlockedPatternRows();
         }
-        return getUnlockedPatternRows();
+        ensureOccupiedPatternSlots();
+        return Math.max(getUnlockedPatternRows(), (occupiedPatternSlots.length() + PATTERN_COLUMNS - 1) / PATTERN_COLUMNS);
+    }
+
+    private void ensureOccupiedPatternSlots() {
+        if (occupiedSlotsKnown) return;
+        occupiedPatternSlots.clear();
+        var inventory = super.getPatternInv();
+        int slotCount = inventory.size();
+        for (int slot = 0; slot < slotCount; slot++) {
+            if (!inventory.getStackInSlot(slot).isEmpty()) occupiedPatternSlots.set(slot);
+        }
+        occupiedSlotsKnown = true;
     }
 
     private final class EffectivePatternInventory extends BaseInternalInventory {
@@ -191,6 +215,12 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
         return advertisementRevision;
     }
 
+    int cachedAdvertisementRevision() { return advertisementRevision; }
+
+    @Nullable IPatternDetails getCompatibleSlotPattern(int slot) {
+        return getAvailablePatterns().isEmpty() ? null : compatibleSlotPatterns.get(slot);
+    }
+
     public boolean advertises(net.minecraft.world.item.ItemStack stack) {
         getAvailablePatterns();
         AEItemKey key = ECOKeyFactory.item(stack);
@@ -209,6 +239,8 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
     @Override
     public void readFromNBT(CompoundTag tag, HolderLookup.Provider registries) {
         super.readFromNBT(tag, registries);
+        occupiedSlotsKnown = false;
+        decodeAllSlots = true;
         capacityUpgrades.readFromNBT(tag, "workstationCapacityUpgrades", registries);
         disableSmartDoubling();
     }
@@ -230,30 +262,54 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
     }
 
     @Override
-    public void updateRedstoneState() {
-        LockCraftingMode before = getCraftingLockedReason();
-        super.updateRedstoneState();
-        if (before != getCraftingLockedReason()) {
-            requestProviderUpdate();
-        }
-    }
-
-    @Override
     public void onChangeInventory(AppEngInternalInventory inv, int slot) {
-        super.onChangeInventory(inv, slot);
-        // The host is the storage the grid indexes, but its patterns live in this logic's inventory. Without
-        // this the catalog's revision for the host never moves, so a slot cleared here stays counted forever.
-        host.onPatternSlotsChanged();
+        if (slot >= 0 && slot < MAX_PATTERN_SLOTS && occupiedSlotsKnown) {
+            occupiedPatternSlots.set(slot, !inv.getStackInSlot(slot).isEmpty());
+        } else {
+            occupiedSlotsKnown = false;
+        }
+        host.saveChanges();
+        host.onPatternSlotsChanged(slot);
     }
 
     @Override
     public void updatePatterns() {
+        decodeAllSlots = true;
+        diskPatternsDirty = true;
+        refreshPatternList();
+    }
+
+    void refreshSlotPatterns(int slot) {
+        if (slot < 0) {
+            updatePatterns();
+            return;
+        }
+        var controller = controller();
+        if (controller != null && !decodeAllSlots && controller == lastController && host.getLevel() != null) {
+            decodeSlot(slot, controller);
+        } else {
+            decodeAllSlots = true;
+        }
+        refreshPatternList();
+    }
+
+    void refreshDiskPatterns() {
+        diskPatternsDirty = true;
+        refreshPatternList();
+    }
+
+    private void refreshPatternList() {
         disableSmartDoubling();
         compatiblePatternsDirty = true;
-        // PatternProviderLogic.requestUpdate() refreshes the AE2 provider synchronously. Invalidate the
-        // workstation-specific compatibility cache before delegating, otherwise the refresh can remount the
-        // previous filtered list and leave the newly decoded patterns invisible until the network is replugged.
-        super.updatePatterns();
+        ICraftingProvider.requestUpdate(host.getMainNode());
+    }
+
+    private void decodeSlot(int slot, ECOLargeIntegratedWorkingStationBlockEntity controller) {
+        var stack = super.getPatternInv().getStackInSlot(slot);
+        var details = stack.isEmpty() || host.ownsAuxiliary(stack) ? null
+            : PatternDetailsHelper.decodePattern(stack, host.getLevel());
+        if (details != null && controller.acceptPattern(details, null, false)) compatibleSlotPatterns.put(slot, details);
+        else compatibleSlotPatterns.remove(slot);
     }
 
     private void disableSmartDoubling() {
@@ -277,6 +333,7 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
             }
             lastController = null;
             compatiblePatterns = List.of();
+            compatiblePatternSet = Set.of();
             advertisedKeys = Set.of();
             return List.of();
         }
@@ -286,19 +343,27 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
             && lastDiskRevision == diskRevision) {
             return compatiblePatterns;
         }
-        List<IPatternDetails> result = new ArrayList<>();
-        for (var pattern : super.getAvailablePatterns()) {
-            if (controller.acceptPattern(pattern, null, false)) result.add(pattern);
+        boolean contextChanged = lastController != controller || lastRecipes != recipes;
+        StoragePerformance.count(Counter.WORKSTATION_CATALOG_REBUILD);
+        if (decodeAllSlots || contextChanged) {
+            compatibleSlotPatterns.clear();
+            ensureOccupiedPatternSlots();
+            for (int slot = occupiedPatternSlots.nextSetBit(0); slot >= 0; slot = occupiedPatternSlots.nextSetBit(slot + 1)) {
+                decodeSlot(slot, controller);
+            }
+            decodeAllSlots = false;
         }
-        // Patterns on a disk go through the same compatibility gate as the ones in slots: a recipe this
-        // workstation would refuse should not be advertised just because it arrived on a disk.
-        for (var pattern : PatternDiskSupport.decodeAuxiliary(host.getWorkstationProvider().getPatternInv(),
-            host.getLevel())) {
-            if (controller.acceptPattern(pattern, null, false)) result.add(pattern);
+        if (contextChanged || diskPatternsDirty || lastDiskRevision != diskRevision) {
+            compatibleDiskPatterns = host.decodeDiskPatterns().stream()
+                .filter(pattern -> controller.acceptPattern(pattern, null, false)).toList();
+            diskPatternsDirty = false;
         }
+        List<IPatternDetails> result = new ArrayList<>(compatibleSlotPatterns.values());
+        result.addAll(compatibleDiskPatterns);
         boolean sourceChanged = lastController != controller || lastRecipes != recipes
             || lastDiskRevision != diskRevision;
-        compatiblePatterns = result;
+        compatiblePatterns = List.copyOf(result);
+        compatiblePatternSet = new HashSet<>(result);
         Set<AEItemKey> keys = new HashSet<>();
         for (IPatternDetails pattern : result) {
             keys.add(pattern.getDefinition());
@@ -372,7 +437,6 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
             return;
         }
         resetCraftingLock();
-        requestProviderUpdate();
     }
 
     /** Releases a result lock when the owning CPU job was cancelled before producing a result. */
@@ -384,7 +448,6 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
         if (unlockStack != null && unlockStack.what().equals(expectedResult.what())
                 && unlockStack.amount() == expectedResult.amount()) {
             resetCraftingLock();
-            requestProviderUpdate();
         }
     }
 
@@ -392,8 +455,11 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
         @Nullable ECOLargeIntegratedWorkingStationBlockEntity controller,
         IPatternDetails pattern
     ) {
-        if (controller == null || !host.getMainNode().isActive() || !getAvailablePatterns().contains(pattern)
-                || isCraftingLocked()) {
+        if (controller == null || !host.getMainNode().isActive() || isCraftingLocked()) {
+            return false;
+        }
+        getAvailablePatterns();
+        if (!compatiblePatternSet.contains(pattern)) {
             return false;
         }
         if (!isBlocking()) {
@@ -444,7 +510,4 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
         // provider and invalidates that iterator when another provider advertises the same pattern.
     }
 
-    private void requestProviderUpdate() {
-        ICraftingProvider.requestUpdate(host.getMainNode());
-    }
 }
