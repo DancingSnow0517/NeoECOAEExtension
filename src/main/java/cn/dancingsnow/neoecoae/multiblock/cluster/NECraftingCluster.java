@@ -48,6 +48,15 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
         super(boundMin, boundMax);
     }
 
+    public static int fluidHatchCapacity(@Nullable NECraftingCluster cluster) {
+        if (cluster == null || cluster.controller == null) return 16_000;
+        return switch (cluster.controller.getTier().getTier()) {
+            case 2 -> 128_000;
+            case 3 -> 1_024_000;
+            default -> 16_000;
+        };
+    }
+
     @Override
     protected BlockPos getCasingHideOrigin() {
         return controller == null ? null : controller.getBlockPos();

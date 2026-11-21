@@ -13,6 +13,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.server.level.ServerPlayer;
 import cn.dancingsnow.neoecoae.gui.common.FluidInputHatchUI;
 import cn.dancingsnow.neoecoae.all.NEItems;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.util.LongFluidTank;
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 import appeng.api.networking.security.IActionSource;
@@ -41,7 +42,10 @@ public class ECOFluidInputHatchBlockEntity extends cn.dancingsnow.neoecoae.block
     // Retain the public FluidTank descriptor for existing 1.20.1 addons.
     public FluidTank tank = new LongFluidTank() {
         @Override
-        public int getCapacity() { return upgrades != null && hasNetworkPullCard() ? Integer.MAX_VALUE : 16_000; }
+        public int getCapacity() {
+            return upgrades != null && hasNetworkPullCard()
+                ? Integer.MAX_VALUE : NECraftingCluster.fluidHatchCapacity(cluster);
+        }
 
         @Override
         public int getTankCapacity(int index) { return getCapacity(); }
@@ -49,7 +53,7 @@ public class ECOFluidInputHatchBlockEntity extends cn.dancingsnow.neoecoae.block
         @Override
         public int getSpace() {
             return upgrades != null && hasNetworkPullCard() ? super.getSpace()
-                : (int) Math.max(0, 16_000L - getStoredAmount());
+                : (int) Math.max(0, getCapacity() - getStoredAmount());
         }
 
         @Override
