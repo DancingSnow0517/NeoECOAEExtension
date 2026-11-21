@@ -1,7 +1,10 @@
 package cn.dancingsnow.neoecoae.crafting.execution.worker;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import net.minecraft.core.HolderLookup;
@@ -22,6 +25,7 @@ public final class ECOCraftingJobLifecycle extends SavedData {
     // Do not expire decisions by time: a worker can remain unloaded for arbitrarily long.
     // Unknown jobs remain resumable; absence of a live CPU is never evidence of cancellation.
     private final Map<UUID, Boolean> terminatedJobs = new HashMap<>();
+    private final Map<UUID, Set<ECOCraftingWorkerBlockEntity>> loadedWorkersByJob = new HashMap<>();
 
     private static @Nullable ECOCraftingJobLifecycle get(@Nullable Level level) {
         if (!(level instanceof ServerLevel serverLevel)) return null;
@@ -34,11 +38,33 @@ public final class ECOCraftingJobLifecycle extends SavedData {
         return data != null && data.terminatedJobs.containsKey(jobId);
     }
 
+    public static void trackWorker(Level level, UUID jobId, ECOCraftingWorkerBlockEntity worker, boolean holding) {
+        var data = get(level);
+        if (data == null) return;
+        if (holding) {
+            data.loadedWorkersByJob.computeIfAbsent(jobId, ignored -> new HashSet<>()).add(worker);
+        } else {
+            var workers = data.loadedWorkersByJob.get(jobId);
+            if (workers != null && workers.remove(worker) && workers.isEmpty()) data.loadedWorkersByJob.remove(jobId);
+        }
+    }
+
+    public static List<ECOCraftingWorkerBlockEntity> loadedWorkersForJob(@Nullable Level level, UUID jobId) {
+        var data = get(level);
+        var workers = data == null ? null : data.loadedWorkersByJob.get(jobId);
+        return workers == null ? List.of() : List.copyOf(workers);
+    }
+
     /** Publish before clearing the owner's job or detaching its grid. First terminal decision wins. */
     public static void finish(@Nullable Level level, @Nullable UUID jobId, boolean completed) {
         if (jobId == null) return;
         var data = get(level);
-        if (data != null && data.terminatedJobs.putIfAbsent(jobId, completed) == null) data.setDirty();
+        if (data == null || data.terminatedJobs.putIfAbsent(jobId, completed) != null) return;
+        data.setDirty();
+        for (var worker : loadedWorkersForJob(level, jobId)) {
+            if (completed) worker.releaseCompletedJobOutputs(jobId);
+            else worker.recoverTerminatedJob(jobId);
+        }
     }
 
     /**
@@ -48,14 +74,7 @@ public final class ECOCraftingJobLifecycle extends SavedData {
      * an F host until the orphan timeout.
      */
     public static void cancelAndRecover(@Nullable Level level, @Nullable UUID jobId) {
-        if (jobId == null) return;
         finish(level, jobId, false);
-        if (level == null || level.getServer() == null) return;
-        for (var worker : ECOCraftingWorkerBlockEntity.getLoadedServerWorkers()) {
-            if (worker.getLevel() != null && worker.getLevel().getServer() == level.getServer()) {
-                worker.recoverTerminatedJob(jobId);
-            }
-        }
     }
 
     /** Works without decoding a plan, so even a quarantined CPU can terminate its worker ownership. */

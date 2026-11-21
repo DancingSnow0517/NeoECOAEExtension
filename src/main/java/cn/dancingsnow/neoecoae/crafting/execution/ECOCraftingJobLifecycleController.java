@@ -140,8 +140,6 @@ final class ECOCraftingJobLifecycleController {
         ECOCraftingJobLifecycle.finish(host.cpu.getLevel(), finishingJob.link.getCraftingID(), success);
         if (success) {
             finishingJob.link.markDone();
-            ECOCraftingWorkerRecovery.releaseCompletedOutputs(
-                    host.cpu.getGrid(), finishingJob.link.getCraftingID());
         } else {
             finishingJob.link.cancel();
         }
@@ -170,16 +168,11 @@ final class ECOCraftingJobLifecycleController {
         if (current == null) {
             return;
         }
-        UUID craftingJobId = current.link.getCraftingID();
         if (host.bigOrder.progress() != null) {
             host.bigOrder.cancel();
-            ECOCraftingJobLifecycle.finish(host.cpu.getLevel(), craftingJobId, false);
-            ECOCraftingWorkerRecovery.recoverTerminatedInputs(host.cpu.getLevel(), craftingJobId);
-            finish(false);
-        } else {
-            finish(false);
-            ECOCraftingWorkerRecovery.recoverTerminatedInputs(host.cpu.getLevel(), craftingJobId);
+            ECOCraftingJobLifecycle.finish(host.cpu.getLevel(), current.link.getCraftingID(), false);
         }
+        finish(false);
     }
 
     void initializeJobAttachments() {
