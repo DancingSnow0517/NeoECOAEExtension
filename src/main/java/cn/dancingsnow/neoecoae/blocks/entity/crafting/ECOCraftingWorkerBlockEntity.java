@@ -459,7 +459,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         boolean controllerUpdateAttempted = controller != null;
         try {
             if (controller != null) {
-                controller.recalculateRunningThreadCountFromWorkers();
+                controller.onWorkerRunningBatchesChanged(previousRunningThreads, runningThreads);
             }
             setChanged();
             wakeTickingDevice();
@@ -486,6 +486,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     }
 
     public void onBatchStopped() {
+        int previousRunningThreads = runningThreads;
         runningThreads -= 1;
         if (runningThreads < 0) {
             LOGGER.warn(
@@ -495,7 +496,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
             runningThreads = 0;
         }
         if (cluster != null && cluster.getController() != null) {
-            cluster.getController().recalculateRunningThreadCountFromWorkers();
+            cluster.getController().onWorkerRunningBatchesChanged(Math.max(0, previousRunningThreads), runningThreads);
         }
         setChanged();
     }

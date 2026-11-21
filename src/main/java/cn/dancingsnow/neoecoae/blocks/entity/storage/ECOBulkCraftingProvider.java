@@ -21,6 +21,15 @@ final class ECOBulkCraftingProvider implements ICraftingProvider, ECOFastPathDis
     private final ECOStorageSystemBlockEntity host;
     private List<IPatternDetails> published = List.of();
     private int publishedPriority;
+    /**
+     * Rebuilding conversion patterns allocates and divides BigIntegers for every account of every cell, so a
+     * cell that keeps its identity is only re-derived this often; a cell added or removed is seen at once.
+     * Advertising lags a config change by at most this long, and a withdrawn pattern is still refused at
+     * dispatch because {@link #target} reads the cells live.
+     */
+    private static final int PATTERN_RECHECK_TICKS = 20;
+    private List<ECOBulkStorageCell> publishedCells = List.of();
+    private int ticksSincePatternCheck = PATTERN_RECHECK_TICKS;
     ECOBulkCraftingProvider(ECOStorageSystemBlockEntity host) { this.host = host; }
 
     private boolean active() {
@@ -35,10 +44,15 @@ final class ECOBulkCraftingProvider implements ICraftingProvider, ECOFastPathDis
         }
         return result;
     }
-    private List<IPatternDetails> patterns() {
+    private static List<IPatternDetails> patterns(List<ECOBulkStorageCell> cells) {
         var patterns = new LinkedHashSet<IPatternDetails>();
-        for (var cell : cells()) patterns.addAll(cell.getConversionPatterns());
+        for (var cell : cells) patterns.addAll(cell.getConversionPatterns());
         return List.copyOf(patterns);
+    }
+    private static boolean sameCells(List<ECOBulkStorageCell> first, List<ECOBulkStorageCell> second) {
+        if (first.size() != second.size()) return false;
+        for (int i = 0; i < first.size(); i++) if (first.get(i) != second.get(i)) return false;
+        return true;
     }
     void tick() {
         var cells = cells();
@@ -46,14 +60,22 @@ final class ECOBulkCraftingProvider implements ICraftingProvider, ECOFastPathDis
             var grid = host.getMainNode().getGrid();
             if (grid != null) for (var cell : cells) cell.drainOutputs(grid.getStorageService().getInventory(), IActionSource.ofMachine(host));
         }
-        var next = patterns();
+        boolean cellsChanged = !sameCells(cells, publishedCells);
+        if (!cellsChanged && ++ticksSincePatternCheck < PATTERN_RECHECK_TICKS
+                && publishedPriority == getPatternPriority()) {
+            return;
+        }
+        ticksSincePatternCheck = 0;
+        publishedCells = cells;
+        var next = patterns(cells);
         if (!next.equals(published) || publishedPriority != getPatternPriority()) {
             published = next;
             publishedPriority = getPatternPriority();
             ICraftingProvider.requestUpdate(host.getMainNode());
         }
     }
-    @Override public List<IPatternDetails> getAvailablePatterns() { return patterns(); }
+    /** The list last handed to AE2 through requestUpdate; tick() keeps it current. */
+    @Override public List<IPatternDetails> getAvailablePatterns() { return published; }
     @Override public int getPatternPriority() { return host.getStoragePriority(); }
     @Override public boolean isBusy() { return !active(); }
     private @Nullable ECOBulkStorageCell target(ECOBulkConversionPattern pattern) {

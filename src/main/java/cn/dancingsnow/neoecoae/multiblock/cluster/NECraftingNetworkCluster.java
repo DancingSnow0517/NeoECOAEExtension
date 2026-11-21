@@ -339,12 +339,10 @@ public class NECraftingNetworkCluster {
             coolantAmount = saturatingIntAdd(coolantAmount, controller.getCoolant());
             coolantCapacity = saturatingIntAdd(coolantCapacity, ECOCraftingSystemBlockEntity.MAX_COOLANT);
             coolantMaxOverclock = Math.max(coolantMaxOverclock, controller.getLocalCoolingMaxOverclock());
-            for (ECOCraftingWorkerBlockEntity worker : member.getWorkers()) {
-                if (worker.isWorking()) {
-                    activeFxCount = saturatingIntAdd(activeFxCount, 1);
-                }
-                runningBatchCount = saturatingIntAdd(runningBatchCount, worker.getRunningBatchCount());
-            }
+            // Per-host counters are maintained on batch start/stop, so this is O(hosts) rather than O(workers).
+            activeFxCount = saturatingIntAdd(activeFxCount,
+                Math.min(controller.getLocalActiveWorkerCount(), member.getWorkers().size()));
+            runningBatchCount = saturatingIntAdd(runningBatchCount, controller.getLocalRunningThreadCount());
         }
         boolean overclocked = leader != null && leader.isLocallyOverclocked();
         boolean activeCooling = leader != null && leader.isLocallyActiveCooling();

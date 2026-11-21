@@ -25,6 +25,8 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     private final List<ECOCraftingParallelCoreBlockEntity> parallelCores = new ArrayList<>();
     @Getter
     private final List<ECOCraftingWorkerBlockEntity> workers = new ArrayList<>();
+    /** Identity view of {@link #workers} for O(1) membership; both are only ever appended to, together. */
+    private final ReferenceSet<ECOCraftingWorkerBlockEntity> workerSet = new ReferenceOpenHashSet<>();
     @Getter
     private final List<ECOCraftingPatternBusBlockEntity> patternBuses = new ArrayList<>();
     @Getter
@@ -183,7 +185,7 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
             return false;
         }
         NECraftingCluster owner = worker.getCluster();
-        if (owner == null || owner.isDestroyed() || !owner.getWorkers().contains(worker)) {
+        if (owner == null || owner.isDestroyed() || !owner.workerSet.contains(worker)) {
             return false;
         }
         if (owner == this) {
@@ -221,6 +223,7 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
         }
         if (blockEntity instanceof ECOCraftingWorkerBlockEntity workerBlockEntity) {
             workers.add(workerBlockEntity);
+            workerSet.add(workerBlockEntity);
         }
         if (blockEntity instanceof ECOCraftingPatternBusBlockEntity patternBusBlockEntity) {
             patternBuses.add(patternBusBlockEntity);

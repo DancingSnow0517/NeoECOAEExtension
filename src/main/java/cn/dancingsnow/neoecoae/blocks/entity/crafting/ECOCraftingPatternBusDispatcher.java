@@ -145,10 +145,11 @@ final class ECOCraftingPatternBusDispatcher {
         }
         int batchSize = verified.batchSize();
         ECOCraftingWorkerBlockEntity worker = offer.worker();
+        // No separate network-wide availableThreadSlots() check: it sums the same reachable workers, this one
+        // included, so it can never be below this worker's own free slots. It was an O(workers) scan per batch.
         if (offer.maxBatchSize() < batchSize
             || !cluster.isDispatchCandidate(worker)
-            || worker.getAvailableThreadSlots() < batchSize
-            || availableThreadSlots() < batchSize) {
+            || worker.getAvailableThreadSlots() < batchSize) {
             return false;
         }
         return host.recordProcessingTarget(worker, worker.pushBatch(verified));
@@ -198,7 +199,12 @@ final class ECOCraftingPatternBusDispatcher {
         if (cluster == null || requestedBatchSize <= 0) {
             return null;
         }
-        int globalAvailableSlots = availableThreadSlots();
+        if (host.getCraftingController() == null) {
+            return null;
+        }
+        // One candidate walk serves both the global slot total and the best-worker choice below.
+        List<ECOCraftingWorkerBlockEntity> candidates = cluster.collectDispatchCandidateWorkers();
+        int globalAvailableSlots = sumAvailableSlots(candidates);
         if (globalAvailableSlots <= 0) {
             return null;
         }
@@ -216,7 +222,7 @@ final class ECOCraftingPatternBusDispatcher {
         if (verifiedRecipe == null) {
             return null;
         }
-        ECOCraftingPatternDispatch.Candidate best = findBestDispatchCandidate(cluster);
+        ECOCraftingPatternDispatch.Candidate best = ECOCraftingPatternDispatch.best(candidates);
         if (best == null) {
             return null;
         }
@@ -279,8 +285,12 @@ final class ECOCraftingPatternBusDispatcher {
         if (cluster == null || host.getCraftingController() == null) {
             return 0;
         }
+        return sumAvailableSlots(cluster.collectDispatchCandidateWorkers());
+    }
+
+    private static int sumAvailableSlots(List<ECOCraftingWorkerBlockEntity> candidates) {
         long available = 0L;
-        for (ECOCraftingWorkerBlockEntity worker : cluster.collectDispatchCandidateWorkers()) {
+        for (ECOCraftingWorkerBlockEntity worker : candidates) {
             available = cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingAdd(
                 available, worker.getAvailableBatchCapacity());
         }

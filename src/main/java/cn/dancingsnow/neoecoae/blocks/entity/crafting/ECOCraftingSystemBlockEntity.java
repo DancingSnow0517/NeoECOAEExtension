@@ -129,6 +129,8 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     @Getter(AccessLevel.NONE)
     private int runningThreadCount = 0;
+    /** Workers of this host with at least one running batch; maintained alongside {@link #runningThreadCount}. */
+    private int activeWorkerCount = 0;
 
     @Getter(AccessLevel.NONE)
     private int threadCount = 0;
@@ -275,6 +277,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             threadCount = 0;
             exactThreadCount = 0L;
             runningThreadCount = 0;
+            activeWorkerCount = 0;
         }
     }
 
@@ -293,20 +296,41 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         return workerCount;
     }
 
+    /** Authoritative recount over this host's workers; used on topology changes, loads and rollbacks. */
     public void recalculateRunningThreadCountFromWorkers() {
         invalidateCapabilitySnapshot();
         if (cluster == null) {
             runningThreadCount = 0;
+            activeWorkerCount = 0;
             return;
         }
 
-        long recalculated = cluster.getWorkers()
-            .stream()
-            .mapToLong(ECOCraftingWorkerBlockEntity::getRunningBatchCount)
-            .sum();
+        long recalculated = 0L;
+        int active = 0;
+        for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+            int running = worker.getRunningBatchCount();
+            recalculated += running;
+            if (running > 0) active++;
+        }
         runningThreadCount = (int) Math.min(Integer.MAX_VALUE, Math.max(0L, recalculated));
+        activeWorkerCount = active;
         setChanged();
     }
+
+    /**
+     * Applies one worker's running-batch change without recounting every worker. Batch start/stop happens for
+     * every worker on every tick in virtual mode, so a full recount here (plus the network snapshot rebuild that
+     * walked every worker of every host) cost O(workers²) per tick.
+     */
+    void onWorkerRunningBatchesChanged(int previous, int current) {
+        invalidateCapabilitySnapshot();
+        long running = (long) runningThreadCount + current - previous;
+        runningThreadCount = (int) Math.min(Integer.MAX_VALUE, Math.max(0L, running));
+        activeWorkerCount = Math.max(0, activeWorkerCount + (current > 0 ? 1 : 0) - (previous > 0 ? 1 : 0));
+        setChanged();
+    }
+
+    public int getLocalActiveWorkerCount() { return activeWorkerCount; }
 
     /**
      * Craft slots this worker may hold in flight. A fully virtualized endgame network reports the accounting
@@ -696,17 +720,9 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             return capabilitySnapshotCache;
         }
         int physicalFx = cluster == null ? 0 : cluster.getWorkers().size();
-        int activeFx = 0;
-        int runningBatches = 0;
-        if (cluster != null) {
-            for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
-                if (worker.isWorking()) {
-                    activeFx++;
-                }
-                runningBatches = (int) Math.min(Integer.MAX_VALUE,
-                    (long) runningBatches + worker.getRunningBatchCount());
-            }
-        }
+        // Maintained incrementally by onWorkerRunningBatchesChanged; recounted on topology changes.
+        int activeFx = cluster == null ? 0 : Math.min(activeWorkerCount, physicalFx);
+        int runningBatches = cluster == null ? 0 : runningThreadCount;
         long standaloneOverclockedBatch = NEMath.saturatingMultiply(
             NEConfig.CRAFTING_WORKER_BASE_CRAFTS,
             getTier().getOverclockedCrafterQueueMultiply()

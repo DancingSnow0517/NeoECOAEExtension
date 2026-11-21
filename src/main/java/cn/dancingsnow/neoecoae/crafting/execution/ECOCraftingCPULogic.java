@@ -107,6 +107,16 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
     private final ECOCraftingFastPathDispatcher fastPathDispatcher;
     private final ECOCraftingProviderDispatcher providerDispatcher;
     private final ECOCraftingTaskScheduler taskScheduler;
+    /**
+     * Transient per-key retry schedule for exact-order refills. A key the network cannot supply is asked again
+     * after 1, 2, 4 ... up to {@link #EXACT_REFILL_MAX_BACKOFF_TICKS} ticks instead of every tick; any success
+     * resets it. Not persisted: a reload simply retries on its first tick.
+     */
+    private final it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap<AEKey> exactRefillRetryTick =
+        new it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap<>();
+    private final it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap<AEKey> exactRefillBackoff =
+        new it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap<>();
+    private static final int EXACT_REFILL_MAX_BACKOFF_TICKS = 20;
     private final ECOCraftingOutputDelivery outputDelivery;
     private final ECOCraftingCpuView view;
     private final ECOCraftingCpuPersistence persistence;
@@ -704,6 +714,11 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
             ? ((cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) job.waitingFor).snapshot() : java.util.Map.of();
     }
 
+    private void resetExactRefillBackoff(AEKey key) {
+        exactRefillRetryTick.removeLong(key);
+        exactRefillBackoff.removeInt(key);
+    }
+
     /** Refill physical buffers within one job, without creating or replanning child orders. */
     private void refillExactMaterials() {
         if (!job.exactOrder) return;
@@ -717,7 +732,12 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
             if (player == null) return;
             source = appeng.api.networking.security.IActionSource.ofPlayer(player, source.machine().orElse(null));
         }
+        long now = appeng.hooks.ticking.TickHandler.instance().getCurrentTick();
         for (var entry : job.deferredStock.entrySet()) {
+            AEKey refillKey = entry.getKey();
+            if (exactRefillRetryTick.containsKey(refillKey) && now < exactRefillRetryTick.getLong(refillKey)) {
+                continue;
+            }
             var generated = cn.dancingsnow.neoecoae.storage.ECOCreativeSupply.extract(
                 grid, entry.getKey(), entry.getValue().toBigInteger(), source);
             if (generated.signum() > 0) {
@@ -727,6 +747,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
                 taskScheduler.recordPhysicalInsert(entry.getKey());
                 postChange(entry.getKey());
                 markCpuDirty();
+                resetExactRefillBackoff(refillKey);
                 continue;
             }
             // Finite storage retains one network call per key/tick.
@@ -740,9 +761,22 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
                 taskScheduler.recordPhysicalInsert(entry.getKey());
                 postChange(entry.getKey());
                 markCpuDirty();
+                resetExactRefillBackoff(refillKey);
+            } else {
+                int backoff = Math.min(EXACT_REFILL_MAX_BACKOFF_TICKS,
+                    Math.max(1, exactRefillBackoff.getInt(refillKey) * 2));
+                exactRefillBackoff.put(refillKey, backoff);
+                exactRefillRetryTick.put(refillKey, now + backoff);
             }
         }
         job.deferredStock.values().removeIf(amount -> amount.signum() == 0);
+        if (job.deferredStock.isEmpty()) {
+            exactRefillRetryTick.clear();
+            exactRefillBackoff.clear();
+        } else if (exactRefillRetryTick.size() > job.deferredStock.size()) {
+            exactRefillRetryTick.keySet().removeIf(key -> !job.deferredStock.containsKey(key));
+            exactRefillBackoff.keySet().removeIf(key -> !job.deferredStock.containsKey(key));
+        }
         for (var entry : job.deferredEmitted.entrySet()) {
             ((cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) job.waitingFor)
                 .restoreQuantities(java.util.Map.of(entry.getKey(), entry.getValue()));
