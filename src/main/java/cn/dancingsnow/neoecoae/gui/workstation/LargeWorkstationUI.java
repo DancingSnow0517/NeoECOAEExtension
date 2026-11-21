@@ -55,7 +55,12 @@ public final class LargeWorkstationUI {
     }
 
     public static ModularUI create(Config config, Player player, BooleanSupplier fePreferred, Runnable togglePriority) {
-        UIElement root = WorkstationUiJson.load(JSON_LAYOUT, new JsonContext(config, player));
+        return create(config, player, fePreferred, togglePriority, null);
+    }
+
+    public static ModularUI create(Config config, Player player, BooleanSupplier fePreferred, Runnable togglePriority,
+                                   IntFunction<CompoundTag> tasks) {
+        UIElement root = WorkstationUiJson.load(JSON_LAYOUT, new JsonContext(config, player, tasks));
         root.setOverflowVisible(true);
         var guide = GuideButton.create(player, "neoecoae:neoecoae_intro/large_integrated_working_station.md");
         var panel = (LargeWorkstationPanel) root.selectId("large_workstation_content").findFirst().orElseThrow();
@@ -107,11 +112,11 @@ public final class LargeWorkstationUI {
         for (var panel : ui.getElementsByType(LargeWorkstationPanel.class)) panel.advanceFrame();
     }
 
-    private record JsonContext(Config config, Player player) implements NeoUiJsonContext {
+    private record JsonContext(Config config, Player player, IntFunction<CompoundTag> tasks) implements NeoUiJsonContext {
         @Override
         public UIElement createCustom(JsonObject node) {
             return switch (node.get("custom").getAsString()) {
-                case "content" -> new LargeWorkstationPanel(config, player);
+                case "content" -> new LargeWorkstationPanel(config, player, tasks);
                 case "player_inventory" -> playerInventory(node, player);
                 case "input_fluid" -> fluidGauge(config.fluids(), 0, "input");
                 case "output_fluid" -> fluidGauge(config.fluids(), 1, "output");

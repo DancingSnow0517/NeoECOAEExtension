@@ -14,7 +14,6 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridMultiblock;
 import appeng.api.networking.IGridNode;
-import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionSource;
@@ -41,6 +40,7 @@ import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle;
+import cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.workstation.LargeWorkstationUI;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
@@ -51,6 +51,8 @@ import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes;
+import cn.dancingsnow.neoecoae.storage.StoragePerformance;
+import cn.dancingsnow.neoecoae.storage.StoragePerformance.Counter;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
@@ -75,6 +77,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.resources.ResourceLocation;
@@ -121,10 +124,10 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     private final LargeWorkstationModuleInventory moduleInventory = new LargeWorkstationModuleInventory(this::moduleChanged);
     /** Accepted ordinary-path batches, bounded by MAX_PENDING_BATCHES backpressure. */
     private final Deque<PendingBatch> pendingBatches = new ArrayDeque<>();
-    private boolean pendingOutputCountValid;
+    private long taskPageRevision;
     private long pendingOutputStackCount;
-    private int communicationUpdateDepth;
-    private boolean communicationUpdatePending;
+    private final LargeWorkstationCoolantLookup coolantRecipes = new LargeWorkstationCoolantLookup();
+    private int lastParallelLimit = -1;
     @Nullable
     private NEIntegratedWorkingStationCluster cluster;
     @DescSynced
@@ -224,7 +227,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                     // server tick after a reconnect.
                     if (!pendingBatches.isEmpty()) {
                         getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
-                        requestCommunicationProviderUpdate();
                     }
                 }
             });
@@ -301,6 +303,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     public void updateCluster(@Nullable NEIntegratedWorkingStationCluster next) {
         cluster = next;
         setFormed(next != null);
+        if (canUpdateMultiblock()) updateParallelLimit();
         // Rebuilding an already formed cluster can replace its cooling component.
         updateState(false);
     }
@@ -407,23 +410,13 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     @Nullable
     private RecipeHolder<CoolingRecipe> getCoolingRecipeForInput() {
-        if (level == null) return null;
-        FluidStack input = getInputTank().getFluid();
-        if (input.isEmpty()) return null;
-
-        RecipeHolder<CoolingRecipe> best = null;
-        for (RecipeHolder<CoolingRecipe> holder : level.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get())) {
-            CoolingRecipe recipe = holder.value();
-            if (recipe.input().ingredient().test(input)
-                && (best == null || recipe.maxOverclock() > best.value().maxOverclock())) {
-                best = holder;
-            }
-        }
-        return best;
+        return coolantRecipes.find(level, getInputTank().getFluid());
     }
 
     private LargeWorkstationOverclock getCurrentBatchProfile() {
+        if (!overclocked) return LargeWorkstationOverclock.NORMAL;
         if (!isTemperatureEnabled()) {
+            if (!activeCooling) return LargeWorkstationOverclock.NORMAL;
             RecipeHolder<CoolingRecipe> holder = getCoolingRecipeForInput();
             return LargeWorkstationOverclock.forCoolant(overclocked, activeCooling,
                 holder == null ? 0 : holder.value().maxOverclock());
@@ -438,6 +431,15 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     /** Maximum craft count advertised to AE2 for one newly submitted batch. */
     public int getMaxBatchParallelism() {
         return isTemperatureEnabled() && overheated ? 0 : getCurrentBatchProfile().maxParallelism();
+    }
+
+    private void updateParallelLimit() {
+        int limit = getMaxBatchParallelism();
+        if (lastParallelLimit != limit) {
+            lastParallelLimit = limit;
+            StoragePerformance.count(Counter.WORKSTATION_LIMIT_CHANGE);
+            getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
+        }
     }
 
     public boolean isOverclocked() {
@@ -557,8 +559,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     private void settingsChanged() {
         setChanged();
-        markForUpdate();
-        requestCommunicationProviderUpdate();
+        updateParallelLimit();
         getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
     }
 
@@ -719,18 +720,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     private void setPauseReason(PauseReason reason, OutputBlockedReason detail) {
-        boolean changed = false;
-        if (pauseReasonId != reason.ordinal()) {
-            pauseReasonId = reason.ordinal();
-            changed = true;
-        }
-        if (outputBlockedReasonId != detail.ordinal()) {
-            outputBlockedReasonId = detail.ordinal();
-            changed = true;
-        }
-        if (changed) {
-            markForUpdate();
-        }
+        pauseReasonId = reason.ordinal();
+        outputBlockedReasonId = detail.ordinal();
     }
 
     private void setOutputBlockedReason(OutputBlockedReason detail) {
@@ -754,12 +745,14 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     public void onChangeTankFromHatch() {
+        if (!isTemperatureEnabled()) updateParallelLimit();
+        onOutputTankChanged();
+    }
+
+    void onOutputTankChanged() {
         super.onChangeTank();
         cachedTask = null;
         setChanged();
-        markForUpdate();
-        getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
-        requestCommunicationProviderUpdate();
     }
 
     @Override
@@ -812,24 +805,17 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             ECOCraftingJobLifecycle.finish(level, selected.craftingJobId, false);
         }
         notifyPatternAborted(selected.unlockStack);
-        pendingOutputCountValid = false;
         pendingBatches.remove(selected);
+        taskPageRevision++;
         refreshAfterBatchReturn();
         setPauseReason(PauseReason.NONE);
         refreshModuleAppearance();
         setChanged();
-        requestCommunicationProviderUpdate();
     }
 
-    /** Serialized page snapshot consumed by the large-workstation client panel. */
-    private CompoundTag getUiSnapshot(int requestedOffset) {
+    private CompoundTag getUiStatus() {
         CompoundTag snapshot = new CompoundTag();
-        int total = pendingBatches.size();
-        int offset = Math.clamp(requestedOffset, 0, Math.max(0, total - LargeWorkstationUI.PAGE_SIZE));
-        snapshot.putInt("offset", offset);
-        int taskOffset = Math.max(0, offset - LargeWorkstationUI.SNAPSHOT_PADDING);
-        snapshot.putInt("taskOffset", taskOffset);
-        snapshot.putInt("totalTasks", total);
+        snapshot.putInt("totalTasks", pendingBatches.size());
         snapshot.putBoolean("overclocked", overclocked);
         snapshot.putBoolean("activeCooling", activeCooling);
         snapshot.putBoolean("smartCooling", hasSmartCoolingModule());
@@ -871,68 +857,108 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         snapshot.putLong("parallelUsed", head == null || head.awaitingRecipeOutputs != null ? 0 : head.segmented
             ? Math.min(LargeWorkstationOverclock.BASE_PARALLELISM, head.craftCount) : head.craftCount);
         snapshot.putLong("parallelCapacity", getMaxBatchParallelism());
-        LargeWorkstationModule module = LargeWorkstationModule.REGULAR;
-        if (head != null && head.recipeId != null && level != null) {
-            var adapted = LargeWorkstationRecipes.getById(level, head.recipeId);
-            if (adapted != null) module = LargeWorkstationModule.fromSourceType(adapted.sourceType());
-        }
+        var recipe = head == null || head.recipeId == null || level == null ? null
+            : LargeWorkstationRecipes.getById(level, head.recipeId);
+        var module = recipe == null ? LargeWorkstationModule.REGULAR : LargeWorkstationModule.fromSourceType(recipe.sourceType());
         snapshot.putString("recipeModule", module.getSerializedName());
-        if (head != null && head.recipeId != null && level != null) {
-            var recipe = LargeWorkstationRecipes.getById(level, head.recipeId);
-            if (recipe != null) snapshot.putString("recipeModuleId",
-                ECOWorkstationModules.fromSourceType(recipe.sourceType()).id().toString());
-        }
+        if (recipe != null) snapshot.putString("recipeModuleId",
+            ECOWorkstationModules.fromSourceType(recipe.sourceType()).id().toString());
         snapshot.putString("module", getInstalledModule().getSerializedName());
         snapshot.putString("moduleId", getInstalledModuleId().toString());
         snapshot.putBoolean("moduleInstalled", !moduleInventory.getStackInSlot(0).isEmpty());
         snapshot.putString("pause", pauseTranslationKey());
         snapshot.putString("coolingProblem", PauseReason.values()[Math.clamp(coolingProblemId, 0, PauseReason.values().length - 1)].translationKey);
-        ListTag entries = new ListTag();
-        int index = 0;
-        for (PendingBatch batch : pendingBatches) {
-            if (index++ < taskOffset) continue;
-            if (entries.size() >= LargeWorkstationUI.SNAPSHOT_SIZE) break;
-            CompoundTag entry = new CompoundTag();
-            entry.putUUID("id", batch.interactionId);
-            entry.putInt("progress", (int) ((long) batch.progress * 200 / batch.processingTicks));
-            entry.putInt("elapsedTicks", batch.progress);
-            entry.putInt("processingTicks", batch.processingTicks);
-            entry.putBoolean("returnable", batch.progress < batch.processingTicks);
-            entry.putBoolean("current", batch == head);
-            String status = batch != head ? "gui.neoecoae.workstation.task_queued"
-                : batch.progress >= batch.processingTicks ? "gui.neoecoae.workstation.task_output"
-                : pauseTranslationKey();
-            if (batch != head && batch.awaitingRecipeOutputs != null) {
-                status = (batch.returningInputs ? PauseReason.INPUT_RETURN_BLOCKED : PauseReason.MODULE_MISMATCH).translationKey;
-            }
-            entry.putString("status", status);
-            if (batch == head && (pauseReasonId == PauseReason.OUTPUT_BLOCKED.ordinal()
-                || pauseReasonId == PauseReason.INPUT_RETURN_BLOCKED.ordinal())) {
-                entry.putString("detail", OutputBlockedReason.values()[Math.clamp(outputBlockedReasonId,
-                    0, OutputBlockedReason.values().length - 1)].translationKey);
-            }
-            var source = batch.recipeId == null || level == null ? null : LargeWorkstationRecipes.getById(level, batch.recipeId);
-            entry.putString("module", (source == null ? LargeWorkstationModule.REGULAR
-                : LargeWorkstationModule.fromSourceType(source.sourceType())).getSerializedName());
-            if (source != null) entry.putString("moduleId",
-                ECOWorkstationModules.fromSourceType(source.sourceType()).id().toString());
-            GenericStack output = firstPositive(batch.outputTotal);
-            if (output != null) {
-                entry.putLong("amount", output.amount());
-                if (output.what() instanceof AEItemKey item && level != null) {
-                    // The icon is one stack; the batch's exact long count is synchronized separately.
-                    // ItemStack's codec rejects counts above 99 even when a recipe batch is much larger.
-                    Tag saved = item.toStack(1).saveOptional(level.registryAccess());
-                    if (saved instanceof CompoundTag compound) entry.put("item", compound);
-                } else if (output.what() instanceof AEFluidKey fluid && level != null) {
-                    Tag saved = fluid.toStack(1).saveOptional(level.registryAccess());
-                    if (saved instanceof CompoundTag compound) entry.put("fluid", compound);
-                }
-            }
-            entries.add(entry);
-        }
-        snapshot.put("tasks", entries);
         return snapshot;
+    }
+
+    private final class UiTaskPage {
+        private long revision = Long.MIN_VALUE;
+        private long recipeGeneration;
+        private int first = -1;
+        private CompoundTag snapshot;
+        private int progress;
+        private String status;
+        private int detail;
+
+        private CompoundTag get(int requestedOffset) {
+            int total = pendingBatches.size();
+            int offset = Math.clamp(requestedOffset, 0, Math.max(0, total - LargeWorkstationUI.PAGE_SIZE));
+            int taskOffset = Math.max(0, offset - LargeWorkstationUI.SNAPSHOT_PADDING);
+            var head = taskOffset == 0 ? pendingBatches.peekFirst() : null;
+            int headProgress = head == null ? 0 : head.progress;
+            String headStatus = head == null ? "" : pauseTranslationKey();
+            int headDetail = head == null ? 0 : outputBlockedReasonId;
+            long generation = AE2PatternIntrospection.reloadGeneration();
+            boolean rebuild = revision != taskPageRevision || recipeGeneration != generation || first != taskOffset;
+            if (!rebuild && progress == headProgress && status.equals(headStatus) && detail == headDetail) return snapshot;
+
+            var entries = new ListTag();
+            if (rebuild) {
+                StoragePerformance.count(Counter.WORKSTATION_PAGE_REBUILD);
+                int index = 0;
+                for (PendingBatch batch : pendingBatches) {
+                    if (index++ < taskOffset) continue;
+                    if (entries.size() >= LargeWorkstationUI.SNAPSHOT_SIZE) break;
+                    entries.add(encodeUiTask(batch, batch == head));
+                }
+            } else {
+                entries.addAll(snapshot.getList("tasks", Tag.TAG_COMPOUND));
+                if (head != null) entries.set(0, encodeUiTask(head, true));
+            }
+            revision = taskPageRevision;
+            recipeGeneration = generation;
+            first = taskOffset;
+            progress = headProgress;
+            status = headStatus;
+            detail = headDetail;
+            snapshot = new CompoundTag();
+            snapshot.putInt("taskOffset", taskOffset);
+            snapshot.putInt("totalTasks", total);
+            snapshot.put("tasks", entries);
+            return snapshot;
+        }
+    }
+
+    private CompoundTag encodeUiTask(PendingBatch batch, boolean current) {
+        StoragePerformance.count(Counter.WORKSTATION_ROW_ENCODE);
+        CompoundTag entry = new CompoundTag();
+        entry.putUUID("id", batch.interactionId);
+        entry.putInt("progress", (int) ((long) batch.progress * 200 / batch.processingTicks));
+        entry.putInt("elapsedTicks", batch.progress);
+        entry.putInt("processingTicks", batch.processingTicks);
+        entry.putBoolean("returnable", batch.progress < batch.processingTicks);
+        entry.putBoolean("current", current);
+        String status = !current ? "gui.neoecoae.workstation.task_queued"
+            : batch.progress >= batch.processingTicks ? "gui.neoecoae.workstation.task_output"
+            : pauseTranslationKey();
+        if (!current && batch.awaitingRecipeOutputs != null) {
+            status = (batch.returningInputs ? PauseReason.INPUT_RETURN_BLOCKED : PauseReason.MODULE_MISMATCH).translationKey;
+        }
+        entry.putString("status", status);
+        if (current && (pauseReasonId == PauseReason.OUTPUT_BLOCKED.ordinal()
+            || pauseReasonId == PauseReason.INPUT_RETURN_BLOCKED.ordinal())) {
+            entry.putString("detail", OutputBlockedReason.values()[Math.clamp(outputBlockedReasonId,
+                0, OutputBlockedReason.values().length - 1)].translationKey);
+        }
+        var source = batch.recipeId == null || level == null ? null : LargeWorkstationRecipes.getById(level, batch.recipeId);
+        entry.putString("module", (source == null ? LargeWorkstationModule.REGULAR
+            : LargeWorkstationModule.fromSourceType(source.sourceType())).getSerializedName());
+        if (source != null) entry.putString("moduleId",
+            ECOWorkstationModules.fromSourceType(source.sourceType()).id().toString());
+        GenericStack output = firstPositive(batch.outputTotal);
+        if (output != null) {
+            entry.putLong("amount", output.amount());
+            if (output.what() instanceof AEItemKey item && level != null) {
+                // The icon is one stack; the batch's exact long count is synchronized separately.
+                // ItemStack's codec rejects counts above 99 even when a recipe batch is much larger.
+                Tag saved = item.toStack(1).saveOptional(level.registryAccess());
+                if (saved instanceof CompoundTag compound) entry.put("item", compound);
+            } else if (output.what() instanceof AEFluidKey fluid && level != null) {
+                Tag saved = fluid.toStack(1).saveOptional(level.registryAccess());
+                if (saved instanceof CompoundTag compound) entry.put("fluid", compound);
+            }
+        }
+        return entry;
     }
 
     @Nullable
@@ -1002,6 +1028,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         }
         if (holder == null) return null;
         batch.recipeId = holder.id();
+        taskPageRevision++;
         batch.recipe = holder.value();
         if (!level.isClientSide) setChanged();
         return batch.recipe;
@@ -1053,8 +1080,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         double restoredRefund = data.getDouble("pendingPowerRefund");
         pendingPowerRefund = Double.isFinite(restoredRefund) && restoredRefund > 0.0D ? restoredRefund : 0.0D;
         coolingOutput.load(data, registries);
-        pendingOutputCountValid = false;
+        pendingOutputStackCount = 0;
         pendingBatches.clear();
+        taskPageRevision++;
         ListTag batches = data.getList("pendingBatches", Tag.TAG_COMPOUND);
         setPauseReason(PauseReason.NONE);
         long currentTick = level == null ? 0L : level.getGameTime();
@@ -1062,6 +1090,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             PendingBatch batch = PendingBatch.load(batches.getCompound(index), registries, currentTick);
             if (batch != null) {
                 pendingBatches.addLast(batch);
+                pendingOutputStackCount += PendingBatch.countStackEntries(batch.pendingOutput);
             }
         }
     }
@@ -1099,25 +1128,34 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     @Override
+    protected void writeToStream(RegistryFriendlyByteBuf data) {
+        super.writeToStream(data);
+        data.writeNbt(serializeInitialData(data.registryAccess()));
+    }
+
+    @Override
+    protected boolean readFromStream(RegistryFriendlyByteBuf data) {
+        boolean changed = super.readFromStream(data);
+        var previousAppearance = moduleAppearanceId;
+        if (data.isReadable() && data.readNbt() instanceof CompoundTag snapshot) {
+            deserializeInitialData(data.registryAccess(), snapshot);
+        }
+        return changed || !previousAppearance.equals(moduleAppearanceId);
+    }
+
+    @Override
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
         retryPendingPowerRefund();
         if (!formed) return super.tickingRequest(node, ticksSinceLastCall);
-        communicationUpdateDepth++;
-        try {
-            refreshModuleAppearance();
-            transferStoredFluid(inputTank, getInputTank());
-            transferStoredFluid(outputTank, getOutputTank());
-            flushOutputs();
-            if (!getMainNode().isActive()) {
-                setWorking(false);
-                return TickRateModulation.SLOWER;
-            }
-            return tickPendingBatch();
-        } finally {
-            // A tick can move coolant, finish portions and dequeue batches. Publish one final
-            // provider update even when one of those operations exits exceptionally.
-            finishCommunicationUpdates();
+        refreshModuleAppearance();
+        transferStoredFluid(inputTank, getInputTank());
+        transferStoredFluid(outputTank, getOutputTank());
+        flushOutputs();
+        if (!getMainNode().isActive()) {
+            setWorking(false);
+            return TickRateModulation.SLOWER;
         }
+        return tickPendingBatch();
     }
 
     public boolean canAcceptPattern() {
@@ -1125,31 +1163,22 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             && (!isTemperatureEnabled() || !overheated)
             && getMainNode().isActive()
             && pendingBatches.size() < MAX_PENDING_BATCHES
-            && getPendingOutputStackCount() < MAX_PENDING_OUTPUT_STACKS;
-    }
-
-    private long getPendingOutputStackCount() {
-        if (pendingOutputCountValid) return pendingOutputStackCount;
-        long count = 0L;
-        counting:
-        for (PendingBatch batch : pendingBatches) {
-            for (var entry : batch.pendingOutput) {
-                if (entry.getLongValue() > 0L && ++count >= MAX_PENDING_OUTPUT_STACKS) break counting;
-            }
-        }
-        pendingOutputStackCount = count;
-        pendingOutputCountValid = true;
-        return count;
+            && pendingOutputStackCount < MAX_PENDING_OUTPUT_STACKS;
     }
 
     private void addBatchOutputs(PendingBatch batch, KeyCounter outputs) {
-        pendingOutputCountValid = false;
-        batch.pendingOutput.addAll(outputs);
+        for (var entry : outputs) {
+            AEKey key = entry.getKey();
+            boolean wasPresent = batch.pendingOutput.get(key) > 0;
+            batch.pendingOutput.add(key, entry.getLongValue());
+            if (wasPresent != (batch.pendingOutput.get(key) > 0)) pendingOutputStackCount += wasPresent ? -1 : 1;
+        }
     }
 
     private void removeBatchOutput(PendingBatch batch, AEKey key, long amount) {
-        pendingOutputCountValid = false;
+        boolean wasPresent = batch.pendingOutput.get(key) > 0;
         batch.pendingOutput.remove(key, amount);
+        if (wasPresent && batch.pendingOutput.get(key) <= 0) pendingOutputStackCount--;
     }
 
     /** Applies AE2 pattern-provider blocking semantics to the controller's owned, pending input ledger. */
@@ -1200,8 +1229,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     private void enqueueBatch(PendingBatch batch, @Nullable KeyCounter[] consumedInputs) {
-        pendingOutputCountValid = false;
         pendingBatches.addLast(batch);
+        taskPageRevision++;
         if (consumedInputs != null) {
             for (KeyCounter counter : consumedInputs) {
                 if (counter != null) counter.clear();
@@ -1604,8 +1633,8 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         }
         if (changed) {
             cachedTask = null;
+            taskPageRevision++;
             setChanged();
-            requestCommunicationProviderUpdate();
         }
     }
 
@@ -1640,6 +1669,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         KeyCounter outputs = counterPortion(batch.outputTotal, count, batch.craftCount);
         for (var entry : inputs) batch.inputTotal.remove(entry.getKey(), entry.getLongValue());
         for (var entry : outputs) batch.outputTotal.remove(entry.getKey(), entry.getLongValue());
+        taskPageRevision++;
         addBatchOutputs(batch, outputs);
         batch.craftCount -= count;
         batch.progress = (int) (remainingPaidWork / batch.craftCount);
@@ -1720,7 +1750,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     private void applyThermalState(LargeWorkstationThermal.State next) {
-        int previousLimit = getMaxBatchParallelism();
         boolean changed = temperature != next.temperature() || overheated != next.overheated()
             || recoveryTicks != next.recoveryTicks();
         temperature = next.temperature();
@@ -1728,10 +1757,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         recoveryTicks = next.recoveryTicks();
         if (overheated) preheating = false;
         if (changed) setChanged();
-        if (previousLimit != getMaxBatchParallelism()) {
-            requestCommunicationProviderUpdate();
-            getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
-        }
+        if (formed) updateParallelLimit();
     }
 
     /** Runs independently of AE2's adaptive processing scheduler, including paused and idle machines. */
@@ -1754,9 +1780,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 recoveryTicks = 0;
                 if (overheated) temperature = 100;
                 setChanged();
-                markForUpdate();
             }
             coolingProblemId = 0;
+            if (formed) updateParallelLimit();
             return;
         }
         if (!formed) {
@@ -1809,7 +1835,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 setChanged();
             }
         }
-        if (tickLevel.getGameTime() % 20 == 0) markForUpdate();
     }
 
     private void tickSmartTemperature(double processingLoad) {
@@ -1856,7 +1881,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         }
         uiThermalUsage.record(level.getGameTime(), before, result);
         applyThermalState(result.state());
-        if (level.getGameTime() % 20 == 0) markForUpdate();
     }
 
     private void settleThermalTick(long tick, double processingLoad, double preheatFraction, int coolingTier, boolean consumed) {
@@ -1946,13 +1970,12 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     private void removeFirstBatch(PendingBatch batch) {
         if (pendingBatches.peekFirst() != batch) return;
-        pendingOutputCountValid = false;
         pendingBatches.removeFirst();
+        taskPageRevision++;
         if (!pendingBatches.isEmpty()) {
             setWorking(true);
         }
         cachedTask = null;
-        requestCommunicationProviderUpdate();
     }
 
     private boolean deliverBatchOutputs(PendingBatch batch) {
@@ -2018,23 +2041,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         }
     }
 
-    private void requestCommunicationProviderUpdate() {
-        if (communicationUpdateDepth > 0) {
-            communicationUpdatePending = true;
-            return;
-        }
-        if (cluster != null && cluster.getCommunication() instanceof ECOLargeIntegratedWorkingStationInterfaceBlockEntity communication) {
-            ICraftingProvider.requestUpdate(communication.getMainNode());
-        }
-    }
-
-    private void finishCommunicationUpdates() {
-        if (--communicationUpdateDepth == 0 && communicationUpdatePending) {
-            communicationUpdatePending = false;
-            requestCommunicationProviderUpdate();
-        }
-    }
-
     /** Partial extractions remain owned and persisted, so retries and cancellation cannot double-charge. */
     private boolean acquireExtraInputs(PendingBatch batch) {
         return acquireExtraInputs(batch, batch.segmented);
@@ -2084,7 +2090,10 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     private boolean returnBatchInputs(PendingBatch batch) {
         if (recoverCounterToNetwork(batch.inputTotal)) return true;
-        if (batch.awaitingRecipeOutputs != null) batch.returningInputs = true;
+        if (batch.awaitingRecipeOutputs != null && !batch.returningInputs) {
+            batch.returningInputs = true;
+            taskPageRevision++;
+        }
         return false;
     }
 
@@ -2098,7 +2107,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         boolean preferInstalledModule
     ) {
         if (!formed || level == null) return null;
-        LargeWorkstationOverclock profile = getCurrentBatchProfile();
+        LargeWorkstationOverclock profile = preferInstalledModule ? getCurrentBatchProfile() : LargeWorkstationOverclock.NORMAL;
         if (!profile.acceptsCraftCount(craftCount)) return null;
         // Inputs delivered by AE2 are retained in the workstation's unbounded ledger while
         // the batch runs. Recipe lookup is performed against one encoded pattern's actual input set,
@@ -2147,6 +2156,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             getInstalledModuleId());
         if (match == null || !configureBatchRecipe(batch, perCraftInputs, match)) return false;
         batch.awaitingRecipeOutputs = null;
+        taskPageRevision++;
         setPauseReason(PauseReason.NONE);
         setChanged();
         return true;
@@ -2345,9 +2355,10 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             return super.createUI(holder);
         }
         return LargeWorkstationUI.create(new LargeWorkstationUI.Config(
-            getFluidCombined(), this::getUiSnapshot, () -> level.registryAccess(), this::returnTaskInputs,
+            getFluidCombined(), offset -> getUiStatus(), () -> level.registryAccess(), this::returnTaskInputs,
             this::toggleOverclocked, this::toggleActiveCooling,
-            this::togglePreheating, moduleInventory), holder.player, this::isFePreferred, this::togglePowerPriority);
+            this::togglePreheating, moduleInventory), holder.player, this::isFePreferred, this::togglePowerPriority,
+            new UiTaskPage()::get);
     }
 
     public Button createAutoBuildButton(Player player) {
@@ -2379,13 +2390,12 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 ECOCraftingJobLifecycle.finish(level, batch.craftingJobId, false);
             }
             notifyPatternAborted(batch.unlockStack);
-            pendingOutputCountValid = false;
             pendingBatches.remove(batch);
+            taskPageRevision++;
         }
         refreshAfterBatchReturn();
         setPauseReason(PauseReason.NONE);
         setChanged();
-        requestCommunicationProviderUpdate();
     }
 
     private void refreshAfterBatchReturn() {
@@ -2429,8 +2439,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 }
             }
         }
-        pendingOutputCountValid = false;
+        pendingOutputStackCount = 0;
         pendingBatches.clear();
+        taskPageRevision++;
     }
 
     @Override
@@ -2440,8 +2451,9 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 ECOCraftingJobLifecycle.finish(level, batch.craftingJobId, false);
             }
         }
-        pendingOutputCountValid = false;
+        pendingOutputStackCount = 0;
         pendingBatches.clear();
+        taskPageRevision++;
         super.clearContent();
         moduleInventory.setStackInSlot(0, ItemStack.EMPTY);
     }

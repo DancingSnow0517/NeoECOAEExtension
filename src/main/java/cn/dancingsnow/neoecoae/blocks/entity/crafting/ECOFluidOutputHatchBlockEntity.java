@@ -1,21 +1,23 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
 import cn.dancingsnow.neoecoae.gui.common.FluidHatchUI;
+import cn.dancingsnow.neoecoae.util.AdjacentFluidHandlers;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.fluids.FluidUtil;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 
 public class ECOFluidOutputHatchBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOFluidOutputHatchBlockEntity> {
+    private final AdjacentFluidHandlers adjacentFluids = new AdjacentFluidHandlers();
 
     /** @deprecated Use {@link #getFluidTankHandler()}; operate on the buffer without replacing it. */
     @Deprecated
@@ -47,9 +49,10 @@ public class ECOFluidOutputHatchBlockEntity extends cn.dancingsnow.neoecoae.bloc
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
-        if (tank.isEmpty()) return;
-        for (Direction face : Direction.values()) {
-            IFluidHandler targetHandler = level.getCapability(Capabilities.FluidHandler.BLOCK, pos.relative(face), face.getOpposite());
+        if (!(level instanceof ServerLevel serverLevel) || tank.isEmpty()) return;
+        for (int faces = adjacentFluids.candidateFaces(serverLevel); faces != 0; faces &= faces - 1) {
+            Direction face = AdjacentFluidHandlers.firstFace(faces);
+            IFluidHandler targetHandler = adjacentFluids.get(serverLevel, pos, face);
             if (targetHandler != null) {
                 if (!FluidUtil.tryFluidTransfer(targetHandler, tank, tank.getFluidAmount(), true).isEmpty()) {
                     return;
