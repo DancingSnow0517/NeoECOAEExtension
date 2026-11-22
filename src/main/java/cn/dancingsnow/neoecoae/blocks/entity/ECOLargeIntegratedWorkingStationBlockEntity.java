@@ -109,6 +109,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     private static final long MAX_PENDING_OUTPUT_STACKS = 100_000L;
     private static final long MAX_SAVE_STACKS = 50_000L;
     private static final int MAX_POWER_STORAGE = 16_000_000;
+    private static final int GRID_IDLE_RESERVE_TICKS = 20;
 
     private final NEIntegratedWorkingStationControllerCalculator calculator;
     private final LargeWorkstationCoolingOutput coolingOutput = new LargeWorkstationCoolingOutput();
@@ -1060,12 +1061,31 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 setWorking(false);
                 return TickRateModulation.SLOWER;
             }
-            return tickPendingBatch();
+            TickRateModulation rate = tickPendingBatch();
+            chargePowerBuffer(node.getGrid().getEnergyService());
+            return rate;
         } finally {
             // A tick can move coolant, finish portions and dequeue batches. Publish one final
             // provider update even when one of those operations exits exceptionally.
             finishCommunicationUpdates();
         }
+    }
+
+    private void chargePowerBuffer(IEnergyService energy) {
+        double requested = getAEMaxPower() - getAECurrentPower();
+        if (requested <= 0.0D) return;
+
+        double idlePower = PowerMultiplier.CONFIG.multiply(energy.getIdlePowerUsage());
+        double reserve = Math.max(0.1D, idlePower * GRID_IDLE_RESERVE_TICKS);
+        double available = energy.extractAEPower(requested + reserve, Actionable.SIMULATE, PowerMultiplier.ONE);
+        double charge = Math.min(requested, available - reserve);
+        if (charge <= 0.0D) return;
+
+        double extracted = energy.extractAEPower(charge, Actionable.MODULATE, PowerMultiplier.ONE);
+        if (extracted <= 0.0D) return;
+        double remainder = injectAEPower(extracted, Actionable.MODULATE);
+        if (remainder > 0.0D) refundRawPower(energy, remainder);
+        if (extracted > remainder) setChanged();
     }
 
     public boolean canAcceptPattern() {
