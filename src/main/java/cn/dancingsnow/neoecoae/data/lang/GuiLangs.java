@@ -784,7 +784,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.computation.ui.card.scheduled", "Scheduled");
         provider.add("gui.neoecoae.computation.ui.card.processing_step", "Processing Step");
         provider.add("gui.neoecoae.computation.ui.card.cycle_progress", "Cycle Progress");
-        provider.add("gui.neoecoae.computation.ui.card.unavailable", "Unavailable");
+        provider.add("gui.neoecoae.computation.ui.card.unavailable", "Not detected");
         provider.add("gui.neoecoae.computation.ui.card.context_hint", "Right-click to locate or manage this step");
         provider.add("gui.neoecoae.crafting.ui.fx_short", "FX %s / %s");
         provider.add("gui.neoecoae.crafting.ui.ft_short", "FT %s");
@@ -1145,7 +1145,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.processing.state.waiting", "Waiting for output");
         provider.add("gui.neoecoae.processing.state.paused", "Paused");
         provider.add("gui.neoecoae.processing.state.queued", "Queued");
-        provider.add("gui.neoecoae.processing.state.unavailable", "Unavailable");
+        provider.add("gui.neoecoae.processing.state.unavailable", "Not detected");
         provider.add("gui.neoecoae.storage.bulk_cell.action.migrate", "Mark and migrate matching resources now");
         provider.add("gui.neoecoae.storage.bulk_cell.action.priority", "Adjust storage priority");
         provider.add("gui.neoecoae.storage.bulk_cell.action.compression_display", "Adjust compression display");
