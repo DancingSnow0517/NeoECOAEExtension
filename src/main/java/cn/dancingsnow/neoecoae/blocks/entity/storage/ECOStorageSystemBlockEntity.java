@@ -88,6 +88,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private static final String LEGACY_COMPONENT_INVENTORY_PERSIST_KEY = "componentInventory";
     private static final String CONTROLLER_DOMAIN_TAG = "neoecoae_infinite_controller_domain";
     private static final String CONTROLLER_MODE_TAG = "neoecoae_infinite_controller_mode";
+    private static final String CONTROLLER_CLAIM_TAG = "neoecoae_infinite_controller_claim";
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -120,6 +121,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     @DescSynced
     @Nullable
     private UUID infiniteDomainId;
+    @Nullable
+    private UUID infiniteClaimToken;
+    @Nullable
+    private UUID pendingInfiniteClaimToken;
     private final java.util.Set<UUID> infiniteMemberIds = new java.util.HashSet<>();
     /**
      * Migration ids which must be seen and completed before the host may enter FORMED_INFINITE.
@@ -692,6 +697,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         CompoundTag tag = drop.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
         saveInfiniteMembers(tag);
         tag.putUUID(CONTROLLER_DOMAIN_TAG, infiniteDomainId);
+        // The settled token: a rotation in progress keeps it valid until the new one is durable.
+        if (infiniteClaimToken != null) tag.putUUID(CONTROLLER_CLAIM_TAG, infiniteClaimToken);
         tag.putString(CONTROLLER_MODE_TAG, hostMode.id());
         drop.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
     }
@@ -704,6 +711,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         infiniteModeController.release();
         loadInfiniteMembers(tag);
         setInfiniteDomainId(tag.getUUID(CONTROLLER_DOMAIN_TAG));
+        infiniteClaimToken = tag.hasUUID(CONTROLLER_CLAIM_TAG) ? tag.getUUID(CONTROLLER_CLAIM_TAG) : null;
+        // Every placement retires the token carried by older copies of this item.
+        pendingInfiniteClaimToken = UUID.randomUUID();
+        infiniteModeController.resetClaim();
         setStorageHostMode(ECOStorageHostMode.fromId(tag.getString(CONTROLLER_MODE_TAG)));
         setChanged();
     }
@@ -976,6 +987,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (infiniteDomainId != null) {
             data.putUUID("infiniteDomainId", infiniteDomainId);
         }
+        if (infiniteClaimToken != null) data.putUUID("infiniteClaimToken", infiniteClaimToken);
+        if (pendingInfiniteClaimToken != null) data.putUUID("pendingInfiniteClaimToken", pendingInfiniteClaimToken);
         saveInfiniteMembers(data);
     }
 
@@ -985,6 +998,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         loadLegacyInfiniteComponentInventory(data, registries);
         setStorageHostMode(ECOStorageHostMode.fromId(data.getString("infiniteHostMode")));
         setInfiniteDomainId(data.hasUUID("infiniteDomainId") ? data.getUUID("infiniteDomainId") : null);
+        infiniteClaimToken = data.hasUUID("infiniteClaimToken") ? data.getUUID("infiniteClaimToken") : null;
+        pendingInfiniteClaimToken = data.hasUUID("pendingInfiniteClaimToken")
+                ? data.getUUID("pendingInfiniteClaimToken") : null;
         loadInfiniteMembers(data);
     }
 
@@ -1064,6 +1080,22 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     @Nullable
     UUID infiniteDomainId() {
         return infiniteDomainId;
+    }
+
+    @Nullable
+    UUID infiniteClaimToken() {
+        return infiniteClaimToken;
+    }
+
+    @Nullable
+    UUID pendingInfiniteClaimToken() {
+        return pendingInfiniteClaimToken;
+    }
+
+    void setInfiniteClaimTokens(@Nullable UUID current, @Nullable UUID pending) {
+        infiniteClaimToken = current;
+        pendingInfiniteClaimToken = pending;
+        setChanged();
     }
 
     void setInfiniteDomainId(@Nullable UUID domainId) {
