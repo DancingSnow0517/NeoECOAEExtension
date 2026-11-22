@@ -229,8 +229,8 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
     }
 
     /**
-     * Migration routing excludes the physical source from duplicate checks. A unique pattern already
-     * installed in the destination domain stays in its slot, including when that host has no free slots.
+     * Migration leaves all slots in the destination domain untouched and excludes the physical
+     * source from duplicate checks for patterns from outside that domain.
      */
     public ECOPatternInsertion insertPreparedPatternReporting(@Nullable Object domain,
                                                               ECOPreparedPattern prepared,
@@ -239,18 +239,14 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                 || !(prepared.details() instanceof IMolecularAssemblerSupportedPattern)) {
             return ECOPatternInsertion.of(ECOPatternInsertionResult.INCOMPATIBLE);
         }
+        if (source != null && source.source() instanceof PatternStorageHost host && matchesDomain(host, domain)) {
+            return ECOPatternInsertion.of(ECOPatternInsertionResult.UNCHANGED);
+        }
         ItemStack patternItem = prepared.stack();
         refreshPatternIndexes();
         AEItemKey patternKey = ECOKeyFactory.item(patternItem);
         if (patternKey != null && containsPatternOtherThanSource(domain, patternKey, source)) {
             return ECOPatternInsertion.of(ECOPatternInsertionResult.ALREADY_PRESENT);
-        }
-        if (source != null && source.source() instanceof PatternStorageHost host
-                && matchesDomain(host, domain) && busPatternRecords.containsKey(host)
-                && busPatternRecords.get(host).containsKey(source.slot())
-                && source.slot() >= 0 && source.slot() < sourceSlots(source.source()).size()
-                && prepared.matches(sourceSlots(source.source()).getStackInSlot(source.slot()))) {
-            return ECOPatternInsertion.of(ECOPatternInsertionResult.UNCHANGED);
         }
         // The container pass is the only one that consumes the pattern's item; a slot keeps it as a stack.
         ECOPatternInsertionResult auxiliary = tryAuxiliaryPass(patternItem, prepared, domain);
@@ -763,6 +759,11 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
     public ExternalPatternIndexState getExternalPatternIndex(IGrid grid) {
         ensureExternalPatternIndex(grid);
         return externalPatternIndexState(true);
+    }
+
+    public ExternalPatternIndexState rebuildExternalPatternIndex(IGrid grid) {
+        invalidateExternalPatternIndex();
+        return getExternalPatternIndex(grid);
     }
 
     private void ensureExternalPatternIndex(IGrid grid) {

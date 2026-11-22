@@ -538,6 +538,11 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return effectiveInventory;
     }
 
+    @Override
+    public boolean allowsPatternMigrationSource() {
+        return true;
+    }
+
     /**
      * The rows the terminal view appends after the real slots.
      *
