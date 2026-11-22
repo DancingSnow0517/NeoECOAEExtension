@@ -89,6 +89,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private static final String CONTROLLER_DOMAIN_TAG = "neoecoae_infinite_controller_domain";
     private static final String CONTROLLER_MODE_TAG = "neoecoae_infinite_controller_mode";
     private static final String CONTROLLER_CLAIM_TAG = "neoecoae_infinite_controller_claim";
+    private static final String PERSISTENT_CLAIM_TAG = "neoecoae:infinite_claim";
+    private static final String CURRENT_CLAIM_TAG = "infiniteClaimToken";
+    private static final String PENDING_CLAIM_TAG = "pendingInfiniteClaimToken";
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -982,13 +985,20 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     @Override
     public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
+        if (infiniteDomainId != null && (infiniteClaimToken != null || pendingInfiniteClaimToken != null)) {
+            CompoundTag claim = new CompoundTag();
+            claim.putUUID("domain", infiniteDomainId);
+            if (infiniteClaimToken != null) claim.putUUID(CURRENT_CLAIM_TAG, infiniteClaimToken);
+            if (pendingInfiniteClaimToken != null) claim.putUUID(PENDING_CLAIM_TAG, pendingInfiniteClaimToken);
+            getPersistentData().put(PERSISTENT_CLAIM_TAG, claim);
+        } else {
+            getPersistentData().remove(PERSISTENT_CLAIM_TAG);
+        }
         super.saveAdditional(data, registries);
         data.putString("infiniteHostMode", hostMode.id());
         if (infiniteDomainId != null) {
             data.putUUID("infiniteDomainId", infiniteDomainId);
         }
-        if (infiniteClaimToken != null) data.putUUID("infiniteClaimToken", infiniteClaimToken);
-        if (pendingInfiniteClaimToken != null) data.putUUID("pendingInfiniteClaimToken", pendingInfiniteClaimToken);
         saveInfiniteMembers(data);
     }
 
@@ -998,9 +1008,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         loadLegacyInfiniteComponentInventory(data, registries);
         setStorageHostMode(ECOStorageHostMode.fromId(data.getString("infiniteHostMode")));
         setInfiniteDomainId(data.hasUUID("infiniteDomainId") ? data.getUUID("infiniteDomainId") : null);
-        infiniteClaimToken = data.hasUUID("infiniteClaimToken") ? data.getUUID("infiniteClaimToken") : null;
-        pendingInfiniteClaimToken = data.hasUUID("pendingInfiniteClaimToken")
-                ? data.getUUID("pendingInfiniteClaimToken") : null;
+        CompoundTag claim = getPersistentData().getCompound(PERSISTENT_CLAIM_TAG);
+        if (!claim.hasUUID("domain") || !claim.getUUID("domain").equals(infiniteDomainId)) claim = data;
+        infiniteClaimToken = claim.hasUUID(CURRENT_CLAIM_TAG) ? claim.getUUID(CURRENT_CLAIM_TAG) : null;
+        pendingInfiniteClaimToken = claim.hasUUID(PENDING_CLAIM_TAG) ? claim.getUUID(PENDING_CLAIM_TAG) : null;
         loadInfiniteMembers(data);
     }
 

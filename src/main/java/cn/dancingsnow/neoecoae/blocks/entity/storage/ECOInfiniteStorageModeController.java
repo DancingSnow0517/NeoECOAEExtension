@@ -134,7 +134,8 @@ final class ECOInfiniteStorageModeController {
             return;
         }
         host.storageFaults().recovered(COMPONENTS_FAULT);
-        if (host.storageHostMode() == ECOStorageHostMode.FORMED_INFINITE) {
+        if (host.storageHostMode() == ECOStorageHostMode.FORMED_INFINITE
+                && restoringEngine != null && restoringEngine.canExitOrRestore()) {
             // No restore references member identities here; legacy bound members become anonymous.
             host.releaseRestoreBindings();
         }
@@ -549,15 +550,17 @@ final class ECOInfiniteStorageModeController {
     /** Rotates the pending token in; the domain retires older tokens only once both sides are durable. */
     private void advanceClaim() {
         if (host.infiniteDomainId() == null) return;
-        if (host.infiniteClaimToken() == null && host.pendingInfiniteClaimToken() == null) {
-            host.setInfiniteClaimTokens(null, UUID.randomUUID());
-        }
-        UUID pending = host.pendingInfiniteClaimToken();
-        if (pending == null) return;
         ECOInfiniteStorageEngine engine = getEngine();
         if (engine == null) return;
+        UUID current = host.infiniteClaimToken();
+        UUID pending = host.pendingInfiniteClaimToken();
+        if (pending == null) {
+            if (!engine.acceptsClaim(null)) return;
+            pending = current != null ? current : UUID.randomUUID();
+            host.setInfiniteClaimTokens(current, pending);
+        }
         if (claimCheckpoint == null) {
-            engine.rotateClaim(host.infiniteClaimToken(), pending);
+            engine.rotateClaim(current, pending);
             claimCheckpoint = java.util.concurrent.CompletableFuture.allOf(
                     engine.checkpoint().thenAccept(result -> {
                         if (!result.successful()) throw new IllegalStateException(result.failure());
