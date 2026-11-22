@@ -335,11 +335,11 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                     position -> previewBulkCellMigration(holder.player, position),
                     (position, expected) -> openCellConfiguration(holder.player, position, expected)
                 )
-        ), this::getTier, this::getBlockState);
+        ), this::getTier, this::getBlockState,
+            stack -> StorageCellUiInsertion.quickMove(this, holder.player, stack));
         actionUI.addTo(root);
         root.addChild(cellPriorityWindow.window());
-        return ECOModularUI.create(root, holder.player, stack ->
-            StorageCellUiInsertion.quickMove(this, holder.player, stack));
+        return ECOModularUI.create(root, holder.player);
     }
 
     @RPCMethod
