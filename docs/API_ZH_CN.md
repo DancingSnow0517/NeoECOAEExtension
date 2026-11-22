@@ -208,7 +208,7 @@ FastPath 使用独立的 `ECOFastPathDispatchProvider`：
 | `supportsExactInputs`、`exactInputTotal` | 显式启用精确输入，不向旧供应器截断 |
 | `eco$prepareExactFastPath(context, requested)` | 独立精确次数能力，默认不支持 |
 
-直接实现、外部适配器与内置桥依次解析；普通并行适配器不会自动获得 FastPath 能力。`ECOBatchCapacityProvider` 为旧兼容入口，新接入使用上述接口。
+按样板计算容量的外部供应器可在通用初始化时调用 `ECOParallelCraftingProviders.registerFastPath(providerClass, adapter)`。适配器在准备阶段查询实时容量，注册独立于普通并行槽位。`ECOFastPathFacade` 依次解析直接实现、独立 FastPath 适配器、兼有 FastPath 的普通并行适配器、内置桥。原生 AE2 和 AdvancedAE CPU 的自动批量发配沿用原有直接实现与普通并行入口。`ECOBatchCapacityProvider` 为旧兼容入口。
 
 FastPath true 表示整批接收；false 或普通异常保证未接收，可由 CPU 回滚。如果是否接收已不确定，抛出 [ECOIndeterminateBatchException](../src/main/java/cn/dancingsnow/neoecoae/api/me/provider/ECOIndeterminateBatchException.java)，停止任务核对，不能先退款再重试。供应器不自行扣减或退款 CPU 的输入与能量。
 

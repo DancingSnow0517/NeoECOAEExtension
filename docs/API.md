@@ -208,7 +208,7 @@ FastPath uses the separate `ECOFastPathDispatchProvider`:
 | `supportsExactInputs`, `exactInputTotal` | Explicit exact-input support, without truncation for legacy providers |
 | `eco$prepareExactFastPath(context, requested)` | Separate exact-count capability, unsupported by default |
 
-Resolution checks direct implementations, external adapters, then built-in bridges. Parallel-only adapters do not gain FastPath automatically. `ECOBatchCapacityProvider` is deprecated; use the new contract.
+Register pattern-specific capacity during common setup with `ECOParallelCraftingProviders.registerFastPath(providerClass, adapter)`. The adapter resolves live capacity during preparation. This registration leaves ordinary parallel slots unchanged. `ECOFastPathFacade` resolves direct implementations, explicit FastPath adapters, combined parallel adapters, then built-in bridges. Automatic batching in the native AE2 and AdvancedAE CPUs continues to use its existing direct/parallel entry points. `ECOBatchCapacityProvider` is deprecated.
 
 True means full acceptance. False or an ordinary exception guarantees no acceptance and permits CPU rollback. If acceptance is uncertain, throw [ECOIndeterminateBatchException](../src/main/java/cn/dancingsnow/neoecoae/api/me/provider/ECOIndeterminateBatchException.java) and stop for reconciliation; never refund then retry uncertain acceptance. Providers do not debit/refund CPU inputs or energy themselves.
 
