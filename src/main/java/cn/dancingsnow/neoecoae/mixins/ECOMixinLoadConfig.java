@@ -36,6 +36,7 @@ public final class ECOMixinLoadConfig implements IMixinConfigPlugin {
     private static final String PLANNING_REQUEST = "L" + THUNDERBOLT_API + "PlanningRequest;";
     private static final String PLANNING_CAPTURE = "(Lappeng/api/networking/IGrid;" + PLANNING_REQUEST
         + ")Ljava/lang/Object;";
+    private static final Set<String> AE2_FAST_PATH_VERSIONS = Set.of("19.2.17", "19.2.18", "19.2.19", "19.2.20");
     private static final Set<String> AE2_VERSION_CHECKED = Set.of(
         "ae2.accessor.PrecisePriorityListAccessor",
         "ae2.key.DefaultKeyOwnerMixin",
@@ -52,7 +53,7 @@ public final class ECOMixinLoadConfig implements IMixinConfigPlugin {
         if (AE2_VERSION_CHECKED.contains(mixin)) {
             var mods = LoadingModList.get();
             return mods != null && mods.getMods().stream().anyMatch(mod -> mod.getModId().equals("ae2")
-                && mod.getVersion().toString().equals("19.2.18"));
+                && AE2_FAST_PATH_VERSIONS.contains(mod.getVersion().toString()));
         }
 
         for (var requirement : REQUIRED_MODS.entrySet()) {
