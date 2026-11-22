@@ -44,6 +44,7 @@ import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
+import com.lowdragmc.lowdraglib2.syncdata.annotation.LazyManaged;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
@@ -93,6 +94,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     public static final int SLOTS_PER_PAGE = ROW_SIZE * COL_SIZE;
 
     @Persisted
+    @LazyManaged
+    // Inventory callbacks save changes; polling would re-encode every pattern on LDLib's async thread each period.
     private final AppEngInternalInventory inventory;
     private final InternalInventory effectiveInventory = new EffectivePatternInventory();
     private final IItemHandlerModifiable pageItemHandler = new PagedPatternItemHandler();

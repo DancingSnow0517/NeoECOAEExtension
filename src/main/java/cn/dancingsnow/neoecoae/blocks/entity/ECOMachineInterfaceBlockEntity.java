@@ -43,6 +43,7 @@ import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerMenu;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
+import com.lowdragmc.lowdraglib2.syncdata.annotation.LazyManaged;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.RPCMethod;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
@@ -105,6 +106,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private transient CompoundTag cachedStorageResourceFilters;
     private transient StorageInterfaceFilter storageResourceFilter;
     @Persisted
+    @LazyManaged
+    // Inventory callbacks save changes; do not serialize the slots on every LDLib sync period.
     private final AppEngInternalInventory fuzzyPlanningInventory = new AppEngInternalInventory(
         this, FUZZY_PLANNING_SLOT_COUNT, 1
     );
