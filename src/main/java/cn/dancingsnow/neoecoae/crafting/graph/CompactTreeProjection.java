@@ -47,7 +47,30 @@ public final class CompactTreeProjection {
         int rootId = addVisibleNode(source, source.rootId(), -1, rootPath, 0, false, nodes, treeNodes);
         expand(source, source.rootId(), rootId, rootPath, 0, depthLimit, false, dependencies,
             expandedPaths, fullyExpandedPaths, collapsedPaths, emittedSources, ids, nodes, treeNodes, links);
+        Set<Integer> sharedBatchMaterials = sharedBatchMaterials(source, emittedSources);
+        if (!sharedBatchMaterials.isEmpty()) {
+            treeNodes.replaceAll((id, node) -> sharedBatchMaterials.contains(node.sourceId())
+                ? node.withSharedBatch() : node);
+        }
         return ClientCraftingGraph.compact(source, nodes, links, treeNodes, rootId);
+    }
+
+    private static Set<Integer> sharedBatchMaterials(ClientCraftingGraph source, Set<Integer> emittedSources) {
+        Map<Integer, Integer> firstOutput = new HashMap<>();
+        Set<Integer> shared = new HashSet<>();
+        for (var link : source.links()) {
+            if (!link.selected() || link.kind() != CraftingGraphSnapshot.EdgeKind.PATTERN_OUTPUT
+                    && link.kind() != CraftingGraphSnapshot.EdgeKind.BYPRODUCT
+                    || !emittedSources.contains(link.fromId()) || link.plannerAmount().signum() <= 0) continue;
+            var pattern = source.nodes().get(link.toId()).pattern();
+            if (pattern == null || pattern.plannerFiringCount().signum() <= 0) continue;
+            Integer previous = firstOutput.putIfAbsent(pattern.patternNodeId(), link.fromId());
+            if (previous != null && previous != link.fromId()) {
+                shared.add(previous);
+                shared.add(link.fromId());
+            }
+        }
+        return shared;
     }
 
     /** Returns one stable source-id path, including root and target, for search auto-expansion. */
@@ -110,7 +133,7 @@ public final class CompactTreeProjection {
                 treeNodes.put(childId, new CompactTreeNode(childId, dependency.childId(), frame.parentId(), childPath,
                     childDepth, false, true, 0, 0, false,
                     childSource.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP
-                        || childSource.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER, false));
+                        || childSource.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER, false, false));
             } else if (childHasChildren && (childDepth > depthLimit || collapsedPaths.contains(childPath)) && !childExpanded) {
                 CompactTreeNode summary = summarizeFolder(source, childId, dependency.childId(), frame.parentId(), childPath,
                     childDepth, dependencies);
@@ -154,7 +177,7 @@ public final class CompactTreeProjection {
         nodes.put(projectedId, copyNode(projectedId, sourceNode));
         treeNodes.put(projectedId, new CompactTreeNode(projectedId, sourceId, parentId, path, depth, folder, false,
             0, 0, false, sourceNode.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP
-                || sourceNode.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER, false));
+                || sourceNode.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER, false, false));
         return projectedId;
     }
 
@@ -205,7 +228,7 @@ public final class CompactTreeProjection {
             }
         }
         return new CompactTreeNode(id, sourceId, parentId, path, depth, true, false, Math.max(0, count - 1),
-            maxDepth, missing, cycle, unsupported);
+            maxDepth, missing, cycle, unsupported, false);
     }
 
     private static Map<Integer, List<Dependency>> dependencies(ClientCraftingGraph source) {

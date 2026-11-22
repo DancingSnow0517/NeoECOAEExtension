@@ -1781,6 +1781,7 @@
   "gui.neoecoae.crafting_graph.card.source_patterns": "来源样板 #%s",
   "gui.neoecoae.crafting_graph.reference.description": "共享依赖引用",
   "gui.neoecoae.crafting_graph.reference.source": "来源 ID：%s",
+  "gui.neoecoae.crafting_graph.shared_batch": "与另一条分支共享同一合成批次",
   "gui.neoecoae.crafting_graph.action.expand_hint": "左键展开一层；双击或右键展开全部",
   "gui.neoecoae.craft_error.shortfall": "本次未能提取：%s",
   "gui.neoecoae.craft_error.meaning": "实际提取量不足；此数量是本次提取缺口，并非网络总库存。",
