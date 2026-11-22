@@ -5,6 +5,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.storage.SaturatingStackAccumulator;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.math.BigInteger;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -63,6 +64,27 @@ public final class StorageListingAccumulator {
         }
     }
 
+    /**
+     * Lists one mount into an empty {@code counter} and copies its nonzero amounts to {@code out} in the same pass,
+     * with the repairs {@link #append} applies. Leaves the counter's submaps in place for the next listing.
+     */
+    public void appendFlat(MEStorage storage, KeyCounter counter, Object2LongMap<AEKey> out) {
+        storage.getAvailableStacks(counter);
+        Map<AEKey, ExactAmount> exactAmounts = null;
+        for (var entry : counter) {
+            long amount = entry.getLongValue();
+            if (amount < 0) {
+                if (exactAmounts == null) exactAmounts = ExactAmountCollector.sourceAmounts(storage);
+                amount = repaired(exactAmounts.get(entry.getKey()));
+            }
+            if (amount != 0) out.put(entry.getKey(), amount);
+        }
+    }
+
+    private static long repaired(ExactAmount exact) {
+        return exact == null ? 0 : exact.infinite() ? Long.MAX_VALUE : exact.value().min(MAX_LONG).longValueExact();
+    }
+
     private static void sanitize(MEStorage storage, KeyCounter output) {
         Map<AEKey, ExactAmount> exactAmounts = null;
         boolean removeZeros = false;
@@ -70,8 +92,7 @@ public final class StorageListingAccumulator {
             long amount = entry.getLongValue();
             if (amount < 0) {
                 if (exactAmounts == null) exactAmounts = ExactAmountCollector.sourceAmounts(storage);
-                ExactAmount exact = exactAmounts.get(entry.getKey());
-                long repaired = exact == null ? 0 : exact.infinite() ? Long.MAX_VALUE : exact.value().min(MAX_LONG).longValueExact();
+                long repaired = repaired(exactAmounts.get(entry.getKey()));
                 output.set(entry.getKey(), repaired);
                 removeZeros |= repaired == 0;
             } else removeZeros |= amount == 0;

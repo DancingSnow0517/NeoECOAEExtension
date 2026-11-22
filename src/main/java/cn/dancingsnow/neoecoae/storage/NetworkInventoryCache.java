@@ -56,6 +56,9 @@ public final class NetworkInventoryCache {
         private long version;
         private Object identity;
         private int epoch;
+        /** Unversioned mounts are listed on every refresh; keeping their grouped submaps avoids rebuilding them. */
+        private KeyCounter listing;
+        private int listings;
 
         Mount(MEStorage inventory) {
             versioned = inventory instanceof StorageListingVersion value ? value : null;
@@ -204,7 +207,7 @@ public final class NetworkInventoryCache {
             mount.version = mount.currentVersion();
             mount.identity = mount.currentIdentity();
             mount.epoch = current;
-            list(inventory, mount.content, fullListing);
+            list(inventory, mount, mount.content, fullListing);
             mounts.put(inventory, mount);
             for (var entry : Object2LongMaps.fastIterable(mount.content)) {
                 AEKey key = entry.getKey();
@@ -254,7 +257,7 @@ public final class NetworkInventoryCache {
         Object identity = mount.currentIdentity();
         boolean viewChanged = !added && identity != mount.identity;
         if (added) {
-            list(inventory, mount.content, fullListing);
+            list(inventory, mount, mount.content, fullListing);
             mounts.put(inventory, mount);
             for (var entry : Object2LongMaps.fastIterable(mount.content)) adjust(amounts, entry.getKey(), entry.getLongValue());
         } else if (remounted || viewChanged || version == StorageListingVersion.UNKNOWN || version != mount.version) {
@@ -266,7 +269,7 @@ public final class NetworkInventoryCache {
             }
             Object2LongOpenHashMap<AEKey> fresh = flatScratch;
             fresh.clear();
-            list(inventory, fresh, fullListing);
+            list(inventory, mount, fresh, fullListing);
             Object2LongOpenHashMap<AEKey> old = mount.content;
             for (var entry : Object2LongMaps.fastIterable(old)) {
                 long now = fresh.getLong(entry.getKey());
@@ -397,18 +400,36 @@ public final class NetworkInventoryCache {
         return Long.MAX_VALUE;
     }
 
-    private void list(MEStorage inventory, Object2LongOpenHashMap<AEKey> out, BiConsumer<MEStorage, KeyCounter> fullListing) {
+    private void list(MEStorage inventory, Mount mount, Object2LongOpenHashMap<AEKey> out,
+            BiConsumer<MEStorage, KeyCounter> fullListing) {
         // Only the public listing boundary needs AE2's grouped/fuzzy counter. Mounts retain a flat long map.
+        out.clear();
+        if (fullListing == null && mount.currentVersion() == StorageListingVersion.UNKNOWN) {
+            if (mount.listing == null) mount.listing = new KeyCounter();
+            KeyCounter counter = mount.listing;
+            try {
+                listing.appendFlat(inventory, counter, out);
+            } finally {
+                counter.clear();
+                // Occasionally drop groups whose resources left this mount, so retained submaps stay bounded.
+                if (++mount.listings >= FULL_REBUILD_INTERVAL) {
+                    mount.listings = 0;
+                    counter.removeEmptySubmaps();
+                }
+            }
+            return;
+        }
         scratch.clear();
         try {
-            if (fullListing == null) listing.append(inventory, scratch, inventory::getAvailableStacks);
-            else fullListing.accept(inventory, scratch);
-            scratch.removeZeros();
-            out.clear();
-            for (var entry : scratch) out.put(entry.getKey(), entry.getLongValue());
+            if (fullListing == null) listing.appendFlat(inventory, scratch, out);
+            else {
+                fullListing.accept(inventory, scratch);
+                for (var entry : scratch) if (entry.getLongValue() != 0) out.put(entry.getKey(), entry.getLongValue());
+            }
         } finally {
             // Retain capacity only; a scratch native counter must not become a second lasting inventory mirror.
             scratch.clear();
+            scratch.removeEmptySubmaps();
         }
     }
 
