@@ -53,6 +53,8 @@ public final class NetworkInventoryCache {
         private long version;
         private Object identity;
         private int epoch;
+        private KeyCounter listingScratch;
+        private int listingRefreshes;
 
         Mount(MEStorage inventory) {
             versioned = inventory instanceof StorageListingVersion value ? value : null;
@@ -200,7 +202,7 @@ public final class NetworkInventoryCache {
             mount.version = mount.currentVersion();
             mount.identity = mount.currentIdentity();
             mount.epoch = current;
-            list(inventory, mount.content, fullListing);
+            list(inventory, mount, mount.content, fullListing);
             mounts.put(inventory, mount);
             for (var entry : Object2LongMaps.fastIterable(mount.content)) {
                 AEKey key = entry.getKey();
@@ -237,7 +239,7 @@ public final class NetworkInventoryCache {
             Object identity = mount.currentIdentity();
             boolean viewChanged = !added && identity != mount.identity;
             if (added) {
-                list(inventory, mount.content, fullListing);
+                list(inventory, mount, mount.content, fullListing);
                 mounts.put(inventory, mount);
                 for (var entry : Object2LongMaps.fastIterable(mount.content)) adjust(amounts, entry.getKey(), entry.getLongValue());
             } else if (remounted || viewChanged || version == StorageListingVersion.UNKNOWN || version != mount.version) {
@@ -253,7 +255,7 @@ public final class NetworkInventoryCache {
                     : StoragePerformance.Counter.CACHE_EXPIRED_DELTA);
                 Object2LongOpenHashMap<AEKey> fresh = flatScratch;
                 fresh.clear();
-                list(inventory, fresh, fullListing);
+                list(inventory, mount, fresh, fullListing);
                 Object2LongOpenHashMap<AEKey> old = mount.content;
                 // Contents never hold zeros, so a missing key reads as 0 on either side.
                 for (var entry : Object2LongMaps.fastIterable(old)) {
@@ -399,15 +401,26 @@ public final class NetworkInventoryCache {
         return Long.MAX_VALUE;
     }
 
-    private void list(MEStorage inventory, Object2LongOpenHashMap<AEKey> out, BiConsumer<MEStorage, KeyCounter> fullListing) {
+    private void list(MEStorage inventory, Mount mount, Object2LongOpenHashMap<AEKey> out,
+            BiConsumer<MEStorage, KeyCounter> fullListing) {
         StoragePerformance.count(StoragePerformance.Counter.CACHE_FULL);
-        // Only the public listing boundary needs AE2's grouped/fuzzy counter. Mounts retain a flat long map.
-        scratch.clear();
-        if (fullListing == null) listing.append(inventory, scratch, inventory::getAvailableStacks);
-        else fullListing.accept(inventory, scratch);
-        scratch.removeZeros();
+        boolean retainGroups = fullListing == null && mount.currentVersion() == StorageListingVersion.UNKNOWN;
+        if (retainGroups && mount.listingScratch == null) mount.listingScratch = new KeyCounter();
+        KeyCounter counter = retainGroups ? mount.listingScratch : scratch;
         out.clear();
-        for (var entry : scratch) out.put(entry.getKey(), entry.getLongValue());
+        try {
+            if (fullListing == null) listing.appendFlat(inventory, counter, out);
+            else {
+                fullListing.accept(inventory, counter);
+                for (var entry : counter) if (entry.getLongValue() != 0) out.put(entry.getKey(), entry.getLongValue());
+            }
+        } finally {
+            counter.clear();
+            if (!retainGroups || ++mount.listingRefreshes >= FULL_REBUILD_INTERVAL) {
+                mount.listingRefreshes = 0;
+                counter.removeEmptySubmaps();
+            }
+        }
         if (StoragePerformance.ENABLED) StoragePerformance.add(StoragePerformance.Counter.CACHE_LISTED_KEYS, out.size());
     }
 

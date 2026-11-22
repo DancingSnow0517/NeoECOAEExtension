@@ -5,6 +5,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.storage.SaturatingStackAccumulator;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -58,6 +59,20 @@ public final class StorageListingAccumulator {
                 amount = exact.longValueSaturated();
             }
             if (amount != 0) SaturatingStackAccumulator.add(output, entry.getKey(), amount);
+        }
+    }
+
+    public void appendFlat(MEStorage storage, KeyCounter counter, Object2LongMap<AEKey> out) {
+        storage.getAvailableStacks(counter);
+        Map<AEKey, ExactAmount> exactAmounts = null;
+        for (var entry : counter) {
+            long amount = entry.getLongValue();
+            if (amount < 0) {
+                if (exactAmounts == null) exactAmounts = ExactAmountCollector.sourceAmounts(storage);
+                ExactAmount exact = exactAmounts.get(entry.getKey());
+                amount = exact == null ? 0 : exact.longValueSaturated();
+            }
+            if (amount != 0) out.put(entry.getKey(), amount);
         }
     }
 
