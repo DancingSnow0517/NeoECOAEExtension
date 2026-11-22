@@ -32,6 +32,7 @@ public class CraftingStatusMenuMixin extends CraftingCPUMenu implements ECOCpuLi
     @Shadow public CraftingStatusMenu.CraftingCpuList cpuList;
     @Shadow private int selectedCpuSerial;
     @Shadow private ImmutableSet<ICraftingCPU> lastCpuSet;
+    @Shadow private int lastUpdate;
     @Unique @GuiSync(113) public ECOCpuListPage neoecoae$cpuPage = ECOCpuListPage.EMPTY;
     @Unique private int neoecoae$cpuOffset;
     @Unique private long neoecoae$cpuScrollSequence;
@@ -69,6 +70,15 @@ public class CraftingStatusMenuMixin extends CraftingCPUMenu implements ECOCpuLi
             super.broadcastChanges();
             ci.cancel();
         }
+    }
+
+    @WrapOperation(method = "broadcastChanges", at = @At(value = "INVOKE",
+        target = "Lappeng/menu/me/crafting/CraftingStatusMenu;createCpuList()Lappeng/menu/me/crafting/CraftingStatusMenu$CraftingCpuList;"))
+    private CraftingStatusMenu.CraftingCpuList neoecoae$resetCpuListRefreshTimer(CraftingStatusMenu menu,
+            Operation<CraftingStatusMenu.CraftingCpuList> original) {
+        var updated = original.call(menu);
+        lastUpdate = 0;
+        return updated;
     }
 
     @WrapOperation(method = "broadcastChanges", at = @At(value = "INVOKE",
