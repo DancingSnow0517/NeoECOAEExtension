@@ -2,10 +2,12 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -22,11 +24,18 @@ import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.CombinedExactAmountSource;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountCollector;
 import cn.dancingsnow.neoecoae.storage.SaturatingStackAccumulator;
+import cn.dancingsnow.neoecoae.storage.ECOCreativeCell;
 import cn.dancingsnow.neoecoae.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.storage.ECOInfiniteResourceCell;
 import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
+import cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell;
+import cn.dancingsnow.neoecoae.storage.bulk.ECOCompressionService;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.storage.transfer.ECOIOPortTransfer;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
+import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 
 /** Moves storage contents in full-key batches using AE2 ME IO Port transfer semantics. */
 final class ECOStorageInterfaceTransfer {
@@ -34,7 +43,11 @@ final class ECOStorageInterfaceTransfer {
     private final ECOIOPortTransfer ioPortTransfer = new ECOIOPortTransfer();
     private ECOInfiniteStorageEngine cachedStorageEngine;
     private MEStorage cachedInfiniteStorage;
+    private NEStorageCluster cachedCluster;
     private CombinedStorage cachedCombinedStorage;
+    private final Map<ECODriveBlockEntity, IECOStorageCell> installed = new IdentityHashMap<>();
+    private final List<ECODriveBlockEntity> untrackedDrives = new ArrayList<>();
+    private boolean hostStorageDirty = true;
 
     ECOStorageInterfaceTransfer(ECOStorageSystemBlockEntity host) {
         this.host = host;
@@ -43,7 +56,31 @@ final class ECOStorageInterfaceTransfer {
     void invalidateInfiniteStorageView() {
         cachedStorageEngine = null;
         cachedInfiniteStorage = null;
+        invalidateHostStorage();
         ioPortTransfer.reset();
+    }
+
+    void invalidateHostStorage() {
+        hostStorageDirty = true;
+        cachedCluster = null;
+        cachedCombinedStorage = null;
+        installed.clear();
+        untrackedDrives.clear();
+    }
+
+    void driveConfigurationChanged(ECODriveBlockEntity drive) {
+        if (hostStorageDirty) return;
+        IECOStorageCell inventory = eligibleCell(drive, installedCell(drive));
+        if (inventory != installed.get(drive)) {
+            invalidateHostStorage();
+        } else if (inventory != null) {
+            cachedCombinedStorage.refreshPriority(inventory);
+            cachedCombinedStorage.contentsChanged(inventory);
+        }
+    }
+
+    void cellContentsChanged(ECOStorageCell inventory) {
+        if (cachedCombinedStorage != null) cachedCombinedStorage.contentsChanged(inventory);
     }
 
     long transferStorageInterfaceContents(ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface) {
@@ -71,7 +108,6 @@ final class ECOStorageInterfaceTransfer {
         );
         if (moved > 0L) {
             host.setChanged();
-            host.markForUpdate();
         }
         return moved;
     }
@@ -83,41 +119,72 @@ final class ECOStorageInterfaceTransfer {
                 && (host.isInfiniteExitRequested() || !host.canUseHostDomainStorage())) {
             return null;
         }
-        List<MEStorage> cells = new ArrayList<>();
-        if (host.canUseHostDomainStorage()) {
-            ECOInfiniteStorageEngine engine = host.getInfiniteEngine();
-            if (engine != cachedStorageEngine) {
-                cachedStorageEngine = engine;
-                cachedInfiniteStorage = engine == null ? null : host.createInfiniteStorageView(engine);
-            }
-            if (cachedInfiniteStorage != null) cells.add(cachedInfiniteStorage);
+        NEStorageCluster cluster = host.getCluster();
+        if (cluster == null) return null;
+        ECOInfiniteStorageEngine engine = host.storageHostMode().isInfiniteState() ? host.getInfiniteEngine() : null;
+        if (engine != cachedStorageEngine) {
+            cachedStorageEngine = engine;
+            cachedInfiniteStorage = engine == null ? null : host.createInfiniteStorageView(engine);
+            invalidateHostStorage();
         }
-        if (host.getCluster() == null) return null;
+        if (!hostStorageDirty && cluster == cachedCluster) {
+            boolean changed = false;
+            for (ECODriveBlockEntity drive : untrackedDrives) {
+                if (eligibleCell(drive, installedCell(drive)) != installed.get(drive)) {
+                    changed = true;
+                    break;
+                }
+            }
+            if (!changed) return cachedCombinedStorage;
+        }
 
-        for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
-            IECOStorageCell cell = drive.getCellInventory();
-            if (cell != null
-                && host.getTier().compareTo(cell.getTier()) >= 0
-                && !host.isInfiniteMemberCell(drive.getCellStack())) {
-                cells.add(cell);
+        List<MEStorage> cells = new ArrayList<>();
+        if (cachedInfiniteStorage != null) cells.add(cachedInfiniteStorage);
+        installed.clear();
+        untrackedDrives.clear();
+        for (ECODriveBlockEntity drive : cluster.getDrives()) {
+            IECOStorageCell inventory = installedCell(drive);
+            if (inventory != null && !hasNativeNotifications(inventory)) untrackedDrives.add(drive);
+            IECOStorageCell eligible = eligibleCell(drive, inventory);
+            if (eligible != null) {
+                installed.put(drive, eligible);
+                cells.add(eligible);
             }
         }
-        if (cells.isEmpty()) {
-            cachedCombinedStorage = null;
-            return null;
-        }
-        if (cachedCombinedStorage == null || !cachedCombinedStorage.hasInventories(cells)) {
-            cachedCombinedStorage = new CombinedStorage(cells, host.getBlockState().getBlock().getName(),
-                    () -> !host.storageHostMode().isInfiniteState() || host.canInsertIntoInfiniteDomain());
-        }
+        cachedCombinedStorage = cells.isEmpty() ? null : new CombinedStorage(cells,
+                host.getBlockState().getBlock().getName(),
+                () -> !host.storageHostMode().isInfiniteState() || host.canInsertIntoInfiniteDomain());
+        hostStorageDirty = false;
+        cachedCluster = cluster;
         return cachedCombinedStorage;
+    }
+
+    private IECOStorageCell installedCell(ECODriveBlockEntity drive) {
+        return drive.isInstalledStorageAvailable() ? drive.getCellInventory() : null;
+    }
+
+    private IECOStorageCell eligibleCell(ECODriveBlockEntity drive, @Nullable IECOStorageCell inventory) {
+        return inventory != null && host.getTier().compareTo(inventory.getTier()) >= 0
+            && !ECOInfiniteStorageMember.isMember(drive.getInstalledCellStack()) ? inventory : null;
+    }
+
+    private static boolean hasNativeNotifications(MEStorage inventory) {
+        Class<?> type = inventory.getClass();
+        return type == ECOStorageCell.class || type == ECOBulkStorageCell.class
+            || type == ECOInfiniteResourceCell.class || type == ECOCreativeCell.class;
     }
 
     static final class CombinedStorage implements MEStorage, CombinedExactAmountSource, NetworkInventoryCache.Mounts {
         private final List<MEStorage> inventories;
         private final net.minecraft.network.chat.Component description;
         private final BooleanSupplier allowAccess;
-        private final int[] priorities;
+        private final Reference2IntOpenHashMap<MEStorage> priorities = new Reference2IntOpenHashMap<>();
+        private final List<MEStorage> polledPriorities;
+        private final List<MEStorage> polledListings;
+        private final List<MEStorage> bulkCells;
+        private final boolean distinct;
+        private ReferenceOpenHashSet<MEStorage> changedListings = new ReferenceOpenHashSet<>();
+        private long compressionRevision = ECOCompressionService.revision();
         private List<MEStorage> orderedInserts;
         private List<MEStorage> itemInserts;
         private List<MEStorage> fluidInserts;
@@ -127,40 +194,69 @@ final class ECOStorageInterfaceTransfer {
             this.inventories = List.copyOf(inventories);
             this.description = description;
             this.allowAccess = allowAccess;
-            priorities = new int[inventories.size()];
+            boolean distinct = true;
+            var polledPriorities = new ArrayList<MEStorage>();
+            var polledListings = new ArrayList<MEStorage>();
+            var bulkCells = new ArrayList<MEStorage>();
+            for (MEStorage inventory : inventories) {
+                distinct &= !priorities.containsKey(inventory);
+                priorities.put(inventory, storagePriority(inventory));
+                if (!hasNativeNotifications(inventory)) {
+                    polledListings.add(inventory);
+                    if (inventory instanceof IECOStorageCell) polledPriorities.add(inventory);
+                }
+                if (inventory instanceof ECOBulkStorageCell) bulkCells.add(inventory);
+            }
+            this.distinct = distinct;
+            this.polledPriorities = List.copyOf(polledPriorities);
+            this.polledListings = List.copyOf(polledListings);
+            this.bulkCells = List.copyOf(bulkCells);
         }
 
         CombinedStorage(List<MEStorage> inventories, net.minecraft.network.chat.Component description) {
             this(inventories, description, () -> true);
         }
 
-        boolean hasInventories(List<MEStorage> current) {
-            if (current.size() != inventories.size()) return false;
-            for (int i = 0; i < current.size(); i++) if (current.get(i) != inventories.get(i)) return false;
-            return true;
-        }
-
         @Override public long neoecoae$mountGeneration() { return allowAccess.getAsBoolean() ? 0 : 1; }
+
+        @Override public boolean neoecoae$distinctMountsGuaranteed() { return distinct; }
 
         @Override public boolean neoecoae$withMounts(java.util.function.Consumer<List<MEStorage>> action) {
             action.accept(allowAccess.getAsBoolean() ? inventories : List.of());
             return true;
         }
 
-        private void refreshInsertionOrder() {
-            boolean changed = orderedInserts == null;
-            for (int i = 0; i < inventories.size(); i++) {
-                int priority = storagePriority(inventories.get(i));
-                if (priority != priorities[i]) { priorities[i] = priority; changed = true; }
+        @Override
+        public boolean neoecoae$visitChangedMounts(Consumer<MEStorage> action) {
+            if (!allowAccess.getAsBoolean()) return true;
+            long revision = ECOCompressionService.revision();
+            if (revision != compressionRevision) {
+                compressionRevision = revision;
+                changedListings.addAll(bulkCells);
             }
-            if (!changed) return;
-            // 1.21.1 has arbitrary, mutable priorities. Preserve stable tie order and observe every change.
-            int[] order = new int[inventories.size()];
-            for (int i = 0; i < order.length; i++) order[i] = i;
-            it.unimi.dsi.fastutil.ints.IntArrays.stableSort(order,
-                (left, right) -> Integer.compare(priorities[right], priorities[left]));
-            var sorted = new ArrayList<MEStorage>(order.length);
-            for (int index : order) sorted.add(inventories.get(index));
+            if (!changedListings.isEmpty()) {
+                var pending = changedListings;
+                changedListings = new ReferenceOpenHashSet<>();
+                pending.forEach(action);
+            }
+            polledListings.forEach(action);
+            return true;
+        }
+
+        void contentsChanged(MEStorage inventory) {
+            if (hasNativeNotifications(inventory) && priorities.containsKey(inventory)) changedListings.add(inventory);
+        }
+
+        private void refreshPriority(MEStorage inventory) {
+            int priority = storagePriority(inventory);
+            if (priorities.put(inventory, priority) != priority) orderedInserts = null;
+        }
+
+        private void refreshInsertionOrder() {
+            polledPriorities.forEach(this::refreshPriority);
+            if (orderedInserts != null) return;
+            var sorted = new ArrayList<>(inventories);
+            sorted.sort((left, right) -> Integer.compare(priorities.getInt(right), priorities.getInt(left)));
             orderedInserts = List.copyOf(sorted);
             itemInserts = insertCandidates(AEKeyType.items());
             fluidInserts = insertCandidates(AEKeyType.fluids());

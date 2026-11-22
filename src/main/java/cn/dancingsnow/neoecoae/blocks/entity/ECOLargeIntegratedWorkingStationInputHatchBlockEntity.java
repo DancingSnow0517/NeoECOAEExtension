@@ -11,21 +11,21 @@ import appeng.api.util.AECableType;
 import java.util.EnumSet;
 import java.util.Set;
 import cn.dancingsnow.neoecoae.blocks.ECOLargeIntegratedWorkingStationSmartCoolingModule;
-import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.gui.common.FluidHatchUI;
 import cn.dancingsnow.neoecoae.gui.workstation.SmartCoolingModuleUI;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEIntegratedWorkingStationClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
+import cn.dancingsnow.neoecoae.util.AdjacentFluidHandlers;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidUtil;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
@@ -40,6 +40,10 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
     private FluidStack markedCoolant = FluidStack.EMPTY;
     private boolean returnUnmarkedCoolant;
     private long nextCoolantPullTick;
+    private final LargeWorkstationCoolantLookup coolantRecipes = new LargeWorkstationCoolantLookup();
+    private final AdjacentFluidHandlers adjacentFluids = new AdjacentFluidHandlers();
+    private NEIntegratedWorkingStationCluster fluidTopology;
+    private int internalFluidFaces;
 
     public boolean isSmartCoolingModule() {
         return getBlockState().getBlock() instanceof ECOLargeIntegratedWorkingStationSmartCoolingModule;
@@ -102,11 +106,7 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
     }
 
     private boolean isCoolant(FluidStack fluid) {
-        if (level == null || fluid.isEmpty()) return false;
-        for (var holder : level.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get())) {
-            if (holder.value().input().ingredient().test(fluid)) return true;
-        }
-        return false;
+        return coolantRecipes.find(level, fluid) != null;
     }
 
     private void notifyController() {
@@ -116,7 +116,7 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
-        if (level.isClientSide) return;
+        if (!(level instanceof ServerLevel serverLevel)) return;
         if (isSmartCoolingModule()) {
             long now = level.getGameTime();
             if (now >= nextCoolantPullTick) {
@@ -127,13 +127,14 @@ public class ECOLargeIntegratedWorkingStationInputHatchBlockEntity
         }
         if (tank.getSpace() <= 0) return;
         var cluster = getCluster();
-        for (Direction face : Direction.values()) {
-            BlockPos neighborPos = pos.relative(face);
-            if (cluster != null && cluster.containsBlockEntity(level.getBlockEntity(neighborPos))) {
-                continue;
-            }
-            IFluidHandler source = level.getCapability(
-                Capabilities.FluidHandler.BLOCK, neighborPos, face.getOpposite());
+        if (cluster != null && cluster.isDestroyed()) cluster = null;
+        if (fluidTopology != cluster) {
+            fluidTopology = cluster;
+            internalFluidFaces = cluster == null ? 0 : AdjacentFluidHandlers.mask(cluster.getInternalConnections(this));
+        }
+        for (int faces = adjacentFluids.candidateFaces(serverLevel) & ~internalFluidFaces; faces != 0; faces &= faces - 1) {
+            var face = AdjacentFluidHandlers.firstFace(faces);
+            IFluidHandler source = adjacentFluids.get(serverLevel, pos, face);
             if (source != null
                 && !FluidUtil.tryFluidTransfer(tank, source, tank.getCapacity(), true).isEmpty()) {
                 return;

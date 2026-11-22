@@ -26,6 +26,7 @@ public interface ECOCraftConfirmMenuMode {
     default boolean neoecoae$provenInfeasible() { return false; }
     default long neoecoae$getDisplayedPlanRevision() { return -1L; }
     default boolean neoecoae$lockDisplayedPlan(long revision) { return true; }
+    default String neoecoae$getPlanRejection() { return ""; }
     /** Whether this menu's normal AE2 planning request was eligible for ECO. */
     boolean neoecoae$isEcoPlannerAvailable();
 

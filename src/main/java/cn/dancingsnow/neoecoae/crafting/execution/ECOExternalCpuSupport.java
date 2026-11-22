@@ -15,9 +15,11 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionMode;
 public final class ECOExternalCpuSupport {
     private ECOExternalCpuSupport() {}
     public static boolean accepts(ICraftingCPU cpu, ICraftingPlan plan) {
-        boolean supported = cpu instanceof CraftingCPUCluster
+        return isSupported(cpu) && supportsPlan(plan);
+    }
+    public static boolean isSupported(ICraftingCPU cpu) {
+        return cpu instanceof CraftingCPUCluster
                 || cpu != null && cpu.getClass().getName().equals("net.pedroksl.advanced_ae.common.cluster.AdvCraftingCPU");
-        return supported && supportsPlan(plan);
     }
     public static boolean supportsPlan(ICraftingPlan plan) {
         if (plan instanceof cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan) return false;

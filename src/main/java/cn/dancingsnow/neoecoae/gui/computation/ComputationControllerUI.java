@@ -30,6 +30,7 @@ import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
@@ -83,20 +84,10 @@ public final class ComputationControllerUI {
 
     private ComputationControllerUI() {}
 
-    public static UIElement create(Config config,
-                                   Supplier<ComputationControllerPanelState> panelState,
-                                   UIElement guideButton, UIElement buildButton, UIElement buildWindow) {
-        return create(config, panelState, guideButton, buildButton, buildWindow, () -> null);
-    }
-
-    public static UIElement create(Config config, Supplier<ComputationControllerPanelState> panelState,
-        UIElement guideButton, UIElement buildButton, UIElement buildWindow, Supplier<IECOTier> panelTier) {
-        return create(config, panelState, guideButton, buildButton, buildWindow, panelTier, () -> null);
-    }
-
+    /** {@code hostInsert} receives a player-inventory stack shift-clicked into the host and returns the remainder. */
     public static UIElement create(Config config, Supplier<ComputationControllerPanelState> panelState,
         UIElement guideButton, UIElement buildButton, UIElement buildWindow, Supplier<IECOTier> panelTier,
-        Supplier<BlockState> hostState) {
+        Supplier<BlockState> hostState, UnaryOperator<ItemStack> hostInsert) {
         var textures = new HostPanelTextureSync(hostState, HostPanelTextureState.Panel.COMPUTATION);
         Button cpuMode = ComputationControllerInteractions.createCpuSelectionButton(config);
         cpuMode.setId("computation-cpu-mode");
@@ -176,7 +167,7 @@ public final class ComputationControllerUI {
                     inventory.hotbar.layout(layout -> layout.marginTop(4));
                     inventory.apply(slot -> {
                         slot.style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
-                        insertionDrag.addMenuSlot(slot, 1);
+                        insertionDrag.addInsertionSlot(slot, hostInsert);
                     });
                     inventory.getChildren().forEach(child -> child.style(style ->
                         style.backgroundTexture(IGuiTexture.EMPTY)));

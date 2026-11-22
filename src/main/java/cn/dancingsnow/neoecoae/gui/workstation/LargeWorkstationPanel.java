@@ -66,7 +66,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     private long lastFrame;
     private float scrollbarGrabOffset;
 
-    LargeWorkstationPanel(Config config, Player player) {
+    LargeWorkstationPanel(Config config, Player player, java.util.function.IntFunction<CompoundTag> taskSnapshot) {
         super(new CompoundTag());
         this.config = config;
         this.player = player;
@@ -149,6 +149,16 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         registerValueListener(this::read);
         read(config.snapshot().apply(0));
         bind(DataBindingBuilder.tagS2C(() -> config.snapshot().apply(serverOffset)).build());
+        if (taskSnapshot != null) {
+            var taskPage = new BindableValue<Tag>(taskSnapshot.apply(0));
+            taskPage.registerValueListener(value -> {
+                if (value instanceof CompoundTag page) readTasks(page);
+            });
+            taskPage.bind(DataBindingBuilder.tagS2C(() -> taskSnapshot.apply(serverOffset)).build());
+            taskPage.setDisplay(false);
+            addChild(taskPage);
+            readTasks(taskSnapshot.apply(0));
+        }
     }
 
     private Button toggle(String name, int x, Runnable action, Runnable secondaryAction, Supplier<HoverTooltips> tooltip) {
@@ -190,9 +200,15 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
 
     private void read(Tag value) {
         state = value instanceof CompoundTag tag ? tag : new CompoundTag();
+        if (state.contains("tasks")) readTasks(state);
+        updateToggle(overclock, state.getBoolean("overclocked"));
+        updateToggle(cooling, state.getBoolean("activeCooling"));
+    }
+
+    private void readTasks(CompoundTag page) {
         HolderLookup.Provider registries = config.registries().get();
         List<Task> decoded = new ArrayList<>();
-        var entries = state.getList("tasks", Tag.TAG_COMPOUND);
+        var entries = page.getList("tasks", Tag.TAG_COMPOUND);
         for (int i = 0; i < Math.min(LargeWorkstationUI.SNAPSHOT_SIZE, entries.size()); i++) {
             CompoundTag entry = entries.getCompound(i);
             if (!entry.hasUUID("id")) continue;
@@ -203,11 +219,9 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
                 entry.getBoolean("current"), moduleDescription(entry, "moduleId", "module"),
                 entry.getInt("elapsedTicks"), entry.getInt("processingTicks")));
         }
-        int first = state.contains("taskOffset") ? state.getInt("taskOffset") : state.getInt("offset");
-        if (taskScroll.receive(state.getInt("totalTasks"), first, decoded.size())) tasks = List.copyOf(decoded);
+        int first = page.contains("taskOffset") ? page.getInt("taskOffset") : page.getInt("offset");
+        if (taskScroll.receive(page.getInt("totalTasks"), first, decoded.size())) tasks = List.copyOf(decoded);
         updateTaskRows();
-        updateToggle(overclock, state.getBoolean("overclocked"));
-        updateToggle(cooling, state.getBoolean("activeCooling"));
     }
 
     private static void updateToggle(Button button, boolean enabled) {

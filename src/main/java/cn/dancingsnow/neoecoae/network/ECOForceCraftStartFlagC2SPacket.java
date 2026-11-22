@@ -23,8 +23,6 @@ public record ECOForceCraftStartFlagC2SPacket(int containerId, boolean forceStar
             if (!(context.player() instanceof ServerPlayer player)) return;
             var current = player.containerMenu;
             var logger = org.slf4j.LoggerFactory.getLogger("neoecoae");
-            logger.info("[craft-submit] Server received: container={}, currentContainer={}, forced={}",
-                packet.containerId, current == null ? null : current.containerId, packet.forceStart);
             if (!(current instanceof CraftConfirmMenu menu) || menu.containerId != packet.containerId) {
                 logger.warn("[craft-submit] Rejected packet: reason=MENU_MISMATCH, container={}", packet.containerId);
                 return;
@@ -41,10 +39,9 @@ public record ECOForceCraftStartFlagC2SPacket(int containerId, boolean forceStar
                     appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
                 return;
             }
-            if (packet.revision >= 0 && menu instanceof cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode mode
+            menu.clearError();
+            if (menu instanceof cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode mode
                     && !mode.neoecoae$lockDisplayedPlan(packet.revision)) {
-                menu.submitError = new CraftConfirmMenu.SyncableSubmitResult(
-                    appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
                 return;
             }
             sync.neoecoae$setForceCraftStart(packet.forceStart);

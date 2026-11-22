@@ -44,6 +44,9 @@ public final class NetworkInventoryCache {
 
         /** True only when the current locked mount list has already been checked for duplicate identities. */
         default boolean neoecoae$distinctMountsGuaranteed() { return false; }
+
+        /** Optional single-reader feed, complete for unchanged topology; also visits any untracked mounts. */
+        default boolean neoecoae$visitChangedMounts(Consumer<MEStorage> action) { return false; }
     }
 
     private static final class Mount {
@@ -53,6 +56,9 @@ public final class NetworkInventoryCache {
         private long version;
         private Object identity;
         private int epoch;
+        /** Unversioned mounts are listed on every refresh; keeping their grouped submaps avoids rebuilding them. */
+        private KeyCounter listing;
+        private int listings;
 
         Mount(MEStorage inventory) {
             versioned = inventory instanceof StorageListingVersion value ? value : null;
@@ -120,11 +126,9 @@ public final class NetworkInventoryCache {
     public boolean refresh(Mounts storage, KeyCounter published, Object2LongMap<AEKey> amounts,
             ObjLongConsumer<AEKey> changes, BiConsumer<MEStorage, KeyCounter> fullListing) {
         if (refreshing) return false;
-        long measured = StoragePerformance.start();
         // Both scopes change what a listing returns for the current caller only.
         boolean scoped = StorageBusTransferFilter.isActive();
         if (ExactAmountCollector.isActive() || scoped && !allowBusScopedViews) {
-            StoragePerformance.count(StoragePerformance.Counter.CACHE_SCOPED_FALLBACK);
             valid = false;
             return false;
         }
@@ -139,13 +143,17 @@ public final class NetworkInventoryCache {
             if (!storage.neoecoae$distinctMountsGuaranteed() && !distinct(inventories)) return;
             long mountGeneration = storage.neoecoae$mountGeneration();
             if (!valid || repairPublished && ++refreshes >= FULL_REBUILD_INTERVAL) {
-                if (valid) StoragePerformance.count(StoragePerformance.Counter.CACHE_REPAIR);
                 valid = false;
                 refreshes = 0;
                 rebuild(inventories, published, amounts, fullListing);
             } else {
                 try {
-                    update(inventories, mountGeneration != generation, amounts, fullListing);
+                    boolean remounted = mountGeneration != generation;
+                    int current = nextEpoch();
+                    if (remounted || repairPublished || !storage.neoecoae$visitChangedMounts(
+                            inventory -> updateMount(inventory, false, amounts, fullListing, current))) {
+                        update(inventories, remounted, amounts, fullListing, current);
+                    }
                 } catch (RuntimeException | Error failure) {
                     revert(amounts);
                     valid = false;
@@ -170,7 +178,6 @@ public final class NetworkInventoryCache {
             throw failure;
         } finally {
             refreshing = false;
-            StoragePerformance.end(StoragePerformance.Phase.CACHE_REFRESH, measured);
         }
     }
 
@@ -200,7 +207,7 @@ public final class NetworkInventoryCache {
             mount.version = mount.currentVersion();
             mount.identity = mount.currentIdentity();
             mount.epoch = current;
-            list(inventory, mount.content, fullListing);
+            list(inventory, mount, mount.content, fullListing);
             mounts.put(inventory, mount);
             for (var entry : Object2LongMaps.fastIterable(mount.content)) {
                 AEKey key = entry.getKey();
@@ -227,51 +234,9 @@ public final class NetworkInventoryCache {
     }
 
     private void update(List<MEStorage> inventories, boolean remounted, Object2LongMap<AEKey> amounts,
-            BiConsumer<MEStorage, KeyCounter> fullListing) {
-        int current = nextEpoch();
+            BiConsumer<MEStorage, KeyCounter> fullListing, int current) {
         for (MEStorage inventory : inventories) {
-            Mount mount = mounts.get(inventory);
-            boolean added = mount == null;
-            if (added) mount = new Mount(inventory);
-            long version = mount.currentVersion();
-            Object identity = mount.currentIdentity();
-            boolean viewChanged = !added && identity != mount.identity;
-            if (added) {
-                list(inventory, mount.content, fullListing);
-                mounts.put(inventory, mount);
-                for (var entry : Object2LongMaps.fastIterable(mount.content)) adjust(amounts, entry.getKey(), entry.getLongValue());
-            } else if (remounted || viewChanged || version == StorageListingVersion.UNKNOWN || version != mount.version) {
-                if (remounted) StoragePerformance.count(StoragePerformance.Counter.CACHE_REMOUNT);
-                if (version == StorageListingVersion.UNKNOWN) StoragePerformance.count(StoragePerformance.Counter.CACHE_UNKNOWN_VERSION);
-                if (!remounted && !viewChanged && mount.delta != null
-                        && applyChanges(mount.delta, mount, version, amounts)) {
-                    mount.version = version;
-                    mount.epoch = current;
-                    continue;
-                }
-                StoragePerformance.count(mount.delta == null ? StoragePerformance.Counter.CACHE_NO_DELTA
-                    : StoragePerformance.Counter.CACHE_EXPIRED_DELTA);
-                Object2LongOpenHashMap<AEKey> fresh = flatScratch;
-                fresh.clear();
-                list(inventory, fresh, fullListing);
-                Object2LongOpenHashMap<AEKey> old = mount.content;
-                // Contents never hold zeros, so a missing key reads as 0 on either side.
-                for (var entry : Object2LongMaps.fastIterable(old)) {
-                    long now = fresh.getLong(entry.getKey());
-                    if (now != entry.getLongValue()) adjust(amounts, entry.getKey(), now - entry.getLongValue());
-                }
-                for (var entry : Object2LongMaps.fastIterable(fresh)) {
-                    if (old.getLong(entry.getKey()) == 0) adjust(amounts, entry.getKey(), entry.getLongValue());
-                }
-                old.clear();
-                flatScratch = old;
-                mount.content = fresh;
-            } else {
-                StoragePerformance.count(StoragePerformance.Counter.CACHE_UNCHANGED);
-            }
-            mount.version = version;
-            mount.identity = identity;
-            mount.epoch = current;
+            updateMount(inventory, remounted, amounts, fullListing, current);
         }
         if (mounts.size() != inventories.size()) {
             for (var iterator = mounts.values().iterator(); iterator.hasNext();) {
@@ -283,6 +248,45 @@ public final class NetworkInventoryCache {
         }
     }
 
+    private void updateMount(MEStorage inventory, boolean remounted, Object2LongMap<AEKey> amounts,
+            BiConsumer<MEStorage, KeyCounter> fullListing, int current) {
+        Mount mount = mounts.get(inventory);
+        boolean added = mount == null;
+        if (added) mount = new Mount(inventory);
+        long version = mount.currentVersion();
+        Object identity = mount.currentIdentity();
+        boolean viewChanged = !added && identity != mount.identity;
+        if (added) {
+            list(inventory, mount, mount.content, fullListing);
+            mounts.put(inventory, mount);
+            for (var entry : Object2LongMaps.fastIterable(mount.content)) adjust(amounts, entry.getKey(), entry.getLongValue());
+        } else if (remounted || viewChanged || version == StorageListingVersion.UNKNOWN || version != mount.version) {
+            if (!remounted && !viewChanged && mount.delta != null
+                    && applyChanges(mount.delta, mount, version, amounts)) {
+                mount.version = version;
+                mount.epoch = current;
+                return;
+            }
+            Object2LongOpenHashMap<AEKey> fresh = flatScratch;
+            fresh.clear();
+            list(inventory, mount, fresh, fullListing);
+            Object2LongOpenHashMap<AEKey> old = mount.content;
+            for (var entry : Object2LongMaps.fastIterable(old)) {
+                long now = fresh.getLong(entry.getKey());
+                if (now != entry.getLongValue()) adjust(amounts, entry.getKey(), now - entry.getLongValue());
+            }
+            for (var entry : Object2LongMaps.fastIterable(fresh)) {
+                if (old.getLong(entry.getKey()) == 0) adjust(amounts, entry.getKey(), entry.getLongValue());
+            }
+            old.clear();
+            flatScratch = old;
+            mount.content = fresh;
+        }
+        mount.version = version;
+        mount.identity = identity;
+        mount.epoch = current;
+    }
+
     /** Applies a mount's reported key changes; false when it must be listed in full instead. */
     private boolean applyChanges(StorageListingDelta delta, Mount mount, long version, Object2LongMap<AEKey> amounts) {
         if (version < 0L || mount.version < 0L
@@ -290,8 +294,7 @@ public final class NetworkInventoryCache {
             return false;
         }
         Object2LongOpenHashMap<AEKey> content = mount.content;
-        boolean applied = delta.neoecoae$visitListingChanges(mount.version, version, (key, now) -> {
-            StoragePerformance.count(StoragePerformance.Counter.CACHE_CHANGED_KEYS);
+        return delta.neoecoae$visitListingChanges(mount.version, version, (key, now) -> {
             long before = content.getLong(key);
             if (now == before) return;
             adjust(amounts, key, now - before);
@@ -299,8 +302,6 @@ public final class NetworkInventoryCache {
             if (now == 0L) content.removeLong(key);
             else content.put(key, now);
         });
-        if (applied) StoragePerformance.count(StoragePerformance.Counter.CACHE_DELTA);
-        return applied;
     }
 
     private void publish(KeyCounter published, Object2LongMap<AEKey> amounts) {
@@ -399,20 +400,36 @@ public final class NetworkInventoryCache {
         return Long.MAX_VALUE;
     }
 
-    private void list(MEStorage inventory, Object2LongOpenHashMap<AEKey> out, BiConsumer<MEStorage, KeyCounter> fullListing) {
-        StoragePerformance.count(StoragePerformance.Counter.CACHE_FULL);
+    private void list(MEStorage inventory, Mount mount, Object2LongOpenHashMap<AEKey> out,
+            BiConsumer<MEStorage, KeyCounter> fullListing) {
         // Only the public listing boundary needs AE2's grouped/fuzzy counter. Mounts retain a flat long map.
+        out.clear();
+        if (fullListing == null && mount.currentVersion() == StorageListingVersion.UNKNOWN) {
+            if (mount.listing == null) mount.listing = new KeyCounter();
+            KeyCounter counter = mount.listing;
+            try {
+                listing.appendFlat(inventory, counter, out);
+            } finally {
+                counter.clear();
+                // Occasionally drop groups whose resources left this mount, so retained submaps stay bounded.
+                if (++mount.listings >= FULL_REBUILD_INTERVAL) {
+                    mount.listings = 0;
+                    counter.removeEmptySubmaps();
+                }
+            }
+            return;
+        }
         scratch.clear();
         try {
-            if (fullListing == null) listing.append(inventory, scratch, inventory::getAvailableStacks);
-            else fullListing.accept(inventory, scratch);
-            scratch.removeZeros();
-            out.clear();
-            for (var entry : scratch) out.put(entry.getKey(), entry.getLongValue());
-            if (StoragePerformance.ENABLED) StoragePerformance.add(StoragePerformance.Counter.CACHE_LISTED_KEYS, out.size());
+            if (fullListing == null) listing.appendFlat(inventory, scratch, out);
+            else {
+                fullListing.accept(inventory, scratch);
+                for (var entry : scratch) if (entry.getLongValue() != 0) out.put(entry.getKey(), entry.getLongValue());
+            }
         } finally {
             // Retain capacity only; a scratch native counter must not become a second lasting inventory mirror.
             scratch.clear();
+            scratch.removeEmptySubmaps();
         }
     }
 

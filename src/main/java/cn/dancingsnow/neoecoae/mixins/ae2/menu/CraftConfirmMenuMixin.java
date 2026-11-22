@@ -26,6 +26,7 @@ import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
+import cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuSupport;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningStageLogger;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingServiceDiagnostics;
@@ -132,6 +133,10 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Unique @GuiSync(12014) private boolean neoecoae$provenInfeasible;
     @Unique @GuiSync(12016) private boolean neoecoae$hasByteEstimate;
     @Unique @GuiSync(12017) private boolean neoecoae$completeByteEstimate;
+    @Unique @GuiSync(12019) private String neoecoae$planRejection = "";
+    @Unique private @Nullable ICraftingPlan neoecoae$cpuCheckedPlan;
+    @Unique private boolean neoecoae$cpuCheckOwned;
+    @Unique private boolean neoecoae$cpuCheckSupportsExternal;
 
     @Override public int neoecoae$getOptimizationState() { return neoecoae$optimizationState; }
     @Override public boolean neoecoae$exactPlanReady() { return neoecoae$exactPlanReady; }
@@ -142,10 +147,16 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         return neoecoae$receivedDiagnosticsVersion;
     }
 
+    @Override public String neoecoae$getPlanRejection() { return neoecoae$planRejection; }
+
     @Override public boolean neoecoae$lockDisplayedPlan(long revision) {
+        if (revision < 0 && !neoecoae$ownsPlan(result)) return true;
         ICraftingPlan displayed = neoecoae$displayedPlans.get(revision);
-        neoecoae$stopOptimization();
-        if (displayed == null) return false;
+        if (displayed == null || result == null) {
+            neoecoae$rejectPreview("plan_changed");
+            return false;
+        }
+        if (!neoecoae$checkPlanningSnapshot()) return false;
         if (displayed != result) {
             result = displayed;
             neoecoae$applyPlannerDiagnostics(result);
@@ -157,8 +168,32 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
 
     @Unique private void neoecoae$stopOptimization() {
         if (neoecoae$planningRequest != null) neoecoae$planningRequest.cancel(true);
-        neoecoae$planningRequest = null;
         neoecoae$optimizationState = 0;
+    }
+
+    @Inject(method = "clearError", at = @At("HEAD"))
+    private void neoecoae$clearPlanRejection(CallbackInfo ci) {
+        neoecoae$planRejection = "";
+    }
+
+    @Unique private boolean neoecoae$checkPlanningSnapshot() {
+        if (neoecoae$planningRequest == null) return true;
+        var grid = getGrid();
+        if (grid != null && neoecoae$planningRequest.isConfirmationCurrent(grid.getCraftingService())) return true;
+        neoecoae$rejectPreview("plan_stale");
+        return false;
+    }
+
+    @Unique private void neoecoae$rejectPreview(String reason) {
+        var menu = (CraftConfirmMenu) (Object) this;
+        menu.setAutoStart(false);
+        neoecoae$planRejection = "gui.neoecoae.craft_error." + reason;
+        menu.submitError = new CraftConfirmMenu.SyncableSubmitResult(
+            appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
+        if (menu.getPlayer() instanceof ServerPlayer player) {
+            var dataSync = ((AEBaseMenuAccessor) menu).neoecoae$getDataSync();
+            player.connection.send(new GuiDataSyncPacket(menu.containerId, dataSync::writeFull, player.registryAccess()));
+        }
     }
 
     @Inject(method = {"broadcastChanges()V", "m_38946_()V"}, at = @At("HEAD"))
@@ -176,12 +211,18 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         "m_6877_(Lnet/minecraft/world/entity/player/Player;)V"}, at = @At("HEAD"))
     private void neoecoae$cancelClosedPlanning(net.minecraft.world.entity.player.Player player, CallbackInfo ci) {
         neoecoae$stopOptimization();
+        neoecoae$planningRequest = null;
         neoecoae$displayedPlans.clear();
     }
 
-    @Inject(method = "startJob*", at = @At("HEAD"))
+    @Inject(method = "startJob", at = @At("HEAD"), cancellable = true, order = 900)
     private void neoecoae$freezeSubmittedPreview(CallbackInfo ci) {
-        if (!((CraftConfirmMenu) (Object) this).isClientSide()) neoecoae$stopOptimization();
+        if (((CraftConfirmMenu) (Object) this).isClientSide()) return;
+        if (result != null && !neoecoae$checkPlanningSnapshot()) {
+            ci.cancel();
+            return;
+        }
+        neoecoae$stopOptimization();
     }
 
     @Override public boolean neoecoae$diagnosticsReady() {
@@ -311,8 +352,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     private cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU neoecoae$resolveBigOrderCpu() {
         var grid = getGrid();
         if (grid == null) return null;
-        if (selectedCpu != null) return selectedCpu instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU eco
-                && !eco.isBusy() && eco.isActive() && grid.getCraftingService().getCpus().contains(eco) ? eco : null;
+        if (selectedCpu instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU eco) {
+            return !eco.isBusy() && eco.isActive() && grid.getCraftingService().getCpus().contains(eco) ? eco : null;
+        }
         return grid.getCraftingService().getCpus().stream()
                 .filter(cpu -> cpu instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU)
                 .map(cpu -> (cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU) cpu)
@@ -323,16 +365,32 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
 
     @Inject(method = "cpuMatches", at = @At("HEAD"), cancellable = true)
     private void neoecoae$includeSegmentCpu(ICraftingCPU cpu, CallbackInfoReturnable<Boolean> cir) {
-        if (neoecoae$confirmedPlanningResult != null
+        if (neoecoae$incompatibleCpu(cpu, result)) {
+            cir.setReturnValue(false);
+        } else if (neoecoae$confirmedPlanningResult != null
                 && cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderAdmission.allows(
                     neoecoae$confirmedPlanningResult.status(), true)
-                && cpu instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU)
-            cir.setReturnValue(!cpu.isBusy());
+                && cpu instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU eco) {
+            cir.setReturnValue(eco.isActive() && !eco.isBusy());
+        }
+    }
+
+    @Unique private boolean neoecoae$incompatibleCpu(@Nullable ICraftingCPU cpu, @Nullable ICraftingPlan plan) {
+        if (cpu == null || cpu instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU
+                || plan == null) return false;
+        if (neoecoae$cpuCheckedPlan != plan) {
+            neoecoae$cpuCheckOwned = ECOPlanningResultRegistry.isECOOwnedPlan(plan);
+            neoecoae$cpuCheckSupportsExternal = neoecoae$cpuCheckOwned && ECOExternalCpuSupport.supportsPlan(plan);
+            neoecoae$cpuCheckedPlan = plan;
+        }
+        return neoecoae$cpuCheckOwned && (!neoecoae$cpuCheckSupportsExternal || !ECOExternalCpuSupport.isSupported(cpu));
     }
 
     @Override public void neoecoae$startBigOrder(boolean forced) {
         var menu = (CraftConfirmMenu) (Object) this;
         if (menu.isClientSide()) return;
+        menu.clearError();
+        if (!neoecoae$checkPlanningSnapshot()) return;
         neoecoae$stopOptimization();
         if (result == null || neoecoae$originalOptions == null) {
             neoecoae$rejectBigOrder(result == null ? "NO_PLAN" : "NO_PLANNER_OPTIONS",
@@ -390,8 +448,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         }
         final ICraftingSubmitResult submitted;
         try {
-            NEOECOAE_LOGGER.info("[big-order-submit] Submitting to CPU: container={}, output={}, forced={}, waitingForMaterials={}, cpu={}",
-                menu.containerId, result.finalOutput(), forced, waitingForMaterials, neoecoae$describeCpu(cpu));
             if (waitingForMaterials) {
                 // A missing cycle has no executable schedule. Publish a persistent parent and let
                 // its planner create complete children after stock (including startup seeds) arrives.
@@ -414,7 +470,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         }
         menu.setAutoStart(false);
         if (submitted.successful()) {
-            NEOECOAE_LOGGER.info("[big-order-submit] Accepted: container={}, output={}", menu.containerId, result.finalOutput());
             result = null;
             neoecoae$confirmedPlanningResult = null;
             menu.getHost().returnToMainMenu(menu.getPlayer(), menu);
@@ -431,10 +486,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             reason, menu.containerId, result == null ? null : result.finalOutput(), neoecoae$getPlanningStatus(),
             neoecoae$describeCpu(selectedCpu), failure.errorCode(), failure.errorDetail());
     }
-
-    @Unique
-    private String neoecoae$lastStartDiagnostic;
-    @Unique private long neoecoae$nextStartDiagnosticTick;
 
     @Shadow
     private ICraftingPlan result;
@@ -501,6 +552,8 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Unique
     private void neoecoae$resetPlannerDiagnostics() {
         neoecoae$stopOptimization();
+        neoecoae$planningRequest = null;
+        neoecoae$cpuCheckedPlan = null;
         neoecoae$displayedPlans.clear();
         neoecoae$exactPlanReady = false;
         neoecoae$provenInfeasible = false;
@@ -517,8 +570,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$confirmedPlanningResult = null;
         neoecoae$originalOptions = null;
         neoecoae$liteCraftingMode = false;
-        neoecoae$lastStartDiagnostic = null;
-        neoecoae$nextStartDiagnosticTick = 0;
     }
 
     /**
@@ -891,47 +942,6 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         return summary;
     }
 
-    @Inject(method = "broadcastChanges", at = @At("TAIL"))
-    private void logDisabledStartButton(CallbackInfo ci) {
-        var menu = (CraftConfirmMenu) (Object) this;
-        if (menu.isClientSide() || result == null
-                || !neoecoae$ecoPlannerAvailable && !NEConfig.ecoCraftSubmissionDebug) {
-            return;
-        }
-        long tick = menu.getLevel().getGameTime();
-        if (tick < neoecoae$nextStartDiagnosticTick) return;
-        neoecoae$nextStartDiagnosticTick = tick + 20;
-        PlanningStatus status = neoecoae$getPlanningStatus();
-        boolean unrepresentable = status == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE;
-        if (unrepresentable && neoecoae$bigOrderCpu
-                || !noCPU && !result.simulation() && !unrepresentable) {
-            if (neoecoae$lastStartDiagnostic != null) {
-                NEOECOAE_LOGGER.info("[ECO-CRAFT-SUBMIT] Server start gate cleared: container={}", menu.containerId);
-                neoecoae$lastStartDiagnostic = null;
-            }
-            return;
-        }
-
-        IGrid grid = getGrid();
-        String cpuDetails = grid != null
-            && grid.getCraftingService() instanceof ECOCraftingServiceDiagnostics diagnostics
-            ? diagnostics.neoecoae$describeCpuSelection(result, getActionSrc())
-            : "crafting service diagnostics unavailable";
-        String reason = unrepresentable ? "NO_ELIGIBLE_ECO_CPU"
-            : noCPU ? "NO_MATCHING_CPU" : "SIMULATION_REQUIRES_FORCE";
-        String diagnostic = reason + ":" + status + ":" + result.bytes() + ":" + result.simulation()
-            + ":" + neoecoae$describeCpu(selectedCpu) + ":" + cpuDetails;
-        if (diagnostic.equals(neoecoae$lastStartDiagnostic)) return;
-        neoecoae$lastStartDiagnostic = diagnostic;
-        NEOECOAE_LOGGER.warn(
-            "[ECO-CRAFT-SUBMIT] Start disabled: reason={}, container={}, player={}, output={}, amount={}, bytes={}, simulation={}, noCPU={}, "
-                + "planningStatus={}, selectedCpu={}\n{}",
-            reason, menu.containerId,
-            getActionSrc().player().map(player -> player.getGameProfile().getName()).orElse("<machine>"),
-            result.finalOutput().what(), result.finalOutput().amount(), result.bytes(), result.simulation(), noCPU,
-            status, neoecoae$describeCpu(selectedCpu), cpuDetails);
-    }
-
     @Unique
     private static String neoecoae$describeCpu(@Nullable ICraftingCPU cpu) {
         if (cpu == null) return "<automatic>";
@@ -1045,14 +1055,18 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         if (planningResult == null) planningResult = neoecoae$confirmedPlanningResult;
         if (planningResult == null) planningResult = ECOPlanningResultRegistry.find(result);
         ECOPlanningResult boundResult = planningResult;
+        ICraftingPlan compatibilityPlan = boundResult != null && boundResult.plan() != null
+                && cn.dancingsnow.neoecoae.integration.extendedaeplus.EAEPForcedCrafting.isForced(submittedPlan)
+            ? boundResult.plan() : submittedPlan;
+        ICraftingCPU effectiveTarget = neoecoae$incompatibleCpu(target, compatibilityPlan) ? null : target;
         ICraftingSubmitResult submitResult = ECOPlanningResultRegistry.withSubmissionAlias(submittedPlan, boundResult,
-            () -> original.call(service, submittedPlan, requestingMachine, target, prioritizePower, source));
+            () -> original.call(service, submittedPlan, requestingMachine, effectiveTarget, prioritizePower, source));
         if (NEConfig.ecoCraftSubmissionDebug) {
             NEOECOAE_LOGGER.info(
                 "[ECO-CRAFT-SUBMIT] stage=service-submit-return elapsedMs={} successful={} error={} detail={} output={} amount={} target={}",
                 Math.max(0L, System.nanoTime() - startedNanos) / 1_000_000.0D,
                 submitResult.successful(), submitResult.errorCode(), submitResult.errorDetail(),
-                submittedPlan.finalOutput().what(), submittedPlan.finalOutput().amount(), neoecoae$describeCpu(target));
+                submittedPlan.finalOutput().what(), submittedPlan.finalOutput().amount(), neoecoae$describeCpu(effectiveTarget));
         }
         if (!submitResult.successful() && (NEConfig.ecoCraftSubmissionDebug
                 || cn.dancingsnow.neoecoae.integration.extendedaeplus.EAEPForcedCrafting.isForced(submittedPlan))) {
@@ -1062,7 +1076,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             NEOECOAE_LOGGER.warn(
                 "[ECO-CRAFT-SUBMIT] Submission failed: output={}, amount={}, bytes={}, target={}, error={}, detail={}\n{}",
                 submittedPlan.finalOutput().what(), submittedPlan.finalOutput().amount(), submittedPlan.bytes(),
-                neoecoae$describeCpu(target), submitResult.errorCode(), submitResult.errorDetail(), cpuDetails);
+                neoecoae$describeCpu(effectiveTarget), submitResult.errorCode(), submitResult.errorDetail(), cpuDetails);
         }
         return submitResult;
     }

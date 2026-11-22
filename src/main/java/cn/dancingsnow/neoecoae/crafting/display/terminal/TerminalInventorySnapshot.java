@@ -7,7 +7,6 @@ import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.SupplierStorageAccessor;
 import cn.dancingsnow.neoecoae.network.MenuDataTransport;
 import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
-import cn.dancingsnow.neoecoae.storage.StoragePerformance;
 import cn.dancingsnow.neoecoae.storage.transfer.StorageBusTransferFilter;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
@@ -203,16 +202,11 @@ public record TerminalInventorySnapshot(KeyCounter inventory, Map<AEKey, ExactAm
         }
 
         private TerminalInventorySnapshot sampleNetwork(NetworkInventoryCache.Mounts storage, boolean collect) {
-            long measured = StoragePerformance.start();
-            try {
-                syncWorking();
-                if (!refreshNetwork(storage, collect, working)) return null;
-                if (published == null || !changed.isEmpty()) publish();
-                if (snapshot != null && snapshot.inventory() == published && snapshot.amounts() == exactAmounts) return snapshot;
-                return new TerminalInventorySnapshot(published, exactAmounts);
-            } finally {
-                StoragePerformance.end(StoragePerformance.Phase.TERMINAL_CAPTURE, measured);
-            }
+            syncWorking();
+            if (!refreshNetwork(storage, collect, working)) return null;
+            if (published == null || !changed.isEmpty()) publish();
+            if (snapshot != null && snapshot.inventory() == published && snapshot.amounts() == exactAmounts) return snapshot;
+            return new TerminalInventorySnapshot(published, exactAmounts);
         }
 
         private boolean refreshNetwork(NetworkInventoryCache.Mounts storage, boolean collect, KeyCounter target) {
@@ -250,7 +244,6 @@ public record TerminalInventorySnapshot(KeyCounter inventory, Map<AEKey, ExactAm
         }
 
         private void publish() {
-            StoragePerformance.count(StoragePerformance.Counter.TERMINAL_PUBLISH);
             KeyCounter next = KeyCounterSnapshots.copy(working, published, changed);
             long from = version++;
             if (changed.size() > MAX_HISTORY_KEYS) {

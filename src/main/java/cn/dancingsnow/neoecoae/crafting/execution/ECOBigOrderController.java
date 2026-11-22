@@ -98,9 +98,6 @@ final class ECOBigOrderController {
             try {
                 var answer = planning.get();
                 planning = null;
-                org.slf4j.LoggerFactory.getLogger("neoecoae").info(
-                    "[big-order] Segment plan ready: order={}, status={}, capacity={}, fatal={}",
-                    order.id(), answer.result().status(), answer.capacity(), answer.fatal());
                 var liveGrid = host.cpu.getGrid();
                 if (planningRevision != Long.MIN_VALUE && liveGrid != null
                         && liveGrid.getCraftingService() instanceof
@@ -108,8 +105,6 @@ final class ECOBigOrderController {
                         && revision.neoecoae$getProviderRevision() != planningRevision
                         && !patternsStillAvailable(liveGrid.getCraftingService(), answer.result())) {
                     order.planning();
-                    org.slf4j.LoggerFactory.getLogger("neoecoae").info(
-                        "[big-order] Replanning after provider revision changed: order={}", order.id());
                     host.markCpuDirty();
                     return true;
                 }
@@ -138,9 +133,6 @@ final class ECOBigOrderController {
                             var child = new ExecutingCraftingJob(plan, contract.executionPlan(),
                                     host::postChange, current.link, current.playerId);
                             order.startChild(plan.finalOutput().amount());
-                            org.slf4j.LoggerFactory.getLogger("neoecoae").info(
-                                "[big-order] Child started: order={}, amount={}, patterns={}",
-                                order.id(), plan.finalOutput().amount(), plan.patternTimes().size());
                             safeSegment = plan.finalOutput().amount();
                             safeRevision = planningRevision;
                             host.setJobFromLifecycle(child);
@@ -188,9 +180,6 @@ final class ECOBigOrderController {
             if (planningRevision != Long.MIN_VALUE && planningRevision == safeRevision && safeSegment > 0)
                 candidate = Math.min(candidate, safeSegment);
             planning = ECOBigOrderPlanner.begin(grid, goal, candidate, host.cpu.getAvailableStorage(), options);
-            org.slf4j.LoggerFactory.getLogger("neoecoae").info(
-                "[big-order] Planning segment: order={}, goal={}, candidate={}, bytes={}",
-                order.id(), goal, candidate, host.cpu.getAvailableStorage());
         } catch (java.util.concurrent.RejectedExecutionException busy) {
             order.waitFor(ECOBigOrderState.WAITING_CAPACITY, "PLANNER_BUSY");
         }

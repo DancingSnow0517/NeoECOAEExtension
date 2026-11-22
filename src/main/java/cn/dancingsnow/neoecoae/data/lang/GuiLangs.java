@@ -129,6 +129,10 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_graph.card.source_patterns", "Source patterns #%s");
         provider.add("gui.neoecoae.crafting_graph.reference.description", "Shared dependency reference");
         provider.add("gui.neoecoae.crafting_graph.reference.source", "Source ID: %s");
+        provider.add("gui.neoecoae.crafting_graph.shared_batch", "Shares a crafting batch with another branch");
+        provider.add("gui.neoecoae.craft_error.plan_stale", "The crafting network or patterns changed. Replan to continue.");
+        provider.add("gui.neoecoae.craft_error.plan_changed", "This preview expired. Review the current plan before starting.");
+        provider.add("gui.neoecoae.craft_error.review_plan", "Review Plan");
         provider.add("gui.neoecoae.crafting_graph.action.expand_hint", "Click: expand one level; double-click or right-click: expand all");
         provider.add("gui.neoecoae.craft_error.shortfall", "Not extracted this attempt: %s");
         provider.add("gui.neoecoae.craft_error.meaning", "The actual extraction fell short. This is the unextracted remainder, not total network stock.");
@@ -501,6 +505,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage.ui.insert_cell", "Click with a storage cell to install it in this drive");
         provider.add("gui.neoecoae.storage.ui.scroll_types", "Scroll to browse storage types");
         provider.add("gui.neoecoae.storage.ui.energy", "Energy stored: %s / %s AE");
+        provider.add("gui.neoecoae.storage.ui.creative_energy_usage", "Total energy: %s");
         provider.add("gui.neoecoae.storage.ui.resource_distribution", "Resource distribution");
         provider.add("gui.neoecoae.storage.ui.resource_share", "%s: %s bytes (%s)");
         provider.add("gui.neoecoae.storage.ui.normal", "Normal storage mode");
@@ -783,7 +788,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.computation.ui.card.scheduled", "Scheduled");
         provider.add("gui.neoecoae.computation.ui.card.processing_step", "Processing Step");
         provider.add("gui.neoecoae.computation.ui.card.cycle_progress", "Cycle Progress");
-        provider.add("gui.neoecoae.computation.ui.card.unavailable", "Unavailable");
+        provider.add("gui.neoecoae.computation.ui.card.unavailable", "Not detected");
         provider.add("gui.neoecoae.computation.ui.card.context_hint", "Right-click to locate or manage this step");
         provider.add("gui.neoecoae.crafting.ui.fx_short", "FX %s / %s");
         provider.add("gui.neoecoae.crafting.ui.ft_short", "FT %s");
@@ -816,6 +821,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.host.crafting.host_type.high_energy", "High-Energy");
         provider.add("gui.neoecoae.host.crafting.host_type.normal", "Normal");
         provider.add("gui.neoecoae.crafting.ui.energy_usage", "Energy Usage");
+        provider.add("gui.neoecoae.crafting.ui.creative_energy", "Creative Energy");
         provider.add("gui.neoecoae.crafting.performance", "Performance");
         provider.add("gui.neoecoae.crafting.task.status.running", "Running");
         provider.add("gui.neoecoae.crafting.task.status.queued", "Queued");
@@ -1143,7 +1149,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.processing.state.waiting", "Waiting for output");
         provider.add("gui.neoecoae.processing.state.paused", "Paused");
         provider.add("gui.neoecoae.processing.state.queued", "Queued");
-        provider.add("gui.neoecoae.processing.state.unavailable", "Unavailable");
+        provider.add("gui.neoecoae.processing.state.unavailable", "Not detected");
         provider.add("gui.neoecoae.storage.bulk_cell.action.migrate", "Mark and migrate matching resources now");
         provider.add("gui.neoecoae.storage.bulk_cell.action.priority", "Adjust storage priority");
         provider.add("gui.neoecoae.storage.bulk_cell.action.compression_display", "Adjust compression display");

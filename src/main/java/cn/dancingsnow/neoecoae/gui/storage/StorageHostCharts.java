@@ -33,7 +33,11 @@ import net.minecraft.world.item.ItemStack;
 /** Dynamic custom nodes for storage_controller.json; each draws at its own resolved position. */
 final class StorageHostCharts {
     private static final int TEXT = 0xFF3F3D52;
-    private static final int INFINITE_ENERGY = 0xFF55FF;
+    private static final Component INFINITE_ENERGY = Component.literal("∞").withColor(HostText.CREATIVE_ENERGY);
+    private static final Component INFINITE_ENERGY_STORED =
+        Component.translatable("gui.neoecoae.storage.legacy.graph.energy_stored", INFINITE_ENERGY);
+    private static final Component INFINITE_ENERGY_USAGE =
+        Component.translatable("gui.neoecoae.storage.ui.creative_energy_usage", INFINITE_ENERGY);
     private final StoragePanelSync sync;
     private final int pageSize;
     private final TypePanel typePanel;
@@ -159,6 +163,12 @@ final class StorageHostCharts {
         }
 
         @Override public void drawBackgroundAdditional(GUIContext context) {
+            if (state().maxEnergy() < 0 && (metric.equals("energy") || metric.equals("energy_stored"))) {
+                Component caption = metric.equals("energy") ? INFINITE_ENERGY_USAGE : INFINITE_ENERGY_STORED;
+                float scale = energyRowScale(INFINITE_ENERGY_STORED, INFINITE_ENERGY_USAGE);
+                text(context, caption, 0, 0, getSizeWidth(), scale, TEXT, false, rightAligned);
+                return;
+            }
             if (metric.equals("energy")) {
                 drawEnergyUsage(context);
                 return;
@@ -171,8 +181,7 @@ final class StorageHostCharts {
                 case "usage" -> state().unbounded() ? Component.empty()
                     : Component.literal(HostText.percent(state().usage()));
                 case "energy_stored" -> Component.translatable("gui.neoecoae.storage.ui.energy",
-                    HostText.ae2Amount(state().energy()), maxEnergyText(state(), false));
-                case "energy" -> Component.translatable("gui.neoecoae.storage.legacy.graph.energy_usage", HostText.ae2Amount(state().drain()));
+                    HostText.ae2Amount(state().energy()), HostText.ae2Amount(state().maxEnergy()));
                 case "resources" -> Component.translatable("gui.neoecoae.storage.ui.resource_distribution");
                 default -> throw new IllegalArgumentException("Unknown storage caption metric: " + metric);
             };
@@ -185,13 +194,16 @@ final class StorageHostCharts {
          * Otherwise longer translations (e.g. English) overlap each other.
          */
         private float energyRowScale() {
+            return energyRowScale(
+                Component.translatable("gui.neoecoae.storage.ui.energy",
+                    HostText.ae2Amount(state().energy()), HostText.ae2Amount(state().maxEnergy())),
+                Component.translatable("gui.neoecoae.storage.legacy.graph.energy_usage", HostText.ae2Amount(state().drain())));
+        }
+
+        private float energyRowScale(Component stored, Component drain) {
             Font font = Minecraft.getInstance().font;
-            int gap = 8;
-            int stored = font.width(Component.translatable("gui.neoecoae.storage.ui.energy",
-                HostText.ae2Amount(state().energy()), maxEnergyText(state(), false)).getString());
-            int drain = font.width(Component.translatable("gui.neoecoae.storage.legacy.graph.energy_usage",
-                HostText.ae2Amount(state().drain())).getString());
-            return Math.max(0.5F, Math.min(fontScale, getSizeWidth() / Math.max(1, stored + gap + drain)));
+            int rowWidth = font.width(stored) + 8 + font.width(drain);
+            return Math.max(0.5F, Math.min(fontScale, getSizeWidth() / rowWidth));
         }
 
         /** Draw the drain amount under the stored amount, keeping both numeric values on one vertical axis. */
@@ -589,18 +601,12 @@ final class StorageHostCharts {
                 state().unbounded() ? "∞" : HostText.percent(state().usage())));
     }
 
-    /** A negative capacity means the grid contains a creative energy cell. */
-    private static Component maxEnergyText(StoragePanelState state, boolean tooltip) {
-        if (state.maxEnergy() < 0) return Component.literal("∞").withColor(INFINITE_ENERGY);
-        String amount = HostText.ae2Amount(state.maxEnergy());
-        return tooltip ? HostText.totalPart(amount) : Component.literal(amount);
-    }
-
     private List<Component> energyTooltip() {
+        if (state().maxEnergy() < 0) return List.of(INFINITE_ENERGY_STORED, INFINITE_ENERGY_USAGE);
         return List.of(
             Component.translatable("gui.neoecoae.storage.ui.energy",
                 HostText.usedPart(HostText.ae2Amount(state().energy()), state().energy(), state().maxEnergy()),
-                maxEnergyText(state(), true)),
+                HostText.totalPart(HostText.ae2Amount(state().maxEnergy()))),
             Component.translatable("gui.neoecoae.storage.legacy.graph.energy_usage", HostText.ae2Amount(state().drain())));
     }
 

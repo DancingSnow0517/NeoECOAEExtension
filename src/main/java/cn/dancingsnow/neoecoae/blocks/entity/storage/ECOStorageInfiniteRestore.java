@@ -97,8 +97,10 @@ final class ECOStorageInfiniteRestore {
         }
         java.util.Set<UUID> targetIds = new java.util.HashSet<>();
         for (RestoreTarget target : targets) {
-            if (target.identity == null) return RestorePlan.blocked("restore target identity is not initialized yet");
-            if (!targetIds.add(target.identity)) return RestorePlan.blocked("duplicate restore target identity");
+            // Anonymous targets receive their identity when the restore prepares them.
+            if (target.identity != null && !targetIds.add(target.identity)) {
+                return RestorePlan.blocked("duplicate restore target identity");
+            }
         }
 
         KeyCounter pending = new KeyCounter();
@@ -161,7 +163,7 @@ final class ECOStorageInfiniteRestore {
             if (stack == null || stack.isEmpty()) {
                 continue;
             }
-            if (!ECOInfiniteStorageMember.isMemberOf(stack, domainId)) {
+            if (!ECOInfiniteStorageMember.isAnonymous(stack) && !ECOInfiniteStorageMember.isMemberOf(stack, domainId)) {
                 continue;
             }
             ItemStack simulationStack = stack.copy();
@@ -228,9 +230,11 @@ final class ECOStorageInfiniteRestore {
             ECODriveBlockEntity drive = target.drive();
             if (drive.isRemoved() || host.getCluster() == null || !host.getCluster().getDrives().contains(drive)
                     || serverLevel.getBlockEntity(drive.getBlockPos()) != drive
-                    || !ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), host.infiniteDomainId())
-                    || !ECOInfiniteStorageMember.getIdentity(drive.getCellStack()).filter(target.identity::equals).isPresent()
-                    || !targetIds.add(target.identity)) {
+                    || !(target.identity == null
+                        ? ECOInfiniteStorageMember.isAnonymous(drive.getCellStack())
+                        : ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), host.infiniteDomainId())
+                            && ECOInfiniteStorageMember.getIdentity(drive.getCellStack()).filter(target.identity::equals).isPresent())
+                    || target.identity != null && !targetIds.add(target.identity)) {
                 activeRestorePlan = null;
                 targetsPrepared = false;
                 restoresReserved = false;
@@ -246,6 +250,14 @@ final class ECOStorageInfiniteRestore {
             activeRestorePlan = plan;
             if (targetCheckpoint == null) {
                 // Persist member identities and the restoring host before a domain snapshot can name these targets.
+                for (RestoreTarget target : plan.targets()) {
+                    if (target.identity != null) continue;
+                    target.drive().bindCellForRestore(host.infiniteDomainId());
+                    target.identity = ECOInfiniteStorageMember.getIdentity(target.drive().getCellStack()).orElse(null);
+                    if (target.identity != null) host.infiniteMemberIds().add(target.identity);
+                }
+                host.invalidateInfiniteMembers();
+                host.setChanged();
                 for (RestoreTarget target : plan.targets()) {
                     ((IECOStorageMigrationCell) target.drive().getCellInventory()).persistMigrationContents(serverLevel);
                 }
@@ -415,7 +427,7 @@ final class ECOStorageInfiniteRestore {
         private final ECODriveBlockEntity drive;
         private final IECOStorageCell simulatedCell;
         private final KeyCounter simulatedContents;
-        private final UUID identity;
+        private UUID identity;
         private long simulatedTypes;
         private long simulatedAmount;
 

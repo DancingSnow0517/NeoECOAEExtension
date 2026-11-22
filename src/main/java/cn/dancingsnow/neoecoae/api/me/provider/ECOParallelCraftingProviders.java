@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 /**
  * Resolves a provider's parallel intake contract, including providers owned by other mods.
@@ -52,9 +53,14 @@ public final class ECOParallelCraftingProviders {
         ECOParallelCraftingProvider adapt(ICraftingProvider provider);
     }
 
-    private static final Map<Class<?>, Adapter> ADAPTERS = new ConcurrentHashMap<>();
+    private static final Map<Class<?>, Function<ICraftingProvider, ECOParallelCraftingProvider>> ADAPTERS =
+            new ConcurrentHashMap<>();
+    private static final Map<Class<?>, Function<ICraftingProvider, ECOFastPathDispatchProvider>> FAST_PATH_ADAPTERS =
+            new ConcurrentHashMap<>();
 
     private static final Map<ICraftingProvider, WeakReference<ECOParallelCraftingProvider>> RESOLVED =
+            Collections.synchronizedMap(new WeakHashMap<>());
+    private static final Map<ICraftingProvider, WeakReference<ECOFastPathDispatchProvider>> RESOLVED_FAST_PATH =
             Collections.synchronizedMap(new WeakHashMap<>());
 
     private ECOParallelCraftingProviders() {
@@ -67,7 +73,22 @@ public final class ECOParallelCraftingProviders {
      * adapter, which keeps a reload in a development environment from stacking two of them.</p>
      */
     public static void register(Class<? extends ICraftingProvider> providerType, Adapter adapter) {
-        ADAPTERS.put(providerType, adapter);
+        ADAPTERS.put(providerType, adapter::adapt);
+        RESOLVED.clear();
+    }
+
+    /** Registers pattern-specific batch capability during setup without advertising ordinary parallel slots. */
+    public static <T extends ICraftingProvider> void registerFastPath(Class<T> providerType,
+            Function<? super T, ? extends ECOFastPathDispatchProvider> adapter) {
+        FAST_PATH_ADAPTERS.put(providerType, provider -> adapter.apply(providerType.cast(provider)));
+        RESOLVED_FAST_PATH.clear();
+    }
+
+    public static @Nullable ECOFastPathDispatchProvider findFastPath(ICraftingProvider provider) {
+        if (provider instanceof ECOFastPathDispatchProvider direct) return direct;
+        var adapted = resolve(provider, FAST_PATH_ADAPTERS, RESOLVED_FAST_PATH);
+        if (adapted != null) return adapted;
+        return find(provider) instanceof ECOFastPathDispatchProvider parallel ? parallel : null;
     }
 
     /**
@@ -82,30 +103,36 @@ public final class ECOParallelCraftingProviders {
         if (!(provider instanceof ICraftingProvider crafting)) {
             return null;
         }
-        var known = RESOLVED.get(crafting);
+        return resolve(crafting, ADAPTERS, RESOLVED);
+    }
+
+    private static <T> @Nullable T resolve(ICraftingProvider crafting,
+            Map<Class<?>, Function<ICraftingProvider, T>> adapters,
+            Map<ICraftingProvider, WeakReference<T>> resolved) {
+        var known = resolved.get(crafting);
         if (known != null) {
             var adapted = known.get();
             if (adapted != null) {
                 return adapted;
             }
-            RESOLVED.remove(crafting);
+            resolved.remove(crafting);
         }
-        for (Map.Entry<Class<?>, Adapter> entry : ADAPTERS.entrySet()) {
+        for (var entry : adapters.entrySet()) {
             if (!entry.getKey().isInstance(crafting)) {
                 continue;
             }
-            ECOParallelCraftingProvider adapted;
+            T adapted;
             try {
-                adapted = entry.getValue().adapt(crafting);
+                adapted = entry.getValue().apply(crafting);
             } catch (RuntimeException broken) {
                 // A broken adapter must not take the dispatch path down with it: this is called while a CPU is
                 // choosing where to send a craft, where a throw would strand the job rather than skip a provider.
-                LOGGER.warn("Parallel provider adapter for {} failed; treating the provider as slot-only",
+                LOGGER.warn("Crafting provider adapter for {} failed",
                         entry.getKey().getName(), broken);
                 return null;
             }
             if (adapted != null) {
-                RESOLVED.put(crafting, new WeakReference<>(adapted));
+                resolved.put(crafting, new WeakReference<>(adapted));
                 return adapted;
             }
         }

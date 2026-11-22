@@ -86,7 +86,11 @@ final class GraphMaterialCard {
         var card = CraftingListCard.builder().minimumWidth(details ? 272 : 150);
         if (details) card.header(CraftingListCard.Glyph.SPARKLE, title, label("request"), muted);
         else card.header(null, title, Component.empty(), cyan, CraftingListCard.Glyph.CUBE);
-        if (node.kind() == ClientCraftingGraph.Kind.REFERENCE) {
+        var treeNode = graph.compactTreeNode(node.id());
+        if (treeNode != null && treeNode.sharedBatch()) {
+            card.space(6).row(null, 0,
+                Component.translatable("gui.neoecoae.crafting_graph.shared_batch"), Component.empty(), muted);
+        } else if (node.kind() == ClientCraftingGraph.Kind.REFERENCE) {
             card.space(6).row(null, 0,
                 Component.translatable("gui.neoecoae.crafting_graph.reference.description"), Component.empty(), muted);
         }

@@ -21,6 +21,7 @@ import cn.dancingsnow.neoecoae.integration.ae2.ECOProcessingExecutionPattern;
 import cn.dancingsnow.neoecoae.integration.ae2.ECOUnboundedInputCapacity;
 import cn.dancingsnow.neoecoae.integration.mekenergistics.ECOMekEnergisticsBatchCapability;
 import cn.dancingsnow.neoecoae.integration.ae2.ECOExternalProviderBlocking;
+import cn.dancingsnow.neoecoae.integration.common.processing.ProcessingReflection;
 import cn.dancingsnow.neoecoae.integration.advanced_ae.ECOAdvancedAEPatternScaling;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
@@ -44,16 +45,8 @@ final class ECOProcessingPatternDispatcher {
     /** One continuously accepting pattern may use half of a tick; other ready tasks keep the rest. */
     static final int MAX_ATTEMPTS_PER_PATTERN_PER_TICK = MAX_ATTEMPTS_PER_TICK / 2;
     static final int MAX_ATTEMPTS_PER_VISIT = 32;
-    private static final ClassValue<Boolean> HAS_LOGIC = new ClassValue<>() {
-        @Override protected Boolean computeValue(Class<?> type) {
-            try {
-                type.getMethod("getLogic");
-                return true;
-            } catch (NoSuchMethodException | LinkageError absent) {
-                return false;
-            }
-        }
-    };
+    private static final List<String> DIRECTIONAL_ACCESSORS =
+        List.of("getProviderMode", "getWirelessDispatchMode", "getPushDirection");
     private final ECOCraftingCPULogic owner;
     private final ECOCraftingEnergyTransaction energy;
     private final ECOCraftingDispatchAccounting accounting;
@@ -86,7 +79,7 @@ final class ECOProcessingPatternDispatcher {
         if (cached != null && tick - cached.tick() < ELIGIBILITY_CACHE_TICKS) return cached.supported();
         return ECOAe2LtDirectDispatch.isProvider(provider)
                 || provider instanceof PatternProviderLogic || ECOAdvancedAEPatternScaling.isProvider(provider)
-                || HAS_LOGIC.get(provider.getClass());
+                || hasProviderLogic(provider);
     }
 
     boolean claimFallbackAttempt(IPatternDetails pattern) {
@@ -309,9 +302,18 @@ final class ECOProcessingPatternDispatcher {
     private static Object providerLogic(ICraftingProvider provider) {
         if (provider instanceof PatternProviderLogic || ECOAdvancedAEPatternScaling.isProvider(provider)) return provider;
         try {
-            return provider.getClass().getMethod("getLogic").invoke(provider);
+            var accessor = ProcessingReflection.publicNoArgMethod(provider.getClass(), "getLogic");
+            return accessor == null ? null : accessor.invoke(provider);
         } catch (ReflectiveOperationException | RuntimeException unavailable) {
             return null;
+        }
+    }
+
+    private static boolean hasProviderLogic(ICraftingProvider provider) {
+        try {
+            return ProcessingReflection.publicNoArgMethod(provider.getClass(), "getLogic") != null;
+        } catch (RuntimeException | LinkageError unavailable) {
+            return false;
         }
     }
 
@@ -349,12 +351,12 @@ final class ECOProcessingPatternDispatcher {
                 || request.pattern().getOutputs().isEmpty()
                 || !request.pattern().supportsPushInputsToExternalInventory()) return false;
         // Known directional/wireless provider modes split one push across targets and are not atomic here.
-        for (String method : new String[]{"getProviderMode", "getWirelessDispatchMode", "getPushDirection"}) {
+        for (String method : DIRECTIONAL_ACCESSORS) {
             try {
-                Object value = provider.getClass().getMethod(method).invoke(provider);
+                var accessor = ProcessingReflection.publicNoArgMethod(provider.getClass(), method);
+                if (accessor == null) continue;
+                Object value = accessor.invoke(provider);
                 if (value != null && !value.toString().equalsIgnoreCase("NORMAL")) return false;
-            } catch (NoSuchMethodException ignored) {
-                // Absence is normal for the stock provider.
             } catch (ReflectiveOperationException | RuntimeException unavailable) { return false; }
         }
         return true;

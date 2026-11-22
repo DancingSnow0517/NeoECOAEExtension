@@ -16,6 +16,7 @@ import appeng.util.ConfigManager;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.gui.common.FluidHatchUI;
 import cn.dancingsnow.neoecoae.menu.FluidHatchStockAmount;
+import cn.dancingsnow.neoecoae.util.AdjacentFluidHandlers;
 import cn.dancingsnow.neoecoae.util.LongFluidTank;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -25,12 +26,12 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.fluids.FluidUtil;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
@@ -67,6 +68,7 @@ public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyField
         }
     };
     private final IUpgradeInventory upgrades;
+    private final AdjacentFluidHandlers adjacentFluids = new AdjacentFluidHandlers();
     private FluidStack markedFluid = FluidStack.EMPTY;
     private long targetAmount = 16_000;
     private GenericStackInv stockAmountConfig;
@@ -85,7 +87,7 @@ public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyField
     public long getStoredFluidAmount() { return tank.getStoredAmount(); }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
-        if (level.isClientSide) return;
+        if (!(level instanceof ServerLevel serverLevel)) return;
         if (hasNetworkPullCard()) {
             if (level.getGameTime() % 20 == 0 && getMainNode().isActive()) {
                 var grid = getMainNode().getGrid();
@@ -96,8 +98,9 @@ public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyField
             return;
         }
         if (tank.getSpace() <= 0) return;
-        for (Direction face : Direction.values()) {
-            IFluidHandler sourceHandler = level.getCapability(Capabilities.FluidHandler.BLOCK, pos.relative(face), face.getOpposite());
+        for (int faces = adjacentFluids.candidateFaces(serverLevel); faces != 0; faces &= faces - 1) {
+            Direction face = AdjacentFluidHandlers.firstFace(faces);
+            IFluidHandler sourceHandler = adjacentFluids.get(serverLevel, pos, face);
             if (sourceHandler != null) {
                 if (!FluidUtil.tryFluidTransfer(tank, sourceHandler, tank.getCapacity(), true).isEmpty()) {
                     return;

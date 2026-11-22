@@ -13,6 +13,7 @@ import appeng.menu.me.crafting.CraftConfirmMenu;
 import java.util.ArrayList;
 import java.util.List;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -26,8 +27,10 @@ public final class ECOCraftErrorScreen extends AESubScreen<CraftConfirmMenu, ECO
     public ECOCraftErrorScreen(ECOCraftConfirmScreen parent, CraftingSubmitErrorCode errorCode, Object details) {
         super(parent, "/screens/craft_error.json");
 
+        String planRejection = menu instanceof ECOCraftConfirmMenuMode mode ? mode.neoecoae$getPlanRejection() : "";
         var errorText = switch (errorCode) {
-            case INCOMPLETE_PLAN -> GuiText.CraftErrorIncompletePlan.text();
+            case INCOMPLETE_PLAN -> planRejection.isEmpty() ? GuiText.CraftErrorIncompletePlan.text()
+                : Component.translatable(planRejection);
             case NO_CPU_FOUND -> GuiText.CraftErrorNoCpuFound.text();
             case NO_SUITABLE_CPU_FOUND -> {
                 MutableComponent text = GuiText.CraftErrorNoSuitableCpu.text();
@@ -79,10 +82,11 @@ public final class ECOCraftErrorScreen extends AESubScreen<CraftConfirmMenu, ECO
             returnToParent();
             menu.replan();
         });
-        widgets.addButton("retry", GuiText.CraftErrorRetry.text(), () -> {
+        widgets.addButton("retry", planRejection.isEmpty() ? GuiText.CraftErrorRetry.text()
+            : Component.translatable("gui.neoecoae.craft_error.review_plan"), () -> {
             returnToParent();
-            parent.retrySubmission();
-        });
+            if (planRejection.isEmpty()) parent.retrySubmission();
+        }).visible = !planRejection.equals("gui.neoecoae.craft_error.plan_stale");
         widgets.addButton("cancel", GuiText.Cancel.text(), () -> {
             returnToParent();
             menu.goBack();

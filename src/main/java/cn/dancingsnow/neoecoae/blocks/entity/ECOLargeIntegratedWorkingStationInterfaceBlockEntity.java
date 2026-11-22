@@ -62,6 +62,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
     private transient boolean workstationProviderRefreshQueued;
     /** The disk revision last handed to AE2; {@link #refreshDiskAdvertisement} polls against it. */
     private long advertisedDiskRevision = Long.MIN_VALUE;
+    private long advertisedRecipeGeneration = Long.MIN_VALUE;
 
     public ECOLargeIntegratedWorkingStationInterfaceBlockEntity(
         BlockEntityType<?> type,
@@ -102,19 +103,24 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
      * that provides them is absent or has not installed its backend yet.</p>
      */
     @Nullable
-    private AuxiliaryPatternHolder diskHolder;
+    private PatternDiskSupport.TrackedHolder diskHolder;
 
     @Nullable
-    private AuxiliaryPatternHolder diskHolder() {
-        AuxiliaryPatternHolder current = diskHolder;
+    private PatternDiskSupport.TrackedHolder diskHolder() {
+        var current = diskHolder;
         if (current == null && PatternDiskSupport.available()) {
-            current = PatternDiskSupport.holderFor(
+            current = PatternDiskSupport.track(
                 workstationProvider.getPatternInv(),
                 () -> getMainNode().getGrid(),
                 this::getLevel);
             diskHolder = current;
         }
         return current;
+    }
+
+    List<IPatternDetails> decodeDiskPatterns() {
+        var holder = diskHolder();
+        return holder == null ? List.of() : holder.decode(getLevel());
     }
 
     @Override
@@ -188,8 +194,8 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
 
     @Override
     public boolean canAcceptIntoAuxiliary(ItemStack pattern) {
-        return workstationProvider.accepts(pattern)
-            && PatternDiskSupport.canAcceptAuxiliary(patternInventory(), pattern, getLevel());
+        var holder = diskHolder();
+        return holder != null && holder.canAccept(pattern, getLevel()) && workstationProvider.accepts(pattern);
     }
 
     @Override
@@ -197,7 +203,8 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
         if (!workstationProvider.accepts(pattern)) {
             return ECOPatternInsertionResult.INCOMPATIBLE;
         }
-        boolean inserted = PatternDiskSupport.insertAuxiliary(patternInventory(), pattern, getLevel());
+        var holder = diskHolder();
+        boolean inserted = holder != null && holder.insert(pattern, getLevel());
         return inserted ? ECOPatternInsertionResult.INSERTED : ECOPatternInsertionResult.NO_TARGET;
     }
 
@@ -246,25 +253,15 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
         return workstationProvider.getAvailablePatterns();
     }
 
-    /**
-     * Decoded on demand: this host has no catalog-side cache to refresh, unlike the bus, whose decode is fed
-     * by its own index.
-     */
     @Override
     public void refreshPatternDetailsForCatalog() {
+        workstationProvider.getAvailablePatterns();
     }
 
     @Override
     @Nullable
     public IPatternDetails getDecodedPatternDetails(int slot) {
-        var inventory = patternInventory();
-        if (slot < 0 || slot >= inventory.size()) {
-            return null;
-        }
-        ItemStack stack = inventory.getStackInSlot(slot);
-        return workstationProvider.advertises(stack)
-            ? PatternDetailsHelper.decodePattern(stack, getLevel())
-            : null;
+        return workstationProvider.getCompatibleSlotPattern(slot);
     }
 
     @Override
@@ -284,6 +281,8 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
         super.loadTag(data, registries);
         workstationProvider.readFromNBT(data, registries);
         readLegacyWorkstationPatterns(data, registries);
+        var holder = diskHolder;
+        if (holder != null) holder.slotChanged(-1);
     }
 
     private void readLegacyWorkstationPatterns(CompoundTag data, HolderLookup.Provider registries) {
@@ -334,11 +333,20 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
      */
     private void refreshDiskAdvertisement() {
         long revision = diskRevision();
-        if (advertisedDiskRevision == revision) {
-            return;
+        long generation = cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection.reloadGeneration();
+        if (generation != advertisedRecipeGeneration) {
+            advertisedRecipeGeneration = generation;
+            refreshWorkstationProviderLifecycle();
+        } else if (advertisedDiskRevision != revision) {
+            setChanged();
+            workstationProvider.refreshDiskPatterns();
+            var grid = getMainNode().getGrid();
+            if (grid != null && grid.getService(cn.dancingsnow.neoecoae.api.IECOPatternStorageService.class)
+                    instanceof cn.dancingsnow.neoecoae.grid.PatternCatalog catalog) {
+                catalog.onHostAuxiliaryChanged(this);
+            }
         }
         advertisedDiskRevision = revision;
-        refreshWorkstationProviderLifecycle();
     }
 
     @Override
@@ -370,7 +378,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
             return;
         }
 
-        provider.updatePatterns();
+        onPatternSlotsChanged(-1);
         if (workstationProviderRefreshQueued) {
             return;
         }
@@ -380,7 +388,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
             workstationProviderRefreshQueued = false;
             if (!isServerStopping() && !isRemoved() && level == serverLevel
                 && getMainNode().isReady() && workstationProvider == provider) {
-                provider.updatePatterns();
+                onPatternSlotsChanged(-1);
             }
         });
     }
@@ -453,8 +461,18 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
     private int patternSlotRevision;
 
     /** Called by {@link LargeWorkstationPatternProvider} when its pattern slots change. */
-    void onPatternSlotsChanged() {
+    void onPatternSlotsChanged(int slot) {
+        int previousRevision = patternSlotRevision + workstationProvider.cachedAdvertisementRevision();
+        var holder = diskHolder();
+        if (holder != null) holder.slotChanged(slot);
         patternSlotRevision++;
+        workstationProvider.refreshSlotPatterns(slot);
+        advertisedDiskRevision = diskRevision();
+        var grid = getMainNode().getGrid();
+        if (grid != null && grid.getService(cn.dancingsnow.neoecoae.api.IECOPatternStorageService.class)
+                instanceof cn.dancingsnow.neoecoae.grid.PatternCatalog catalog) {
+            catalog.onHostPatternSlotsChanged(this, previousRevision, new int[] { slot });
+        }
     }
 
     /**

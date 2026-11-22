@@ -258,6 +258,21 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     }
 
     @Override
+    public boolean acceptsClaim(@org.jetbrains.annotations.Nullable UUID token) {
+        return data.acceptsClaim(token);
+    }
+
+    @Override
+    public void rotateClaim(@org.jetbrains.annotations.Nullable UUID current, UUID next) {
+        data.rotateClaim(current, next);
+    }
+
+    @Override
+    public void settleClaim(UUID token) {
+        data.settleClaim(token);
+    }
+
+    @Override
     public long revision() {
         return data.revision();
     }

@@ -81,6 +81,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     @Getter
     private boolean isBusy = false;
+    private boolean transferringCustody;
 
     private boolean reboot = true;
 
@@ -205,6 +206,10 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return !isBusy;
     }
 
+    public @Nullable UUID getCraftingJobId() {
+        return craftingJobId;
+    }
+
     public VirtualLaneStartResult getVirtualCraftingBlockedResult(
         ECOCraftingSystemBlockEntity controller, long currentTick
     ) {
@@ -252,7 +257,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     public void reconcileJobTermination() {
-        if (isBusy && !isRecoveringToNetwork()
+        if (isBusy && !transferringCustody && !isRecoveringToNetwork()
                 && ECOCraftingJobLifecycle.isTerminated(worker.getLevel(), craftingJobId)) {
             markRecoveryPending(shouldRecoverOutputs());
         }
@@ -337,7 +342,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         ECOCraftingSystemBlockEntity controller,
         @Nullable UUID craftingJobId
     ) {
-        if (isBusy) {
+        if (isBusy || ECOCraftingJobLifecycle.isTerminated(worker.getLevel(), craftingJobId)) {
             return false;
         }
 
@@ -348,7 +353,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         ECOVerifiedFastPathExecution verified,
         ECOCraftingSystemBlockEntity controller
     ) {
-        if (isBusy) {
+        if (isBusy || ECOCraftingJobLifecycle.isTerminated(worker.getLevel(), verified.craftingJobId())) {
             return false;
         }
         ECOCraftingFastPathCache cache = worker.getFastPathCache();
@@ -387,11 +392,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         var ledger = new ECOExactVirtualLedger(count, recipe.inputsPerCraft(),
             recipe.outputsPerCraft(), recipe.remainingPerCraft());
         var unit = recipe.withVirtualBatch(1L, job);
-        if (unit == null || !pushVirtualBatch(unit, controller)) return false;
-        exactVirtual = ledger;
-        craftCount = ledger.craftQuantity().longValueSaturated();
-        setChanged();
-        return true;
+        return unit != null && pushVirtualBatch(unit, controller, ledger);
     }
 
     public java.math.BigInteger getExactCraftCount() {
@@ -402,7 +403,16 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         ECOVerifiedVirtualExecution verified,
         ECOCraftingSystemBlockEntity controller
     ) {
-        if (isBusy || !controller.isFullVirtualCraftingMode()) {
+        return pushVirtualBatch(verified, controller, null);
+    }
+
+    private boolean pushVirtualBatch(
+        ECOVerifiedVirtualExecution verified,
+        ECOCraftingSystemBlockEntity controller,
+        @Nullable ECOExactVirtualLedger ledger
+    ) {
+        if (isBusy || !controller.isFullVirtualCraftingMode()
+                || ECOCraftingJobLifecycle.isTerminated(worker.getLevel(), verified.craftingJobId())) {
             return false;
         }
         ECOCraftingFastPathCache cache = worker.getFastPathCache();
@@ -423,7 +433,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             || !ECOCraftingStackCodec.canRetain(work.remainingTotal(), false)) {
             return false;
         }
-        startVirtualWork(work);
+        installWork(ECOCraftingThreadWork.virtual(work), ledger);
         fastPathReason = "FAST_PATH_HIT";
         return true;
     }
@@ -449,6 +459,10 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     ) {
         var prepared = fastPathVerifier.prepare(execution, TickHandler.instance().getCurrentTick());
         if (prepared == null) return false;
+        if (ECOCraftingJobLifecycle.isTerminated(worker.getLevel(), craftingJobId)) {
+            craftingInv.clearContent();
+            return false;
+        }
         if (!consumeCraftingCoolant(controller, 1)) {
             craftingInv.clearContent();
             return false;
@@ -475,18 +489,14 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         int finiteBatchCraftCount
     ) {
         installWork(ECOCraftingThreadWork.items(
-            outputs, inputs, remaining, craftingJobId, finiteBatchCraftCount));
+            outputs, inputs, remaining, craftingJobId, finiteBatchCraftCount), null);
     }
 
     private void startBatchWork(ECOBatchCraftingWork work) {
-        installWork(ECOCraftingThreadWork.batch(work));
+        installWork(ECOCraftingThreadWork.batch(work), null);
     }
 
-    private void startVirtualWork(ECOVirtualCraftingWork work) {
-        installWork(ECOCraftingThreadWork.virtual(work));
-    }
-
-    private void installWork(ECOCraftingThreadWork work) {
+    private void installWork(ECOCraftingThreadWork work, @Nullable ECOExactVirtualLedger ledger) {
         clearVirtualCraftingDiagnostic();
         worker.markDisplayDirty();
         outputItems.clear();
@@ -505,22 +515,31 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         craftingJobId = work.craftingJobId();
         completedJobOutputsReleased = false;
         finiteBatchCraftCount = Math.max(1, work.finiteBatchCraftCount());
-        craftCount = Math.max(1L, work.craftCount());
+        exactVirtual = ledger;
+        craftCount = ledger == null ? Math.max(1L, work.craftCount()) : ledger.craftQuantity().longValueSaturated();
         virtualBatch = work.virtualBatch();
         if (work.resetProgress()) {
             progress = 0;
         }
         progressRemainder = 0.0D;
         outputsReady = false;
+        recoveryState = RecoveryState.ACTIVE;
+        reboot = true;
+        isBusy = true;
         try {
-            worker.onBatchStarted();
-            recoveryState = RecoveryState.ACTIVE;
-            reboot = true;
-            isBusy = true;
-            worker.onThreadAvailabilityChanged();
-        } catch (RuntimeException | Error e) {
-            clearWork();
-            throw e;
+            worker.onBatchStarted(this, craftingJobId);
+        } catch (RuntimeException | Error failure) {
+            try {
+                clearWork();
+            } catch (RuntimeException | Error rollbackFailure) {
+                failure.addSuppressed(rollbackFailure);
+            }
+            try {
+                worker.reconcileBatchCounts();
+            } catch (RuntimeException | Error rollbackFailure) {
+                failure.addSuppressed(rollbackFailure);
+            }
+            throw failure;
         }
     }
 
@@ -656,7 +675,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 return ECOBigIntegerStorage.insert(storage, key, amount, Actionable.MODULATE, actionSource);
             }, this::setChanged);
             if (!finished) return false;
-            worker.onBatchStopped();
             clearWork();
             return true;
         }
@@ -677,12 +695,12 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (NEConfig.postCraftingEvent) {
             postCraftingEventSafely(eventOutput);
         }
-        worker.onBatchStopped();
         clearWork();
         return true;
     }
 
     private TickRateModulation ejectOutputsSafely() {
+        transferringCustody = true;
         try {
             if (ejectOutputs()) {
                 setChanged();
@@ -696,6 +714,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 LOGGER.error("ECO crafting output ejection failed; pending outputs will be retried", e);
             }
             return TickRateModulation.SLOWER;
+        } finally {
+            transferringCustody = false;
+            reconcileJobTermination();
         }
     }
 
@@ -909,51 +930,33 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private boolean recoverItemsToNetwork(MEStorage storage, boolean recoverOutputs) {
-        if (exactVirtual != null) {
-            try {
+        if (transferringCustody) return false;
+        transferringCustody = true;
+        try {
+            if (!isRecoveringToNetwork()) markRecoveryPending(recoverOutputs);
+            if (exactVirtual != null) {
                 if (!exactVirtual.drainExact(recoverOutputs,
                         (key, amount) -> ECOBigIntegerStorage.insert(
                                 storage, key, amount, Actionable.MODULATE, actionSource),
                         this::setChanged)) return false;
-                worker.onBatchStopped();
-                clearWork();
-                setChanged();
-                return true;
-            } catch (RuntimeException failure) {
-                markRecoveryPending(recoverOutputs);
-                logRecoveryFailure(failure);
-                return false;
+            } else {
+                KeyCounter stacks = ECOCraftingStackCodec.collect(recoverOutputs ? outputAndRemainingItems() : inputItems);
+                addGenericStacks(stacks, recoverOutputs ? batchOutputAndRemainingItems() : batchInputItems);
+                if (!ECOCraftingStackCodec.isEmpty(stacks)
+                        && !ECOCraftingStackCodec.isEmpty(insertAllAndCollectRemainder(storage, stacks, recoverOutputs))) {
+                    return false;
+                }
             }
-        }
-        List<ItemStack> recoverable = recoverOutputs ? outputAndRemainingItems() : inputItems;
-        List<GenericStack> recoverableGeneric = recoverOutputs ? batchOutputAndRemainingItems() : batchInputItems;
-        if (recoverable.isEmpty() && recoverableGeneric.isEmpty()) {
             recoveryState = RecoveryState.RECOVERED_TO_NETWORK;
-            worker.onBatchStopped();
             clearWork();
             setChanged();
             return true;
-        }
-        try {
-        KeyCounter stacks = ECOCraftingStackCodec.collect(recoverable);
-            addGenericStacks(stacks, recoverableGeneric);
-            // Commit whatever fits. The insertion loop persists the remainder after each successful
-            // key, so a full cell or a later exception cannot replay earlier transfers on retry.
-            KeyCounter remainder = insertAllAndCollectRemainder(storage, stacks, recoverOutputs);
-            if (!ECOCraftingStackCodec.isEmpty(remainder)) {
-                retainRecoveryRemainder(remainder, recoverOutputs);
-                return false;
-            }
         } catch (RuntimeException e) {
-            markRecoveryPending(recoverOutputs);
             logRecoveryFailure(e);
             return false;
+        } finally {
+            transferringCustody = false;
         }
-        recoveryState = RecoveryState.RECOVERED_TO_NETWORK;
-        worker.onBatchStopped();
-        clearWork();
-        setChanged();
-        return true;
     }
 
     /**
@@ -1039,8 +1042,13 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private void clearWork() {
+        clearWork(true);
+    }
+
+    private void clearWork(boolean notifyWorker) {
         clearVirtualCraftingDiagnostic();
         boolean availabilityChanged = isBusy;
+        UUID previousJob = craftingJobId;
         exactVirtual = null;
         finishBlockedOutputDiagnostic();
         worker.markDisplayDirty();
@@ -1068,8 +1076,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         lastBlockedProgressLogTick = Long.MIN_VALUE;
         processingPauseReason = "";
         outputDiagnostics.reset();
-        if (availabilityChanged) {
-            worker.onThreadAvailabilityChanged();
+        if (availabilityChanged && notifyWorker) {
+            worker.onBatchStopped(this, previousJob);
         }
     }
 
@@ -1081,7 +1089,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 "ECO crafting thread cannot retain non-item output remainder for retry: worker={}",
                 worker.getBlockPos()
             );
-            worker.onBatchStopped();
             clearWork();
             return;
         }
@@ -1114,7 +1121,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 "ECO crafting thread cannot retain non-item input remainder for retry: worker={}",
                 worker.getBlockPos()
             );
-            worker.onBatchStopped();
             clearWork();
             return;
         }
@@ -1444,7 +1450,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             craftingEventOutput = outputItems.get(0).copy();
         }
 
-        boolean missingBatchRecoveryStacks = batchGenericWork
+        boolean missingBatchRecoveryStacks = exactVirtual == null && batchGenericWork
             && (recoveryState == RecoveryState.RECOVERING_INPUTS
                 ? batchInputItems.isEmpty()
                 : batchOutputItems.isEmpty());
@@ -1454,13 +1460,13 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (recoveryState == RecoveryState.WAITING_FOR_OWNER && craftingJobId == null) {
             invalidPersistedState = true;
         }
-        if (!batchGenericWork && isBusy) {
+        if (exactVirtual == null && !batchGenericWork && isBusy) {
             invalidPersistedState |= recoveryState == RecoveryState.RECOVERING_INPUTS
                 ? inputItems.isEmpty()
                 : outputItems.isEmpty();
         }
         if (!isBusy) {
-            clearWork();
+            clearWork(false);
         } else if (invalidPersistedState) {
             quarantineInvalidDeserializedWork();
         }
@@ -1481,9 +1487,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             batchInputItems.clear();
             outputsReady = true;
             recoveryState = RecoveryState.RECOVERING_OUTPUTS;
-            if (outputItems.isEmpty() && remainingItems.isEmpty()
+            if (exactVirtual == null && outputItems.isEmpty() && remainingItems.isEmpty()
                 && batchOutputItems.isEmpty() && batchRemainingItems.isEmpty()) {
-                clearWork();
+                clearWork(false);
             }
         } else {
             outputItems.clear();
@@ -1492,8 +1498,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             batchRemainingItems.clear();
             outputsReady = false;
             recoveryState = RecoveryState.RECOVERING_INPUTS;
-            if (inputItems.isEmpty() && batchInputItems.isEmpty()) {
-                clearWork();
+            if (exactVirtual == null && inputItems.isEmpty() && batchInputItems.isEmpty()) {
+                clearWork(false);
             }
         }
     }

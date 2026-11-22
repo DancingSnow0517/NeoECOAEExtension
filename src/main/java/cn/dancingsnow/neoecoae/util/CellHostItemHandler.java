@@ -47,6 +47,7 @@ public class CellHostItemHandler implements IItemHandler {
             return ItemStack.EMPTY;
         }
         ItemStack copy = host.getCellStack().copyWithCount(1);
+        if (cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.isAnonymous(copy)) cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.clearMember(copy);
         if (!simulate) {
             host.setCellStack(null);
         }

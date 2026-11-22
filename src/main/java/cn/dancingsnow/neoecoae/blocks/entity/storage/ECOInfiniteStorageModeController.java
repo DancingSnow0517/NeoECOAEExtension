@@ -36,9 +36,11 @@ import java.util.function.LongSupplier;
  * Coordinates infinite-storage mode transitions and the mounted domain lifetime.
  */
 final class ECOInfiniteStorageModeController {
-    private static final int MINIMUM_MIGRATION_SOURCES = 12;
+    static final int MINIMUM_MIGRATION_SOURCES = 12;
     // Distinct from the "migration" stage, whose runner clears its own fault after every successful run.
     static final String MIGRATION_FAULT = "migration blocked";
+    static final String COMPONENTS_FAULT = "infinite components";
+    static final String CLAIM_FAULT = "domain claim";
 
     private final ECOStorageSystemBlockEntity host;
     private final ECOInfiniteStorageTransfer transfer = new ECOInfiniteStorageTransfer();
@@ -63,6 +65,10 @@ final class ECOInfiniteStorageModeController {
     private UUID mountedDomainId;
     @Nullable
     private ECOInfiniteStorageEngine mountedEngine;
+    @Nullable
+    private UUID rejectedClaimDomain;
+    @Nullable
+    private java.util.concurrent.CompletableFuture<?> claimCheckpoint;
 
     ECOInfiniteStorageModeController(ECOStorageSystemBlockEntity host) {
         this.host = host;
@@ -92,7 +98,6 @@ final class ECOInfiniteStorageModeController {
     }
 
     private void processMode() {
-        host.rememberInfiniteMembers();
         if (host.hasInvalidInfiniteMembers()) {
             host.storageFaults().report("members", "Invalid saved infinite member identity; original data retained",
                     host.getLevel().getGameTime());
@@ -107,6 +112,7 @@ final class ECOInfiniteStorageModeController {
         if (host.storageHostMode() == ECOStorageHostMode.UNFORMED) {
             host.setStorageHostMode(ECOStorageHostMode.FORMED_NORMAL);
         }
+        advanceClaim();
         if (host.storageHostMode() == ECOStorageHostMode.MIGRATING_TO_INFINITE) {
             // Finish the sealed migration before considering an exit, including after reload.
             runMigrationStep();
@@ -122,9 +128,16 @@ final class ECOInfiniteStorageModeController {
             return;
         }
         if (host.storageHostMode().isInfiniteState() && !targetInfiniteMode) {
-            host.setStorageHostMode(ECOStorageHostMode.RESTORING_TO_NORMAL);
-            host.infiniteRestore().restoreInfiniteDomainToNormalStorageIfPossible();
+            // A host placed without its components pauses; only an explicit exit restores to normal storage.
+            host.storageFaults().report(COMPONENTS_FAULT, "Missing infinite components; insert them again",
+                    host.getLevel().getGameTime());
             return;
+        }
+        host.storageFaults().recovered(COMPONENTS_FAULT);
+        if (host.storageHostMode() == ECOStorageHostMode.FORMED_INFINITE
+                && restoringEngine != null && restoringEngine.canExitOrRestore()) {
+            // No restore references member identities here; legacy bound members become anonymous.
+            host.releaseRestoreBindings();
         }
         if (host.storageHostMode() == ECOStorageHostMode.FORMED_NORMAL && canStartMigration()) {
             ensureDomainId();
@@ -142,7 +155,6 @@ final class ECOInfiniteStorageModeController {
 
     private void syncModeChanges(ECOStorageHostMode previous) {
         if (previous != host.storageHostMode()) {
-            host.storageInterfaceTransfer().invalidateInfiniteStorageView();
             host.infiniteRestore().invalidateExtractionCheck();
             host.invalidateStorageStatistics();
             host.refreshDriveStorageProviders();
@@ -237,7 +249,7 @@ final class ECOInfiniteStorageModeController {
         }
         for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
             ItemStack stack = drive.getCellStack();
-            if (ECOInfiniteStorageMember.isMember(stack)
+            if (ECOInfiniteStorageMember.isBound(stack)
                     && (host.infiniteDomainId() == null
                     || !ECOInfiniteStorageMember.isMemberOf(stack, host.infiniteDomainId()))) {
                 return true;
@@ -269,7 +281,7 @@ final class ECOInfiniteStorageModeController {
         }
         int count = 0;
         for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
-            if (ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), host.infiniteDomainId())) {
+            if (ECOInfiniteStorageMember.isAnonymous(drive.getCellStack()) || ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), host.infiniteDomainId())) {
                 count++;
             }
         }
@@ -307,7 +319,7 @@ final class ECOInfiniteStorageModeController {
             try {
                 ItemStack stack = drive.getCellStack();
                 if (ECOInfiniteStorageMember.isMember(stack)) {
-                    if (ECOInfiniteStorageMember.isMemberOf(stack, domainId)) {
+                    if (ECOInfiniteStorageMember.isAnonymous(stack) || ECOInfiniteStorageMember.isMemberOf(stack, domainId)) {
                         continue;
                     }
                     hasPending = true;
@@ -384,7 +396,6 @@ final class ECOInfiniteStorageModeController {
         if (result.state() != ECOInfiniteStorageTransfer.State.COMPLETED) {
             return result;
         }
-        host.rememberInfiniteMembers();
         preparedSourceSeals.remove(migration);
         host.infiniteMigrationSourceIds().remove(migration);
         IStorageProvider.requestUpdate(drive.getMainNode());
@@ -476,7 +487,7 @@ final class ECOInfiniteStorageModeController {
         UUID domainId = host.infiniteDomainId();
         if (host.getCluster() != null && domainId != null) {
             for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
-                if (ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), domainId)) {
+                if (ECOInfiniteStorageMember.isMember(drive.getCellStack())) {
                     drive.convertInfiniteMemberToNormalStorage(domainId);
                     IStorageProvider.requestUpdate(drive.getMainNode());
                 }
@@ -499,19 +510,72 @@ final class ECOInfiniteStorageModeController {
     @Nullable
     ECOInfiniteStorageEngine getEngine() {
         if (!(host.getLevel() instanceof ServerLevel serverLevel) || host.infiniteDomainId() == null) {
-            release();
+            if (mountedDomainId != null) release();
             return null;
         }
         MinecraftServer server = serverLevel.getServer();
         if (mountedEngine == null || mountedServer != server
                 || !host.infiniteDomainId().equals(mountedDomainId)) {
             release();
+            UUID domainId = host.infiniteDomainId();
+            if (domainId.equals(rejectedClaimDomain)) return null;
+            ECOInfiniteStorageEngine engine = ECOInfiniteStorageDomains.acquire(serverLevel, domainId);
+            UUID pending = host.pendingInfiniteClaimToken();
+            boolean claimed = engine.acceptsClaim(host.infiniteClaimToken())
+                    || pending != null && engine.acceptsClaim(pending);
+            if (!claimed || ECOInfiniteStorageDomains.mountedHosts(server, domainId) > 1) {
+                // An older copy of the host item, or a host already serving this domain.
+                ECOInfiniteStorageDomains.release(server, domainId);
+                rejectedClaimDomain = domainId;
+                host.storageFaults().report(CLAIM_FAULT,
+                        "Infinite domain is claimed by another host; an administrator can recover it",
+                        serverLevel.getGameTime());
+                return null;
+            }
+            host.storageFaults().recovered(CLAIM_FAULT);
             mountedServer = server;
-            mountedDomainId = host.infiniteDomainId();
-            mountedEngine = ECOInfiniteStorageDomains.acquire(serverLevel, host.infiniteDomainId());
+            mountedDomainId = domainId;
+            mountedEngine = engine;
             refreshHostAccess();
         }
         return mountedEngine;
+    }
+
+    /** Lets a host placed from an item, or recovered by an administrator, try its claim again. */
+    void resetClaim() {
+        rejectedClaimDomain = null;
+        claimCheckpoint = null;
+    }
+
+    /** Rotates the pending token in; the domain retires older tokens only once both sides are durable. */
+    private void advanceClaim() {
+        if (host.infiniteDomainId() == null) return;
+        ECOInfiniteStorageEngine engine = getEngine();
+        if (engine == null) return;
+        UUID current = host.infiniteClaimToken();
+        UUID pending = host.pendingInfiniteClaimToken();
+        if (pending == null) {
+            if (!engine.acceptsClaim(null)) return;
+            pending = current != null ? current : UUID.randomUUID();
+            host.setInfiniteClaimTokens(current, pending);
+        }
+        if (claimCheckpoint == null) {
+            engine.rotateClaim(current, pending);
+            claimCheckpoint = java.util.concurrent.CompletableFuture.allOf(
+                    engine.checkpoint().thenAccept(result -> {
+                        if (!result.successful()) throw new IllegalStateException(result.failure());
+                    }),
+                    ECOStorageChunkPersistence.checkpoint(host, List.of()));
+            return;
+        }
+        if (!claimCheckpoint.isDone()) return;
+        if (claimCheckpoint.isCompletedExceptionally()) {
+            claimCheckpoint = null;
+            return;
+        }
+        claimCheckpoint = null;
+        engine.settleClaim(pending);
+        host.setInfiniteClaimTokens(pending, null);
     }
 
     /** Reattaches existing world data; never copies balances or starts another migration. */
@@ -531,61 +595,73 @@ final class ECOInfiniteStorageModeController {
         }
         UUID previousDomain = host.infiniteDomainId();
         ECOInfiniteStorageEngine previous = getEngine();
-        boolean sameDomain = domainId.equals(previousDomain);
-        if (previous == null || !previous.canExitOrRestore() || previous.hasPendingRestore()
-                || !sameDomain && !previous.isEmpty()) {
-            return Component.translatable(prefix + "occupied");
-        }
-        if (ECOInfiniteStorageDomains.mountedHosts(server, domainId) > (sameDomain ? 1 : 0)) {
-            return Component.translatable(prefix + "mounted");
-        }
-        // Only retag this host's sealed, fully migrated members. A migration/restore in progress
-        // or a foreign member needs its original transaction, not a replacement identity.
-        if (host.hasInvalidInfiniteMembers()) {
-            return Component.translatable(prefix + "invalid_members");
-        }
-        Set<UUID> identities = new HashSet<>();
-        List<ECODriveBlockEntity> members = new ArrayList<>();
-        for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
-            ItemStack stack = drive.getCellStack();
-            if (ECOInfiniteStorageMember.isMigrating(stack)) {
-                return Component.translatable(prefix + "invalid_members");
-            }
-            if (!ECOInfiniteStorageMember.isMember(stack)) continue;
-            var identity = ECOInfiniteStorageMember.getIdentity(stack);
-            if ((!ECOInfiniteStorageMember.isMemberOf(stack, previousDomain)
-                    && !ECOInfiniteStorageMember.isMemberOf(stack, domainId))
-                    || identity.isEmpty() || !identities.add(identity.get())) {
-                return Component.translatable(prefix + "invalid_members");
-            }
-            members.add(drive);
-        }
-        ECOInfiniteStorageEngine recovered = ECOInfiniteStorageDomains.acquire(level, domainId);
+        // A host whose own claim was rejected is still inspected, without being mounted.
+        boolean inspectingRejected = previous == null && previousDomain != null
+                && previousDomain.equals(rejectedClaimDomain);
+        if (inspectingRejected) previous = ECOInfiniteStorageDomains.acquire(level, previousDomain);
         try {
-            if (!recovered.canExitOrRestore() || !recovered.canUseMountedStorage()) {
-                return Component.translatable(prefix + "unhealthy");
+            boolean sameDomain = domainId.equals(previousDomain);
+            if (previous == null || !previous.canExitOrRestore() || previous.hasPendingRestore()
+                    || !sameDomain && !previous.isEmpty()) {
+                return Component.translatable(prefix + "occupied");
             }
-            // Invalidate every previously issued view before changing drive membership.
-            release();
-            host.setInfiniteDomainId(domainId);
-            host.infiniteMemberIds().clear();
-            host.infiniteMigrationSourceIds().clear();
-            for (ECODriveBlockEntity drive : members) {
-                ECOInfiniteStorageMember.markMember(drive.getCellStack(), domainId);
-                host.infiniteMemberIds().add(ECOInfiniteStorageMember.identity(drive.getCellStack()));
-                drive.setChanged();
-                drive.markForUpdate();
+            if (ECOInfiniteStorageDomains.mountedHosts(server, domainId) > (sameDomain ? 1 : 0)) {
+                return Component.translatable(prefix + "mounted");
             }
-            host.invalidateInfiniteMembers();
-            getEngine();
-            host.infiniteRestore().invalidateExtractionCheck();
-            host.invalidateStorageStatistics();
-            host.refreshDriveStorageProviders();
-            host.setChanged();
-            host.markForUpdate();
-            return null;
+            // Only retag this host's sealed, fully migrated members. A migration/restore in progress
+            // or a foreign member needs its original transaction, not a replacement identity.
+            if (host.hasInvalidInfiniteMembers()) {
+                return Component.translatable(prefix + "invalid_members");
+            }
+            Set<UUID> identities = new HashSet<>();
+            List<ECODriveBlockEntity> members = new ArrayList<>();
+            for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
+                ItemStack stack = drive.getCellStack();
+                if (ECOInfiniteStorageMember.isMigrating(stack)) {
+                    return Component.translatable(prefix + "invalid_members");
+                }
+                if (!ECOInfiniteStorageMember.isMember(stack)) continue;
+                if (ECOInfiniteStorageMember.isAnonymous(stack)) continue;
+                var identity = ECOInfiniteStorageMember.getIdentity(stack);
+                if ((!ECOInfiniteStorageMember.isMemberOf(stack, previousDomain)
+                        && !ECOInfiniteStorageMember.isMemberOf(stack, domainId))
+                        || identity.isEmpty() || !identities.add(identity.get())) {
+                    return Component.translatable(prefix + "invalid_members");
+                }
+                members.add(drive);
+            }
+            ECOInfiniteStorageEngine recovered = ECOInfiniteStorageDomains.acquire(level, domainId);
+            try {
+                if (!recovered.canExitOrRestore() || !recovered.canUseMountedStorage()) {
+                    return Component.translatable(prefix + "unhealthy");
+                }
+                // Invalidate every previously issued view before changing drive membership.
+                release();
+                UUID claim = UUID.randomUUID();
+                recovered.settleClaim(claim);
+                host.setInfiniteClaimTokens(claim, null);
+                resetClaim();
+                host.setInfiniteDomainId(domainId);
+                host.infiniteMemberIds().clear();
+                host.infiniteMigrationSourceIds().clear();
+                for (ECODriveBlockEntity drive : members) {
+                    ECOInfiniteStorageMember.markMember(drive.getCellStack(), domainId);
+                    host.infiniteMemberIds().add(ECOInfiniteStorageMember.identity(drive.getCellStack()));
+                    drive.setChanged();
+                    drive.markForUpdate();
+                }
+                host.invalidateInfiniteMembers();
+                host.infiniteRestore().invalidateExtractionCheck();
+                host.invalidateStorageStatistics();
+                host.refreshDriveStorageProviders();
+                host.setChanged();
+                host.markForUpdate();
+                return null;
+            } finally {
+                ECOInfiniteStorageDomains.release(server, domainId);
+            }
         } finally {
-            ECOInfiniteStorageDomains.release(server, domainId);
+            if (inspectingRejected) ECOInfiniteStorageDomains.release(server, previousDomain);
         }
     }
 
@@ -596,6 +672,7 @@ final class ECOInfiniteStorageModeController {
         preparedSourceSeals.clear();
         pendingSourceSeals.clear();
         exitCheckpoint = null;
+        claimCheckpoint = null;
         if (mountedServer != null && mountedDomainId != null) {
             ECOInfiniteStorageDomains.release(mountedServer, mountedDomainId);
         }
@@ -651,6 +728,7 @@ final class ECOInfiniteStorageModeController {
                 && host.infiniteDomainId() != null
                 && !host.isInfiniteExitRequested()
                 && !host.infiniteRestore().isRestoring()
+                && host.hasRequiredInfiniteComponents()
                 && mountedEngine != null
                 && host.getMissingInfiniteMembers() == 0;
     }

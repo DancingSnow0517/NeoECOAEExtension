@@ -278,7 +278,7 @@ public final class ECOCraftingPlannerService {
                 }
                 structure = null;
                 activeSelection = null;
-                long providerRevision = CompiledStructureCache.revision(craftingService);
+                long providerRevision = CompiledStructureCache.providerRevision(craftingService);
                 var cached = CompiledStructureCache.get(craftingService, providerRevision, contractGeneration, goal,
                         cyclePlanningEnabled, ignorePatternSubstitutions, fuzzyPlanningItemIds);
                 if (cached != null) {
@@ -344,6 +344,13 @@ public final class ECOCraftingPlannerService {
 
         boolean isStructureCurrent() {
             return isStructureCurrent(structure);
+        }
+
+        boolean isConfirmationCurrent(ICraftingService service) {
+            var current = structure;
+            return belongsTo(service) && current != null
+                    && current.providerRevision() == CompiledStructureCache.providerRevision(service)
+                    && current.contractGeneration() == AE2PatternIntrospection.reloadGeneration();
         }
 
         private boolean isStructureCurrent(CompiledStructureCache.Structure current) {

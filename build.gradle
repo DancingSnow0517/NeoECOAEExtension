@@ -138,9 +138,13 @@ repositories {
     }
     maven { url "https://maven.shedaniel.me/" }
     maven { url "https://maven.minecraftforge.net/" }
-    maven {
-        url = uri('https://y271727uy.github.io/Computatio/')
-        content {
+    exclusiveContent {
+        forRepository {
+            maven {
+                url = uri('https://y271727uy.github.io/Computatio/')
+            }
+        }
+        filter {
             includeModule('com.y271727uy', 'computatio')
         }
     }

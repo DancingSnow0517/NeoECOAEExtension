@@ -14,8 +14,10 @@ import io.github.lounode.ae2pattern.api.PatternDiskHostView;
 import io.github.lounode.ae2pattern.api.PatternDiskTerminalView;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.TreeMap;
 import java.util.function.Supplier;
 
 import net.minecraft.world.item.ItemStack;
@@ -130,9 +132,15 @@ final class AepdPatternDiskBackend implements PatternDiskSupport.Backend {
      */
     @Override
     public boolean insertAuxiliary(InternalInventory slots, ItemStack pattern, Level level) {
+        return insertAuxiliary(slots, pattern, level, null);
+    }
+
+    private static boolean insertAuxiliary(InternalInventory slots, ItemStack pattern, Level level, BitSet disks) {
         List<Integer> claimed = new ArrayList<>();
         List<Integer> empty = new ArrayList<>();
-        for (int slot = 0; slot < slots.size(); slot++) {
+        int slotCount = slots.size();
+        for (int slot = disks == null ? 0 : disks.nextSetBit(0); slot >= 0 && slot < slotCount;
+             slot = disks == null ? slot + 1 : disks.nextSetBit(slot + 1)) {
             ItemStack disk = slots.getStackInSlot(slot);
             if (!PatternDiskApi.canAccept(disk, pattern, level)) {
                 continue;
@@ -176,7 +184,8 @@ final class AepdPatternDiskBackend implements PatternDiskSupport.Backend {
             return List.of();
         }
         List<IPatternDetails> decoded = new ArrayList<>();
-        for (int slot = 0; slot < slots.size(); slot++) {
+        int slotCount = slots.size();
+        for (int slot = 0; slot < slotCount; slot++) {
             PatternDiskContents contents = PatternDiskApi.contents(slots.getStackInSlot(slot));
             if (contents != null) {
                 decoded.addAll(PatternDiskApi.decodePatterns(contents, level));
@@ -187,7 +196,8 @@ final class AepdPatternDiskBackend implements PatternDiskSupport.Backend {
 
     @Override
     public boolean canAcceptAuxiliary(InternalInventory slots, ItemStack pattern, Level level) {
-        for (int slot = 0; slot < slots.size(); slot++) {
+        int slotCount = slots.size();
+        for (int slot = 0; slot < slotCount; slot++) {
             if (PatternDiskApi.canAccept(slots.getStackInSlot(slot), pattern, level)) {
                 return true;
             }
@@ -204,26 +214,12 @@ final class AepdPatternDiskBackend implements PatternDiskSupport.Backend {
         return PatternDiskApi.isPatternDisk(stack);
     }
 
-    /**
-     * Reads a host's pattern slots and reports the disks found in them.
-     *
-     * <p>The disks themselves are the version: a disk's contents live in a data component, so an in-place
-     * write to one changes how the stack compares. That makes "have the disks changed" a comparison of the
-     * stacks rather than a tally kept in parallel with them - nothing can drift out of step with the
-     * inventory, and a disk swapped for an identical one is correctly seen as no change at all.</p>
-     *
-     * <p>Everything is derived on demand and cached against that comparison, because the revision is read on
-     * every catalog index refresh and the pattern list on every crafting request. Scanning the host's slots
-     * is a handful of array reads; decoding is what the caller does with the result, and it does that against
-     * its own cache.</p>
-     */
-    private static final class SlotsHolder implements AuxiliaryPatternHolder {
-
+    private static final class SlotsHolder implements PatternDiskSupport.TrackedHolder {
         private final InternalInventory slots;
-
-        /** What the disks held on the last refresh, for change detection. */
-        private List<PatternDiskContents> contents = List.of();
+        private final BitSet disks = new BitSet();
+        private final TreeMap<Integer, PatternDiskContents> snapshots = new TreeMap<>();
         private List<ItemStack> patterns = List.of();
+        private int indexedSize = -1;
         private long revision;
 
         SlotsHolder(InternalInventory slots) {
@@ -236,18 +232,40 @@ final class AepdPatternDiskBackend implements PatternDiskSupport.Backend {
         }
 
         @Override
-        public boolean hasAuxiliaryRoom() {
-            for (int slot = 0; slot < slots.size(); slot++) {
-                ItemStack stack = slots.getStackInSlot(slot);
-                if (!PatternDiskApi.isPatternDisk(stack)) {
-                    continue;
-                }
-                PatternDiskContents contents = PatternDiskApi.contents(stack);
-                if (contents != null && !contents.isFull()) {
-                    return true;
-                }
+        public void slotChanged(int slot) {
+            if (slot < 0) indexedSize = -1;
+            int size = slots.size();
+            if (size != indexedSize) {
+                rebuildSlots(size);
+            } else if (slot >= 0 && slot < size) {
+                disks.set(slot, ownsAuxiliary(slots.getStackInSlot(slot)));
             }
-            return false;
+        }
+
+        private void rebuildSlots(int size) {
+            disks.clear();
+            for (int slot = 0; slot < size; slot++) {
+                if (ownsAuxiliary(slots.getStackInSlot(slot))) disks.set(slot);
+            }
+            indexedSize = size;
+        }
+
+        @Override
+        public boolean hasDisks() {
+            int size = slots.size();
+            if (size != indexedSize) rebuildSlots(size);
+            return !disks.isEmpty();
+        }
+
+        @Override
+        public int firstDiskSlot() {
+            return hasDisks() ? disks.nextSetBit(0) : -1;
+        }
+
+        @Override
+        public boolean hasAuxiliaryRoom() {
+            refresh();
+            return snapshots.values().stream().anyMatch(contents -> !contents.isFull());
         }
 
         @Override
@@ -262,77 +280,58 @@ final class AepdPatternDiskBackend implements PatternDiskSupport.Backend {
             return revision;
         }
 
-        /**
-         * Re-derives the disk list when the disks' contents moved.
-         *
-         * <p>Compared by contents, not by stack identity. A write to a disk mutates the stack the host already
-         * holds, so the stack a scan reads afterwards <em>is</em> the one it read before - a comparison against
-         * that would answer "unchanged" for every write. The contents record cannot help either: it holds
-         * {@code ItemStack}s, which compare by identity, so this walks them.</p>
-         */
+        @Override
+        public boolean canAccept(ItemStack pattern, Level level) {
+            if (!hasDisks()) return false;
+            for (int slot = disks.nextSetBit(0); slot >= 0; slot = disks.nextSetBit(slot + 1)) {
+                if (PatternDiskApi.canAccept(slots.getStackInSlot(slot), pattern, level)) return true;
+            }
+            return false;
+        }
+
+        @Override
+        public boolean insert(ItemStack pattern, Level level) {
+            return hasDisks() && insertAuxiliary(slots, pattern, level, disks);
+        }
+
+        @Override
+        public List<IPatternDetails> decode(Level level) {
+            refresh();
+            if (level == null || snapshots.isEmpty()) return List.of();
+            var decoded = new ArrayList<IPatternDetails>();
+            for (var contents : snapshots.values()) decoded.addAll(PatternDiskApi.decodePatterns(contents, level));
+            return decoded;
+        }
+
         private void refresh() {
-            List<ItemStack> current = disksInSlots();
-            List<PatternDiskContents> currentContents = new ArrayList<>(current.size());
-            for (ItemStack disk : current) {
-                currentContents.add(PatternDiskApi.contents(disk));
-            }
-            if (sameContents(currentContents, contents)) {
-                return;
-            }
-            contents = currentContents;
-            List<ItemStack> collected = new ArrayList<>();
-            for (PatternDiskContents diskContents : contents) {
-                if (diskContents != null) {
-                    collected.addAll(diskContents.patterns());
+            hasDisks();
+            boolean changed = snapshots.keySet().removeIf(slot -> !disks.get(slot));
+            for (int slot = disks.nextSetBit(0); slot >= 0; slot = disks.nextSetBit(slot + 1)) {
+                PatternDiskContents contents = PatternDiskApi.contents(slots.getStackInSlot(slot));
+                if (contents == null) changed |= snapshots.remove(slot) != null;
+                else if (!sameContents(snapshots.get(slot), contents)) {
+                    snapshots.put(slot, contents);
+                    changed = true;
                 }
             }
-            patterns = collected;
+            if (!changed) return;
+            List<ItemStack> collected = new ArrayList<>();
+            for (PatternDiskContents contents : snapshots.values()) collected.addAll(contents.patterns());
+            patterns = List.copyOf(collected);
             revision++;
         }
 
-        /** @return whether two disk-content snapshots describe the same patterns */
-        private static boolean sameContents(List<PatternDiskContents> first, List<PatternDiskContents> second) {
-            if (first.size() != second.size()) {
-                return false;
-            }
-            for (int disk = 0; disk < first.size(); disk++) {
-                PatternDiskContents left = first.get(disk);
-                PatternDiskContents right = second.get(disk);
-                if (left == right) {
-                    continue;
-                }
-                if (left == null || right == null || left.capacity() != right.capacity()
-                    || !Objects.equals(left.type(), right.type())) {
-                    return false;
-                }
-                if (!samePatterns(left.patterns(), right.patterns())) {
-                    return false;
-                }
+        private static boolean sameContents(PatternDiskContents previous, PatternDiskContents current) {
+            if (previous == current) return true;
+            if (previous == null || previous.capacity() != current.capacity()
+                    || !Objects.equals(previous.type(), current.type())) return false;
+            var before = previous.patterns();
+            var after = current.patterns();
+            if (before.size() != after.size()) return false;
+            for (int index = 0; index < before.size(); index++) {
+                if (!ItemStack.matches(before.get(index), after.get(index))) return false;
             }
             return true;
-        }
-
-        private static boolean samePatterns(List<ItemStack> first, List<ItemStack> second) {
-            if (first.size() != second.size()) {
-                return false;
-            }
-            for (int index = 0; index < first.size(); index++) {
-                if (!ItemStack.matches(first.get(index), second.get(index))) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        private List<ItemStack> disksInSlots() {
-            List<ItemStack> found = new ArrayList<>();
-            for (int slot = 0; slot < slots.size(); slot++) {
-                ItemStack stack = slots.getStackInSlot(slot);
-                if (PatternDiskApi.isPatternDisk(stack)) {
-                    found.add(stack);
-                }
-            }
-            return found;
         }
     }
 }

@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** AE2 19.2.18 read-view bridge, with bounded observation of mutable precise filters. */
+/** AE2 read-view bridge, with bounded observation of mutable precise filters. */
 @Mixin(value = MEInventoryHandler.class, remap = false)
 public abstract class MEInventoryHandlerListingMixin extends DelegatingMEInventory implements StorageListingDelta {
     @Shadow private boolean filterAvailableContents;

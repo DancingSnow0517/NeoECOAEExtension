@@ -337,7 +337,7 @@ public class NELangGenerator {
             "The drivable storage matrix tier depends on the storage subsystem host controller"
         );
         provider.add("tooltip.neoecoae.storage.infinite_component_locked", "Cannot remove infinite components: stored contents cannot safely fit back into normal matrices");
-        provider.add("tooltip.neoecoae.storage.infinite_member_locked", "Infinite storage matrices cannot be removed while the storage host is in infinite mode");
+        provider.add("tooltip.neoecoae.storage.infinite_member_locked", "Infinite storage matrices cannot be removed while migration or restore is in progress");
         provider.add("gui.neoecoae.storage.members_missing", "Missing %s member matrices");
         provider.add("gui.neoecoae.storage.members_return", "Please insert them again");
         provider.add("jade.neoecoae.storage.infinite_enabled", "Infinite storage enabled");
@@ -348,6 +348,7 @@ public class NELangGenerator {
         provider.add("tooltip.neoecoae.infinite_component.matrices",
             "Drives: any 12 L9 storage matrices in the same storage host");
         provider.add("tooltip.neoecoae.storage.infinite_member", "Managed by the storage host");
+        provider.add("tooltip.neoecoae.storage.infinite_restore_bound", "Restore in progress: return this matrix to its storage host");
         provider.add("tooltip.neoecoae.infinite_resource.contents", "Infinite supply: Water / Cobblestone / Lava");
         provider.add("tooltip.neoecoae.infinite_resource.unbounded", "Can be extracted directly by the ME network and never runs out");
         provider.add("tooltip.neoecoae.infinite_resource.sink", "Accepts only the three listed resources; inserted resources are destroyed");

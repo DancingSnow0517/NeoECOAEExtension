@@ -111,6 +111,20 @@ public final class PatternDiskSupport {
 
     private static volatile Backend backend;
 
+    public interface TrackedHolder extends AuxiliaryPatternHolder {
+        void slotChanged(int slot);
+        boolean hasDisks();
+        int firstDiskSlot();
+        boolean canAccept(ItemStack pattern, @Nullable Level level);
+        boolean insert(ItemStack pattern, @Nullable Level level);
+        List<IPatternDetails> decode(@Nullable Level level);
+    }
+
+    @Nullable
+    public static TrackedHolder track(InternalInventory slots, Supplier<IGrid> grid, Supplier<Level> level) {
+        return holderFor(slots, grid, level) instanceof TrackedHolder holder ? holder : null;
+    }
+
     private PatternDiskSupport() {
     }
 

@@ -23,6 +23,7 @@ import net.minecraft.nbt.CompoundTag;
 import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -229,16 +230,10 @@ public final class StorageHostUI {
         public static final int KIND_GAS = KIND_OTHER;
     }
 
-    public static UIElement create(Config config) {
-        return create(config, () -> null);
-    }
-
-    public static UIElement create(Config config, Supplier<IECOTier> panelTier) {
-        return create(config, panelTier, null);
-    }
-
-    public static UIElement create(Config config, Supplier<IECOTier> panelTier, Supplier<BlockState> hostState) {
-        var context = new JsonContext(config, panelTier, hostState);
+    /** {@code hostInsert} receives a player-inventory stack shift-clicked into the host and returns the remainder. */
+    public static UIElement create(Config config, Supplier<IECOTier> panelTier, Supplier<BlockState> hostState,
+                                   UnaryOperator<ItemStack> hostInsert) {
+        var context = new JsonContext(config, panelTier, hostState, hostInsert);
         UIElement root = NeoUiJsonLoader.load(JSON_LAYOUT, context);
         context.insertionDrag.attachRoot(root);
         context.extractionDrag.attachRoot(root);
@@ -249,16 +244,19 @@ public final class StorageHostUI {
         private final Config config;
         private final Supplier<IECOTier> panelTier;
         private final Supplier<BlockState> hostState;
+        private final UnaryOperator<ItemStack> hostInsert;
         private final ShiftQuickMove insertionDrag = new ShiftQuickMove();
         private final ShiftQuickMove extractionDrag = new ShiftQuickMove();
         private StoragePanelSync sync;
         private StorageHostCharts charts;
         private int columns;
 
-        private JsonContext(Config config, Supplier<IECOTier> panelTier, Supplier<BlockState> hostState) {
+        private JsonContext(Config config, Supplier<IECOTier> panelTier, Supplier<BlockState> hostState,
+                            UnaryOperator<ItemStack> hostInsert) {
             this.config = config;
             this.panelTier = panelTier;
             this.hostState = hostState;
+            this.hostInsert = hostInsert;
         }
 
         @Override
@@ -280,7 +278,7 @@ public final class StorageHostUI {
                 case "infinite_component_slot" -> infiniteComponentSlot(config);
                 case "player_inventory" -> {
                     InventorySlots inventory = playerInventory();
-                    inventory.apply(slot -> insertionDrag.addMenuSlot(slot, 1));
+                    inventory.apply(slot -> insertionDrag.addInsertionSlot(slot, hostInsert));
                     yield inventory;
                 }
                 default -> charts.create(custom, definition);

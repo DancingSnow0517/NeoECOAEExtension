@@ -28,6 +28,7 @@ final class ECOCraftingPatternBusCatalog {
     private final List<IPatternDetails> patternDetails = new ArrayList<>();
     private final IPatternDetails[] decodedPatternDetails;
     private final BitSet dirtyPatternSlots;
+    private final BitSet advertisedPatternSlots = new BitSet();
     private final String[] patternSearchKeywords;
     private final BitSet emptyPatternSlots;
 
@@ -173,6 +174,7 @@ final class ECOCraftingPatternBusCatalog {
         if (host.getLevel().isClientSide) {
             return;
         }
+        host.diskSlotChanged(slot);
         if (patternBatchDepth > 0) {
             if (slot >= 0 && slot < inventory.size()) {
                 patternBatchChangedSlots.set(slot);
@@ -245,6 +247,7 @@ final class ECOCraftingPatternBusCatalog {
                 break;
             }
         }
+        host.diskSlotChanged(-1);
         updatePatternDetailsNow();
     }
 
@@ -297,32 +300,24 @@ final class ECOCraftingPatternBusCatalog {
             int[] refreshedSlots = refreshedAll ? new int[0] : dirtyPatternSlots.stream().toArray();
             if (rebuildAllPatternDetails) {
                 Arrays.fill(decodedPatternDetails, null);
+                advertisedPatternSlots.clear();
                 for (int slot = 0; slot < slotCount; slot++) {
-                    decodedPatternDetails[slot] = PatternDetailsHelper.decodePattern(
-                        inventory.getStackInSlot(slot), host.getLevel());
+                    refreshPatternSlot(slot, slotCount);
                 }
             } else {
                 for (int slot = dirtyPatternSlots.nextSetBit(0);
                      slot >= 0;
                      slot = dirtyPatternSlots.nextSetBit(slot + 1)) {
-                    decodedPatternDetails[slot] = PatternDetailsHelper.decodePattern(
-                        inventory.getStackInSlot(slot), host.getLevel());
+                    refreshPatternSlot(slot, slotCount);
                 }
             }
             rebuildAllPatternDetails = false;
             dirtyPatternSlots.clear();
 
             patternDetails.clear();
-            for (int slot = 0; slot < slotCount; slot++) {
-                IPatternDetails details = decodedPatternDetails[slot];
-                patternSearchKeywords[slot] = PatternSearchKeywords.build(inventory.getStackInSlot(slot), details);
-                if (details instanceof IMolecularAssemblerSupportedPattern) {
-                    ECORecipeClassifier.classify(details);
-                    if (host.shouldValidateNetGrowthPatterns()) {
-                        NetGrowthPatternValidationRegistry.validateAndRegisterFromSmartPatternBus(details);
-                    }
-                    patternDetails.add(details);
-                }
+            for (int slot = advertisedPatternSlots.nextSetBit(0); slot >= 0 && slot < slotCount;
+                 slot = advertisedPatternSlots.nextSetBit(slot + 1)) {
+                patternDetails.add(decodedPatternDetails[slot]);
             }
             ICraftingProvider.requestUpdate(host.getMainNode());
             if (refreshedAll) {
@@ -342,6 +337,22 @@ final class ECOCraftingPatternBusCatalog {
             updatePatternDetails();
         } finally {
             immediatePatternDetailsUpdate = previous;
+        }
+    }
+
+    private void refreshPatternSlot(int slot, int slotCount) {
+        ItemStack stack = slot < slotCount ? inventory.getStackInSlot(slot) : ItemStack.EMPTY;
+        IPatternDetails details = stack.isEmpty() || host.ownsAuxiliary(stack) ? null
+            : PatternDetailsHelper.decodePattern(stack, host.getLevel());
+        decodedPatternDetails[slot] = details;
+        patternSearchKeywords[slot] = PatternSearchKeywords.build(stack, details);
+        boolean crafts = details instanceof IMolecularAssemblerSupportedPattern;
+        advertisedPatternSlots.set(slot, crafts);
+        if (crafts) {
+            ECORecipeClassifier.classify(details);
+            if (host.shouldValidateNetGrowthPatterns()) {
+                NetGrowthPatternValidationRegistry.validateAndRegisterFromSmartPatternBus(details);
+            }
         }
     }
 

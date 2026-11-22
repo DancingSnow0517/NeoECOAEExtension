@@ -71,6 +71,8 @@ To extend the build, add matching sections of workers, parallel cores, pattern b
 
 > **Pattern management**: Use the interface to search and organize all patterns. A pattern appears if it matches either the input or output search field. All space-separated terms within a field must match. While holding a pattern, **left-click** the list to fill an empty slot, or **right-click** an existing pattern to replace it. See the [Crafting Controller walkthrough](crafting_controller.md) for controls and cooling troubleshooting.
 
+Click **Transfer Network Patterns** at the destination interface to move crafting patterns from active providers and physical bus slots in other ECO crafting groups on the same ME network. A standalone host is its own group. Linked hosts share one destination, and patterns already in that group stay in their slots.
+
 ## Batches, Overclocking, and Overflow Acceleration
 
 Neither speed boost adds task slots:

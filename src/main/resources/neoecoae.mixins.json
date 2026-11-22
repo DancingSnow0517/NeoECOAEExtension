@@ -26,6 +26,7 @@
     "ae2.crafting.CraftingServiceMixin",
     "ae2.crafting.MultiCraftingTrackerMixin",
     "ae2.crafting.CraftingTreeNodeMixin",
+    "ae2.crafting.PatternsForKeyMixin",
     "ae2.crafting.PatternProviderDiagnosticsMixin",
     "ae2.crafting.PatternProviderProcessingTargetMixin",
     "ae2.menu.CellWorkbenchMenuMixin",
@@ -54,7 +55,6 @@
     "ae2.storage.StorageLevelWatcherMixin",
     "ae2.storage.StoredEnergyAmountMixin",
     "ldlib.AsyncThreadDataMixin",
-    "ldlib.ModularUIContainerMenuMixin",
     "minecraft.LightningBoltMixin",
     "minecraft.PlayerRemoteMachineReachMixin"
   ],

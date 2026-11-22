@@ -123,6 +123,17 @@ public interface ECOInfiniteStorageEngine {
         return false;
     }
 
+    /** Whether a host holding {@code token} may mount this domain. */
+    default boolean acceptsClaim(@org.jetbrains.annotations.Nullable UUID token) {
+        return true;
+    }
+
+    default void rotateClaim(@org.jetbrains.annotations.Nullable UUID current, UUID next) {
+    }
+
+    default void settleClaim(UUID token) {
+    }
+
     /**
      * Result of a migration boundary. {@link #commit()} only accepts the in-memory change for a later world save;
      * it does not perform I/O. A successful {@link #checkpoint()} instead acknowledges that inventory, receipts
