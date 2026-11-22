@@ -13,9 +13,15 @@ public record CompactTreeNode(
         int hiddenDepth,
         boolean containsMissing,
         boolean containsCycle,
-        boolean containsUnsupported
+        boolean containsUnsupported,
+        boolean sharedBatch
 ) {
     public boolean hasHiddenContent() {
         return folder && hiddenNodeCount > 0;
+    }
+
+    CompactTreeNode withSharedBatch() {
+        return new CompactTreeNode(id, sourceId, parentId, path, depth, folder, reference, hiddenNodeCount,
+            hiddenDepth, containsMissing, containsCycle, containsUnsupported, true);
     }
 }

@@ -590,6 +590,7 @@
   "gui.neoecoae.crafting_graph.reference.source": "Source ID: %s",
   "gui.neoecoae.crafting_graph.search": "Search",
   "gui.neoecoae.crafting_graph.search_hint": "Search AEKey / item",
+  "gui.neoecoae.crafting_graph.shared_batch": "Shares a crafting batch with another branch",
   "gui.neoecoae.crafting_graph.status.cancelled": "Cancelled",
   "gui.neoecoae.crafting_graph.status.crafting": "Crafting",
   "gui.neoecoae.crafting_graph.status.cycle": "Cycle",

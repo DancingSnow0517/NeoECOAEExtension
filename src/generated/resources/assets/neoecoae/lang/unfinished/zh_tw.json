@@ -589,6 +589,7 @@
   "gui.neoecoae.crafting_graph.reference.source": "來源 ID：%s",
   "gui.neoecoae.crafting_graph.search": "搜尋",
   "gui.neoecoae.crafting_graph.search_hint": "搜尋 AEKey / 物品",
+  "gui.neoecoae.crafting_graph.shared_batch": "UNLOCALIZED: Shares a crafting batch with another branch",
   "gui.neoecoae.crafting_graph.status.cancelled": "已取消",
   "gui.neoecoae.crafting_graph.status.crafting": "合成中",
   "gui.neoecoae.crafting_graph.status.cycle": "迴圈",
