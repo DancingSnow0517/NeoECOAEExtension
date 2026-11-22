@@ -158,7 +158,7 @@ public final class EcoApiExample {
 
 [ECOCraftConfirmMenuMode](../src/main/java/cn/dancingsnow/neoecoae/api/me/menu/ECOCraftConfirmMenuMode.java) 区分材料就绪 `neoecoae$diagnosticsReady()` 与图就绪 `neoecoae$graphReady()`。`neoecoae$hasByteEstimate()` 表示已有字节估算，`neoecoae$hasCompleteByteEstimate()` 才表示完整估算。自定义界面按对应就绪状态启用操作，不把部分估算显示为完整成本。
 
-材料与图属于同一个 `neoecoae$getDisplayedPlanRevision()`。材料阶段由 `neoecoae$setMaterialReport(version, report, cycles)` 接收，完整图由 `neoecoae$setDiagnostics(version, graph, cycles)` 接收；提交前使用 `neoecoae$lockDisplayedPlan(revision)` 核对已显示的版本，返回 false 时重新读取状态。`neoecoae$getReportSyncFailure()` 的 1、2 分别表示材料、图同步失败。
+材料与图属于同一个 `neoecoae$getDisplayedPlanRevision()`。材料阶段由 `neoecoae$setMaterialReport(version, report, cycles)` 接收，完整图由 `neoecoae$setDiagnostics(version, graph, cycles)` 接收。提交前使用 `neoecoae$lockDisplayedPlan(revision)` 核对已显示的版本。拒绝时可通过 `neoecoae$getPlanRejection()` 获取重新规划或重新确认的提示翻译键。负版本号仅用于原生计划。`neoecoae$getReportSyncFailure()` 的 1、2 分别表示材料、图同步失败。
 
 [CraftingGraphSnapshot](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/snapshot/CraftingGraphSnapshot.java) 的 `materialReport()` 只提供材料阶段的数据。完整图中 `CycleGroup.recursion()` 提供初始库存和有界的精确检查点；`RecursionLayer` 的投入、库存和配方次数均使用 PlannerAmount，`folded` 表示折叠了重复步骤。`Recursion.complete()` 也可描述补足缺料后的条件执行过程，不代替提交合同的可执行判定。报告线协议现为 7，服务器与客户端必须使用匹配协议。
 

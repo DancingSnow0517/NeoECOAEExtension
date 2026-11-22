@@ -133,6 +133,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Unique @GuiSync(12014) private boolean neoecoae$provenInfeasible;
     @Unique @GuiSync(12016) private boolean neoecoae$hasByteEstimate;
     @Unique @GuiSync(12017) private boolean neoecoae$completeByteEstimate;
+    @Unique @GuiSync(12019) private String neoecoae$planRejection = "";
     @Unique private @Nullable ICraftingPlan neoecoae$cpuCheckedPlan;
     @Unique private boolean neoecoae$cpuCheckOwned;
     @Unique private boolean neoecoae$cpuCheckSupportsExternal;
@@ -146,10 +147,16 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         return neoecoae$receivedDiagnosticsVersion;
     }
 
+    @Override public String neoecoae$getPlanRejection() { return neoecoae$planRejection; }
+
     @Override public boolean neoecoae$lockDisplayedPlan(long revision) {
+        if (revision < 0 && !neoecoae$ownsPlan(result)) return true;
         ICraftingPlan displayed = neoecoae$displayedPlans.get(revision);
-        neoecoae$stopOptimization();
-        if (displayed == null) return false;
+        if (displayed == null || result == null) {
+            neoecoae$rejectPreview("plan_changed");
+            return false;
+        }
+        if (!neoecoae$checkPlanningSnapshot()) return false;
         if (displayed != result) {
             result = displayed;
             neoecoae$applyPlannerDiagnostics(result);
@@ -161,8 +168,32 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
 
     @Unique private void neoecoae$stopOptimization() {
         if (neoecoae$planningRequest != null) neoecoae$planningRequest.cancel(true);
-        neoecoae$planningRequest = null;
         neoecoae$optimizationState = 0;
+    }
+
+    @Inject(method = "clearError", at = @At("HEAD"))
+    private void neoecoae$clearPlanRejection(CallbackInfo ci) {
+        neoecoae$planRejection = "";
+    }
+
+    @Unique private boolean neoecoae$checkPlanningSnapshot() {
+        if (neoecoae$planningRequest == null) return true;
+        var grid = getGrid();
+        if (grid != null && neoecoae$planningRequest.isConfirmationCurrent(grid.getCraftingService())) return true;
+        neoecoae$rejectPreview("plan_stale");
+        return false;
+    }
+
+    @Unique private void neoecoae$rejectPreview(String reason) {
+        var menu = (CraftConfirmMenu) (Object) this;
+        menu.setAutoStart(false);
+        neoecoae$planRejection = "gui.neoecoae.craft_error." + reason;
+        menu.submitError = new CraftConfirmMenu.SyncableSubmitResult(
+            appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
+        if (menu.getPlayer() instanceof ServerPlayer player) {
+            var dataSync = ((AEBaseMenuAccessor) menu).neoecoae$getDataSync();
+            player.connection.send(new GuiDataSyncPacket(menu.containerId, dataSync::writeFull, player.registryAccess()));
+        }
     }
 
     @Inject(method = {"broadcastChanges()V", "m_38946_()V"}, at = @At("HEAD"))
@@ -180,12 +211,18 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         "m_6877_(Lnet/minecraft/world/entity/player/Player;)V"}, at = @At("HEAD"))
     private void neoecoae$cancelClosedPlanning(net.minecraft.world.entity.player.Player player, CallbackInfo ci) {
         neoecoae$stopOptimization();
+        neoecoae$planningRequest = null;
         neoecoae$displayedPlans.clear();
     }
 
-    @Inject(method = "startJob*", at = @At("HEAD"))
+    @Inject(method = "startJob", at = @At("HEAD"), cancellable = true, order = 900)
     private void neoecoae$freezeSubmittedPreview(CallbackInfo ci) {
-        if (!((CraftConfirmMenu) (Object) this).isClientSide()) neoecoae$stopOptimization();
+        if (((CraftConfirmMenu) (Object) this).isClientSide()) return;
+        if (result != null && !neoecoae$checkPlanningSnapshot()) {
+            ci.cancel();
+            return;
+        }
+        neoecoae$stopOptimization();
     }
 
     @Override public boolean neoecoae$diagnosticsReady() {
@@ -352,6 +389,8 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Override public void neoecoae$startBigOrder(boolean forced) {
         var menu = (CraftConfirmMenu) (Object) this;
         if (menu.isClientSide()) return;
+        menu.clearError();
+        if (!neoecoae$checkPlanningSnapshot()) return;
         neoecoae$stopOptimization();
         if (result == null || neoecoae$originalOptions == null) {
             neoecoae$rejectBigOrder(result == null ? "NO_PLAN" : "NO_PLANNER_OPTIONS",
@@ -513,6 +552,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Unique
     private void neoecoae$resetPlannerDiagnostics() {
         neoecoae$stopOptimization();
+        neoecoae$planningRequest = null;
         neoecoae$cpuCheckedPlan = null;
         neoecoae$displayedPlans.clear();
         neoecoae$exactPlanReady = false;

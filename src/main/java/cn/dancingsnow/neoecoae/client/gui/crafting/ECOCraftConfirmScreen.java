@@ -142,7 +142,9 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode
                 && (mode.neoecoae$provenInfeasible() || unrepresentable && !mode.neoecoae$exactPlanReady()))
             startable = false;
-        start.active = startable && (bigOrder
+        start.active = startable
+            && (!(menu instanceof ECOCraftConfirmMenuMode mode) || mode.neoecoae$diagnosticsReady())
+            && (bigOrder
             ? ((ECOCraftConfirmMenuMode) (Object) menu).neoecoae$bigOrderCpuAvailable() : !menu.hasNoCPU());
         selectCPU.active = startable || forceStart;
         start.setMessage(forceStart
@@ -590,6 +592,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     }
 
     private void submit(boolean forceStart) {
+        if (menu instanceof ECOCraftConfirmMenuMode mode && !mode.neoecoae$diagnosticsReady()) return;
         lastSubmissionForced = forceStart;
         org.slf4j.LoggerFactory.getLogger("neoecoae").info(
             "[big-order-submit] Client start: container={}, forced={}, bigOrder={}, status={}",
