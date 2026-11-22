@@ -6,7 +6,6 @@ import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockParts;
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
-import appeng.me.helpers.IGridConnectedBlockEntity;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
@@ -140,6 +139,8 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
     @Override
     public void destroy() {
+        if (isDestroyed()) return;
+        notifyGridCpuChange();
         NELogicalNetworkManager.detachBeforeDestroy(this);
         super.destroy();
     }
@@ -345,6 +346,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public boolean isActive() {
+        if (isDestroyed()) return false;
         IGridNode node = this.getNode();
         return node != null && node.isActive();
     }
@@ -594,16 +596,10 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
      * formation must explicitly publish the change.
      */
     public void notifyGridCpuChange() {
-        boolean posted = false;
-
-        for (var r : this.blockEntities) {
-            IGridNode n = r instanceof IGridConnectedBlockEntity connected ? connected.getActionableNode() : null;
-            if (n != null && n.getGrid() != null && !posted) {
-                n.getGrid().postEvent(new GridCraftingCpuChange(n));
-                posted = true;
-            }
+        IGridNode node = getNode();
+        if (node != null && node.getGrid() != null) {
+            node.getGrid().postEvent(new GridCraftingCpuChange(node));
         }
-
     }
 
     private void updateGridForChangedCpu() {
