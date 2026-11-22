@@ -45,7 +45,7 @@ public final class AcyclicCraftingSolver {
     /**
      * Fixed-route traversal using the shared joint-output queue and exact material ledger. A material may be
      * expanded once more for late demand; cyclic materials are expanded only once and need captured stock
-     * to close their feedback. There is no route retry, returned-container/tool analysis, or cycle-growth solving.
+     * to close their feedback. Unchanged returns are working stock, not output credits or alternate routes.
      */
     public Outcome solveLite(CompiledNetwork network,
             cn.dancingsnow.neoecoae.crafting.planner.graph.CondensationGraph condensation,
@@ -103,9 +103,15 @@ public final class AcyclicCraftingSolver {
             state.bytes = state.bytes.add(times);
             state.provenance.allocatePending(key, key, new MaterialSource.PatternOutput(pattern.details(), true), requested);
             creditPatternOutputs(state, pattern, key, requested, SolveWorkspace.outputAmounts(pattern, times));
+            Map<AEKey, PlannerAmount> simultaneous = null;
             for (int slot = 0; slot < pattern.inputs().size(); slot++) {
                 cancellation.checkpoint();
                 CompiledInput input = pattern.inputs().get(slot);
+                if (input.reusable()) {
+                    if (simultaneous == null) simultaneous = new HashMap<>();
+                    if (requireWorkingStock(state, pattern, slot, input, simultaneous)) pending.add(input.key());
+                    continue;
+                }
                 PlannerAmount required = input.amountPerPattern().multiply(times);
                 state.provenance.register(MaterialDemand.input(pattern.details(), slot, input.key(), required));
                 state.demand.merge(input.key(), required, PlannerAmount::add);
@@ -139,6 +145,30 @@ public final class AcyclicCraftingSolver {
     private static void consumeLiteCredit(SolveState state, AEKey key) {
         PlannerAmount credited = state.provenance.pendingAmount(key).min(state.craftedAmount(key));
         if (credited.signum() > 0) state.consumeCrafted(key, credited);
+    }
+
+    /** Only captured stock can be shared without assigning another physical producer dependency. */
+    private static boolean requireWorkingStock(SolveState state, CompiledPattern pattern, int slot,
+            CompiledInput input, Map<AEKey, PlannerAmount> simultaneous) {
+        AEKey key = input.key();
+        PlannerAmount needed = simultaneous.merge(key, input.amountPerPattern(), PlannerAmount::add);
+        PlannerAmount shared = state.stockedWorkingInputs.getOrDefault(key, PlannerAmount.ZERO);
+        var dedicated = state.pendingWorkingInputs.getOrDefault(pattern.details(), Map.of());
+        PlannerAmount additional = needed.subtract(shared).subtract(dedicated.getOrDefault(key, PlannerAmount.ZERO));
+        if (additional.signum() <= 0) return false;
+
+        MaterialDemand demand = MaterialDemand.input(pattern.details(), slot, key, additional);
+        state.provenance.register(demand);
+        state.demand.merge(key, additional, PlannerAmount::add);
+        state.demandProducers.put(key, pattern.details());
+        state.parents.computeIfAbsent(key, ignored -> new LinkedHashSet<>()).add(pattern.producedKey());
+        PlannerAmount stocked = consumeStoredForInput(state, key, additional, false, demand, pattern.details(), input.source());
+        if (stocked.signum() > 0) state.stockedWorkingInputs.merge(key, stocked, PlannerAmount::add);
+        PlannerAmount remaining = additional.subtract(stocked);
+        if (remaining.isZero()) return false;
+        state.pendingWorkingInputs.computeIfAbsent(pattern.details(), ignored -> new HashMap<>())
+            .merge(key, remaining, PlannerAmount::add);
+        return true;
     }
 
 
@@ -692,11 +722,17 @@ public final class AcyclicCraftingSolver {
                 ? SolveWorkspace.outputAmounts(pattern, times) : expansion.outputs();
             creditPatternOutputs(state, pattern, key, requested, produced);
             specialResolver.resolve(pattern, times);
+            Map<AEKey, PlannerAmount> simultaneous = null;
             for (int slot = 0; slot < pattern.inputs().size(); slot++) {
                 CompiledInput input = pattern.inputs().get(slot);
                 if (pattern.specialAnalysis().excludesFromCycleGraph(input)) continue;
                 if (metrics != null) metrics.inputExpansions++;
                 if (prefix != null) prefixInputs++;
+                if (ignorePatternSubstitutions && input.reusable()) {
+                    if (simultaneous == null) simultaneous = new HashMap<>();
+                    if (requireWorkingStock(state, pattern, slot, input, simultaneous)) pending.add(input.key());
+                    continue;
+                }
                 // Legacy semantic adapters may still express reusable stock without the special analyzer.
                 PlannerAmount required = expansion == null
                     ? SolveWorkspace.inputAmount(input, times) : expansion.inputAmount(slot);
