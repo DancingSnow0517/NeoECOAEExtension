@@ -1491,7 +1491,7 @@
   "gui.neoecoae.workstation.card.internal_storage": "内部储能",
   "gui.neoecoae.workstation.card.ae_stored": "%s / %s AE",
   "gui.neoecoae.workstation.card.ae_amount": "%s AE",
-  "gui.neoecoae.workstation.card.energy_footer": "按当前优先级合并支付，FE 管道可直接接入；只有从 ME 库存提取 FE 需要 Applied Flux。耗能按 AE 等值显示，包含加工、预热和智能调温。",
+  "gui.neoecoae.workstation.card.energy_footer": "FE/AE 线缆可从机器两侧接入\n安装了 Applied Flux 后可以从 AE 网络自动提取 FE",
   "gui.neoecoae.workstation.card.installed_module": "已安装模块",
   "gui.neoecoae.workstation.card.recipe_source": "任务配方来源",
   "gui.neoecoae.workstation.card.card_slot": "升级卡槽",
