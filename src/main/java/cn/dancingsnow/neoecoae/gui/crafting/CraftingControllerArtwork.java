@@ -15,6 +15,8 @@ import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.Config;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.SpriteTexture;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.impl.DataBindingBuilder;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.BindableValue;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.HoverTooltips;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.event.UIEvents;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
@@ -62,6 +64,7 @@ final class CraftingControllerArtwork extends UIElement {
     private final CraftingControllerViewState view = new CraftingControllerViewState();
     private final CraftingControllerTooltips tooltips = new CraftingControllerTooltips(view);
     private final HostProgressAnimation opening = new HostProgressAnimation();
+    private final BindableValue<Component> statusNotice = new BindableValue<>(Component.empty());
 
     CraftingControllerArtwork(Config config, Supplier<IECOTier> panelTier) {
         this(config, panelTier, () -> HostPanelTextureState.EMPTY);
@@ -79,6 +82,9 @@ final class CraftingControllerArtwork extends UIElement {
                 .left(x).top(38).width(16).height(16).paddingAll(0));
         }
         CraftingControllerSync.attach(this, config, view, this::updateWorkerSlots);
+        statusNotice.bind(DataBindingBuilder.componentS2C(config.statusNotice()).build());
+        statusNotice.setDisplay(false);
+        addChild(statusNotice);
         layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(0).top(0).width(UI_WIDTH).height(UI_HEIGHT));
 
         addChild(tooltipRegion(9, 29, 16, 34,
@@ -125,6 +131,7 @@ final class CraftingControllerArtwork extends UIElement {
     @Override
     public void drawBackgroundAdditional(GUIContext context) {
         context.drawTexture(NETextures.Crafting.controller(panelTier), getPositionX(), getPositionY(), UI_WIDTH, UI_HEIGHT);
+        drawStatusNotice(context);
         drawHeader(context);
         if (!hostItem.isEmpty()) {
             context.graphics.renderItem(hostItem, Math.round(getPositionX()) + 9,
@@ -136,6 +143,15 @@ final class CraftingControllerArtwork extends UIElement {
         drawCoreCells(context);
         drawBars(context);
         drawInfoRows(context);
+    }
+
+    private void drawStatusNotice(GUIContext context) {
+        Component notice = statusNotice.getValue();
+        float availableHeight = getPositionY() - 1.0F;
+        if (notice.getString().isEmpty() || availableHeight <= 0.0F) return;
+        float lineHeight = Minecraft.getInstance().font.lineHeight;
+        float height = Math.min(lineHeight, availableHeight);
+        drawStatisticText(context, notice, 0, -height - 1.0F, UI_WIDTH, height / lineHeight, true);
     }
 
     private void drawHeader(GUIContext context) {
@@ -304,7 +320,7 @@ final class CraftingControllerArtwork extends UIElement {
         drawHorizontalProgress(context, 121, 114, PROGRESS_BAR_WIDTH,
             CraftingControllerPanelState.permille(1, view.executionTicks), 8, 122);
         int height = Math.round(GAUGE_INTERIOR_HEIGHT * opening.value(
-            view.state.energyPermille() / (double) CraftingControllerPanelState.FULL));
+            view.creativeEnergy ? 1.0D : view.state.energyPermille() / (double) CraftingControllerPanelState.FULL));
         if (height > 0) sprite(context, 0, 115 + 46 - height, 8, height, 176, 78 + 46 - height, 8, height);
         drawFluidGauge(context, 195, view.coolantFluid, view.coolantAmount, view.coolantCapacity, 209);
         drawFluidGauge(context, 226, view.outputFluid, view.outputFluid.getAmount(), view.outputCapacity, 240);
@@ -376,7 +392,7 @@ final class CraftingControllerArtwork extends UIElement {
         return text;
     }
 
-    private void drawStatisticText(GUIContext context, Component text, int x, int y, int width,
+    private void drawStatisticText(GUIContext context, Component text, int x, float y, int width,
                                    float preferredScale, boolean centered) {
         Font font = Minecraft.getInstance().font;
         float scale = Math.min(preferredScale, (width - 1.0F) / Math.max(1, font.width(text)));

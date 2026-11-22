@@ -42,6 +42,7 @@ final class CraftingControllerSync {
     private CompoundTag snapshot() {
         CompoundTag tag = config.panelState().get().toTag();
         tag.putLong("energyUsage", Math.max(0L, config.energyUsage().getAsLong()));
+        tag.putBoolean("creativeEnergy", config.creativeEnergy().getAsBoolean());
         tag.putLong("performanceNanos", Math.max(0L, config.performanceAverageNanos().getAsLong()));
         tag.putLong("queuedCraftCount", Math.max(0L, config.queuedCraftCount().getAsLong()));
         tag.putLong("batchCapacity", Math.max(0L, config.batchCapacity().getAsLong()));
@@ -108,6 +109,7 @@ final class CraftingControllerSync {
         CompoundTag tag = value instanceof CompoundTag compound ? compound : new CompoundTag();
         view.state = CraftingControllerPanelState.fromTag(tag);
         view.energyUsage = Math.max(0L, tag.getLong("energyUsage"));
+        view.creativeEnergy = tag.getBoolean("creativeEnergy");
         view.performanceAverageNanos = Math.max(0L, tag.getLong("performanceNanos"));
         view.queuedCraftCount = Math.max(0L, tag.getLong("queuedCraftCount"));
         view.batchCapacity = Math.max(0L, tag.getLong("batchCapacity"));

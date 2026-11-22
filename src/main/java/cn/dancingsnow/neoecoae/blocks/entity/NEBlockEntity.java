@@ -8,6 +8,7 @@ import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.IManagedGridNode;
 import appeng.api.orientation.BlockOrientation;
 import appeng.blockentity.grid.AENetworkBlockEntity;
+import appeng.blockentity.networking.CreativeEnergyCellBlockEntity;
 import appeng.me.cluster.IAEMultiBlock;
 import appeng.me.helpers.BlockEntityNodeListener;
 import appeng.me.helpers.IGridConnectedBlockEntity;
@@ -236,6 +237,11 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         } else {
             super.handleUpdateTag(tag);
         }
+    }
+
+    public final boolean hasCreativeEnergy() {
+        var grid = getMainNode().getGrid();
+        return grid != null && !grid.getMachines(CreativeEnergyCellBlockEntity.class).isEmpty();
     }
 
     private Iterator<IGridNode> getMultiblockNodes() {

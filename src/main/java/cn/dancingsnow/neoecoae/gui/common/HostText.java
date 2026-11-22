@@ -17,6 +17,7 @@ import java.util.function.ToIntFunction;
 public final class HostText {
     public static final int PRIMARY = 0xD6D0E0;
     public static final int VALUE = 0x8377FF;
+    public static final int CREATIVE_ENERGY = 0xFF55FF;
     public static final int USED = 0x00FC00;
     public static final int MUTED = 0xAAA4B2;
     public static final int WARNING = 0xFFD65A;

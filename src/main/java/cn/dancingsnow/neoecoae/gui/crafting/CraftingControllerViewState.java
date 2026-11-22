@@ -8,6 +8,7 @@ import net.minecraftforge.fluids.FluidStack;
 final class CraftingControllerViewState {
     CraftingControllerPanelState state = CraftingControllerPanelState.UNFORMED;
     long energyUsage;
+    boolean creativeEnergy;
     long performanceAverageNanos;
     long queuedCraftCount;
     long batchCapacity;
