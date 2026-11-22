@@ -99,6 +99,10 @@ public final class ECOVerifiedFastPathRecipe {
     @Nullable
     public ECOReusableStateModel reusableStateModel() { return result.reusableStateModel(); }
 
+    public boolean isStatelessWithoutRemainders() {
+        return reusableStateModel() == null && remainingPerCraft().isEmpty();
+    }
+
     /** Physical inputs owned by one worker for an entire verified batch. */
     public List<GenericStack> batchInputs(long craftCount) {
         if (craftCount <= 0L) return List.of();

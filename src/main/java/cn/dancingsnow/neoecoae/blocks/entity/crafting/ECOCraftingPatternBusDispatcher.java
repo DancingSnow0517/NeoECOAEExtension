@@ -87,7 +87,7 @@ final class ECOCraftingPatternBusDispatcher {
             long capacity = calculator == null
                 ? recipe.arithmeticBatchLimit() : calculator.arithmeticBatchLimit();
             return capacity <= 0L ? null : new ECOFastPathDispatchProvider.Preparation(
-                capacity, calculator, true, batch -> {
+                capacity, calculator, !recipe.isStatelessWithoutRemainders(), batch -> {
                     var verified = recipe.withVirtualBatch(batch.craftCount(), context.craftingJobId(),
                         batch.inputTotal(), batch.outputTotal(), batch.remainingTotal());
                     return verified != null && pushVirtualBatch(verified, offer);
@@ -103,7 +103,7 @@ final class ECOCraftingPatternBusDispatcher {
         var recipe = offer.recipe();
         var calculator = ECOStatefulBatchCalculator.create(recipe, execution);
         return capacity <= 0L ? null : new ECOFastPathDispatchProvider.Preparation(
-            capacity, calculator, true, batch -> {
+            capacity, calculator, !recipe.isStatelessWithoutRemainders(), batch -> {
                 if (batch.craftCount() > Integer.MAX_VALUE) {
                     return false;
                 }
