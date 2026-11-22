@@ -12,12 +12,24 @@ import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.MenuType;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 
 import java.util.ArrayList;
 
 @Mixin(value = CraftingStatusMenu.class, remap = false)
 public class CraftingStatusMenuMixin extends CraftingCPUMenu {
+    @Shadow private int lastUpdate;
+
+    @WrapOperation(method = {"broadcastChanges()V", "m_38946_()V"}, at = @At(value = "INVOKE",
+        target = "Lappeng/menu/me/crafting/CraftingStatusMenu;createCpuList()Lappeng/menu/me/crafting/CraftingStatusMenu$CraftingCpuList;"))
+    private CraftingStatusMenu.CraftingCpuList neoecoae$resetCpuListRefreshTimer(CraftingStatusMenu menu,
+            Operation<CraftingStatusMenu.CraftingCpuList> original) {
+        var updated = original.call(menu);
+        lastUpdate = 0;
+        return updated;
+    }
+
     @org.spongepowered.asm.mixin.injection.Inject(method = "selectCpu", at = @At("HEAD"))
     private void neoecoae$clearParentOnSelection(int serial,
             org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
