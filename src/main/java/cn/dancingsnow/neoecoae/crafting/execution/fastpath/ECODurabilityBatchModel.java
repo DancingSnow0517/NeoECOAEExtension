@@ -42,14 +42,17 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
         if (before.size() != after.size()) return Optional.empty();
         List<Transition> found = new ArrayList<>();
         for (int i = 0; i < before.size(); i++) {
-            ItemStack initial = before.get(i);
-            ItemStack result = after.get(i);
-            if (initial == null || initial.isEmpty() || !initial.isDamageableItem()) continue;
+            ItemStack initialSnapshot = before.get(i);
+            if (initialSnapshot == null || initialSnapshot.isEmpty()) continue;
+            ItemStack initial = initialSnapshot.copyWithCount(1);
+            if (!initial.isDamageableItem()) continue;
+            ItemStack resultSnapshot = after.get(i);
+            ItemStack result = resultSnapshot == null ? ItemStack.EMPTY : resultSnapshot.copyWithCount(1);
 
             int initialDamage = initial.getDamageValue();
             int maxDamage = initial.getMaxDamage();
             int delta;
-            if (result == null || result.isEmpty()) {
+            if (result.isEmpty()) {
                 // The observed first craft broke this exact resolved stack. Every positive batch has the same
                 // terminal state, so no unobserved post-break stack is synthesized.
                 delta = Math.max(1, maxDamage - initialDamage);
@@ -64,8 +67,8 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
                 if (delta < 0) return Optional.empty();
             }
             found.add(new Transition(
-                initial.copyWithCount(1),
-                result == null ? ItemStack.EMPTY : result.copyWithCount(1),
+                initialSnapshot,
+                resultSnapshot,
                 initialDamage,
                 delta,
                 maxDamage,
@@ -142,8 +145,9 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
             // A fully-used tool reaches or crosses maxDamage and disappears. Only the final partially-used tool
             // survives, carrying the exact damage state that the worker must return to the CPU.
             if (partialUses > 0L) {
-                ItemStack remainder = tool.stack().copyWithCount(1);
-                long finalDamage = Math.addExact(remainder.getDamageValue(),
+                ItemStack remainder = (transition.observedResult().isEmpty()
+                    ? tool.stack() : transition.observedResult()).copyWithCount(1);
+                long finalDamage = Math.addExact(tool.stack().getDamageValue(),
                     Math.multiplyExact((long) transition.damageDelta(), partialUses));
                 if (finalDamage >= transition.maxDamage() || finalDamage > Integer.MAX_VALUE) return null;
                 remainder.setDamageValue((int) finalDamage);
@@ -358,10 +362,11 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
     }
 
     private static boolean sameItemAndComponentsIgnoringDamage(ItemStack left, ItemStack right) {
-        if (left == null || right == null || left.isEmpty() || right.isEmpty()
-                || !left.isDamageableItem() || !right.isDamageableItem()) return false;
+        if (left == null || right == null || left.isEmpty() || right.isEmpty()) return false;
         ItemStack normalizedLeft = left.copyWithCount(1);
         ItemStack normalizedRight = right.copyWithCount(1);
+        if (!normalizedLeft.isDamageableItem() || !normalizedRight.isDamageableItem()) return false;
+        if (normalizedLeft.getMaxDamage() != normalizedRight.getMaxDamage()) return false;
         normalizedLeft.setDamageValue(0);
         normalizedRight.setDamageValue(0);
         return ItemStack.isSameItemSameTags(normalizedLeft, normalizedRight);
@@ -408,7 +413,8 @@ public final class ECODurabilityBatchModel implements ECOReusableStateModel {
             OptionalInt finalDamage = calculateFinalDamage(
                 initialDamage, damageDelta, maxDamage, breakBehavior, crafts);
             if (finalDamage.isEmpty()) return ItemStack.EMPTY;
-            ItemStack result = initialStack.copyWithCount(1);
+            if (crafts == 0L) return initialStack.copyWithCount(1);
+            ItemStack result = observedResult.copyWithCount(1);
             result.setDamageValue(finalDamage.getAsInt());
             return result;
         }
