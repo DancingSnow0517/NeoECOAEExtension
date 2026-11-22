@@ -41,12 +41,9 @@ public record ECOForceCraftStartFlagC2SPacket(int containerId, boolean forceStar
                 return;
             }
             CraftSubmissionPacketFeedback.submit(menu, "ordinary", packet.forceStart, () -> {
-                if (packet.revision >= 0 && menu instanceof cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode mode
-                        && !mode.neoecoae$lockDisplayedPlan(packet.revision)) {
-                    menu.submitError = new CraftConfirmMenu.SyncableSubmitResult(
-                        appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
-                    return;
-                }
+                menu.clearError();
+                if (menu instanceof cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode mode
+                        && !mode.neoecoae$lockDisplayedPlan(packet.revision)) return;
                 sync.neoecoae$setForceCraftStart(packet.forceStart);
                 menu.startJob();
                 var error = menu.submitError.result();

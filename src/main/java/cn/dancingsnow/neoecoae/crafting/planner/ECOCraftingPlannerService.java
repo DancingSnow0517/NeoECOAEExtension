@@ -65,6 +65,7 @@ public final class ECOCraftingPlannerService {
         private volatile CondensationGraph condensation;
         private volatile ActiveRouteSelector.Selection activeSelection;
         private volatile long compiledContractGeneration = -1L;
+        private volatile long compiledProviderRevision = -1L;
         private final Object initializationLock = new Object();
 
         private Session(ICraftingService craftingService, AEKey goal, KeyCounter inventory,
@@ -290,6 +291,7 @@ public final class ECOCraftingPlannerService {
                     condensation = null;
                     activeSelection = null;
                 }
+                long snapshotRevision = CompiledStructureCache.providerRevision(craftingService);
                 long providerRevision = CompiledStructureCache.revision(craftingService);
                 var cached = CompiledStructureCache.get(craftingService, providerRevision, contractGeneration, goal,
                         cyclePlanningEnabled, ignorePatternSubstitutions, fuzzyPlanningItemIds);
@@ -297,6 +299,7 @@ public final class ECOCraftingPlannerService {
                     compiled = cached.network();
                     condensation = cached.condensation();
                     liteCraftingMode = cached.liteCraftingMode();
+                    compiledProviderRevision = snapshotRevision;
                     compiledContractGeneration = contractGeneration;
                     ECOPlanningStageLogger.finish("structural_initialization", ECOPlanningStageLogger.start(),
                             true, "CACHED_PROVIDER_REVISION=" + providerRevision);
@@ -331,10 +334,17 @@ public final class ECOCraftingPlannerService {
                     condensation = null;
                     throw new IllegalStateException("PATTERN_CONTRACT_CHANGED_DURING_COMPILATION");
                 }
+                compiledProviderRevision = snapshotRevision;
                 compiledContractGeneration = contractGeneration;
                 CompiledStructureCache.put(craftingService, providerRevision, contractGeneration, goal, cyclePlanningEnabled,
                         ignorePatternSubstitutions, fuzzyPlanningItemIds, new CompiledStructureCache.Structure(compiled, condensation, liteCraftingMode));
             }
+        }
+
+        boolean isConfirmationCurrent(ICraftingService service) {
+            return service == craftingService && compiled != null && condensation != null
+                && compiledProviderRevision == CompiledStructureCache.providerRevision(service)
+                && compiledContractGeneration == AE2PatternIntrospection.reloadGeneration();
         }
 
         private void logTotal(long startedNanos, ECOPlanningResult result) {

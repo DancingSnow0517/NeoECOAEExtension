@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.planner;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.CalculationStrategy;
 import appeng.api.networking.crafting.ICraftingPlan;
+import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
@@ -38,7 +39,7 @@ public final class ECOPlanningService {
 
     static Request begin(ECOCraftingPlannerService.Session session, AEKey goal, long amount,
             CalculationStrategy strategy) {
-        Request request = new Request();
+        Request request = new Request(session);
         request.attach(ECOPlanningExecutor.submit(() -> {
             try {
                 request.finish(plan(session, goal, amount, strategy, request::checkpoint, request::retainCandidate));
@@ -105,12 +106,21 @@ public final class ECOPlanningService {
     /** Candidates remain private until the worker selects one final plan for the confirmation page. */
     public static final class Request implements Future<ICraftingPlan> {
         public static final int SEARCHING = 1, COMPLETE = 2, LIMITED = 3, FAILED = 4, STOPPED = 5;
+        private final ECOCraftingPlannerService.Session session;
         private final CompletableFuture<ICraftingPlan> completion = new CompletableFuture<>();
         private @Nullable ICraftingPlan candidate;
         private @Nullable ECOPlanningResult candidateResult;
         private volatile int searchState = SEARCHING;
         private volatile boolean stopped;
         private @Nullable Future<?> worker;
+
+        private Request(ECOCraftingPlannerService.Session session) {
+            this.session = session;
+        }
+
+        public boolean isConfirmationCurrent(ICraftingService service) {
+            return session.isConfirmationCurrent(service);
+        }
 
         private synchronized void attach(Future<?> task) {
             worker = task;

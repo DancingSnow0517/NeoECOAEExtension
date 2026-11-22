@@ -32,6 +32,10 @@ public final class CompiledStructureCache {
                 && source.neoecoae$isProviderSnapshotStable() ? source.neoecoae$getProviderRevision() : -1;
     }
 
+    public static long providerRevision(ICraftingService service) {
+        return service instanceof ECOCraftingProviderRevision source ? source.neoecoae$getProviderRevision() : -1;
+    }
+
     public static synchronized Structure get(ICraftingService service, long revision, long contractGeneration, AEKey goal,
             boolean cycles, Set<ResourceLocation> fuzzyItems) {
         return get(service, revision, contractGeneration, goal, cycles, false, fuzzyItems);

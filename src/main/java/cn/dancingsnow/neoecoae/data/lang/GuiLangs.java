@@ -1056,6 +1056,9 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_graph.card.source_patterns", "Source patterns #%s");
         provider.add("gui.neoecoae.crafting_graph.reference.description", "Shared dependency reference");
         provider.add("gui.neoecoae.crafting_graph.reference.source", "Source ID: %s");
+        provider.add("gui.neoecoae.craft_error.plan_stale", "The crafting network or patterns changed. Replan to continue.");
+        provider.add("gui.neoecoae.craft_error.plan_changed", "This preview expired. Review the current plan before starting.");
+        provider.add("gui.neoecoae.craft_error.review_plan", "Review Plan");
         provider.add("gui.neoecoae.crafting_graph.action.expand_hint", "Click: expand one level; double-click or right-click: expand all");
         provider.add("gui.neoecoae.crafting_graph.details.hidden_nodes", "Hidden nodes: %s");
         provider.add("gui.neoecoae.crafting_graph.details.hidden_layers", "Hidden layers: %s");
