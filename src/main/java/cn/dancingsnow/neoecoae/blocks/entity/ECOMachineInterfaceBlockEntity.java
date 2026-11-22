@@ -1383,7 +1383,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (task == null) {
             return;
         }
-        if (!formed || getMainNode().getGrid() != task.grid()) {
+        if (!formed || getMainNode().getGrid() != task.grid() || patternDomain() != task.domain()) {
             finishPatternTransfer(serverLevel, true);
             return;
         }
@@ -1412,6 +1412,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             operationsThisTick++;
             migrationScannedThisTick++;
             patternTransferScannedSlots++;
+            if (task.catalog().isPatternInDomain(step.candidate().source(), task.domain())) {
+                task.skipCandidate(step.candidate());
+                continue;
+            }
             ItemStack stack = step.inventory().getStackInSlot(step.slot());
             if (stack.isEmpty() || !PatternDetailsHelper.isEncodedPattern(stack)) {
                 task.removeCandidate(step.candidate());
@@ -1762,7 +1766,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             if (prepared) {
                 return true;
             }
-            IECOPatternStorageService.ExternalPatternIndexState index = storageService.getExternalPatternIndex(grid);
+            IECOPatternStorageService.ExternalPatternIndexState index = catalog.refreshExternalPatternIndexForMigration(grid);
             indexScannedSlots = index.scannedSlots();
             indexTotalSlots = index.totalSlots();
             indexReady = index.ready();

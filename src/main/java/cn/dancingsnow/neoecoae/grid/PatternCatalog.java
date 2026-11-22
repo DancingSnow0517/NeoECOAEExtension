@@ -495,6 +495,10 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         return storage instanceof PatternStorageHost host && matchesDomain(host, domain);
     }
 
+    public boolean isPatternInDomain(PatternContainer source, @Nullable Object domain) {
+        return source instanceof PatternStorageHost host && matchesDomain(host, domain);
+    }
+
     private static boolean matchesDomain(PatternStorageHost host, @Nullable Object domain) {
         if (domain == null) {
             return true;
@@ -701,6 +705,11 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         return externalPatternIndexState(true);
     }
 
+    public ExternalPatternIndexState refreshExternalPatternIndexForMigration(IGrid grid) {
+        if (!externalPatternIndexBuilding && externalPatternClaims.isEmpty()) invalidateExternalPatternIndex();
+        return getExternalPatternIndex(grid);
+    }
+
     private void ensureExternalPatternIndex(IGrid grid) {
         if (externalPatternIndexGrid != grid) {
             externalPatternIndexGrid = grid;
@@ -849,7 +858,8 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             }
             Class<? extends PatternContainer> containerClass = machineClass.asSubclass(PatternContainer.class);
             for (PatternContainer container : grid.getActiveMachines(containerClass)) {
-                if (visited.add(container) && !(container instanceof PatternStorageHost)) {
+                if (visited.add(container) && (!(container instanceof PatternStorageHost)
+                        || container instanceof ECOCraftingPatternBusBlockEntity)) {
                     sources.add(container);
                 }
             }
