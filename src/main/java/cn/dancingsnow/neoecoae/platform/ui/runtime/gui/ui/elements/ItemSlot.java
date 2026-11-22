@@ -41,6 +41,7 @@ public class ItemSlot extends UIElement implements IBindable<ItemStack>{
     @Override public String getElementName(){return "item-slot";}
     public ItemSlot bind(Slot slot){this.slot=slot;widget.bindSlot(slot);return this;}
     public Slot getSlot(){return slot;}
+    public Slot getMenuSlot() { return widget.getHandler(); }
     public ItemSlot slotStyle(Consumer<SlotStyle> config){config.accept(slotStyle);widget.setLocationInfo(slotStyle.player,false);return this;}
     @Override public ItemStack getValue(){return slot.getItem();}
     public ItemStack getDisplayedStack(){return displayStack==null?getValue():displayStack.get();}

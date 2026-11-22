@@ -51,10 +51,11 @@ public final class ShiftQuickMove {
             var player = modularUI == null ? null : modularUI.player;
             var menu = modularUI == null ? null : modularUI.getMenu();
             var gameMode = Minecraft.getInstance().gameMode;
+            var nativeSlot = slot.getMenuSlot();
             if (gameMode != null && player != null && menu == player.containerMenu && menu.stillValid(player)
-                && menu.getCarried().isEmpty()) {
-                // Goes through the vanilla click packet so the server performs the move, not just client prediction.
-                gameMode.handleInventoryMouseClick(menu.containerId, slot.getSlot().index, dragButton,
+                && menu.getCarried().isEmpty() && nativeSlot.index >= 0 && nativeSlot.index < menu.slots.size()
+                && menu.getSlot(nativeSlot.index) == nativeSlot) {
+                gameMode.handleInventoryMouseClick(menu.containerId, nativeSlot.index, dragButton,
                     ClickType.QUICK_MOVE, player);
             }
         });
