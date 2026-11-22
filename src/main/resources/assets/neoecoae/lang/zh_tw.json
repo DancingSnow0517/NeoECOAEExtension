@@ -274,6 +274,7 @@
   "gui.neoecoae.storage.legacy.graph.fluid_type": "流體類型:%s / %s",
   "gui.neoecoae.storage.legacy.graph.gas_type": "其他類型:%s / %s",
   "gui.neoecoae.storage.legacy.graph.energy_usage": "總耗能:%s AE/t",
+  "gui.neoecoae.storage.ui.creative_energy_usage": "總耗能:%s",
   "gui.neoecoae.storage.legacy.graph.energy_stored": "能量儲存:%s",
   "gui.neoecoae.storage_priority.close": "關閉優先級面板",
   "gui.neoecoae.storage_priority.open": "開啟優先級面板",

@@ -502,6 +502,7 @@
   "gui.neoecoae.storage.ui.insert_cell": "拿着存储单元点击，将其放入此驱动位",
   "gui.neoecoae.storage.ui.scroll_types": "鼠标滚轮查看其它存储类型",
   "gui.neoecoae.storage.ui.energy": "能量存储：%s / %s AE",
+  "gui.neoecoae.storage.ui.creative_energy_usage": "总耗能:%s",
   "gui.neoecoae.storage.ui.resource_distribution": "各资源占比",
   "gui.neoecoae.storage.ui.resource_share": "%s：%s 字节（%s）",
   "gui.neoecoae.storage.ui.normal": "普通存储模式",

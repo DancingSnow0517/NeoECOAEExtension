@@ -1114,6 +1114,7 @@
   "gui.neoecoae.storage.ui.cell_state.not_empty": "UNLOCALIZED: Available: contains resources",
   "gui.neoecoae.storage.ui.cell_state.offline": "UNLOCALIZED: Cell offline or unsupported by this host",
   "gui.neoecoae.storage.ui.cell_state.types_full": "UNLOCALIZED: All type slots used",
+  "gui.neoecoae.storage.ui.creative_energy_usage": "總耗能:%s",
   "gui.neoecoae.storage.ui.energy": "UNLOCALIZED: Energy stored: %s / %s AE",
   "gui.neoecoae.storage.ui.infinite": "UNLOCALIZED: Infinite storage mode",
   "gui.neoecoae.storage.ui.insert_cell": "UNLOCALIZED: Click with a storage cell to install it in this drive",

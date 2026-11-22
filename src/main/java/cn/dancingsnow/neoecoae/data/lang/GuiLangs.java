@@ -501,6 +501,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage.ui.insert_cell", "Click with a storage cell to install it in this drive");
         provider.add("gui.neoecoae.storage.ui.scroll_types", "Scroll to browse storage types");
         provider.add("gui.neoecoae.storage.ui.energy", "Energy stored: %s / %s AE");
+        provider.add("gui.neoecoae.storage.ui.creative_energy_usage", "Total energy: %s");
         provider.add("gui.neoecoae.storage.ui.resource_distribution", "Resource distribution");
         provider.add("gui.neoecoae.storage.ui.resource_share", "%s: %s bytes (%s)");
         provider.add("gui.neoecoae.storage.ui.normal", "Normal storage mode");
