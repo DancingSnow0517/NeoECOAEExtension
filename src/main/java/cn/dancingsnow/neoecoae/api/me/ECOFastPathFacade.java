@@ -198,12 +198,11 @@ public final class ECOFastPathFacade {
     @Nullable
     public static PreparedBatch prepareAllocated(ICraftingProvider provider, IPatternDetails pattern,
             KeyCounter[] oneCopy, long allocatedCopies, Level level, @Nullable UUID jobId) {
-        if (allocatedCopies <= 0 || !supportsNativeProvider(provider)) return null;
+        if (allocatedCopies <= 0 || ECOExternalProviderBlocking.isEnabled(provider)) return null;
+        var target = resolveNativeProvider(provider);
+        if (target == null) return null;
         var execution = ECOExtractedPatternExecution.fromProviderPush(pattern, oneCopy, level);
-        if (!execution.canUseFastPath() || !execution.expectedContainerItems().isEmpty()
-                || execution.fastPathType() != cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECORecipeClassifier.Type.NORMAL) {
-            return null;
-        }
+        if (!execution.canUseFastPath() || !execution.expectedContainerItems().isEmpty()) return null;
         long bounded = Math.min(allocatedCopies, execution.arithmeticBatchLimit());
         if (bounded <= 0) return null;
         var allocated = new ListCraftingInventory(ignored -> {});
@@ -212,8 +211,9 @@ public final class ECOFastPathFacade {
         }
         var outputs = new KeyCounter();
         for (var stack : execution.expectedOutputs()) outputs.add(stack.what(), stack.amount());
-        return prepare(provider, pattern, oneCopy, outputs, new KeyCounter(), allocated, bounded,
-            0, null, level, jobId);
+        var batch = ECOStatefulBatchPlanner.prepareAllocated(target, pattern, oneCopy, outputs,
+            allocated, bounded, level, jobId);
+        return batch == null ? null : new PreparedBatch(batch, allocated);
     }
 
     /**
@@ -229,13 +229,10 @@ public final class ECOFastPathFacade {
         var target = resolveNativeProvider(provider);
         if (target == null) return null;
         var execution = ECOExtractedPatternExecution.fromProviderPush(pattern, oneCopy, level);
-        if (!execution.canUseFastPath() || !execution.expectedContainerItems().isEmpty()
-                || execution.fastPathType() != cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECORecipeClassifier.Type.NORMAL)
-            return null;
+        if (!execution.canUseFastPath() || !execution.expectedContainerItems().isEmpty()) return null;
         var outputs = new KeyCounter();
         for (var stack : execution.expectedOutputs()) outputs.add(stack.what(), stack.amount());
-        var context = cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext.create(
-                pattern, oneCopy, outputs, new KeyCounter(), level, jobId);
+        var context = ECOBatchDispatchContext.create(pattern, oneCopy, outputs, new KeyCounter(), level, jobId);
         var admission = target.eco$prepareExactFastPath(context, allocatedCopies);
         if (admission == null) return null;
         if (admission.craftCount().compareTo(allocatedCopies) > 0)

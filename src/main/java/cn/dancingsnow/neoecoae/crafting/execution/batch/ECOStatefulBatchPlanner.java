@@ -50,6 +50,24 @@ public final class ECOStatefulBatchPlanner {
             KeyCounter[] inputs, KeyCounter outputs, KeyCounter containers,
             ListCraftingInventory inventory, long maxCrafts, double power, IEnergyService energyService,
             Level level, UUID craftingJobId, boolean exactOrder) {
+        return prepare(provider, pattern, inputs, outputs, containers, inventory, maxCrafts, power,
+            energyService, level, craftingJobId, exactOrder, false);
+    }
+
+    @Nullable
+    public static PreparedBatch prepareAllocated(
+            ECOFastPathDispatchProvider provider, IPatternDetails pattern, KeyCounter[] inputs,
+            KeyCounter outputs, ListCraftingInventory inventory, long maxCrafts, Level level, UUID craftingJobId) {
+        return prepare(provider, pattern, inputs, outputs, new KeyCounter(), inventory, maxCrafts, 0,
+            null, level, craftingJobId, false, true);
+    }
+
+    @Nullable
+    private static PreparedBatch prepare(
+            ECOFastPathDispatchProvider provider, IPatternDetails pattern,
+            KeyCounter[] inputs, KeyCounter outputs, KeyCounter containers,
+            ListCraftingInventory inventory, long maxCrafts, double power, IEnergyService energyService,
+            Level level, UUID craftingJobId, boolean exactOrder, boolean statelessOnly) {
         if (maxCrafts <= 0) return null;
         try {
             var context = ECOBatchDispatchContext.create(pattern, inputs, outputs, containers, level, craftingJobId);
@@ -58,6 +76,9 @@ public final class ECOStatefulBatchPlanner {
             long capacity = preparation.capacity();
             var perCopy = context.inputItems();
             var statefulCalculator = preparation.statefulCalculator();
+            if (statelessOnly && (statefulCalculator != null || preparation.statefulCalculatorRequired())) {
+                return null;
+            }
             if (preparation.statefulCalculatorRequired()
                     && statefulCalculator == null
                     && context.execution().fastPathType() != ECORecipeClassifier.Type.NORMAL) {

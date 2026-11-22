@@ -60,7 +60,6 @@ public final class ECOThunderboltBatchBridge {
 
     public static boolean fastPathEligible(ECOCraftingPatternBusBlockEntity bus, IPatternDetails pattern) {
         if (bus.isBusy() || !(pattern instanceof IMolecularAssemblerSupportedPattern)) return false;
-        var classification = ECORecipeClassifier.classify(pattern);
-        return classification.type() == ECORecipeClassifier.Type.NORMAL && classification.supported();
+        return ECORecipeClassifier.classify(pattern).supported();
     }
 }
