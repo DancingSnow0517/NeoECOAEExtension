@@ -177,8 +177,19 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         // The outgoing stack must carry every accepted transfer before it leaves this drive.
         flushPendingCellWrites();
         ECOStorageSystemBlockEntity controller = getStorageController();
-        if (controller != null) controller.rememberInfiniteMembers();
         ECOStorageCells.releaseCellInventory(this.cellStack, this);
+        // Anonymous members are empty; they leave as ordinary cells.
+        if (ECOInfiniteStorageMember.isAnonymous(this.cellStack)) ECOInfiniteStorageMember.clearMember(this.cellStack);
+        if (cellStack != null) {
+            if (controller != null && controller.isFormedInfiniteMode()
+                    && !ECOInfiniteStorageMember.isMember(cellStack) && !ECOInfiniteStorageMember.isMigrating(cellStack)
+                    && isEmptyInfiniteCandidate(cellStack)) {
+                ECOInfiniteStorageMember.markAnonymous(cellStack);
+            } else if (ECOInfiniteStorageMember.isAnonymous(cellStack)
+                    && (controller == null || !controller.isInfiniteMode())) {
+                ECOInfiniteStorageMember.clearMember(cellStack);
+            }
+        }
         this.cellStack = cellStack;
         cellInteractionId = UUID.randomUUID();
         invalidateCellInventoryCache();
@@ -192,8 +203,18 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
             }
         }
         updateState();
+        if (controller != null) controller.invalidateInfiniteMembers();
         setChanged();
         if (controller != null) controller.refreshStorageConfiguration();
+    }
+
+    /** Only empty cells may become anonymous members: nothing is migrated on insertion. */
+    static boolean isEmptyInfiniteCandidate(ItemStack stack) {
+        var cell = ECOStorageCells.getCellInventory(stack, null);
+        if (!cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageTransfer.isEligible(cell)) return false;
+        var contents = new appeng.api.stacks.KeyCounter();
+        ((cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell) cell).getMigrationStacks(contents);
+        return contents.isEmpty();
     }
 
     @Override
@@ -279,6 +300,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         super.addAdditionalDrops(level, pos, drops);
         flushPendingCellWrites();
         if (cellStack != null) {
+            if (ECOInfiniteStorageMember.isAnonymous(cellStack)) ECOInfiniteStorageMember.clearMember(cellStack);
             drops.add(cellStack);
         }
     }
@@ -506,7 +528,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         }
         migrationCell.clearMigrationStacks();
         migrationCell.persistMigrationContents((ServerLevel) level);
-        ECOInfiniteStorageMember.markMember(cellStack, domainId);
+        ECOInfiniteStorageMember.markAnonymous(cellStack);
         var controller = getStorageController();
         if (controller != null) controller.invalidateInfiniteMembers();
         setChanged();
@@ -514,7 +536,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     }
 
     public boolean convertInfiniteMemberToNormalStorage(UUID domainId) {
-        if (cellStack == null || cellStack.isEmpty() || !ECOInfiniteStorageMember.isMemberOf(cellStack, domainId)) {
+        if (cellStack == null || cellStack.isEmpty() || !(ECOInfiniteStorageMember.isAnonymous(cellStack) || ECOInfiniteStorageMember.isMemberOf(cellStack, domainId))) {
             return false;
         }
         ECOInfiniteStorageMember.clearMember(cellStack);
@@ -524,6 +546,23 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         setChanged();
         markForUpdate();
         return true;
+    }
+
+    /** Gives an anonymous member a restore identity; restore receipts and plans are keyed by it. */
+    public void bindCellForRestore(UUID domainId) {
+        if (!ECOInfiniteStorageMember.isAnonymous(cellStack)) return;
+        ECOInfiniteStorageMember.markMember(cellStack, domainId);
+        setChanged();
+        markForUpdate();
+    }
+
+    /** Drops a restore identity once no restore references it. */
+    public void releaseRestoreBinding(UUID domainId) {
+        if (!ECOInfiniteStorageMember.isMemberOf(cellStack, domainId)) return;
+        ECOInfiniteStorageMember.markAnonymous(cellStack);
+        clearRestoreReceipts();
+        setChanged();
+        markForUpdate();
     }
 
     @SuppressWarnings("deprecation")

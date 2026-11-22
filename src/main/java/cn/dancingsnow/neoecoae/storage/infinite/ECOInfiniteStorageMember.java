@@ -136,6 +136,28 @@ public final class ECOInfiniteStorageMember {
         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
     }
 
+    public static boolean isAnonymous(@Nullable ItemStack stack) {
+        return isMember(stack)
+                && !readTag(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY)).hasUUID(DOMAIN_TAG);
+    }
+
+    public static void markAnonymous(@Nullable ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return;
+        }
+        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        tag.putBoolean(MEMBER_TAG, true);
+        tag.remove(MIGRATION_TAG);
+        tag.remove(MIGRATION_DOMAIN_TAG);
+        tag.remove(DOMAIN_TAG);
+        tag.remove(IDENTITY_TAG);
+        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+    }
+
+    public static boolean isBound(@Nullable ItemStack stack) {
+        return getDomainId(stack).isPresent();
+    }
+
     public static void clearMember(@Nullable ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
             return;
