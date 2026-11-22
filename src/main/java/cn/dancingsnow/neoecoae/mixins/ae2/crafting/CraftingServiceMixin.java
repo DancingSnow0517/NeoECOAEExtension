@@ -859,6 +859,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             @Local(name = "cpus") ImmutableSet.Builder<ICraftingCPU> cpus
     ) {
         for (var cluster : this.neoecoae$computationClusters) {
+            if (cluster.isDestroyed()) continue;
             List<ECOCraftingCPU> ecoCpus = cluster.getActiveCPUs();
             for (var cpu : ecoCpus) {
                 cpus.add(cpu);
@@ -886,6 +887,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     @Inject(method = "hasCpu", at = @At("HEAD"), cancellable = true)
     private void onHasCpu(ICraftingCPU cpu, CallbackInfoReturnable<Boolean> cir) {
         for (var cluster : this.neoecoae$computationClusters) {
+            if (cluster.isDestroyed()) continue;
             for (var activeCpu : cluster.getActiveCPUs()) {
                 if (activeCpu == cpu) {
                     cir.setReturnValue(true);
