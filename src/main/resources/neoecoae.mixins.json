@@ -30,7 +30,6 @@
     "ae2.crafting.CraftingTreeNodeMixin",
     "ae2.crafting.PatternsForKeyMixin",
     "ae2.crafting.PatternProviderDiagnosticsMixin",
-    "ae2.crafting.PatternProviderProcessingTargetMixin",
     "ae2.menu.CraftConfirmMenuMixin",
     "ae2.menu.CraftConfirmMenuForceStartMixin",
     "ae2.menu.CraftingCpuListEntryMixin",
