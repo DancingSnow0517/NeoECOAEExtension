@@ -174,17 +174,25 @@ class ECOExactOrderTest {
         when(grid.getStorageService().getInventory().extract(eq(input), anyLong(),
             eq(appeng.api.config.Actionable.MODULATE), any())).thenReturn(0L, 4L, 5L);
         var logic = new ECOCraftingCPULogic(cpu);
+        var ticks = mock(appeng.hooks.ticking.TickHandler.class);
         try (var types = mockStatic(AEKeyTypes.class);
              var helpers = mockStatic(CraftingCpuHelper.class, CALLS_REAL_METHODS);
-             var planner = mockStatic(ECOBigOrderPlanner.class)) {
+             var planner = mockStatic(ECOBigOrderPlanner.class);
+             var tickHandler = mockStatic(appeng.hooks.ticking.TickHandler.class)) {
+            tickHandler.when(appeng.hooks.ticking.TickHandler::instance).thenReturn(ticks);
             helpers.when(() -> CraftingCpuHelper.tryExtractInitialItems(any(), any(), any(), any())).thenReturn(null);
             assertTrue(logic.trySubmitJob(grid, new ECOExactCraftingPlan(result, true), IActionSource.empty(), null).successful());
             var job = logic.getJob();
             logic.tickCraftingLogic(null, null);
             assertEquals(BigInteger.valueOf(9), job.deferredStock.get(input).toBigInteger());
+            when(ticks.getCurrentTick()).thenReturn(19L);
+            logic.tickCraftingLogic(null, null);
+            assertEquals(BigInteger.valueOf(9), job.deferredStock.get(input).toBigInteger());
+            when(ticks.getCurrentTick()).thenReturn(20L);
             logic.tickCraftingLogic(null, null);
             assertEquals(BigInteger.valueOf(5), job.deferredStock.get(input).toBigInteger());
             assertEquals(4, logic.getInventory().list.get(input));
+            when(ticks.getCurrentTick()).thenReturn(21L);
             logic.tickCraftingLogic(null, null);
             assertTrue(job.deferredStock.isEmpty());
             assertEquals(9, logic.getInventory().list.get(input));
@@ -206,15 +214,22 @@ class ECOExactOrderTest {
         when(cpu.getActionSource()).thenReturn(IActionSource.empty());
         var drive = mock(cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity.class);
         var creative = mock(cn.dancingsnow.neoecoae.storage.ECOCreativeCell.class);
-        when(grid.getMachines(cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity.class))
-            .thenReturn(Set.of(drive));
+        var node = mock(appeng.api.networking.IManagedGridNode.class);
+        when(drive.getMainNode()).thenReturn(node);
+        when(node.getGrid()).thenReturn(grid);
         when(drive.isOnline()).thenReturn(true);
         when(drive.isMounted()).thenReturn(true);
         when(drive.getCellInventory()).thenReturn(creative);
+        when(creative.drive()).thenReturn(drive);
         when(creative.configuredKeys()).thenReturn(Set.of(input));
-        when(creative.extract(eq(input), eq(1L), eq(appeng.api.config.Actionable.SIMULATE), any())).thenReturn(1L);
-        var network = grid.getStorageService().getInventory();
-        when(network.extract(eq(input), eq(1L), eq(appeng.api.config.Actionable.SIMULATE), any())).thenReturn(1L);
+        var network = mock(appeng.api.storage.MEStorage.class,
+            withSettings().extraInterfaces(cn.dancingsnow.neoecoae.storage.ECOCreativeSupply.Source.class));
+        when(grid.getStorageService().getInventory()).thenReturn(network);
+        var indexed = (cn.dancingsnow.neoecoae.storage.ECOCreativeSupply.Source) network;
+        var supply = new cn.dancingsnow.neoecoae.storage.ECOCreativeSupply();
+        when(indexed.neoecoae$activeRefillSupply()).thenReturn(supply);
+        when(indexed.neoecoae$probeCreative(eq(creative), eq(input), any())).thenReturn(1L);
+        supply.mounted(creative);
         var logic = new ECOCraftingCPULogic(cpu);
         try (var types = mockStatic(AEKeyTypes.class);
              var helpers = mockStatic(CraftingCpuHelper.class, CALLS_REAL_METHODS)) {
