@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.network;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
@@ -82,8 +83,10 @@ public final class CraftingReportStream {
 
     public static void send(ServerPlayer player, long version, boolean completeGraph,
             CraftingGraphSnapshot snapshot, ECOCycleItemList cycles) {
-        send(player, version, completeGraph, snapshot, cycles, error ->
-            org.slf4j.LoggerFactory.getLogger(CraftingReportStream.class).error("Could not encode crafting graph {}", version, error));
+        send(player, version, completeGraph, snapshot, cycles, error -> {
+            if (NEConfig.ecoCraftSubmissionDebug)
+                org.slf4j.LoggerFactory.getLogger(CraftingReportStream.class).error("Could not encode crafting graph {}", version, error);
+        });
     }
 
     public static void send(ServerPlayer player, long version, boolean completeGraph,

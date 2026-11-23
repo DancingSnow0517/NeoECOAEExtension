@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.graph;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 
@@ -22,7 +23,7 @@ public final class GraphLayout implements GraphLayoutEngine {
             try {
                 return valueOf(value.trim().toUpperCase(java.util.Locale.ROOT));
             } catch (IllegalArgumentException exception) {
-                LOGGER.warn("Unknown {} value '{}'; using COMPACT_TREE", MODE_PROPERTY, value);
+                LOGGER.debug("Unknown {} value '{}'; using COMPACT_TREE", MODE_PROPERTY, value);
                 return COMPACT_TREE;
             }
         }
@@ -83,7 +84,7 @@ public final class GraphLayout implements GraphLayoutEngine {
     }
 
     private void reportCompactTreeFailure(ClientCraftingGraph graph, Throwable exception) {
-        if (!reportedCompactTreeFailure) {
+        if (NEConfig.ecoCraftSubmissionDebug && !reportedCompactTreeFailure) {
             reportedCompactTreeFailure = true;
             LOGGER.warn("Compact tree layout failed for {} nodes and {} edges; falling back to legacy layout",
                 graph.nodes().size(), graph.links().size(), exception);
