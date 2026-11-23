@@ -560,7 +560,7 @@ public record CraftingGraphSnapshot(
         }
     }
 
-    private static AEKey readKey(RegistryFriendlyByteBuf data) {
+    static AEKey readKey(RegistryFriendlyByteBuf data) {
         if (!(data instanceof PersistentBuffer persistent)) return ECOKeyFactory.readKey(data);
         var tag = data.readNbt();
         var key = tag == null ? null : ECOKeyFactory.fromTagGeneric(persistent.lookups, tag);
@@ -568,7 +568,7 @@ public record CraftingGraphSnapshot(
         return key;
     }
 
-    private static void writeKey(RegistryFriendlyByteBuf data, AEKey key) {
+    static void writeKey(RegistryFriendlyByteBuf data, AEKey key) {
         if (data instanceof PersistentBuffer persistent) data.writeNbt(key.toTagGeneric(persistent.lookups));
         else AEKey.writeKey(data, key);
     }
