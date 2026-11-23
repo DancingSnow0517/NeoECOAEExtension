@@ -5,7 +5,7 @@
 ## 开始工作
 
 - 先检查 `git status --short --branch` 与相关 diff，保留已有和无关修改。确认当前仓库、分支、Minecraft/加载器版本，不套用其他版本工作区的结论。
-- 本仓是 Minecraft 1.21.1 / NeoForge、Java 21 项目。实际版本、依赖与任务分别以 [gradle.properties](gradle.properties)、[build.gradle](build.gradle)、[settings.gradle](settings.gradle) 为准，不在文档中维护另一份依赖版本表。
+- 本仓是 Minecraft 26.1.2 / NeoForge、Java 25 项目。实际版本、依赖与任务分别以 [gradle.properties](gradle.properties)、[build.gradle](build.gradle)、[settings.gradle](settings.gradle) 为准，不在文档中维护另一份依赖版本表。
 - Mod 源码仓库统一位于 `E:\Minecraft Project`。查找外部 Mod 时先确认远端与分支；没有本地仓库则从 GitHub 克隆，有远端更新则先拉取再阅读。已有未提交修改或分支分叉时不得强制覆盖；可使用隔离检出读取远端。
 - 接入以本仓实际依赖和目标实例 JAR 为准。最新版源码不等于编译/运行版本；必要时读取匹配 tag 或用 `javap` 核对签名、Mixin 目标。
 - 先用 `rg` 定位实际入口，再读取相关代码和测试。按任务查阅下表，不在每次开始时加载全部源码或文档。
@@ -17,7 +17,7 @@ Java 包路径均相对于 `src/main/java/cn/dancingsnow/neoecoae/`。
 | 任务 | 优先读取 |
 | --- | --- |
 | API 或附属接入 | [API](docs/API_ZH_CN.md)、`api/` 及对应调用点；示例在 `src/test/java/cn/dancingsnow/neoecoae/api/extension/AddonApiExample.java` |
-| 注册、依赖、可选联动 | `NeoECOAE.java`、`all/`、`api/integration/`、`integration/`、`compat/`、`build.gradle`、`src/main/templates/META-INF/neoforge.mods.toml` |
+| 注册、依赖、可选联动 | `NeoECOAE.java`、`all/`、`api/integration/`、`integration/`、`mixins/compat/`、`build.gradle`、`src/main/templates/META-INF/neoforge.mods.toml` |
 | 规划、循环、精确订单 | `api/me/planning/`、`api/me/bigorder/`、`crafting/planner/`、`crafting/adapter/` 和对应测试 |
 | CPU、发配、事务、产物 | `api/me/provider/`、`api/me/output/`、`crafting/execution/`；先区分准备、接收、记账与交付 |
 | 样板导入或迁移 | `api/IECOPatternStorage*.java`、`api/ECOPatternInsertion.java`、`api/PatternStorageHost.java` 及服务实现 |
@@ -40,7 +40,7 @@ Java 包路径均相对于 `src/main/java/cn/dancingsnow/neoecoae/`。
 
 ## 资源与构建
 
-使用 Gradle wrapper，并先确认 Java 21 环境可用。PowerShell 常用命令：
+使用 Gradle wrapper，并先确认 Java 25 环境可用。PowerShell 常用命令：
 
 ```powershell
 java -version

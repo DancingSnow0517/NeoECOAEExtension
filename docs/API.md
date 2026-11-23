@@ -140,7 +140,7 @@ Built-in bridges explicitly select ECO planning for AE2 crafting cards (includin
 | Option | Contract |
 | --- | --- |
 | `cyclePlanningEnabled` | Allow unavoidable cyclic components into the solver |
-| `ignorePatternSubstitutions` | Legacy API name for default planning, enabled by default (true); false selects the UI Deep Planning Mode. Default planning has no extra mode label: one producer per material, no route retries, substitutions or remainder reuse; physical byproducts are credited, secondary-only producers are filled once from selected patterns, and acyclic materials allow at most one supplemental expansion. Enabled cycles use the fixed-route cycle solver; disabled cycles require captured stock and verified output allocations. Marked processing inputs match by item ID without switching to full planning |
+| `ignorePatternSubstitutions` | Legacy API name for default planning, enabled by default (true); false selects the UI Deep Planning Mode. Default planning has no extra mode label: one producer per material, no route retries or substitutions; proven one-to-one unchanged encoded inputs are reserved as working stock, while changed or ambiguous returns are not reused; physical byproducts are credited, secondary-only producers are filled once from selected patterns, and acyclic materials allow at most one supplemental expansion. Enabled cycles use the fixed-route cycle solver; disabled cycles require captured stock and verified output allocations. Marked processing inputs match by item ID without switching to full planning |
 | `fuzzyPlanningItemIds` | Ignore components for selected items during planning; actual inputs must still pass pattern validation |
 | `planningLogEnabled` | Legacy compatibility field; logging uses the global Calculating debug configuration |
 
@@ -158,9 +158,11 @@ Exact materials and recipe counts use [PlannerAmount](../src/main/java/cn/dancin
 
 [ECOCraftConfirmMenuMode](../src/main/java/cn/dancingsnow/neoecoae/api/me/menu/ECOCraftConfirmMenuMode.java) separates material readiness through `neoecoae$diagnosticsReady()` from graph readiness through `neoecoae$graphReady()`. `neoecoae$hasByteEstimate()` indicates an available estimate; only `neoecoae$hasCompleteByteEstimate()` indicates a complete estimate. Custom screens enable actions according to these states and label partial costs accordingly.
 
-Materials and the graph share `neoecoae$getDisplayedPlanRevision()`. Receive material data with `neoecoae$setMaterialReport(version, report, cycles)` and the complete graph with `neoecoae$setDiagnostics(version, graph, cycles)`. Before submission, call `neoecoae$lockDisplayedPlan(revision)` for the displayed revision; reread the state if it returns false. `neoecoae$getReportSyncFailure()` values 1 and 2 indicate material and graph synchronization failures respectively.
+Materials and the graph share `neoecoae$getDisplayedPlanRevision()`. Receive material data with `neoecoae$setMaterialReport(version, report, cycles)` and the complete graph with `neoecoae$setDiagnostics(version, graph, cycles)`. Before submission, call `neoecoae$lockDisplayedPlan(revision)` with the displayed revision. On rejection, `neoecoae$getPlanRejection()` gives the translation key for replan or review. A negative revision is reserved for native plans. `neoecoae$getReportSyncFailure()` values 1 and 2 indicate material and graph synchronization failures respectively.
 
 [CraftingGraphSnapshot](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/snapshot/CraftingGraphSnapshot.java) exposes material-stage data through `materialReport()`. In a complete graph, `CycleGroup.recursion()` provides initial stock and bounded exact checkpoints. Each `RecursionLayer` carries PlannerAmount inputs, inventory and firing counts; `folded` marks repeated steps represented together. `Recursion.complete()` may describe execution conditional on supplying missing materials and does not replace the submission contract's executability check. The report wire protocol is now 7; server and client protocols must match.
+
+The server serializes menu report fields over successive ticks. Only compression of large, detached byte arrays runs in the background. Treat the submitted graph and cycle lists as immutable until the transfer finishes. Clients still receive one complete revision; use the readiness flags rather than assuming the report arrives on the next tick.
 
 ### Exact parent orders
 
@@ -206,7 +208,7 @@ FastPath uses the separate `ECOFastPathDispatchProvider`:
 | `supportsExactInputs`, `exactInputTotal` | Explicit exact-input support, without truncation for legacy providers |
 | `eco$prepareExactFastPath(context, requested)` | Separate exact-count capability, unsupported by default |
 
-Resolution checks direct implementations, external adapters, then built-in bridges. Parallel-only adapters do not gain FastPath automatically. `ECOBatchCapacityProvider` is deprecated; use the new contract.
+Register pattern-specific capacity during common setup with `ECOParallelCraftingProviders.registerFastPath(providerClass, adapter)`. The adapter resolves live capacity during preparation. This registration leaves ordinary parallel slots unchanged. `ECOFastPathFacade` resolves direct implementations, explicit FastPath adapters, combined parallel adapters, then built-in bridges. Automatic batching in the native AE2 and AdvancedAE CPUs continues to use its existing direct/parallel entry points. `ECOBatchCapacityProvider` is deprecated.
 
 True means full acceptance. False or an ordinary exception guarantees no acceptance and permits CPU rollback. If acceptance is uncertain, throw [ECOIndeterminateBatchException](../src/main/java/cn/dancingsnow/neoecoae/api/me/provider/ECOIndeterminateBatchException.java) and stop for reconciliation; never refund then retry uncertain acceptance. Providers do not debit/refund CPU inputs or energy themselves.
 
@@ -408,6 +410,29 @@ When constructing panels such as [StorageHostUI](../src/main/java/cn/dancingsnow
 `FluidHatchUI.createInputHatchUI(holder, host)` uses the placed block's `getDescriptionId()` as its title translation key, so addon input-hatch subclasses display their own block name in both normal and network-pull modes. The explicit title parameter of the older `createFluidHatchUI` remains available.
 
 Register `ECOCellModels.register` and `ECOComputationModels.registerCellModel/registerCableModel` on the client. Cables support `(tier, hostBlock)` entries. Additional models returned by dynamic providers require `registerAdditionalModel` before baking. Panel providers change images, not button semantics.
+
+### Workstation color palettes
+
+An addon can reuse the large integrated workstation's screen and light masks without copying them or registering Java code. Add a `neoecoae:workstation_palette` source to the addon's `assets/minecraft/atlases/blocks.json`. Minecraft combines sources from that file across resource packs, so the addon only needs to list its own palette:
+
+```json
+{
+  "sources": [
+    {
+      "type": "neoecoae:workstation_palette",
+      "palettes": {
+        "addon:amber": "addon:block/workstation/colormap/amber"
+      }
+    }
+  ]
+}
+```
+
+The value in this example loads `assets/addon/textures/block/workstation/colormap/amber.png`. Supply a one-row PNG with at least seven swatches: screen dark, middle, light; lamp dark, light; and bright frames for the working dark and light lamps, in that order.
+
+The key chooses the generated sprite namespace and directory. For `addon:amber` the prefix is `addon:block/working_station/controller_formed/colored/amber/`. Append `controller_formed_screen_on/dark`, `controller_formed_screen_on/middle`, or `controller_formed_screen_on/light` for the screen; `controller_formed_light/dark` or `controller_formed_light/light` for the idle lamps; and `controller_formed_light/dark_working` or `controller_formed_light/light_working` for the animated lamps. Use the resulting sprite IDs directly as model texture values, without `textures/` or `.png`.
+
+Short keys such as `normal` still use the `neoecoae` namespace, regardless of the palette image's namespace. An explicit PNG at a generated sprite's texture path takes precedence over the generated sprite.
 
 ## Integration diagnostics
 

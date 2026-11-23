@@ -140,7 +140,7 @@ public final class EcoApiExample {
 | 选项 | 约定 |
 | --- | --- |
 | `cyclePlanningEnabled` | 允许不可避开的循环组件进入求解 |
-| `ignorePatternSubstitutions` | 兼容旧 API 名称的默认规划开关，默认开启；true 对应无额外标记的默认规划，false 对应界面的深度规划模式；每种材料固定一个样板，不回溯路线、不计替代或返还；计入实际副产物，仅从已选样板补全一次副产物生产路线，非循环材料最多补算一次。开启循环时使用固定路线的循环求解，关闭时须由捕获库存和经验证的产物分配闭合。已标记加工输入按物品 ID 匹配，不切换完整规划 |
+| `ignorePatternSubstitutions` | 兼容旧 API 名称的默认规划开关，默认开启；true 对应无额外标记的默认规划，false 对应界面的深度规划模式；每种材料固定一个样板，不回溯路线、不计替代；明确一对一原样返还的编码输入只保留周转量，不复用状态已变或无法逐槽确认的返还；计入实际副产物，仅从已选样板补全一次副产物生产路线，非循环材料最多补算一次。开启循环时使用固定路线的循环求解，关闭时须由捕获库存和经验证的产物分配闭合。已标记加工输入按物品 ID 匹配，不切换完整规划 |
 | `fuzzyPlanningItemIds` | 对指定物品忽略组件规划，实际输入仍须通过样板校验 |
 | `planningLogEnabled` | 旧兼容字段；日志由全局 Calculating 调试配置控制 |
 
@@ -158,9 +158,11 @@ public final class EcoApiExample {
 
 [ECOCraftConfirmMenuMode](../src/main/java/cn/dancingsnow/neoecoae/api/me/menu/ECOCraftConfirmMenuMode.java) 区分材料就绪 `neoecoae$diagnosticsReady()` 与图就绪 `neoecoae$graphReady()`。`neoecoae$hasByteEstimate()` 表示已有字节估算，`neoecoae$hasCompleteByteEstimate()` 才表示完整估算。自定义界面按对应就绪状态启用操作，不把部分估算显示为完整成本。
 
-材料与图属于同一个 `neoecoae$getDisplayedPlanRevision()`。材料阶段由 `neoecoae$setMaterialReport(version, report, cycles)` 接收，完整图由 `neoecoae$setDiagnostics(version, graph, cycles)` 接收；提交前使用 `neoecoae$lockDisplayedPlan(revision)` 核对已显示的版本，返回 false 时重新读取状态。`neoecoae$getReportSyncFailure()` 的 1、2 分别表示材料、图同步失败。
+材料与图属于同一个 `neoecoae$getDisplayedPlanRevision()`。材料阶段由 `neoecoae$setMaterialReport(version, report, cycles)` 接收，完整图由 `neoecoae$setDiagnostics(version, graph, cycles)` 接收。提交前使用 `neoecoae$lockDisplayedPlan(revision)` 核对已显示的版本。拒绝时可通过 `neoecoae$getPlanRejection()` 获取重新规划或重新确认的提示翻译键。负版本号仅用于原生计划。`neoecoae$getReportSyncFailure()` 的 1、2 分别表示材料、图同步失败。
 
 [CraftingGraphSnapshot](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/snapshot/CraftingGraphSnapshot.java) 的 `materialReport()` 只提供材料阶段的数据。完整图中 `CycleGroup.recursion()` 提供初始库存和有界的精确检查点；`RecursionLayer` 的投入、库存和配方次数均使用 PlannerAmount，`folded` 表示折叠了重复步骤。`Recursion.complete()` 也可描述补足缺料后的条件执行过程，不代替提交合同的可执行判定。报告线协议现为 7，服务器与客户端必须使用匹配协议。
+
+服务端分多个 tick 序列化菜单报告字段，只有大页生成后独立的字节数组在后台压缩。传输结束前，不要修改已提交的图和循环列表。客户端仍按完整版本接收结果；请使用就绪标志，不要假设报告在下一个 tick 就已到达。
 
 ### 精确父订单
 
@@ -206,7 +208,7 @@ FastPath 使用独立的 `ECOFastPathDispatchProvider`：
 | `supportsExactInputs`、`exactInputTotal` | 显式启用精确输入，不向旧供应器截断 |
 | `eco$prepareExactFastPath(context, requested)` | 独立精确次数能力，默认不支持 |
 
-直接实现、外部适配器与内置桥依次解析；普通并行适配器不会自动获得 FastPath 能力。`ECOBatchCapacityProvider` 为旧兼容入口，新接入使用上述接口。
+按样板计算容量的外部供应器可在通用初始化时调用 `ECOParallelCraftingProviders.registerFastPath(providerClass, adapter)`。适配器在准备阶段查询实时容量，注册独立于普通并行槽位。`ECOFastPathFacade` 依次解析直接实现、独立 FastPath 适配器、兼有 FastPath 的普通并行适配器、内置桥。原生 AE2 和 AdvancedAE CPU 的自动批量发配沿用原有直接实现与普通并行入口。`ECOBatchCapacityProvider` 为旧兼容入口。
 
 FastPath true 表示整批接收；false 或普通异常保证未接收，可由 CPU 回滚。如果是否接收已不确定，抛出 [ECOIndeterminateBatchException](../src/main/java/cn/dancingsnow/neoecoae/api/me/provider/ECOIndeterminateBatchException.java)，停止任务核对，不能先退款再重试。供应器不自行扣减或退款 CPU 的输入与能量。
 
@@ -408,6 +410,29 @@ ServerEvents.recipes(event => {
 `FluidHatchUI.createInputHatchUI(holder, host)` 使用实际放置方块的 `getDescriptionId()` 作为标题翻译键，附属的输入仓子类会显示自己的方块名称；网络拉取与普通模式使用同一标题。旧 `createFluidHatchUI` 的显式标题参数保持可用。
 
 `ECOCellModels.register`、`ECOComputationModels.registerCellModel/registerCableModel` 在客户端注册模型。线缆支持 `(tier, hostBlock)` 专用条目；动态模型提供器返回的额外模型须在烘焙前用 `registerAdditionalModel` 声明。面板 provider 只更换图片，不改变按钮或业务语义。
+
+### 工作站染色色板
+
+附属可以复用大型集成工作站的屏幕和灯光遮罩，不必复制遮罩或编写 Java 注册代码。在附属自己的 `assets/minecraft/atlases/blocks.json` 添加 `neoecoae:workstation_palette` 来源。Minecraft 会合并各资源包中此文件的来源列表，附属只需要声明自己的色板：
+
+```json
+{
+  "sources": [
+    {
+      "type": "neoecoae:workstation_palette",
+      "palettes": {
+        "addon:amber": "addon:block/workstation/colormap/amber"
+      }
+    }
+  ]
+}
+```
+
+示例中的值读取 `assets/addon/textures/block/workstation/colormap/amber.png`。提供一张单行 PNG，至少包含七个色样，依次为屏幕暗色、中间色、亮色，灯光暗层、亮层，以及工作时暗层、亮层各自的高亮帧。
+
+键决定生成 sprite 的命名空间和目录。`addon:amber` 的前缀为 `addon:block/working_station/controller_formed/colored/amber/`。屏幕追加 `controller_formed_screen_on/dark`、`controller_formed_screen_on/middle` 或 `controller_formed_screen_on/light`；非工作灯光追加 `controller_formed_light/dark` 或 `controller_formed_light/light`；工作动画灯光追加 `controller_formed_light/dark_working` 或 `controller_formed_light/light_working`。模型纹理值直接使用拼好的 sprite ID，不加 `textures/` 或 `.png`。
+
+`normal` 等短键仍使用 `neoecoae` 命名空间，与色板图片所属命名空间无关。在生成 sprite 对应的纹理路径提供实体 PNG 时，优先使用该 PNG。
 
 ## 接入诊断
 
