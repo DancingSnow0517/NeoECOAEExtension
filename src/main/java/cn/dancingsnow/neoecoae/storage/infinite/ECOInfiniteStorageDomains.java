@@ -2,15 +2,19 @@ package cn.dancingsnow.neoecoae.storage.infinite;
 
 import cn.dancingsnow.neoecoae.storage.persistence.Legacy2042DomainSnapshot;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import java.nio.file.Path;
+import java.io.IOException;
+import java.nio.file.DirectoryIteratorException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.LevelResource;
 import org.slf4j.Logger;
@@ -27,6 +31,8 @@ import org.slf4j.LoggerFactory;
 public final class ECOInfiniteStorageDomains {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOInfiniteStorageDomains.class);
     private static final String DATA_NAME_PREFIX = "neoecoae_infinite_";
+    private static final String LEGACY_2042_DIRECTORY = "neoecoae_infinite";
+    private static final String LEGACY_2042_PREFIX = "domain_";
 
     private static final Map<MinecraftServer, Map<UUID, DomainEntry>> ENGINES = new IdentityHashMap<>();
 
@@ -67,8 +73,43 @@ public final class ECOInfiniteStorageDomains {
     }
 
     public static boolean exists(MinecraftServer server, UUID domainId) {
-        if (cachedDomain(server, domainId) != null) return true;
-        Path directory = server.getWorldPath(LevelResource.ROOT).resolve("data");
+        return cachedDomain(server, domainId) != null || savedDomainExists(dataDirectory(server), domainId);
+    }
+
+    public static Set<UUID> discoverIds(MinecraftServer server) {
+        Path directory = dataDirectory(server);
+        Set<UUID> ids = new HashSet<>();
+        collectSavedIds(directory, DATA_NAME_PREFIX, ids);
+        collectSavedIds(directory.resolve(LEGACY_2042_DIRECTORY), LEGACY_2042_PREFIX, ids);
+        ids.removeIf(id -> !savedDomainExists(directory, id));
+
+        Map<UUID, DomainEntry> engines = ENGINES.get(server);
+        if (engines != null) ids.addAll(engines.keySet());
+        return ids;
+    }
+
+    private static void collectSavedIds(Path directory, String prefix, Set<UUID> ids) {
+        int uuidEnd = prefix.length() + 36;
+        try (var paths = Files.newDirectoryStream(directory, prefix + "*")) {
+            for (Path path : paths) {
+                String name = path.getFileName().toString();
+                if (name.length() <= uuidEnd) continue;
+                try {
+                    ids.add(UUID.fromString(name.substring(prefix.length(), uuidEnd)));
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+        } catch (NoSuchFileException ignored) {
+        } catch (IOException | DirectoryIteratorException failure) {
+            LOGGER.warn("Cannot list ECO infinite storage domains in {}", directory, failure);
+        }
+    }
+
+    private static Path dataDirectory(MinecraftServer server) {
+        return server.getWorldPath(LevelResource.ROOT).resolve("data");
+    }
+
+    private static boolean savedDomainExists(Path directory, UUID domainId) {
         String name = DATA_NAME_PREFIX + domainId;
         return Files.exists(directory.resolve(name + "_v3.dat"))
                 || Files.exists(directory.resolve(name + "_v3.dat.bak"))
@@ -128,7 +169,7 @@ public final class ECOInfiniteStorageDomains {
         // A separate name keeps every old .dat/.store byte intact. Once v3 exists it is authoritative;
         // never fall back to the stale legacy inventory when the newer file is damaged.
         String dataName = legacyName + "_v3";
-        Path dataDir = server.getWorldPath(LevelResource.ROOT).resolve("data");
+        Path dataDir = dataDirectory(server);
         Path dataFile = dataDir.resolve(dataName + ".dat");
         Path legacyFile = dataDir.resolve(legacyName + ".dat");
         var catalog = cn.dancingsnow.neoecoae.storage.persistence.StorageCatalogSavedData
@@ -187,6 +228,6 @@ public final class ECOInfiniteStorageDomains {
     }
 
     private static Path legacy2042File(Path directory, UUID domainId) {
-        return directory.resolve("neoecoae_infinite/domain_" + domainId + ".dat");
+        return directory.resolve(LEGACY_2042_DIRECTORY).resolve(LEGACY_2042_PREFIX + domainId + ".dat");
     }
 }

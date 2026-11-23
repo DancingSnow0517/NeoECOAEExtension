@@ -20,6 +20,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.UuidArgument;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
@@ -56,6 +57,9 @@ public final class NECommands {
             .then(literal("clear_fx_workers").executes(context -> clearFxWorkers(context.getSource())))
             .then(literal("storage_recover")
                 .then(argument("uuid", UuidArgument.uuid())
+                    .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                        ECOInfiniteStorageDomains.discoverIds(context.getSource().getServer()).stream().map(UUID::toString),
+                        builder))
                     .executes(context -> armRecovery(context.getSource(), UuidArgument.getUuid(context, "uuid"), false))
                     .then(argument("pos", BlockPosArgument.blockPos())
                         .executes(context -> executeRecover(context.getSource(), UuidArgument.getUuid(context, "uuid"),
