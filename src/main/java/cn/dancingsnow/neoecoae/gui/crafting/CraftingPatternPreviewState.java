@@ -20,13 +20,16 @@ import java.util.BitSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
@@ -39,9 +42,16 @@ final class CraftingPatternPreviewState {
     private final int[] displayed = new int[slots.length];
     /** Which disk recipe the row currently shows, or {@code -1} when it shows the entry itself. */
     private final int[] displayedSubs = new int[slots.length];
-    private final PatternPreviewRows rows = new PatternPreviewRows();
+    private final PatternPreviewRows rows;
     private final PatternPreviewNativeSlots nativeSlots;
     private CraftingInterfaceUI.PatternPreview nativePreview;
+    private final int[] wanted = new int[slots.length];
+    private int[] lastRequested;
+    private long requestInFlight;
+    private long requestedEpoch;
+    private int requestedRevision = -1;
+    private int windowDelay;
+    private boolean catalogueConfirmed;
     // The UI owns this callback; the block entity must not retain a closed screen.
     private final Consumer<CompoundTag> receiver = this::receive;
     private PatternPreviewEntry[] entries = new PatternPreviewEntry[0];
@@ -58,6 +68,8 @@ final class CraftingPatternPreviewState {
     private int menuId = -1;
     private int requestedMenuId = -1;
     private String inputSearch = "", outputSearch = "";
+    private String focusedSearch = "";
+    private int searchCursor;
     private int scrollRow;
     private double scrollOffset;
     private double scrollTarget;
@@ -66,18 +78,40 @@ final class CraftingPatternPreviewState {
         @Override protected boolean removeEldestEntry(Map.Entry<AEItemKey, PatternSearchKeywords.Directions> entry) { return size() > 4096; }
     };
 
-    CraftingPatternPreviewState(ECOMachineInterfaceBlockEntity<?> craftingInterface, Player player) {
+    record Viewport(PatternPreviewRows rows, PatternPreviewEntry[] entries, int revision, long epoch,
+                    double scrollOffset, double scrollTarget, int[] wanted, String focusedSearch, int searchCursor) {}
+
+    CraftingPatternPreviewState(ECOMachineInterfaceBlockEntity<?> craftingInterface, BlockUIMenuType.BlockUIHolder holder) {
         this.craftingInterface = craftingInterface;
-        this.player = player;
-        this.nativeSlots = new PatternPreviewNativeSlots(craftingInterface, player, this);
+        this.player = holder.player;
+        var data = holder.menuData();
+        var sync = craftingInterface.getPatternPreviewSync();
+        Viewport continued = player.level().isClientSide ? sync.takeViewport(data.getLong("request")) : null;
+        rows = continued == null ? new PatternPreviewRows() : continued.rows();
+        nativeSlots = new PatternPreviewNativeSlots(craftingInterface, player, data);
         Arrays.fill(displayed, -1);
         Arrays.fill(displayedSubs, -1);
+        Arrays.fill(wanted, -1);
         if (player.level().isClientSide) {
-            var sync = craftingInterface.getPatternPreviewSync();
             sync.listen(receiver);
             var view = sync.clientView();
             inputSearch = boundedQuery(view.inputSearch());
             outputSearch = boundedQuery(view.outputSearch());
+            if (continued != null) {
+                entries = continued.entries();
+                revision = continued.revision();
+                epoch = continued.epoch();
+                scrollOffset = continued.scrollOffset();
+                scrollTarget = continued.scrollTarget();
+                catalogueConfirmed = epoch == data.getLong("epoch");
+                requestedEpoch = epoch;
+                requestedRevision = revision;
+                lastRequested = continued.wanted();
+                focusedSearch = continued.focusedSearch();
+                searchCursor = continued.searchCursor();
+                clampScroll();
+                return;
+            }
             scrollRow = view.scrollRow();
             rows.filter(inputSearch, outputSearch);
             var snapshot = sync.clientSnapshot();
@@ -103,8 +137,19 @@ final class CraftingPatternPreviewState {
             requestedMenuId = menu.containerId;
             craftingInterface.getPatternPreviewSync().requestOpen(menuId, revision, epoch);
         }
-        if (nativePreview != null && nativePreview.activeMenu() && nativeSlots.needsView())
-            nativePreview.sendNativeView();
+        if (windowDelay > 0) windowDelay--;
+        if (catalogueConfirmed && pending == null && requestInFlight == 0 && windowDelay == 0
+                && scrollOffset == scrollTarget && nativePreview != null && nativePreview.activeMenu()
+                && nativePreview.getModularUI().getLastMouseDownButton() < 0
+                && nativeSlots.needsWindow(epoch, wanted)
+                && (epoch != requestedEpoch || revision != requestedRevision || !Arrays.equals(lastRequested, wanted))) {
+            requestedEpoch = epoch;
+            requestedRevision = revision;
+            lastRequested = wanted.clone();
+            do { requestInFlight = ThreadLocalRandom.current().nextLong(); } while (requestInFlight == 0);
+            rememberViewport();
+            nativePreview.requestWindow(epoch, requestInFlight, lastRequested);
+        }
     }
 
     PatternItemSlot createSlot(int visualSlot) {
@@ -113,11 +158,18 @@ final class CraftingPatternPreviewState {
                 PatternItemSlot.class, () -> new PatternItemSlot(local));
         slots[visualSlot] = slot;
         slot.displayStack(() -> displayStack(visualSlot));
-        slot.nativeClickHandler((button, type, actor) -> nativeSlots.click(visualSlot, button, type, actor));
-        slot.setVisible(false);
-        slot.setActive(false);
-        if (visualSlot == slots.length - 1) {
-            updateSlots();
+        slot.slotStyle(style -> style.acceptQuickMove(false));
+        slot.nativeClickHandler((button, type, actor) -> {
+            if (type == ClickType.QUICK_MOVE) return PatternMenuActions.toPlayer(actor, slot.getMenuSlot(), button);
+            if (type == ClickType.PICKUP && button == 0 && hasCarriedPattern()) {
+                insertCarriedPattern();
+                return ItemStack.EMPTY;
+            }
+            return null;
+        });
+        if (player.level().isClientSide) {
+            slot.setVisible(false);
+            if (visualSlot == slots.length - 1) updateSlots();
         }
         slot.highlighted(() -> displayed[visualSlot] >= 0 && (!inputSearch.isBlank() || !outputSearch.isBlank()));
         slot.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
@@ -135,22 +187,33 @@ final class CraftingPatternPreviewState {
     }
 
     void attachNativePreview(CraftingInterfaceUI.PatternPreview preview) { nativePreview = preview; }
-    PatternPreviewNativeSlots nativeSlots() { return nativeSlots; }
+
+    boolean openWindow(ServerPlayer actor, long requestEpoch, long request, int[] requested) {
+        return craftingInterface.openNativePatternWindow(actor, requestEpoch, request, requested);
+    }
+
+    void windowRejected(long request) {
+        if (request != requestInFlight) return;
+        craftingInterface.getPatternPreviewSync().takeViewport(request);
+        requestInFlight = 0;
+    }
+
+    private void rememberViewport() {
+        if (requestInFlight != 0 && pending == null) {
+            craftingInterface.getPatternPreviewSync().rememberViewport(requestInFlight,
+                new Viewport(rows, entries, revision, epoch, scrollOffset, scrollTarget, lastRequested, focusedSearch,
+                    searchCursor));
+        }
+    }
 
     boolean hasCarriedPattern() {
         return PatternDetailsHelper.isEncodedPattern(player.containerMenu.getCarried());
     }
 
-    boolean hasEmptyPhysicalSlot() {
-        for (int index = 0; index < entries.length; index++) {
-            PatternPreviewEntry entry = entries[index];
-            if (entry != null && !awaitingEntries.get(index) && !entry.auxiliaryDisk() && entry.stack().isEmpty()) return true;
-        }
-        return false;
-    }
-
-    void bindPlayerNativeClick(cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot slot) {
-        slot.nativeClickHandler((button, type, actor) -> nativeSlots.quickMoveFromPlayer(slot.getSlot(), type));
+    void insertCarriedPattern() {
+        if (player.level().isClientSide) return;
+        var menu = player.containerMenu;
+        menu.setCarried(craftingInterface.insertNativePatternPreview(player, menu.getCarried(), false));
     }
 
     void receive(CompoundTag payload) {
@@ -165,11 +228,14 @@ final class CraftingPatternPreviewState {
             menuId = payload.getInt("menu");
             revision = payload.getInt("revision");
             pending = null;
+            catalogueConfirmed = true;
+            updateSlots();
             return;
         }
         boolean full = payload.getBoolean("full");
         if (payload.getBoolean("first")) {
             pendingEpoch = incomingEpoch;
+            if (incomingEpoch != epoch) catalogueConfirmed = false;
             pending = null;
             pendingChanges.clear();
             receivedEntries = 0;
@@ -268,6 +334,7 @@ final class CraftingPatternPreviewState {
         pending = null;
         revision = pendingRevision;
         epoch = pendingEpoch;
+        catalogueConfirmed = true;
         craftingInterface.getPatternPreviewSync().cacheClientSnapshot(epoch, revision, entries);
         if (pendingFull && !sparseFull) {
             rows.reset(entries);
@@ -354,6 +421,18 @@ final class CraftingPatternPreviewState {
     String getInputSearch() { return inputSearch; }
     String getOutputSearch() { return outputSearch; }
 
+    String getFocusedSearch() { return focusedSearch; }
+
+    int getSearchCursor() { return searchCursor; }
+
+    void setFocusedSearch(String direction, int cursor) {
+        if (!direction.equals(focusedSearch) || searchCursor != cursor) {
+            focusedSearch = direction;
+            searchCursor = cursor;
+            rememberViewport();
+        }
+    }
+
     void setOutputSearch(String value) {
         String next = boundedQuery(value);
         if (!outputSearch.equals(next)) {
@@ -367,6 +446,7 @@ final class CraftingPatternPreviewState {
     }
 
     private void resetFilter() {
+        windowDelay = 5;
         scrollRow = 0;
         scrollOffset = scrollTarget = 0;
         rebuildFilter();
@@ -390,7 +470,6 @@ final class CraftingPatternPreviewState {
 
     private void updateSlots() {
         int start = scrollRow * CraftingInterfaceUI.PREVIEW_COLUMNS;
-        PatternPreviewNativeSlots.Target[] targets = new PatternPreviewNativeSlots.Target[slots.length];
         for (int visual = 0; visual < slots.length; visual++) {
             PatternPreviewRows.Cell cell = rows.cell(start + viewportSlot(visual));
             int index = cell == null ? -1 : cell.entry();
@@ -398,33 +477,22 @@ final class CraftingPatternPreviewState {
             displayed[visual] = index;
             displayedSubs[visual] = sub;
             PatternPreviewEntry entry = index >= 0 ? entries[index] : null;
-            targets[visual] = new PatternPreviewNativeSlots.Target(entry == null ? 0 : entry.busPosition(),
-                entry == null ? -1 : entry.physicalSlot(), sub, true);
+            wanted[visual] = entry != null && !entry.auxiliaryDisk() && sub < 0 && !awaitingEntries.get(index)
+                && (viewportSlot(visual) < CraftingInterfaceUI.PREVIEW_ROWS * CraftingInterfaceUI.PREVIEW_COLUMNS
+                    || getRowOffset() > 0) ? index : -1;
         }
-        // Recycle only the row crossing the edge. Catalogue data never rewrites native predicted contents.
-        nativeSlots.view(targets);
-        updateNativeVisibility();
+        nativeSlots.updateView(pending != null ? pendingEpoch : epoch, wanted);
+        for (PatternItemSlot slot : slots) if (slot != null) slot.setVisible(true);
         updateSlotTransforms();
         craftingInterface.getPatternPreviewSync().cacheClientView(inputSearch, outputSearch, scrollRow);
-    }
-
-    void updateNativeVisibility() {
-        for (int visual = 0; visual < slots.length; visual++) {
-            if (slots[visual] == null) continue;
-            // Keep drawing while native interaction waits for its mapping acknowledgement.
-            // The preview's clip handles both partial rows without changing the native view per pixel.
-            boolean visible = nativeSlots.visible(visual);
-            if (slots[visual].isDisplay() != visible) slots[visual].setDisplay(visible);
-            if (slots[visual].isVisible() != visible) slots[visual].setVisible(visible);
-            if (slots[visual].isActive() != visible) slots[visual].setActive(visible);
-        }
+        rememberViewport();
     }
 
     private ItemStack displayStack(int visual) {
+        if (nativeSlots.isVisible(visual)) return slots[visual].getValue();
         int index = displayed[visual];
-        ItemStack fallback = index < 0 ? ItemStack.EMPTY : displayedSubs[visual] < 0
+        return index < 0 ? ItemStack.EMPTY : displayedSubs[visual] < 0
             ? entries[index].stack() : entries[index].diskPatterns().get(displayedSubs[visual]).stack();
-        return nativeSlots.displayStack(visual, fallback);
     }
 
     private int viewportSlot(int visual) {
@@ -474,10 +542,14 @@ final class CraftingPatternPreviewState {
     private void moveScrollTo(double pixels) {
         if (scrollOffset == pixels) return;
         int previousRow = scrollRow;
+        boolean wasAligned = getRowOffset() == 0;
         scrollOffset = pixels;
         scrollRow = (int) (pixels / 18);
-        if (previousRow != scrollRow) updateSlots();
-        else updateSlotTransforms();
+        if (previousRow != scrollRow || wasAligned != (getRowOffset() == 0)) updateSlots();
+        else {
+            updateSlotTransforms();
+            rememberViewport();
+        }
     }
 
     private void updateSlotTransforms() {

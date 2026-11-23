@@ -3,14 +3,12 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 import static cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity.COL_SIZE;
 import static cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity.ROW_SIZE;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
-import cn.dancingsnow.neoecoae.gui.common.ShiftQuickMove;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
 import com.google.gson.JsonObject;
-import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.slot.ItemHandlerSlot;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.data.TextWrap;
@@ -22,19 +20,20 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.AlignContent;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.FlexDirection;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
 import java.util.function.IntConsumer;
-import java.util.function.IntSupplier;
+import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
-import net.minecraftforge.items.IItemHandlerModifiable;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
 
 /** Pattern-bus layout and page buttons over a machine-owned inventory view. */
 public final class CraftingPatternBusUI {
     private CraftingPatternBusUI() {}
 
-    public record Config(Supplier<Component> title, IItemHandlerModifiable inventory,
-                         IntSupplier pageCount, IntSupplier currentPage, IntConsumer changePage) {}
+    public record Config(Supplier<Component> title, IntFunction<Slot> slots, ModularUI.HostQuickMove quickMove,
+                         int pageCount, int currentPage, IntConsumer changePage) {}
 
     private static final int PAGE_BUTTON_SIZE = 16;
     private static final int PAGE_CONTROL_GAP = 4;
@@ -51,27 +50,22 @@ public final class CraftingPatternBusUI {
         new ResourceLocation("neoecoae", "screens/crafting/crafting_pattern_bus");
 
     public static ModularUI create(Config config, Player player) {
-        ShiftQuickMove quickMove = new ShiftQuickMove();
-        UIElement root = NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config, quickMove));
-        quickMove.attachRoot(root);
-        return ECOModularUI.create(root, player);
+        UIElement root = NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config));
+        return ECOModularUI.create(root, player, config.quickMove());
     }
 
     private static final class JsonContext implements NeoUiJsonContext {
         private final Config config;
-        private final ShiftQuickMove quickMove;
-
-        private JsonContext(Config config, ShiftQuickMove quickMove) {
+        private JsonContext(Config config) {
             this.config = config;
-            this.quickMove = quickMove;
         }
 
         @Override
         public UIElement createCustom(JsonObject node) {
             return switch (string(node, "custom", "")) {
                 case "header" -> headerRow(config);
-                case "pattern_inventory" -> patternInventory(config, quickMove);
-                case "player_inventory" -> playerInventory(quickMove);
+                case "pattern_inventory" -> patternInventory(config);
+                case "player_inventory" -> playerInventory();
                 default -> throw new IllegalArgumentException("Unknown crafting pattern bus custom element: "
                     + string(node, "custom", ""));
             };
@@ -91,17 +85,18 @@ public final class CraftingPatternBusUI {
         }
     }
 
-    private static UIElement patternInventory(Config config, ShiftQuickMove quickMove) {
+    private static UIElement patternInventory(Config config) {
         UIElement patternInv = new UIElement().addClass("panel_border");
         for (int row = 0; row < COL_SIZE; row++) {
             UIElement rowInv = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
             for (int col = 0; col < ROW_SIZE; col++) {
                 int slotIndex = row * ROW_SIZE + col;
-                ItemSlot slot = new PatternItemSlot(new ItemHandlerSlot(config.inventory(), slotIndex));
+                ItemSlot slot = new PatternItemSlot(config.slots().apply(slotIndex));
                 slot.slotStyle(style -> style.slotOverlay(AETextures.icon(ECOIcon.BACKGROUND_BLANK_PATTERN))
-                    .showSlotOverlayOnlyEmpty(true))
+                    .showSlotOverlayOnlyEmpty(true).acceptQuickMove(false))
                     .addClass("eco-pattern-slot");
-                quickMove.addMenuSlot(slot);
+                slot.nativeClickHandler((button, type, actor) -> type == ClickType.QUICK_MOVE
+                    ? PatternMenuActions.toPlayer(actor, slot.getMenuSlot(), button) : null);
                 rowInv.addChild(slot);
             }
             patternInv.addChild(rowInv);
@@ -109,15 +104,14 @@ public final class CraftingPatternBusUI {
         return patternInv;
     }
 
-    private static UIElement playerInventory(ShiftQuickMove quickMove) {
+    private static UIElement playerInventory() {
         InventorySlots inventory = new InventorySlots();
         inventory.layout(layout -> layout.marginTop(5));
-        inventory.apply(quickMove::addMenuSlot);
         return inventory;
     }
 
     private static UIElement headerRow(Config config) {
-        boolean showPageControls = config.pageCount().getAsInt() > 1;
+        boolean showPageControls = config.pageCount() > 1;
         UIElement row = new UIElement().layout(layout -> {
             layout.width(UI_CONTENT_WIDTH);
             layout.height(showPageControls ? HEADER_HEIGHT : SINGLE_PAGE_HEADER_HEIGHT);
@@ -148,7 +142,7 @@ public final class CraftingPatternBusUI {
             layout.width(PAGE_CONTROLS_WIDTH);
             layout.height(PAGE_BUTTON_SIZE);
         });
-        controls.addChild(pageButton("<", () -> config.changePage().accept(config.currentPage().getAsInt() - 1)).layout(layout -> {
+        controls.addChild(pageButton("<", () -> config.changePage().accept(config.currentPage() - 1)).layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.left(0);
             layout.top(0);
@@ -156,7 +150,7 @@ public final class CraftingPatternBusUI {
             layout.height(PAGE_BUTTON_SIZE);
         }));
         TextElement pageNumber = new TextElement()
-            .setText(Component.literal((config.currentPage().getAsInt() + 1) + "/" + config.pageCount().getAsInt()));
+            .setText(Component.literal((config.currentPage() + 1) + "/" + config.pageCount()));
         controls.addChild(pageNumber.layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.left(PAGE_BUTTON_SIZE + PAGE_CONTROL_GAP);
@@ -164,7 +158,7 @@ public final class CraftingPatternBusUI {
             layout.width(PAGE_LABEL_WIDTH);
             layout.height(PAGE_BUTTON_SIZE);
         }));
-        controls.addChild(pageButton(">", () -> config.changePage().accept(config.currentPage().getAsInt() + 1)).layout(layout -> {
+        controls.addChild(pageButton(">", () -> config.changePage().accept(config.currentPage() + 1)).layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.left(PAGE_BUTTON_SIZE + PAGE_CONTROL_GAP + PAGE_LABEL_WIDTH + PAGE_CONTROL_GAP);
             layout.top(0);

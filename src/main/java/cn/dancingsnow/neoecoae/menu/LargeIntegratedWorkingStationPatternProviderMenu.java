@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.menu;
 
 import appeng.api.inventories.InternalInventory;
 import appeng.api.upgrades.IUpgradeInventory;
-import appeng.api.upgrades.Upgrades;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.menu.SlotSemantic;
 import appeng.menu.SlotSemantics;
@@ -54,40 +53,16 @@ public class LargeIntegratedWorkingStationPatternProviderMenu extends PatternPro
         return ((LargeWorkstationPatternProvider) logic).getCapacityUpgrades();
     }
 
-    protected boolean isValidQuickMoveDestination(Slot slot, ItemStack stack, boolean fromPlayerSide) {
-        if (fromPlayerSide) {
-            SlotSemantic target = Upgrades.isUpgradeCardItem(stack)
-                ? SlotSemantics.UPGRADE : SlotSemantics.ENCODED_PATTERN;
-            if (getSlotSemantic(slot) != target) return false;
-        }
-        return slot.mayPlace(stack);
-    }
-
-    /** AE2 15 has no quick-move destination hook, so route player inputs through the semantic slots here. */
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
-        if (index < 0 || index >= slots.size()) return ItemStack.EMPTY;
+        if (player.level().isClientSide || player.containerMenu != this || !stillValid(player)
+            || index < 0 || index >= slots.size()) return ItemStack.EMPTY;
         Slot source = slots.get(index);
-        if (source.container != getPlayerInventory()) return super.quickMoveStack(player, index);
         if (!source.hasItem() || !source.mayPickup(player)
-            || isPlayerInventorySlotLocked(source.getContainerSlot())) return ItemStack.EMPTY;
-        ItemStack original = source.getItem().copy();
-        ItemStack remaining = original.copy();
-        SlotSemantic target = Upgrades.isUpgradeCardItem(remaining)
-            ? SlotSemantics.UPGRADE : SlotSemantics.ENCODED_PATTERN;
-        // Merge existing stacks before filling empty slots, preserving all unaccepted player items.
-        for (int pass = 0; pass < 2 && !remaining.isEmpty(); pass++) {
-            for (Slot slot : getSlots(target)) {
-                if ((pass == 0) != slot.hasItem() || !isValidQuickMoveDestination(slot, remaining, true)) continue;
-                remaining = slot.safeInsert(remaining);
-                if (remaining.isEmpty()) break;
-            }
+            || (source.container == getPlayerInventory() && isPlayerInventorySlotLocked(source.getContainerSlot()))) {
+            return ItemStack.EMPTY;
         }
-        if (remaining.getCount() == original.getCount()) return ItemStack.EMPTY;
-        source.set(remaining);
-        source.setChanged();
-        source.onTake(player, original.copyWithCount(original.getCount() - remaining.getCount()));
-        return original;
+        return super.quickMoveStack(player, index);
     }
 
     /** Build our fixed physical slots after the superclass, so both sides use identical slot indices. */

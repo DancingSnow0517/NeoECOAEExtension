@@ -37,6 +37,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.server.level.ServerPlayer;
 import cn.dancingsnow.neoecoae.menu.FluidHatchStockAmount;
 import net.minecraftforge.fluids.FluidStack;
@@ -96,8 +97,14 @@ public final class FluidInputHatchUI {
         InventorySlots inventory = new InventorySlots().bind(player.getInventory());
         inventory.apply(slot -> slot.style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
         root.addChild(HostElements.absolute(inventory, 7, 74, 162, 76));
+        var upgradeSlot = new ItemHandlerSlot(host.getUpgrades().toItemHandler(), 0) {
+            @Override
+            public boolean mayPlace(ItemStack stack) {
+                return host.canPlayerUse(player) && super.mayPlace(stack);
+            }
+        }.setCanTake(host::canPlayerUse);
         root.addChild(HostSideButtonBar.rightSlots(List.of(HostElements.tooltips(
-            new ItemSlot(new ItemHandlerSlot(host.getUpgrades().toItemHandler(), 0))
+            new ItemSlot(upgradeSlot)
                 .slotStyle(style -> style.slotOverlay(AETextures.icon(ECOIcon.BACKGROUND_UPGRADE))
                     .showSlotOverlayOnlyEmpty(true)), text("upgrade")))));
 
@@ -120,7 +127,7 @@ public final class FluidInputHatchUI {
         };
         state.registerValueListener(apply);
         apply.accept(state.getValue());
-        return ECOModularUI.create(root, player);
+        return RealSlotQuickMove.install(ECOModularUI.create(root, player));
     }
 
     /** Same borderless idle/hover artwork as the 1.21.1 stock amount control. */

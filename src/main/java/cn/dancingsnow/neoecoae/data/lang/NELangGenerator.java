@@ -4,6 +4,15 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("command.neoecoae.storage_recover.invalid_host", "Right-click a formed host in infinite mode with its infinite components installed and no migration or restore in progress.");
+        provider.add("command.neoecoae.storage_recover.invalid_members", "Recovery refused: member matrices are missing, invalid, duplicated, foreign, or still migrating.");
+        provider.add("command.neoecoae.storage_recover.mounted", "Recovery refused: another loaded host is using one of these domains.");
+        provider.add("command.neoecoae.storage_recover.not_found", "No saved infinite storage domain exists for UUID %s.");
+        provider.add("command.neoecoae.storage_recover.occupied", "Recovery refused: the host must have a healthy domain with no pending transfers. To switch UUIDs, empty the current domain first.");
+        provider.add("command.neoecoae.storage_recover.select_host", "Right-click a formed host that is already in infinite mode.");
+        provider.add("command.neoecoae.storage_recover.success", "Infinite storage recovered: %s");
+        provider.add("command.neoecoae.storage_recover.unhealthy", "Recovery refused: resolve storage data, persistence, or unfinished transfer problems and retry.");
+
         provider.add("item.neoecoae.dev_resource_generator", "Dev Random Resource Generator / Cell");
         provider.add("neoecoae.configuration.keyReuse", "AE key reuse");
         provider.add("neoecoae.configuration.keyReuse.tooltip", "Local cache settings. Value equality and saved inventories remain compatible.");

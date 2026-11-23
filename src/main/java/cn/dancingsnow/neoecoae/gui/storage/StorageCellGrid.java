@@ -1,11 +1,11 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.gui.common.DriveMenuSlot;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import java.util.function.Supplier;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
-import cn.dancingsnow.neoecoae.gui.common.ShiftQuickMove;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.storage.ECOStorageCellSettings;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
@@ -20,10 +20,12 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.rendering.GUIContext;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.nbt.CompoundTag;
 
 /** JSON-positioned disk items. A click identifies the displayed physical drive, independent of paging. */
@@ -31,9 +33,7 @@ final class StorageCellGrid extends UIElement {
     private final StoragePanelSync sync;
     private final int columns;
     private final Supplier<IECOTier> panelTier;
-    private final ShiftQuickMove extractionDrag;
-    private final RPCEmitter extraction;
-    private final RPCEmitter insertion;
+    private final List<CellSlot> slots = new ArrayList<>();
     private final RPCEmitter migrateMarked;
     private final RPCEmitter previewMigration;
     private final RPCEmitter openConfiguration;
@@ -41,26 +41,20 @@ final class StorageCellGrid extends UIElement {
     private final ECOBulkMigrationDialog migrationDialog;
     private BlockPos previewedPosition;
     private UUID previewedCell;
-    private boolean interacting;
 
     StorageCellGrid(StoragePanelSync sync, int columns, StorageHostUI.Config config) {
         this(sync, columns, config, () -> null);
     }
 
     StorageCellGrid(StoragePanelSync sync, int columns, StorageHostUI.Config config, Supplier<IECOTier> panelTier) {
-        this(sync, columns, config, panelTier, null);
+        this(sync, columns, config, panelTier, Map.of());
     }
 
     StorageCellGrid(StoragePanelSync sync, int columns, StorageHostUI.Config config, Supplier<IECOTier> panelTier,
-        ShiftQuickMove extractionDrag) {
+        Map<BlockPos, Slot> menuSlots) {
         this.sync = sync;
         this.panelTier = panelTier;
         this.columns = columns;
-        this.extractionDrag = extractionDrag;
-        extraction = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, UUID.class, Boolean.class, Boolean.class,
-            (position, expected, shift) -> isOpenMenu(config) && config.cellExtractor().extract(position, expected, shift)));
-        insertion = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, ItemStack.class, Boolean.class,
-            (position, expected) -> isOpenMenu(config) && config.cellInserter().insert(position, expected)));
         openConfiguration = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, UUID.class, Boolean.class,
             (position, expected) -> {
                 if (!isOpenMenu(config)) return false;
@@ -94,9 +88,13 @@ final class StorageCellGrid extends UIElement {
             config.cellActions().openPriority(),
             (position, expected) -> openConfiguration.send(ignored -> {}, position, expected),
             config.cellActions().openCompressionDisplay());
-        for (int i = 0; i < columns * 3; i++) {
-            addChild(new CellSlot(i));
-        }
+        menuSlots.forEach((position, slot) -> {
+            var element = new CellSlot(position, slot);
+            slots.add(element);
+            addChild(element);
+        });
+        updateViewport();
+        sync.onChanged(this::updateViewport);
         addEventListener(UIEvents.MOUSE_WHEEL, event -> {
             if (event.deltaY == 0) return;
             sync.scroll(event.deltaY < 0 ? 1 : -1);
@@ -104,7 +102,20 @@ final class StorageCellGrid extends UIElement {
         });
     }
 
-    private void openActionsPopup(StorageHostUI.CellEntry cell, int index, UIEvent event) {
+    private void updateViewport() {
+        var cells = sync.state().cells();
+        var indices = new java.util.HashMap<BlockPos, Integer>();
+        for (int index = 0; index < cells.size(); index++) {
+            var position = cells.get(index).position();
+            if (position != null) indices.put(position, index);
+        }
+        boolean layoutChanged = false;
+        for (var slot : slots) layoutChanged |= slot.moveTo(indices.getOrDefault(slot.position, -1));
+        var mui = getModularUI();
+        if (layoutChanged && mui != null && mui.isRemote()) mui.getRootElement().arrange();
+    }
+
+    private void openActionsPopup(StorageHostUI.CellEntry cell, CellSlot slot, UIEvent event) {
         UIElement root = this;
         while (root.getParentElement() != null) root = root.getParentElement();
         if (actionsPopup.getParent() == null) {
@@ -117,7 +128,7 @@ final class StorageCellGrid extends UIElement {
                 }
             }, true);
         }
-        actionsPopup.open(cell, () -> cell(index),
+        actionsPopup.open(cell, () -> cell(slot.index),
             event.x - root.getPositionX() + 2,
             event.y - root.getPositionY() + 2,
             Math.round(root.getSizeWidth()), Math.round(root.getSizeHeight()));
@@ -142,7 +153,7 @@ final class StorageCellGrid extends UIElement {
 
     private StorageHostUI.CellEntry cell(int index) {
         List<StorageHostUI.CellEntry> cells = sync.state().cells();
-        return index < cells.size() ? cells.get(index) : StorageHostUI.CellEntry.EMPTY;
+        return index >= 0 && index < cells.size() ? cells.get(index) : StorageHostUI.CellEntry.EMPTY;
     }
 
     @Override
@@ -161,55 +172,36 @@ final class StorageCellGrid extends UIElement {
     }
 
     final class CellSlot extends ItemSlot {
-        private final int index;
+        private final BlockPos position;
+        private int index = -2;
 
-        CellSlot(int index) {
-            this.index = index;
-            layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(index % columns * 18)
-                .top(index / columns * 18).width(16).height(16).paddingAll(0));
+        CellSlot(BlockPos position, Slot slot) {
+            super(slot);
+            if (slot instanceof DriveMenuSlot drive) nativeClickHandler(drive::click);
+            this.position = position;
+            layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).width(16).height(16).paddingAll(0));
             style(style -> style.backgroundTexture(IGuiTexture.EMPTY).overflowVisible(true));
             slotStyle(style -> style.hoverOverlay(NETextures.AE2_SLOT_HIGHLIGHT));
-            if (extractionDrag != null) extractionDrag.addSlot(this, this::quickExtract);
         }
 
-        @Override public ItemStack getValue() { return cell(index).stack(); }
+        private boolean moveTo(int next) {
+            if (index == next) return false;
+            index = next;
+            setDisplay(next >= 0);
+            if (next >= 0) layout(layout -> layout.left(next % columns * 18).top(next / columns * 18));
+            return true;
+        }
 
         @Override
         protected void onMouseDown(UIEvent event) {
-            // Local display slots never enter vanilla's changing slot-index map.
-            event.stopImmediatePropagation();
-            event.hasHandler = true;
-            if (event.button != 0 && event.button != 1 || interacting) return;
             var cell = cell(index);
-            if (cell.position() == null) return;
-            if (event.button == 0 && extractionDrag != null && extractionDrag.begin(this, event)) {
-                quickExtract();
-                return;
-            }
-            if (event.button == 1 && cell.interactionId() != null && ECOStorageCellSettings.canConfigure(cell.stack())) {
-                openActionsPopup(cell, index, event);
-                return;
-            }
             var mui = getModularUI();
-            if (mui == null || mui.getMenu() == null) return;
-            ItemStack carried = mui.getMenu().getCarried();
-            if (!carried.isEmpty()) {
-                if (!cell.stack().isEmpty()) return;
-                interacting = true;
-                if (!insertion.send((Boolean success) -> interacting = false,
-                    cell.position(), carried.copy())) interacting = false;
-            } else if (!cell.stack().isEmpty() && cell.interactionId() != null) {
-                interacting = true;
-                if (!extraction.send((Boolean success) -> interacting = false,
-                    cell.position(), cell.interactionId(), UIElement.isShiftDown())) interacting = false;
-            }
-        }
-
-        private void quickExtract() {
-            var cell = cell(index);
-            if (!interacting && !actionsPopup.isOpen() && cell.position() != null
-                && cell.interactionId() != null && !cell.stack().isEmpty()) {
-                extraction.send(ignored -> {}, cell.position(), cell.interactionId(), true);
+            if (event.button == 1 && !event.isShiftDown() && mui != null && mui.getMenu() != null
+                && mui.getMenu().getCarried().isEmpty() && cell.interactionId() != null
+                && ECOStorageCellSettings.canConfigure(getValue())) {
+                event.stopImmediatePropagation();
+                event.hasHandler = true;
+                openActionsPopup(cell, this, event);
             }
         }
 
@@ -226,11 +218,6 @@ final class StorageCellGrid extends UIElement {
         }
 
         @Override
-        protected void drawItemStack(GUIContext context, ItemStack stack) {
-            super.drawItemStack(context, stack);
-        }
-
-        @Override
         protected void drawHover(GUIContext context) {
             if (actionsPopup.isOpen() || !sync.state().formed() || cell(index).position() == null) return;
             // Custom slot subclasses do not inherit the item-slot stylesheet selector.
@@ -241,7 +228,7 @@ final class StorageCellGrid extends UIElement {
     List<Component> tooltip(int index) {
         StoragePanelState state = sync.state();
         List<Component> lines = new ArrayList<>();
-        if (index < state.cells().size() && state.cells().get(index).installed()) {
+        if (index >= 0 && index < state.cells().size() && state.cells().get(index).installed()) {
             StorageHostUI.CellEntry cell = state.cells().get(index);
             lines.add(cell.stack().getHoverName().copy());
             long byteCapacity = cell.infinite() || cell.totalBytes() == Long.MAX_VALUE ? -1 : cell.totalBytes();

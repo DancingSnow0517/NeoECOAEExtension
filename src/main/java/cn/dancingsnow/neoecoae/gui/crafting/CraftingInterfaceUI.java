@@ -13,6 +13,7 @@ import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory.BlockUIMenuType;
 import com.google.gson.JsonObject;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.IBindable;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.IDataSource;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -54,13 +56,15 @@ public final class CraftingInterfaceUI {
 
     private CraftingInterfaceUI() { }
 
-    public static ModularUI create(ECOMachineInterfaceBlockEntity<?> craftingInterface, Player player) {
-        CraftingPatternPreviewState previewState = new CraftingPatternPreviewState(craftingInterface, player);
+    public static ModularUI create(ECOMachineInterfaceBlockEntity<?> craftingInterface, BlockUIMenuType.BlockUIHolder holder) {
+        Player player = holder.player;
+        CraftingPatternPreviewState previewState = new CraftingPatternPreviewState(craftingInterface, holder);
         StatusTooltips operationStatus = new StatusTooltips(craftingInterface);
         UIElement root = NeoUiJsonLoader.load(JSON_LAYOUT,
             new JsonContext(craftingInterface, player, previewState, operationStatus));
         root.addEventListener(UIEvents.TICK, event -> previewState.tick());
-        return ECOModularUI.create(root, player);
+        return ECOModularUI.create(root, player,
+            (stack, simulate) -> craftingInterface.insertNativePatternPreview(player, stack, simulate));
     }
 
     /** Resource context keeps preview/search state and server actions out of the JSON document. */
@@ -85,19 +89,26 @@ public final class CraftingInterfaceUI {
                 case "title" -> boundLabel(() -> GuiTitleProvider.title(host.getBlockState(),
                     Component.translatable("gui.neoecoae.crafting_interface.title")));
                 case "operation_indicator" -> operationIndicator();
-                case "input_search" -> patternSearchField(previewState::setInputSearch, "inputs", false)
-                    .setSearchValue(previewState.getInputSearch());
-                case "output_search" -> patternSearchField(previewState::setOutputSearch, "output", false)
-                    .setSearchValue(previewState.getOutputSearch());
+                case "input_search" -> searchField(previewState::setInputSearch, "inputs", previewState.getInputSearch());
+                case "output_search" -> searchField(previewState::setOutputSearch, "output", previewState.getOutputSearch());
                 case "pattern_preview" -> patternPreview(previewState);
                 case "pattern_scrollbar" -> patternPreviewScrollbar(previewState);
                 case "side_controls" -> sideControls(host, player, operationStatus);
                 case "status_label" -> statusLabel();
                 case "transfer_progress" -> transferProgress();
-                case "player_inventory" -> playerInventory(previewState, false);
+                case "player_inventory" -> playerInventory(false);
                 default -> throw new IllegalArgumentException("Unknown crafting interface custom element: "
                     + string(node, "custom", ""));
             };
+        }
+
+        private SearchField searchField(Consumer<String> responder, String direction, String value) {
+            SearchField field = patternSearchField(responder, direction, false);
+            field.setSearchValue(value);
+            field.focusPreference = () -> direction.equals(previewState.getFocusedSearch());
+            field.focusListener = cursor -> previewState.setFocusedSearch(direction, cursor);
+            field.cursorPosition = previewState::getSearchCursor;
+            return field;
         }
 
         @Override
@@ -163,6 +174,9 @@ public final class CraftingInterfaceUI {
     /** Client bridge supplies the native EditBox; the shared tree also exists on dedicated servers. */
     public static class SearchField extends UIElement {
         private final Consumer<String> responder;
+        private java.util.function.BooleanSupplier focusPreference = () -> false;
+        private java.util.function.IntConsumer focusListener = cursor -> {};
+        private java.util.function.IntSupplier cursorPosition = () -> 0;
 
         public SearchField(Consumer<String> responder) {
             this.responder = responder == null ? value -> { } : responder;
@@ -171,6 +185,9 @@ public final class CraftingInterfaceUI {
 
         public SearchField setSearchHint(Component hint) { return this; }
         public SearchField setSearchValue(String value) { return this; }
+        public final boolean prefersFocus() { return focusPreference.getAsBoolean(); }
+        protected final void rememberFocus(int cursor) { focusListener.accept(cursor); }
+        protected final int rememberedCursor() { return cursorPosition.getAsInt(); }
         protected final void updateSearch(String value) { responder.accept(value); }
     }
 
@@ -180,19 +197,34 @@ public final class CraftingInterfaceUI {
         private long lastFrame;
 
         PatternPreview(CraftingPatternPreviewState state) { this.state = state; state.attachNativePreview(this); }
-        void sendNativeView() { writeClientAction(720, state.nativeSlots()::writeView); }
-
-        @Override public void handleClientAction(int id, net.minecraft.network.FriendlyByteBuf buffer) {
-            if (id != 720) { super.handleClientAction(id, buffer); return; }
-            if (!activeMenu()) return;
-            long generation = state.nativeSlots().readView(buffer);
-            // Send native contents first. The acknowledgement then enables exactly this viewport for clicks.
-            getModularUI().getMenu().broadcastChanges();
-            writeUpdateInfo(721, reply -> reply.writeLong(generation));
+        void requestWindow(long epoch, long request, int[] wanted) {
+            writeClientAction(720, buffer -> {
+                buffer.writeLong(epoch);
+                buffer.writeLong(request);
+                buffer.writeVarIntArray(wanted);
+            });
         }
 
-        @Override public void readUpdateInfo(int id, net.minecraft.network.FriendlyByteBuf buffer) {
-            if (id == 721) state.nativeSlots().acknowledge(buffer.readLong());
+        void requestCarriedInsert() { writeClientAction(722, buffer -> {}); }
+
+        @Override public void handleClientAction(int id, FriendlyByteBuf buffer) {
+            if (id != 720 && id != 722) { super.handleClientAction(id, buffer); return; }
+            if (!activeMenu() || !(getModularUI().player instanceof ServerPlayer player)) return;
+            if (id == 722) {
+                state.insertCarriedPattern();
+                player.containerMenu.broadcastChanges();
+                return;
+            }
+            long epoch = buffer.readLong();
+            long request = buffer.readLong();
+            int[] wanted = buffer.readVarIntArray(PREVIEW_BUFFER_SLOTS);
+            if (wanted.length != PREVIEW_BUFFER_SLOTS || !state.openWindow(player, epoch, request, wanted)) {
+                writeUpdateInfo(721, reply -> reply.writeLong(request));
+            }
+        }
+
+        @Override public void readUpdateInfo(int id, FriendlyByteBuf buffer) {
+            if (id == 721) state.windowRejected(buffer.readLong());
             else super.readUpdateInfo(id, buffer);
         }
 
@@ -227,7 +259,8 @@ public final class CraftingInterfaceUI {
     }
 
     static UIElement patternPreview(CraftingPatternPreviewState state) {
-        UIElement preview = new PatternPreview(state).setOverflowVisible(false);
+        PatternPreview preview = new PatternPreview(state);
+        preview.setOverflowVisible(false);
         preview.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
             if (state.hasCarriedPattern()) {
                 event.hoverTooltips = HoverTooltips.empty().append(Component.translatable(
@@ -236,6 +269,12 @@ public final class CraftingInterfaceUI {
         });
         preview.addEventListener(UIEvents.MOUSE_DOWN, event -> {
             state.stopScrolling();
+            if (event.button == 0 && !event.isShiftDown() && state.hasCarriedPattern()
+                    && !(event.target instanceof PatternItemSlot slot && slot.getMenuSlot().isActive())) {
+                preview.requestCarriedInsert();
+                event.hasHandler = true;
+                event.stopImmediatePropagation();
+            }
         }, true);
         preview.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
             if (event.deltaY != 0) {
@@ -305,14 +344,11 @@ public final class CraftingInterfaceUI {
         return element.getLocalMouse(x, y).y - element.getPositionY();
     }
 
-    private static UIElement playerInventory(CraftingPatternPreviewState state, boolean withLayout) {
+    private static UIElement playerInventory(boolean withLayout) {
         InventorySlots inventory = new InventorySlots();
         inventory.getChildren().forEach(child -> child.getStyle().backgroundTexture(IGuiTexture.EMPTY));
         inventory.hotbar.layout(layout -> layout.marginTop(4));
-        inventory.apply(slot -> {
-            slot.getStyle().backgroundTexture(IGuiTexture.EMPTY);
-            state.bindPlayerNativeClick(slot);
-        });
+        inventory.apply(slot -> slot.getStyle().backgroundTexture(IGuiTexture.EMPTY));
         return withLayout ? HostElements.absolute(inventory, 7, 152, PREVIEW_WIDTH, 76) : inventory;
     }
 

@@ -165,4 +165,6 @@ Ignore Creative Storage Input defaults to on and affects Input only. Exclude Sto
 
 An L9 host can migrate from Storage mode with at least 12 eligible L9 matrices in that host and 64 Infinite Storage Components in its component slot. Missing original members pause domain access. Component removal requires restoring all stock to compatible normal matrices with enough capacity and type slots. Bigger AE2 Digital Singularity cells do not participate in finite-cell migration.
 
+Administrators can run `/neoecoae storage_recover <uuid>` and right-click a formed host in infinite mode. To switch UUIDs, the current domain must be empty and all member matrices must be present. The original domain must still exist in the world save and be unmounted by other hosts. Resolve unfinished migrations, restores, and save faults first.
+
 The infinite domain accepts nonempty storage cells as items, preserving their NBT data without opening or expanding their inventories. Normal portable matrices retain their existing cell nesting restrictions. Before leaving infinite mode, extract any nonempty storage cells that the normal matrices cannot accept.

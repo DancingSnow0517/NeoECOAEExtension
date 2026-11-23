@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui.workstation;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import cn.dancingsnow.neoecoae.gui.common.RealSlotQuickMove;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingListCard;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
@@ -62,7 +63,7 @@ public final class LargeWorkstationUI {
         root.addChild(togglePriority == null ? HostSideButtonBar.left(guide)
             : HostSideButtonBar.left(guide, powerPriorityButton(fePreferred, togglePriority,
                 () -> panel.getValue() instanceof CompoundTag tag ? tag : new CompoundTag())));
-        return ECOModularUI.create(root, player);
+        return RealSlotQuickMove.install(ECOModularUI.create(root, player));
     }
 
     static Button powerPriorityButton(BooleanSupplier fePreferred, Runnable toggle, Supplier<CompoundTag> snapshot) {

@@ -18,6 +18,7 @@ final class StoragePanelSync {
     private int requestedOffset;
     private HostPanelTextureState textures = HostPanelTextureState.EMPTY;
     private StoragePanelState state = StoragePanelState.EMPTY;
+    private Runnable changed = () -> {};
 
     StoragePanelSync(UIElement parent, Supplier<StorageHostUI.Config> config, int pageSize) {
         this(parent, config, pageSize, null);
@@ -33,6 +34,7 @@ final class StoragePanelSync {
         synced.registerValueListener(value -> {
             state = StoragePanelState.fromTag(value, config.get().registries());
             textures = value instanceof CompoundTag tag ? HostPanelTextureState.read(tag) : HostPanelTextureState.EMPTY;
+            changed.run();
         });
         synced.setDisplay(false);
         pageRequest.bind(DataBindingBuilder.intValC2S(value -> requestedOffset = Math.max(0, value)).build());
@@ -43,6 +45,8 @@ final class StoragePanelSync {
     HostPanelTextureState textures() { return textures; }
 
     StoragePanelState state() { return state; }
+
+    void onChanged(Runnable listener) { changed = listener; }
 
     void scroll(int delta) {
         int next = StoragePanelState.pageOffset(state.cellOffset() + delta * pageSize, state.cellCount(), pageSize);
@@ -57,6 +61,7 @@ final class StoragePanelSync {
             : HostPanelTextureState.capture(hostState.get());
         CompoundTag tag = state.toTag(config.get().registries());
         textures.write(tag);
+        changed.run();
         return tag;
     }
 }

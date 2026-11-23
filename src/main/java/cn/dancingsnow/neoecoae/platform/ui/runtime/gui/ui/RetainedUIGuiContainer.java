@@ -1,14 +1,17 @@
 package cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui;
 
 import com.lowdragmc.lowdraglib.gui.modular.ModularUIGuiContainer;
+import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.ItemSlot;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.world.inventory.Slot;
 
 /** Keeps a fixed source layout usable when it is taller than the current GUI viewport. */
 public final class RetainedUIGuiContainer extends ModularUIGuiContainer {
     private final ModularUI retainedUI;
     private float renderScale=1;
+    private boolean logicalMouseCoordinates;
     private cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.utils.ModularUITooltipComponent contentTooltip;
 
     public RetainedUIGuiContainer(com.lowdragmc.lowdraglib.gui.modular.ModularUI ui,int windowId){
@@ -70,10 +73,11 @@ public final class RetainedUIGuiContainer extends ModularUIGuiContainer {
     @Override public void render(GuiGraphics graphics,int mouseX,int mouseY,float partialTicks){
         contentTooltip=null;
         graphics.pose().pushPose();
+        logicalMouseCoordinates = true;
         try{
             graphics.pose().scale(renderScale,renderScale,1);
             super.render(graphics,(int)Math.round(toLogical(mouseX)),(int)Math.round(toLogical(mouseY)),partialTicks);
-        }finally{graphics.flush();graphics.pose().popPose();}
+        }finally{logicalMouseCoordinates = false;graphics.flush();graphics.pose().popPose();}
         // Draw after the host scale is restored so tooltip placement uses actual screen bounds.
         if(contentTooltip!=null&&draggingElement==null){
             graphics.renderComponentTooltipFromElements(font,List.of(com.mojang.datafixers.util.Either.right(contentTooltip)),
@@ -88,10 +92,30 @@ public final class RetainedUIGuiContainer extends ModularUIGuiContainer {
         super.setHoverTooltip(contentTooltip==null?lines:List.of(),stack,tooltipFont,component);
     }
 
-    @Override public boolean mouseClicked(double x,double y,int button){return super.mouseClicked(toLogical(x),toLogical(y),button);}
-    @Override public boolean mouseReleased(double x,double y,int button){return super.mouseReleased(toLogical(x),toLogical(y),button);}
+    @Override
+    protected boolean isHovering(Slot slot, double mouseX, double mouseY) {
+        double logicalX = logicalMouseCoordinates ? mouseX : toLogical(mouseX);
+        double logicalY = logicalMouseCoordinates ? mouseY : toLogical(mouseY);
+        if (retainedUI == null) return super.isHovering(slot, logicalX, logicalY);
+        return super.isHovering(slot, logicalX, logicalY)
+            && retainedUI.hitTestAtScreen((float) logicalX, (float) logicalY) instanceof ItemSlot item
+            && item.getMenuSlot() == slot;
+    }
+
+    @Override public boolean mouseClicked(double x,double y,int button){
+        logicalMouseCoordinates = true;
+        try { return super.mouseClicked(toLogical(x), toLogical(y), button); }
+        finally { logicalMouseCoordinates = false; }
+    }
+    @Override public boolean mouseReleased(double x,double y,int button){
+        logicalMouseCoordinates = true;
+        try { return super.mouseReleased(toLogical(x), toLogical(y), button); }
+        finally { logicalMouseCoordinates = false; }
+    }
     @Override public boolean mouseDragged(double x,double y,int button,double dx,double dy){
-        return super.mouseDragged(toLogical(x),toLogical(y),button,toLogical(dx),toLogical(dy));
+        logicalMouseCoordinates = true;
+        try { return super.mouseDragged(toLogical(x), toLogical(y), button, toLogical(dx), toLogical(dy)); }
+        finally { logicalMouseCoordinates = false; }
     }
     @Override public void mouseMoved(double x,double y){super.mouseMoved(toLogical(x),toLogical(y));}
     @Override public boolean mouseScrolled(double x,double y,double delta){return super.mouseScrolled(toLogical(x),toLogical(y),delta);}

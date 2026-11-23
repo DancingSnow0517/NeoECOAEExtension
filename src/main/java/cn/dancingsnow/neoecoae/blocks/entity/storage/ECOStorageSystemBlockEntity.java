@@ -53,6 +53,7 @@ import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import cn.dancingsnow.neoecoae.platform.nbt.NEItemData;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -68,7 +69,7 @@ import org.slf4j.LoggerFactory;
 
 public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster, ECOStorageSystemBlockEntity>
         implements NEManagedBlockEntity, InternalInventoryHost, IStorageProvider, MultiBlockBuildController.Host,
-        IECOStoragePriorityHost {
+        IECOStoragePriorityHost, BlockUIMenuType.MenuData {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOStorageSystemBlockEntity.class);
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
     private static final long STORAGE_INTERFACE_TRANSFER_NANOS_PER_TICK = 2_000_000L;
@@ -288,7 +289,37 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         setChanged();
     }
 
+    @Override
+    public java.util.function.BooleanSupplier captureMenuValidity() {
+        var openingCluster = cluster;
+        return () -> cluster == openingCluster && (openingCluster == null || !openingCluster.isDestroyed());
+    }
+
+    @Override
+    public net.minecraft.nbt.CompoundTag createMenuData(Player player) {
+        var data = new net.minecraft.nbt.CompoundTag();
+        data.putLongArray("drives", getStorageUiDrives().stream().filter(java.util.Objects::nonNull)
+            .mapToLong(drive -> drive.getBlockPos().asLong()).toArray());
+        return data;
+    }
+
+    private java.util.Map<BlockPos, net.minecraft.world.inventory.Slot> driveMenuSlots(BlockUIMenuType.BlockUIHolder holder) {
+        var slots = new java.util.LinkedHashMap<BlockPos, net.minecraft.world.inventory.Slot>();
+        var openingCluster = cluster;
+        for (long packed : holder.menuData().getLongArray("drives")) {
+            var position = BlockPos.of(packed);
+            var drive = !holder.player.level().isClientSide && openingCluster != null
+                && level.getBlockEntity(position) instanceof ECODriveBlockEntity candidate
+                && openingCluster.getDrives().contains(candidate) ? candidate : null;
+            slots.put(position, new cn.dancingsnow.neoecoae.gui.common.DriveMenuSlot(holder.player, drive,
+                () -> drive != null && cluster == openingCluster && drive.getCluster() == openingCluster
+                    && !drive.isRemoved() && isFormed() && canPlayerInteract(holder.player)));
+        }
+        return slots;
+    }
+
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
+        var openingCluster = cluster;
         StorageHostActionUI.Elements actionUI = createActionUI(holder);
         final CellPriorityTarget[] selectedCellPriority = {null};
         UIElement cellPriorityWindow = StoragePriorityUI.createFloatingPanel(new StoragePriorityUI.Config(
@@ -337,11 +368,12 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 ),
                 this::getInfiniteMigrationProgressPercent,
                 this::getInfiniteMigrationBlockText
-        ), this::getTier, this::getBlockState);
+         ), this::getTier, this::getBlockState, driveMenuSlots(holder));
         actionUI.addTo(root, MultiblockBuildUI.create(this, holder.player));
         root.addChild(cellPriorityWindow);
         return ECOModularUI.create(root, holder.player,
-            (stack, simulate) -> StorageCellUi.quickMove(this, holder.player, stack, simulate));
+            (stack, simulate) -> cluster == openingCluster
+                ? StorageCellUi.quickMove(this, holder.player, stack, simulate) : stack);
     }
 
     @Nullable
@@ -705,6 +737,11 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     public String getInfiniteDomainText() {
         return isInfiniteMode() && infiniteDomainId != null ? infiniteDomainId.toString() : "";
+    }
+
+    @Nullable
+    public Component recoverInfiniteDomain(UUID domainId) {
+        return infiniteModeController.recoverDomain(domainId);
     }
 
     public boolean canInsertStorageCell(ItemStack stack) {

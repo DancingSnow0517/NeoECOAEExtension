@@ -36,6 +36,7 @@ import cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode;
 import cn.dancingsnow.neoecoae.storage.StorageInterfaceFilter;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingInterfaceUI;
+import cn.dancingsnow.neoecoae.gui.crafting.PatternMenuActions;
 import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewEntry;
 import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewSync;
 import cn.dancingsnow.neoecoae.util.PatternSearchKeywords;
@@ -60,6 +61,8 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.server.level.ServerLevel;
@@ -80,9 +83,10 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 
 public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBlockEntity<C, ECOMachineInterfaceBlockEntity<C>>
-    implements NEManagedBlockEntity, InternalInventoryHost {
+    implements NEManagedBlockEntity, InternalInventoryHost, BlockUIMenuType.MenuData {
     private static final int PATTERN_TRANSFER_SAFETY_LIMIT_PER_TICK = 256;
     private static final int PATTERN_ORGANIZE_SAFETY_LIMIT_PER_TICK = 256;
     public static final int FUZZY_PLANNING_SLOT_COUNT = 63;
@@ -151,6 +155,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private transient long patternInterfaceDomainGeneration;
     @Getter
     private final transient PatternPreviewSync patternPreviewSync = new PatternPreviewSync(this);
+    private transient PatternMenuOpening patternMenuOpening;
     private transient int migrationScannedThisTick;
     private transient int migrationInsertedThisTick;
     public ECOMachineInterfaceBlockEntity(
@@ -588,78 +593,118 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         patternPreviewSync.open(player, menuId, payload.getInt("revision"), payload.getLong("epoch"));
     }
 
-    /** Resolve physical identity only when acting; browsing never modifies server state. */
-    @Nullable
-    private PatternSlotRef resolvePatternSlot(long busPosition, int physicalSlot) {
-        int busIndex = Arrays.binarySearch(patternBusPositions, busPosition);
-        if (busIndex < 0 || busIndex >= patternBusOffsets.length || physicalSlot < 0
-                || physicalSlot >= patternBusSlotCounts[busIndex]) return null;
-        int index = patternBusOffsets[busIndex] + physicalSlot;
-        return index < patternSlotRefs.size() ? patternSlotRefs.get(index) : null;
+    private record PatternMenuOpening(ServerPlayer viewer, CompoundTag data) {}
+
+    @Override
+    public CompoundTag createMenuData(Player player) {
+        if (patternMenuOpening != null && patternMenuOpening.viewer() == player) return patternMenuOpening.data();
+        return new CompoundTag();
     }
 
-    /** Resolves a native menu slot against this host's current domain, never against client catalogue contents. */
-    @Nullable
-    private PatternSlotRef nativePatternPreviewTarget(Player viewer, long busPosition, int slot, boolean mutate) {
-        if (!(viewer instanceof ServerPlayer serverPlayer) || !(level instanceof ServerLevel) || !formed
-                || !supportsPatternPreview() || !patternPreviewSync.isViewer(serverPlayer)
-                || (mutate && isPatternMutationLocked())) return null;
+    public boolean openNativePatternWindow(ServerPlayer player, long epoch, long request, int[] slots) {
+        if (!canUsePatternMenu(player)) return false;
         ensurePatternInterfaceMapping();
-        PatternSlotRef ref = resolvePatternSlot(busPosition, slot);
-        if (ref == null || ref.bus().isRemoved() || ref.bus().getGrid() != getMainNode().getGrid()
-                || slot >= ref.bus().getPatternSlotInventory().size()) return null;
-        return ref;
-    }
+        if (epoch != patternPreviewSync.epoch()) return false;
 
-    public ItemStack getNativePatternPreviewStack(Player viewer, long bus, int slot, int recipe) {
-        PatternSlotRef ref = nativePatternPreviewTarget(viewer, bus, slot, false);
-        if (ref == null) return ItemStack.EMPTY;
-        if (recipe >= 0) {
-            if (!holdsAuxiliaryDisk(ref)) return ItemStack.EMPTY;
-            var rows = auxiliaryPreviewEntry(ref).diskPatterns();
-            return recipe < rows.size() ? rows.get(recipe).stack().copy() : ItemStack.EMPTY;
+        var seen = new java.util.BitSet();
+        int[] approved = slots.clone();
+        for (int index = 0; index < approved.length; index++) {
+            int slot = approved[index];
+            if (slot < 0 || slot >= patternSlotRefs.size() || seen.get(slot)
+                    || holdsAuxiliaryDisk(patternSlotRefs.get(slot))) {
+                approved[index] = -1;
+            } else {
+                seen.set(slot);
+            }
         }
-        return holdsAuxiliaryDisk(ref) ? ItemStack.EMPTY : getPatternStack(ref);
-    }
+        if (Arrays.stream(approved).allMatch(slot -> slot < 0)) return false;
 
-    public boolean canInsertNativePatternPreview(Player viewer, long bus, int slot, ItemStack stack) {
-        PatternSlotRef ref = nativePatternPreviewTarget(viewer, bus, slot, true);
-        return ref != null && !holdsAuxiliaryDisk(ref) && !stack.isEmpty()
-            && ref.bus().getPatternSlotInventory().isItemValid(slot, stack) && !hasDuplicatePattern(ref, stack);
-    }
-
-    public void setNativePatternPreviewStack(Player viewer, long bus, int slot, ItemStack stack) {
-        PatternSlotRef ref = nativePatternPreviewTarget(viewer, bus, slot, true);
-        if (ref == null || holdsAuxiliaryDisk(ref)) return;
-        if (!stack.isEmpty() && (!canInsertNativePatternPreview(viewer, bus, slot, stack)
-                || stack.getCount() > ref.bus().getPatternSlotInventory().getSlotLimit(slot))) return;
-        setPatternStack(ref, stack.copy());
-    }
-
-    public ItemStack extractNativePatternPreview(Player viewer, long bus, int slot, int amount, boolean simulate) {
-        PatternSlotRef ref = nativePatternPreviewTarget(viewer, bus, slot, true);
-        return ref == null || holdsAuxiliaryDisk(ref) || amount <= 0 ? ItemStack.EMPTY
-            : ref.bus().getPatternSlotInventory().extractItem(slot, amount, simulate);
-    }
-
-    public void nativePatternPreviewChanged(Player viewer, long bus, int slot) {
-        PatternSlotRef ref = nativePatternPreviewTarget(viewer, bus, slot, true);
-        if (ref != null && !holdsAuxiliaryDisk(ref)) {
-            // Vanilla/LDLib quick-move can shrink the live stack before calling Slot.setChanged(). The direct
-            // setter then sees equal empty stacks, so explicitly update persistence, capacity and the catalogue.
-            ref.bus().onChangeInventory(ref.bus().getPatternSlotInventory(), slot);
+        var data = new CompoundTag();
+        data.putLong("epoch", epoch);
+        data.putLong("request", request);
+        data.putIntArray("slots", approved);
+        patternMenuOpening = new PatternMenuOpening(player, data);
+        try {
+            return PatternMenuActions.reopen(player, worldPosition);
+        } finally {
+            patternMenuOpening = null;
         }
     }
 
-    /** Native Shift insertion and left-click insertion share the same physical-capacity scan. */
-    public ItemStack insertNativePatternPreview(Player viewer, ItemStack stack) {
-        if (!(viewer instanceof ServerPlayer serverPlayer) || !formed || !supportsPatternPreview()
-                || isPatternMutationLocked() || !patternPreviewSync.isViewer(serverPlayer) || stack.isEmpty()) return stack;
+    private boolean canUsePatternMenu(Player viewer) {
+        return viewer instanceof ServerPlayer player && formed && supportsPatternPreview()
+            && patternPreviewSync.isViewer(player);
+    }
+
+    public Slot createNativePatternSlot(Player viewer, long epoch, int index, BooleanSupplier visible) {
+        boolean client = viewer.level().isClientSide;
+        PatternSlotRef target = !client && index >= 0 && index < patternSlotRefs.size()
+            ? patternSlotRefs.get(index) : null;
+        return new Slot(new SimpleContainer(1), 0, 0, 0) {
+            private boolean bound() {
+                if (target == null || !formed) return false;
+                ensurePatternInterfaceMapping();
+                return epoch == patternPreviewSync.epoch() && !target.bus().isRemoved()
+                    && level != null && level.hasChunkAt(target.bus().getBlockPos())
+                    && level.getBlockEntity(target.bus().getBlockPos()) == target.bus()
+                    && target.bus().getGrid() == getMainNode().getGrid()
+                    && target.slot() < target.bus().getPatternSlotInventory().size() && !holdsAuxiliaryDisk(target);
+            }
+
+            @Override public boolean isActive() { return client ? visible.getAsBoolean() : bound(); }
+
+            @Override public ItemStack getItem() {
+                return client ? super.getItem() : bound() ? getPatternStack(target) : ItemStack.EMPTY;
+            }
+
+            @Override public boolean mayPlace(ItemStack stack) {
+                if (!PatternDetailsHelper.isEncodedPattern(stack)) return false;
+                return client ? isActive() : canUsePatternMenu(viewer) && bound() && !isPatternMutationLocked()
+                    && target.bus().getPatternSlotInventory().isItemValid(target.slot(), stack)
+                    && !hasDuplicatePattern(target, stack);
+            }
+
+            @Override public boolean mayPickup(Player player) {
+                return client ? isActive() : canUsePatternMenu(viewer) && bound() && !isPatternMutationLocked()
+                    && !target.bus().getPatternSlotInventory().extractItem(target.slot(), 1, true).isEmpty();
+            }
+
+            @Override public void set(ItemStack stack) {
+                if (client) super.set(stack);
+                else if (canUsePatternMenu(viewer) && bound() && !isPatternMutationLocked()
+                        && (PatternMenuActions.isRemainder(getItem(), stack)
+                            || mayPlace(stack) && stack.getCount() <= getMaxStackSize(stack))) {
+                    setPatternStack(target, stack.copy());
+                }
+            }
+
+            @Override public ItemStack remove(int amount) {
+                if (client) return super.remove(amount);
+                if (!canUsePatternMenu(viewer) || !bound() || isPatternMutationLocked()) return ItemStack.EMPTY;
+                return target.bus().getPatternSlotInventory().extractItem(target.slot(), amount, false);
+            }
+
+            @Override public int getMaxStackSize() { return 1; }
+            @Override public int getMaxStackSize(ItemStack stack) { return 1; }
+        };
+    }
+
+    public ItemStack insertNativePatternPreview(Player viewer, ItemStack stack, boolean simulate) {
+        if (!canUsePatternMenu(viewer) || isPatternMutationLocked() || !PatternDetailsHelper.isEncodedPattern(stack))
+            return stack;
         ensurePatternInterfaceMapping();
+        boolean checkedDuplicates = false;
         for (PatternSlotRef ref : patternSlotRefs) {
-            if (getPatternStack(ref).isEmpty()
-                    && canInsertNativePatternPreview(viewer, ref.bus().getBlockPos().asLong(), ref.slot(), stack))
-                return ref.bus().getPatternSlotInventory().insertItem(ref.slot(), stack.copy(), false);
+            var inventory = ref.bus().getPatternSlotInventory();
+            if (!ref.bus().isRemoved() && ref.bus().getGrid() == getMainNode().getGrid()
+                    && ref.slot() < inventory.size() && getPatternStack(ref).isEmpty()
+                    && inventory.isItemValid(ref.slot(), stack)) {
+                if (!checkedDuplicates && hasDuplicatePattern(ref, stack)) return stack;
+                checkedDuplicates = true;
+                ItemStack one = stack.copyWithCount(1);
+                if (inventory.insertItem(ref.slot(), one, simulate).isEmpty())
+                    return stack.copyWithCount(stack.getCount() - 1);
+            }
         }
         return stack;
     }
@@ -1869,7 +1914,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             return null;
         }
         if (supportsCraftingInterfaceUi()) {
-            return CraftingInterfaceUI.create(this, holder.player);
+            return CraftingInterfaceUI.create(this, holder);
         }
         if (supportsComputationInterfaceUi()) {
             return ComputationInterfaceUI.create((ECOMachineInterfaceBlockEntity<NEComputationCluster>) this, holder.player);

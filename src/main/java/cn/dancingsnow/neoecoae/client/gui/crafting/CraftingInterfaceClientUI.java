@@ -110,6 +110,7 @@ public final class CraftingInterfaceClientUI {
         }
 
         NativeSearchField first = null;
+        NativeSearchField preferred = null;
         for (CraftingInterfaceUI.SearchField field :
                 modularUI.getElementsByType(CraftingInterfaceUI.SearchField.class)) {
             if (!(field instanceof NativeSearchField nativeField)) {
@@ -121,8 +122,11 @@ public final class CraftingInterfaceClientUI {
             if (first == null) {
                 first = nativeField;
             }
+            if (nativeField.prefersFocus()) preferred = nativeField;
         }
-        if (first != null) {
+        if (preferred != null) {
+            preferred.restoreNativeFocus(event.getScreen());
+        } else if (first != null) {
             first.claimNativeFocus(event.getScreen());
         }
     }
@@ -258,6 +262,7 @@ public final class CraftingInterfaceClientUI {
         }
 
         private void claimNativeFocus(Screen screen) {
+            rememberFocus(editBox.getCursorPosition());
             syncNativeBounds();
             if (!isFocused()) focus();
             if (screen != null && screen.getFocused() != editBox) {
@@ -266,6 +271,12 @@ public final class CraftingInterfaceClientUI {
             if (!editBox.isFocused()) {
                 editBox.setFocused(true);
             }
+        }
+
+        private void restoreNativeFocus(Screen screen) {
+            editBox.setCursorPosition(rememberedCursor());
+            editBox.setHighlightPos(editBox.getCursorPosition());
+            claimNativeFocus(screen);
         }
 
         private boolean keyPressedNative(int keyCode, int scanCode, int modifiers) {

@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
-import cn.dancingsnow.neoecoae.gui.common.ShiftQuickMove;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import appeng.api.storage.cells.CellState;
@@ -226,27 +225,29 @@ public final class StorageHostUI {
     }
 
     public static UIElement create(Config config, Supplier<IECOTier> panelTier, Supplier<BlockState> hostState) {
-        JsonContext context = new JsonContext(config, panelTier, hostState);
-        UIElement root = NeoUiJsonLoader.load(JSON_LAYOUT, context);
-        context.insertionDrag.attachRoot(root);
-        context.extractionDrag.attachRoot(root);
-        return root;
+        return create(config, panelTier, hostState, java.util.Map.of());
+    }
+
+    public static UIElement create(Config config, Supplier<IECOTier> panelTier, Supplier<BlockState> hostState,
+        java.util.Map<BlockPos, net.minecraft.world.inventory.Slot> slots) {
+        return NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config, panelTier, hostState, slots));
     }
 
     private static final class JsonContext implements NeoUiJsonContext {
         private final Config config;
         private final Supplier<IECOTier> panelTier;
         private final Supplier<BlockState> hostState;
-        private final ShiftQuickMove insertionDrag = new ShiftQuickMove();
-        private final ShiftQuickMove extractionDrag = new ShiftQuickMove();
+        private final java.util.Map<BlockPos, net.minecraft.world.inventory.Slot> slots;
         private StoragePanelSync sync;
         private StorageHostCharts charts;
         private int columns;
 
-        private JsonContext(Config config, Supplier<IECOTier> panelTier, Supplier<BlockState> hostState) {
+        private JsonContext(Config config, Supplier<IECOTier> panelTier, Supplier<BlockState> hostState,
+            java.util.Map<BlockPos, net.minecraft.world.inventory.Slot> slots) {
             this.config = config;
             this.panelTier = panelTier;
             this.hostState = hostState;
+            this.slots = slots;
         }
 
         @Override
@@ -264,13 +265,9 @@ public final class StorageHostUI {
                     charts = new StorageHostCharts(sync, columns * 3, config.hostItem().get(), panelTier);
                     yield root;
                 }
-                case "storage_cell_grid" -> new StorageCellGrid(sync, columns, config, panelTier, extractionDrag);
+                case "storage_cell_grid" -> new StorageCellGrid(sync, columns, config, panelTier, slots);
                 case "infinite_component_slot" -> infiniteComponentSlot(config);
-                case "player_inventory" -> {
-                    InventorySlots inventory = playerInventory();
-                    inventory.apply(slot -> insertionDrag.addMenuSlot(slot, 1));
-                    yield inventory;
-                }
+                case "player_inventory" -> playerInventory();
                 default -> charts.create(custom, definition);
             };
         }

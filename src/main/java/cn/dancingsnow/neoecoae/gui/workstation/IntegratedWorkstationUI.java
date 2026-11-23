@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
+import cn.dancingsnow.neoecoae.gui.common.RealSlotQuickMove;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
@@ -69,7 +70,7 @@ public final class IntegratedWorkstationUI {
 
     public ModularUI create(Player player) {
         UIElement root = WorkstationUiJson.load(JSON_LAYOUT, new JsonContext(config, player));
-        return ECOModularUI.create(root, player);
+        return RealSlotQuickMove.install(ECOModularUI.create(root, player));
     }
 
     /** Interactive contents share the background's native 176 by 190 pixel coordinate system. */
@@ -92,7 +93,12 @@ public final class IntegratedWorkstationUI {
                 root.addChild(place(slot, 36 + column * 18, 24 + row * 18, 16, 16));
             }
         }
-        ItemSlot output = new ItemSlot(new ItemHandlerSlot(config.items(), 9));
+        ItemSlot output = new ItemSlot(new ItemHandlerSlot(config.items(), 9) {
+            @Override
+            public boolean mayPlace(ItemStack stack) {
+                return false;
+            }
+        });
         output.style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
         root.addChild(place(output, 123, 43, 16, 16));
 

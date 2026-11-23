@@ -41,11 +41,11 @@ import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathRe
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedVirtualExecution;
 import cn.dancingsnow.neoecoae.crafting.planner.growth.NetGrowthPatternValidationRegistry;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingPatternBusUI;
+import cn.dancingsnow.neoecoae.gui.crafting.PatternMenuActions;
 import cn.dancingsnow.neoecoae.util.PatternSearchKeywords;
 import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory.BlockUIMenuType;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
-import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UI;
 import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
 import cn.dancingsnow.neoecoae.platform.sync.NEManagedBlockEntity;
@@ -53,12 +53,17 @@ import com.lowdragmc.lowdraglib.syncdata.field.FieldManagedStorage;
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.WeakHashMap;
 import java.util.stream.IntStream;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -74,7 +79,7 @@ import org.slf4j.LoggerFactory;
 public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster, ECOCraftingPatternBusBlockEntity>
     implements NEManagedBlockEntity, InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage,
     AuxiliaryPatternHolder, PatternStorageHost, ECOFastPathDispatchProvider, EcoFastpathHost,
-    ECOJobAwareCraftingProvider, ECOProcessingTargetProvider {
+    ECOJobAwareCraftingProvider, ECOProcessingTargetProvider, BlockUIMenuType.MenuData {
 
     private Target processingTarget;
 
@@ -100,7 +105,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     @Persisted
     private final AppEngInternalInventory inventory;
     private final InternalInventory effectiveInventory = new EffectivePatternInventory();
-    private final IItemHandlerModifiable pageItemHandler = new PagedPatternItemHandler();
+    private final Map<Player, Integer> viewerPages = new WeakHashMap<>();
     private final ECOCraftingPatternBusCatalog catalog;
     private final ECOCraftingPatternBusDispatcher dispatcher;
     private static final int EXTERNAL_NONCE_HISTORY = 1024;
@@ -116,8 +121,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     private int importedLegacyPages;
     @Persisted
     private net.minecraft.nbt.CompoundTag legacyPatternData = new net.minecraft.nbt.CompoundTag();
-    @DescSynced
-    private int currentPage;
     @DescSynced
     private int patternContentRevision;
 
@@ -755,11 +758,27 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         finally { endPatternBatch(); }
     }
 
+    @Override
+    public CompoundTag createMenuData(Player player) {
+        var data = new CompoundTag();
+        int pages = getPageCount();
+        data.putInt("pages", pages);
+        data.putInt("page", JdkCompat.clamp(viewerPages.getOrDefault(player, 0), 0, pages - 1));
+        data.putInt("slots", effectiveInventory.size());
+        return data;
+    }
+
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
+        var data = holder.menuData();
+        int page = data.getInt("page");
+        int start = page * SLOTS_PER_PAGE;
+        int limit = Math.min(start + SLOTS_PER_PAGE, data.getInt("slots"));
         return CraftingPatternBusUI.create(new CraftingPatternBusUI.Config(
             () -> cn.dancingsnow.neoecoae.gui.GuiTitleProvider.title(getBlockState(),
                 Component.translatable("block.neoecoae.crafting_pattern_bus")),
-            pageItemHandler, this::getPageCount, this::visiblePage, this::changePage), holder.player);
+            index -> new PatternBusMenuSlot(holder, start + index, limit),
+            (stack, simulate) -> insertIntoPage(holder, start, limit, stack, simulate),
+            data.getInt("pages"), page, target -> changePage(holder, page, target)), holder.player);
     }
 
     public int getPageCount() {
@@ -774,33 +793,29 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         if (activePages != pages) {
             activePages = pages;
         }
-        currentPage = JdkCompat.clamp(currentPage, 0, activePages - 1);
         return activePages;
-    }
-
-    /**
-     * The page the UI is on, clamped to the pages that currently exist.
-     *
-     * <p>Slot lookups and the paging buttons both go through this, so a visible index always resolves to the
-     * same physical slot on either side.</p>
-     */
-    private int visiblePage() {
-        return JdkCompat.clamp(currentPage, 0, getPageCount() - 1);
     }
 
     public int getPatternSlotCount() {
         return legacyPatternData.isEmpty() ? getPageCount() * SLOTS_PER_PAGE : 0;
     }
 
-    private void changePage(int targetPage) {
-        int pageCount = getPageCount();
-        int clamped = JdkCompat.clamp(targetPage, 0, pageCount - 1);
-        if (clamped == visiblePage()) {
-            return;
+    private void changePage(BlockUIMenuType.BlockUIHolder holder, int page, int targetPage) {
+        if (!(holder.player instanceof ServerPlayer player) || holder.isInvalid()) return;
+        int target = JdkCompat.clamp(targetPage, 0, getPageCount() - 1);
+        if (target == page) return;
+        viewerPages.put(player, target);
+        if (!PatternMenuActions.reopen(player, worldPosition)) viewerPages.put(player, page);
+    }
+
+    private ItemStack insertIntoPage(BlockUIMenuType.BlockUIHolder holder, int start, int limit,
+            ItemStack stack, boolean simulate) {
+        if (holder.isInvalid()) return stack;
+        ItemStack remainder = stack.copy();
+        for (int slot = start; slot < limit && !remainder.isEmpty(); slot++) {
+            remainder = itemHandler.insertItem(slot, remainder, simulate);
         }
-        currentPage = clamped;
-        setChanged();
-        markForUpdate();
+        return remainder;
     }
 
     private static int clampPages(int pages) {
@@ -838,70 +853,54 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         }
     }
 
-    private final class PagedPatternItemHandler implements IItemHandlerModifiable {
-        @Override
-        public int getSlots() {
-            return SLOTS_PER_PAGE;
+    private final class PatternBusMenuSlot extends Slot {
+        private final BlockUIMenuType.BlockUIHolder holder;
+        private final int physicalSlot;
+        private final int limit;
+
+        private PatternBusMenuSlot(BlockUIMenuType.BlockUIHolder holder, int physicalSlot, int limit) {
+            super(new SimpleContainer(1), 0, 0, 0);
+            this.holder = holder;
+            this.physicalSlot = physicalSlot;
+            this.limit = limit;
         }
 
-        @Override
-        public ItemStack getStackInSlot(int slot) {
-            int actualSlot = toActualSlot(slot);
-            return actualSlot >= 0 ? inventory.getStackInSlot(actualSlot) : ItemStack.EMPTY;
+        @Override public boolean isActive() {
+            return physicalSlot < limit && (holder.isRemote() || physicalSlot < effectiveInventory.size());
         }
 
-        @Override
-        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            int actualSlot = toActualSlot(slot);
-            return actualSlot >= 0 ? itemHandler.insertItem(actualSlot, stack, simulate) : stack;
+        @Override public ItemStack getItem() {
+            if (holder.isRemote()) return super.getItem();
+            return isActive() ? effectiveInventory.getStackInSlot(physicalSlot) : ItemStack.EMPTY;
         }
 
-        @Override
-        public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            int actualSlot = toActualSlot(slot);
-            return actualSlot >= 0 ? itemHandler.extractItem(actualSlot, amount, simulate) : ItemStack.EMPTY;
+        @Override public boolean mayPlace(ItemStack stack) {
+            return isActive() && (holder.isRemote() || effectiveInventory.isItemValid(physicalSlot, stack));
         }
 
-        @Override
-        public int getSlotLimit(int slot) {
-            int actualSlot = toActualSlot(slot);
-            return actualSlot >= 0 ? itemHandler.getSlotLimit(actualSlot) : 0;
+        @Override public boolean mayPickup(Player player) {
+            return isActive() && (holder.isRemote() || !itemHandler.extractItem(physicalSlot, 1, true).isEmpty());
         }
 
-        @Override
-        public boolean isItemValid(int slot, ItemStack stack) {
-            int actualSlot = toActualSlot(slot);
-            return actualSlot >= 0 && itemHandler.isItemValid(actualSlot, stack);
-        }
-
-        @Override
-        public void setStackInSlot(int slot, ItemStack stack) {
-            int actualSlot = toActualSlot(slot);
-            if (actualSlot < 0) {
-                // Refusing silently would drop the write while the caller believes it succeeded, which
-                // is how a pattern disk can end up duplicated into the player inventory while staying in
-                // the bus. Out-of-range visible slots are a caller bug, so say so instead of swallowing it.
-                LOGGER.warn("[PatternBus] at {} refused a write to out-of-range pattern slot {}", worldPosition, slot);
-                return;
+        @Override public void set(ItemStack stack) {
+            if (holder.isRemote()) super.set(stack);
+            else if (isActive() && (PatternMenuActions.isRemainder(getItem(), stack)
+                    || mayPlace(stack) && stack.getCount() <= getMaxStackSize(stack))) {
+                setPatternDirect(physicalSlot, stack.copy());
             }
-            ItemStack next = stack == null ? ItemStack.EMPTY : stack;
-            if (!next.isEmpty() && !inventory.isItemValid(actualSlot, next)) {
-                return;
-            }
-            ItemStack previous = inventory.getStackInSlot(actualSlot);
-            if (ItemStack.matches(previous, next)) {
-                return;
-            }
-            inventory.setItemDirect(actualSlot, next);
         }
 
-        private int toActualSlot(int visibleSlot) {
-            if (visibleSlot < 0 || visibleSlot >= SLOTS_PER_PAGE) {
-                return -1;
-            }
-            int page = visiblePage();
-            int actualSlot = page * SLOTS_PER_PAGE + visibleSlot;
-            return actualSlot < getPatternSlotCount() ? actualSlot : -1;
+        @Override public void setChanged() {
+            if (!holder.isRemote() && isActive()) onChangeInventory(effectiveInventory, physicalSlot);
+        }
+
+        @Override public ItemStack remove(int amount) {
+            if (holder.isRemote()) return super.remove(amount);
+            return isActive() ? itemHandler.extractItem(physicalSlot, amount, false) : ItemStack.EMPTY;
+        }
+
+        @Override public int getMaxStackSize() {
+            return holder.isRemote() ? super.getMaxStackSize() : effectiveInventory.getSlotLimit(physicalSlot);
         }
     }
 

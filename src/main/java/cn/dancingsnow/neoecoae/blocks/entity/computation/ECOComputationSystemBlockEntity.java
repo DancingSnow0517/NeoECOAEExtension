@@ -53,7 +53,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
 public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputationCluster, ECOComputationSystemBlockEntity>
-        implements NEManagedBlockEntity, MultiBlockBuildController.Host {
+        implements NEManagedBlockEntity, MultiBlockBuildController.Host, BlockUIMenuType.MenuData {
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
@@ -126,14 +126,59 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         buildController.tick(level);
     }
 
+    @Override
+    public java.util.function.BooleanSupplier captureMenuValidity() {
+        var openingCluster = cluster;
+        return () -> cluster == openingCluster && (openingCluster == null || !openingCluster.isDestroyed());
+    }
+
+    @Override
+    public net.minecraft.nbt.CompoundTag createMenuData(Player player) {
+        var data = new net.minecraft.nbt.CompoundTag();
+        var drives = new net.minecraft.nbt.ListTag();
+        int rowIndex = 0;
+        for (var row : List.of(getComputationUiDrives(true), getComputationUiDrives(false))) {
+            for (int column = 0; column < row.size(); column++) {
+                var position = row.get(column).position();
+                if (position == null) continue;
+                var entry = new net.minecraft.nbt.CompoundTag();
+                entry.putInt("slot", rowIndex * ComputationControllerPanelState.SLOT_COUNT + column);
+                entry.putLong("pos", position.asLong());
+                drives.add(entry);
+            }
+            rowIndex++;
+        }
+        data.put("drives", drives);
+        return data;
+    }
+
+    private Map<Integer, net.minecraft.world.inventory.Slot> driveMenuSlots(BlockUIMenuType.BlockUIHolder holder) {
+        var slots = new HashMap<Integer, net.minecraft.world.inventory.Slot>();
+        var openingCluster = cluster;
+        var drives = holder.menuData().getList("drives", net.minecraft.nbt.Tag.TAG_COMPOUND);
+        for (int index = 0; index < drives.size(); index++) {
+            var entry = drives.getCompound(index);
+            var position = BlockPos.of(entry.getLong("pos"));
+            var drive = !holder.player.level().isClientSide && openingCluster != null
+                && level.getBlockEntity(position) instanceof ECOComputationDriveBlockEntity candidate
+                && candidate.getCluster() == openingCluster ? candidate : null;
+            slots.put(entry.getInt("slot"), new cn.dancingsnow.neoecoae.gui.common.DriveMenuSlot(holder.player, drive,
+                () -> drive != null && cluster == openingCluster && drive.getCluster() == openingCluster
+                    && !drive.isRemoved() && isFormed() && canPlayerInteract(holder.player)));
+        }
+        return slots;
+    }
+
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
+        var openingCluster = cluster;
         ComputationControllerUI.Config panelConfig = createComputationPanelConfig(holder.player);
         UIElement root = ComputationControllerUI.create(panelConfig,
             this::getComputationControllerPanelState,
             GuideButton.create(holder.player, "neoecoae:neoecoae_intro/computation_system.md"), this::getTier, this::getBlockState,
-            MultiblockBuildUI.create(this, holder.player));
+            MultiblockBuildUI.create(this, holder.player), driveMenuSlots(holder));
         return ECOModularUI.create(root, holder.player,
-            (stack, simulate) -> ComputationCellUi.quickMove(this, holder.player, stack, simulate));
+            (stack, simulate) -> cluster == openingCluster
+                ? ComputationCellUi.quickMove(this, holder.player, stack, simulate) : stack);
     }
 
     private ComputationControllerUI.Config createComputationPanelConfig(Player player) {

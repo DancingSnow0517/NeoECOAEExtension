@@ -31,10 +31,10 @@ public final class PatternPreviewSync {
     private static final long SERVER_VIEWER_RETENTION_TICKS = 1_200L;
     // Level identity prevents another server/save at the same coordinates from reusing this world's view.
     private static final Map<Level, Map<ClientCacheKey, ClientState>> CLIENT_CACHE = new WeakHashMap<>();
+    private static final Map<Level, PendingViewport> CLIENT_HANDOFF = new WeakHashMap<>();
     private long nextSyncTick;
     private final ECOMachineInterfaceBlockEntity<?> host;
-    /** Changes when this server-side block entity is recreated, preventing stale snapshots after restart. */
-    private final long sessionEpoch = ThreadLocalRandom.current().nextLong();
+    private long sessionEpoch = ThreadLocalRandom.current().nextLong();
     private final Map<UUID, Viewer> viewers = new HashMap<>();
     private final List<CompoundTag> cachedEntries = new ArrayList<>();
     private final BitSet dirtySlots = new BitSet();
@@ -47,6 +47,7 @@ public final class PatternPreviewSync {
 
     private record ClientCacheKey(String dimension, long position) {}
     private record ClientState(ClientSnapshot snapshot, ClientView view) {}
+    private record PendingViewport(ClientCacheKey host, long request, CraftingPatternPreviewState.Viewport viewport) {}
 
     public record ClientView(String inputSearch, String outputSearch, int scrollRow) {
         public static final ClientView EMPTY = new ClientView("", "", 0);
@@ -68,6 +69,23 @@ public final class PatternPreviewSync {
 
     public void listen(Consumer<CompoundTag> receiver) {
         this.receiver = new WeakReference<>(receiver);
+    }
+
+    public long epoch() { return sessionEpoch; }
+
+    void rememberViewport(long request, CraftingPatternPreviewState.Viewport viewport) {
+        synchronized (CLIENT_HANDOFF) {
+            CLIENT_HANDOFF.put(host.getLevel(), new PendingViewport(clientCacheKey(), request, viewport));
+        }
+    }
+
+    CraftingPatternPreviewState.Viewport takeViewport(long request) {
+        synchronized (CLIENT_HANDOFF) {
+            var pending = CLIENT_HANDOFF.get(host.getLevel());
+            if (pending == null || !pending.host().equals(clientCacheKey())) return null;
+            CLIENT_HANDOFF.remove(host.getLevel());
+            return pending.request() == request ? pending.viewport() : null;
+        }
     }
 
     /** Restores the last completed client snapshot for this host, if one exists. */
@@ -147,6 +165,7 @@ public final class PatternPreviewSync {
     }
 
     public void reset() {
+        sessionEpoch = ThreadLocalRandom.current().nextLong();
         reset = true;
         dirtySlots.clear();
     }
@@ -167,8 +186,8 @@ public final class PatternPreviewSync {
         viewer.openRequested = true;
         viewer.clientRevision = clientRevision;
         viewer.clientEpoch = clientEpoch;
+        viewer.canReuseOnOpen = viewer.pending == null && !MenuDataTransport.busy(player, MenuDataTransport.Channel.PATTERNS);
         viewer.pending = null;
-        viewer.changed.clear();
         MenuDataTransport.cancel(player, MenuDataTransport.Channel.PATTERNS);
     }
 
@@ -181,7 +200,7 @@ public final class PatternPreviewSync {
                 && menu.getModularUI().holder instanceof BlockUIMenuType.BlockUIHolder holder
                 && holder.pos.equals(host.getBlockPos())
                 && player.level() == host.getLevel()
-                && player.blockPosition().distSqr(host.getBlockPos()) <= 64.0D;
+                && !holder.isInvalid();
     }
 
     public void tick(ServerLevel level) {
@@ -265,7 +284,8 @@ public final class PatternPreviewSync {
             viewer.lastSeenTick = level.getGameTime();
             if (viewer.openRequested) {
                 viewer.openRequested = false;
-                if (viewer.clientEpoch == sessionEpoch && viewer.clientRevision == cachedRevision
+                if (viewer.canReuseOnOpen && !building && viewer.changed.isEmpty()
+                        && viewer.clientEpoch == sessionEpoch && viewer.clientRevision == cachedRevision
                         && viewer.clientRevision >= 0
                         && cachedEntries.size() == size) {
                     sendReuse(player, viewer, cachedRevision, size);
@@ -369,6 +389,7 @@ public final class PatternPreviewSync {
         int clientRevision = -1;
         long clientEpoch;
         boolean openRequested;
+        boolean canReuseOnOpen;
         long lastSeenTick;
         Viewer(UUID playerId, AbstractContainerMenu menu) {
             this.menu = menu;

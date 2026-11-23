@@ -40,6 +40,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.repository.Pack;
 import net.minecraft.server.packs.repository.PackSource;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
@@ -138,6 +139,9 @@ public class NeoECOAE {
         MinecraftForge.EVENT_BUS.addListener(cn.dancingsnow.neoecoae.network.MenuDataTransport::stopped);
         MinecraftForge.EVENT_BUS.addListener(NETooltips::register);
         MinecraftForge.EVENT_BUS.addListener(NECommands::register);
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.LOWEST, NECommands::onStorageRecoverClick);
+        MinecraftForge.EVENT_BUS.addListener(NECommands::onPlayerLoggedOut);
+        MinecraftForge.EVENT_BUS.addListener(NECommands::onServerStopped);
         MinecraftForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
         MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onLevelUnload);
         MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopping);

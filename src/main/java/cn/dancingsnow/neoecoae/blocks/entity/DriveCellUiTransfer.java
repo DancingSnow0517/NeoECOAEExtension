@@ -34,14 +34,16 @@ public final class DriveCellUiTransfer {
         if (!menu.getCarried().isEmpty()) return false;
         int destination = -1;
         if (toInventory) {
-            destination = inventory.getFreeSlot();
+            destination = inventory.getSlotWithRemainingSpace(cell);
+            if (destination < 0 || destination >= inventory.items.size()) destination = inventory.getFreeSlot();
             if (destination < 0) return false;
         }
 
         drive.setCellStack(null);
         if (drive.getCellStack() != null) return false;
         if (toInventory) {
-            inventory.setItem(destination, cell);
+            var existing = inventory.getItem(destination);
+            inventory.setItem(destination, existing.isEmpty() ? cell : existing.copyWithCount(existing.getCount() + cell.getCount()));
             inventory.setChanged();
         } else {
             menu.setCarried(cell);

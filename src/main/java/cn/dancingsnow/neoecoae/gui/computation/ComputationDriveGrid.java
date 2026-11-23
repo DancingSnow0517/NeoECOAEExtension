@@ -1,11 +1,9 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
 import cn.dancingsnow.neoecoae.gui.common.HostText;
-import cn.dancingsnow.neoecoae.gui.common.ShiftQuickMove;
+import cn.dancingsnow.neoecoae.gui.common.DriveMenuSlot;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.bindings.impl.DataBindingBuilder;
-import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.rpc.RPCEmitter;
-import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.sync.rpc.RPCEventBuilder;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.texture.IGuiTexture;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.UIElement;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.elements.BindableValue;
@@ -17,11 +15,13 @@ import cn.dancingsnow.neoecoae.platform.ui.runtime.layout.TaffyPosition;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
 /** Physical computation drives as item slots, upper and lower per column; clicks identify the drive by position. */
@@ -30,22 +30,13 @@ final class ComputationDriveGrid extends UIElement {
     private static final int COLUMN_PITCH = 18;
     private static final int ROW_PITCH = 36;
     private final ComputationControllerUI.Config config;
-    private final ShiftQuickMove extractionDrag;
-    private final RPCEmitter extraction;
-    private final RPCEmitter insertion;
     private List<ComputationDriveEntry> upper = Collections.nCopies(COLUMNS, ComputationDriveEntry.EMPTY);
     private List<ComputationDriveEntry> lower = Collections.nCopies(COLUMNS, ComputationDriveEntry.EMPTY);
-    private boolean interacting;
-
-    ComputationDriveGrid(ComputationControllerUI.Config config, ShiftQuickMove extractionDrag) {
+    ComputationDriveGrid(ComputationControllerUI.Config config, Map<Integer, Slot> slots) {
         this.config = config;
-        this.extractionDrag = extractionDrag;
-        extraction = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, ItemStack.class, Boolean.class, Boolean.class,
-            (position, expected, shift) -> isOpenMenu() && config.driveExtractor().extract(position, expected, shift)));
-        insertion = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, ItemStack.class, Boolean.class,
-            (position, expected) -> isOpenMenu() && config.driveInserter().insert(position, expected)));
-        for (int i = 0; i < COLUMNS * 2; i++) {
-            addChild(new DriveSlot(i));
+        for (int index = 0; index < COLUMNS * 2; index++) {
+            var slot = slots.get(index);
+            if (slot != null) addChild(new DriveSlot(index, slot));
         }
         Tag initial = snapshot();
         read(initial);
@@ -54,13 +45,6 @@ final class ComputationDriveGrid extends UIElement {
         synced.registerValueListener(this::read);
         synced.setDisplay(false);
         addChild(synced);
-    }
-
-    private boolean isOpenMenu() {
-        var mui = getModularUI();
-        var player = config.player();
-        return player != null && mui != null && mui.getMenu() == player.containerMenu
-            && player.containerMenu.stillValid(player);
     }
 
     private Tag snapshot() {
@@ -109,54 +93,19 @@ final class ComputationDriveGrid extends UIElement {
         private final int row;
         private final int column;
 
-        DriveSlot(int index) {
+        DriveSlot(int index, Slot slot) {
+            super(slot);
+            if (slot instanceof DriveMenuSlot drive) nativeClickHandler(drive::click);
             row = index / COLUMNS;
             column = index % COLUMNS;
             layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(column * COLUMN_PITCH)
                 .top(row * ROW_PITCH).width(16).height(16).paddingAll(0));
             style(style -> style.backgroundTexture(IGuiTexture.EMPTY).overflowVisible(true));
             slotStyle(style -> style.hoverOverlay(NETextures.AE2_SLOT_HIGHLIGHT));
-            extractionDrag.addSlot(this, this::quickExtract);
         }
 
         private ComputationDriveEntry entry() {
             return (row == 0 ? upper : lower).get(column);
-        }
-
-        @Override public ItemStack getValue() { return entry().stack(); }
-
-        @Override
-        protected void onMouseDown(UIEvent event) {
-            // Local display slots never enter vanilla's changing slot-index map.
-            event.stopImmediatePropagation();
-            event.hasHandler = true;
-            if (event.button != 0 && event.button != 1 || interacting) return;
-            var drive = entry();
-            if (drive.position() == null) return;
-            if (event.button == 0 && extractionDrag.begin(this, event)) {
-                quickExtract();
-                return;
-            }
-            var mui = getModularUI();
-            if (mui == null || mui.getMenu() == null) return;
-            ItemStack carried = mui.getMenu().getCarried();
-            if (!carried.isEmpty()) {
-                if (!drive.stack().isEmpty()) return;
-                interacting = true;
-                if (!insertion.send((Boolean success) -> interacting = false,
-                    drive.position(), carried.copy())) interacting = false;
-            } else if (!drive.stack().isEmpty()) {
-                interacting = true;
-                if (!extraction.send((Boolean success) -> interacting = false,
-                    drive.position(), drive.stack().copy(), UIElement.isShiftDown())) interacting = false;
-            }
-        }
-
-        private void quickExtract() {
-            var drive = entry();
-            if (!interacting && drive.position() != null && !drive.stack().isEmpty()) {
-                extraction.send(ignored -> {}, drive.position(), drive.stack().copy(), true);
-            }
         }
 
         @Override

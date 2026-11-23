@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.storage.infinite;
 
+import cn.dancingsnow.neoecoae.storage.persistence.Legacy2042DomainSnapshot;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.nio.file.Path;
 import java.nio.file.Files;
@@ -56,11 +57,28 @@ public final class ECOInfiniteStorageDomains {
      * level's SavedData, which the vanilla save cycle persists whether or not any host is mounted.
      */
     public static void release(MinecraftServer server, UUID domainId) {
+        DomainEntry entry = cachedDomain(server, domainId);
+        if (entry != null && entry.mountCount > 0) entry.mountCount--;
+    }
+
+    public static int mountedHosts(MinecraftServer server, UUID domainId) {
+        DomainEntry entry = cachedDomain(server, domainId);
+        return entry == null ? 0 : entry.mountCount;
+    }
+
+    public static boolean exists(MinecraftServer server, UUID domainId) {
+        if (cachedDomain(server, domainId) != null) return true;
+        Path directory = server.getWorldPath(LevelResource.ROOT).resolve("data");
+        String name = DATA_NAME_PREFIX + domainId;
+        return Files.exists(directory.resolve(name + "_v3.dat"))
+                || Files.exists(directory.resolve(name + "_v3.dat.bak"))
+                || LegacyInfiniteStorageReader.exists(directory.resolve(name + ".dat"))
+                || Legacy2042DomainSnapshot.exists(legacy2042File(directory, domainId));
+    }
+
+    private static DomainEntry cachedDomain(MinecraftServer server, UUID domainId) {
         Map<UUID, DomainEntry> engines = ENGINES.get(server);
-        if (engines != null) {
-            DomainEntry entry = engines.get(domainId);
-            if (entry != null && entry.mountCount > 0) entry.mountCount--;
-        }
+        return engines == null ? null : engines.get(domainId);
     }
 
     /** The world has already been saved by vanilla shutdown; only drop the cached views. */
@@ -140,13 +158,13 @@ public final class ECOInfiniteStorageDomains {
     static ECOInfiniteStorageData importLegacy(UUID domainId, Path legacyFile, boolean requireExisting) {
         ECOInfiniteStorageData data = ECOInfiniteStorageData.createNew();
         try {
-            Path releaseFile = legacyFile.getParent().resolve("neoecoae_infinite/domain_" + domainId + ".dat");
-            boolean releasePresent = cn.dancingsnow.neoecoae.storage.persistence.Legacy2042DomainSnapshot.exists(releaseFile);
+            Path releaseFile = legacy2042File(legacyFile.getParent(), domainId);
+            boolean releasePresent = Legacy2042DomainSnapshot.exists(releaseFile);
             if (releasePresent) {
                 if (LegacyInfiniteStorageReader.exists(legacyFile))
                     throw new java.io.IOException("Conflicting 20.4.2 and main legacy domain sources");
                 data = ECOInfiniteStorageData.load(cn.dancingsnow.neoecoae.storage.persistence.Legacy2042Storage
-                    .domain(cn.dancingsnow.neoecoae.storage.persistence.Legacy2042DomainSnapshot.read(releaseFile), domainId));
+                    .domain(Legacy2042DomainSnapshot.read(releaseFile), domainId));
                 if (data.canMigrate()) data.setDirty();
                 else data.markIncompleteLegacy(java.util.List.of("Unresolved 20.4.2 inventory; original domain retained"));
                 return data;
@@ -168,4 +186,7 @@ public final class ECOInfiniteStorageDomains {
         return data;
     }
 
+    private static Path legacy2042File(Path directory, UUID domainId) {
+        return directory.resolve("neoecoae_infinite/domain_" + domainId + ".dat");
+    }
 }

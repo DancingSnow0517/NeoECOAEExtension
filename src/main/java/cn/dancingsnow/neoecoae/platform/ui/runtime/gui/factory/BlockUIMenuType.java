@@ -3,7 +3,9 @@ package cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib.gui.factory.UIFactory;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
+import java.util.function.BooleanSupplier;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -22,12 +24,20 @@ public final class BlockUIMenuType {
                 // Opened from the crafting status page; the exemption ends with the menu it produced.
                 ||cn.dancingsnow.neoecoae.crafting.display.processing.ECORemoteMachineReach.allows(holder.player,holder.pos));}
     }
+    public interface MenuData {
+        CompoundTag createMenuData(Player player);
+
+        default BooleanSupplier captureMenuValidity() { return () -> true; }
+    }
+
     public static final class BlockUIHolder implements IUIHolder {
         public final Player player;
         public final BlockPos pos;
         public final BlockState blockState;
         private final Block original;
         private final BlockEntity originalBlockEntity;
+        private final BooleanSupplier menuValid;
+        private CompoundTag menuData = new CompoundTag();
 
         public BlockUIHolder(Player player, BlockPos pos) {
             this(player, pos, player.level().getBlockState(pos));
@@ -40,17 +50,28 @@ public final class BlockUIMenuType {
             this.blockState = blockState;
             original = blockState.getBlock();
             originalBlockEntity = player.level().getBlockEntity(this.pos);
+            if (!player.level().isClientSide && originalBlockEntity instanceof MenuData data) {
+                menuValid = data.captureMenuValidity();
+                menuData = data.createMenuData(player);
+            } else {
+                menuValid = () -> true;
+            }
         }
 
         public static BlockUIHolder readFromSyncData(Player player, FriendlyByteBuf buffer) {
             BlockPos pos = buffer.readBlockPos();
-            return new BlockUIHolder(player, pos, Block.stateById(buffer.readVarInt()));
+            var holder = new BlockUIHolder(player, pos, Block.stateById(buffer.readVarInt()));
+            holder.menuData = java.util.Objects.requireNonNull(buffer.readNbt());
+            return holder;
         }
 
         public void writeToSyncData(FriendlyByteBuf buffer) {
             buffer.writeBlockPos(pos);
             buffer.writeVarInt(Block.getId(blockState));
+            buffer.writeNbt(menuData);
         }
+
+        public CompoundTag menuData() { return menuData; }
 
         public BlockUI target() {
             if (original instanceof BlockUI ui) return ui;
@@ -62,6 +83,7 @@ public final class BlockUIMenuType {
             if (!level.hasChunkAt(pos) || level.getBlockState(pos).getBlock() != original
                     || level.getBlockEntity(pos) != originalBlockEntity
                     || originalBlockEntity != null && originalBlockEntity.isRemoved()) return true;
+            if (!menuValid.getAsBoolean()) return true;
             var target = target();
             return target == null || !target.stillValid(this);
         }

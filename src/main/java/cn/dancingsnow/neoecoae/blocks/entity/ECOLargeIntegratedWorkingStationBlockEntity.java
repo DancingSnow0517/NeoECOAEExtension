@@ -2260,10 +2260,12 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         if (!state.getValue(cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation.FORMED)) {
             return super.createUI(holder);
         }
+        var menuModules = holder.player.level().isClientSide
+            ? new LargeWorkstationModuleInventory(() -> {}) : moduleInventory;
         return LargeWorkstationUI.create(new LargeWorkstationUI.Config(
             getFluidCombined(), this::getUiSnapshot, () -> level.registryAccess(), this::returnTaskInputs,
             this::toggleOverclocked, this::toggleActiveCooling,
-            this::togglePreheating, moduleInventory), holder.player, this::isFePreferred, this::togglePowerPriority);
+            this::togglePreheating, menuModules), holder.player, this::isFePreferred, this::togglePowerPriority);
     }
 
     /** Returns inputs still owned by incomplete batches to the ME network; retained for legacy callers. */

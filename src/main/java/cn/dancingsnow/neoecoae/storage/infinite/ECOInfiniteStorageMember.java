@@ -135,7 +135,7 @@ public final class ECOInfiniteStorageMember {
         tag.remove(MIGRATION_TAG);
         tag.remove(MIGRATION_DOMAIN_TAG);
         tag.putUUID(DOMAIN_TAG, domainId);
-        if (!tag.hasUUID(IDENTITY_TAG)) tag.putUUID(IDENTITY_TAG, UUID.randomUUID());
+        if (!tag.hasUUID(IDENTITY_TAG)) tag.putUUID(IDENTITY_TAG, getIdentity(stack).orElseGet(UUID::randomUUID));
         NEItemData.write(stack, tag);
         cn.dancingsnow.neoecoae.storage.persistence.ECOStorageRepository.persistMetadata(stack, true);
     }
