@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.keyreuse;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.*;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.*;
 import com.buuz135.replication.api.IMatterType;
 import com.buuz135.replication.api.matter_fluid.MatterStack;
 import dev.lapis256.apprep.api.ae2.stack.MatterKey;

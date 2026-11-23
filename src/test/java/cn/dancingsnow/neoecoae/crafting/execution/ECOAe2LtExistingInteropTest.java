@@ -60,7 +60,7 @@ class ECOAe2LtExistingInteropTest {
         var pattern = mock(IPatternDetails.class);
         var inputs = new KeyCounter[] {new KeyCounter()};
         when(provider.pushPattern(pattern, inputs, id)).thenReturn(true);
-        assertTrue(cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtJobDispatch.push(logic, provider, pattern, inputs,
+        assertTrue(cn.dancingsnow.neoecoae.integration.ae2lt.ECOAe2LtJobDispatch.push(logic, provider, pattern, inputs,
             () -> provider.pushPattern(pattern, inputs)));
         verify(provider).pushPattern(pattern, inputs, id);
         verify(provider, never()).pushPattern(pattern, inputs);

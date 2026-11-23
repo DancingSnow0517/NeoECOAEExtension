@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.crafting.execution;
 
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
@@ -167,7 +167,7 @@ final class ECOCraftingOutputDelivery {
         if (quantity.fitsLong() || !current.exactOrder
                 || !(current.waitingFor instanceof cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory waiting)
                 || waiting.quantity(key).fitsLong()
-                || cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge
+                || cn.dancingsnow.neoecoae.integration.thunderbolt.ECOOverloadCpuAccountingBridge
                         .strictMatch(host, key, Long.MAX_VALUE, Long.MAX_VALUE) != Long.MAX_VALUE) {
             return java.math.BigInteger.valueOf(insertForJob(jobId, key, quantity.longValueSaturated(), mode));
         }

@@ -8,7 +8,7 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.stacks.*;
 import appeng.crafting.CraftingLink;
-import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge;
+import cn.dancingsnow.neoecoae.integration.thunderbolt.ECOOverloadCpuAccountingBridge;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys;
 import com.moakiee.ae2lt.overload.runtime.cpu.OverloadCpuStateManager;

@@ -21,7 +21,7 @@ import appeng.crafting.pattern.EncodedProcessingPattern;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching;
 import cn.dancingsnow.neoecoae.crafting.ECOComponentInsensitiveProcessingPattern;
-import cn.dancingsnow.neoecoae.compat.thunderbolt.ECOThunderboltPlanningBridge;
+import cn.dancingsnow.neoecoae.integration.thunderbolt.ECOThunderboltPlanningBridge;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCraftingPlannerService;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;

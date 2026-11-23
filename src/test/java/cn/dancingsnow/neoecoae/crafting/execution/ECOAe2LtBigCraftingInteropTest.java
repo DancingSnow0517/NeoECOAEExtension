@@ -13,7 +13,7 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputRouter;
 import cn.dancingsnow.neoecoae.api.me.provider.*;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.*;
-import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtCraftingAdapter;
+import cn.dancingsnow.neoecoae.integration.ae2lt.ECOAe2LtCraftingAdapter;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.*;
 import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.mixins.ae2.crafting.CraftingServiceMixin;

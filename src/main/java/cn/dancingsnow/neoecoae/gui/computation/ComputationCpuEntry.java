@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
-import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtCpuStatus;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2lt.ECOAe2LtCpuStatus;
 
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.crafting.ICraftingCPU;

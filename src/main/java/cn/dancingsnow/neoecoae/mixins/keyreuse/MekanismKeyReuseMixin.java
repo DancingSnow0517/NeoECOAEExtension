@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.keyreuse;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.SharedChemicalKey;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.SharedChemicalKey;
 import me.ramidzkh.mekae2.ae2.MekanismKey;
 import mekanism.api.chemical.ChemicalStack;
 import org.spongepowered.asm.mixin.Final;

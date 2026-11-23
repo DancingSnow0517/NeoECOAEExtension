@@ -326,13 +326,13 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         // AE2 Utility 通过此方法中的真实调用点重定向带 NBT 物品的等待库存匹配；
         // 结果继续交给输出交付组件，避免破坏当前的任务校验、记账和完成流程。
         long accepted = current.waitingFor.extract(what, amount, Actionable.SIMULATE);
-        accepted = cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge
+        accepted = cn.dancingsnow.neoecoae.integration.thunderbolt.ECOOverloadCpuAccountingBridge
                 .strictMatch(this, what, accepted, current.waitingFor.list.get(what));
         // AE2 Utility 还会重定向此方法中的真实 matches 调用，用于判断最终产物交付阶段。
         boolean matchesFinalOutput = current.finalOutput != null && what.matches(current.finalOutput);
         long strict = outputDelivery.insert(what, amount, type, accepted, matchesFinalOutput);
         if (job != current || strict >= amount) return strict;
-        return strict + cn.dancingsnow.neoecoae.compat.thunderbolt.ECOOverloadCpuAccountingBridge
+        return strict + cn.dancingsnow.neoecoae.integration.thunderbolt.ECOOverloadCpuAccountingBridge
                 .claim(this, current.link.getCraftingID(), what, amount - strict, type);
     }
 

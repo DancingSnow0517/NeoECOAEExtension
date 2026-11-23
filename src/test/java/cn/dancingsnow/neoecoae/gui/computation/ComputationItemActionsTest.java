@@ -7,7 +7,7 @@ import appeng.api.networking.IGrid;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKeyTypesInternal;
 import appeng.me.service.CraftingService;
-import cn.dancingsnow.neoecoae.compat.ae2.ECOProviderActions;
+import cn.dancingsnow.neoecoae.integration.ae2.ECOProviderActions;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPULogic;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;

@@ -16,7 +16,7 @@ import static org.mockito.Mockito.*;
 
 class FeNetworkAccessTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
-    @AfterEach void stopReuse() { cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse.configure(false); }
+    @AfterEach void stopReuse() { cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuse.configure(false); }
 
     @Test void everyNetworkCallInvokesTheRealFluxFactoryPath() {
         var inventory = mock(MEStorage.class);
@@ -57,7 +57,7 @@ class FeNetworkAccessTest {
         var mods = mock(ModList.class);
         when(mods.isLoaded("appflux")).thenReturn(true);
         var key = FluxKey.of(EnergyType.FE);
-        cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse.configure(true);
+        cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuse.configure(true);
         try (var loading = mockStatic(ModList.class); var factory = mockStatic(FluxKey.class)) {
             loading.when(ModList::get).thenReturn(mods);
             factory.when(() -> FluxKey.of(EnergyType.FE)).thenReturn(key);

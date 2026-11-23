@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.dev;
 
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuse;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.ArrayList;
 import java.util.List;

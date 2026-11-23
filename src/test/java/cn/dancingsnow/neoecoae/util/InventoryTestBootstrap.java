@@ -45,8 +45,8 @@ public final class InventoryTestBootstrap {
             when(mods.getModFiles()).thenReturn(List.of());
             loading.when(LoadingModList::get).thenReturn(mods);
             Bootstrap.bootStrap();
-            cn.dancingsnow.neoecoae.compat.ae2.AE2PatternOptimizationIntegration.init();
-            cn.dancingsnow.neoecoae.compat.ECOPatternIntegrations.initialize();
+            cn.dancingsnow.neoecoae.integration.ae2.AE2PatternOptimizationIntegration.init();
+            cn.dancingsnow.neoecoae.integration.ECOPatternIntegrations.initialize();
         }
     }
 }

@@ -14,7 +14,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.menu.me.crafting.CraftingStatus;
 import appeng.menu.me.crafting.CraftingStatusEntry;
-import cn.dancingsnow.neoecoae.compat.ae2lt.ECOAe2LtCpuStatus;
+import cn.dancingsnow.neoecoae.integration.ae2lt.ECOAe2LtCpuStatus;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import cn.dancingsnow.neoecoae.util.LargeWorkstationTestKeys;
 import com.moakiee.ae2lt.crafting.big.BigCraftingCpu;

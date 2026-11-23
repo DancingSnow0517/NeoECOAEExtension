@@ -386,7 +386,7 @@ class LargeWorkstationCoolantInputTest {
     /** Offline request-count measurement, reusing the integration fixture and actual hatch/tank methods. */
     public static void main(String[] args) throws Exception {
         bootstrap();
-        cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse.configure(true);
+        cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuse.configure(true);
         java.lang.reflect.Field setting = null;
         try { setting = cn.dancingsnow.neoecoae.config.NEConfig.class.getField("smartCoolingRefillThresholdPercent"); }
         catch (NoSuchFieldException baseline) { /* The baseline always replenishes below 100%. */ }

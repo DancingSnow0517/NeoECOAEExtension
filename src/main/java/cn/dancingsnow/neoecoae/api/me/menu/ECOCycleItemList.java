@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.api.me.menu;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.stacks.AEKey;
 import appeng.menu.guisync.PacketWritable;

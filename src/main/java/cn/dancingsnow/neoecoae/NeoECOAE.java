@@ -22,7 +22,7 @@ import cn.dancingsnow.neoecoae.api.integration.IntegrationManager;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
-import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.command.NECommands;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.data.NEDataGen;
@@ -104,8 +104,8 @@ public class NeoECOAE {
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Loading Integrations");
         integrationManager.compileContent();
         integrationManager.loadAllIntegrations();
-        cn.dancingsnow.neoecoae.compat.ae2.AE2PatternOptimizationIntegration.init();
-        cn.dancingsnow.neoecoae.compat.ECOPatternIntegrations.initialize();
+        cn.dancingsnow.neoecoae.integration.ae2.AE2PatternOptimizationIntegration.init();
+        cn.dancingsnow.neoecoae.integration.ECOPatternIntegrations.initialize();
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Integrations Load Complete");
         // These values govern server-authoritative gameplay and are also read by client-side
         // previews/tooltips. SERVER configs are synchronized to joining clients by NeoForge.
@@ -279,7 +279,7 @@ public class NeoECOAE {
     }
 
     private static void onTagsUpdated(TagsUpdatedEvent event) {
-        cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse.invalidate();
+        cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuse.invalidate();
         cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipes.invalidate();
         AE2PatternIntrospection.onRecipeReloadOrServerReload();
     }

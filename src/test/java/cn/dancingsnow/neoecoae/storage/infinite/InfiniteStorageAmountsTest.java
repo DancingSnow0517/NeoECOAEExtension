@@ -5,7 +5,7 @@ import static org.mockito.Mockito.*;
 
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEItemKey;
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.math.BigInteger;
 import java.util.Random;

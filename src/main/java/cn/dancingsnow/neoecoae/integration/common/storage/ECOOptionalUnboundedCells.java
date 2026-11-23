@@ -1,0 +1,22 @@
+package cn.dancingsnow.neoecoae.integration.common.storage;
+
+import appeng.api.stacks.AEKey;
+import appeng.api.storage.cells.StorageCell;
+import cn.dancingsnow.neoecoae.integration.ae2lt.ECOAe2LtUnboundedCells;
+import cn.dancingsnow.neoecoae.integration.extendedae.ECOExtendedAEUnboundedCells;
+import net.neoforged.fml.ModList;
+
+import java.util.Set;
+
+public final class ECOOptionalUnboundedCells {
+    private ECOOptionalUnboundedCells() {}
+
+    public static void collect(StorageCell cell, Set<AEKey> target) {
+        if (cell == null) return;
+        // ModList is not initialized in unit tests that reach this guard through CPU/planner paths.
+        var mods = ModList.get();
+        if (mods == null) return;
+        if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("ae2lt")) ECOAe2LtUnboundedCells.collect(cell, target);
+        if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("extendedae")) ECOExtendedAEUnboundedCells.collect(cell, target);
+    }
+}

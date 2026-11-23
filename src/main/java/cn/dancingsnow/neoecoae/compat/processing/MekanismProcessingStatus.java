@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.compat.processing;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import static cn.dancingsnow.neoecoae.compat.processing.ProcessingReflection.*;
 

@@ -29,7 +29,7 @@ final class FeNetworkAccess {
                 simulate ? Actionable.SIMULATE : Actionable.MODULATE, source);
         }
         @Override public Boolean keyReuseEnabled() {
-            return cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse.epoch() != null;
+            return cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuse.epoch() != null;
         }
     }
 }

@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.execution.fastpath;
 
 import appeng.api.stacks.KeyCounter;
-import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;

@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.dev.acceptance;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;

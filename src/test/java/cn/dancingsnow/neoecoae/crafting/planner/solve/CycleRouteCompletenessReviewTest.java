@@ -72,7 +72,7 @@ class CycleRouteCompletenessReviewTest {
         // Freeze compilation and the clock so the test cuts the shared allowance at the route boundary,
         // not at a machine-dependent elapsed time or during unrelated recipe discovery.
         var structure = new CompiledStructureCache.Structure(network, graph,
-            cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection.reloadGeneration(), -1L);
+            cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection.reloadGeneration(), -1L);
         var fields = Map.<String, Object>of("structure", structure, "activeSelection", initial,
             "planningBudget", new cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget(
                 ECOCancellation.NONE, work.get() + extraWork, Long.MAX_VALUE, () -> 0L));
@@ -129,7 +129,7 @@ class CycleRouteCompletenessReviewTest {
         var session = new cn.dancingsnow.neoecoae.crafting.planner.ECOCraftingPlannerService().createSession(
             mock(appeng.api.networking.crafting.ICraftingService.class), goal, stock, true);
         var structure = new CompiledStructureCache.Structure(network, graph,
-            cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection.reloadGeneration(), -1L);
+            cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection.reloadGeneration(), -1L);
         var fields = Map.<String, Object>of("structure", structure, "activeSelection", initial,
             "planningBudget", new cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget(
                 ECOCancellation.NONE, work.get() + extraWork, Long.MAX_VALUE, () -> 0L));

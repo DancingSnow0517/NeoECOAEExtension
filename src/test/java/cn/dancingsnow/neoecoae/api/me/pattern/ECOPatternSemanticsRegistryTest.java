@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.api.me.pattern;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
-import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapters;
 import java.math.BigInteger;
 import java.util.ArrayList;

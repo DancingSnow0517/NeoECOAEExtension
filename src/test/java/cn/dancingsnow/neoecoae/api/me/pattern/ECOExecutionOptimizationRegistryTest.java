@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me.pattern;
 
 import appeng.api.crafting.IPatternDetails;
-import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.resources.Identifier;

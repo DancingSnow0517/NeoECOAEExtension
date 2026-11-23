@@ -1,12 +1,12 @@
 package cn.dancingsnow.neoecoae.dev.acceptance;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOMatterKeys;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOMatterKeys;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOFluxKeys;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOFluxKeys;
 
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.KeyReuse;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuse;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
@@ -73,7 +73,7 @@ public final class KeyReuseAcceptance {
         check(AEItemKey.of(input) != AEItemKey.of(input), "upstream item factory remains independent with ECO reuse enabled");
         AEFluidKey firstFluid = AEFluidKey.of(fluid);
         check(firstFluid.equals(AEFluidKey.of(fluid)), "fluid factory preserves component equality");
-        if ((Object) firstFluid instanceof cn.dancingsnow.neoecoae.compat.ae2.keyreuse.FluidKeyComponents)
+        if ((Object) firstFluid instanceof cn.dancingsnow.neoecoae.integration.ae2.keyreuse.FluidKeyComponents)
             check(firstFluid == AEFluidKey.of(fluid), "checked default fluid factory reuses its owner slot");
         KeyReuse.configure(false);
         AEItemKey oldItem = ECOKeyFactory.item(input);

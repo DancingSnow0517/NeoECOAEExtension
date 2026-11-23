@@ -1,0 +1,78 @@
+package cn.dancingsnow.neoecoae.integration.ae2;
+
+import appeng.api.config.Settings;
+import appeng.api.config.YesNo;
+import appeng.api.networking.crafting.ICraftingProvider;
+import appeng.api.util.IConfigManager;
+import appeng.helpers.patternprovider.PatternProviderLogic;
+import appeng.helpers.patternprovider.PatternProviderLogicHost;
+import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.blocks.entity.LargeWorkstationPatternProvider;
+import cn.dancingsnow.neoecoae.integration.advanced_ae.ECOAdvancedAEPatternScaling;
+import cn.dancingsnow.neoecoae.compat.processing.ProcessingReflection;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/** Reads the live blocking switch before ECO batches work for an external provider. */
+public final class ECOExternalProviderBlocking {
+    private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
+    private static final Set<Class<?>> WARNED_PROVIDER_TYPES = ConcurrentHashMap.newKeySet();
+
+    private ECOExternalProviderBlocking() {}
+
+    public static boolean isEnabled(ICraftingProvider provider) {
+        if (provider instanceof LargeWorkstationPatternProvider) return false;
+        Object logic = provider;
+        if (!(logic instanceof PatternProviderLogic) && !ECOAdvancedAEPatternScaling.isProvider(logic)) {
+            if (provider instanceof PatternProviderLogicHost host) {
+                logic = host.getLogic();
+            } else {
+                // Third-party providers may duck-type AE2's host contract without implementing it.
+                try {
+                    Method accessor = ProcessingReflection.publicNoArgMethod(provider.getClass(), "getLogic");
+                    if (accessor != null) logic = accessor.invoke(provider);
+                } catch (ReflectiveOperationException | RuntimeException unavailable) {
+                    return failClosed(provider, "getLogic", unavailable);
+                }
+            }
+        }
+        if (logic == null) return false;
+        if (logic instanceof LargeWorkstationPatternProvider) return false;
+        try {
+            if (logic instanceof PatternProviderLogic ae2) return ae2.isBlocking();
+            if (ECOAdvancedAEPatternScaling.isProvider(logic)) {
+                return ECOAdvancedAEPatternScaling.isBlocking(logic);
+            }
+            Method isBlocking = ProcessingReflection.publicNoArgMethod(logic.getClass(), "isBlocking");
+            if (isBlocking != null && (isBlocking.getReturnType() == boolean.class || isBlocking.getReturnType() == Boolean.class)) {
+                return Boolean.TRUE.equals(isBlocking.invoke(logic));
+            }
+        } catch (InvocationTargetException | IllegalAccessException | RuntimeException unavailable) {
+            return failClosed(provider, "isBlocking", unavailable);
+        }
+        try {
+            Method accessor = ProcessingReflection.publicNoArgMethod(logic.getClass(), "getConfigManager");
+            if (accessor == null) return false;
+            Object config = accessor.invoke(logic);
+            if (config instanceof IConfigManager manager && manager.getSettings().contains(Settings.BLOCKING_MODE)) {
+                return manager.getSetting(Settings.BLOCKING_MODE) == YesNo.YES;
+            }
+        } catch (ReflectiveOperationException | RuntimeException unavailable) {
+            return failClosed(provider, "getConfigManager", unavailable);
+        }
+        return false;
+    }
+
+    /** An unreadable blocking switch is treated as enabled so ECO never batches past a provider's blocking mode. */
+    private static boolean failClosed(ICraftingProvider provider, String accessor, Exception failure) {
+        if (WARNED_PROVIDER_TYPES.add(provider.getClass())) {
+            LOGGER.warn("Cannot read blocking mode of {} via {}; treating provider as blocking",
+                provider.getClass().getName(), accessor, failure);
+        }
+        return true;
+    }
+}

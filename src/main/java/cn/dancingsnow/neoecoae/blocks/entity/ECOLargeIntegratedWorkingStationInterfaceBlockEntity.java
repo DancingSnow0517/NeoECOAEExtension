@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
-import cn.dancingsnow.neoecoae.compat.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
 

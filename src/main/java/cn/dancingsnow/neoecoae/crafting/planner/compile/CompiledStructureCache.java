@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.planner.compile;
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOCraftingProviderRevision;
-import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.crafting.planner.graph.CondensationGraph;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
