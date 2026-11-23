@@ -1010,11 +1010,6 @@ public class NEItems {
         return REGISTRATE.<ECOStorageCellItem>item(name, p -> new ECOBulkStorageCellItem(
                 p.stacksTo(1).rarity(rarity), tier, NECellTypes.BULK_ITEM, 1))
             .recipe((ctx, prov) -> {
-                ShapelessRecipeBuilder.shapeless(prov.itemLookup(), RecipeCategory.MISC, ctx.get())
-                    .requires(ECO_ITEM_CELL_HOUSING)
-                    .requires(component)
-                    .unlockedBy("has_component", prov.has(component))
-                    .save(prov);
                 StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(
                     ctx.get(), List.of(template(ECO_ITEM_CELL_HOUSING), template(component)));
                 prov.accept(recipeId(ctx.getId().withPrefix("disassembly/")), recipe, null);
