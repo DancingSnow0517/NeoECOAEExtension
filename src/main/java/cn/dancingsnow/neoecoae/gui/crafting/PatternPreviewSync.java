@@ -1,13 +1,12 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerMenu;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.phys.AABB;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -28,6 +27,8 @@ public final class PatternPreviewSync {
     private static final int SLOTS_PER_TICK = 256;
     private static final long BUILD_NANOS = 2_000_000L;
     private static final int CLIENT_CACHE_LIMIT = 32;
+    private static final int VIEWER_DISCOVERY_INTERVAL = 20;
+    private static final int VIEWER_RADIUS = 8;
     private static final long SERVER_VIEWER_RETENTION_TICKS = 1_200L;
     // Level identity prevents another server/save at the same coordinates from reusing this world's view.
     private static final Map<Level, Map<ClientCacheKey, ClientState>> CLIENT_CACHE = new WeakHashMap<>();
@@ -177,30 +178,41 @@ public final class PatternPreviewSync {
     }
 
     public boolean isViewer(ServerPlayer player) {
-        return player.containerMenu instanceof ModularUIContainerMenu menu
-                && menu.uiHolder instanceof BlockUIMenuType.BlockUIHolder holder
-                && holder.pos.equals(host.getBlockPos())
+        return player.containerMenu instanceof CraftingPatternMenu menu && menu.isFor(host) && menu.stillValid(player)
                 && player.level() == host.getLevel()
-                && player.blockPosition().distSqr(host.getBlockPos()) <= 64.0D;
+                && player.blockPosition().distSqr(host.getBlockPos()) <= VIEWER_RADIUS * VIEWER_RADIUS;
     }
 
     public void tick(ServerLevel level) {
-        List<ServerPlayer> active = level.players().stream().filter(this::isViewer).toList();
-        for (Viewer viewer : viewers.values()) {
-            if (active.stream().noneMatch(player -> player.getUUID().equals(viewer.playerId))) {
-                viewer.menu = null;
+        long now = level.getGameTime();
+        if ((now + host.getBlockPos().hashCode()) % VIEWER_DISCOVERY_INTERVAL == 0 && !level.players().isEmpty()) {
+            for (ServerPlayer player : level.getEntitiesOfClass(ServerPlayer.class,
+                    new AABB(host.getBlockPos()).inflate(VIEWER_RADIUS), this::isViewer)) {
+                if (!viewers.containsKey(player.getUUID())) open(player, player.containerMenu.containerId, -1, 0L);
             }
         }
-        viewers.entrySet().removeIf(entry -> level.getGameTime() - entry.getValue().lastSeenTick
-                > SERVER_VIEWER_RETENTION_TICKS);
+        if (viewers.isEmpty()) return;
+        List<ServerPlayer> active = new ArrayList<>();
+        boolean needsSync = false;
+        for (var iterator = viewers.values().iterator(); iterator.hasNext();) {
+            Viewer viewer = iterator.next();
+            ServerPlayer player = level.getServer().getPlayerList().getPlayer(viewer.playerId);
+            if (player != null && isViewer(player)) {
+                active.add(player);
+                viewer.lastSeenTick = now;
+                needsSync |= viewer.openRequested || viewer.menu != player.containerMenu;
+            } else {
+                viewer.menu = null;
+                if (now - viewer.lastSeenTick > SERVER_VIEWER_RETENTION_TICKS) iterator.remove();
+            }
+        }
         if (active.isEmpty()) return;
         // Drain immutable pages every tick; refresh the live catalogue at the normal cadence.
-        boolean hasPendingOpen = viewers.values().stream().anyMatch(viewer -> viewer.openRequested);
-        if (level.getGameTime() < nextSyncTick && !building && !hasPendingOpen) {
+        if (now < nextSyncTick && !building && !needsSync) {
             for (ServerPlayer player : active) drain(player, viewers.get(player.getUUID()));
             return;
         }
-        nextSyncTick = level.getGameTime() + MenuDataTransport.UPDATE_INTERVAL;
+        nextSyncTick = now + MenuDataTransport.UPDATE_INTERVAL;
         if (reset || !dirtySlots.isEmpty()) host.refreshPatternCatalog();
         int size = host.getPatternInterfaceSlotCount();
         int revision = host.getPatternContentRevision();
@@ -250,19 +262,15 @@ public final class PatternPreviewSync {
         cachedRevision = revision;
         for (ServerPlayer player : active) {
             Viewer viewer = viewers.get(player.getUUID());
-            if (viewer == null) {
-                MenuDataTransport.cancel(player, MenuDataTransport.Channel.PATTERNS);
-                viewer = new Viewer(player.getUUID(), player.containerMenu);
-                viewers.put(player.getUUID(), viewer);
-            } else if (viewer.menu != player.containerMenu) {
+            if (viewer.menu != player.containerMenu) {
                 viewer.menu = player.containerMenu;
                 viewer.pending = null;
                 viewer.changed.clear();
                 // A menu changed without the cache handshake (for example an older client or a
                 // race during screen construction). Fall back to a safe full baseline.
                 viewer.revision = -1;
+                viewer.openRequested = false;
             }
-            viewer.lastSeenTick = level.getGameTime();
             if (viewer.openRequested) {
                 viewer.openRequested = false;
                 if (viewer.clientEpoch == sessionEpoch && viewer.clientRevision == cachedRevision

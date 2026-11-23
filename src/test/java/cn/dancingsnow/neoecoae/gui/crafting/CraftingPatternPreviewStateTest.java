@@ -47,7 +47,7 @@ class CraftingPatternPreviewStateTest {
 
     @Test void firstPageIsBrowsableWithoutSearchingAndFinalPageEndsLoading() throws Exception {
         var f = new Fixture();
-        var state = new CraftingPatternPreviewState(f.host, f.player);
+        var state = new CraftingPatternPreviewState(f.host, f.player, java.util.Map.of());
         state.receive(f.page(true, false, true, -1, 7, 300, 0, 256));
         assertEquals(29, state.getRowCount(), "the received page must already be visible without typing");
         assertEquals("gui.neoecoae.crafting_interface.preview.rows", statusKey(state));
@@ -66,7 +66,7 @@ class CraftingPatternPreviewStateTest {
 
     @Test void aSparseFirstPageCanBeTakenBeforeTheFinalPageWithoutBuildingSearchKeywords() throws Exception {
         var f = new Fixture();
-        var state = new CraftingPatternPreviewState(f.host, f.player);
+        var state = new CraftingPatternPreviewState(f.host, f.player, java.util.Map.of());
         var first = f.page(true, false, true, -1, 7, 65_536, 0, 1);
         var layout = new ListTag();
         var bus = new CompoundTag(); bus.putLong("bus", 10); bus.putInt("count", 65_536); layout.add(bus);
@@ -95,7 +95,7 @@ class CraftingPatternPreviewStateTest {
 
     @Test void insertionDuringLoadingSkipsOccupiedSlotsWhosePagesHaveNotArrived() throws Exception {
         var f = new Fixture();
-        var state = new CraftingPatternPreviewState(f.host, f.player);
+        var state = new CraftingPatternPreviewState(f.host, f.player, java.util.Map.of());
         var first = f.page(true, false, true, -1, 7, 3, 1, 1);
         var layout = new ListTag();
         var bus = new CompoundTag(); bus.putLong("bus", 10); bus.putInt("count", 3); layout.add(bus);
@@ -106,7 +106,7 @@ class CraftingPatternPreviewStateTest {
         when(f.player.containerMenu.getCarried()).thenReturn(carried);
         try (var patterns = mockStatic(appeng.api.crafting.PatternDetailsHelper.class)) {
             patterns.when(() -> appeng.api.crafting.PatternDetailsHelper.isEncodedPattern(carried)).thenReturn(true);
-            assertTrue(state.insertCarriedPattern(0));
+            state.insertCarriedPattern(0);
             var payload = ArgumentCaptor.forClass(CompoundTag.class);
             verify(f.host).rpcToServer(eq("actOnPatternPreview"), payload.capture());
             assertEquals(2, payload.getValue().getIntOr("slot", 0), "an unreceived occupied slot is not free capacity");
@@ -115,12 +115,12 @@ class CraftingPatternPreviewStateTest {
 
     @Test void reopeningRestoresDirectionalQueriesScrollAndCachedResultsBeforeAnyPacket() throws Exception {
         var f = new Fixture();
-        var state = new CraftingPatternPreviewState(f.host, f.player);
+        var state = new CraftingPatternPreviewState(f.host, f.player, java.util.Map.of());
         state.receive(f.page(true, true, true, -1, 7, 90, 0, 90));
         state.setInputSearch("iron");
         state.setOutputSearch("gear");
         state.setScrollRow(3);
-        var reopened = new CraftingPatternPreviewState(f.host, f.player);
+        var reopened = new CraftingPatternPreviewState(f.host, f.player, java.util.Map.of());
         assertEquals("iron", reopened.getInputSearch());
         assertEquals("gear", reopened.getOutputSearch());
         assertEquals(3, reopened.getScrollRow());
@@ -139,7 +139,7 @@ class CraftingPatternPreviewStateTest {
 
     @Test void removingAWholeRowKeepsScrollUntilReopeningOrChangingTheQuery() throws Exception {
         var f = new Fixture();
-        var state = new CraftingPatternPreviewState(f.host, f.player);
+        var state = new CraftingPatternPreviewState(f.host, f.player, java.util.Map.of());
         state.receive(f.page(true, true, true, -1, 7, 90, 0, 90));
         state.setScrollRow(4);
         state.receive(f.emptyPage(false, 7, 8, 90, 0, 9));
@@ -147,7 +147,7 @@ class CraftingPatternPreviewStateTest {
         assertEquals(4, state.getScrollRow());
         assertEquals(72, state.getScrollOffset());
 
-        var reopened = new CraftingPatternPreviewState(f.host, f.player);
+        var reopened = new CraftingPatternPreviewState(f.host, f.player, java.util.Map.of());
         assertEquals(9, reopened.getRowCount(), "a new menu compacts the latest cached contents");
         assertEquals(3, reopened.getScrollRow());
         state.setOutputSearch("gear");
@@ -157,7 +157,7 @@ class CraftingPatternPreviewStateTest {
 
     @Test void sparseFullRefreshKeepsExistingCellsWhilePagesArrive() throws Exception {
         var f = new Fixture();
-        var state = new CraftingPatternPreviewState(f.host, f.player);
+        var state = new CraftingPatternPreviewState(f.host, f.player, java.util.Map.of());
         state.receive(f.page(true, true, true, -1, 7, 3, 0, 3));
         var preview = CraftingInterfaceUI.patternPreview(state);
         var first = f.page(true, false, true, -1, 8, 3, 1, 1);
@@ -177,7 +177,7 @@ class CraftingPatternPreviewStateTest {
         assertFalse(preview.getChildren().get(0).isVisible());
         assertTrue(preview.getChildren().get(1).isVisible());
         assertTrue(preview.getChildren().get(2).isVisible());
-        var reopened = new CraftingPatternPreviewState(f.host, f.player);
+        var reopened = new CraftingPatternPreviewState(f.host, f.player, java.util.Map.of());
         var reopenedPreview = CraftingInterfaceUI.patternPreview(reopened);
         assertTrue(reopenedPreview.getChildren().get(0).isVisible());
         assertFalse(reopenedPreview.getChildren().get(2).isVisible());
@@ -185,7 +185,7 @@ class CraftingPatternPreviewStateTest {
 
     @Test void consecutiveShiftMovesKeepTheRemainingPhysicalAddresses() throws Exception {
         var f = new Fixture();
-        var state = new CraftingPatternPreviewState(f.host, f.player);
+        var state = new CraftingPatternPreviewState(f.host, f.player, java.util.Map.of());
         state.receive(f.page(true, true, true, -1, 7, 3, 0, 3));
         var preview = CraftingInterfaceUI.patternPreview(state);
         state.receive(f.emptyPage(false, 7, 8, 3, 0, 1));
@@ -196,7 +196,7 @@ class CraftingPatternPreviewStateTest {
                 event.target = preview.getChildren().get(visual);
                 event.button = 0;
                 UIEventDispatcher.dispatchEvent(event, true, true, false);
-                state.endQuickMoveDrag();
+
             }
         }
         var moves = ArgumentCaptor.forClass(CompoundTag.class);
@@ -215,15 +215,15 @@ class CraftingPatternPreviewStateTest {
 
     @Test void cacheProbeWaitsForTheNewMenuAndUsesItsIdOnce() throws Exception {
         var f = new Fixture();
-        var state = new CraftingPatternPreviewState(f.host, f.player);
-        state.tick();
+        var state = new CraftingPatternPreviewState(f.host, f.player, java.util.Map.of());
+        state.tick(new com.lowdragmc.lowdraglib2.gui.ui.UIElement());
         assertTrue(f.requests.isEmpty(), "UI construction still sees the previous container");
         var menu = mock(ModularUIContainerMenu.class);
         setField(menu, "containerId", 42);
         setField(menu, "uiHolder", new BlockUIMenuType.BlockUIHolder(null, f.player, BlockPos.ZERO, null));
         f.player.containerMenu = menu;
-        state.tick();
-        state.tick();
+        state.tick(new com.lowdragmc.lowdraglib2.gui.ui.UIElement());
+        state.tick(new com.lowdragmc.lowdraglib2.gui.ui.UIElement());
         assertEquals(1, f.requests.size());
         assertEquals(42, f.requests.getFirst().getIntOr("menu", 0));
         assertEquals(-1, f.requests.getFirst().getIntOr("revision", 0));
@@ -240,7 +240,7 @@ class CraftingPatternPreviewStateTest {
 
     @Test void wheelAnimationRetainsFractionalOffsetsAndBothPartialEdgeRows() throws Exception {
         var f = new Fixture();
-        var state = new CraftingPatternPreviewState(f.host, f.player);
+        var state = new CraftingPatternPreviewState(f.host, f.player, java.util.Map.of());
         state.receive(f.page(true, true, true, -1, 7, 90, 0, 90));
         var preview = CraftingInterfaceUI.patternPreview(state);
         state.scroll(1);
@@ -264,7 +264,7 @@ class CraftingPatternPreviewStateTest {
 
     @Test void pixelDraggingChangesTheFirstPhysicalAddressOnlyAfterCrossingARow() throws Exception {
         var f = new Fixture();
-        var state = new CraftingPatternPreviewState(f.host, f.player);
+        var state = new CraftingPatternPreviewState(f.host, f.player, java.util.Map.of());
         state.receive(f.page(true, true, true, -1, 7, 90, 0, 90));
         var preview = CraftingInterfaceUI.patternPreview(state);
         state.setScrollOffset(17.5);
@@ -300,7 +300,7 @@ class CraftingPatternPreviewStateTest {
         assertEquals(expected, animate(60), 1e-9);
         assertEquals(expected, animate(144), 1e-9);
         var f = new Fixture();
-        var state = new CraftingPatternPreviewState(f.host, f.player);
+        var state = new CraftingPatternPreviewState(f.host, f.player, java.util.Map.of());
         state.receive(f.page(true, true, true, -1, 7, 90, 0, 90));
         state.scroll(.25);
         state.scroll(.25);
@@ -310,7 +310,7 @@ class CraftingPatternPreviewStateTest {
 
     @Test void fractionalScrollingKeepsTheBufferAndCrossingARowRecyclesOnlyNineCells() throws Exception {
         var f = new Fixture();
-        var state = new CraftingPatternPreviewState(f.host, f.player);
+        var state = new CraftingPatternPreviewState(f.host, f.player, java.util.Map.of());
         var page = f.page(true, true, true, -1, 7, 90, 0, 90);
         var incoming = page.getListOrEmpty("entries");
         for (int index = 63; index < 72; index++) {
@@ -339,7 +339,7 @@ class CraftingPatternPreviewStateTest {
 
     private static double animate(int fps) throws Exception {
         var f = new Fixture();
-        var state = new CraftingPatternPreviewState(f.host, f.player);
+        var state = new CraftingPatternPreviewState(f.host, f.player, java.util.Map.of());
         state.receive(f.page(true, true, true, -1, 7, 90, 0, 90));
         state.scroll(3);
         for (int i = 0; i < fps / 6; i++) state.advanceScroll(1.0 / fps);

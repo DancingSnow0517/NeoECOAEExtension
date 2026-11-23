@@ -9,7 +9,6 @@ import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
 import com.google.gson.JsonObject;
-import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
@@ -17,27 +16,23 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.List;
 import java.util.function.IntConsumer;
-import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.ContainerInput;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.minecraft.world.inventory.Slot;
 
 /** Pattern-bus layout and page buttons over a machine-owned inventory view. */
 public final class CraftingPatternBusUI {
     private CraftingPatternBusUI() {}
 
-    public record Config(Supplier<Component> title, IItemHandlerModifiable inventory,
-                         IntSupplier pageCount, IntSupplier currentPage, IntConsumer changePage) {}
+    public record Config(Supplier<Component> title, List<? extends Slot> slots,
+                         int pageCount, int currentPage, IntConsumer changePage) {}
 
     private static final int PAGE_BUTTON_SIZE = 16;
     private static final int PAGE_CONTROL_GAP = 4;
@@ -54,27 +49,23 @@ public final class CraftingPatternBusUI {
         Identifier.fromNamespaceAndPath("neoecoae", "screens/crafting/crafting_pattern_bus");
 
     public static ModularUI create(Config config, Player player) {
-        ShiftQuickMove quickMove = new ShiftQuickMove(player);
-        UIElement root = NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config, quickMove));
-        quickMove.attachRoot(root);
+        UIElement root = NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config));
         return ECOModularUI.create(root, player);
     }
 
     private static final class JsonContext implements NeoUiJsonContext {
         private final Config config;
-        private final ShiftQuickMove quickMove;
 
-        private JsonContext(Config config, ShiftQuickMove quickMove) {
+        private JsonContext(Config config) {
             this.config = config;
-            this.quickMove = quickMove;
         }
 
         @Override
         public UIElement createCustom(JsonObject node) {
             return switch (string(node, "custom", "")) {
                 case "header" -> headerRow(config);
-                case "pattern_inventory" -> patternInventory(config, quickMove);
-                case "player_inventory" -> playerInventory(quickMove);
+                case "pattern_inventory" -> patternInventory(config);
+                case "player_inventory" -> new InventorySlots().layout(layout -> layout.marginTop(5));
                 default -> throw new IllegalArgumentException("Unknown crafting pattern bus custom element: "
                     + string(node, "custom", ""));
             };
@@ -94,16 +85,16 @@ public final class CraftingPatternBusUI {
         }
     }
 
-    private static UIElement patternInventory(Config config, ShiftQuickMove quickMove) {
+    private static UIElement patternInventory(Config config) {
         UIElement patternInv = new UIElement().addClass("panel_border");
         for (int row = 0; row < COL_SIZE; row++) {
             UIElement rowInv = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
             for (int col = 0; col < ROW_SIZE; col++) {
                 int slotIndex = row * ROW_SIZE + col;
-                ItemSlot slot = new PatternItemSlot(new ItemHandlerSlot(config.inventory(), slotIndex));
+                ItemSlot slot = ClientUIBridge.call("createPatternSlot", Slot.class, config.slots().get(slotIndex),
+                        PatternItemSlot.class, () -> new PatternItemSlot(config.slots().get(slotIndex)));
                 slot.slotStyle(style -> style.slotOverlay(AETextures.icon(ECOIcon.BACKGROUND_BLANK_PATTERN)))
                     .addClass("eco-pattern-slot");
-                quickMove.attach(slot);
                 rowInv.addChild(slot);
             }
             patternInv.addChild(rowInv);
@@ -111,84 +102,8 @@ public final class CraftingPatternBusUI {
         return patternInv;
     }
 
-    private static UIElement playerInventory(ShiftQuickMove quickMove) {
-        InventorySlots inventory = new InventorySlots();
-        inventory.layout(layout -> layout.marginTop(5));
-        inventory.apply(quickMove::attach);
-        return inventory;
-    }
-
-    /**
-     * Mouse Tweaks-style Shift-drag: the press is a normal vanilla Shift-click, and every other slot the cursor
-     * crosses while the button is held gets one server-side quick move. LDLib2 only refreshes its hover once per
-     * frame, so the cursor path is hit-tested directly instead of waiting for enter events.
-     */
-    private static final class ShiftQuickMove {
-        private static final String MESSAGE = "neoecoae:shift_quick_move";
-
-        private final Player player;
-        private final Set<ItemSlot> slots = new HashSet<>();
-        private final Set<ItemSlot> visited = new HashSet<>();
-        private boolean dragging;
-        private float lastX;
-        private float lastY;
-
-        private ShiftQuickMove(Player player) {
-            this.player = player;
-        }
-
-        private void attachRoot(UIElement root) {
-            root.addEventListener(UIEvents.MOUSE_MOVE, event -> {
-                if (!dragging) return;
-                if (!event.isShiftDown() || !root.isMouseDown(0)) {
-                    dragging = false;
-                    return;
-                }
-                float dx = event.x - lastX;
-                float dy = event.y - lastY;
-                int steps = Math.max(1, (int) Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 4));
-                for (int i = 1; i <= steps; i++) {
-                    visit(hitTestAtScreen(root.getModularUI(), lastX + dx * i / steps, lastY + dy * i / steps));
-                }
-                lastX = event.x;
-                lastY = event.y;
-            }, true);
-        }
-
-        private void attach(ItemSlot slot) {
-            slots.add(slot);
-            slot.addEventListener(UIEvents.MOUSE_DOWN, event -> {
-                visited.clear();
-                dragging = event.button == 0 && event.isShiftDown() && player.containerMenu.getCarried().isEmpty();
-                if (!dragging) return;
-                visited.add(slot);
-                lastX = event.x;
-                lastY = event.y;
-            });
-            slot.onMessage(MESSAGE, ignored -> {
-                if (player.containerMenu.getCarried().isEmpty()) {
-                    player.containerMenu.clicked(slot.getSlot().index, 0, ContainerInput.QUICK_MOVE, player);
-                }
-            });
-        }
-
-        // LDLib2 26.1 dropped ModularUI#hitTestAtScreen; same logic as the 1.21.1 implementation.
-        private static UIElement hitTestAtScreen(ModularUI modularUI, float screenX, float screenY) {
-            if (modularUI == null) return null;
-            var local = new org.joml.Matrix3x2f(modularUI.getLastDrawPose()).invert()
-                .transformPosition(new org.joml.Vector2f(screenX, screenY));
-            var hit = modularUI.ui.rootElement.hitTest(local.x, local.y);
-            return hit == null ? null : hit.getA();
-        }
-
-        private void visit(UIElement hit) {
-            while (hit != null && !slots.contains(hit)) hit = hit.getParent();
-            if (hit instanceof ItemSlot slot && visited.add(slot)) slot.sendMessage(MESSAGE);
-        }
-    }
-
     private static UIElement headerRow(Config config) {
-        boolean showPageControls = config.pageCount().getAsInt() > 1;
+        boolean showPageControls = config.pageCount() > 1;
         UIElement row = new UIElement().layout(layout -> {
             layout.width(UI_CONTENT_WIDTH);
             layout.height(showPageControls ? HEADER_HEIGHT : SINGLE_PAGE_HEADER_HEIGHT);
@@ -219,7 +134,7 @@ public final class CraftingPatternBusUI {
             layout.width(PAGE_CONTROLS_WIDTH);
             layout.height(PAGE_BUTTON_SIZE);
         });
-        controls.addChild(pageButton("<", () -> config.changePage().accept(config.currentPage().getAsInt() - 1)).layout(layout -> {
+        controls.addChild(pageButton("<", () -> config.changePage().accept(config.currentPage() - 1)).layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.left(0);
             layout.top(0);
@@ -227,7 +142,7 @@ public final class CraftingPatternBusUI {
             layout.height(PAGE_BUTTON_SIZE);
         }));
         TextElement pageNumber = new TextElement()
-            .setText(Component.literal((config.currentPage().getAsInt() + 1) + "/" + config.pageCount().getAsInt()));
+            .setText(Component.literal((config.currentPage() + 1) + "/" + config.pageCount()));
         controls.addChild(pageNumber.layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.left(PAGE_BUTTON_SIZE + PAGE_CONTROL_GAP);
@@ -235,7 +150,7 @@ public final class CraftingPatternBusUI {
             layout.width(PAGE_LABEL_WIDTH);
             layout.height(PAGE_BUTTON_SIZE);
         }));
-        controls.addChild(pageButton(">", () -> config.changePage().accept(config.currentPage().getAsInt() + 1)).layout(layout -> {
+        controls.addChild(pageButton(">", () -> config.changePage().accept(config.currentPage() + 1)).layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.left(PAGE_BUTTON_SIZE + PAGE_CONTROL_GAP + PAGE_LABEL_WIDTH + PAGE_CONTROL_GAP);
             layout.top(0);

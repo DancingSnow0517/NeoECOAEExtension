@@ -18,6 +18,7 @@ final class StoragePanelSync {
     private int requestedOffset;
     private HostPanelTextureState textures = HostPanelTextureState.EMPTY;
     private StoragePanelState state = StoragePanelState.EMPTY;
+    private Runnable onPageUpdate = () -> {};
 
     StoragePanelSync(UIElement parent, Supplier<StorageHostUI.Config> config, int pageSize) {
         this(parent, config, pageSize, null);
@@ -31,8 +32,9 @@ final class StoragePanelSync {
         BindableValue<Tag> synced = new BindableValue<>(initial);
         synced.bind(DataBindingBuilder.tagS2C(this::snapshot).build());
         synced.registerValueListener(value -> {
-            state = StoragePanelState.fromTag(value, config.get().registries());
+            state = StoragePanelState.fromTag(value);
             textures = value instanceof CompoundTag tag ? HostPanelTextureState.read(tag) : HostPanelTextureState.EMPTY;
+            onPageUpdate.run();
         });
         synced.setDisplay(false);
         pageRequest.bind(DataBindingBuilder.intValC2S(value -> requestedOffset = Math.max(0, value)).build());
@@ -43,6 +45,11 @@ final class StoragePanelSync {
     HostPanelTextureState textures() { return textures; }
 
     StoragePanelState state() { return state; }
+
+    void onPageUpdate(Runnable listener) {
+        onPageUpdate = listener;
+        listener.run();
+    }
 
     void scroll(int delta) {
         int next = StoragePanelState.pageOffset(state.cellOffset() + delta * pageSize, state.cellCount(), pageSize);
@@ -55,7 +62,7 @@ final class StoragePanelSync {
         // Keep the old item-preview factory compatible; live host factories always supply placed state.
         textures = hostState == null ? HostPanelTextureState.capture(config.get().hostItem().get())
             : HostPanelTextureState.capture(hostState.get());
-        CompoundTag tag = state.toTag(config.get().registries());
+        CompoundTag tag = state.toTag();
         textures.write(tag);
         return tag;
     }

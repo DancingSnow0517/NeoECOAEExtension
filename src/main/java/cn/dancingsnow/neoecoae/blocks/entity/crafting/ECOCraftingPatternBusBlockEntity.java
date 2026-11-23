@@ -38,14 +38,11 @@ import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathEx
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathRecipe;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedVirtualExecution;
 import cn.dancingsnow.neoecoae.crafting.planner.growth.NetGrowthPatternValidationRegistry;
-import cn.dancingsnow.neoecoae.gui.crafting.CraftingPatternBusUI;
 import cn.dancingsnow.neoecoae.integration.ae2pattern.PatternDiskSupport;
 import cn.dancingsnow.neoecoae.util.PatternSearchKeywords;
 import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
+import com.lowdragmc.lowdraglib2.syncdata.annotation.LazyManaged;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
@@ -100,9 +97,10 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     public static final int SLOTS_PER_PAGE = ROW_SIZE * COL_SIZE;
 
     @Persisted
+    @LazyManaged
+    // Inventory callbacks save changes; polling would re-encode every pattern on LDLib's async thread each period.
     private final AppEngInternalInventory inventory;
     private final InternalInventory effectiveInventory = new EffectivePatternInventory();
-    private final IItemHandlerModifiable pageItemHandler = new PagedPatternItemHandler();
     private final ECOCraftingPatternBusCatalog catalog;
     private final ECOCraftingPatternBusDispatcher dispatcher;
     private static final int EXTERNAL_NONCE_HISTORY = 1024;
@@ -138,19 +136,39 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
      * which is the answer this bus gave before it knew about disks at all.</p>
      */
     @Nullable
-    private AuxiliaryPatternHolder diskHolder;
+    private PatternDiskSupport.TrackedHolder diskHolder;
 
     @Nullable
-    private AuxiliaryPatternHolder diskHolder() {
-        AuxiliaryPatternHolder current = diskHolder;
+    private PatternDiskSupport.TrackedHolder diskHolder() {
+        var current = diskHolder;
         if (current == null && PatternDiskSupport.available()) {
-            current = PatternDiskSupport.holderFor(
+            current = PatternDiskSupport.track(
                     getPatternSlotInventory(),
                     () -> getMainNode().getGrid(),
                     this::getLevel);
             diskHolder = current;
         }
         return current;
+    }
+
+    void diskSlotChanged(int slot) {
+        var holder = diskHolder();
+        if (holder != null) holder.slotChanged(slot);
+    }
+
+    public boolean hasPatternDisks() {
+        var holder = diskHolder();
+        return holder != null && holder.hasDisks();
+    }
+
+    public int firstPatternDiskSlot() {
+        var holder = diskHolder();
+        return holder == null ? -1 : holder.firstDiskSlot();
+    }
+
+    public void notifyAuxiliaryPreviewSlots(int previousFirst, int currentFirst) {
+        notifyPatternInterfaceHosts(previousFirst != currentFirst
+            ? new int[] { previousFirst, currentFirst } : new int[] { currentFirst });
     }
 
     /**
@@ -180,7 +198,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
      */
     @Override
     public boolean canAcceptIntoAuxiliary(ItemStack pattern) {
-        return PatternDiskSupport.canAcceptAuxiliary(getPatternSlotInventory(), pattern, level);
+        var holder = diskHolder();
+        return holder != null && holder.canAccept(pattern, level);
     }
 
     @Override
@@ -196,7 +215,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         if (toStore == null) {
             return ECOPatternInsertionResult.INCOMPATIBLE;
         }
-        return PatternDiskSupport.insertAuxiliary(getPatternSlotInventory(), pattern, level)
+        return diskHolder().insert(pattern, level)
                 ? ECOPatternInsertionResult.INSERTED
                 : ECOPatternInsertionResult.NO_TARGET;
     }
@@ -224,7 +243,7 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
      * unusable.</p>
      */
     private void refreshAuxiliaryPatterns() {
-        AuxiliaryPatternHolder holder = diskHolder();
+        var holder = diskHolder();
         if (holder == null) {
             auxiliaryPatternDetails = List.of();
             auxiliaryEncodedPatterns = List.of();
@@ -243,10 +262,9 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         // let a pattern be counted as present yet be unusable.
         List<ItemStack> encoded = new ArrayList<>();
         List<IPatternDetails> details = new ArrayList<>();
-        for (ItemStack pattern : holder.getAuxiliaryEncodedPatterns()) {
-            IPatternDetails decoded = PatternDetailsHelper.decodePattern(pattern, level);
-            if (decoded instanceof IMolecularAssemblerSupportedPattern) {
-                encoded.add(pattern);
+        for (IPatternDetails decoded : holder.decode(level)) {
+            if (decoded instanceof IMolecularAssemblerSupportedPattern && decoded.getDefinition() != null) {
+                encoded.add(decoded.getDefinition().toStack());
                 details.add(decoded);
             }
         }
@@ -534,6 +552,11 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return effectiveInventory;
     }
 
+    @Override
+    public boolean allowsPatternMigrationSource() {
+        return true;
+    }
+
     /**
      * The rows the terminal view appends after the real slots.
      *
@@ -695,8 +718,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         }
         // A pattern disk takes precedence over slot storage: the pattern is already being carried by the bus,
         // and spending a slot on it would consume capacity for nothing.
-        if (PatternDiskSupport.canAcceptAuxiliary(getPatternSlotInventory(), itemStack, level)) {
-            if (PatternDiskSupport.insertAuxiliary(getPatternSlotInventory(), itemStack, level)) {
+        if (canAcceptIntoAuxiliary(itemStack)) {
+            if (diskHolder().insert(itemStack, level)) {
                 // No revision bump here: a disk is one of this bus's own slots, so writing to it notifies the
                 // inventory's host, and the catalog picks the change up from getAuxiliaryRevision().
                 return ECOPatternInsertionResult.INSERTED;
@@ -815,6 +838,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     public void onReady() {
         super.onReady();
         catalog.onReady();
+        notifyPatternCatalog(getPatternContentRevision(), new int[] { -1 });
+        notifyPatternInterfaceTopologyChanged(getMainNode().getGrid());
     }
 
     @Override
@@ -846,7 +871,8 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         if (level == null || level.isClientSide()) {
             return;
         }
-        updatePatternDetailsNow();
+        ICraftingProvider.requestUpdate(getMainNode());
+        notifyPatternInterfaceHosts(-1);
     }
 
     private void updatePatternDetailsNow() {
@@ -899,6 +925,17 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         publisher.notifyPatternInterfaceHosts(slot);
     }
 
+    public void setPatternPreviewSubscriber(cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity<?> host,
+                                            boolean mapped) {
+        publisher.subscribe(host, mapped);
+    }
+
+    @Override
+    protected void onMainNodeGridChanged() {
+        super.onMainNodeGridChanged();
+        notifyPatternInterfaceTopologyChanged(getMainNode().getGrid());
+    }
+
     void notifyPatternInterfaceHosts(int[] slots) {
         publisher.notifyPatternInterfaceHosts(slots);
     }
@@ -930,12 +967,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             .forEach(drops::add);
     }
 
-    public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        return CraftingPatternBusUI.create(new CraftingPatternBusUI.Config(
-            () -> cn.dancingsnow.neoecoae.gui.GuiTitleProvider.title(getBlockState(),
-                Component.translatable("block.neoecoae.crafting_pattern_bus")),
-            pageItemHandler, this::getPageCount, this::visiblePage, this::changePage), holder.player);
-    }
 
     public int getPageCount() {
         // catalog 在构造器体里才赋值，而本方法会被构造期路径间接触发（字段初始化器算 getPatternSlotCount），
@@ -953,29 +984,12 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return activePages;
     }
 
-    /**
-     * The page the UI is on, clamped to the pages that currently exist.
-     *
-     * <p>Slot lookups and the paging buttons both go through this, so a visible index always resolves to the
-     * same physical slot on either side.</p>
-     */
-    private int visiblePage() {
+    public int getInitialMenuPage() {
         return Math.clamp(currentPage, 0, getPageCount() - 1);
     }
 
     public int getPatternSlotCount() {
         return getPageCount() * SLOTS_PER_PAGE;
-    }
-
-    private void changePage(int targetPage) {
-        int pageCount = getPageCount();
-        int clamped = Math.clamp(targetPage, 0, pageCount - 1);
-        if (clamped == visiblePage()) {
-            return;
-        }
-        currentPage = clamped;
-        setChanged();
-        markForUpdate();
     }
 
     private static int clampPages(int pages) {
@@ -1190,71 +1204,5 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         }
     }
 
-    private final class PagedPatternItemHandler implements IItemHandlerModifiable {
-        @Override
-        public int getSlots() {
-            return SLOTS_PER_PAGE;
-        }
-
-        @Override
-        public ItemStack getStackInSlot(int slot) {
-            int actualSlot = toActualSlot(slot);
-            return actualSlot >= 0 ? inventory.getStackInSlot(actualSlot) : ItemStack.EMPTY;
-        }
-
-        @Override
-        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            int actualSlot = toActualSlot(slot);
-            return actualSlot >= 0 ? itemHandler.insertItem(actualSlot, stack, simulate) : stack;
-        }
-
-        @Override
-        public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            int actualSlot = toActualSlot(slot);
-            return actualSlot >= 0 ? itemHandler.extractItem(actualSlot, amount, simulate) : ItemStack.EMPTY;
-        }
-
-        @Override
-        public int getSlotLimit(int slot) {
-            int actualSlot = toActualSlot(slot);
-            return actualSlot >= 0 ? itemHandler.getSlotLimit(actualSlot) : 0;
-        }
-
-        @Override
-        public boolean isItemValid(int slot, ItemStack stack) {
-            int actualSlot = toActualSlot(slot);
-            return actualSlot >= 0 && itemHandler.isItemValid(actualSlot, stack);
-        }
-
-        @Override
-        public void setStackInSlot(int slot, ItemStack stack) {
-            int actualSlot = toActualSlot(slot);
-            if (actualSlot < 0) {
-                // Refusing silently would drop the write while the caller believes it succeeded, which
-                // is how a pattern disk can end up duplicated into the player inventory while staying in
-                // the bus. Out-of-range visible slots are a caller bug, so say so instead of swallowing it.
-                LOGGER.warn("[PatternBus] at {} refused a write to out-of-range pattern slot {}", worldPosition, slot);
-                return;
-            }
-            ItemStack next = stack == null ? ItemStack.EMPTY : stack;
-            if (!next.isEmpty() && !inventory.isItemValid(actualSlot, next)) {
-                return;
-            }
-            ItemStack previous = inventory.getStackInSlot(actualSlot);
-            if (ItemStack.matches(previous, next)) {
-                return;
-            }
-            inventory.setItemDirect(actualSlot, next);
-        }
-
-        private int toActualSlot(int visibleSlot) {
-            if (visibleSlot < 0 || visibleSlot >= SLOTS_PER_PAGE) {
-                return -1;
-            }
-            int page = visiblePage();
-            int actualSlot = page * SLOTS_PER_PAGE + visibleSlot;
-            return actualSlot < getPatternSlotCount() ? actualSlot : -1;
-        }
-    }
 
 }

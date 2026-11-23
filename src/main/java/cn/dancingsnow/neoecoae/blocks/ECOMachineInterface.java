@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.blocks;
 
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity;
+import cn.dancingsnow.neoecoae.gui.crafting.CraftingPatternMenu;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import appeng.menu.locator.MenuLocators;
 import net.minecraft.core.BlockPos;
@@ -53,7 +54,11 @@ public class ECOMachineInterface<C extends NECluster<C>> extends NEBlock<ECOMach
             return InteractionResult.SUCCESS;
         }
         if (player instanceof ServerPlayer serverPlayer) {
-            BlockUIMenuType.openUI(serverPlayer, pos);
+            if (blockEntity.supportsCraftingInterfaceUi()) {
+                CraftingPatternMenu.openInterface(serverPlayer, blockEntity);
+            } else {
+                BlockUIMenuType.openUI(serverPlayer, pos);
+            }
             return InteractionResult.CONSUME;
         }
         return InteractionResult.SUCCESS;

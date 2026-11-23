@@ -108,7 +108,6 @@ class CraftingInterfaceRenderingTest {
         var fixture = new PatternClickFixture(patternEntry(3, new ItemStack(Items.STONE)));
         fixture.click(0, false);
         fixture.click(0, true);
-        fixture.state.endQuickMoveDrag();
 
         assertTrue(fixture.actions.isEmpty(), "no empty slot must never fall through to a swap");
         verify(fixture.host, never()).rpcToServer(eq("quickMovePatternPreview"), any(CompoundTag.class));
@@ -180,7 +179,7 @@ class CraftingInterfaceRenderingTest {
             var sync = new PatternPreviewSync(host);
             when(host.getPatternPreviewSync()).thenReturn(sync);
             sync.cacheClientSnapshot(5, 7, entries);
-            state = new CraftingPatternPreviewState(host, player);
+            state = new CraftingPatternPreviewState(host, player, java.util.Map.of());
             var reuse = new CompoundTag();
             reuse.putInt("menu", player.containerMenu.containerId);
             reuse.putLong("epoch", 5);

@@ -21,6 +21,10 @@ public final class ECOPlannerInventory {
     private ECOPlannerInventory() {}
 
     public static PlannerInventorySnapshot capture(IGrid grid) {
+        appeng.api.networking.IGridService patternService = grid.getService(cn.dancingsnow.neoecoae.api.IECOPatternStorageService.class);
+        if (patternService instanceof cn.dancingsnow.neoecoae.grid.PatternCatalog catalog) {
+            catalog.flushBulkPublications();
+        }
         var storage = cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot.resolve(
             grid.getStorageService().getInventory());
         var server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();

@@ -132,6 +132,8 @@ public class NeoECOAEClient {
 
     @SubscribeEvent
     public static void onRegisterMenuScreens(RegisterMenuScreensEvent event) {
+        event.register(cn.dancingsnow.neoecoae.menu.HostDiskMenu.TYPE, cn.dancingsnow.neoecoae.client.gui.ECOModularContainerScreen::new);
+        event.register(cn.dancingsnow.neoecoae.gui.crafting.CraftingPatternMenu.TYPE, cn.dancingsnow.neoecoae.client.gui.crafting.CraftingPatternScreen::new);
         InitScreens.register(
             event,
             LargeIntegratedWorkingStationPatternProviderMenu.TYPE,

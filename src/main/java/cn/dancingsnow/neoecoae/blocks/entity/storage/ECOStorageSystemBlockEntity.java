@@ -730,6 +730,22 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         infiniteMembersDirty = false;
     }
 
+    public void refreshBulkCraftingPublication() {
+        if (level instanceof ServerLevel && !isRemoved() && !isServerStopping()) bulkCrafting.refreshPublication();
+    }
+
+    void queueBulkCraftingPublication() {
+        var grid = getMainNode().getGrid();
+        if (grid != null && grid.getService(cn.dancingsnow.neoecoae.api.IECOPatternStorageService.class)
+                instanceof cn.dancingsnow.neoecoae.grid.PatternCatalog catalog) catalog.enqueueBulkPublication(this);
+    }
+
+    @Override
+    public void onMainNodeStateChanged(appeng.api.networking.IGridNodeListener.State reason) {
+        super.onMainNodeStateChanged(reason);
+        if (level instanceof ServerLevel && !isServerStopping()) queueBulkCraftingPublication();
+    }
+
     public void rememberInfiniteMembers() {
         if (!infiniteMembersDirty) return;
         if (level == null || level.isClientSide() || cluster == null || infiniteDomainId == null) return;

@@ -241,6 +241,13 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         return ComputationControllerPanelState.ofMembers(getTier().getTier(), upper, mid, lower, mirrored);
     }
 
+    public List<ECOComputationDriveBlockEntity> getComputationMenuDrives() {
+        if (!formed || cluster == null) return List.of();
+        var drives = new java.util.ArrayList<>(ComputationDriveLayout.menuDrives(cluster.getUpperDrives(), getBlockPos(), mirrored));
+        drives.addAll(ComputationDriveLayout.menuDrives(cluster.getLowerDrives(), getBlockPos(), mirrored));
+        return drives;
+    }
+
     public List<ComputationDriveEntry> getComputationUiDrives(boolean upper) {
         if (!formed || cluster == null) return List.of();
         return ComputationDriveLayout.entries(upper ? cluster.getUpperDrives() : cluster.getLowerDrives(), getBlockPos(), mirrored);

@@ -28,6 +28,7 @@
     "ae2.menu.CraftingCpuListEntryMixin",
     "ae2.menu.CraftingCpuMenuMixin",
     "ae2.menu.CraftingStatusMenuMixin",
+    "ae2.menu.PatternAccessTermMenuMixin",
     "ae2.menu.IOPortMenuMixin",
     "ae2.menu.PatternEncodingTermMenuMixin",
     "ae2.menu.SetStockAmountMenuMixin",
@@ -57,6 +58,8 @@
     "minecraft.SavedDataStorageMixin"
   ],
   "client": [
+    "client.ae2.PatternAccessTermScreenMixin",
+    "client.ae2.ECOContainerSlotHitMixin",
     "client.jei.RecipeLayoutMixin",
     "client.jei.MultiblockRecipesGuiMixin",
     "client.jei.RecipeLayoutBuilderMixin",

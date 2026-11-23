@@ -9,11 +9,13 @@ import java.util.List;
 import net.minecraft.world.entity.player.Player;
 
 /** Shared construction policy for ECO's synchronized LDLib2 menus. */
-public final class ECOModularUI {
-    private ECOModularUI() {}
+public final class ECOModularUI extends ModularUI {
+    private ECOModularUI(UI ui, Player player) {
+        super(ui, player);
+    }
 
     public static ModularUI create(UIElement root, Player player) {
-        return new ModularUI(UI.of(root,
+        return new ECOModularUI(UI.of(root,
             List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), player);
     }
 }

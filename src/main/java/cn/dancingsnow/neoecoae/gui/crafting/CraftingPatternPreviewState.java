@@ -9,8 +9,7 @@ import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
 import cn.dancingsnow.neoecoae.integration.ae2pattern.PatternDiskSupport;
 import cn.dancingsnow.neoecoae.util.PatternSearchKeywords;
 import com.lowdragmc.lowdraglib2.gui.slot.LocalSlot;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerMenu;
+import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -36,6 +35,8 @@ final class CraftingPatternPreviewState {
     private final Player player;
     // One extra row keeps both partially visible edges populated while the viewport moves between rows.
     private final PatternItemSlot[] slots = new PatternItemSlot[CraftingInterfaceUI.PREVIEW_BUFFER_SLOTS];
+    private final LocalSlot[] previews = new LocalSlot[slots.length];
+    private final Map<CraftingPatternMenu.Address, ? extends Slot> nativeSlots;
     private final int[] displayed = new int[slots.length];
     /** Which disk recipe the row currently shows, or {@code -1} when it shows the entry itself. */
     private final int[] displayedSubs = new int[slots.length];
@@ -63,14 +64,13 @@ final class CraftingPatternPreviewState {
     private final Map<AEItemKey, PatternSearchKeywords.Directions> localKeywords = new LinkedHashMap<>(256, 0.75F, true) {
         @Override protected boolean removeEldestEntry(Map.Entry<AEItemKey, PatternSearchKeywords.Directions> entry) { return size() > 4096; }
     };
-    private final List<PatternPreviewEntry> quickMoveTargets = new ArrayList<>();
-    private boolean quickMoveDrag;
-    private int quickMoveRevision = -1;
-    private int lastQuickMoveVisualSlot = -1;
+    private int windowDelay;
 
-    CraftingPatternPreviewState(ECOMachineInterfaceBlockEntity<?> craftingInterface, Player player) {
+    CraftingPatternPreviewState(ECOMachineInterfaceBlockEntity<?> craftingInterface, Player player,
+                                Map<CraftingPatternMenu.Address, ? extends Slot> nativeSlots) {
         this.craftingInterface = craftingInterface;
         this.player = player;
+        this.nativeSlots = nativeSlots;
         Arrays.fill(displayed, -1);
         Arrays.fill(displayedSubs, -1);
         if (player.level().isClientSide()) {
@@ -94,18 +94,41 @@ final class CraftingPatternPreviewState {
         }
     }
 
-    void tick() {
-        // UI construction precedes assigning player.containerMenu. Probe only once the actual menu is ready.
-        if (!player.level().isClientSide() || !(player.containerMenu instanceof ModularUIContainerMenu menu)
-                || !(menu.uiHolder instanceof BlockUIMenuType.BlockUIHolder holder)
-                || !holder.pos.equals(craftingInterface.getBlockPos()) || requestedMenuId == menu.containerId) return;
-        menuId = menu.containerId;
-        requestedMenuId = menu.containerId;
-        craftingInterface.getPatternPreviewSync().requestOpen(menuId, revision, epoch);
+    void tick(UIElement root) {
+        if (!player.level().isClientSide() || !(player.containerMenu instanceof CraftingPatternMenu menu)
+                || !menu.isFor(craftingInterface)) return;
+        if (requestedMenuId != menu.containerId) {
+            menuId = menu.containerId;
+            requestedMenuId = menuId;
+            craftingInterface.getPatternPreviewSync().requestOpen(menuId, revision, epoch);
+        }
+        if (windowDelay > 0) windowDelay--;
+        if (windowDelay > 0 || revision < 0 || !menu.getCarried().isEmpty() || root.isMouseDown(0) || root.isMouseDown(1)
+                || scrollOffset != scrollTarget) return;
+        var window = new ArrayList<CraftingPatternMenu.Address>(slots.length);
+        for (int visual = 0; visual < slots.length; visual++) {
+            var address = displayedAddress(visual);
+            if (address != null) window.add(address);
+        }
+        if (nativeSlots.keySet().containsAll(window)) return;
+        CompoundTag payload = new CompoundTag();
+        payload.putInt("menu", menuId);
+        payload.putLongArray("buses", window.stream().mapToLong(CraftingPatternMenu.Address::busPosition).toArray());
+        payload.putIntArray("slots", window.stream().mapToInt(CraftingPatternMenu.Address::physicalSlot).toArray());
+        craftingInterface.rpcToServer("openPatternWindow", payload);
+        windowDelay = 10;
+    }
+
+    private CraftingPatternMenu.Address displayedAddress(int visual) {
+        int index = displayed[visual];
+        if (index < 0 || displayedSubs[visual] >= 0 || awaitingEntries.get(index)) return null;
+        var entry = entries[index];
+        return entry.auxiliaryDisk() ? null : new CraftingPatternMenu.Address(entry.busPosition(), entry.physicalSlot());
     }
 
     PatternItemSlot createSlot(int visualSlot) {
         LocalSlot local = new LocalSlot();
+        previews[visualSlot] = local;
         PatternItemSlot slot = ClientUIBridge.call("createPatternSlot", Slot.class, local,
                 PatternItemSlot.class, () -> new PatternItemSlot(local));
         slots[visualSlot] = slot;
@@ -123,64 +146,10 @@ final class CraftingPatternPreviewState {
             if (event.hoverTooltips == null) event.hoverTooltips = HoverTooltips.empty();
             event.hoverTooltips = event.hoverTooltips.append(Component.translatable(
                     "gui.neoecoae.crafting_interface.preview.source", pos.getX(), pos.getY(), pos.getZ(), entry.physicalSlot() + 1));
-            if (entry.auxiliaryDisk()) event.hoverTooltips = event.hoverTooltips.append(Component.translatable(
+            if (entry.auxiliaryDisk() || displayedSubs[visualSlot] >= 0) event.hoverTooltips = event.hoverTooltips.append(Component.translatable(
                     "gui.neoecoae.crafting_interface.preview.read_only"));
         });
-        slot.addEventListener(UIEvents.MOUSE_DOWN, event -> {
-            stopScrolling();
-            if (event.button == 0 && event.isShiftDown()) {
-                beginQuickMoveDrag(visualSlot);
-                event.hasHandler = true;
-                event.stopImmediatePropagation();
-                return;
-            }
-            if (event.button == 0 || event.button == 1) {
-                act(visualSlot, event.isShiftDown() ? 1 : 0, event.button);
-                event.hasHandler = true;
-                event.stopImmediatePropagation();
-            }
-        });
-        slot.addEventListener(UIEvents.MOUSE_ENTER, event -> {
-            if (quickMoveDrag && slot.isMouseDown(0) && event.isShiftDown()) enterQuickMoveDrag(visualSlot);
-        });
-        slot.addEventListener(UIEvents.MOUSE_WHEEL, event -> {
-            if (event.isShiftDown() && event.deltaY != 0) {
-                act(visualSlot, 1, 0);
-                event.stopImmediatePropagation();
-            }
-        });
         return slot;
-    }
-
-    private void act(int visualSlot, int action, int button) {
-        if (!player.level().isClientSide() || operationRevision() < 0
-                || menuId != player.containerMenu.containerId) return;
-        int index = displayed[visualSlot];
-        if (index < 0 || index >= entries.length) return;
-        PatternPreviewEntry entry = entries[index];
-        // Both a recipe from inside a container and the container's own row are read-only here. Taking one back
-        // out is a write to contents this screen does not own - it changes what the integration that owns them
-        // charges for, and it moves the recipes behind it up one - and the pattern access terminal is where that
-        // belongs: it hands the container over to that integration and re-scans its rows per revision. Offering
-        // it here as well would mean two ways to change the same contents, from a screen that only ever reads.
-        if (displayedSubs[visualSlot] >= 0 || entry.auxiliaryDisk()) return;
-        sendAction(entry, action, button);
-    }
-
-    private int operationRevision() {
-        return pending != null && pendingFull ? pendingRevision : revision;
-    }
-
-    private void sendAction(PatternPreviewEntry entry, int action, int button) {
-        CompoundTag payload = new CompoundTag();
-        payload.putInt("menu", menuId);
-        payload.putInt("revision", operationRevision());
-        payload.putLong("bus", entry.busPosition());
-        payload.putInt("slot", entry.physicalSlot());
-        payload.put("stack", cn.dancingsnow.neoecoae.util.LegacyNbt.saveItem(player.level().registryAccess(), entry.stack()));
-        payload.putInt("action", action);
-        payload.putInt("button", button);
-        craftingInterface.rpcToServer("actOnPatternPreview", payload);
     }
 
     boolean hasCarriedPattern() {
@@ -188,116 +157,10 @@ final class CraftingPatternPreviewState {
         return PatternDetailsHelper.isEncodedPattern(carried) || PatternDiskSupport.isAuxiliaryContainer(carried);
     }
 
-    /** Inserts into an actual empty bus slot, including slots outside the current viewport and search. */
-    boolean insertCarriedPattern(int button) {
-        if ((button != 0 && button != 1) || !player.level().isClientSide() || operationRevision() < 0
-                || menuId != player.containerMenu.containerId) return false;
-        if (!hasCarriedPattern()) return false;
-        for (int index = 0; index < entries.length; index++) {
-            PatternPreviewEntry entry = entries[index];
-            if (entry == null || awaitingEntries.get(index)) continue;
-            if (entry.auxiliaryDisk() || !entry.stack().isEmpty()) continue;
-            // The existing RPC rechecks the menu, physical slot, carried stack, duplicates and mutation lock.
-            sendAction(entry, 0, button);
-            return true;
+    void insertCarriedPattern(int button) {
+        if (player.level().isClientSide() && menuId == player.containerMenu.containerId && hasCarriedPattern()) {
+            craftingInterface.rpcToServer("insertCarriedPattern", menuId, button == 1);
         }
-        return false;
-    }
-
-    void endQuickMoveDrag() {
-        if (!quickMoveDrag) return;
-        quickMoveDrag = false;
-        lastQuickMoveVisualSlot = -1;
-        flushQuickMoveBatch();
-    }
-
-    void endQuickMoveDragIfReleased(boolean leftMouseDown) {
-        if (quickMoveDrag && !leftMouseDown) endQuickMoveDrag();
-    }
-
-    private void beginQuickMoveDrag(int visualSlot) {
-        quickMoveTargets.clear();
-        quickMoveDrag = true;
-        quickMoveRevision = operationRevision();
-        lastQuickMoveVisualSlot = visualSlot;
-        queueQuickMove(visualSlot);
-    }
-
-    private void enterQuickMoveDrag(int visualSlot) {
-        if (visualSlot == lastQuickMoveVisualSlot) return;
-        lastQuickMoveVisualSlot = visualSlot;
-        queueQuickMove(visualSlot);
-    }
-
-    private void queueQuickMove(int visualSlot) {
-        if (!player.level().isClientSide() || quickMoveRevision < 0
-                || menuId != player.containerMenu.containerId) return;
-        int index = displayed[visualSlot];
-        if (index < 0 || index >= entries.length) return;
-        // As in act(): neither a disk's own slot nor one of its recipes is something this list can move.
-        if (displayedSubs[visualSlot] >= 0 || entries[index].auxiliaryDisk()) return;
-        PatternPreviewEntry entry = entries[index];
-        if (entry.stack().isEmpty()) return;
-        for (PatternPreviewEntry queued : quickMoveTargets) {
-            if (queued.busPosition() == entry.busPosition() && queued.physicalSlot() == entry.physicalSlot()) return;
-        }
-        if (quickMoveTargets.size() < ECOMachineInterfaceBlockEntity.PATTERN_INTERFACE_VISIBLE_SLOTS) {
-            quickMoveTargets.add(entry);
-        }
-    }
-
-    private void flushQuickMoveBatch() {
-        if (quickMoveTargets.isEmpty()) return;
-        if (!player.level().isClientSide() || quickMoveRevision < 0
-                || menuId != player.containerMenu.containerId) {
-            quickMoveTargets.clear();
-            return;
-        }
-        CompoundTag payload = new CompoundTag();
-        payload.putInt("menu", menuId);
-        payload.putInt("revision", quickMoveRevision);
-        ListTag targets = new ListTag();
-        for (PatternPreviewEntry entry : quickMoveTargets) {
-            CompoundTag target = new CompoundTag();
-            target.putLong("bus", entry.busPosition());
-            target.putInt("slot", entry.physicalSlot());
-            target.put("stack", cn.dancingsnow.neoecoae.util.LegacyNbt.saveItem(player.level().registryAccess(), entry.stack()));
-            targets.add(target);
-        }
-        payload.put("targets", targets);
-        quickMoveTargets.clear();
-        craftingInterface.rpcToServer("quickMovePatternPreview", payload);
-    }
-
-    boolean quickMoveFromInventory(Slot source) {
-        // An encoded pattern or a pattern disk: a bus takes either in the same slot. Which host a stack would
-        // go to is resolved on the server, so this only has to tell whether the move is worth sending - a stack
-        // no bus takes simply finds no slot over there.
-        if (!(source.getItem().getItem() instanceof appeng.crafting.pattern.EncodedPatternItem<?>)
-                && !PatternDiskSupport.isAuxiliaryContainer(source.getItem())) return false;
-        if (!player.level().isClientSide() || operationRevision() < 0
-                || menuId != player.containerMenu.containerId || !player.containerMenu.getCarried().isEmpty()) return false;
-        for (int index = 0; index < entries.length; index++) {
-            PatternPreviewEntry entry = entries[index];
-            if (entry == null || awaitingEntries.get(index)) continue;
-            // A disk's slot reads as empty here too, so skipping on the stack alone would aim the insert at the
-            // disk: the server refuses it (the slot is not empty), but this method has already reported success,
-            // so the click would be swallowed and placing a pattern would appear to do nothing.
-            if (entry.auxiliaryDisk() || !entry.stack().isEmpty()) continue;
-            CompoundTag payload = new CompoundTag();
-            payload.putInt("menu", menuId);
-            payload.putInt("revision", operationRevision());
-            payload.putLong("bus", entry.busPosition());
-            payload.putInt("slot", entry.physicalSlot());
-            payload.put("stack", cn.dancingsnow.neoecoae.util.LegacyNbt.saveItem(player.level().registryAccess(), entry.stack()));
-            payload.putInt("action", 2);
-            payload.putInt("button", 0);
-            payload.putInt("sourceSlot", source.getContainerSlot());
-            payload.put("sourceStack", cn.dancingsnow.neoecoae.util.LegacyNbt.saveItem(player.level().registryAccess(), source.getItem()));
-            craftingInterface.rpcToServer("actOnPatternPreview", payload);
-            return true;
-        }
-        return false;
     }
 
     void receive(CompoundTag payload) {
@@ -324,7 +187,7 @@ final class CraftingPatternPreviewState {
             int size = payload.getIntOr("size", 0);
             if (size < 0 || size > PatternPreviewCodec.MAX_SLOTS || (!full && size != entries.length)) return;
             pendingFull = full;
-            sparseFull = full && payload.contains("layout");
+            sparseFull = full && payload.getList("layout").isPresent();
             if (full) localizedEntries.clear();
             awaitingEntries.clear();
             pending = full ? emptyBaseline(payload, size) : entries;
@@ -516,6 +379,7 @@ final class CraftingPatternPreviewState {
     private void resetFilter() {
         scrollRow = 0;
         scrollOffset = scrollTarget = 0;
+        windowDelay = 4;
         rebuildFilter();
     }
 
@@ -552,13 +416,19 @@ final class CraftingPatternPreviewState {
                 boolean held = sub >= 0 && sub < entry.diskPatterns().size();
                 shown = held ? entry.diskPatterns().get(sub).stack() : entry.stack();
             }
-            if (slots[visual] != null && !ItemStack.matches(slots[visual].getSlot().getItem(), shown))
-                slots[visual].setItem(shown.copy(), false);
-            if (slots[visual] != null) {
-                // Keep the spare row populated; the parent clip handles both partial edges.
-                boolean occupied = !shown.isEmpty();
-                if (slots[visual].isVisible() != occupied) slots[visual].setVisible(occupied);
-                if (slots[visual].isActive() != occupied) slots[visual].setActive(occupied);
+            PatternItemSlot widget = slots[visual];
+            if (widget != null) {
+                var address = displayedAddress(visual);
+                Slot nativeSlot = address == null ? null : nativeSlots.get(address);
+                if (nativeSlot == null) {
+                    widget.bind(previews[visual]);
+                    if (!ItemStack.matches(widget.getValue(), shown)) widget.setItem(shown.copy(), false);
+                } else {
+                    widget.bind(nativeSlot);
+                }
+                boolean visible = nativeSlot != null || !shown.isEmpty();
+                if (widget.isVisible() != visible) widget.setVisible(visible);
+                if (widget.isActive() != visible) widget.setActive(visible);
             }
         }
         updateSlotTransforms();
@@ -578,7 +448,7 @@ final class CraftingPatternPreviewState {
     double getRowOffset() { return scrollOffset - scrollRow * 18.0; }
 
     void scroll(double rows) {
-        if (!quickMoveDrag && Double.isFinite(rows)) {
+        if (Double.isFinite(rows)) {
             scrollTarget = Math.clamp(scrollTarget + rows * 18, 0, getMaxScrollOffset());
         }
     }
@@ -592,7 +462,7 @@ final class CraftingPatternPreviewState {
     void stopScrolling() { scrollTarget = scrollOffset; }
 
     void advanceScroll(double seconds) {
-        if (quickMoveDrag || seconds <= 0 || !Double.isFinite(seconds) || scrollOffset == scrollTarget) return;
+        if (seconds <= 0 || !Double.isFinite(seconds) || scrollOffset == scrollTarget) return;
         double next = scrollOffset + (scrollTarget - scrollOffset) * -Math.expm1(-20 * seconds);
         moveScrollTo(Math.abs(next - scrollTarget) < 0.01 ? scrollTarget : next);
     }
