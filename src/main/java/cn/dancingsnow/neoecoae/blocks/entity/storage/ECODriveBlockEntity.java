@@ -92,15 +92,38 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         if (cellStack != null && !isItemValid(cellStack)) return;
         if (this.cellStack != null && cachedCellInventory instanceof cn.dancingsnow.neoecoae.storage.ECOStorageCell ordinary
             && !ordinary.storageData().flush()) return;
+        ECOStorageSystemBlockEntity controller = getStorageController();
         if (cellStack != null) {
-            try { ECOStorageCells.getCellInventory(cellStack, this); }
+            try {
+                var inventory = ECOStorageCells.getCellInventory(cellStack, this);
+                if (ECOInfiniteStorageMember.isAnonymous(cellStack) && (controller == null || !controller.isInfiniteMode())) {
+                    ECOInfiniteStorageMember.clearMember(cellStack);
+                } else if (controller != null && controller.isFormedInfiniteMode()
+                        && !ECOInfiniteStorageMember.isSealed(cellStack) && isEmptyInfiniteCandidate(inventory)) {
+                    ECOInfiniteStorageMember.markAnonymous(cellStack);
+                }
+            }
             catch (RuntimeException failure) {
+                ECOStorageCells.releaseCellInventory(cellStack, this);
                 org.slf4j.LoggerFactory.getLogger(ECODriveBlockEntity.class).error("Cannot prepare ECO disk installation", failure);
                 return;
             }
         }
-        ECOStorageSystemBlockEntity controller = getStorageController();
         if (controller != null) controller.rememberInfiniteMembers();
+        if (ECOInfiniteStorageMember.isAnonymous(this.cellStack)) {
+            CompoundTag original = NEItemData.copy(this.cellStack);
+            try { ECOInfiniteStorageMember.clearMember(this.cellStack); }
+            catch (IllegalStateException failure) {
+                NEItemData.write(this.cellStack, original);
+                try {
+                    cn.dancingsnow.neoecoae.storage.persistence.ECOStorageRepository.persistMetadata(this.cellStack, true);
+                } catch (IllegalStateException rollback) {
+                    failure.addSuppressed(rollback);
+                }
+                org.slf4j.LoggerFactory.getLogger(ECODriveBlockEntity.class).error("Cannot remove anonymous matrix", failure);
+                return;
+            }
+        }
         ECOStorageCells.releaseCellInventory(this.cellStack, this);
         this.cellStack = cellStack;
         cellInteractionId = UUID.randomUUID();
@@ -131,6 +154,17 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         return getCellExtractionBlockReason() == CellExtractionBlockReason.NONE;
     }
 
+    static boolean isEmptyInfiniteCandidate(ItemStack stack) {
+        return isEmptyInfiniteCandidate(ECOStorageCells.getCellInventory(stack, null));
+    }
+
+    static boolean isEmptyInfiniteCandidate(@Nullable IECOStorageCell inventory) {
+        if (!cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageTransfer.isEligible(inventory)) return false;
+        var contents = new appeng.api.stacks.KeyCounter();
+        ((cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell) inventory).getMigrationStacks(contents);
+        return contents.isEmpty();
+    }
+
     @Override
     @Nullable
     public Component getCellExtractionBlockReasonText() {
@@ -147,7 +181,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         if (ECOInfiniteStorageMember.isMigrating(cellStack)) {
             return CellExtractionBlockReason.INFINITE_MIGRATION;
         }
-        if (isLockedByInfiniteMode() && (getStorageController() == null
+        if (isLockedByInfiniteMode() && (!ECOInfiniteStorageMember.isAnonymous(cellStack)
             || !getStorageController().isFormedInfiniteMode())) {
             return CellExtractionBlockReason.INFINITE_MEMBER;
         }
@@ -331,6 +365,8 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
                 level.setBlockAndUpdate(worldPosition, getBlockState().setValue(ECODriveBlock.HAS_CELL, hasCell));
         }
         updateState();
+        var controller = getStorageController();
+        if (controller != null) controller.invalidateInfiniteMembers();
     }
 
     @Override
@@ -439,7 +475,8 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     }
 
     public boolean convertInfiniteMemberToNormalStorage(UUID domainId) {
-        if (cellStack == null || cellStack.isEmpty() || !ECOInfiniteStorageMember.isMemberOf(cellStack, domainId)) {
+        if (cellStack == null || cellStack.isEmpty() || !(ECOInfiniteStorageMember.isAnonymous(cellStack)
+                || ECOInfiniteStorageMember.isMemberOf(cellStack, domainId))) {
             return false;
         }
         ECOInfiniteStorageMember.clearMember(cellStack);

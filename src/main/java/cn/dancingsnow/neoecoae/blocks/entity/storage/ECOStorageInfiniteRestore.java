@@ -74,8 +74,6 @@ final class ECOStorageInfiniteRestore {
     }
 
     private RestorePlan createInfiniteRestorePlan() {
-        if (host.getMissingInfiniteMembers() > 0)
-            return RestorePlan.blocked("missing infinite member matrices; insert them again");
         if (activeRestorePlan != null) return activeRestorePlan;
         ECOInfiniteStorageEngine engine = host.getInfiniteEngine();
         if (engine == null) {
@@ -97,7 +95,9 @@ final class ECOStorageInfiniteRestore {
         }
         java.util.Set<UUID> targetIds = new java.util.HashSet<>();
         for (RestoreTarget target : targets) {
-            if (!targetIds.add(target.identity)) return RestorePlan.blocked("duplicate restore target identity");
+            if (target.identity != null && !targetIds.add(target.identity)) {
+                return RestorePlan.blocked("duplicate restore target identity");
+            }
         }
 
         KeyCounter pending = new KeyCounter();
@@ -158,7 +158,7 @@ final class ECOStorageInfiniteRestore {
             if (stack == null || stack.isEmpty()) {
                 continue;
             }
-            if (!ECOInfiniteStorageMember.isMemberOf(stack, domainId)) {
+            if (!ECOInfiniteStorageMember.isAnonymous(stack) && !ECOInfiniteStorageMember.isMemberOf(stack, domainId)) {
                 continue;
             }
             // Capacity is simulated against caller-owned counters, never a copied UUID-backed item.
@@ -216,9 +216,10 @@ final class ECOStorageInfiniteRestore {
             ECODriveBlockEntity drive = target.drive();
             if (drive.isRemoved() || host.getCluster() == null || !host.getCluster().getDrives().contains(drive)
                     || serverLevel.getBlockEntity(drive.getBlockPos()) != drive
-                    || !ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), host.infiniteDomainId())
-                    || !target.identity.equals(ECOInfiniteStorageMember.identity(drive.getCellStack()))
-                    || !targetIds.add(target.identity)) {
+                    || !(target.identity == null ? ECOInfiniteStorageMember.isAnonymous(drive.getCellStack())
+                        : ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), host.infiniteDomainId())
+                            && ECOInfiniteStorageMember.getIdentity(drive.getCellStack()).filter(target.identity::equals).isPresent())
+                    || target.identity != null && !targetIds.add(target.identity)) {
                 activeRestorePlan = null;
                 host.refreshInfiniteStorageAccess();
                 restoreQueue.clear();
@@ -227,6 +228,20 @@ final class ECOStorageInfiniteRestore {
             }
         }
         if (activeRestorePlan == null) {
+            boolean saveChunks = false;
+            for (RestoreTarget target : plan.targets()) {
+                if (target.identity == null) {
+                    ItemStack stack = target.drive().getCellStack();
+                    ECOInfiniteStorageMember.markMember(stack, host.infiniteDomainId());
+                    target.identity = ECOInfiniteStorageMember.getIdentity(stack).orElseThrow();
+                    if (!targetIds.add(target.identity)) throw new IllegalStateException("Duplicate restore target identity");
+                    if (cn.dancingsnow.neoecoae.storage.persistence.ECOCellReference.id(stack) == null) saveChunks = true;
+                    target.drive().setChanged();
+                }
+                var cell = (IECOStorageMigrationCell) target.drive().getCellInventory();
+                cell.persistMigrationContents(serverLevel);
+            }
+            if (saveChunks) serverLevel.getChunkSource().save(true);
             KeyCounter pending = new KeyCounter();
             engine.getRestoreStacks(pending);
             Map<AEKey, UUID> transactions = new HashMap<>();
@@ -339,7 +354,7 @@ final class ECOStorageInfiniteRestore {
         private final ECODriveBlockEntity drive;
         private final IECOStorageCell simulatedCell;
         private final KeyCounter simulatedContents;
-        private final UUID identity;
+        private UUID identity;
         private long simulatedTypes;
         private long simulatedAmount;
         private PlannerAmount exactSimulatedAmount = PlannerAmount.ZERO;
@@ -349,8 +364,7 @@ final class ECOStorageInfiniteRestore {
             this.drive = drive;
             this.simulatedCell = cell;
             this.simulatedContents = contents;
-            this.identity = ECOInfiniteStorageMember.identity(drive.getCellStack());
-            drive.setChanged();
+            this.identity = ECOInfiniteStorageMember.getIdentity(drive.getCellStack()).orElse(null);
             for (var entry : contents) {
                 if (entry.getLongValue() > 0L) {
                     simulatedTypes++;

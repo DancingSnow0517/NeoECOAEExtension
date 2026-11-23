@@ -126,6 +126,23 @@ public final class ECOInfiniteStorageMember {
         return getDomainId(stack).map(domainId::equals).orElse(false);
     }
 
+    public static boolean isAnonymous(@Nullable ItemStack stack) {
+        if (!isMember(stack)) return false;
+        CompoundTag tag = NEItemData.read(stack);
+        return !tag.contains(DOMAIN_TAG) && !tag.contains(IDENTITY_TAG)
+                && !tag.contains(MIGRATION_TAG) && getIdentity(stack).isEmpty();
+    }
+
+    public static void markAnonymous(ItemStack stack) {
+        CompoundTag tag = NEItemData.copy(stack);
+        tag.putBoolean(MEMBER_TAG, true);
+        tag.remove(DOMAIN_TAG);
+        tag.remove(IDENTITY_TAG);
+        tag.remove(cn.dancingsnow.neoecoae.storage.persistence.Legacy2042Storage.MATRIX_ID);
+        NEItemData.write(stack, tag);
+        cn.dancingsnow.neoecoae.storage.persistence.ECOStorageRepository.persistMetadata(stack, true);
+    }
+
     public static void markMember(@Nullable ItemStack stack, UUID domainId) {
         if (stack == null || stack.isEmpty()) {
             return;

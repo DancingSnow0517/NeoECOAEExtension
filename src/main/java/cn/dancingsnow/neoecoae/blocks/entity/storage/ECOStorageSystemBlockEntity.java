@@ -29,6 +29,7 @@ import cn.dancingsnow.neoecoae.gui.storage.StoragePriorityUI;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageTransfer;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOStorageHostMode;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
@@ -124,6 +125,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     @Nullable
     private UUID infiniteDomainId;
     private UUID infiniteBindingToken;
+    private int minimumInfiniteMatrices = ECOInfiniteStorageModeController.MINIMUM_MIGRATION_SOURCES;
     private final java.util.Set<UUID> infiniteMemberIds = new java.util.HashSet<>();
     /**
      * Migration ids which must be seen and completed before the host may enter FORMED_INFINITE.
@@ -750,10 +752,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             return;
         }
         infiniteModeController.release();
-        loadInfiniteMembers(tag);
         setInfiniteDomainId(tag.getUUID(CONTROLLER_DOMAIN_TAG));
         setInfiniteBindingToken(tag.hasUUID(CONTROLLER_BINDING_TAG) ? tag.getUUID(CONTROLLER_BINDING_TAG) : null);
         setStorageHostMode(ECOStorageHostMode.fromId(tag.getString(CONTROLLER_MODE_TAG)));
+        loadInfiniteMembers(tag);
         setChanged();
     }
 
@@ -786,7 +788,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     public boolean canInsertStorageCell(ItemStack stack) {
-        if (!isInfiniteMode()) return !ECOInfiniteStorageMember.isSealed(stack);
+        if (!isInfiniteMode()) return !ECOInfiniteStorageMember.isSealed(stack) || ECOInfiniteStorageMember.isAnonymous(stack);
         if (ECOInfiniteStorageMember.isMigrating(stack)) {
             UUID migrationId = ECOInfiniteStorageMember.getMigrationId(stack);
             return hostMode == ECOStorageHostMode.MIGRATING_TO_INFINITE
@@ -798,6 +800,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                     migrationId.equals(ECOInfiniteStorageMember.getMigrationId(drive.getCellStack()))));
         }
         if (ECOInfiniteStorageMember.isMember(stack)) {
+            if (ECOInfiniteStorageMember.isAnonymous(stack)) return isFormedInfiniteMode();
             if (infiniteDomainId == null || !ECOInfiniteStorageMember.isMemberOf(stack, infiniteDomainId)) return false;
             var identity = ECOInfiniteStorageMember.getIdentity(stack);
             return cluster == null || identity.isEmpty() || cluster.getDrives().stream().noneMatch(drive ->
@@ -805,7 +808,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
         }
         IECOStorageCell cell = cn.dancingsnow.neoecoae.api.storage.ECOStorageCells.getCellInventory(stack, null);
-        return cell != null && !cell.isInfiniteStorageEligible();
+        return cell != null && (!cell.isInfiniteStorageEligible()
+                || isFormedInfiniteMode() && ECODriveBlockEntity.isEmptyInfiniteCandidate(stack));
     }
 
     /**
@@ -834,17 +838,29 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (!isInfiniteMode()) return 0;
         rememberInfiniteMembers();
         java.util.Set<UUID> missing = new java.util.HashSet<>(infiniteMemberIds);
+        int present = 0;
+        java.util.Set<UUID> disks = new java.util.HashSet<>();
+        java.util.Set<UUID> bound = new java.util.HashSet<>();
         if (cluster != null && infiniteDomainId != null) {
             for (ECODriveBlockEntity drive : cluster.getDrives()) {
-                if (ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), infiniteDomainId)) {
-                    ECOInfiniteStorageMember.getIdentity(drive.getCellStack()).ifPresent(missing::remove);
-                }
+                ItemStack stack = drive.getCellStack();
+                if (!ECOInfiniteStorageMember.isAnonymous(stack)
+                        && !ECOInfiniteStorageMember.isMemberOf(stack, infiniteDomainId)) continue;
+                if (!ECOInfiniteStorageTransfer.isEligible(drive.loadedCellInventory())) continue;
+                UUID disk = cn.dancingsnow.neoecoae.storage.persistence.ECOCellReference.id(stack);
+                if (disk != null && !disks.add(disk)) continue;
+                UUID identity = ECOInfiniteStorageMember.getIdentity(stack).orElse(null);
+                if (identity != null && !bound.add(identity)) continue;
+                missing.remove(identity);
+                present++;
             }
         }
-        return missing.size();
+        return missing.size() + (!isFormedInfiniteMode() ? 0
+                : Math.max(0, minimumInfiniteMatrices - present));
     }
 
     private void saveInfiniteMembers(CompoundTag tag) {
+        tag.putInt("minimumInfiniteMatrices", minimumInfiniteMatrices);
         net.minecraft.nbt.ListTag ids = new net.minecraft.nbt.ListTag();
         for (UUID id : infiniteMemberIds) ids.add(net.minecraft.nbt.StringTag.valueOf(id.toString()));
         tag.put("infiniteMemberIds", ids);
@@ -864,6 +880,16 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         infiniteMigrationSourceIds.clear();
         for (var value : tag.getList("infiniteMigrationSourceIds", net.minecraft.nbt.Tag.TAG_STRING)) {
             infiniteMigrationSourceIds.add(UUID.fromString(value.getAsString()));
+        }
+        int standardMinimum = ECOInfiniteStorageModeController.MINIMUM_MIGRATION_SOURCES;
+        int savedMinimum = tag.getInt("minimumInfiniteMatrices");
+        if (savedMinimum > 0 && savedMinimum <= standardMinimum) {
+            minimumInfiniteMatrices = savedMinimum;
+        } else if (infiniteDomainId != null && isFormedInfiniteMode()
+                && !infiniteMemberIds.isEmpty() && infiniteMigrationSourceIds.isEmpty()) {
+            minimumInfiniteMatrices = Math.min(standardMinimum, infiniteMemberIds.size());
+        } else {
+            minimumInfiniteMatrices = standardMinimum;
         }
     }
 
@@ -1126,6 +1152,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         infiniteModeController.release();
         infiniteDomainId = domainId;
         infiniteBindingToken = null;
+        minimumInfiniteMatrices = ECOInfiniteStorageModeController.MINIMUM_MIGRATION_SOURCES;
         invalidateInfiniteMembers();
         infiniteModeController.hostModeChanged();
     }

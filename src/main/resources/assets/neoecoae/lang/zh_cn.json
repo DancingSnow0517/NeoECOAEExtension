@@ -1782,6 +1782,7 @@
   "command.neoecoae.storage_recover.retained_cells": " %s 张非空矩阵保留为普通存储。",
   "command.neoecoae.storage_recover.revoked": "存储域 %s 已被强制恢复，本主机的绑定已撤销。",
   "command.neoecoae.storage_recover.invalid_members": "无法恢复：成员矩阵缺失、无效、重复、属于其他存储域或正在迁移。",
+  "command.neoecoae.storage_recover.not_enough_matrices": "恢复需要 %s 张合格的矩阵，目前只有 %s 张。",
   "command.neoecoae.storage_recover.unhealthy": "无法恢复：请先处理存储数据、持久化故障或未完成的转移，再重试。",
   "command.neoecoae.storage_force_recover.select_host": "请右键已经成型且装有无限组件的目标主机以强制恢复。",
   "command.neoecoae.storage_force_recover.success": "无限存储已强制覆盖恢复：%s",

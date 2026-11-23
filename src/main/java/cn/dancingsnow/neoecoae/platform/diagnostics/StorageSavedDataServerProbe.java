@@ -95,12 +95,13 @@ public final class StorageSavedDataServerProbe {
         UUID rollbackDomainId = UUID.randomUUID();
         var rollbackDomain = (SavedDataInfiniteStorageEngine) ECOInfiniteStorageDomains.acquire(world, rollbackDomainId);
         ECOInfiniteStorageDomains.release(server, rollbackDomainId);
-        var original = recoveryHost(world, 16);
+        var original = recoveryHost(world, 48, recoveryDrives(world, 49));
         check(original.forceRecoverInfiniteDomain(rollbackDomainId, ignored -> {}) == null, "Cannot mount original owner");
         UUID originalToken = rollbackDomain.ownerToken();
-        var first = recoveryDrive(world, 6);
-        var second = recoveryDrive(world, 7);
-        var recoveryHost = recoveryHost(world, 5, first, second);
+        var targetDrives = recoveryDrives(world, 65);
+        var first = targetDrives[0];
+        var second = targetDrives[1];
+        var recoveryHost = recoveryHost(world, 64, targetDrives);
         check(ECOInfiniteStorageDomains.mountedHosts(server, rollbackDomainId) == 1, "Original owner fixture lost its mount");
         Path path = root.resolve("data/neoecoae_cells/" + ECOCellReference.id(second.getCellStack()) + ".dat");
         Path backup = path.resolveSibling(path.getFileName() + ".acceptance");
@@ -124,7 +125,7 @@ public final class StorageSavedDataServerProbe {
         world.setBlockAndUpdate(original.getBlockPos(), Blocks.AIR.defaultBlockState());
         check(ECOInfiniteStorageDomains.mountedHosts(server, rollbackDomainId) == 0, "Unloaded owner remained mounted");
         check(recoveryHost.forceRecoverInfiniteDomain(rollbackDomainId, ignored -> {}) == null, "Recovery with an unloaded owner failed");
-        var reloaded = recoveryHost(world, 16);
+        var reloaded = recoveryHost(world, 48);
         reloaded.load(originalTag);
         reloaded.tick(world, reloaded.getBlockPos(), reloaded.getBlockState());
         check(!reloaded.saveWithFullMetadata().hasUUID("infiniteDomainId") && !reloaded.isInfiniteMode(),
@@ -135,13 +136,69 @@ public final class StorageSavedDataServerProbe {
         UUID otherDomain = UUID.randomUUID();
         ECOInfiniteStorageDomains.acquire(world, otherDomain);
         ECOInfiniteStorageDomains.release(server, otherDomain);
-        check(wrongHost.forceRecoverInfiniteDomain(otherDomain, ignored -> {}) == null, "Cannot prepare ordinary recovery host");
-        check(wrongHost.recoverInfiniteDomain(rollbackDomainId) != null && ECOInfiniteStorageDomains.mountedHosts(server, rollbackDomainId) == 1,
+        var emptyDrives = recoveryDrives(world, 81);
+        var emptyHost = recoveryHost(world, 80, emptyDrives);
+        check(emptyHost.forceRecoverInfiniteDomain(otherDomain, ignored -> {}) == null, "Cannot prepare ordinary recovery host");
+        check(emptyHost.recoverInfiniteDomain(rollbackDomainId) != null && ECOInfiniteStorageDomains.mountedHosts(server, rollbackDomainId) == 1,
             "Ordinary recovery took an owned domain");
+        for (var drive : emptyDrives) ECOInfiniteStorageMember.markMember(drive.getCellStack(), otherDomain);
+        check(rollbackDomain.insert(key, 100, Actionable.MODULATE) == 100 && rollbackDomain.flush(), "Cannot seed non-empty recovery domain");
+        check(emptyHost.forceRecoverInfiniteDomain(rollbackDomainId, ignored -> {}) == null,
+            "Cannot switch from an empty domain using its twelve legacy members");
+        check(java.util.Arrays.stream(emptyDrives).allMatch(drive -> ECOInfiniteStorageMember.isAnonymous(drive.getCellStack()))
+            && emptyHost.getMissingInfiniteMembers() == 0 && rollbackDomain.getAmount(key).toBigInteger().intValueExact() == 100,
+            "Retaken host did not retain twelve anonymous members and the original balance");
+        var swap = emptyDrives[0];
+        var removed = swap.HANDLER.extractItem(0, 1, false);
+        check(!removed.isEmpty(), "Cannot extract an anonymous disk: " + swap.getCellExtractionBlockReason());
+        check(emptyHost.getMissingInfiniteMembers() == 1, "Expected one missing disk after extraction, got "
+            + emptyHost.getMissingInfiniteMembers() + ", formed=" + emptyHost.isFormed());
+        var emptyCell = BuiltInRegistries.ITEM.get(new ResourceLocation("neoecoae", "eco_item_storage_cell_256m"));
+        check(swap.HANDLER.insertItem(0, new ItemStack(emptyCell), false).isEmpty()
+            && ECOInfiniteStorageMember.isAnonymous(swap.getCellStack()) && emptyHost.getMissingInfiniteMembers() == 0,
+            "A fresh empty matrix did not replace an anonymous member");
+        var componentField = ECOStorageSystemBlockEntity.class.getDeclaredField("infiniteComponentItemHandler");
+        componentField.setAccessible(true);
+        var componentHandler = (net.minecraftforge.items.IItemHandler) componentField.get(emptyHost);
+        check(!componentHandler.extractItem(0, 64, false).isEmpty() && rollbackDomain.isEmpty()
+            && java.util.Arrays.stream(emptyDrives).mapToLong(drive -> ((ECOStorageCell) drive.getCellInventory()).getMigrationAmount(key)).sum() == 100,
+            "Restore from anonymous matrices changed the total balance");
+
+        UUID legacyDomainId = UUID.randomUUID();
+        var legacyDomain = (SavedDataInfiniteStorageEngine) ECOInfiniteStorageDomains.acquire(world, legacyDomainId);
+        UUID legacyOwner = UUID.randomUUID();
+        check(legacyDomain.insert(key, 175, Actionable.MODULATE) == 175 && legacyDomain.persistOwnerToken(legacyOwner),
+            "Cannot seed a pre-upgrade domain");
+        ECOInfiniteStorageDomains.release(server, legacyDomainId);
+        var legacyDrive = recoveryDrive(world, new BlockPos(97, 100, 4));
+        ECOInfiniteStorageMember.markMember(legacyDrive.getCellStack(), legacyDomainId);
+        var legacyHost = recoveryHost(world, 96, legacyDrive);
+        var legacyHostTag = legacyHost.saveWithFullMetadata();
+        legacyHostTag.putString("infiniteHostMode", "formed_infinite");
+        legacyHostTag.putUUID("infiniteDomainId", legacyDomainId);
+        legacyHostTag.putUUID("infiniteBindingToken", legacyOwner);
+        legacyHostTag.remove("minimumInfiniteMatrices");
+        var legacyMembers = new net.minecraft.nbt.ListTag();
+        legacyMembers.add(net.minecraft.nbt.StringTag.valueOf(ECOInfiniteStorageMember.identity(legacyDrive.getCellStack()).toString()));
+        legacyHostTag.put("infiniteMemberIds", legacyMembers);
+        legacyHost.load(legacyHostTag);
+        legacyHost.tick(world, legacyHost.getBlockPos(), legacyHost.getBlockState());
+        check(legacyDomainId.toString().equals(legacyHost.getInfiniteDomainText()) && legacyHost.canUseHostDomainStorage()
+            && legacyOwner.equals(legacyDomain.ownerToken()) && legacyDomain.getAmount(key).toBigInteger().intValueExact() == 175
+            && ECOInfiniteStorageMember.isAnonymous(legacyDrive.getCellStack()),
+            "Legacy controller lost its existing binding, mount, or balances during the upgrade");
+    }
+
+    private static ECODriveBlockEntity[] recoveryDrives(ServerLevel world, int offset) {
+        return java.util.stream.IntStream.range(0, 12).mapToObj(index -> recoveryDrive(world, new BlockPos(offset, 100, 4 + index * 3)))
+            .toArray(ECODriveBlockEntity[]::new);
     }
 
     private static ECODriveBlockEntity recoveryDrive(ServerLevel world, int offset) {
-        var pos = new BlockPos(offset, 100, 0);
+        return recoveryDrive(world, new BlockPos(offset, 100, 0));
+    }
+
+    private static ECODriveBlockEntity recoveryDrive(ServerLevel world, BlockPos pos) {
         world.setBlockAndUpdate(pos, NEBlocks.ECO_DRIVE.getDefaultState());
         var drive = (ECODriveBlockEntity) world.getBlockEntity(pos);
         var item = BuiltInRegistries.ITEM.get(new ResourceLocation("neoecoae", "eco_item_storage_cell_256m"));

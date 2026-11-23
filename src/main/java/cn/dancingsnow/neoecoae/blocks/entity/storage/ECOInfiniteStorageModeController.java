@@ -41,7 +41,7 @@ import java.util.function.Consumer;
  * Coordinates infinite-storage mode transitions and the mounted domain lifetime.
  */
 final class ECOInfiniteStorageModeController {
-    private static final int MINIMUM_MIGRATION_SOURCES = 12;
+    static final int MINIMUM_MIGRATION_SOURCES = 12;
     private static final String MIGRATION_DOMAIN_STAGE = "migration domain";
     private static final String RECOVERY_MEMBER_STAGE = "recover domain members";
     private static final String RECOVERY_PREFIX = "command.neoecoae.storage_recover.";
@@ -126,6 +126,10 @@ final class ECOInfiniteStorageModeController {
             host.infiniteRestore().restoreInfiniteDomainToNormalStorageIfPossible();
             return;
         }
+        if (host.storageHostMode() == ECOStorageHostMode.FORMED_INFINITE && restoringEngine != null
+                && restoringEngine.canExitOrRestore() && restoringEngine.canUseMountedStorage()) {
+            releaseInactiveMemberBindings();
+        }
         if (host.storageHostMode() == ECOStorageHostMode.FORMED_NORMAL && canStartMigration()) {
             ensureDomainId();
             // Opening the destination must succeed before changing ownership of any source.
@@ -206,7 +210,7 @@ final class ECOInfiniteStorageModeController {
         double partial = 0.0D;
         for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
             ItemStack stack = drive.getCellStack();
-            if (domainId != null && ECOInfiniteStorageMember.isMemberOf(stack, domainId)) {
+            if (domainId != null && (ECOInfiniteStorageMember.isAnonymous(stack) || ECOInfiniteStorageMember.isMemberOf(stack, domainId))) {
                 members++;
             } else if (stack != null && !stack.isEmpty() && !ECOInfiniteStorageMember.isMember(stack)
                     && ECOInfiniteStorageTransfer.isEligible(drive.getCellInventory())) {
@@ -237,7 +241,7 @@ final class ECOInfiniteStorageModeController {
         }
         for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
             ItemStack stack = drive.getCellStack();
-            if (ECOInfiniteStorageMember.isMember(stack)
+            if (ECOInfiniteStorageMember.isMember(stack) && !ECOInfiniteStorageMember.isAnonymous(stack)
                     && (host.infiniteDomainId() == null
                     || !ECOInfiniteStorageMember.isMemberOf(stack, host.infiniteDomainId()))) {
                 return true;
@@ -269,7 +273,8 @@ final class ECOInfiniteStorageModeController {
         }
         int count = 0;
         for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
-            if (ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), host.infiniteDomainId())) {
+            if (ECOInfiniteStorageMember.isAnonymous(drive.getCellStack())
+                    || ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), host.infiniteDomainId())) {
                 count++;
             }
         }
@@ -307,7 +312,7 @@ final class ECOInfiniteStorageModeController {
             try {
                 ItemStack stack = drive.getCellStack();
                 if (ECOInfiniteStorageMember.isMember(stack)) {
-                    if (ECOInfiniteStorageMember.isMemberOf(stack, domainId)) {
+                    if (ECOInfiniteStorageMember.isAnonymous(stack) || ECOInfiniteStorageMember.isMemberOf(stack, domainId)) {
                         continue;
                     }
                     hasPending = true;
@@ -482,7 +487,8 @@ final class ECOInfiniteStorageModeController {
         UUID domainId = host.infiniteDomainId();
         if (host.getCluster() != null && domainId != null) {
             for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
-                if (ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), domainId)) {
+                if (ECOInfiniteStorageMember.isAnonymous(drive.getCellStack())
+                        || ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), domainId)) {
                     drive.convertInfiniteMemberToNormalStorage(domainId);
                     IStorageProvider.requestUpdate(drive.getMainNode());
                 }
@@ -547,73 +553,23 @@ final class ECOInfiniteStorageModeController {
 
     @Nullable
     Component recoverDomain(UUID domainId) {
-        String prefix = "command.neoecoae.storage_recover.";
-        if (!(host.getLevel() instanceof ServerLevel level) || host.isStorageServerStopping()
-                || host.hasLegacyCompatibilityFailure() || !host.isFormed() || host.getCluster() == null
-                || host.storageHostMode() != ECOStorageHostMode.FORMED_INFINITE
-                || !host.hasRequiredInfiniteComponents() || host.isInfiniteExitRequested()
-                || host.infiniteRestore().isRestoring() || !host.infiniteMigrationSourceIds().isEmpty()) {
-            return Component.translatable(prefix + "invalid_host");
-        }
-        MinecraftServer server = level.getServer();
-        if (!ECOInfiniteStorageDomains.exists(server, domainId)) {
-            return Component.translatable(prefix + "not_found", domainId.toString());
-        }
-        UUID previousDomain = host.infiniteDomainId();
-        ECOInfiniteStorageEngine previous = getEngine();
-        boolean sameDomain = domainId.equals(previousDomain);
-        if (previous == null || !previous.canExitOrRestore() || !previous.canUseMountedStorage()
-                || (!sameDomain && !previous.isEmpty())) {
-            return Component.translatable(prefix + "occupied");
-        }
-        Set<UUID> identities = new HashSet<>();
-        List<ECODriveBlockEntity> members = new ArrayList<>();
-        for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
-            ItemStack stack = drive.getCellStack();
-            if (ECOInfiniteStorageMember.isMigrating(stack) || drive.hasLegacyRestoreReceipts()) {
-                return Component.translatable(prefix + "invalid_members");
-            }
-            if (!ECOInfiniteStorageMember.isMember(stack)) continue;
-            var identity = ECOInfiniteStorageMember.getIdentity(stack);
-            if ((!ECOInfiniteStorageMember.isMemberOf(stack, previousDomain)
-                    && !ECOInfiniteStorageMember.isMemberOf(stack, domainId))
-                    || identity.isEmpty() || !identities.add(identity.get())) {
-                return Component.translatable(prefix + "invalid_members");
-            }
-            members.add(drive);
-        }
-        if (!identities.containsAll(host.infiniteMemberIds())) {
-            return Component.translatable(prefix + "invalid_members");
-        }
-        if (sameDomain) return null;
-
-        var recovered = (SavedDataInfiniteStorageEngine) ECOInfiniteStorageDomains.acquireExisting(level, domainId);
-        try {
-            if (!recovered.canExitOrRestore() || !recovered.canUseMountedStorage()) {
-                return Component.translatable(prefix + "unhealthy");
-            }
-            if (recovered.ownerToken() != null) return Component.translatable(prefix + "mounted");
-            Map<ECODriveBlockEntity, CompoundTag> changes = new LinkedHashMap<>();
-            for (ECODriveBlockEntity drive : members) {
-                if (ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), domainId)) continue;
-                if (!canWriteMetadata(drive, drive.loadedCellInventory())) return Component.translatable(prefix + "unhealthy");
-                changes.put(drive, snapshotTag(drive));
-            }
-            UUID token = UUID.randomUUID();
-            if (!commitRecovery(recovered, domainId, token, changes)) return Component.translatable(prefix + "unhealthy");
-            finishRecovery(domainId, token, members, false);
-            return null;
-        } finally {
-            ECOInfiniteStorageDomains.release(server, domainId);
-        }
+        return recoverDomain(domainId, false, ignored -> {});
     }
 
     @Nullable
     Component forceRecoverDomain(UUID domainId, Consumer<Component> success) {
+        return recoverDomain(domainId, true, success);
+    }
+
+    @Nullable
+    private Component recoverDomain(UUID domainId, boolean force, Consumer<Component> success) {
         if (!(host.getLevel() instanceof ServerLevel level) || host.isStorageServerStopping()
                 || host.hasLegacyCompatibilityFailure() || !host.isFormed() || host.getCluster() == null
-                || !host.hasRequiredInfiniteComponents()) {
-            return Component.translatable("command.neoecoae.storage_force_recover.invalid_host");
+                || !host.hasRequiredInfiniteComponents()
+                || !force && (!host.isFormedInfiniteMode() || host.isInfiniteExitRequested()
+                    || host.infiniteRestore().isRestoring())) {
+            return Component.translatable(force ? "command.neoecoae.storage_force_recover.invalid_host"
+                    : RECOVERY_PREFIX + "invalid_host");
         }
         if (host.storageHostMode() == ECOStorageHostMode.MIGRATING_TO_INFINITE
                 || !host.infiniteMigrationSourceIds().isEmpty()) {
@@ -637,13 +593,16 @@ final class ECOInfiniteStorageModeController {
             if (!ECOInfiniteStorageDomains.exists(server, previousDomain)) {
                 return Component.translatable(RECOVERY_PREFIX + "unhealthy");
             }
-            ECOInfiniteStorageEngine previous = ECOInfiniteStorageDomains.acquireExisting(level, previousDomain);
+            var previous = (SavedDataInfiniteStorageEngine) ECOInfiniteStorageDomains.acquireExisting(level, previousDomain);
             try {
                 if (!previous.canExitOrRestore()) return Component.translatable(RECOVERY_PREFIX + "unhealthy");
                 if (!previous.isEmpty()) {
                     return Component.translatable(RECOVERY_PREFIX + "previous_not_empty", previousDomain.toString());
                 }
                 if (!previous.canUseMountedStorage()) return Component.translatable(RECOVERY_PREFIX + "unhealthy");
+                if (!java.util.Objects.equals(previous.ownerToken(), host.infiniteBindingToken())) {
+                    return Component.translatable(RECOVERY_PREFIX + "mounted");
+                }
             } finally {
                 ECOInfiniteStorageDomains.release(server, previousDomain);
             }
@@ -652,6 +611,11 @@ final class ECOInfiniteStorageModeController {
         var recovered = (SavedDataInfiniteStorageEngine) ECOInfiniteStorageDomains.acquireExisting(level, domainId);
         try {
             boolean restoring = recovered.hasPendingRestore();
+            if (!force && recovered.ownerToken() != null
+                    && (switching || !recovered.ownerToken().equals(host.infiniteBindingToken()))) {
+                return Component.translatable(RECOVERY_PREFIX + "mounted");
+            }
+            if (restoring && !force) return Component.translatable(RECOVERY_PREFIX + "unhealthy");
             if (!recovered.isHealthy() || !recovered.canExitOrRestore() || recovered.hasPendingTransfers()
                     || (!restoring && !recovered.canUseMountedStorage())) {
                 return Component.translatable(RECOVERY_PREFIX + "unhealthy");
@@ -662,6 +626,7 @@ final class ECOInfiniteStorageModeController {
 
             Set<UUID> identities = new HashSet<>();
             Set<UUID> diskIds = new HashSet<>();
+            Set<UUID> requiredTargets = recovered.pendingRestoreTargets();
             Set<UUID> restoreTargets = new HashSet<>();
             List<ECODriveBlockEntity> members = new ArrayList<>();
             Map<ECODriveBlockEntity, CompoundTag> changes = new LinkedHashMap<>();
@@ -681,11 +646,21 @@ final class ECOInfiniteStorageModeController {
                 IECOStorageCell cell = drive.loadedCellInventory();
                 if (cell == null) return Component.translatable(RECOVERY_PREFIX + "unhealthy");
                 if (ECOInfiniteStorageMember.isMember(stack)) {
-                    if (identity == null || !ECOInfiniteStorageMember.isMemberOf(stack, domainId)) {
+                    boolean anonymous = ECOInfiniteStorageMember.isAnonymous(stack);
+                    boolean targetMember = ECOInfiniteStorageMember.isMemberOf(stack, domainId);
+                    boolean previousMember = switching && ECOInfiniteStorageMember.isMemberOf(stack, previousDomain);
+                    if (!anonymous && (identity == null || (!targetMember && !previousMember))) {
                         return Component.translatable(RECOVERY_PREFIX + "invalid_members");
                     }
+                    if (targetMember && requiredTargets.contains(identity)) {
+                        if (ECOInfiniteStorageTransfer.isEligible(cell)) restoreTargets.add(identity);
+                    } else if (!ECODriveBlockEntity.isEmptyInfiniteCandidate(cell)) {
+                        return Component.translatable(RECOVERY_PREFIX + "invalid_members");
+                    } else if (!anonymous) {
+                        if (!canWriteMetadata(drive, cell)) return Component.translatable(RECOVERY_PREFIX + "unhealthy");
+                        changes.put(drive, snapshotTag(drive));
+                    }
                     members.add(drive);
-                    if (ECOInfiniteStorageTransfer.isEligible(cell)) restoreTargets.add(identity);
                     continue;
                 }
                 if (!ECOInfiniteStorageTransfer.isEligible(cell)) {
@@ -701,20 +676,20 @@ final class ECOInfiniteStorageModeController {
                 if (!canWriteMetadata(drive, cell)) return Component.translatable(RECOVERY_PREFIX + "unhealthy");
                 changes.put(drive, snapshotTag(drive));
                 members.add(drive);
-                if (identity != null) restoreTargets.add(identity);
             }
-            if (!restoreTargets.containsAll(recovered.pendingRestoreTargets())) {
+            if (!restoreTargets.containsAll(requiredTargets)) {
                 return Component.translatable(RECOVERY_PREFIX + "restore_targets_missing");
             }
-            if (!recovered.isEmpty() && members.isEmpty()) {
-                return Component.translatable(RECOVERY_PREFIX + "invalid_members");
+            if (!restoring && members.size() < MINIMUM_MIGRATION_SOURCES) {
+                return Component.translatable(RECOVERY_PREFIX + "not_enough_matrices", MINIMUM_MIGRATION_SOURCES, members.size());
             }
 
             UUID token = UUID.randomUUID();
-            if (!commitRecovery(recovered, domainId, token, changes)) {
+            if (!commitRecovery(recovered, token, changes)) {
                 return Component.translatable(RECOVERY_PREFIX + "unhealthy");
             }
             finishRecovery(domainId, token, members, restoring);
+            if (!force) return null;
             previousHosts.forEach(other -> other.recheckInfiniteDomainOwner(recovered));
             var message = Component.translatable("command.neoecoae.storage_force_recover.success", domainId.toString());
             if (switching) message.append(Component.translatable(RECOVERY_PREFIX + "previous_binding", previousDomain.toString()));
@@ -737,15 +712,23 @@ final class ECOInfiniteStorageModeController {
         return tag == null ? null : tag.copy();
     }
 
-    private boolean commitRecovery(SavedDataInfiniteStorageEngine engine, UUID domainId, UUID token,
+    private boolean commitRecovery(SavedDataInfiniteStorageEngine engine, UUID token,
                                    Map<ECODriveBlockEntity, CompoundTag> changes) {
         UUID previousToken = engine.ownerToken();
         if (!engine.persistOwnerToken(token)) return false;
+        if (markAnonymous(changes)) return true;
+        if (!engine.rollbackOwnerToken(previousToken)) {
+            host.storageFaults().report(RECOVERY_MEMBER_STAGE, "Cannot flush the previous domain owner token", host.getLevel().getGameTime());
+        }
+        return false;
+    }
+
+    private boolean markAnonymous(Map<ECODriveBlockEntity, CompoundTag> changes) {
         List<ECODriveBlockEntity> attempted = new ArrayList<>();
         try {
             for (ECODriveBlockEntity drive : changes.keySet()) {
                 attempted.add(drive);
-                ECOInfiniteStorageMember.markMember(drive.getCellStack(), domainId);
+                ECOInfiniteStorageMember.markAnonymous(drive.getCellStack());
             }
         } catch (IllegalStateException failure) {
             for (int index = attempted.size() - 1; index >= 0; index--) {
@@ -758,9 +741,6 @@ final class ECOInfiniteStorageModeController {
                     failure.addSuppressed(rollbackFailure);
                 }
             }
-            if (!engine.rollbackOwnerToken(previousToken)) {
-                failure.addSuppressed(new IllegalStateException("Cannot flush the previous domain owner token"));
-            }
             host.storageFaults().report(RECOVERY_MEMBER_STAGE, failure.toString(), host.getLevel().getGameTime(), failure);
             return false;
         }
@@ -770,6 +750,21 @@ final class ECOInfiniteStorageModeController {
         }
         host.storageFaults().recovered(RECOVERY_MEMBER_STAGE);
         return true;
+    }
+
+    private void releaseInactiveMemberBindings() {
+        if (host.infiniteMemberIds().isEmpty()) return;
+        Map<ECODriveBlockEntity, CompoundTag> changes = new LinkedHashMap<>();
+        for (ECODriveBlockEntity drive : orderedDrives()) {
+            if (!ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), host.infiniteDomainId())) continue;
+            var cell = drive.loadedCellInventory();
+            if (drive.hasLegacyRestoreReceipts() || !ECODriveBlockEntity.isEmptyInfiniteCandidate(cell)
+                    || !canWriteMetadata(drive, cell)) return;
+            changes.put(drive, snapshotTag(drive));
+        }
+        if (!markAnonymous(changes)) return;
+        host.infiniteMemberIds().clear();
+        host.notifyStorageConfigurationChanged();
     }
 
     private void finishRecovery(UUID domainId, UUID token, List<ECODriveBlockEntity> members, boolean restoring) {

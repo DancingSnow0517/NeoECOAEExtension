@@ -6,6 +6,7 @@ public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
         provider.add("command.neoecoae.storage_recover.invalid_host", "Right-click a formed host in infinite mode with its infinite components installed and no migration or restore in progress.");
         provider.add("command.neoecoae.storage_recover.invalid_members", "Recovery refused: member matrices are missing, invalid, duplicated, foreign, or still migrating.");
+        provider.add("command.neoecoae.storage_recover.not_enough_matrices", "Recovery requires %s eligible matrices. Found %s.");
         provider.add("command.neoecoae.storage_recover.mounted", "Recovery refused: the domain still has an owner. Use its original controller or explicitly force recovery.");
         provider.add("command.neoecoae.storage_recover.migrating", "Recovery refused: the host or an inserted matrix is still migrating.");
         provider.add("command.neoecoae.storage_recover.previous_not_empty", "Recovery refused: the current domain %s is not empty.");

@@ -124,6 +124,7 @@
   "command.neoecoae.storage_recover.retained_cells": " %s non-empty matrices remain mounted as ordinary storage.",
   "command.neoecoae.storage_recover.revoked": "This host lost its binding to domain %s after a forced recovery.",
   "command.neoecoae.storage_recover.not_found": "No saved infinite storage domain exists for UUID %s.",
+  "command.neoecoae.storage_recover.not_enough_matrices": "Recovery requires %s eligible matrices. Found %s.",
   "command.neoecoae.storage_recover.occupied": "Recovery refused: the host must have a healthy domain with no pending transfers. To switch UUIDs, empty the current domain first.",
   "command.neoecoae.storage_recover.select_host": "Right-click a formed host that is already in infinite mode.",
   "command.neoecoae.storage_recover.success": "Infinite storage recovered: %s",
