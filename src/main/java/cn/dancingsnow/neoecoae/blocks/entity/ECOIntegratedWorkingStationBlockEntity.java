@@ -82,6 +82,7 @@ import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import net.neoforged.neoforge.transfer.ResourceHandler;
 import net.neoforged.neoforge.transfer.item.ItemResource;
 import net.neoforged.neoforge.transfer.fluid.FluidResource;
+import net.neoforged.neoforge.transfer.transaction.Transaction;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 import net.neoforged.neoforge.transfer.CombinedResourceHandler;
@@ -406,13 +407,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             getMainNode().ifPresent(grid -> advanceStandaloneProcessing(grid.getEnergyService()));
 
             if (processingTime == standaloneSteps && !dirty && hasCraftWork(task)) {
-                var itemOutput = task.itemOutput();
-                var fluidOutput = task.fluidOutput();
-                if ((itemOutput.isEmpty() || outputInv.insertItem(0, itemOutput, false).isEmpty())
-                    && (fluidOutput.isEmpty() || getOutputTank().fill(fluidOutput, IFluidHandler.FluidAction.EXECUTE)
-                        == fluidOutput.getAmount())) {
-                    finishStandaloneRecipe(task);
-                }
+                finishStandaloneRecipe(task);
             }
         } else if (isWorking()) {
             setWorking(false);
@@ -426,19 +421,34 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     }
 
     private void finishStandaloneRecipe(IntegratedWorkingStationRecipe task) {
-        for (SizedIngredient input : task.inputItems()) {
-            int remaining = input.count();
-            for (int slot = 0; slot < inputInv.size() && remaining > 0; slot++) {
-                var stack = inputInv.getStackInSlot(slot);
-                if (!stack.isEmpty() && input.ingredient().test(stack)) {
-                    int taken = Math.min(remaining, stack.getCount());
-                    stack.shrink(taken);
-                    inputInv.setItemDirect(slot, stack);
-                    remaining -= taken;
+        try (var transaction = Transaction.openRoot()) {
+            var items = inputInv.toResourceHandler();
+            for (SizedIngredient input : task.inputItems()) {
+                int remaining = input.count();
+                for (int slot = 0; slot < inputInv.size() && remaining > 0; slot++) {
+                    var stack = inputInv.getStackInSlot(slot);
+                    if (!stack.isEmpty() && input.ingredient().test(stack)) {
+                        remaining -= items.extract(slot, ItemResource.of(stack), remaining, transaction);
+                    }
                 }
+                if (remaining != 0) return;
             }
+            if (task.inputFluid().isPresent()) {
+                var ingredient = task.inputFluid().orElseThrow();
+                var tank = getInputTank();
+                if (!ingredient.test(tank.getFluid()) || new FluidTankResourceHandler(tank)
+                    .extract(0, FluidResource.of(tank.getFluid()), ingredient.amount(), transaction) != ingredient.amount()) return;
+            }
+            var itemOutput = task.itemOutput();
+            if (!itemOutput.isEmpty() && outputInv.toResourceHandler()
+                .insert(0, ItemResource.of(itemOutput), itemOutput.getCount(), transaction) != itemOutput.getCount()) return;
+            var fluidOutput = task.fluidOutput();
+            if (!fluidOutput.isEmpty() && new FluidTankResourceHandler(getOutputTank())
+                .insert(0, FluidResource.of(fluidOutput), fluidOutput.getAmount(), transaction) != fluidOutput.getAmount()) {
+                return;
+            }
+            transaction.commit();
         }
-        task.inputFluid().ifPresent(ingredient -> getInputTank().drain(ingredient.amount(), IFluidHandler.FluidAction.EXECUTE));
         resetStandaloneProcessing();
         saveChanges();
         setWorking(false);

@@ -79,7 +79,9 @@ class LargeWorkstationCoolantInputTest {
             @Override
             public void markForUpdate() {}
         };
-        var level = InventoryTestBootstrap.level();
+        var level = mock(net.minecraft.server.level.ServerLevel.class);
+        var registries = InventoryTestBootstrap.level().registryAccess();
+        when(level.registryAccess()).thenReturn(registries);
         recipeAccess = mockStatic(appeng.crafting.RecipeAccess.class);
         hatch.setLevel(level);
         recipeAccess.when(() -> appeng.crafting.RecipeAccess.byType(any(), eq(NERecipeTypes.COOLING.get()))).thenReturn(List.of(cooling(Fluids.WATER)));
