@@ -186,7 +186,8 @@ public final class ComponentPlanner {
         if (!(cancellation instanceof ECOPlanningBudget)) cancellation = new ECOPlanningBudget(cancellation);
         ExternalDemandPlanner externalDemandPlanner = new ExternalDemandPlanner(acyclicSolver);
         SeedFloors seeds = seedFloors(network, seedScope, snapshot, cyclePlanningEnabled, cancellation);
-        Outcome outcome = plan(network, activeSelection, seeds.reduce(snapshot), seeds.reduce(snapshot), amount,
+        var availableStock = seeds.reduce(snapshot);
+        Outcome outcome = plan(network, activeSelection, availableStock, availableStock, amount,
                 cyclePlanningEnabled, ignorePatternSubstitutions, cancellation, new CycleFailureCache(cycleSolver),
                 externalDemandPlanner, seeds, false);
         seeds.report(outcome.trace());
@@ -832,8 +833,9 @@ public final class ComponentPlanner {
             seeds.report(report.trace());
             return listener.accept(report);
         };
-        Outcome outcome = planWithRouteFallback(network, universe, activeSelection, seeds.reduce(snapshot),
-                seeds.reduce(snapshot), snapshot, amount, cyclePlanningEnabled, ignorePatternSubstitutions,
+        var availableStock = seeds.reduce(snapshot);
+        Outcome outcome = planWithRouteFallback(network, universe, activeSelection, availableStock,
+                availableStock, snapshot, amount, cyclePlanningEnabled, ignorePatternSubstitutions,
                 cancellation, seeds, reporting, improvePublishedRoute);
         seeds.report(outcome.trace());
         return outcome;

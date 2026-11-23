@@ -68,6 +68,7 @@ final class CompactTreeRenderer {
                 drawAmount(graphics, font, "+" + metadata.hiddenNodeCount(), x, y + 20, right, bottom, text);
             }
             case MATERIAL, REFERENCE -> {
+                var treeNode = graph.compactTreeNode(node.id());
                 var material = node.material();
                 if (material == null || material.key() == null) {
                     GraphDraw.centeredText(graphics, font, "↪", (x + right) / 2, y + (box.height() - 9) / 2, muted, 1);
@@ -88,6 +89,9 @@ final class CompactTreeRenderer {
                     GraphDraw.text(graphics, font, GraphDraw.fit(font, materialAmount(node), box.width() - 14),
                         x + 7, y + 59, muted, 1);
                     return;
+                }
+                if (treeNode != null && treeNode.sharedBatch()) {
+                    GraphDraw.text(graphics, font, "↔", right - 8, y + 1, muted, 0.65f);
                 }
                 if (node.recursion() != null || material.consumedBigInteger().signum() > 0
                         || material.producedBigInteger().signum() > 0 || material.requestedBigInteger().signum() > 0) {
@@ -154,6 +158,7 @@ final class CompactTreeRenderer {
             result.add(Component.translatable("gui.neoecoae.crafting_graph.details.missing", yesNo(folder.containsMissing())));
             result.add(Component.translatable("gui.neoecoae.crafting_graph.details.unsupported", yesNo(folder.containsUnsupported())));
             result.add(Component.translatable("gui.neoecoae.crafting_graph.details.cycle", yesNo(folder.containsCycle())));
+            if (folder.sharedBatch()) result.add(Component.translatable("gui.neoecoae.crafting_graph.shared_batch"));
             result.add(Component.translatable("gui.neoecoae.crafting_graph.action.expand_hint"));
             return result;
         }

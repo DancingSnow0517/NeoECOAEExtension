@@ -106,7 +106,7 @@ public final class CraftingNetworkCompiler {
                         CompiledPattern pattern = compileLitePattern(nextPatternId++, details, key,
                             componentInsensitiveOutput, ignoredItemIds);
                         compiled.add(pattern);
-                        edgeCount += enqueue(pattern, queued, work);
+                        edgeCount += enqueue(pattern, queued, work, false);
                         break;
                     }
                     producers.put(key, compiled);
@@ -144,7 +144,7 @@ public final class CraftingNetworkCompiler {
                 for (CompiledPattern pattern : byOffer) {
                     if (pattern == null) continue;
                     compiled.add(pattern);
-                    edgeCount += enqueue(pattern, queued, work);
+                    edgeCount += enqueue(pattern, queued, work, true);
                 }
                 producers.put(key, compiled);
             }
@@ -191,7 +191,7 @@ public final class CraftingNetworkCompiler {
                             ignoredItemIds, componentInsensitiveOutput, service);
                     if (extended == null) extended = new ArrayList<>(entry.getValue());
                     extended.add(view);
-                    edgeCount += enqueue(view, queued, work);
+                    edgeCount += enqueue(view, queued, work, !liteCrafting);
                     if (liteCrafting) break;
                 }
                 if (extended != null) entry.setValue(extended);
@@ -205,7 +205,8 @@ public final class CraftingNetworkCompiler {
     }
 
     /** Queues every key the pattern can depend on and returns the number of dependency edges it adds. */
-    private static int enqueue(CompiledPattern pattern, Set<AEKey> queued, ArrayDeque<AEKey> work) {
+    private static int enqueue(CompiledPattern pattern, Set<AEKey> queued, ArrayDeque<AEKey> work,
+            boolean includeRemainderAlternatives) {
         int edges = 0;
         for (CompiledInput input : pattern.inputs()) {
             edges++;
@@ -215,10 +216,12 @@ public final class CraftingNetworkCompiler {
             // The solver may select a reusable substitute from stock, or fall back from it to a
             // durability-mutating member. Compile those producer chains now; inventory is intentionally
             // unavailable at this stage.
-            for (AEKey alternative : remainderAlternatives(input)) {
-                if (queued.add(alternative)) {
-                    edges++;
-                    work.addLast(alternative);
+            if (includeRemainderAlternatives) {
+                for (AEKey alternative : remainderAlternatives(input)) {
+                    if (queued.add(alternative)) {
+                        edges++;
+                        work.addLast(alternative);
+                    }
                 }
             }
         }
@@ -277,12 +280,13 @@ public final class CraftingNetworkCompiler {
 
     private record PatternDefinition(Class<?> implementation, AEItemKey definition) {}
 
-    /** Lite contract: encoded primary inputs and all physical outputs, without remainder analysis. */
+    /** Lite contract: encoded primary inputs, unchanged returns and all physical outputs. */
     private static CompiledPattern compileLitePattern(int id, IPatternDetails details, AEKey producedKey,
             boolean componentInsensitiveOutput, Set<Identifier> fuzzyPlanningItemIds) {
         List<CompiledInput> inputs = new ArrayList<>();
         List<PatternSemantics.Input> consumed = new ArrayList<>();
         List<GenericStack> outputs = new ArrayList<>();
+        List<GenericStack> returns = new ArrayList<>();
         PlannerAmount outputAmount = PlannerAmount.ZERO;
         String unsupported = null;
         try {
@@ -307,18 +311,31 @@ public final class CraftingNetworkCompiler {
                 }
                 GenericStack primary = possible[0];
                 PlannerAmount amount = PlannerAmount.of(primary.amount()).multiply(input.getMultiplier());
-                inputs.add(new CompiledInput(input, primary.what(), amount, true, "", null,
-                    PlannerAmount.ZERO, ECOProcessingComponentMatching.enabled(details, primary.what(), fuzzyPlanningItemIds)));
-                consumed.add(new PatternSemantics.Input(input, primary.what(), amount, null, PlannerAmount.ZERO));
+                boolean fuzzy = ECOProcessingComponentMatching.enabled(details, primary.what(), fuzzyPlanningItemIds);
+                boolean reusable = !fuzzy && amount.equals(PlannerAmount.ONE) && returnsUnchanged(input, primary);
+                PlannerAmount remainder = reusable ? PlannerAmount.ONE : PlannerAmount.ZERO;
+                AEKey returnedKey = reusable ? primary.what() : null;
+                inputs.add(new CompiledInput(input, primary.what(), amount, true, "", returnedKey, remainder, fuzzy));
+                consumed.add(new PatternSemantics.Input(input, primary.what(), amount, returnedKey, remainder));
+                if (reusable) returns.add(primary);
             }
         } catch (RuntimeException failure) {
             unsupported = "MALFORMED_PATTERN:" + failure.getClass().getSimpleName();
         }
-        PatternSemantics semantics = new PatternSemantics(details, null, consumed, outputs, List.of(), List.of(),
+        PatternSemantics semantics = new PatternSemantics(details, null, consumed, outputs, returns, List.of(),
             PatternSemantics.MatchingMode.EXACT, PatternSemantics.ExecutionRestriction.NONE,
             unsupported == null, true, unsupported);
         return new CompiledPattern(id, details, producedKey, outputAmount, inputs, outputs, unsupported == null,
             unsupported == null ? "" : unsupported, false, semantics, SpecialPatternAnalysis.NONE);
+    }
+
+    private static boolean returnsUnchanged(IPatternDetails.IInput input, GenericStack primary) {
+        if (!(primary.what() instanceof AEItemKey)) return false;
+        try {
+            return primary.what().equals(input.getRemainingKey(primary.what()));
+        } catch (RuntimeException unavailable) {
+            return false;
+        }
     }
 
     private CompiledPattern compilePattern(int id, IPatternDetails details, AEKey producedKey,

@@ -96,8 +96,9 @@ public final class ECOExecutionPlanBuilder {
         }
 
         List<ECOExecutionPlan.PhaseSpec> phases = new ArrayList<>();
+        var dependencies = schedule.dependencies();
+        int nextEdge = 0;
         for (int phaseIndex = 0; phaseIndex < schedule.phases().size(); phaseIndex++) {
-            int currentPhaseIndex = phaseIndex;
             var schedulePhase = schedule.phases().get(phaseIndex);
             List<Integer> taskIds = schedulePhase.patternSet().stream()
                 .map(ECOExecutionPlanBuilder::requireIdentity).map(taskIdByIdentity::get)
@@ -129,12 +130,14 @@ public final class ECOExecutionPlanBuilder {
                 }
                 validateDynamicCycleCounts(component, dynamicFirings, tasks);
             }
+            List<Integer> predecessors = new ArrayList<>();
+            while (nextEdge < dependencies.size() && dependencies.get(nextEdge).consumerPhase() == phaseIndex) {
+                predecessors.add(dependencies.get(nextEdge++).producerPhase());
+            }
             phases.add(new ECOExecutionPlan.PhaseSpec(dynamicFirings,
                 schedulePhase.type() != ECOExecutionSchedule.Type.DAG && component != null && component.cycleResult() != null
                     ? component.cycleResult().exactRequiredSeed() : Map.of(), phaseIndex, schedulePhase.componentId(),
-                schedulePhase.type(), taskIds, steps, schedule.dependencies().stream()
-                    .filter(edge -> edge.consumerPhase() == currentPhaseIndex)
-                    .map(ECOExecutionSchedule.PhaseDependency::producerPhase).sorted().toList()));
+                schedulePhase.type(), taskIds, steps, List.copyOf(predecessors)));
         }
         return new ECOExecutionPlan(signature, mode, tasks, phases, schedule);
     }

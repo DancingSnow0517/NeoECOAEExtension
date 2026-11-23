@@ -28,6 +28,8 @@ public final class SolveState {
     final PlannerCounter emitted = new PlannerCounter();
     final PlannerCounter missing = new PlannerCounter();
     final Map<AEKey, PlannerAmount> demand = new LinkedHashMap<>();
+    final Map<AEKey, PlannerAmount> stockedWorkingInputs = new HashMap<>();
+    final Map<IPatternDetails, Map<AEKey, PlannerAmount>> pendingWorkingInputs = new HashMap<>();
     final Map<IPatternDetails, PlannerAmount> patternTimes = new LinkedHashMap<>();
     final Map<AEKey, IPatternDetails> demandProducers = new HashMap<>();
     final Map<AEKey, CompiledPattern> selected = new HashMap<>();
@@ -242,6 +244,8 @@ public final class SolveState {
         copy.used.replaceFrom(used); copy.emitted.replaceFrom(emitted);
         copy.missing.replaceFrom(missing);
         copy.demand.putAll(demand); copy.patternTimes.putAll(patternTimes); copy.demandProducers.putAll(demandProducers);
+        copy.stockedWorkingInputs.putAll(stockedWorkingInputs);
+        pendingWorkingInputs.forEach((pattern, amounts) -> copy.pendingWorkingInputs.put(pattern, new HashMap<>(amounts)));
         copy.selected.putAll(selected);
         copy.deferredSuppliers.putAll(deferredSuppliers);
         parents.forEach((key, value) -> copy.parents.put(key, new LinkedHashSet<>(value)));
