@@ -36,11 +36,15 @@ final class ECOBulkCraftingProvider implements ICraftingProvider, ECOFastPathDis
     private List<IPatternDetails> mounted = List.of();
 
     private static final class Installation {
+        private final ECODriveBlockEntity drive;
         private final int order;
         private @Nullable ECOBulkStorageCell cell;
         private List<IPatternDetails> patterns = List.of();
 
-        private Installation(int order) { this.order = order; }
+        private Installation(ECODriveBlockEntity drive, int order) {
+            this.drive = drive;
+            this.order = order;
+        }
     }
     ECOBulkCraftingProvider(ECOStorageSystemBlockEntity host) { this.host = host; }
 
@@ -102,7 +106,7 @@ final class ECOBulkCraftingProvider implements ICraftingProvider, ECOFastPathDis
             publicationDirty |= !candidates.isEmpty();
             candidates.clear();
             for (var drive : host.getStorageDrivesForIntegration()) {
-                Installation installation = new Installation(installed.size());
+                Installation installation = new Installation(drive, installed.size());
                 installed.put(drive, installation);
                 replace(installation, cellAt(drive));
                 if (installation.cell != null) changed.add(installation);
@@ -175,7 +179,9 @@ final class ECOBulkCraftingProvider implements ICraftingProvider, ECOFastPathDis
         var inventory = grid.getStorageService().getInventory();
         var source = IActionSource.ofMachine(host);
         for (var iterator = pending.values().iterator(); iterator.hasNext();) {
-            var cell = iterator.next().cell;
+            var installation = iterator.next();
+            var cell = installation.cell;
+            if (cell == null || cellAt(installation.drive) != cell) continue;
             cell.drainOutputs(inventory, source);
             if (!cell.hasPendingOutputs()) iterator.remove();
         }
@@ -194,7 +200,7 @@ final class ECOBulkCraftingProvider implements ICraftingProvider, ECOFastPathDis
         var disks = candidates.get(pattern);
         if (disks != null) for (var installation : disks.values()) {
             var cell = installation.cell;
-            if (cell != null && cell.supportsConversion(pattern)) return installation;
+            if (cell != null && cellAt(installation.drive) == cell && cell.supportsConversion(pattern)) return installation;
         }
         return null;
     }

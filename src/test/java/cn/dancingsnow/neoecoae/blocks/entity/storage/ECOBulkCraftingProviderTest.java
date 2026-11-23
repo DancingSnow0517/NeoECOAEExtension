@@ -32,7 +32,9 @@ class ECOBulkCraftingProviderTest {
             when(host.getMainNode()).thenReturn(node); when(host.isFormed()).thenReturn(true);
             when(node.isActive()).thenReturn(true); when(host.getTier()).thenReturn(ECOTier.L9);
             when(host.getStorageDrivesForIntegration()).thenReturn(List.of(drive));
+            when(drive.isInstalledStorageAvailable()).thenReturn(true);
             when(drive.getCellInventory()).thenReturn(cell); when(cell.getTier()).thenReturn(ECOTier.L9);
+            when(cell.supportsConversion(pattern)).thenAnswer(ignored -> cell.getConversionPatterns().contains(pattern));
             when(cell.getConversionPatterns()).thenReturn(List.of(pattern)); provider = new ECOBulkCraftingProvider(host);
         }
         KeyCounter[] inputs(long count) { var counter = new KeyCounter(); counter.add(ingot, count); return new KeyCounter[] {counter}; }
