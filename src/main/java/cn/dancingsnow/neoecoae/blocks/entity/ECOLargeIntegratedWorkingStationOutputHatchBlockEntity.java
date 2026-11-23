@@ -55,15 +55,17 @@ public class ECOLargeIntegratedWorkingStationOutputHatchBlockEntity
         }
     }
 
+    private final cn.dancingsnow.neoecoae.util.AdjacentFluidHandlers adjacentFluid = new cn.dancingsnow.neoecoae.util.AdjacentFluidHandlers();
+
     public void tick(Level level, BlockPos pos, BlockState state) {
+        if (tank.isEmpty()) return;
         var cluster = getCluster();
         for (Direction face : Direction.values()) {
             BlockPos neighborPos = pos.relative(face);
             if (cluster != null && cluster.containsBlockEntity(level.getBlockEntity(neighborPos))) {
                 continue;
             }
-            ResourceHandler<FluidResource> target = level.getCapability(
-                Capabilities.Fluid.BLOCK, neighborPos, face.getOpposite());
+            ResourceHandler<FluidResource> target = adjacentFluid.get((net.minecraft.server.level.ServerLevel) level, pos, face);
             if (target != null && !tank.isEmpty()) {
                 try (Transaction transaction = Transaction.open(null)) {
                     if (ResourceHandlerUtil.move(drainOnlyHandler, target, fluid -> true, tank.getFluidAmount(), transaction) > 0) {

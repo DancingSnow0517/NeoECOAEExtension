@@ -8,7 +8,7 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin;
 import cn.dancingsnow.neoecoae.integration.jei.TextureConstants;
 import cn.dancingsnow.neoecoae.integration.jei.WorkstationItemStackRenderer;
-import cn.dancingsnow.neoecoae.integration.recipe.LargeWorkstationRecipeDisplay;
+import cn.dancingsnow.neoecoae.integration.common.xei.recipe.LargeWorkstationRecipeDisplay;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
 import mezz.jei.api.constants.VanillaTypes;

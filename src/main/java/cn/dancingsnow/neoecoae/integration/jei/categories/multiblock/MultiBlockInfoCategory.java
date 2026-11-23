@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.integration.jei.categories.multiblock;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.integration.jei.NEJeiRecipeType;
-import cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapper;
+import cn.dancingsnow.neoecoae.integration.common.xei.multiblock.MultiBlockInfoWrapper;
 import com.lowdragmc.lowdraglib2.integration.xei.jei.ModularUIRecipeCategory;
 import mezz.jei.api.gui.builder.IRecipeLayoutBuilder;
 import mezz.jei.api.gui.drawable.IDrawable;

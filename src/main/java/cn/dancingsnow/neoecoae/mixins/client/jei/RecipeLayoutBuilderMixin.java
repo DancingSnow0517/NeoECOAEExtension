@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.mixins.client.jei;
 
 import cn.dancingsnow.neoecoae.integration.jei.categories.LargeWorkingStationCategory;
-import cn.dancingsnow.neoecoae.integration.recipe.LargeWorkstationRecipeDisplay;
+import cn.dancingsnow.neoecoae.integration.common.xei.recipe.LargeWorkstationRecipeDisplay;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.sugar.Local;

@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.integration.jei;
 import appeng.integration.modules.itemlists.EncodingHelper;
 import appeng.menu.me.items.PatternEncodingTermMenu;
 import cn.dancingsnow.neoecoae.integration.jei.multiblock.MultiBlockRecipeTransferHandler;
-import cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapper;
+import cn.dancingsnow.neoecoae.integration.common.xei.multiblock.MultiBlockInfoWrapper;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.util.ArrayList;

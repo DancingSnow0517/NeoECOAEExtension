@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.jei;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapper;
+import cn.dancingsnow.neoecoae.integration.common.xei.multiblock.MultiBlockInfoWrapper;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import mezz.jei.api.recipe.types.IRecipeHolderType;

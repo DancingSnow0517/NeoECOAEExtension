@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeIntegratedWorkingStationRecipe;
 import guideme.compiler.tags.RecipeTypeMappingSupplier;
+import guideme.document.DefaultStyles;
 import guideme.document.LytRect;
 import guideme.document.LytSize;
 import guideme.document.block.AlignItems;
@@ -76,6 +77,7 @@ public class NEGuideRecipeTypes implements RecipeTypeMappingSupplier {
         body.append(outputs);
 
         var details = new LytParagraph();
+        details.setStyle(DefaultStyles.CRAFTING_RECIPE_TYPE);
         details.appendComponent(Component.translatable(PREFIX + "recipe_energy_value",
             Component.literal(DisplayNumbers.grouped(Integer.toString(recipe.energy())) + " ")
                 .append(Component.literal("AE").withStyle(ChatFormatting.DARK_PURPLE))));

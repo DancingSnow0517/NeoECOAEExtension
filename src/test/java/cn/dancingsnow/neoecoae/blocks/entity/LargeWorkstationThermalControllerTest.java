@@ -85,6 +85,7 @@ class LargeWorkstationThermalControllerTest {
         previousTemperatureEnabled = NEConfig.largeWorkstationTemperatureEnabled;
         NEConfig.largeWorkstationTemperatureEnabled = true;
         host = mock(ECOLargeIntegratedWorkingStationBlockEntity.class, CALLS_REAL_METHODS);
+        field(host, "coolantLookup", new LargeWorkstationCoolantLookup());
         var node = mock(IManagedGridNode.class);
         doReturn(node).when(host).getMainNode();
         when(node.isActive()).thenReturn(true);

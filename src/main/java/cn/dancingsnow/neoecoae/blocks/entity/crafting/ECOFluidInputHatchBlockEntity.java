@@ -98,8 +98,10 @@ public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyField
     /** Exact amount in mB, including stock above the handler's int-sized view. */
     public long getStoredFluidAmount() { return tank.getStoredAmount(); }
 
+    private final cn.dancingsnow.neoecoae.util.AdjacentFluidHandlers adjacentFluid = new cn.dancingsnow.neoecoae.util.AdjacentFluidHandlers();
+
     public void tick(Level level, BlockPos pos, BlockState state) {
-        if (level.isClientSide()) return;
+        if (!(level instanceof net.minecraft.server.level.ServerLevel)) return;
         if (hasNetworkPullCard()) {
             if (level.getGameTime() % 20 == 0 && getMainNode().isActive()) {
                 var grid = getMainNode().getGrid();
@@ -109,8 +111,9 @@ public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyField
             }
             return;
         }
+        if (tank.getSpace() <= 0) return;
         for (Direction face : Direction.values()) {
-            ResourceHandler<FluidResource> sourceHandler = level.getCapability(Capabilities.Fluid.BLOCK, pos.relative(face), face.getOpposite());
+            ResourceHandler<FluidResource> sourceHandler = adjacentFluid.get((net.minecraft.server.level.ServerLevel) level, pos, face);
             if (sourceHandler != null) {
                 try (Transaction transaction = Transaction.open(null)) {
                     int moved = ResourceHandlerUtil.move(sourceHandler, fluidResourceHandler, fluid -> true, tank.getCapacity(), transaction);

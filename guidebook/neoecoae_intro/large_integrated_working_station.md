@@ -40,7 +40,7 @@ Compared with the single-block station, the large workstation:
 - runs 256 parallel operations per batch normally, and up to 262,144 once heated;
 - can process recipes from Advanced AE, Extended AE, Crystal Science, Lightning Tech and more with the matching upgrade module.
 
-The four upper corner casings accept AE2 connections and direct FE input on their top faces. The two middle positions (workstation controller and smart cooling controller) do not expose top connections. The communication interface still accepts patterns and ME connections. The left-side AE/FE button switches and displays power priority; the machine retains its original top textures.
+The four upper corner casings accept AE2 connections and direct FE input on their top faces. The two middle positions (workstation controller and smart cooling controller) do not expose top connections. The smart pattern bus still accepts patterns and ME connections. The left-side AE/FE button switches and displays power priority; the machine retains its original top textures.
 
 ## Building the structure
 
@@ -56,7 +56,7 @@ You need 1 <ItemLink id="neoecoae:integrated_working_station" /> as the controll
 
 The structure has a front and back row on two layers. Drag the scenes below to rotate them, and hover the colored blocks for details.
 
-**Step 1: lower layer.** Three casings in front. In the back row, viewed from behind the structure, left to right: the **coolant output hatch, communication interface and coolant input hatch**.
+**Step 1: lower layer.** Three casings in front. In the back row, viewed from behind the structure, left to right: the **coolant output hatch, smart pattern bus and coolant input hatch**.
 
 <GameScene interactive={true} zoom="3">
   <Block id="neoecoae:large_integrated_working_station_casing" x="0" y="0" z="0"></Block>
@@ -70,7 +70,7 @@ The structure has a front and back row on two layers. Drag the scenes below to r
     **Coolant output hatch**: on the left when viewed from behind; receives coolant byproducts.
   </BlockAnnotation>
   <BlockAnnotation x="1" y="0" z="1" color="#4fc3f7">
-    **Communication interface**: in the middle of the back row; connects to the ME network and holds patterns.
+    **Large Integrated Working Station Smart Pattern Bus**: in the middle of the back row; connects to the ME network and holds patterns.
   </BlockAnnotation>
   <BlockAnnotation x="2" y="0" z="1" color="#66bb6a">
     **Coolant input hatch**: on the right when viewed from behind; keep its pipes connected after installing smart cooling.
@@ -115,11 +115,11 @@ Alternatively, place only the controller, open its screen and click **Auto-build
 
 ## Connecting to the network and adding patterns
 
-Connect a cable to the **communication interface** and the workstation appears on the ME network as a pattern provider. Open the interface and insert processing patterns that list every item and fluid input and output of the recipe. Then request crafts as with any pattern provider; materials and products move through the ME network.
+Connect a cable to the **smart pattern bus** and the workstation appears on the ME network as a pattern provider. Insert processing patterns that list every item and fluid input and output of the recipe. The network can read supported patterns and dispatch materials even if the upgrade card is missing or incorrect. Tasks that need a card pause until a compatible one is installed, then resume without a new order.
 
 The workstation's own recipes and compatible recipes appear in JEI / EMI under **Large Integrated Working Station**. The single-block station cannot process these compatible recipes.
 
-The communication interface starts with **4 rows / 36 pattern slots**. Each AE2 **Capacity Card** in the right-hand upgrade slots unlocks one more row, up to 4 cards for **8 rows / 72 slots**. Empty the last row before removing a capacity card. Patterns outside the unlocked capacity in older saves can still be retrieved, but reinstall cards to insert patterns into those rows again.
+The smart pattern bus starts with **4 rows / 36 pattern slots**. Each AE2 **Capacity Card** in the right-hand upgrade slots unlocks one more row, up to 4 cards for **8 rows / 72 slots**. Empty the last row before removing a capacity card. Patterns outside the unlocked capacity in older saves can still be retrieved, but reinstall cards to insert patterns into those rows again.
 
 The viewport shows up to 7 rows and scrolls smoothly with the mouse wheel and draggable scrollbar, clipping partial rows at both edges. Empty the last row before removing a capacity card. Existing patterns outside the currently unlocked capacity remain retrievable when loading older saves; reinstall capacity cards to insert patterns into those rows again.
 
@@ -141,7 +141,7 @@ A module only exists when its mod is installed. All modules are crafted in the l
 
 <RecipeFor id="neoecoae:integrated_working_station_module_empty" />
 
-An installed module switches the controller lights, screen and interface circuits to that mod's theme color. From left to right below: normal, Advanced AE, Crystal Science and Applied Generators.
+An installed module switches the controller lights, screen and pattern bus circuits to that mod's theme color. From left to right below: normal, Advanced AE, Crystal Science and Applied Generators.
 
 <GameScene interactive={true} fullWidth={true} zoom="2">
   <Block id="neoecoae:large_integrated_working_station_casing" p:formed="true" p:invisible="true" x="0" y="0" z="0"></Block>
@@ -163,7 +163,7 @@ An installed module switches the controller lights, screen and interface circuit
 </GameScene>
 
 - **Any one matching module works.** Identical products from several mods share one JEI / EMI entry with every usable module listed on the right; install any of them. Hover a module to see that route's batch output, processing time and cost. Each route keeps its own minimum batch: if Extended AE makes 4 per batch and Crystal Science 32, the Crystal Science module requires batches of 32.
-- **Changing modules keeps your tasks.** The communication interface refreshes its available patterns and the machine changes to the module's theme color. Accepted tasks keep their materials and progress and can finish.
+- **Changing modules keeps your tasks.** The machine changes to the module's theme color without hiding patterns. Tasks that already passed the card check keep their materials and progress and do not repeat the check.
 - **Servers can ignore modules.** `largeWorkstationIgnoreUpgradeCards` defaults to `false`. Set it to `true` and reopen the world or restart the server to allow every compatible recipe without a module.
 
 Route-specific rules:
@@ -307,10 +307,10 @@ JEI / EMI list energy, processing time and any additional requirements below eac
 
 | Symptom | Cause and fix |
 | --- | --- |
-| Blocks are placed but the structure doesn't form | Check that the controller is in the middle of the upper front row and that the lower back row reads "output hatch, interface, input hatch" from behind; or use auto-build |
+| Blocks are placed but the structure doesn't form | Check that the controller is in the middle of the upper front row and that the lower back row reads "output hatch, smart pattern bus, input hatch" from behind; or use auto-build |
 | Overclocking is on but capacity is still 256 | Temperature is below 20%; let recipes run or right-click Overclock to preheat |
 | A task only uses 256 after cooling down | Temporary portion mode; it recovers once overclocked and back at its original threshold |
 | Temperature keeps rising with cooling on | Heating exceeds cooling; use a stronger coolant or check the coolant level and output hatch |
 | With Cryotheum, temperature keeps falling and drops a tier | Cooling exceeds heating; use a weaker coolant or the smart cooling controller |
-| Compatible recipe patterns are unavailable | Check the installed upgrade module and that the request meets the route's minimum batch |
+| A task reports a missing or incorrect upgrade card | Install a card supported by the recipe. If the pattern is missing from the network, check that the structure is formed and the pattern's materials, outputs and batch size match a supported recipe. |
 | Overheat recovery doesn't advance or resets | Supply real Cryotheum Solution with Active Cooling on and a clear output hatch, without interruptions or reloads |

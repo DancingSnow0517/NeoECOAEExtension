@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.integration.recipe;
+package cn.dancingsnow.neoecoae.integration.common.xei.recipe;
 
 import appeng.api.stacks.GenericStack;
 import appeng.api.config.PowerMultiplier;

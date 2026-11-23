@@ -58,12 +58,14 @@ public class ECOFluidOutputHatchBlockEntity extends cn.dancingsnow.neoecoae.bloc
         tank.deserialize(data);
     }
 
+    private final cn.dancingsnow.neoecoae.util.AdjacentFluidHandlers adjacentFluid = new cn.dancingsnow.neoecoae.util.AdjacentFluidHandlers();
+
     public void tick(Level level, BlockPos pos, BlockState state) {
         if (tank.isEmpty()) {
             return;
         }
         for (Direction face : Direction.values()) {
-            ResourceHandler<FluidResource> targetHandler = level.getCapability(Capabilities.Fluid.BLOCK, pos.relative(face), face.getOpposite());
+            ResourceHandler<FluidResource> targetHandler = adjacentFluid.get((net.minecraft.server.level.ServerLevel) level, pos, face);
             if (targetHandler != null) {
                 try (Transaction transaction = Transaction.open(null)) {
                     int moved = ResourceHandlerUtil.move(drainOnlyHandler, targetHandler, fluid -> true, tank.getFluidAmount(), transaction);

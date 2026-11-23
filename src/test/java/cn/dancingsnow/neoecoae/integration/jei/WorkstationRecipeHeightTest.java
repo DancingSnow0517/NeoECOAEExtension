@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.integration.jei;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.integration.jei.categories.LargeWorkingStationCategory;
-import cn.dancingsnow.neoecoae.integration.recipe.LargeWorkstationRecipeDisplay;
+import cn.dancingsnow.neoecoae.integration.common.xei.recipe.LargeWorkstationRecipeDisplay;
 import cn.dancingsnow.neoecoae.mixins.client.jei.RecipeLayoutBuilderMixin;
 import cn.dancingsnow.neoecoae.mixins.client.jei.RecipeLayoutMixin;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;

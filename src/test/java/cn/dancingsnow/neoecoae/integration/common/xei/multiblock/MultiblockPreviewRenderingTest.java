@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.integration.xei.multiblock;
+package cn.dancingsnow.neoecoae.integration.common.xei.multiblock;
 
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
