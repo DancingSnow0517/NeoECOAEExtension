@@ -15,7 +15,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.material.Fluids;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction;
@@ -157,8 +156,11 @@ class FluidHatchNetworkPullTest {
     }
 
     @Test
-    void ticksOnlyPullEverySecondWithAnInstalledCardAndAnActiveNode() {
+    void ticksOnlyPullEverySecondWithAnInstalledCardAndAnActiveNode() throws ReflectiveOperationException {
         var hatch = mock(ECOFluidInputHatchBlockEntity.class, CALLS_REAL_METHODS);
+        var adjacent = ECOFluidInputHatchBlockEntity.class.getDeclaredField("adjacentFluid");
+        adjacent.setAccessible(true);
+        adjacent.set(hatch, mock(cn.dancingsnow.neoecoae.util.AdjacentFluidHandlers.class));
         hatch.tank = tank;
         doNothing().when(hatch).saveChanges();
         doReturn(true).when(hatch).hasNetworkPullCard();
@@ -173,7 +175,7 @@ class FluidHatchNetworkPullTest {
         when(grid.getEnergyService()).thenReturn(mock(appeng.api.networking.energy.IEnergyService.class));
         // A powered network grants exactly the extraction energy requested by StorageHelper.
         when(grid.getEnergyService().extractAEPower(anyDouble(), any(), any())).thenAnswer(inv -> inv.getArgument(0));
-        var level = mock(Level.class);
+        var level = mock(net.minecraft.server.level.ServerLevel.class);
         var state = Blocks.AIR.defaultBlockState();
         when(level.getGameTime()).thenReturn(1L, 19L);
         hatch.tick(level, BlockPos.ZERO, state);

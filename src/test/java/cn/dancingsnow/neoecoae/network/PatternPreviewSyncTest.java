@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.nbt.CompoundTag;
@@ -26,6 +27,19 @@ import static org.mockito.Mockito.*;
 class PatternPreviewSyncTest {
     @BeforeAll static void bootstrap() { InventoryTestBootstrap.initialize(); }
 
+    private static void exposePlayers(ServerLevel level) {
+        var server = mock(net.minecraft.server.MinecraftServer.class, RETURNS_DEEP_STUBS);
+        when(level.getServer()).thenReturn(server);
+        when(server.getPlayerList().getPlayer(any(java.util.UUID.class))).thenAnswer(call -> {
+            var id = call.getArgument(0, java.util.UUID.class);
+            return level.players().stream().filter(player -> id.equals(player.getUUID())).findFirst().orElse(null);
+        });
+        when(level.getEntitiesOfClass(eq(ServerPlayer.class), any(), any())).thenAnswer(call -> {
+            Predicate<ServerPlayer> filter = call.getArgument(2);
+            return level.players().stream().filter(filter).toList();
+        });
+    }
+
     @Test void changesDuringAnInitialTransferAreSentAfterItCompletesAndResendIsFull() {
         var host = mock(ECOMachineInterfaceBlockEntity.class);
         var level = mock(ServerLevel.class);
@@ -33,6 +47,7 @@ class PatternPreviewSyncTest {
         player.containerMenu = mock(AbstractContainerMenu.class);
         when(player.getUUID()).thenReturn(java.util.UUID.randomUUID());
         when(level.players()).thenReturn(List.of(player));
+        exposePlayers(level);
         when(level.registryAccess()).thenReturn(RegistryAccess.EMPTY);
         when(host.getLevel()).thenReturn(level);
         when(host.getBlockPos()).thenReturn(BlockPos.ZERO);
@@ -208,6 +223,7 @@ class PatternPreviewSyncTest {
             when(second.getUUID()).thenReturn(java.util.UUID.randomUUID());
             doReturn(true).when(f.sync).isViewer(second);
             when(f.level.players()).thenReturn(List.of(f.player, second));
+            f.sync.open(second, second.containerMenu.containerId, -1, 0L);
             List<CompoundTag> secondPackets = new ArrayList<>();
             f.transport.when(() -> MenuDataTransport.sendQueued(eq(second), eq(MenuDataTransport.Channel.PATTERNS), any()))
                     .thenAnswer(call -> {
@@ -241,6 +257,7 @@ class PatternPreviewSyncTest {
             f.tick();
             verify(f.host, never()).getPatternPreviewEntry(anyInt());
             when(f.level.players()).thenReturn(List.of(f.player));
+            f.sync.open(f.player, f.player.containerMenu.containerId, -1, 0L);
             List<PatternPreviewEntry.DiskPattern> disk = new ArrayList<>();
             for (int i = 0; i < 100; i++) disk.add(new PatternPreviewEntry.DiskPattern(ItemStack.EMPTY, "recipe " + i, ""));
             when(f.host.getPatternPreviewEntry(0)).thenReturn(new PatternPreviewEntry(0, 0, ItemStack.EMPTY,
@@ -324,6 +341,7 @@ class PatternPreviewSyncTest {
             player.containerMenu = mock(AbstractContainerMenu.class);
             when(player.getUUID()).thenReturn(java.util.UUID.randomUUID());
             when(level.players()).thenReturn(List.of(player));
+            exposePlayers(level);
             when(level.registryAccess()).thenReturn(RegistryAccess.EMPTY);
             when(host.getLevel()).thenReturn(level);
             when(host.getBlockPos()).thenReturn(BlockPos.ZERO);

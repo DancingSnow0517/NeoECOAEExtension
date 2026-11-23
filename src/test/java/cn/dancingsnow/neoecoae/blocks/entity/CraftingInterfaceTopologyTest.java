@@ -11,7 +11,6 @@ import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewSync;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
-import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -221,7 +220,7 @@ class CraftingInterfaceTopologyTest {
             field(machine, "patternBusSlotCounts", new int[0]);
             field(machine, "patternBusOffsets", new int[0]);
             field(machine, "auxiliaryPreviewCache", new Long2ObjectOpenHashMap<>());
-            field(machine, "busAuxiliaryPreviewRevisions", new Long2LongOpenHashMap());
+            field(machine, "mappedPatternBuses", List.of());
             field(machine, "patternPreviewSync", sync);
             assertEquals(hosts * busesPerHost * 63, machine.getPatternInterfaceSlotCount());
             clearInvocations(sync);
