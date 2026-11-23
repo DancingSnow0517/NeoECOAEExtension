@@ -5,7 +5,6 @@ import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternWrappers;
 import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemanticsRegistry;
 import cn.dancingsnow.neoecoae.integration.thunderbolt.ThunderPatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.integration.thunderbolt.ThunderboltApi;
-import cn.dancingsnow.neoecoae.integration.useless.UselessPatternSemanticAdapter;
 import java.lang.reflect.Method;
 import net.minecraft.resources.Identifier;
 
@@ -24,8 +23,6 @@ public final class ECOPatternIntegrations {
             ECOPatternSemanticsRegistry.register(id("thunderbolt_semantics"), 200,
                 new ThunderPatternSemanticAdapter());
         }
-        ECOPatternSemanticsRegistry.register(id("useless_semantics"), 100,
-            new UselessPatternSemanticAdapter());
         registerWrapper("thunderbolt_provider_lookup", 200, ThunderboltApi.PROVIDER_LOOKUP,
             "providerLookupPattern");
         registerWrapper("thunderbolt_wrapper", 100, ThunderboltApi.WRAPPER, "wrappedPatternDetails");

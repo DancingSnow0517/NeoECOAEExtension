@@ -88,7 +88,7 @@ public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputRec
         // Keep OmniSequence's extraction/accounting owner consistent with the AE2 adapter.
         if (level == null || cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("molecularmanipulator")) return;
         try {
-            int pushed = neoecoae$batchDispatcher().execute(this, job, inventory,
+            int pushed = neoecoae$batchDispatcher().execute(job, inventory,
                     maxPatterns, craftingService, energyService, level);
             if (pushed > 0) cir.setReturnValue(pushed);
         } catch (RuntimeException failure) {

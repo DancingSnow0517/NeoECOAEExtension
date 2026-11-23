@@ -24,7 +24,7 @@ class CraftingModuleBoundaryTest {
     @Test
     void plannerDoesNotEnumerateOptionalPatternImplementations() throws Exception {
         assertNoReferences(ROOT.resolve("planner"), Pattern.compile(
-            "cn\\.dancingsnow\\.neoecoae\\.compat\\.(useless|thunderbolt|extendedaeplus)\\."));
+            "cn\\.dancingsnow\\.neoecoae\\.integration\\.(thunderbolt|extendedaeplus)\\."));
     }
 
     @Test

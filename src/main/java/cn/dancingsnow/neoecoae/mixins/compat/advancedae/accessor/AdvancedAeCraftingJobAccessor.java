@@ -33,9 +33,6 @@ public abstract class AdvancedAeCraftingJobAccessor
     @Accessor("suspended")
     public abstract void neoecoae$suspended(boolean value);
 
-    @Accessor("finalOutput")
-    public abstract appeng.api.stacks.GenericStack neoecoae$finalOutput();
-
     @Override
     public Map<IPatternDetails, ?> neoecoae$tasks() { return neoecoae$getTasks(); }
 

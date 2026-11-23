@@ -150,7 +150,7 @@ public class NeoECOAE {
      */
     public static final java.util.Set<String> UNPORTED_INTEGRATIONS = java.util.Set.of(
         // Bridges still compiled against 1.21.1 jars (legacyCompileOnly in build.gradle).
-        "ae2lt", "ae2_pattern_disk", "thunderbolt", "useless_mod", "molecularmanipulator", "mekanism",
+        "ae2lt", "ae2_pattern_disk", "thunderbolt", "molecularmanipulator", "mekanism",
         "appmek", "fluxnetworks",
         // Leaf integrations excluded from compilation in build.gradle.
         "appbot", "arseng", "appliedsoul", "soulplied_energistics", "appliedpneumatics",

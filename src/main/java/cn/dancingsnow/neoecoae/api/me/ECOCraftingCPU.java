@@ -5,26 +5,25 @@ import appeng.api.networking.crafting.ICraftingCPU;
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputClaimSink;
 
 /**
- * Binary compatibility base for Useless Mod 2.3.8/2.4.0 and AE2 Lightning Tech 2.1.
+ * Binary compatibility base for AE2 Lightning Tech 2.1 and other integrations.
  *
  * <p>The implementation moved to {@code crafting.execution.ECOCraftingCPU}; the
- * old package name remains in the type hierarchy because Useless performs a
- * direct instanceof/checkcast against this class. AE2 Lightning Tech also targets
- * this class with a Mixin invoker for {@link #markDirty()}.</p>
+ * old package name remains in the type hierarchy for existing integrations.
+ * AE2 Lightning Tech targets this class with a Mixin invoker for {@link #markDirty()}.</p>
  */
 @Deprecated(forRemoval = false)
 public abstract class ECOCraftingCPU implements ICraftingCPU {
     protected ECOCraftingCPU() {
     }
 
-    /** Compatibility method used by Useless's NeoECOAE bridge. */
+    /** The grid this CPU belongs to. */
     public abstract IGrid getGrid();
 
     /**
-     * Stable output-claim boundary used by Useless 2.4.0's dynamic-output bridge.
+     * Stable output-claim boundary for integrations that claim crafting outputs.
      *
-     * <p>This method must be declared on the legacy base class itself: Useless compiles its
-     * call against this exact owner, even though the live implementation is the execution
+     * <p>This method is declared on the legacy base class itself for binary compatibility,
+     * even though the live implementation is the execution
      * subclass. The subclass returns its existing logic-backed sink.</p>
      */
     public abstract ECOCraftingOutputClaimSink getOutputClaimSink();

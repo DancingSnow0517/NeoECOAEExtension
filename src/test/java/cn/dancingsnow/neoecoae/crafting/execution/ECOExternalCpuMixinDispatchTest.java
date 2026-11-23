@@ -35,7 +35,7 @@ class ECOExternalCpuMixinDispatchTest {
         var crafting = mock(CraftingService.class);
         var energy = mock(IEnergyService.class);
         var level = mock(Level.class);
-        when(dispatcher.execute(mixin, null, null, 1, crafting, energy, level)).thenReturn(1);
+        when(dispatcher.execute(null, null, 1, crafting, energy, level)).thenReturn(1);
         var mods = mock(ModList.class);
         when(mods.isLoaded("thunderbolt")).thenReturn(thunderbolt);
         when(mods.isLoaded("molecularmanipulator")).thenReturn(omniSequence);
@@ -53,7 +53,7 @@ class ECOExternalCpuMixinDispatchTest {
             verifyNoInteractions(dispatcher);
             assertFalse(callback.isCancelled());
         } else {
-            verify(dispatcher).execute(mixin, null, null, 1, crafting, energy, level);
+            verify(dispatcher).execute(null, null, 1, crafting, energy, level);
             assertTrue(callback.isCancelled());
             assertEquals(1, callback.getReturnValue());
         }

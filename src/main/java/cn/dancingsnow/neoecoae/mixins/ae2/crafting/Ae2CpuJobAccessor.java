@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.crafting;
 
 import appeng.api.crafting.IPatternDetails;
-import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.execution.ElapsedTimeTracker;
 import appeng.crafting.execution.ExecutingCraftingJob;
@@ -24,9 +23,6 @@ public abstract class Ae2CpuJobAccessor
 
     @Accessor("link")
     public abstract CraftingLink neoecoae$link();
-
-    @Accessor("finalOutput")
-    public abstract GenericStack neoecoae$finalOutput();
 
     @Accessor("suspended")
     public abstract boolean neoecoae$suspended();

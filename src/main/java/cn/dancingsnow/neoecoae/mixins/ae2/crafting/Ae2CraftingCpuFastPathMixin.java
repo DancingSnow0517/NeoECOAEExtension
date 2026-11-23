@@ -40,7 +40,7 @@ public abstract class Ae2CraftingCpuFastPathMixin {
         // deliberately do not implement its foreign batch-provider interface.
         if (cn.dancingsnow.neoecoae.NeoECOAE.isIntegrationActive("molecularmanipulator")) return;
         try {
-            int consumed = neoecoae$fastPath().execute(this, job, inventory, maxPatterns, crafting, energy, level);
+            int consumed = neoecoae$fastPath().execute(job, inventory, maxPatterns, crafting, energy, level);
             if (consumed > 0) cir.setReturnValue(consumed);
         } catch (RuntimeException failure) {
             if (job instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob access)

@@ -13,7 +13,6 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
-import cn.dancingsnow.neoecoae.integration.useless.ECOUselessDynamicOutputBridge;
 import cn.dancingsnow.neoecoae.integration.ae2.ECOExternalProviderBlocking;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
@@ -64,7 +63,7 @@ public final class ECOExternalCpuFastPath {
         return inputPreview;
     }
 
-    public int execute(Object owner, Object job, ListCraftingInventory inventory, int maxPatterns,
+    public int execute(Object job, ListCraftingInventory inventory, int maxPatterns,
             CraftingService crafting, IEnergyService power, Level level) {
         energy.returnIdleCredit(power);
         if (!(job instanceof ECOExternalCpuJob access) || access.neoecoae$suspended() || maxPatterns <= 0) return 0;
@@ -96,8 +95,6 @@ public final class ECOExternalCpuFastPath {
                         inputBuffer.outputs(), inputBuffer.remainders(),
                         inventory, limit, singlePower, power, level, access.neoecoae$link().getCraftingID());
                 if (batch == null || batch.craftCount() < 2 || !fitsWaiting(access, batch)) continue;
-                var registration = ECOUselessDynamicOutputBridge.prepare(owner, task.getKey(), batch.craftCount());
-                if (registration == null) continue;
                 try {
                     if (!batch.submit(amount -> energy.reserve(power, amount))) continue;
                 } catch (ECOIndeterminateBatchException failure) {
@@ -117,8 +114,6 @@ public final class ECOExternalCpuFastPath {
                         access.neoecoae$waitingFor().insert(remainder.what(), remainder.amount(), Actionable.MODULATE);
                         access.neoecoae$addRemainderItems(remainder.amount(), remainder.what().getType());
                     }
-                    registration.commit(access.neoecoae$link().getCraftingID(),
-                        access.neoecoae$finalOutput() == null ? null : access.neoecoae$finalOutput().what());
                     if (progress.neoecoae$value() <= 0) iterator.remove();
                     markDirty.run();
                     dispatched++;

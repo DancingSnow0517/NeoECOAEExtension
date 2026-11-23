@@ -88,7 +88,6 @@ class ECOExternalCpuFastPathTest {
             when(access.neoecoae$timeTracker()).thenReturn(tracker);
             job = access;
         }
-        when(job.neoecoae$finalOutput()).thenReturn(new GenericStack(output, 2048));
         inventory.insert(input, 2048, Actionable.MODULATE);
         when(service.getProviders(pattern)).thenReturn(List.of(provider));
         when(energy.extractAEPower(anyDouble(), any(), any())).thenAnswer(c -> c.getArgument(0));
@@ -105,7 +104,7 @@ class ECOExternalCpuFastPathTest {
     }
 
     int dispatch(int pushSlots) {
-        return dispatcher.execute(this, job, inventory, pushSlots, service, energy, level);
+        return dispatcher.execute(job, inventory, pushSlots, service, energy, level);
     }
 
     @ParameterizedTest @ValueSource(strings = {"ae2", "omnicell", "advancedae"})
@@ -280,7 +279,6 @@ class ECOExternalCpuFastPathTest {
 
     @Test void onlyEcoNativeProvidersAreUsedForBatchDispatch() {
         setup("advancedae");
-        // ExtendedAEPlus矩阵和Useless熔炉会通过桥接适配器返回，但它们不是ECOFastPathDispatchProvider实例
         var nonEcoProvider1 = mock(ICraftingProvider.class);
         var nonEcoProvider2 = mock(ICraftingProvider.class);
         when(service.getProviders(pattern)).thenReturn(List.of(nonEcoProvider1, nonEcoProvider2, provider));
@@ -408,7 +406,7 @@ class ECOExternalCpuFastPathTest {
         when(ingredient.isValid(input, level)).thenReturn(true);
         var replacement = new ListCraftingInventory(ignored -> {});
         replacement.insert(input, 20, Actionable.MODULATE);
-        assertEquals(1, dispatcher.execute(this, job, replacement, 1, service, energy, level));
+        assertEquals(1, dispatcher.execute(job, replacement, 1, service, energy, level));
         assertEquals(0, replacement.list.get(input));
         assertEquals(2048, inventory.list.get(input));
         assertEquals(10, deliveries.getLast().craftCount());

@@ -35,14 +35,9 @@ final class ECOCraftingDispatchAccounting {
         this.dispatchEvent = dispatchEvent;
     }
 
-    /**
-     * Applies the same task/output/runtime accounting for one ordinary craft or an accepted batch.
-     * The hook runs after runtime progress and before menu notifications, matching the existing
-     * dynamic-output registration order.
-     */
     void applyExact(ECOCraftingDispatchRequest request,
             cn.dancingsnow.neoecoae.crafting.execution.batch.ECOExactBatchPlanner.PreparedBatch batch,
-            Runnable beforeNotifications, ICraftingProvider provider) {
+            ICraftingProvider provider) {
         var job = request.job();
         if (!job.exactOrder) throw new IllegalStateException("Exact dispatch requires a big order");
         audit(request, batch.craftQuantity(), batch.outputQuantities(), batch.remainderQuantities(), "exact-batch", () -> {
@@ -58,7 +53,6 @@ final class ECOCraftingDispatchAccounting {
                     if (amount.signum() > 0) job.batchedOutputs.add(key);
                 });
             }
-            beforeNotifications.run();
             dispatchEvent.accept(new ECOCraftingDispatchEvent(contextFactory.apply(job), request.pattern(),
                 batch.craftCount(), provider));
             cn.dancingsnow.neoecoae.integration.omnisequence.ECOOmniSequenceDirectDispatch.flushAfterCpuAccounting(provider);

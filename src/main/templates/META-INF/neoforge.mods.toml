@@ -221,14 +221,6 @@ file="META-INF/accesstransformer.cfg"
     reason="OmniSequence: Transfinite 2.0.5 or newer is required when this mod is installed. Version 2.0.5-fix is also supported."
 
 [[dependencies.${mod_id}]]
-    modId="useless_mod"
-    type="optional"
-    versionRange="[1.21.1-2.4.6.2,)"
-    ordering="AFTER"
-    side="BOTH"
-    reason="Useless Mod 1.21.1-2.4.6.2 or newer is required for compatibility with ECO's LongFluidTank input hatch."
-
-[[dependencies.${mod_id}]]
     modId="jade"
     type="optional"
     versionRange="[0,)"

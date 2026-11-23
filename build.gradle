@@ -171,7 +171,6 @@ dependencies {
 
     legacyCompileOnly("maven.modrinth:ae2-lightning-tech:wchBNoWt")
     legacyCompileOnly("maven.modrinth:thunderbolt-core:i3H7uX2O")
-    legacyCompileOnly("maven.modrinth:a-useless-mod:VX1feqRC")
     legacyCompileOnly("curse.maven:omnisequence-transfinite-1624558:8991983")
     legacyCompileOnly("curse.maven:ae2-pattern-disk-1698612:9009050")
     legacyCompileOnly("curse.maven:mekanism-268560:7904058")
@@ -326,7 +325,6 @@ sourceSets.main.java {
     exclude 'cn/dancingsnow/neoecoae/mixins/compat/fluxnetworks/**'
     exclude 'cn/dancingsnow/neoecoae/mixins/compat/omnisequence/**'
     exclude 'cn/dancingsnow/neoecoae/mixins/compat/thunderbolt/**'
-    exclude 'cn/dancingsnow/neoecoae/mixins/compat/useless/**'
 }
 
 sourceSets.test {

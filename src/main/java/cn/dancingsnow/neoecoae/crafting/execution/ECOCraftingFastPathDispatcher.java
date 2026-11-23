@@ -19,7 +19,6 @@ import appeng.api.networking.energy.IEnergyService;
 import appeng.hooks.ticking.TickHandler;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
-import cn.dancingsnow.neoecoae.integration.useless.ECOUselessDynamicOutputBridge;
 
 /**
  * Optional batch dispatch boundary. It owns FastPath preparation, energy reservation, physical push, and rollback;
@@ -32,13 +31,11 @@ final class ECOCraftingFastPathDispatcher {
     private java.util.UUID diagnosticJob;
     private record ExactDiagnosticKey(Object provider, Object pattern, String reason) {}
 
-    private final Object dynamicOutputOwner;
     private final ECOCraftingEnergyTransaction energyTransaction;
     private final ECOCraftingDispatchAccounting accounting;
 
-    ECOCraftingFastPathDispatcher(Object dynamicOutputOwner, ECOCraftingEnergyTransaction energyTransaction,
+    ECOCraftingFastPathDispatcher(ECOCraftingEnergyTransaction energyTransaction,
                                   ECOCraftingDispatchAccounting accounting) {
-        this.dynamicOutputOwner = dynamicOutputOwner;
         this.energyTransaction = energyTransaction;
         this.accounting = accounting;
     }
@@ -104,11 +101,6 @@ final class ECOCraftingFastPathDispatcher {
         exactDiagnostic(request, provider, "provider-admitted", batch.craftQuantity(),
             () -> "initial=" + initialRequest + " runtime=" + runtimeAllowance
                 + " energy=" + energyAllowance + " material=" + materialAllowance[0]);
-        var registration = ECOUselessDynamicOutputBridge.prepareExact(dynamicOutputOwner, request.pattern(), batch.craftCount());
-        if (registration == null) {
-            exactDiagnostic(request, provider, "dynamic-output-registration-is-long-only", batch.craftQuantity());
-            return null;
-        }
         var energy = energyTransaction.reserve(energyService, singlePower, batch.craftCount());
         if (energy == null) {
             exactDiagnostic(request, provider, "exact-energy-reservation-failed", batch.craftQuantity());
@@ -125,8 +117,7 @@ final class ECOCraftingFastPathDispatcher {
             throw failure;
         }
         try {
-            accounting.applyExact(request, batch, () -> registration.commit(request.job().link.getCraftingID(),
-                request.job().finalOutput == null ? null : request.job().finalOutput.what()), provider);
+            accounting.applyExact(request, batch, provider);
         } catch (RuntimeException failure) {
             request.job().failPermanently("POST_ACCEPT_EXACT_BATCH_ACCOUNTING_FAILURE");
             throw failure;
@@ -183,16 +174,6 @@ final class ECOCraftingFastPathDispatcher {
         }
         if (batch == null) return null;
 
-        ECOUselessDynamicOutputBridge.Registration registration;
-        try {
-            registration = ECOUselessDynamicOutputBridge.prepare(
-                    dynamicOutputOwner, request.pattern(), batch.craftCount());
-        } catch (RuntimeException failure) {
-            LOGGER.warn("Batch dynamic output registration unavailable; trying ordinary provider push", failure);
-            return null;
-        }
-        if (registration == null) return null;
-
         long batchCount = batch.craftCount();
         boolean accepted = false;
         recordProviderAttempt.accept(provider);
@@ -212,14 +193,7 @@ final class ECOCraftingFastPathDispatcher {
         ECOCraftingDispatchResult result = ECOCraftingDispatchResult.batch(
                 batch.craftCount(), batch.outputs(), batch.remainders());
         try {
-            accounting.apply(request, result, () -> {
-                try {
-                    registration.commit(request.job().link.getCraftingID(),
-                            request.job().finalOutput == null ? null : request.job().finalOutput.what());
-                } catch (RuntimeException failure) {
-                    LOGGER.error("Accepted batch could not register Useless dynamic outputs", failure);
-                }
-            }, provider);
+            accounting.apply(request, result, () -> {}, provider);
         } catch (RuntimeException failure) {
             request.job().failPermanently("POST_ACCEPT_FAST_PATH_ACCOUNTING_FAILURE");
             throw failure;
