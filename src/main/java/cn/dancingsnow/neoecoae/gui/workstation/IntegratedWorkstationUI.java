@@ -92,7 +92,7 @@ public final class IntegratedWorkstationUI {
                 root.addChild(place(slot, 36 + column * 18, 24 + row * 18, 16, 16));
             }
         }
-        ItemSlot output = new ItemSlot(new ItemHandlerSlot(config.items(), 9));
+        ItemSlot output = new ItemSlot(new ItemHandlerSlot(config.items(), 9).setCanPlace(stack -> false));
         output.style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
         root.addChild(place(output, 123, 43, 16, 16));
 
@@ -114,6 +114,7 @@ public final class IntegratedWorkstationUI {
         for (int i = 0; i < 4; i++) {
             upgradeSlots.add(new ItemSlot(new ItemHandlerSlot(config.upgrades(), i))
                 .slotStyle(style -> style
+                    .quickMovePriority(2)
                     .slotOverlay(AETextures.icon(ECOIcon.BACKGROUND_UPGRADE))
                     .showSlotOverlayOnlyEmpty(true))
                 .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
