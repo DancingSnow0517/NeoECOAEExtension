@@ -2,6 +2,7 @@
   "required": false,
   "minVersion": "0.8",
   "package": "cn.dancingsnow.neoecoae.mixins.ae2",
+  "plugin": "cn.dancingsnow.neoecoae.mixins.ECOMixinLoadConfig",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
     "terminalbigamount.MEStorageMenuExactAmountMixin"

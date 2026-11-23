@@ -22,7 +22,7 @@
 | KubeJS 6 的写法，主线是 Schema 写法 | `integration/kubejs/schema/` |
 | Forge 渲染修补（Embeddium、区块重建） | `client/rendering/EmbeddiumFixedGeometry.java`、`mixins/minecraft/client/ChunkRebuildTaskMixin.java` |
 | 工作站模型适配 Forge 图集 | `SpriteSourcesAccessor`（`f50999a3`） |
-| 统一的可选附属 mixin 插件 | `mixins/compat/ECOOptionalAddonMixinPlugin.java` |
+| Forge 通过 Gradle 和 JAR 的 `MixinConfigs` 注册配置 | `build.gradle` 注册配置，`mixins/ECOMixinLoadConfig.java` 集中管理注入条件 |
 | 诊断探针、移植验证工具 | `client/diagnostics/`、`platform/diagnostics/`、`tools/`、`validation/`、`src/acceptance/` |
 
 主线有 Useless Mod、OmniSequence、AE2 Pattern Disk、MekEnergistics 联动，本版没有。这些模组是否有 1.20.1 版未核实；有的话应移到落后。
