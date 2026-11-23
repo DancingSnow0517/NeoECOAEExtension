@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.planner.semantic;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.GenericStack;
 import java.util.ArrayList;
@@ -89,7 +90,7 @@ public final class PatternContractReader {
     }
 
     private static void report(IPatternDetails pattern, String problem, RuntimeException failure) {
-        if (!REPORTED.add(pattern.getClass())) return;
+        if (!NEConfig.ecoPlanningStageDebug || !REPORTED.add(pattern.getClass())) return;
         LOGGER.warn("Pattern implementation {} violates the IPatternDetails input/output contract ({}); "
             + "affected data is ignored. Further reports for this class are suppressed.",
             pattern.getClass().getName(), problem, failure);

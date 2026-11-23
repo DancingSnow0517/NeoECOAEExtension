@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.planner.result;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.crafting.IPatternDetails;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
@@ -115,7 +116,7 @@ public final class ECOPlanningResult {
                 }
             } catch (RuntimeException failure) {
                 // The UI diagnostic is length-limited; keep the complete demand/allocation in the log.
-                LOGGER.error("[ECO-EXECUTION-PLAN] Failed to build execution plan planningId={}", planningId, failure);
+                if (NEConfig.ecoPlanningStageDebug) LOGGER.error("[ECO-EXECUTION-PLAN] Failed to build execution plan planningId={}", planningId, failure);
                 error = "EXECUTION_PLAN_BUILD_FAILED:" + failure.getClass().getSimpleName()
                     + (failure.getMessage() == null ? "" : ":" + failure.getMessage());
             }

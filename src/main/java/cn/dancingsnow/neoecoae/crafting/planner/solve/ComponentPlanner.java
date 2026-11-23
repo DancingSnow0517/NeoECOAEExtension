@@ -308,7 +308,7 @@ public final class ComponentPlanner {
                         ? CycleExecutionDisposition.NOT_REQUIRED : CycleExecutionDisposition.BLOCKED;
                 Map<AEKey, PlannerAmount> stockReservations = existingComponentReservations(
                         exactRequiredOutputs, acyclic.state(), attributedCycleReservations);
-                LOGGER.debug("[ECO-CYCLE] begin component={} members={} patterns={} requiredOutputs={} "
+                if (NEConfig.ecoPlanningStageDebug) LOGGER.debug("[ECO-CYCLE] begin component={} members={} patterns={} requiredOutputs={} "
                                 + "cyclePlanningEnabled={} stockReservations={}",
                         cycle.componentId(), cycle.members().size(), cycle.patterns().size(), exactRequiredOutputs,
                         cyclePlanningEnabled, stockReservations);
@@ -337,12 +337,12 @@ public final class ComponentPlanner {
                         cycleStatus = CyclePlanningStatus.of(cycleResult.status());
                         diagnostic = cycleResult.summary();
                         if (cycleResult.status() == CycleSolveStatus.SUCCESS) {
-                            LOGGER.debug("[ECO-CYCLE] solve component={} status={} firings={} seed={} "
+                            if (NEConfig.ecoPlanningStageDebug) LOGGER.debug("[ECO-CYCLE] solve component={} status={} firings={} seed={} "
                                             + "externalDemand={} shortfall={} metrics={}",
                                     cycle.componentId(), cycleResult.status(), cycleResult.plannerTotalFirings(),
                                     cycleResult.exactRequiredSeed(), cycleResult.exactExternalDemand(),
                                     cycleResult.exactSeedShortfall(), cycleResult.metrics());
-                        } else {
+                        } else if (NEConfig.ecoPlanningStageDebug) {
                             LOGGER.warn("[ECO-CYCLE] solve component={} status={} targets={} stock={} "
                                             + "seed={} externalDemand={} shortfall={} diagnostics={}",
                                     cycle.componentId(), cycleResult.status(), solveTargets, stock,
@@ -433,11 +433,14 @@ public final class ComponentPlanner {
                                                     + "are not a proof"));
                         }
                         if (!external.solved()) {
-                            LOGGER.warn("[ECO-CYCLE] external demand failed component={} status={} "
-                                            + "missingLeaves={} diagnostic={}",
-                                    cycle.componentId(), external.status(), externalMissingItems, external.diagnostic());
+                            if (NEConfig.ecoPlanningStageDebug) {
+                                LOGGER.warn("[ECO-CYCLE] external demand failed component={} status={} "
+                                                + "missingLeaves={} diagnostic={}",
+                                        cycle.componentId(), external.status(), externalMissingItems,
+                                        external.diagnostic());
+                            }
                         } else {
-                            LOGGER.debug("[ECO-CYCLE] external demand solved component={} status={} "
+                            if (NEConfig.ecoPlanningStageDebug) LOGGER.debug("[ECO-CYCLE] external demand solved component={} status={} "
                                             + "delegated={} directReservations={}",
                                     cycle.componentId(), external.status(), external.delegatedCycleDemands(),
                                     external.directReservations());
@@ -577,12 +580,14 @@ public final class ComponentPlanner {
                             attributedCycleReservations.merge(key, reserved, PlannerAmount::add));
                 }
                 if (cycleStatus != CyclePlanningStatus.SOLVED && cycleStatus != CyclePlanningStatus.NOT_REQUIRED) {
-                    LOGGER.warn("[ECO-CYCLE] final component={} status={} disposition={} requiredOutputs={} "
-                                    + "externalStatus={} missingLeaves={} diagnostic={}",
-                            cycle.componentId(), cycleStatus, disposition, requiredOutputs,
-                            externalDemandStatus, externalMissingItems, diagnostic);
+                    if (NEConfig.ecoPlanningStageDebug) {
+                        LOGGER.warn("[ECO-CYCLE] final component={} status={} disposition={} requiredOutputs={} "
+                                        + "externalStatus={} missingLeaves={} diagnostic={}",
+                                cycle.componentId(), cycleStatus, disposition, requiredOutputs,
+                                externalDemandStatus, externalMissingItems, diagnostic);
+                    }
                 } else {
-                    LOGGER.debug("[ECO-CYCLE] final component={} status={} disposition={} requiredOutputs={} "
+                    if (NEConfig.ecoPlanningStageDebug) LOGGER.debug("[ECO-CYCLE] final component={} status={} disposition={} requiredOutputs={} "
                                     + "reservations={}",
                             cycle.componentId(), cycleStatus, disposition, requiredOutputs, stockReservations);
                 }
