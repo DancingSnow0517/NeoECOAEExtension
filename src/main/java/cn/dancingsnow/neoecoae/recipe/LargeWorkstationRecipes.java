@@ -130,7 +130,7 @@ public final class LargeWorkstationRecipes {
                 }
             } catch (RuntimeException failure) {
                 // A changed upstream format must fail closed, never silently omit a cost or result.
-                LOGGER.warn("Cannot adapt large workstation recipe {}", holder.id(), failure);
+                LOGGER.debug("Cannot adapt large workstation recipe {}", holder.id(), failure);
             }
         }
         Map<ResourceLocation, LargeWorkstationRecipe> recipesById = new HashMap<>();
@@ -138,7 +138,7 @@ public final class LargeWorkstationRecipes {
         var sourceIds = sources.stream().map(RecipeHolder::id).collect(Collectors.toSet());
         for (var recipe : CrystalScienceWorkstationRecipes.growthRecipes()) {
             if (sourceIds.contains(recipe.id())) {
-                LOGGER.warn("Crystal growth recipe ID collides with a datapack recipe: {}", recipe.id());
+                LOGGER.debug("Crystal growth recipe ID collides with a datapack recipe: {}", recipe.id());
                 continue;
             }
             recipes.add(recipe);
@@ -154,10 +154,10 @@ public final class LargeWorkstationRecipes {
                 var borrowed = LargeWorkstationRecipeSources.borrowed(holder, recipe);
                 if (borrowed != null) {
                     if (recipesById.putIfAbsent(borrowed.recipe().id(), borrowed.recipe()) == null) variants.add(borrowed);
-                    else LOGGER.warn("Borrowed workstation recipe ID collides with a datapack recipe: {}", borrowed.recipe().id());
+                    else LOGGER.debug("Borrowed workstation recipe ID collides with a datapack recipe: {}", borrowed.recipe().id());
                 }
             } catch (RuntimeException | LinkageError failure) {
-                LOGGER.warn("Cannot borrow large workstation recipe {}", holder.id(), failure);
+                LOGGER.debug("Cannot borrow large workstation recipe {}", holder.id(), failure);
             }
         }
         var groups = group(variants, ops);
@@ -261,7 +261,7 @@ public final class LargeWorkstationRecipes {
                 grouped.computeIfAbsent(contract.divide(scale), ignored -> new ArrayList<>()).add(variant);
             } catch (RuntimeException failure) {
                 // A predicate that cannot be compared is still executable, but never guessed equivalent.
-                LOGGER.warn("Cannot group large workstation recipe {}", recipe.id(), failure);
+                LOGGER.debug("Cannot group large workstation recipe {}", recipe.id(), failure);
                 result.add(new LargeWorkstationRecipeGroup(recipe, List.of(variant)));
             }
         }

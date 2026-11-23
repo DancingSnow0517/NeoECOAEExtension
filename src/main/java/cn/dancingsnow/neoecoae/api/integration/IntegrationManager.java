@@ -27,7 +27,7 @@ public class IntegrationManager {
             for (ModFileScanData.AnnotationData annotation : scanData.getAnnotations()) {
                 if (annotation.annotationType().getDescriptor().equals(INTEGRATION_NAME) && annotation.targetType() == ElementType.TYPE) {
                     String modid = (String) annotation.annotationData().get("value");
-                    log.info("Considering integration {} for {}", annotation.memberName(), modid);
+                    log.debug("Considering integration {} for {}", annotation.memberName(), modid);
                     IntegrationInstance instance = new IntegrationInstance(
                         modid,
                         annotation.memberName()
@@ -50,7 +50,7 @@ public class IntegrationManager {
     private void load(String modid, boolean client) {
         for (IntegrationInstance instance : instances.get(modid)) {
             instance.newInstance();
-            log.info("Loading {}integration {} for {}.", client ? "client " : "", instance.instance(), modid);
+            log.debug("Loading {}integration {} for {}.", client ? "client " : "", instance.instance(), modid);
             if (client) {
                 instance.invokeClient();
             } else {

@@ -47,7 +47,7 @@ public final class IntegrationInstance {
             }
             this.clientLoader = loader;
             if (this.loader == null && this.clientLoader == null) {
-                log.warn("Integration {} does not declare any loader method.", className);
+                log.debug("Integration {} does not declare any loader method.", className);
             }
         }
         if (instance == null) {

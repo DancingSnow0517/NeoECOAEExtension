@@ -62,7 +62,7 @@ final class CrystalScienceWorkstationRecipes {
                 int growthTicks = (Integer) seed.getClass().getMethod("getOvergrowTick").invoke(seed);
                 recipes.add(growth(seed, output, growthTicks));
             } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
-                LOGGER.warn("Cannot adapt crystal growth for {}", BuiltInRegistries.ITEM.getKey(seed), failure);
+                LOGGER.debug("Cannot adapt crystal growth for {}", BuiltInRegistries.ITEM.getKey(seed), failure);
             }
         }
         return List.copyOf(recipes);

@@ -145,7 +145,7 @@ public final class ECOMixinLoadConfig implements IMixinConfigPlugin {
         } catch (ClassNotFoundException absent) {
             return false;
         } catch (Exception | LinkageError failure) {
-            LoggerFactory.getLogger("neoecoae/keyreuse").warn(
+            LoggerFactory.getLogger("neoecoae/keyreuse").debug(
                 "Cannot protect ECO key view for {}; retaining uncached addon keys", targetClassName, failure);
             return false;
         }

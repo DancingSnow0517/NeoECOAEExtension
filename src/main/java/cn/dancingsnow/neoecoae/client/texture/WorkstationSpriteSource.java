@@ -72,7 +72,7 @@ public record WorkstationSpriteSource(Map<String, ResourceLocation> palettes) im
                     if (loaded.length < 7) throw new IllegalArgumentException("Expected at least seven palette entries");
                     return loaded;
                 } catch (IllegalArgumentException exception) {
-                    LOGGER.warn("Unable to color workstation with {}; using the original masks", palette, exception);
+                    LOGGER.debug("Unable to color workstation with {}; using the original masks", palette, exception);
                     return null;
                 }
             });
@@ -81,7 +81,7 @@ public record WorkstationSpriteSource(Map<String, ResourceLocation> palettes) im
                 manager.getResource(texture).ifPresentOrElse(resource -> {
                     add(manager, output, resource, spriteDirectory, layer, colors, false);
                     if (layer.brightIndex() >= 0) add(manager, output, resource, spriteDirectory, layer, colors, true);
-                }, () -> LOGGER.warn("Missing workstation mask {}", texture));
+                }, () -> LOGGER.debug("Missing workstation mask {}", texture));
             }
         });
     }
