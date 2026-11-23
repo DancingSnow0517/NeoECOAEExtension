@@ -1,9 +1,0 @@
-{
-  "required": false,
-  "minVersion": "0.8",
-  "package": "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt",
-  "plugin": "cn.dancingsnow.neoecoae.mixins.ECOMixinLoadConfig",
-  "compatibilityLevel": "JAVA_21",
-  "mixins": ["Ae2LtTimeWheelCraftingCpuLogicMixin", "ECOThunderboltWorkstationProviderMixin", "Ae2LtIOPortBlockEntityMixin", "Ae2LtIOPortMenuMixin", "Ae2LtWorkstationWirelessMixin", "ThunderboltPlanningEngineMixin", "ECOProcessingPatternFuzzyMixin"],
-  "injectors": {"defaultRequire": 1}
-}

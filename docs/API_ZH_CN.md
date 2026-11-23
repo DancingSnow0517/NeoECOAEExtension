@@ -214,6 +214,10 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 
 外部 CPU 使用 `ECOFastPathFacade.prepare(...)` 与一次性的 `PreparedBatch.submit(energyAccount)`。准备/提交在同一服务器 tick；物资在门面扣账前仍归 CPU 库存。返回 true 后仅按门面总量记账一次，之后记账失败不能重放已经接收的批次。`EnergyAccount` 的 `commit()` 不抛异常，无法退回网络的能量保存在 CPU 持久化余额。`prepareAllocated` 用于已分配输入，所有权不同，使用前阅读门面 Javadoc。
 
+附属可通过 `ECOFastPathFacade.prepareStatefulCalculator` 验证自带的可复用输入模型，缓存与重载代数由 ECO 管理。`ECOParallelCraftingProviders.registerFastPath` 的任务感知重载同时注册单份发配入口，该入口接收当前订单 UUID。
+
+外部 CPU 在通用初始化阶段通过 `ECOExternalCrafting.register` 注册计划准入、显式大订单目标、定向产物及取消和恢复回调。定向产物返回 `null` 表示没有认领订单，返回零表示已认领但未接收。`ECOExecutionRuntime.forExternalCpu` 和 `restoreExternalCpu` 按任务 ID 读取外部账本的剩余份数，账本仍由调用方维护。
+
 [EcoFastpathHost](../src/main/java/cn/dancingsnow/neoecoae/api/fastpath/EcoFastpathHost.java) 是另外的 inspect/submit 协议，需要通过实际接入获取实现，不提供全局能力查询，也不替代 CPU 事务。
 
 ## 产物、进度与机器诊断

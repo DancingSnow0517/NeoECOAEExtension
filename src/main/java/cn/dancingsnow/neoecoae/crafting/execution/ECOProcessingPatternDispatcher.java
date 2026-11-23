@@ -111,6 +111,7 @@ final class ECOProcessingPatternDispatcher {
         if (state != null) state.nextFallbackTick = Math.max(tick + 1, state.nextDispatchTick);
     }
     boolean supportsScaledDispatchCached(ECOCraftingDispatchRequest request, ICraftingProvider provider) {
+        if (cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders.ownsJobPush(provider)) return false;
         Reference2ObjectOpenHashMap<IPatternDetails, Eligibility> byPattern = eligibility.computeIfAbsent(provider,
                 ignored -> new Reference2ObjectOpenHashMap<>());
         Eligibility cached = byPattern.get(request.pattern());

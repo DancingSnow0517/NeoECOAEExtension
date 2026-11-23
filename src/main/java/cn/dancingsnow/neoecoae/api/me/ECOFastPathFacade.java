@@ -6,6 +6,11 @@ import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOReusableStateModel;
+import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOStatefulBatchCalculator;
+import cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOJobAwareCraftingProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
@@ -34,12 +39,26 @@ import org.jetbrains.annotations.Nullable;
 public final class ECOFastPathFacade {
     private ECOFastPathFacade() {}
 
+    public static @Nullable ECOStatefulBatchCalculator prepareStatefulCalculator(
+            ECOBatchDispatchContext context, ECOReusableStateModel model) {
+        if (context.level() == null) return null;
+        var execution = context.execution();
+        if (!execution.canUseFastPath() || execution.key() == null) return null;
+        var cache = new ECOCraftingFastPathCache(ECOCraftingFastPathCache.MIN_CACHE_SIZE);
+        long tick = context.level().getGameTime();
+        cache.putPositive(execution.key(), context.outputs(), context.containerItems(), context.inputItems(), tick, model);
+        var lookup = cache.lookup(execution, tick, AE2PatternIntrospection.reloadGeneration());
+        return lookup.isVerified() ? ECOStatefulBatchCalculator.create(lookup.recipe(), execution) : null;
+    }
+
     /**
      * Ordinary fallback for an already allocated copy. True transfers its inputs; false guarantees
      * rejection. This does not extract, refund, scale inputs, or change the caller's budget.
      */
     public static boolean pushPatternForJob(ICraftingProvider provider, IPatternDetails pattern,
             KeyCounter[] inputs, @Nullable UUID craftingJobId) {
+        var registered = ECOParallelCraftingProviders.pushForJob(provider, pattern, inputs, craftingJobId);
+        if (registered != null) return registered;
         return provider instanceof ECOJobAwareCraftingProvider aware
                 ? aware.pushPattern(pattern, inputs, craftingJobId) : provider.pushPattern(pattern, inputs);
     }

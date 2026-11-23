@@ -148,6 +148,12 @@ public final class ECOExecutionPlanNbtCodec {
 
     public static ECOExecutionPlan decode(CompoundTag data, HolderLookup.Provider registries,
             ECOCraftingCPULogic cpu, GenericStack finalOutput) {
+        return decode(data, registries, finalOutput,
+            definition -> PatternDetailsHelper.decodePattern(definition, cpu.cpu.getLevel()));
+    }
+
+    public static ECOExecutionPlan decode(CompoundTag data, HolderLookup.Provider registries,
+            GenericStack finalOutput, java.util.function.Function<AEItemKey, IPatternDetails> resolvePattern) {
         ExecutionMode mode = ExecutionMode.valueOf(data.getString("mode"));
         ListTag taskTags = data.getList("tasks", Tag.TAG_COMPOUND);
         List<ECOExecutionPlan.TaskSpec> tasks = new ArrayList<>(taskTags.size());
@@ -157,7 +163,7 @@ public final class ECOExecutionPlanNbtCodec {
             int id = taskTag.getInt("id");
             if (id != i) throw new IllegalArgumentException("Persisted execution task ids are not dense");
             AEItemKey definition = ECOKeyFactory.itemFromTag(registries, taskTag.getCompound("pattern"));
-            IPatternDetails pattern = PatternDetailsHelper.decodePattern(definition, cpu.cpu.getLevel());
+            IPatternDetails pattern = resolvePattern.apply(definition);
             if (pattern == null) throw new IllegalArgumentException("Persisted execution pattern cannot be decoded");
             PlanIdentity.PatternIdentity identity = PlanIdentity.patternIdentityFor(pattern);
             if (identity == null) throw new IllegalArgumentException("Persisted execution pattern has no identity");

@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.crafting;
 
+import cn.dancingsnow.neoecoae.api.me.ECOExternalCrafting;
 import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
@@ -564,6 +565,8 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         if (craftingJobId == null || what == null || amount <= 0L) {
             return 0L;
         }
+        var registered = ECOExternalCrafting.insert(getCpus(), craftingJobId, what, java.math.BigInteger.valueOf(amount), type);
+        if (registered != null) return registered.longValueExact();
         ECOCraftingCPU owner = neoecoae$findCpuForJob(craftingJobId);
         if (owner != null) return owner.getLogic().insertForJob(craftingJobId, what, amount, type);
         if (this instanceof ECOAdvancedAeCraftingOutputRouter advancedRouter) {
@@ -584,6 +587,8 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         if (jobId == null || key == null || amount.signum() <= 0) return java.math.BigInteger.ZERO;
         if (amount.bitLength() <= 63)
             return ECOCraftingOutputRouter.super.neoecoae$insertExactIntoCpuForJob(jobId, key, amount, mode);
+        var registered = ECOExternalCrafting.insert(getCpus(), jobId, key, amount, mode);
+        if (registered != null) return registered;
         ECOCraftingCPU owner = neoecoae$findCpuForJob(jobId);
         if (owner != null) return owner.getLogic().insertExactForJob(jobId, key, amount, mode);
         for (var cpu : getCpus()) {

@@ -301,7 +301,9 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         // 兼容性约定：
         // 必须在 ECOCraftingCPULogic 中原样保留此 ICraftingProvider.pushPattern 调用。
         // Thunderbolt 的集成可能针对其所属类、方法描述符或调用点进行包装。
-        return provider.pushPattern(request.pattern(), request.inputs());
+        var registered = ECOParallelCraftingProviders.pushForJob(provider, request.pattern(), request.inputs(),
+            request.job().link.getCraftingID());
+        return registered != null ? registered : provider.pushPattern(request.pattern(), request.inputs());
     }
 
     /** 将尚待接收的产物存入 CPU 自有的实际库存。 */

@@ -17,7 +17,7 @@ Java 包路径均相对于 `src/main/java/cn/dancingsnow/neoecoae/`。
 | 任务 | 优先读取 |
 | --- | --- |
 | API 或附属接入 | [API](docs/API_ZH_CN.md)、`api/` 及对应调用点 |
-| 注册、依赖、可选联动 | `NeoECOAE.java`、`all/`、`api/integration/`、`integration/`、`compat/`、`build.gradle`、`src/main/templates/META-INF/neoforge.mods.toml` |
+| 注册、依赖、可选联动 | `NeoECOAE.java`、`all/`、`api/integration/`、`integration/`、`mixins/`、`build.gradle`、`src/main/templates/META-INF/neoforge.mods.toml` |
 | 规划、循环、精确订单 | `api/me/planning/`、`api/me/bigorder/`、`crafting/planner/`、`crafting/adapter/` 和对应测试 |
 | CPU、发配、事务、产物 | `api/me/provider/`、`api/me/output/`、`crafting/execution/`；先区分准备、接收、记账与交付 |
 | 样板导入或迁移 | `api/IECOPatternStorage*.java`、`api/ECOPatternInsertion.java`、`api/PatternStorageHost.java` 及服务实现 |
@@ -74,6 +74,6 @@ java -version
 
 ## 额外
 
-- `mixin` 加载管理需要到`ECOMixinLoadConfig`
+- 第三方 Mixin 按 `mixins/<modid>/` 分包，加载管理统一在 `ECOMixinLoadConfig`。
 - 集成类按照 `integration/<modid>/` 去存放
 - 集成类涉及到共用代码需要存放到 `integration/common/`

@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.execution;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
+import cn.dancingsnow.neoecoae.api.me.ECOExternalCrafting;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionContract;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionPlan;
@@ -15,13 +16,14 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionMode;
 public final class ECOExternalCpuSupport {
     private ECOExternalCpuSupport() {}
     public static boolean accepts(ICraftingCPU cpu, ICraftingPlan plan) {
-        return isSupported(cpu) && supportsPlan(plan);
+        return ECOExternalCrafting.accepts(cpu, plan) || isSupported(cpu) && supportsPlan(plan);
     }
     public static boolean isSupported(ICraftingCPU cpu) {
         return cpu instanceof CraftingCPUCluster
                 || cpu != null && cpu.getClass().getName().equals("net.pedroksl.advanced_ae.common.cluster.AdvCraftingCPU");
     }
     public static boolean supportsPlan(ICraftingPlan plan) {
+        if (ECOExternalCrafting.isSubmitting(plan)) return true;
         if (plan instanceof cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan) return false;
         if (!ECOPlanningResultRegistry.isECOOwnedPlan(plan)) return true;
         var result = ECOPlanningResultRegistry.find(plan);

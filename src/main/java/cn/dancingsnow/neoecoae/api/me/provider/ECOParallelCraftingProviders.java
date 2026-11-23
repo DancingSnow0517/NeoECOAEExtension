@@ -1,7 +1,9 @@
 package cn.dancingsnow.neoecoae.api.me.provider;
 
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
+import appeng.api.stacks.KeyCounter;
 
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -10,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.ref.WeakReference;
 import java.util.Collections;
 import java.util.Map;
+import java.util.UUID;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -59,6 +62,13 @@ public final class ECOParallelCraftingProviders {
     private static final Map<Class<?>, Function<ICraftingProvider, ECOFastPathDispatchProvider>> FAST_PATH_ADAPTERS =
             new ConcurrentHashMap<>();
 
+    private static final Map<Class<?>, JobPush<ICraftingProvider>> JOB_PUSH_ADAPTERS = new ConcurrentHashMap<>();
+
+    @FunctionalInterface
+    public interface JobPush<T extends ICraftingProvider> {
+        boolean push(T provider, IPatternDetails pattern, KeyCounter[] inputs, @Nullable UUID jobId);
+    }
+
     private static final Map<ICraftingProvider, WeakReference<ECOParallelCraftingProvider>> RESOLVED =
             Collections.synchronizedMap(new WeakHashMap<>());
     private static final Map<ICraftingProvider, WeakReference<ECOFastPathDispatchProvider>> RESOLVED_FAST_PATH =
@@ -83,6 +93,25 @@ public final class ECOParallelCraftingProviders {
             Function<? super T, ? extends ECOFastPathDispatchProvider> adapter) {
         FAST_PATH_ADAPTERS.put(providerType, provider -> adapter.apply(providerType.cast(provider)));
         RESOLVED_FAST_PATH.clear();
+    }
+
+    public static <T extends ICraftingProvider> void registerFastPath(Class<T> providerType,
+            Function<? super T, ? extends ECOFastPathDispatchProvider> adapter, JobPush<T> jobPush) {
+        registerFastPath(providerType, adapter);
+        JOB_PUSH_ADAPTERS.put(providerType,
+            (provider, pattern, inputs, jobId) -> jobPush.push(providerType.cast(provider), pattern, inputs, jobId));
+    }
+
+    public static boolean ownsJobPush(ICraftingProvider provider) {
+        return JOB_PUSH_ADAPTERS.keySet().stream().anyMatch(type -> type.isInstance(provider));
+    }
+
+    public static @Nullable Boolean pushForJob(ICraftingProvider provider, IPatternDetails pattern,
+            KeyCounter[] inputs, @Nullable UUID jobId) {
+        for (var entry : JOB_PUSH_ADAPTERS.entrySet()) {
+            if (entry.getKey().isInstance(provider)) return entry.getValue().push(provider, pattern, inputs, jobId);
+        }
+        return null;
     }
 
     public static @Nullable ECOFastPathDispatchProvider findFastPath(ICraftingProvider provider) {

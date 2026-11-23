@@ -40,7 +40,7 @@ public abstract class Ae2CraftingCpuFastPathMixin {
         // OmniSequence owns extraction/accounting and has an ECO provider adapter.
         // Thunderbolt's outer batch loop falls back here for ECO providers, which
         // deliberately do not implement its foreign batch-provider interface.
-        if (net.neoforged.fml.ModList.get().isLoaded("molecularmanipulator")) return;
+        if (cn.dancingsnow.neoecoae.api.me.ECOExternalCrafting.ownsDispatch(this)) return;
         try {
             int consumed = neoecoae$fastPath().execute(job, inventory, maxPatterns, crafting, energy, level);
             if (consumed > 0) cir.setReturnValue(consumed);

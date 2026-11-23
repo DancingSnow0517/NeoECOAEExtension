@@ -1,4 +1,5 @@
 {
+  "parent": "mixins/neoecoae.optional.mixins.json",
   "required": true,
   "minVersion": "0.8",
   "package": "cn.dancingsnow.neoecoae.mixins",
@@ -56,7 +57,8 @@
     "ae2.storage.StoredEnergyAmountMixin",
     "ldlib.AsyncThreadDataMixin",
     "minecraft.LightningBoltMixin",
-    "minecraft.PlayerRemoteMachineReachMixin"
+    "minecraft.PlayerRemoteMachineReachMixin",
+    "fluxnetworks.ServerFluxNetworkMixin"
   ],
   "client": [
     "jei.client.RecipeLayoutMixin",
