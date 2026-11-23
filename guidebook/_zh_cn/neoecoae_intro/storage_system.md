@@ -20,8 +20,6 @@ item_ids:
   - neoecoae:eco_fluid_storage_cell_16m
   - neoecoae:eco_fluid_storage_cell_64m
   - neoecoae:eco_fluid_storage_cell_256m
-  - neoecoae:eco_mega_long_bulk_cell
-  - neoecoae:eco_mega_upgrade_card
 ---
 
 # ECO 存储系统
@@ -97,7 +95,6 @@ ECO 存储系统为 ME 网络提供大容量存储。上方是最小结构，可
 
 <ItemGrid>
   <ItemIcon id="neoecoae:eco_digital_singularity_item_storage_cell" />
-  <ItemIcon id="neoecoae:eco_mega_upgrade_card" />
 </ItemGrid>
 
 ECO 数字奇点物品存储矩阵需要 Bigger AE2，使用 ECO 内置压缩能力，无需压缩卡或解压模块。未配置资源标记时可直接放入等级兼容的驱动器存入物品，按原物品保存和取出，不压缩、不转换，每种物品各占一类资源。默认支持 5 类资源，安装由 MEGA Cells 联动提供的 ECO 大宗扩展卡后为 25 类；类型占满后仍可继续存入已有类型。在主机标记面板或元件工作台配置标记后，才启用对应链的压缩与转换，并只接收所标记的压缩链；已有同链库存也按精确数量合并为一类，余数保留为较低层级。数量没有固定上限，终端悬停可查看精确数量。旧 ECO 大宗存储矩阵保留兼容功能，但仍需先标记资源，已弃用且不再提供任何组装或拆解配方。

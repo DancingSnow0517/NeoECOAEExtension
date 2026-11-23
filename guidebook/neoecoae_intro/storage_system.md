@@ -20,8 +20,6 @@ item_ids:
   - neoecoae:eco_fluid_storage_cell_16m
   - neoecoae:eco_fluid_storage_cell_64m
   - neoecoae:eco_fluid_storage_cell_256m
-  - neoecoae:eco_mega_long_bulk_cell
-  - neoecoae:eco_mega_upgrade_card
 ---
 
 # ECO Storage System
@@ -140,7 +138,6 @@ Storage matrices for AE2 Omni Cells and AE2 Lightning Tech are documented in [Co
 
 <ItemGrid>
   <ItemIcon id="neoecoae:eco_digital_singularity_item_storage_cell" />
-  <ItemIcon id="neoecoae:eco_mega_upgrade_card" />
 </ItemGrid>
 
 The ECO Digital Singularity Item Storage Matrix requires Bigger AE2 and provides ECO's built-in compression without compression cards or decompression modules. Without resource markers, insert it into a compatible ECO drive and store items directly. Items retain their original form without compression or conversion, and each distinct item occupies one resource type. It supports 5 resource types, or 25 with an ECO Bulk Expansion Card supplied by the MEGA Cells integration. Existing types still accept items when all type slots are occupied. Configuring markers in the host panel or cell workbench enables compression and conversion only for the marked chains and restricts inserts to those chains. Existing stock in each marked chain merges into one resource type using exact quantities, with remainders in lower forms. Stored quantities have no fixed upper bound; terminal tooltips show exact totals. The old ECO Bulk Storage Matrix remains compatible and still requires resource markers, but is deprecated and has no assembly or disassembly recipes.
