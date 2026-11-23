@@ -87,6 +87,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
      */
     @Getter
     private ExecutingCraftingJob job = null;
+    @Nullable private ECOExactRefillSchedule exactRefill;
     /**
      * 库存。
      */
@@ -183,7 +184,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
             return;
         }
 
-        if (!job.suspended) refillExactMaterials();
+        if (!job.suspended) refillExactMaterials(TickHandler.instance().getCurrentTick());
 
         long currentTick = TickHandler.instance().getCurrentTick();
         taskScheduler.bindDiagnostics(job.link.getCraftingID(), currentTick);
@@ -572,6 +573,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
     void setJobFromPersistence(@Nullable ExecutingCraftingJob restoredJob) {
         planUpdater.reset();
+        releaseExactRefillSchedule();
         this.job = restoredJob;
         viewRevision++;
         super.job = restoredJob;
@@ -581,6 +583,7 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
     void setJobFromLifecycle(@Nullable ExecutingCraftingJob nextJob) {
         planUpdater.reset();
         if (nextJob != null && this.job != null) nextJob.inheritCraftingGraph(this.job);
+        releaseExactRefillSchedule();
         this.job = nextJob;
         viewRevision++;
         super.job = nextJob;
@@ -719,52 +722,81 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
     }
 
     /** Refill physical buffers within one job, without creating or replanning child orders. */
-    private void refillExactMaterials() {
-        if (!job.exactOrder) return;
+    private void refillExactMaterials(long now) {
+        var current = job;
+        if (!current.exactOrder || current.deferredStock.isEmpty() && current.deferredEmitted.isEmpty()) return;
         var grid = cpu.getGrid();
         if (grid == null) return;
+        var storage = grid.getStorageService().getInventory();
+        if (!current.deferredStock.isEmpty() && (exactRefill == null || !exactRefill.isBoundTo(storage))) {
+            releaseExactRefillSchedule();
+            exactRefill = new ECOExactRefillSchedule(storage, current.deferredStock.keySet(), now);
+        }
+        var schedule = exactRefill;
+        if ((schedule == null || !schedule.hasDue(now)) && current.deferredEmitted.isEmpty()) return;
         var source = cpu.getActionSource();
-        if (job.playerId != null) {
+        if (current.playerId != null) {
             var level = cpu.getLevel();
             var player = level == null ? null : appeng.api.features.IPlayerRegistry.getConnected(
-                level.getServer(), job.playerId);
+                level.getServer(), current.playerId);
             if (player == null) return;
-            source = appeng.api.networking.security.IActionSource.ofPlayer(player, source.machine().orElse(null));
+            source = IActionSource.ofPlayer(player, source.machine().orElse(null));
         }
-        for (var entry : job.deferredStock.entrySet()) {
-            var generated = cn.dancingsnow.neoecoae.storage.ECOCreativeSupply.extract(
-                grid, entry.getKey(), entry.getValue().toBigInteger(), source);
-            if (generated.signum() > 0) {
-                ((cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) inventory)
-                    .restoreQuantities(java.util.Map.of(entry.getKey(), PlannerAmount.of(generated)));
-                entry.setValue(entry.getValue().subtract(PlannerAmount.of(generated)));
-                taskScheduler.recordPhysicalInsert(entry.getKey());
-                postChange(entry.getKey());
-                markCpuDirty();
-                continue;
+        beginChanges();
+        try {
+            for (int attempt = 0; schedule != null && attempt < ECOExactRefillSchedule.ATTEMPTS_PER_TICK; attempt++) {
+                AEKey key = schedule.poll(now);
+                if (key == null) break;
+                PlannerAmount missing = current.deferredStock.get(key);
+                PlannerAmount taken;
+                try {
+                    taken = PlannerAmount.of(cn.dancingsnow.neoecoae.storage.ECOCreativeSupply.extract(grid, key, missing.toBigInteger(), source));
+                    if (taken.signum() == 0) {
+                        long wanted = missing.longValueSaturated();
+                        long extracted = storage.extract(key, wanted, Actionable.MODULATE, source);
+                        if (extracted < 0 || extracted > wanted) {
+                            throw new IllegalStateException("Invalid exact material extraction");
+                        }
+                        taken = PlannerAmount.of(extracted);
+                    }
+                } catch (RuntimeException failure) {
+                    schedule.retry(key, now, false);
+                    throw failure;
+                }
+                if (taken.signum() > 0) {
+                    exactInventory().restoreQuantities(Map.of(key, taken));
+                    var remaining = missing.subtract(taken);
+                    if (remaining.signum() == 0) current.deferredStock.remove(key);
+                    else {
+                        current.deferredStock.put(key, remaining);
+                        schedule.retry(key, now, true);
+                    }
+                    taskScheduler.recordPhysicalInsert(key);
+                    postChange(key);
+                    markCpuDirty();
+                } else {
+                    schedule.retry(key, now, false);
+                }
             }
-            // Finite storage retains one network call per key/tick.
-            long wanted = entry.getValue().longValueSaturated();
-            if (wanted <= 0) continue;
-            long extracted = grid.getStorageService().getInventory().extract(entry.getKey(), wanted,
-                appeng.api.config.Actionable.MODULATE, source);
-            if (extracted > 0) {
-                inventory.insert(entry.getKey(), extracted, appeng.api.config.Actionable.MODULATE);
-                entry.setValue(entry.getValue().subtract(extracted));
-                taskScheduler.recordPhysicalInsert(entry.getKey());
-                postChange(entry.getKey());
+            if (current.deferredStock.isEmpty()) releaseExactRefillSchedule();
+            for (var iterator = current.deferredEmitted.entrySet().iterator(); iterator.hasNext();) {
+                var entry = iterator.next();
+                AEKey key = entry.getKey();
+                ((cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) current.waitingFor)
+                    .restoreQuantities(Map.of(key, entry.getValue()));
+                iterator.remove();
+                postChange(key);
                 markCpuDirty();
             }
+        } finally {
+            endChanges();
         }
-        job.deferredStock.values().removeIf(amount -> amount.signum() == 0);
-        for (var entry : job.deferredEmitted.entrySet()) {
-            ((cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory) job.waitingFor)
-                .restoreQuantities(java.util.Map.of(entry.getKey(), entry.getValue()));
-            entry.setValue(PlannerAmount.ZERO);
-            postChange(entry.getKey());
-            markCpuDirty();
-        }
-        job.deferredEmitted.values().removeIf(amount -> amount.signum() == 0);
+    }
+
+    public void releaseExactRefillSchedule() {
+        if (exactRefill == null) return;
+        exactRefill.release();
+        exactRefill = null;
     }
 
     /**
@@ -806,6 +838,9 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
     void notifyJobOwner(ExecutingCraftingJob job, CraftingJobStatusPacket.Status status) {
         this.lastModifiedOnTick = TickHandler.instance().getCurrentTick();
+        if (status == CraftingJobStatusPacket.Status.STARTED) {
+            return;
+        }
 
         var playerId = job.playerId;
         if (playerId == null || job.finalOutput == null) {

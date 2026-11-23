@@ -9,4 +9,6 @@ package cn.dancingsnow.neoecoae.storage;
 public interface DeferredCellPersistence {
     /** Whether a mutation happening now, on this host's server thread, may be persisted at the end of the tick. */
     boolean neoecoae$canDeferCellPersistence();
+
+    default void neoecoae$onCellContentsChanged(ECOStorageCell cell) {}
 }

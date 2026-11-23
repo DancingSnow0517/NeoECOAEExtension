@@ -32,6 +32,7 @@ import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -56,6 +57,8 @@ public final class ECOInfiniteStorageData extends SavedData {
     final InfiniteStorageAmounts amounts = new InfiniteStorageAmounts();
     private final List<CompoundTag> rawEntries = new ArrayList<>();
     private final Set<UUID> migrationReceipts = new HashSet<>();
+    // Host claim tokens allowed to mount this domain; empty for domains written before claims existed.
+    private final Set<UUID> claimTokens = new HashSet<>();
     private final Map<AEKey, Restore> restores = new HashMap<>();
     private CompoundTag unresolvedMetadata = new CompoundTag();
     private boolean unreadable;
@@ -227,6 +230,19 @@ public final class ECOInfiniteStorageData extends SavedData {
             }
             if (!invalid.isEmpty()) data.unresolvedMetadata.put("migrations", invalid);
         }
+        if (tag.contains("claims") && !validList(tag, "claims", Tag.TAG_INT_ARRAY)) {
+            data.unresolvedMetadata.put("claims", tag.get("claims").copy());
+        } else {
+            ListTag invalid = new ListTag();
+            for (Tag claim : tag.getListOrEmpty("claims")) {
+                try {
+                    data.claimTokens.add(net.minecraft.core.UUIDUtil.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, claim).getOrThrow());
+                } catch (RuntimeException e) {
+                    invalid.add(claim.copy());
+                }
+            }
+            if (!invalid.isEmpty()) data.unresolvedMetadata.put("claims", invalid);
+        }
         data.refreshMountedStorageAvailability();
         return data;
     }
@@ -279,6 +295,11 @@ public final class ECOInfiniteStorageData extends SavedData {
         ListTag receipts = new ListTag();
         migrationReceipts.forEach(id -> receipts.add(new IntArrayTag(UUIDUtil.uuidToIntArray(id))));
         tag.put("migrations", receipts);
+        if (!claimTokens.isEmpty()) {
+            ListTag claims = new ListTag();
+            claimTokens.forEach(id -> claims.add(net.minecraft.core.UUIDUtil.CODEC.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, id).getOrThrow()));
+            tag.put("claims", claims);
+        }
         if (!unresolvedMetadata.isEmpty()) tag.put("unresolvedMetadata", unresolvedMetadata.copy());
         tag.putLong("journalSequence", journalSequence);
         return tag;
@@ -475,6 +496,28 @@ public final class ECOInfiniteStorageData extends SavedData {
             if (transaction != null) changed |= migrationReceipts.add(transaction);
         }
         if (changed) setDirty();
+    }
+
+    public boolean acceptsClaim(@Nullable UUID token) {
+        return claimTokens.isEmpty() || token != null && claimTokens.contains(token);
+    }
+
+    /** Accepts {@code next} alongside the still-valid {@code current} until {@link #settleClaim} retires it. */
+    public void rotateClaim(@Nullable UUID current, UUID next) {
+        // An unclaimed domain stays open until settleClaim, so a host whose new token is not yet durable still mounts.
+        if (claimTokens.isEmpty()) return;
+        boolean keepCurrent = current != null && claimTokens.contains(current);
+        claimTokens.clear();
+        if (keepCurrent) claimTokens.add(current);
+        claimTokens.add(next);
+        setDirty(true);
+    }
+
+    public void settleClaim(UUID token) {
+        if (claimTokens.size() == 1 && claimTokens.contains(token)) return;
+        claimTokens.clear();
+        claimTokens.add(token);
+        setDirty(true);
     }
 
     static void replayJournal(ECOInfiniteStorageData data, Path snapshot, HolderLookup.Provider registries)

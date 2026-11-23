@@ -182,7 +182,13 @@ class StorageBusTransferTest {
     /** Exercises the production Mixin hooks without requiring a launched Minecraft JVM. */
     private static final class MountedNetwork implements MEStorage {
         final List<? extends MEStorage> mounts;
-        final NetworkStorageMixin hooks = new NetworkStorageMixin() {};
+        final NetworkStorageMixin hooks = new NetworkStorageMixin() {
+            @Override
+            public long extract(appeng.api.stacks.AEKey key, long amount, appeng.api.config.Actionable mode,
+                    appeng.api.networking.security.IActionSource source) {
+                return 0;
+            }
+        };
         MountedNetwork(List<? extends MEStorage> mounts) {
             this.mounts = mounts.stream().map(storage -> storage instanceof BusStock
                     ? new StorageBusInventoryMixin(storage) {} : storage).toList();

@@ -152,6 +152,12 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem, INati
         }
         lines.accept(bytesUsedLine(handler.getUsedBytes(), handler.getTotalBytes()));
         lines.accept(Tooltips.typesUsed(handler.getStoredItemTypes(), handler.getTotalItemTypes()));
+        var partition = handler.getPartitionList();
+        if (!partition.isEmpty()) {
+            var mode = handler.getPartitionListMode() == IncludeExclude.WHITELIST ? GuiText.Included : GuiText.Excluded;
+            var match = partition instanceof appeng.util.prioritylist.FuzzyPriorityList ? GuiText.Fuzzy : GuiText.Precise;
+            lines.accept(GuiText.Partitioned.withSuffix(" - ").append(mode.text()).append(" ").append(match.text()));
+        }
     }
 
     /**

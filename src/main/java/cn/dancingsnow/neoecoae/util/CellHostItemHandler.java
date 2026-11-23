@@ -18,7 +18,12 @@ public class CellHostItemHandler extends ItemStackResourceHandler {
     @Override
     protected @NonNull ItemStack getStack() {
         ItemStack stack = host.getCellStack();
-        return stack == null ? ItemStack.EMPTY : stack.copy();
+        if (stack == null || stack.isEmpty()) return ItemStack.EMPTY;
+        var copy = stack.copy();
+        if (cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.isAnonymous(copy)) {
+            cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.clearMember(copy);
+        }
+        return copy;
     }
 
     @Override

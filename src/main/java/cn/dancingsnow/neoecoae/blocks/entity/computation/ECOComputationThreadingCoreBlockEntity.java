@@ -92,6 +92,24 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
     }
 
     @Override
+    public void onChunkUnloaded() {
+        releaseExactRefillSchedules();
+        super.onChunkUnloaded();
+    }
+
+    @Override
+    public void setRemoved() {
+        releaseExactRefillSchedules();
+        super.setRemoved();
+    }
+
+    private void releaseExactRefillSchedules() {
+        for (ECOCraftingCPU cpu : cpus) {
+            if (cpu != null) cpu.getLogic().releaseExactRefillSchedule();
+        }
+    }
+
+    @Override
     public void updateCluster(@Nullable NEComputationCluster cluster) {
         NEComputationCluster previous = this.cluster;
         if (cluster == null && previous != null) {
@@ -111,6 +129,7 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
                 setChanged();
             }
         }
+        releaseExactRefillSchedules();
         super.updateCluster(cluster);
         if (cluster != null) {
             // 成型：从存盘数据反序列化出 CPU 放进 cpus[] 并注册到集群
