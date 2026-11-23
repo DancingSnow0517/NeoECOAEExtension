@@ -11,10 +11,16 @@ import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageTransfer;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOStorageHostMode;
+import cn.dancingsnow.neoecoae.storage.infinite.SavedDataInfiniteStorageEngine;
+import cn.dancingsnow.neoecoae.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.storage.persistence.ECOCellReference;
+import cn.dancingsnow.neoecoae.storage.persistence.ECOStorageRepository;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageProvider;
 import appeng.api.storage.MEStorage;
 import net.minecraft.core.UUIDUtil;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -24,9 +30,12 @@ import org.jetbrains.annotations.Nullable;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /**
  * Coordinates infinite-storage mode transitions and the mounted domain lifetime.
@@ -35,6 +44,7 @@ final class ECOInfiniteStorageModeController {
     private static final int MINIMUM_MIGRATION_SOURCES = 12;
     private static final String MIGRATION_DOMAIN_STAGE = "migration domain";
     private static final String RECOVERY_MEMBER_STAGE = "recover domain members";
+    private static final String RECOVERY_PREFIX = "command.neoecoae.storage_recover.";
     private static final String TO_DOMAIN = "to-domain";
 
     private final ECOStorageSystemBlockEntity host;
@@ -499,20 +509,40 @@ final class ECOInfiniteStorageModeController {
             return null;
         }
         MinecraftServer server = serverLevel.getServer();
-        if (mountedEngine == null || mountedServer != server
-                || !host.infiniteDomainId().equals(mountedDomainId)) {
+        boolean acquired = mountedEngine == null || mountedServer != server
+                || !host.infiniteDomainId().equals(mountedDomainId);
+        if (acquired) {
             release();
             mountedServer = server;
             mountedDomainId = host.infiniteDomainId();
             mountedEngine = host.storageHostMode().isInfiniteState()
                 ? ECOInfiniteStorageDomains.acquireExisting(serverLevel, host.infiniteDomainId())
                 : ECOInfiniteStorageDomains.acquire(serverLevel, host.infiniteDomainId());
-            refreshHostAccess();
         }
-        if (host.getCluster() != null && mountedEngine instanceof cn.dancingsnow.neoecoae.storage.infinite.SavedDataInfiniteStorageEngine saved)
+        var saved = (SavedDataInfiniteStorageEngine) mountedEngine;
+        if (detachIfRevoked(saved)) return null;
+        if (host.getCluster() != null)
             for (ECODriveBlockEntity drive : host.getCluster().getDrives())
                 if (drive.hasLegacyRestoreReceipts()) { saved.blockLegacyRestore(); break; }
+        if (saved.ownerToken() == null) {
+            UUID token = UUID.randomUUID();
+            if (!saved.canExitOrRestore() || !saved.persistOwnerToken(token)) return null;
+            host.setInfiniteBindingToken(token);
+            acquired = true;
+        }
+        if (acquired) refreshHostAccess();
         return mountedEngine;
+    }
+
+    boolean detachIfRevoked(SavedDataInfiniteStorageEngine engine) {
+        UUID token = engine.ownerToken();
+        if (token == null || token.equals(host.infiniteBindingToken())) return false;
+        host.storageFaults().report("infinite domain binding",
+                Component.translatableWithFallback(RECOVERY_PREFIX + "revoked",
+                        "This host lost its binding to domain %s after a forced recovery.", host.infiniteDomainId()).getString(),
+                host.getLevel().getGameTime());
+        host.detachRevokedInfiniteDomain();
+        return true;
     }
 
     @Nullable
@@ -536,10 +566,6 @@ final class ECOInfiniteStorageModeController {
                 || (!sameDomain && !previous.isEmpty())) {
             return Component.translatable(prefix + "occupied");
         }
-        if (ECOInfiniteStorageDomains.mountedHosts(server, previousDomain) > 1
-                || (!sameDomain && ECOInfiniteStorageDomains.mountedHosts(server, domainId) > 0)) {
-            return Component.translatable(prefix + "mounted");
-        }
         Set<UUID> identities = new HashSet<>();
         List<ECODriveBlockEntity> members = new ArrayList<>();
         for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
@@ -561,32 +587,206 @@ final class ECOInfiniteStorageModeController {
         }
         if (sameDomain) return null;
 
-        ECOInfiniteStorageEngine recovered = ECOInfiniteStorageDomains.acquireExisting(level, domainId);
+        var recovered = (SavedDataInfiniteStorageEngine) ECOInfiniteStorageDomains.acquireExisting(level, domainId);
         try {
             if (!recovered.canExitOrRestore() || !recovered.canUseMountedStorage()) {
                 return Component.translatable(prefix + "unhealthy");
             }
-            try {
-                for (ECODriveBlockEntity drive : members) {
-                    ECOInfiniteStorageMember.markMember(drive.getCellStack(), domainId);
-                    drive.setChanged();
-                    drive.markForUpdate();
-                }
-            } catch (IllegalStateException failure) {
-                host.storageFaults().report(RECOVERY_MEMBER_STAGE, failure.toString(), level.getGameTime(), failure);
-                host.notifyStorageConfigurationChanged();
-                return Component.translatable(prefix + "unhealthy");
+            if (recovered.ownerToken() != null) return Component.translatable(prefix + "mounted");
+            Map<ECODriveBlockEntity, CompoundTag> changes = new LinkedHashMap<>();
+            for (ECODriveBlockEntity drive : members) {
+                if (ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), domainId)) continue;
+                if (!canWriteMetadata(drive, drive.loadedCellInventory())) return Component.translatable(prefix + "unhealthy");
+                changes.put(drive, snapshotTag(drive));
             }
-            host.storageFaults().recovered(RECOVERY_MEMBER_STAGE);
-            host.infiniteMemberIds().clear();
-            host.infiniteMemberIds().addAll(identities);
-            host.setInfiniteDomainId(domainId);
-            getEngine();
-            host.notifyStorageConfigurationChanged();
+            UUID token = UUID.randomUUID();
+            if (!commitRecovery(recovered, domainId, token, changes)) return Component.translatable(prefix + "unhealthy");
+            finishRecovery(domainId, token, members, false);
             return null;
         } finally {
             ECOInfiniteStorageDomains.release(server, domainId);
         }
+    }
+
+    @Nullable
+    Component forceRecoverDomain(UUID domainId, Consumer<Component> success) {
+        if (!(host.getLevel() instanceof ServerLevel level) || host.isStorageServerStopping()
+                || host.hasLegacyCompatibilityFailure() || !host.isFormed() || host.getCluster() == null
+                || !host.hasRequiredInfiniteComponents()) {
+            return Component.translatable("command.neoecoae.storage_force_recover.invalid_host");
+        }
+        if (host.storageHostMode() == ECOStorageHostMode.MIGRATING_TO_INFINITE
+                || !host.infiniteMigrationSourceIds().isEmpty()) {
+            return Component.translatable(RECOVERY_PREFIX + "migrating");
+        }
+        MinecraftServer server = level.getServer();
+        if (!ECOInfiniteStorageDomains.exists(server, domainId)) {
+            return Component.translatable(RECOVERY_PREFIX + "not_found", domainId.toString());
+        }
+        UUID previousDomain = host.infiniteDomainId();
+        boolean switching = previousDomain != null && !domainId.equals(previousDomain);
+        var previousHosts = ECOStorageSystemBlockEntity.getLoadedStorageHosts().stream()
+                .filter(other -> other != host && other.getLevel() instanceof ServerLevel otherLevel
+                        && otherLevel.getServer() == server && domainId.equals(other.infiniteDomainId()))
+                .toList();
+        if (previousHosts.stream().anyMatch(other -> other.isMigratingToInfinite()
+                || !other.infiniteMigrationSourceIds().isEmpty())) {
+            return Component.translatable(RECOVERY_PREFIX + "migrating");
+        }
+        if (switching) {
+            if (!ECOInfiniteStorageDomains.exists(server, previousDomain)) {
+                return Component.translatable(RECOVERY_PREFIX + "unhealthy");
+            }
+            ECOInfiniteStorageEngine previous = ECOInfiniteStorageDomains.acquireExisting(level, previousDomain);
+            try {
+                if (!previous.canExitOrRestore()) return Component.translatable(RECOVERY_PREFIX + "unhealthy");
+                if (!previous.isEmpty()) {
+                    return Component.translatable(RECOVERY_PREFIX + "previous_not_empty", previousDomain.toString());
+                }
+                if (!previous.canUseMountedStorage()) return Component.translatable(RECOVERY_PREFIX + "unhealthy");
+            } finally {
+                ECOInfiniteStorageDomains.release(server, previousDomain);
+            }
+        }
+
+        var recovered = (SavedDataInfiniteStorageEngine) ECOInfiniteStorageDomains.acquireExisting(level, domainId);
+        try {
+            boolean restoring = recovered.hasPendingRestore();
+            if (!recovered.isHealthy() || !recovered.canExitOrRestore() || recovered.hasPendingTransfers()
+                    || (!restoring && !recovered.canUseMountedStorage())) {
+                return Component.translatable(RECOVERY_PREFIX + "unhealthy");
+            }
+            if (restoring && recovered.hasBlockedRestore()) {
+                return Component.translatable(RECOVERY_PREFIX + "restore_blocked");
+            }
+
+            Set<UUID> identities = new HashSet<>();
+            Set<UUID> diskIds = new HashSet<>();
+            Set<UUID> restoreTargets = new HashSet<>();
+            List<ECODriveBlockEntity> members = new ArrayList<>();
+            Map<ECODriveBlockEntity, CompoundTag> changes = new LinkedHashMap<>();
+            int retained = 0;
+            for (ECODriveBlockEntity drive : orderedDrives()) {
+                ItemStack stack = drive.getCellStack();
+                if (stack == null || stack.isEmpty()) continue;
+                if (ECOInfiniteStorageMember.isMigrating(stack)) {
+                    return Component.translatable(RECOVERY_PREFIX + "migrating");
+                }
+                UUID identity = ECOInfiniteStorageMember.getIdentity(stack).orElse(null);
+                UUID diskId = ECOCellReference.id(stack);
+                if (drive.hasLegacyRestoreReceipts() || (identity != null && !identities.add(identity))
+                        || (diskId != null && !diskIds.add(diskId))) {
+                    return Component.translatable(RECOVERY_PREFIX + "invalid_members");
+                }
+                IECOStorageCell cell = drive.loadedCellInventory();
+                if (cell == null) return Component.translatable(RECOVERY_PREFIX + "unhealthy");
+                if (ECOInfiniteStorageMember.isMember(stack)) {
+                    if (identity == null || !ECOInfiniteStorageMember.isMemberOf(stack, domainId)) {
+                        return Component.translatable(RECOVERY_PREFIX + "invalid_members");
+                    }
+                    members.add(drive);
+                    if (ECOInfiniteStorageTransfer.isEligible(cell)) restoreTargets.add(identity);
+                    continue;
+                }
+                if (!ECOInfiniteStorageTransfer.isEligible(cell)) {
+                    if (cell.getStoredItemTypes() > 0) retained++;
+                    continue;
+                }
+                KeyCounter contents = new KeyCounter();
+                ((IECOStorageMigrationCell) cell).getMigrationStacks(contents);
+                if (!contents.isEmpty()) {
+                    retained++;
+                    continue;
+                }
+                if (!canWriteMetadata(drive, cell)) return Component.translatable(RECOVERY_PREFIX + "unhealthy");
+                changes.put(drive, snapshotTag(drive));
+                members.add(drive);
+                if (identity != null) restoreTargets.add(identity);
+            }
+            if (!restoreTargets.containsAll(recovered.pendingRestoreTargets())) {
+                return Component.translatable(RECOVERY_PREFIX + "restore_targets_missing");
+            }
+            if (!recovered.isEmpty() && members.isEmpty()) {
+                return Component.translatable(RECOVERY_PREFIX + "invalid_members");
+            }
+
+            UUID token = UUID.randomUUID();
+            if (!commitRecovery(recovered, domainId, token, changes)) {
+                return Component.translatable(RECOVERY_PREFIX + "unhealthy");
+            }
+            finishRecovery(domainId, token, members, restoring);
+            previousHosts.forEach(other -> other.recheckInfiniteDomainOwner(recovered));
+            var message = Component.translatable("command.neoecoae.storage_force_recover.success", domainId.toString());
+            if (switching) message.append(Component.translatable(RECOVERY_PREFIX + "previous_binding", previousDomain.toString()));
+            if (retained > 0) message.append(Component.translatable(RECOVERY_PREFIX + "retained_cells", retained));
+            success.accept(message);
+            return null;
+        } finally {
+            ECOInfiniteStorageDomains.release(server, domainId);
+        }
+    }
+
+    private static boolean canWriteMetadata(ECODriveBlockEntity drive, @Nullable IECOStorageCell inventory) {
+        if (ECOCellReference.id(drive.getCellStack()) == null) return true;
+        return inventory instanceof ECOStorageCell cell
+                && cell.storageWritable() && cell.storageData().writeFailure() == null;
+    }
+
+    private static CompoundTag snapshotTag(ECODriveBlockEntity drive) {
+        CompoundTag tag = drive.getCellStack().getTag();
+        return tag == null ? null : tag.copy();
+    }
+
+    private boolean commitRecovery(SavedDataInfiniteStorageEngine engine, UUID domainId, UUID token,
+                                   Map<ECODriveBlockEntity, CompoundTag> changes) {
+        UUID previousToken = engine.ownerToken();
+        if (!engine.persistOwnerToken(token)) return false;
+        List<ECODriveBlockEntity> attempted = new ArrayList<>();
+        try {
+            for (ECODriveBlockEntity drive : changes.keySet()) {
+                attempted.add(drive);
+                ECOInfiniteStorageMember.markMember(drive.getCellStack(), domainId);
+            }
+        } catch (IllegalStateException failure) {
+            for (int index = attempted.size() - 1; index >= 0; index--) {
+                ECODriveBlockEntity drive = attempted.get(index);
+                ItemStack stack = drive.getCellStack();
+                stack.setTag(changes.get(drive));
+                try {
+                    ECOStorageRepository.persistMetadata(stack, true);
+                } catch (IllegalStateException rollbackFailure) {
+                    failure.addSuppressed(rollbackFailure);
+                }
+            }
+            if (!engine.rollbackOwnerToken(previousToken)) {
+                failure.addSuppressed(new IllegalStateException("Cannot flush the previous domain owner token"));
+            }
+            host.storageFaults().report(RECOVERY_MEMBER_STAGE, failure.toString(), host.getLevel().getGameTime(), failure);
+            return false;
+        }
+        for (ECODriveBlockEntity drive : attempted) {
+            drive.setChanged();
+            drive.markForUpdate();
+        }
+        host.storageFaults().recovered(RECOVERY_MEMBER_STAGE);
+        return true;
+    }
+
+    private void finishRecovery(UUID domainId, UUID token, List<ECODriveBlockEntity> members, boolean restoring) {
+        host.infiniteRestore().resetRestore();
+        host.infiniteMemberIds().clear();
+        for (ECODriveBlockEntity drive : members) {
+            ECOInfiniteStorageMember.getIdentity(drive.getCellStack()).ifPresent(host.infiniteMemberIds()::add);
+        }
+        host.setInfiniteDomainId(domainId);
+        host.setInfiniteBindingToken(token);
+        targetInfiniteMode = true;
+        host.setStorageHostMode(restoring ? ECOStorageHostMode.RESTORING_TO_NORMAL : ECOStorageHostMode.FORMED_INFINITE);
+        if (restoring) host.requestInfiniteExit();
+        else host.clearInfiniteExitRequest();
+        getEngine();
+        host.storageFaults().recovered("infinite domain binding");
+        host.notifyStorageConfigurationChanged();
     }
 
     void release() {
@@ -618,7 +818,7 @@ final class ECOInfiniteStorageModeController {
         long generation = backendGeneration;
         return new ECOInfiniteStorage(engine, host.getBlockState().getBlock().getName(),
                 () -> generation == backendGeneration && engine == mountedEngine
-                        && hostAccess && !host.isStorageServerStopping() && engine.canUseMountedStorage());
+                        && hostAccess && ownsMountedDomain() && !host.isStorageServerStopping() && engine.canUseMountedStorage());
     }
 
     void hostModeChanged() {
@@ -643,11 +843,16 @@ final class ECOInfiniteStorageModeController {
                 && host.infiniteDomainId() != null
                 && !host.isInfiniteExitRequested()
                 && !host.infiniteRestore().isRestoring()
-                && mountedEngine != null
+                && ownsMountedDomain()
                 && host.getMissingInfiniteMembers() == 0;
     }
 
+    private boolean ownsMountedDomain() {
+        return mountedEngine instanceof SavedDataInfiniteStorageEngine saved
+                && host.infiniteBindingToken() != null && host.infiniteBindingToken().equals(saved.ownerToken());
+    }
+
     boolean canInsertIntoDomain() {
-        return hostAccess && !host.isStorageServerStopping() && mountedEngine.canUseMountedStorage();
+        return hostAccess && ownsMountedDomain() && !host.isStorageServerStopping() && mountedEngine.canUseMountedStorage();
     }
 }

@@ -50,6 +50,12 @@ final class ECOStorageInfiniteRestore {
         return activeRestorePlan != null;
     }
 
+    void resetRestore() {
+        activeRestorePlan = null;
+        restoreQueue.clear();
+        invalidateExtractionCheck();
+    }
+
     void invalidateExtractionCheck() {
         extractionCheckTick = Long.MIN_VALUE;
     }

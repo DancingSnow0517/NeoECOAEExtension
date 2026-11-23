@@ -68,6 +68,7 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.storag
     private long journalSequence;
     private KeyCodec codec;
     private UUID domainIdentity;
+    private UUID ownerToken;
     private CompoundTag legacy2042 = new CompoundTag();
     private ListTag legacy2042Receipts = new ListTag();
     private final Map<UUID, CompoundTag> legacy2042ReceiptIndex = new HashMap<>();
@@ -118,6 +119,10 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.storag
         ECOInfiniteStorageData data = createNew();
         data.codec = codec;
         data.loadPersistence(tag);
+        if (tag.contains("ownerToken")) {
+            if (!tag.hasUUID("ownerToken")) { data.markUnreadable("Invalid infinite domain owner token"); return data; }
+            data.ownerToken = tag.getUUID("ownerToken");
+        }
         data.legacy2042RestoreBlocked = tag.getBoolean("legacy2042RestoreBlocked");
         data.legacy2042 = tag.getCompound(cn.dancingsnow.neoecoae.storage.persistence.Legacy2042Storage.ORIGIN).copy();
         if (tag.contains(cn.dancingsnow.neoecoae.storage.persistence.Legacy2042Storage.RECEIPTS)) {
@@ -241,6 +246,7 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.storag
             tag.put(cn.dancingsnow.neoecoae.storage.persistence.Legacy2042Storage.RECEIPTS, legacy2042Receipts.copy());
         }
         if (domainIdentity != null) tag.putUUID("domainIdentity", domainIdentity);
+        if (ownerToken != null) tag.putUUID("ownerToken", ownerToken);
         encodedKeys.keySet().removeIf(key -> amounts.visible(key) == 0);
         ListTag entries = new ListTag();
         amounts.forEach((key, amount) -> {
@@ -373,6 +379,13 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.storag
 
     public boolean canRead(AEKey key) {
         return canRead() && (restores.isEmpty() || !restores.containsKey(key));
+    }
+
+    UUID ownerToken() { return ownerToken; }
+
+    void setOwnerToken(UUID token) {
+        ownerToken = token;
+        setDirty();
     }
 
     public boolean canWrite() {
@@ -595,5 +608,15 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.storag
     public boolean canFinishRestore(AEKey key, UUID transaction) {
         Restore restore = restores.get(key);
         return canWrite() && restore != null && restore.failure().isEmpty() && restore.transaction().equals(transaction);
+    }
+
+    Set<UUID> pendingRestoreTargets() {
+        Set<UUID> targets = new HashSet<>();
+        restores.values().forEach(restore -> targets.addAll(restore.targets()));
+        return targets;
+    }
+
+    boolean hasBlockedRestore() {
+        return restores.values().stream().anyMatch(restore -> !restore.failure().isEmpty() || restore.plan().isEmpty());
     }
 }

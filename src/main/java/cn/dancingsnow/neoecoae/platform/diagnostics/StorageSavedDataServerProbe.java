@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.platform.diagnostics;
 
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
+import cn.dancingsnow.neoecoae.all.NEBlocks;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
@@ -16,6 +17,9 @@ import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageTransfer;
 import cn.dancingsnow.neoecoae.storage.infinite.SavedDataInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.storage.persistence.ECOCellReference;
 import cn.dancingsnow.neoecoae.storage.persistence.ECOStorageRepository;
+import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.platform.nbt.NEAtomicNbtFile;
 import com.google.gson.GsonBuilder;
@@ -23,17 +27,21 @@ import com.google.gson.JsonObject;
 import java.lang.management.ManagementFactory;
 import java.math.BigInteger;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.storage.LevelResource;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.event.server.ServerStartedEvent;
 import org.slf4j.LoggerFactory;
 
@@ -53,9 +61,129 @@ public final class StorageSavedDataServerProbe {
         } finally { server.halt(false); }
     }
     private static void check(boolean valid, String message) { if (!valid) throw new IllegalStateException(message); }
+    private static void verifyForcedRecovery(ServerLevel world, Path root) throws Exception {
+        MinecraftServer server = world.getServer();
+        AEKey key = ECOKeyFactory.item(Items.DIAMOND);
+        IActionSource action = IActionSource.empty();
+        UUID domainId = UUID.randomUUID();
+        var domain = (SavedDataInfiniteStorageEngine) ECOInfiniteStorageDomains.acquire(world, domainId);
+        check(domain.insert(key, 100, Actionable.MODULATE) == 100, "Cannot seed restore domain");
+        var restored = recoveryDrive(world, 1);
+        var retained = recoveryDrive(world, 2);
+        var restoredCell = (ECOStorageCell) restored.getCellInventory();
+        var retainedCell = (ECOStorageCell) retained.getCellInventory();
+        check(retainedCell.insert(key, 25, Actionable.MODULATE, action) == 25, "Cannot seed ordinary disk");
+        ECOInfiniteStorageMember.markMember(restored.getCellStack(), domainId);
+        UUID identity = ECOInfiniteStorageMember.getIdentity(restored.getCellStack()).orElseThrow();
+        UUID transaction = UUID.randomUUID();
+        check(domain.reserveRestores(Map.of(key, transaction), Set.of(identity), Map.of(key, Map.of(identity,
+            new ECOInfiniteStorageEngine.RestoreTargetAmounts(0, 100, 100)))) && domain.flush(), "Cannot reserve restore");
+        check(restoredCell.insertForMigration(key, 40, Actionable.MODULATE, action) == 40, "Cannot seed partial restore");
+        restoredCell.persistMigrationContents(world);
+        ECOInfiniteStorageDomains.release(server, domainId);
+        var wrongHost = recoveryHost(world, 12);
+        check(wrongHost.forceRecoverInfiniteDomain(domainId, ignored -> {}) != null && domain.ownerToken() == null,
+            "Missing restore targets were accepted");
+        var target = recoveryHost(world, 0, restored, retained);
+        check(target.forceRecoverInfiniteDomain(domainId, ignored -> {}) == null, "Recovery refused valid restore targets");
+        check(transaction.equals(domain.restoreTransaction(key)), "Recovery erased the saved restore transaction");
+        check(!ECOInfiniteStorageMember.isMember(retained.getCellStack()), "Non-empty ordinary disk was converted");
+        target.tick(world, target.getBlockPos(), target.getBlockState());
+        check(domain.isEmpty() && restoredCell.getMigrationAmount(key) == 100 && retainedCell.getMigrationAmount(key) == 25,
+            "Partial restore duplicated or lost items");
+
+        UUID rollbackDomainId = UUID.randomUUID();
+        var rollbackDomain = (SavedDataInfiniteStorageEngine) ECOInfiniteStorageDomains.acquire(world, rollbackDomainId);
+        ECOInfiniteStorageDomains.release(server, rollbackDomainId);
+        var original = recoveryHost(world, 16);
+        check(original.forceRecoverInfiniteDomain(rollbackDomainId, ignored -> {}) == null, "Cannot mount original owner");
+        UUID originalToken = rollbackDomain.ownerToken();
+        var first = recoveryDrive(world, 6);
+        var second = recoveryDrive(world, 7);
+        var recoveryHost = recoveryHost(world, 5, first, second);
+        check(ECOInfiniteStorageDomains.mountedHosts(server, rollbackDomainId) == 1, "Original owner fixture lost its mount");
+        Path path = root.resolve("data/neoecoae_cells/" + ECOCellReference.id(second.getCellStack()) + ".dat");
+        Path backup = path.resolveSibling(path.getFileName() + ".acceptance");
+        Files.move(path, backup);
+        Files.createDirectory(path);
+        try {
+            check(recoveryHost.forceRecoverInfiniteDomain(rollbackDomainId, ignored -> {}) != null,
+                "Write failure did not abort recovery");
+            check(originalToken.equals(rollbackDomain.ownerToken()), "Write failure changed the owner token");
+            check(ECOInfiniteStorageDomains.mountedHosts(server, rollbackDomainId) == 1, "Write failure changed the mount count");
+            check(!ECOInfiniteStorageMember.isMember(first.getCellStack()) && !ECOInfiniteStorageMember.isMember(second.getCellStack())
+                && !((ECOStorageCell) first.getCellInventory()).storageData().metadata().getBoolean("neoecoae_infinite_member"),
+                "Write failure left a changed disk tag or SavedData");
+        } finally {
+            Files.delete(path);
+            Files.move(backup, path);
+        }
+        check(((ECOStorageCell) second.getCellInventory()).storageData().flush(), "Cannot checkpoint restored disk metadata");
+        var originalTag = original.saveWithFullMetadata();
+        original.onChunkUnloaded();
+        world.setBlockAndUpdate(original.getBlockPos(), Blocks.AIR.defaultBlockState());
+        check(ECOInfiniteStorageDomains.mountedHosts(server, rollbackDomainId) == 0, "Unloaded owner remained mounted");
+        check(recoveryHost.forceRecoverInfiniteDomain(rollbackDomainId, ignored -> {}) == null, "Recovery with an unloaded owner failed");
+        var reloaded = recoveryHost(world, 16);
+        reloaded.load(originalTag);
+        reloaded.tick(world, reloaded.getBlockPos(), reloaded.getBlockState());
+        check(!reloaded.saveWithFullMetadata().hasUUID("infiniteDomainId") && !reloaded.isInfiniteMode(),
+            "Reloaded owner kept a revoked binding");
+        check(ECOInfiniteStorageDomains.mountedHosts(server, rollbackDomainId) == 1
+            && recoveryHost.forceRecoverInfiniteDomain(rollbackDomainId, ignored -> {}) == null
+            && ECOInfiniteStorageDomains.mountedHosts(server, rollbackDomainId) == 1, "Same UUID recovery changed the mount count");
+        UUID otherDomain = UUID.randomUUID();
+        ECOInfiniteStorageDomains.acquire(world, otherDomain);
+        ECOInfiniteStorageDomains.release(server, otherDomain);
+        check(wrongHost.forceRecoverInfiniteDomain(otherDomain, ignored -> {}) == null, "Cannot prepare ordinary recovery host");
+        check(wrongHost.recoverInfiniteDomain(rollbackDomainId) != null && ECOInfiniteStorageDomains.mountedHosts(server, rollbackDomainId) == 1,
+            "Ordinary recovery took an owned domain");
+    }
+
+    private static ECODriveBlockEntity recoveryDrive(ServerLevel world, int offset) {
+        var pos = new BlockPos(offset, 100, 0);
+        world.setBlockAndUpdate(pos, NEBlocks.ECO_DRIVE.getDefaultState());
+        var drive = (ECODriveBlockEntity) world.getBlockEntity(pos);
+        var item = BuiltInRegistries.ITEM.get(new ResourceLocation("neoecoae", "eco_item_storage_cell_256m"));
+        check(drive != null && drive.HANDLER.insertItem(0, new ItemStack(item), false).isEmpty(), "Cannot install fixture disk");
+        check(drive.getCellInventory() instanceof ECOStorageCell, "Cannot load fixture disk");
+        return drive;
+    }
+
+    private static ECOStorageSystemBlockEntity recoveryHost(ServerLevel world, int offset, ECODriveBlockEntity... drives) {
+        var pos = new BlockPos(offset, 100, 0);
+        world.setBlockAndUpdate(pos, NEBlocks.STORAGE_SYSTEM_L9.getDefaultState());
+        var host = (ECOStorageSystemBlockEntity) world.getBlockEntity(pos);
+        check(host != null, "Cannot place fixture host");
+        var state = host.saveWithFullMetadata();
+        state.remove("infiniteComponentInventory");
+        var component = BuiltInRegistries.ITEM.get(new ResourceLocation("neoecoae", "eco_infinite_cell_component"));
+        CompoundTag legacy = new CompoundTag();
+        var items = new net.minecraft.nbt.ListTag();
+        CompoundTag entry = new ItemStack(component, 64).save(new CompoundTag());
+        entry.putByte("Slot", (byte) 0);
+        items.add(entry);
+        legacy.put("Items", items);
+        state.put("infiniteComponentSlot", legacy);
+        host.load(state);
+        var cluster = new NEStorageCluster(pos, pos);
+        for (ECODriveBlockEntity drive : drives) cluster.addBlockEntity(drive);
+        cluster.addBlockEntity(host);
+        for (ECODriveBlockEntity drive : drives) drive.updateCluster(cluster);
+        host.updateCluster(cluster);
+        cluster.updateFormed(true);
+        return host;
+    }
+
     private static void run(MinecraftServer server, String phase) throws Exception {
         var world = server.overworld();
         var root = server.getWorldPath(LevelResource.ROOT);
+        if (phase.equals("recovery")) {
+            check(root.toAbsolutePath().normalize().getFileName().toString().startsWith("saveddata-recovery-"),
+                "Use an isolated recovery world");
+            verifyForcedRecovery(world, root);
+            return;
+        }
         var fixturePath = root.resolve("saveddata-acceptance-fixture.dat");
         AEKey diamond = ECOKeyFactory.item(Items.DIAMOND), iron = ECOKeyFactory.item(Items.IRON_INGOT);
         IActionSource action = IActionSource.empty();

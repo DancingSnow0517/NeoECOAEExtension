@@ -6,12 +6,22 @@ public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
         provider.add("command.neoecoae.storage_recover.invalid_host", "Right-click a formed host in infinite mode with its infinite components installed and no migration or restore in progress.");
         provider.add("command.neoecoae.storage_recover.invalid_members", "Recovery refused: member matrices are missing, invalid, duplicated, foreign, or still migrating.");
-        provider.add("command.neoecoae.storage_recover.mounted", "Recovery refused: another loaded host is using one of these domains.");
+        provider.add("command.neoecoae.storage_recover.mounted", "Recovery refused: the domain still has an owner. Use its original controller or explicitly force recovery.");
+        provider.add("command.neoecoae.storage_recover.migrating", "Recovery refused: the host or an inserted matrix is still migrating.");
+        provider.add("command.neoecoae.storage_recover.previous_not_empty", "Recovery refused: the current domain %s is not empty.");
+        provider.add("command.neoecoae.storage_recover.restore_blocked", "Recovery refused: a pending restore has failed or has no exact saved plan. Reconcile it before taking over.");
+        provider.add("command.neoecoae.storage_recover.restore_targets_missing", "Recovery refused: move all original restore target matrices to this host.");
+        provider.add("command.neoecoae.storage_recover.previous_binding", " Replaced empty domain %s.");
+        provider.add("command.neoecoae.storage_recover.retained_cells", " %s non-empty matrices remain mounted as ordinary storage.");
+        provider.add("command.neoecoae.storage_recover.revoked", "This host lost its binding to domain %s after a forced recovery.");
         provider.add("command.neoecoae.storage_recover.not_found", "No saved infinite storage domain exists for UUID %s.");
         provider.add("command.neoecoae.storage_recover.occupied", "Recovery refused: the host must have a healthy domain with no pending transfers. To switch UUIDs, empty the current domain first.");
         provider.add("command.neoecoae.storage_recover.select_host", "Right-click a formed host that is already in infinite mode.");
         provider.add("command.neoecoae.storage_recover.success", "Infinite storage recovered: %s");
         provider.add("command.neoecoae.storage_recover.unhealthy", "Recovery refused: resolve storage data, persistence, or unfinished transfer problems and retry.");
+        provider.add("command.neoecoae.storage_force_recover.select_host", "Right-click a formed target host with infinite components installed to force recovery.");
+        provider.add("command.neoecoae.storage_force_recover.success", "Infinite storage force recovered: %s");
+        provider.add("command.neoecoae.storage_force_recover.invalid_host", "Specify or right-click a formed host with its 64 infinite components installed.");
 
         provider.add("item.neoecoae.dev_resource_generator", "Dev Random Resource Generator / Cell");
         provider.add("neoecoae.configuration.keyReuse", "AE key reuse");

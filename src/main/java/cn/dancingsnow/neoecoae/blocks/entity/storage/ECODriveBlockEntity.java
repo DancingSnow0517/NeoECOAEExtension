@@ -234,6 +234,11 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     public boolean hasLegacyRestoreReceipts() { return !legacy2042RestoreData.isEmpty()
         || cellStack != null && NEItemData.read(cellStack).contains(cn.dancingsnow.neoecoae.storage.persistence.Legacy2042Storage.RESTORE_BARRIER); }
 
+    @Nullable
+    IECOStorageCell loadedCellInventory() {
+        return cachedCellStack == cellStack ? cachedCellInventory : null;
+    }
+
     @Override
     public void loadTag(CompoundTag data) {
         super.loadTag(data);

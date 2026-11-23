@@ -11,13 +11,18 @@ import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageDomains;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.arguments.UuidArgument;
+import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -29,7 +34,8 @@ import net.minecraftforge.event.server.ServerStoppedEvent;
 import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
 
 public final class NECommands {
-    private static final Map<UUID, UUID> STORAGE_RECOVERY = new HashMap<>();
+    public record RecoveryRequest(UUID domainId, boolean force) {}
+    private static final Map<UUID, RecoveryRequest> STORAGE_RECOVERY = new HashMap<>();
 
     private NECommands() {}
 
@@ -49,29 +55,64 @@ public final class NECommands {
             }))
             .then(literal("clear_fx_workers").executes(context -> clearFxWorkers(context.getSource())))
             .then(literal("storage_recover")
-                .then(argument("uuid", UuidArgument.uuid()).executes(context -> {
-                    var source = context.getSource();
-                    ServerPlayer player = source.getPlayerOrException();
-                    UUID domainId = UuidArgument.getUuid(context, "uuid");
-                    STORAGE_RECOVERY.remove(player.getUUID());
-                    if (!ECOInfiniteStorageDomains.exists(source.getServer(), domainId)) {
-                        source.sendFailure(Component.translatable("command.neoecoae.storage_recover.not_found", domainId.toString()));
-                        return 0;
-                    }
-                    STORAGE_RECOVERY.put(player.getUUID(), domainId);
-                    source.sendSuccess(() -> Component.translatable("command.neoecoae.storage_recover.select_host"), false);
-                    return 1;
-                })))
+                .then(argument("uuid", UuidArgument.uuid())
+                    .executes(context -> armRecovery(context.getSource(), UuidArgument.getUuid(context, "uuid"), false))
+                    .then(argument("pos", BlockPosArgument.blockPos())
+                        .executes(context -> executeRecover(context.getSource(), UuidArgument.getUuid(context, "uuid"),
+                            BlockPosArgument.getLoadedBlockPos(context, "pos"), false)))
+                    .then(literal("force")
+                        .executes(context -> armRecovery(context.getSource(), UuidArgument.getUuid(context, "uuid"), true))
+                        .then(argument("pos", BlockPosArgument.blockPos())
+                            .executes(context -> executeRecover(context.getSource(), UuidArgument.getUuid(context, "uuid"),
+                                BlockPosArgument.getLoadedBlockPos(context, "pos"), true))))))
             .then(literal("storage_report").executes(context -> storageReport(context.getSource(), null))
-                .then(net.minecraft.commands.Commands.argument("pos", net.minecraft.commands.arguments.coordinates.BlockPosArgument.blockPos())
+                .then(argument("pos", BlockPosArgument.blockPos())
                     .executes(context -> storageReport(context.getSource(),
-                        net.minecraft.commands.arguments.coordinates.BlockPosArgument.getLoadedBlockPos(context, "pos"))))));
+                        BlockPosArgument.getLoadedBlockPos(context, "pos"))))));
+    }
+
+    private static int armRecovery(CommandSourceStack source, UUID domainId, boolean force) throws CommandSyntaxException {
+        UUID playerId = source.getPlayerOrException().getUUID();
+        STORAGE_RECOVERY.remove(playerId);
+        if (!ECOInfiniteStorageDomains.exists(source.getServer(), domainId)) {
+            source.sendFailure(Component.translatable("command.neoecoae.storage_recover.not_found", domainId.toString()));
+            return 0;
+        }
+        STORAGE_RECOVERY.put(playerId, new RecoveryRequest(domainId, force));
+        source.sendSuccess(() -> Component.translatable(force
+            ? "command.neoecoae.storage_force_recover.select_host"
+            : "command.neoecoae.storage_recover.select_host"), false);
+        return 1;
+    }
+
+    private static int executeRecover(CommandSourceStack source, UUID domainId, BlockPos pos, boolean force) {
+        if (!(source.getLevel().getBlockEntity(pos) instanceof ECOStorageSystemBlockEntity host)) {
+            source.sendFailure(Component.translatable(force
+                ? "command.neoecoae.storage_force_recover.invalid_host"
+                : "command.neoecoae.storage_recover.invalid_host"));
+            return 0;
+        }
+        return executeRecover(host, new RecoveryRequest(domainId, force),
+            message -> source.sendSuccess(() -> message, true), source::sendFailure) ? 1 : 0;
+    }
+
+    private static boolean executeRecover(ECOStorageSystemBlockEntity host, RecoveryRequest request,
+                                          Consumer<Component> success, Consumer<Component> failure) {
+        Component refusal = request.force() ? host.forceRecoverInfiniteDomain(request.domainId(), success)
+            : host.recoverInfiniteDomain(request.domainId());
+        if (refusal != null) {
+            failure.accept(refusal);
+            return false;
+        }
+        if (!request.force()) success.accept(Component.translatable(
+            "command.neoecoae.storage_recover.success", request.domainId().toString()));
+        return true;
     }
 
     public static void onStorageRecoverClick(PlayerInteractEvent.RightClickBlock event) {
         if (!(event.getEntity() instanceof ServerPlayer player) || event.getHand() != InteractionHand.MAIN_HAND) return;
-        UUID domainId = STORAGE_RECOVERY.get(player.getUUID());
-        if (domainId == null) return;
+        RecoveryRequest request = STORAGE_RECOVERY.get(player.getUUID());
+        if (request == null) return;
         if (!player.hasPermissions(2)) {
             STORAGE_RECOVERY.remove(player.getUUID());
             return;
@@ -80,13 +121,9 @@ public final class NECommands {
                 || !ECOStorageSystemBlock.isPlayerCloseEnough(event.getLevel(), event.getPos(), player)) return;
         event.setCanceled(true);
         event.setCancellationResult(InteractionResult.CONSUME);
-        Component refusal = host.recoverInfiniteDomain(domainId);
-        if (refusal != null) {
-            player.sendSystemMessage(refusal);
-            return;
+        if (executeRecover(host, request, player::sendSystemMessage, player::sendSystemMessage)) {
+            STORAGE_RECOVERY.remove(player.getUUID());
         }
-        STORAGE_RECOVERY.remove(player.getUUID());
-        player.sendSystemMessage(Component.translatable("command.neoecoae.storage_recover.success", domainId.toString()));
     }
 
     public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {

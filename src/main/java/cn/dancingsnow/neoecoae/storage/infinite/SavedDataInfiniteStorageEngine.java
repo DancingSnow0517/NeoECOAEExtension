@@ -34,6 +34,27 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     public void beginTransfer(UUID transaction) { pendingTransfers.add(transaction); }
     public void endTransfer(UUID transaction) { pendingTransfers.remove(transaction); }
     public boolean flush() { return data.flush(); }
+
+    public UUID ownerToken() { return data.ownerToken(); }
+
+    public boolean persistOwnerToken(UUID token) {
+        UUID previous = data.ownerToken();
+        data.setOwnerToken(token);
+        if (flush()) return true;
+        data.setOwnerToken(previous);
+        return false;
+    }
+
+    public boolean rollbackOwnerToken(UUID token) {
+        data.setOwnerToken(token);
+        return flush();
+    }
+
+    public boolean hasPendingTransfers() { return !pendingTransfers.isEmpty(); }
+
+    public Set<UUID> pendingRestoreTargets() { return data.pendingRestoreTargets(); }
+
+    public boolean hasBlockedRestore() { return data.hasBlockedRestore(); }
     public boolean imported2042() { return data.imported2042(); }
     public net.minecraft.nbt.CompoundTag receipt2042(UUID id) { return data.receipt2042(id); }
     public void blockLegacyRestore() { data.blockLegacyRestore(); }
