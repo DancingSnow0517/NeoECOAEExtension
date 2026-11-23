@@ -22,7 +22,7 @@ import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.common.GuideButton;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationControllerPanelState;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationControllerUI;
-import cn.dancingsnow.neoecoae.gui.computation.ComputationDriveEntry;
+import cn.dancingsnow.neoecoae.menu.HostDiskMenu;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
@@ -142,8 +142,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
             this::getComputationControllerPanelState,
             GuideButton.create(holder.player, "neoecoae:neoecoae_intro/computation_system.md"),
             MultiblockBuilderUI.createInlineOpenButton(buildWindow),
-            buildWindow, this::getTier, this::getBlockState,
-            stack -> ComputationCellUi.quickMove(this, holder.player, stack, mirrored));
+            buildWindow, this::getTier, this::getBlockState, HostDiskMenu.disks(holder));
         return ECOModularUI.create(root, holder.player);
     }
 
@@ -174,11 +173,7 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
                     if (canPlayerInteract(player)) adjustNetworkFrequency(delta);
                 },
                 () -> new ItemStack(getBlockState().getBlock()),
-                () -> getComputationUiDrives(true),
-                () -> getComputationUiDrives(false),
                 player,
-                (position, expected, toInventory) -> ComputationCellUi.extract(this, player, position, expected, toInventory),
-                (position, expected) -> ComputationCellUi.insert(this, player, position, expected),
                 () -> level == null ? 0L : level.getGameTime(),
                 () -> canPlayerInteract(player),
                 this::collectDisplayedCpus,
@@ -242,9 +237,11 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         return ComputationControllerPanelState.ofMembers(getTier().getTier(), upper, mid, lower, mirrored);
     }
 
-    public List<ComputationDriveEntry> getComputationUiDrives(boolean upper) {
+    public List<ECOComputationDriveBlockEntity> getComputationMenuDrives() {
         if (!formed || cluster == null) return List.of();
-        return ComputationDriveLayout.entries(upper ? cluster.getUpperDrives() : cluster.getLowerDrives(), getBlockPos(), mirrored);
+        var drives = ComputationDriveLayout.entries(cluster.getUpperDrives(), getBlockPos(), mirrored);
+        drives.addAll(ComputationDriveLayout.entries(cluster.getLowerDrives(), getBlockPos(), mirrored));
+        return drives;
     }
 
     /** The list and capacity readouts cover the same logical computation network. */

@@ -6,7 +6,7 @@ import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
-import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
+import cn.dancingsnow.neoecoae.menu.HostDiskMenu;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import net.minecraft.core.BlockPos;
@@ -97,8 +97,16 @@ public class ECOComputationSystem extends NEBlock<ECOComputationSystemBlockEntit
     }
 
     @Override
+    public BlockUIMenuType.BlockUIHolder createUIHolder(Player player, BlockPos pos, BlockState state) {
+        if (!player.level().isClientSide && player.level().getBlockEntity(pos) instanceof ECOComputationSystemBlockEntity host) {
+            return HostDiskMenu.holder(this, player, pos, state, host, host.getComputationMenuDrives(), true);
+        }
+        return BlockUIMenuType.BlockUI.super.createUIHolder(player, pos, state);
+    }
+
+    @Override
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        if (isPlayerCloseEnough(holder.player.level(), holder.pos, holder.player)
+        if ((holder.player.level().isClientSide || isPlayerCloseEnough(holder.player.level(), holder.pos, holder.player))
             && holder.player.level().getBlockEntity(holder.pos) instanceof ECOComputationSystemBlockEntity be) {
             return be.createUI(holder);
         }

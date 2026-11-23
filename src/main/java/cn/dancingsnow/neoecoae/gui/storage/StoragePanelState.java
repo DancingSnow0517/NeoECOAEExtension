@@ -16,9 +16,6 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.RegistryAccess;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.world.item.ItemStack;
@@ -174,10 +171,6 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
     boolean unbounded() { return infinite || migrating; }
 
     CompoundTag toTag() {
-        return toTag(RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY));
-    }
-
-    CompoundTag toTag(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
         putComponent(tag, "title", title);
         tag.putInt("tier", tier); tag.putBoolean("formed", formed);
@@ -202,7 +195,6 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
             entry.putBoolean("infinite", cell.infinite());
             if (cell.position() != null) entry.putLong("position", cell.position().asLong());
             if (cell.interactionId() != null) entry.putUUID("interactionId", cell.interactionId());
-            if (!cell.stack().isEmpty()) entry.put("stack", cell.stack().save(registries));
             if (cell.extractionBlockReason() != null) putComponent(entry, "locked", cell.extractionBlockReason());
             entry.putInt("state", cell.state().ordinal()); entry.putBoolean("online", cell.online()); entries.add(entry);
         }
@@ -224,10 +216,6 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
     }
 
     static StoragePanelState fromTag(Tag value) {
-        return fromTag(value, RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY));
-    }
-
-    static StoragePanelState fromTag(Tag value, HolderLookup.Provider registries) {
         if (!(value instanceof CompoundTag tag) || tag.isEmpty()) return EMPTY;
         List<CellEntry> cells = new ArrayList<>();
         for (Tag valueCell : tag.getList("cells", Tag.TAG_COMPOUND)) {
@@ -236,7 +224,7 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
                 cell.getLong("ut"), cell.getLong("tt"), cell.getLong("ub"), cell.getLong("tb"), cell.getBoolean("infinite"),
                 CellState.values()[Math.clamp(cell.getInt("state"), 0, CellState.values().length - 1)], cell.getBoolean("online"),
                 cell.contains("position") ? BlockPos.of(cell.getLong("position")) : null,
-                ItemStack.parseOptional(registries, cell.getCompound("stack")),
+                ItemStack.EMPTY,
                 cell.contains("locked") ? component(cell, "locked") : null,
                 cell.hasUUID("interactionId") ? cell.getUUID("interactionId") : null,
                 cell.contains("tierName") ? component(cell, "tierName") : null,
