@@ -145,7 +145,7 @@ class ECOAe2LtExistingInteropTest {
                 ECOCraftingDispatchRequest.class, ICraftingProvider.class);
         normalPush.setAccessible(true);
         dispatcher.beginTick(100);
-        var result = dispatcher.dispatchCandidate(request, List.of(port),
+        var result = dispatcher.dispatchCandidate(request, List.of(port).iterator(),
                 new ECOCraftingDispatchBudget(4, 4), energy, mock(ECODispatchStallDiagnostics.class),
                 ignored -> {}, () -> {}, (single, provider) -> {
                     try {

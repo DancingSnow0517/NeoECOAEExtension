@@ -14,6 +14,7 @@ import appeng.api.storage.MEStorage;
 import appeng.util.SettingsFrom;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity.VirtualLaneStartResult;
+import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle;
 import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
@@ -22,6 +23,7 @@ import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathEx
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedVirtualExecution;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -44,8 +46,10 @@ import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
@@ -63,6 +67,9 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         Collections.newSetFromMap(new WeakHashMap<>());
 
     private final List<ECOCraftingThread> craftingThreads = new ArrayList<>();
+    private final Map<UUID, Set<ECOCraftingThread>> threadsByJob = new HashMap<>();
+    private boolean registeredForJobs;
+    private boolean unloading;
 
     /**
      * Only used while this worker has no cluster - a detached worker can never craft, but statistics calls
@@ -90,12 +97,18 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
 
     @Override
     public void onReady() {
+        boolean wasUnloading = unloading;
+        unloading = false;
         super.onReady();
-        if (level instanceof ServerLevel) {
+        if (level instanceof ServerLevel && !registeredForJobs) {
             synchronized (LOADED_SERVER_WORKERS) {
                 LOADED_SERVER_WORKERS.add(this);
             }
+            registeredForJobs = true;
+            trackCurrentJobs(true);
         }
+        if (wasUnloading && cluster != null) cluster.invalidateDispatchTopology();
+        onThreadAvailabilityChanged();
         applyIdlePower(ECOPowerRole.CRAFTING_WORKER, 64, 0);
         reconcileJobTermination();
         refreshDisplayedJob();
@@ -111,13 +124,22 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     public void setRemoved() {
         unregisterLoadedWorker();
         super.setRemoved();
-        onThreadAvailabilityChanged();
     }
 
     private void unregisterLoadedWorker() {
+        if (unloading) return;
+        unloading = true;
+        if (registeredForJobs) trackCurrentJobs(false);
+        registeredForJobs = false;
         synchronized (LOADED_SERVER_WORKERS) {
             LOADED_SERVER_WORKERS.remove(this);
         }
+        onThreadAvailabilityChanged();
+        if (cluster != null) cluster.invalidateDispatchTopology();
+    }
+
+    public boolean isLoadedForDispatch() {
+        return !unloading && !isRemoved();
     }
 
     public static Set<ECOCraftingWorkerBlockEntity> getLoadedServerWorkers() {
@@ -128,11 +150,15 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
 
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
-        return new TickingRequest(1, 10, false);
+        return new TickingRequest(1, 10, !isWorking());
     }
 
     @Override
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
+        if (!isWorking()) {
+            refreshDisplayedJob();
+            return TickRateModulation.SLEEP;
+        }
         if (cluster != null && cluster.getController() != null) {
             ECOCraftingSystemBlockEntity controller = cluster.getController();
             long startNanos = System.nanoTime();
@@ -155,7 +181,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
                 if (isMonitor()) {
                     refreshDisplayedJob();
                 }
-                return rate;
+                return isWorking() ? rate : TickRateModulation.SLEEP;
             } finally {
                 controller.recordPerformanceSample(System.nanoTime() - startNanos);
             }
@@ -166,33 +192,25 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
                 if (outputRate != null && outputRate.ordinal() > rate.ordinal()) rate = outputRate;
             }
             refreshDisplayedJob();
-            return rate;
+            return isWorking() ? rate : TickRateModulation.SLEEP;
         }
     }
 
     public void reconcileJobTermination() {
         for (ECOCraftingThread thread : craftingThreads) thread.reconcileJobTermination();
-        wakeTickingDevice();
+        if (isWorking()) wakeTickingDevice();
     }
 
     public void recoverTerminatedJob(UUID craftingJobId) {
-        boolean matched = false;
-        for (ECOCraftingThread thread : craftingThreads) {
-            if (thread.belongsToJob(craftingJobId)) {
-                // Cancellation can arrive inside an insertion callback. Never insert the same pending ledger
-                // recursively; mark custody now and let the normal worker tick perform the physical recovery.
-                thread.reconcileJobTermination();
-                matched = true;
-            }
-        }
-        if (matched) wakeTickingDevice();
+        var threads = threadsByJob.get(craftingJobId);
+        if (threads == null) return;
+        for (var thread : threads) thread.reconcileJobTermination();
+        wakeTickingDevice();
     }
 
     public void terminateRunningJobs() {
         if (!(level instanceof ServerLevel)) return;
-        for (ECOCraftingThread.Snapshot snapshot : getThreadSnapshots()) {
-            cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle.finish(level, snapshot.craftingJobId(), false);
-        }
+        for (UUID jobId : threadsByJob.keySet()) ECOCraftingJobLifecycle.finish(level, jobId, false);
         reconcileJobTermination();
     }
 
@@ -207,6 +225,22 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     protected void onMainNodeGridChanged() {
         super.onMainNodeGridChanged();
         reconcileJobTermination();
+    }
+
+    @Override
+    public void updateCluster(@Nullable NECraftingCluster cluster) {
+        var previous = this.cluster;
+        super.updateCluster(cluster);
+        if (previous != cluster) {
+            if (previous != null) {
+                previous.onWorkerAvailabilityChanged(this);
+                previous.invalidateDispatchTopology();
+            }
+            recountRunningBatches();
+            onThreadAvailabilityChanged();
+            if (cluster != null) cluster.invalidateDispatchTopology();
+            reconcileJobTermination();
+        }
     }
 
     public boolean pushPattern(ECOExtractedPatternExecution execution, UUID craftingJobId) {
@@ -330,7 +364,6 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         return getAvailableBatchCapacity();
     }
 
-    /** Updates a previously-built tick-local cluster snapshot after this worker starts or stops work. */
     public void onThreadAvailabilityChanged() {
         if (cluster != null) {
             cluster.onWorkerAvailabilityChanged(this);
@@ -339,7 +372,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
 
     /** Remaining craft count accepted by this physical FX lane's next batch. */
     public int getAvailableBatchCapacity() {
-        if (cluster != null && cluster.getController() != null) {
+        if (isLoadedForDispatch() && cluster != null && !cluster.isDestroyed() && cluster.getController() != null) {
             ECOCraftingSystemBlockEntity controller = cluster.getController();
             if (controller.getThreadObjectCapacityForWorker(this) <= 0) {
                 return 0;
@@ -454,30 +487,12 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         GenericStack.writeBuffer(displayedJob, data);
     }
 
-    public void onBatchStarted() {
-        int previousRunningThreads = runningThreads;
+    public void onBatchStarted(ECOCraftingThread thread, @Nullable UUID jobId) {
         runningThreads = Math.addExact(runningThreads, 1);
-        ECOCraftingSystemBlockEntity controller = cluster == null ? null : cluster.getController();
-        boolean controllerUpdateAttempted = controller != null;
-        try {
-            if (controller != null) {
-                controller.recalculateRunningThreadCountFromWorkers();
-            }
-            setChanged();
-            wakeTickingDevice();
-        } catch (RuntimeException | Error e) {
-            // Error is included so worker and controller thread counts are rolled back before it escapes.
-            runningThreads = previousRunningThreads;
-            if (controllerUpdateAttempted) {
-                try {
-                    controller.recalculateRunningThreadCountFromWorkers();
-                } catch (RuntimeException | Error rollbackFailure) {
-                    // Preserve a rollback failure without hiding the original runtime failure or Error.
-                    e.addSuppressed(rollbackFailure);
-                }
-            }
-            throw e;
-        }
+        trackThread(thread, jobId);
+        onThreadAvailabilityChanged();
+        setChanged();
+        wakeTickingDevice();
     }
 
     @Override
@@ -487,38 +502,69 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         }
     }
 
-    public void onBatchStopped() {
-        runningThreads -= 1;
-        if (runningThreads < 0) {
-            LOGGER.warn(
-                "ECO worker running batch count underflow: worker={} before correction",
-                getBlockPos()
-            );
-            runningThreads = 0;
-        }
-        if (cluster != null && cluster.getController() != null) {
-            cluster.getController().recalculateRunningThreadCountFromWorkers();
+    public void onBatchStopped(ECOCraftingThread thread, @Nullable UUID jobId) {
+        untrackThread(thread, jobId);
+        if (runningThreads > 0) {
+            runningThreads--;
+            onThreadAvailabilityChanged();
+        } else {
+            reconcileBatchCounts();
         }
         setChanged();
     }
 
-    public void releaseCompletedJobOutputs(UUID craftingJobId) {
-        for (ECOCraftingThread thread : craftingThreads) {
-            thread.releaseCompletedJobOutputs(craftingJobId);
+    public int recountRunningBatches() {
+        int busy = 0;
+        for (var thread : craftingThreads) if (!thread.isFree()) busy++;
+        return runningThreads = busy;
+    }
+
+    public void reconcileBatchCounts() {
+        if (cluster != null && !cluster.isDestroyed()) {
+            cluster.recountWorkerBatches();
+            cluster.invalidateDispatchAvailability();
+        } else {
+            recountRunningBatches();
         }
+    }
+
+    private void trackThread(ECOCraftingThread thread, @Nullable UUID jobId) {
+        if (jobId == null) return;
+        var threads = threadsByJob.computeIfAbsent(jobId, ignored -> new HashSet<>());
+        if (threads.add(thread) && threads.size() == 1 && registeredForJobs) {
+            ECOCraftingJobLifecycle.trackWorker(level, jobId, this, true);
+        }
+    }
+
+    private void untrackThread(ECOCraftingThread thread, @Nullable UUID jobId) {
+        if (jobId == null) return;
+        var threads = threadsByJob.get(jobId);
+        if (threads == null || !threads.remove(thread) || !threads.isEmpty()) return;
+        threadsByJob.remove(jobId);
+        if (registeredForJobs) ECOCraftingJobLifecycle.trackWorker(level, jobId, this, false);
+    }
+
+    private void trackCurrentJobs(boolean holding) {
+        for (UUID jobId : threadsByJob.keySet()) ECOCraftingJobLifecycle.trackWorker(level, jobId, this, holding);
+    }
+
+    public void releaseCompletedJobOutputs(UUID craftingJobId) {
+        var threads = threadsByJob.get(craftingJobId);
+        if (threads == null) return;
+        for (var thread : threads) thread.releaseCompletedJobOutputs(craftingJobId);
         wakeTickingDevice();
     }
 
     public boolean recoverJobToNetwork(UUID craftingJobId, MEStorage storage) {
         boolean recoveredAll = true;
-        for (ECOCraftingThread thread : craftingThreads) {
+        var threads = threadsByJob.get(craftingJobId);
+        if (threads == null) return true;
+        for (var thread : List.copyOf(threads)) {
             if (thread.belongsToJob(craftingJobId) && !thread.recoverInputsToNetwork(storage)) {
                 recoveredAll = false;
             }
         }
-        if (recoveredAll) {
-            wakeTickingDevice();
-        }
+        if (isWorking()) wakeTickingDevice();
         return recoveredAll;
     }
 
@@ -540,17 +586,16 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
             return new ClearResult(0, Set.of());
         }
 
+        if (registeredForJobs) trackCurrentJobs(false);
+        threadsByJob.clear();
         craftingThreads.clear();
         runningThreads = 0;
         nextFreeThreadIndex = 0;
         displayedJob = null;
         displayDirty = false;
-        if (cluster != null && cluster.getController() != null) {
-            cluster.getController().recalculateRunningThreadCountFromWorkers();
-        }
+        onThreadAvailabilityChanged();
         setChanged();
         markForUpdate();
-        wakeTickingDevice();
         return new ClearResult(busyThreads, jobIds);
     }
 
@@ -581,6 +626,8 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         HolderLookup.Provider registries = input.lookup();
         markDisplayDirty();
         ListTag threads = data.getListOrEmpty("craftingThreads");
+        if (registeredForJobs) trackCurrentJobs(false);
+        threadsByJob.clear();
         craftingThreads.clear();
         // The fast-path cache is no longer per worker, so a worker load must not wipe knowledge its whole
         // cluster shares. Staleness is already impossible: every key carries the reload generation and the
@@ -600,13 +647,13 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
             craftingThreads.add(thread);
             if (!thread.isFree()) {
                 busyThreads++;
+                trackThread(thread, thread.getCraftingJobId());
             }
         }
         runningThreads = (int) Math.min(Integer.MAX_VALUE, busyThreads);
         nextFreeThreadIndex = 0;
-        if (cluster != null && cluster.getController() != null) {
-            cluster.getController().recalculateRunningThreadCountFromWorkers();
-        }
+        onThreadAvailabilityChanged();
+        if (registeredForJobs) reconcileJobTermination();
     }
 
     private HolderLookup.Provider getRegistryProvider() {

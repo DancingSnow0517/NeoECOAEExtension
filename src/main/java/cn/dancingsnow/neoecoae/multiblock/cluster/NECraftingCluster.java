@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.multiblock.cluster;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternDispatch;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
@@ -11,14 +12,15 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidOutputHatchBlockEn
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import lombok.Getter;
-import appeng.hooks.ticking.TickHandler;
 import net.minecraft.core.BlockPos;
 import org.jetbrains.annotations.Nullable;
 
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class NECraftingCluster extends NECluster<NECraftingCluster> {
     @Getter
@@ -39,9 +41,11 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
 
     private final ECOCraftingFastPathCache localFastPathCache = new ECOCraftingFastPathCache();
     private long localPatternDomainGeneration;
-    private final ReferenceSet<ECOCraftingWorkerBlockEntity> localAvailableWorkers =
-        new ReferenceOpenHashSet<>();
-    private long localAvailabilityTick = Long.MIN_VALUE;
+    private final ReferenceSet<ECOCraftingWorkerBlockEntity> workerMembership = new ReferenceOpenHashSet<>();
+    private final Map<ECOCraftingWorkerBlockEntity, Integer> busyWorkerBatches = new IdentityHashMap<>();
+    private long runningBatches;
+    private long dispatchGeneration;
+    private @Nullable ECOCraftingPatternDispatch localAvailableWorkers;
 
     public NECraftingCluster(BlockPos boundMin, BlockPos boundMax) {
         super(boundMin, boundMax);
@@ -72,15 +76,13 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     }
 
     public void setNetworkCluster(@Nullable NECraftingNetworkCluster networkCluster) {
+        if (this.networkCluster == networkCluster) return;
         if (this.networkCluster != null) {
-            this.networkCluster.invalidateDispatchAvailability();
+            this.networkCluster.invalidateDispatchTopology();
         }
         this.networkCluster = networkCluster;
-        localAvailabilityTick = Long.MIN_VALUE;
-        localAvailableWorkers.clear();
-        if (networkCluster != null) {
-            networkCluster.invalidateDispatchAvailability();
-        }
+        invalidateDispatchTopology();
+        recountWorkerBatches();
     }
 
     /**
@@ -96,7 +98,7 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
 
     /**
      * Workers this host may dispatch to: the whole Network Switch group when one is formed, otherwise its own
-     * workers. Rebuilt per dispatch so no stale block-entity reference is ever retained.
+     * workers. Meant for topology rebuilds and displays, not dispatch.
      */
     public List<ECOCraftingWorkerBlockEntity> collectDispatchCandidateWorkers() {
         NECraftingNetworkCluster network = this.networkCluster;
@@ -105,7 +107,7 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
         }
         List<ECOCraftingWorkerBlockEntity> candidates = new ArrayList<>(workers.size());
         for (ECOCraftingWorkerBlockEntity worker : workers) {
-            if (worker.isRemoved() || worker.getCluster() != this) {
+            if (!ownsDispatchWorker(worker)) {
                 continue;
             }
             candidates.add(worker);
@@ -115,12 +117,7 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
 
     /** Allocation-free reachability check used by busy reporting. */
     public boolean hasAvailableDispatchCandidate() {
-        NECraftingNetworkCluster network = this.networkCluster;
-        if (network != null) {
-            return network.hasAvailableCandidateWorker();
-        }
-        refreshLocalDispatchAvailability();
-        return !localAvailableWorkers.isEmpty();
+        return getDispatchCandidates().best() != null;
     }
 
     /**
@@ -140,63 +137,97 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
         return networkCluster == null ? localPatternDomainGeneration : networkCluster.getPatternDomainGeneration();
     }
 
-    /** Keeps the tick-local busy snapshot exact when a worker starts or stops owning work. */
     public void onWorkerAvailabilityChanged(ECOCraftingWorkerBlockEntity worker) {
-        NECraftingNetworkCluster network = this.networkCluster;
-        if (network != null) {
-            network.onWorkerAvailabilityChanged(worker);
-            return;
+        if (isDestroyed() || !workerMembership.contains(worker)) return;
+        int count = ownsDispatchWorker(worker) ? worker.getRunningBatchCount() : 0;
+        int previous = busyWorkerBatches.getOrDefault(worker, 0);
+        if (previous != count) {
+            if (count == 0) busyWorkerBatches.remove(worker);
+            else busyWorkerBatches.put(worker, count);
+            runningBatches += count - previous;
+            if (controller != null) controller.onWorkerBatchCountsChanged(this);
         }
-        long currentTick = TickHandler.instance().getCurrentTick();
-        if (localAvailabilityTick != currentTick) {
-            return;
-        }
-        if (isLocalDispatchCandidate(worker) && worker.getAvailableThreadSlots() > 0) {
-            localAvailableWorkers.add(worker);
-        } else {
-            localAvailableWorkers.remove(worker);
-        }
+        if (localAvailableWorkers != null) localAvailableWorkers.update(worker);
+        if (networkCluster != null) networkCluster.onWorkerAvailabilityChanged(worker);
     }
 
-    private void refreshLocalDispatchAvailability() {
-        long currentTick = TickHandler.instance().getCurrentTick();
-        if (localAvailabilityTick == currentTick) {
-            return;
-        }
-        localAvailableWorkers.clear();
+    public void recountWorkerBatches() {
+        busyWorkerBatches.clear();
+        runningBatches = 0;
         for (ECOCraftingWorkerBlockEntity worker : workers) {
-            if (isLocalDispatchCandidate(worker) && worker.getAvailableThreadSlots() > 0) {
-                localAvailableWorkers.add(worker);
+            if (ownsDispatchWorker(worker)) {
+                int count = worker.recountRunningBatches();
+                if (count > 0) busyWorkerBatches.put(worker, count);
+                runningBatches += count;
             }
         }
-        localAvailabilityTick = currentTick;
+        if (controller != null) controller.onWorkerBatchCountsChanged(this);
     }
 
-    private boolean isLocalDispatchCandidate(ECOCraftingWorkerBlockEntity worker) {
-        return !isDestroyed() && controller != null
-            && !worker.isRemoved() && worker.getCluster() == this;
+    public int getRunningBatchCount() {
+        return (int) Math.min(Integer.MAX_VALUE, runningBatches);
+    }
+
+    public int getActiveWorkerCount() {
+        return busyWorkerBatches.size();
+    }
+
+    public ECOCraftingPatternDispatch getDispatchCandidates() {
+        if (networkCluster != null) return networkCluster.getDispatchCandidates();
+        if (localAvailableWorkers == null) {
+            localAvailableWorkers = new ECOCraftingPatternDispatch(collectDispatchCandidateWorkers());
+        }
+        return localAvailableWorkers;
+    }
+
+    public void invalidateDispatchAvailability() {
+        localAvailableWorkers = null;
+        if (networkCluster != null) networkCluster.invalidateDispatchAvailability();
+    }
+
+    public void invalidateDispatchTopology() {
+        dispatchGeneration++;
+        invalidateDispatchAvailability();
+        if (networkCluster != null) networkCluster.invalidateDispatchTopology();
+    }
+
+    public long getDispatchGeneration() {
+        return dispatchGeneration;
+    }
+
+    private boolean ownsDispatchWorker(ECOCraftingWorkerBlockEntity worker) {
+        return !isDestroyed() && controller != null && workerMembership.contains(worker)
+            && worker.isLoadedForDispatch() && worker.getCluster() == this;
     }
 
     /** True when {@code worker} is still reachable for dispatch from this host. */
     public boolean isDispatchCandidate(ECOCraftingWorkerBlockEntity worker) {
-        if (worker.isRemoved()) {
+        if (isDestroyed() || controller == null || controller.isRemoved() || controller.getCluster() != this) {
             return false;
         }
         NECraftingCluster owner = worker.getCluster();
-        if (owner == null || owner.isDestroyed() || !owner.getWorkers().contains(worker)) {
+        if (owner == null || !owner.ownsDispatchWorker(worker) || owner.controller.isRemoved()
+                || owner.controller.getCluster() != owner) {
             return false;
         }
         if (owner == this) {
             return true;
         }
         NECraftingNetworkCluster network = this.networkCluster;
-        return network != null && network == owner.getNetworkCluster();
+        return network != null && network == owner.getNetworkCluster()
+            && controller.hasNetworkSwitch() && owner.controller.hasNetworkSwitch()
+            && controller.getNetworkFrequency() == owner.controller.getNetworkFrequency()
+            && controller.getMainNode().isOnline() && owner.controller.getMainNode().isOnline()
+            && controller.getMainNode().getGrid() == owner.controller.getMainNode().getGrid();
     }
 
     @Override
     public void destroy() {
+        invalidateDispatchTopology();
         NELogicalNetworkManager.detachBeforeDestroy(this);
         super.destroy();
+        busyWorkerBatches.clear();
+        runningBatches = 0;
     }
 
     @Override
@@ -211,16 +242,13 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     @Override
     public void addBlockEntity(NEBlockEntity<NECraftingCluster, ?> blockEntity) {
         super.addBlockEntity(blockEntity);
-        localAvailabilityTick = Long.MIN_VALUE;
-        localAvailableWorkers.clear();
-        if (networkCluster != null) {
-            networkCluster.invalidateDispatchAvailability();
-        }
+        invalidateDispatchAvailability();
         if (blockEntity instanceof ECOCraftingParallelCoreBlockEntity parallelCore) {
             parallelCores.add(parallelCore);
         }
         if (blockEntity instanceof ECOCraftingWorkerBlockEntity workerBlockEntity) {
             workers.add(workerBlockEntity);
+            workerMembership.add(workerBlockEntity);
         }
         if (blockEntity instanceof ECOCraftingPatternBusBlockEntity patternBusBlockEntity) {
             patternBuses.add(patternBusBlockEntity);

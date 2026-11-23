@@ -161,6 +161,11 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         return Double.isNaN(appliedIdlePower) ? java.util.OptionalDouble.empty() : java.util.OptionalDouble.of(appliedIdlePower);
     }
 
+    public final boolean hasCreativeEnergy() {
+        var grid = getMainNode().getGrid();
+        return grid != null && com.google.common.collect.Iterables.contains(grid.getMachineClasses(), appeng.blockentity.networking.CreativeEnergyCellBlockEntity.class);
+    }
+
     public void updateMultiBlock(BlockPos changedPos) {
         if (isServerStopping()) {
             return;

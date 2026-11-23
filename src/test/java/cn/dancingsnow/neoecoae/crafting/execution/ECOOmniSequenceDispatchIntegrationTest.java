@@ -102,7 +102,7 @@ class ECOOmniSequenceDispatchIntegrationTest {
 
         ECOCraftingProviderDispatcher.Result dispatch(ECOCraftingDispatchRequest request,
                 List<ICraftingProvider> providers) {
-            return dispatcher.dispatchCandidate(request, providers, new ECOCraftingDispatchBudget(64, 64),
+            return dispatcher.dispatchCandidate(request, providers.iterator(), new ECOCraftingDispatchBudget(64, 64),
                     energy, mock(ECODispatchStallDiagnostics.class), ignored -> {}, () -> {},
                     (attempt, provider) -> provider.pushPattern(attempt.pattern(), attempt.inputs()));
         }

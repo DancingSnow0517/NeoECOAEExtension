@@ -23,7 +23,6 @@ import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
-import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -56,7 +55,6 @@ public final class ECOExecutionRuntime {
     private final IPatternDetails[] patternsById;
     @Nullable
     private final ExecutingCraftingJob.TaskProgress[] progressByTaskId;
-    private final int[][] progressAliasesByTaskId;
     private final List<Set<AEKey>> inputKeysByTaskId;
     private final int[] stepCursor;
     private final int[] dynamicCursor;
@@ -133,8 +131,7 @@ public final class ECOExecutionRuntime {
                 throw new IllegalArgumentException("Execution task has no bound progress: " + task.id());
             }
         }
-        this.progressAliasesByTaskId = createProgressAliases(this.progressByTaskId, plan.tasks().size());
-        rejectSharedProgressAliases();
+        validateUniqueProgress(progressByTaskId);
         for (var phase : plan.phases()) {
             PlannerAmount[] steps = new PlannerAmount[phase.steps().size()];
             for (int i = 0; i < steps.length; i++) steps[i] = phase.steps().get(i).plannerCount();
@@ -153,7 +150,6 @@ public final class ECOExecutionRuntime {
             inputKeysByTaskId.add(inputKeys(pattern));
         }
         rebuildProgressState();
-        logSharedProgressAliases();
     }
 
     public ECOExecutionPlan plan() {
@@ -441,7 +437,6 @@ public final class ECOExecutionRuntime {
             .append("completedPhases=").append(completedPhases.cardinality())
             .append('/').append(plan.phases().size())
             .append(" progressBinding=").append(progressByTaskId != null)
-            .append(" sharedProgressAliases=").append(describeProgressAliases())
             .append(" phases=[");
         int included = 0;
         int unfinished = 0;
@@ -1139,18 +1134,6 @@ public final class ECOExecutionRuntime {
 
     private void refreshTaskState(int taskId) {
         if (progressByTaskId == null || taskId < 0 || taskId >= unfinishedTasks.length) return;
-        BitSet affectedPhases = new BitSet(plan.phases().size());
-        for (int aliasedTaskId : progressAliasesByTaskId[taskId]) {
-            refreshSingleTaskState(aliasedTaskId);
-            affectedPhases.set(plan.task(aliasedTaskId).phaseIndex());
-        }
-        for (int phaseIndex = affectedPhases.nextSetBit(0); phaseIndex >= 0;
-                phaseIndex = affectedPhases.nextSetBit(phaseIndex + 1)) {
-            maybeCompletePhase(phaseIndex);
-        }
-    }
-
-    private void refreshSingleTaskState(int taskId) {
         boolean unfinished = taskRemaining(taskId, null) > 0L;
         if (unfinished == unfinishedTasks[taskId]) return;
         unfinishedTasks[taskId] = unfinished;
@@ -1199,47 +1182,6 @@ public final class ECOExecutionRuntime {
             if (taskRemaining(taskId, null) > 0L) actual++;
         }
         return actual;
-    }
-
-    private String describeProgressAliases() {
-        if (progressByTaskId == null) return "[]";
-        var text = new StringBuilder("[");
-        int groups = 0;
-        int included = 0;
-        for (int taskId = 0; taskId < progressAliasesByTaskId.length; taskId++) {
-            int[] aliases = progressAliasesByTaskId[taskId];
-            if (aliases.length <= 1 || aliases[0] != taskId) continue;
-            groups++;
-            if (included >= MAX_DIAGNOSTIC_TASKS) continue;
-            if (included++ > 0) text.append(',');
-            appendProgressAlias(text, aliases);
-        }
-        if (groups > included) text.append(",...").append(groups - included).append(" groups omitted");
-        return text.append(']').toString();
-    }
-
-    private void appendProgressAlias(StringBuilder text, int[] aliases) {
-        text.append("identity=").append(System.identityHashCode(progressByTaskId[aliases[0]]))
-            .append(" tasks=[");
-        int limit = Math.min(aliases.length, MAX_DIAGNOSTIC_TASKS);
-        for (int index = 0; index < limit; index++) {
-            if (index > 0) text.append(',');
-            text.append(aliases[index]);
-        }
-        if (aliases.length > limit) text.append(",...").append(aliases.length - limit).append(" omitted");
-        text.append("] phases=[");
-        for (int index = 0; index < limit; index++) {
-            if (index > 0) text.append(',');
-            text.append(plan.task(aliases[index]).phaseIndex());
-        }
-        if (aliases.length > limit) text.append(",...");
-        text.append(']');
-    }
-
-    private void logSharedProgressAliases() {
-        if (!NEConfig.ecoDispatchWatchdogDebug || progressByTaskId == null) return;
-        String aliases = describeProgressAliases();
-        if (!"[]".equals(aliases)) LOGGER.warn("[ECO Execution] shared TaskProgress aliases={}", aliases);
     }
 
     private void maybeCompletePhase(int phaseIndex) {
@@ -1311,32 +1253,14 @@ public final class ECOExecutionRuntime {
         return result;
     }
 
-    private static int[][] createProgressAliases(
-            @Nullable ExecutingCraftingJob.TaskProgress[] progressByTaskId, int taskCount) {
-        int[][] result = new int[taskCount][];
-        if (progressByTaskId == null) {
-            for (int taskId = 0; taskId < taskCount; taskId++) result[taskId] = new int[] {taskId};
-            return result;
-        }
-
-        var aliasesByProgress = new IdentityHashMap<ExecutingCraftingJob.TaskProgress, IntArrayList>();
-        for (int taskId = 0; taskId < progressByTaskId.length; taskId++) {
-            aliasesByProgress.computeIfAbsent(progressByTaskId[taskId], ignored -> new IntArrayList()).add(taskId);
-        }
-        for (var aliases : aliasesByProgress.values()) {
-            int[] taskIds = aliases.toIntArray();
-            for (int taskId : taskIds) result[taskId] = taskIds;
-        }
-        return result;
-    }
-
-    private void rejectSharedProgressAliases() {
+    private static void validateUniqueProgress(@Nullable ExecutingCraftingJob.TaskProgress[] progressByTaskId) {
         if (progressByTaskId == null) return;
-        for (int taskId = 0; taskId < progressAliasesByTaskId.length; taskId++) {
-            int[] aliases = progressAliasesByTaskId[taskId];
-            if (aliases.length > 1 && aliases[0] == taskId) {
-                throw new IllegalArgumentException("Execution tasks share one aggregate TaskProgress: "
-                    + Arrays.toString(aliases));
+        var owners = new IdentityHashMap<ExecutingCraftingJob.TaskProgress, Integer>(progressByTaskId.length);
+        for (int taskId = 0; taskId < progressByTaskId.length; taskId++) {
+            Integer previous = owners.put(progressByTaskId[taskId], taskId);
+            if (previous != null) {
+                throw new IllegalArgumentException("Execution tasks share one aggregate TaskProgress: ["
+                    + previous + ", " + taskId + "]");
             }
         }
     }

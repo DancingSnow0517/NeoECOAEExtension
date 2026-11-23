@@ -70,6 +70,6 @@ class ECOExactVirtualLedgerTest {
         assertEquals(count, thread.getExactCraftCount());
         assertEquals(1, thread.getFiniteBatchCraftCount());
         assertFalse(thread.pushExactVirtualBatch(recipe, count, job, controller));
-        verify(worker, times(1)).onBatchStarted();
+        verify(worker, times(1)).onBatchStarted(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 }

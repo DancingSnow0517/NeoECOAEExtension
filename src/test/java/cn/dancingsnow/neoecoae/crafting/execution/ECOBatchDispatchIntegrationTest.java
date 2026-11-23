@@ -77,7 +77,7 @@ class ECOBatchDispatchIntegrationTest {
             ECOCraftingProviderDispatcher.ECOCraftingNormalPush push) {
         try (var helpers = mockStatic(CraftingCpuHelper.class)) {
             helpers.when(() -> CraftingCpuHelper.calculatePatternPower(any())).thenReturn(1.0);
-            return dispatcher.dispatchCandidate(request, providers, new ECOCraftingDispatchBudget(64, 64),
+            return dispatcher.dispatchCandidate(request, providers.iterator(), new ECOCraftingDispatchBudget(64, 64),
                     energy, mock(ECODispatchStallDiagnostics.class), ignored -> {}, () -> {}, push);
         }
     }
@@ -106,7 +106,7 @@ class ECOBatchDispatchIntegrationTest {
         var first = mock(ICraftingProvider.class);
         var second = mock(ICraftingProvider.class);
         int[] attempts = {0};
-        var result = dispatcher.dispatchCandidate(wide, List.of(first, second),
+        var result = dispatcher.dispatchCandidate(wide, List.of(first, second).iterator(),
                 new ECOCraftingDispatchBudget(64, 64), energy, mock(ECODispatchStallDiagnostics.class),
                 ignored -> {}, () -> {}, (attempt, provider) -> {
                     attempts[0]++;
@@ -145,7 +145,7 @@ class ECOBatchDispatchIntegrationTest {
             }
             return true;
         });
-        var result = dispatcher.dispatchCandidate(wide, List.of(provider),
+        var result = dispatcher.dispatchCandidate(wide, List.of(provider).iterator(),
                 new ECOCraftingDispatchBudget(64, 64), energy, mock(ECODispatchStallDiagnostics.class),
                 ignored -> {}, () -> {}, (attempt, target) -> fail("Accepted batch must not be replayed"));
         assertTrue(result.accepted());
@@ -167,7 +167,7 @@ class ECOBatchDispatchIntegrationTest {
         when(((PatternProviderLogicAccessor) logic).neoecoae$getSendList()).thenReturn(List.of());
         dispatcher.beginTick(0);
         var offers = new java.util.ArrayList<Long>();
-        var result = dispatcher.dispatchCandidate(wide, List.of(provider),
+        var result = dispatcher.dispatchCandidate(wide, List.of(provider).iterator(),
                 new ECOCraftingDispatchBudget(64, 64), energy, mock(ECODispatchStallDiagnostics.class),
                 ignored -> {}, () -> {}, (attempt, target) -> {
                     offers.add(attempt.allowedCrafts());
@@ -250,7 +250,7 @@ class ECOBatchDispatchIntegrationTest {
             request.remainders(), 20_000, inventory, request.level());
         try (var helpers = mockStatic(CraftingCpuHelper.class)) {
             helpers.when(() -> CraftingCpuHelper.calculatePatternPower(any())).thenReturn(1.0);
-            var result = limited.dispatchCandidate(large, List.of(provider), new ECOCraftingDispatchBudget(64, 64),
+            var result = limited.dispatchCandidate(large, List.of(provider).iterator(), new ECOCraftingDispatchBudget(64, 64),
                 energy, mock(ECODispatchStallDiagnostics.class), ignored -> {}, () -> {},
                 (attempt, target) -> fail("Accepted batch must not be replayed"));
             assertTrue(result.accepted());
@@ -282,7 +282,7 @@ class ECOBatchDispatchIntegrationTest {
         ECOCraftingProviderDispatcher.Result result;
         try (var helpers = mockStatic(CraftingCpuHelper.class)) {
             helpers.when(() -> CraftingCpuHelper.calculatePatternPower(any())).thenReturn(1.0);
-            result = dispatcher.dispatchCandidate(processingRequest, List.of(provider),
+            result = dispatcher.dispatchCandidate(processingRequest, List.of(provider).iterator(),
                     new ECOCraftingDispatchBudget(64, 64), energy, mock(ECODispatchStallDiagnostics.class),
                     ignored -> {}, () -> {}, (attempt, target) -> fail("Must use the parallel batch route"));
         }

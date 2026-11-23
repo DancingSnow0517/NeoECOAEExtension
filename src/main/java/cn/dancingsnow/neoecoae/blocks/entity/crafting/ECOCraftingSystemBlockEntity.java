@@ -148,6 +148,8 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     /** Detects a network regroup without retaining a stale standalone capacity view. */
     @Nullable
     private NECraftingNetworkCluster capabilityNetworkAssociation;
+    private @Nullable IGrid dispatchGrid;
+    private boolean dispatchOnline;
 
     @Getter
     private long performanceAverageNanos = 0L;
@@ -270,12 +272,11 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
                 ))
                 .reduce(0L, NEMath::saturatingAdd);
             threadCount = (int) Math.min(Integer.MAX_VALUE, exactThreadCount);
-            recalculateRunningThreadCountFromWorkers();
         } else {
             threadCount = 0;
             exactThreadCount = 0L;
-            runningThreadCount = 0;
         }
+        runningThreadCount = cluster == null ? 0 : cluster.getRunningBatchCount();
     }
 
     private void updateCount() {
@@ -294,17 +295,18 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     public void recalculateRunningThreadCountFromWorkers() {
-        invalidateCapabilitySnapshot();
         if (cluster == null) {
             runningThreadCount = 0;
             return;
         }
+        cluster.recountWorkerBatches();
+        cluster.invalidateDispatchAvailability();
+    }
 
-        long recalculated = cluster.getWorkers()
-            .stream()
-            .mapToLong(ECOCraftingWorkerBlockEntity::getRunningBatchCount)
-            .sum();
-        runningThreadCount = (int) Math.min(Integer.MAX_VALUE, Math.max(0L, recalculated));
+    public void onWorkerBatchCountsChanged(NECraftingCluster owner) {
+        if (cluster != owner) return;
+        runningThreadCount = owner.getRunningBatchCount();
+        invalidateCapabilitySnapshot();
         setChanged();
     }
 
@@ -639,9 +641,14 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
 
     @Override
     protected void onMainNodeGridChanged() {
+        IGrid grid = getMainNode().getGrid();
+        boolean online = getMainNode().isOnline();
         if (cluster != null) {
+            if (dispatchGrid != grid || dispatchOnline != online) cluster.invalidateDispatchTopology();
             NELogicalNetworkManager.refreshAfterGridChange(cluster);
         }
+        dispatchGrid = grid;
+        dispatchOnline = online;
     }
 
     public int getPooledParallelism() {
@@ -696,17 +703,8 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             return capabilitySnapshotCache;
         }
         int physicalFx = cluster == null ? 0 : cluster.getWorkers().size();
-        int activeFx = 0;
-        int runningBatches = 0;
-        if (cluster != null) {
-            for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
-                if (worker.isWorking()) {
-                    activeFx++;
-                }
-                runningBatches = (int) Math.min(Integer.MAX_VALUE,
-                    (long) runningBatches + worker.getRunningBatchCount());
-            }
-        }
+        int activeFx = cluster == null ? 0 : cluster.getActiveWorkerCount();
+        int runningBatches = cluster == null ? 0 : cluster.getRunningBatchCount();
         long standaloneOverclockedBatch = NEMath.saturatingMultiply(
             NEConfig.CRAFTING_WORKER_BASE_CRAFTS,
             getTier().getOverclockedCrafterQueueMultiply()
@@ -742,8 +740,9 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     private void invalidateCapabilityCapacity() {
         capabilitySnapshotCache = null;
         capabilityCapacityCache = null;
-        if (cluster != null && cluster.getNetworkCluster() != null) {
-            cluster.getNetworkCluster().invalidateCapabilityCapacity();
+        if (cluster != null) {
+            cluster.invalidateDispatchAvailability();
+            if (cluster.getNetworkCluster() != null) cluster.getNetworkCluster().invalidateCapabilityCapacity();
         }
     }
 
@@ -908,6 +907,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
                 ? 1 : CraftingHostPanelUI.formatRecipeTimeTicks(getExecutionOverclockTimes()),
             this::getPerformanceAverageNanos,
             this::getMaxEnergyUsage,
+            this::hasCreativeEnergy,
             this::getDisplayedCoolantAmount,
             this::getDisplayedCoolantCapacity,
             this::getDisplayedCoolingMaxOverclock,

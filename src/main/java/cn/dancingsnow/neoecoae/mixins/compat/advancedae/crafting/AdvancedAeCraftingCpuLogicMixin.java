@@ -4,7 +4,6 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.api.me.output.ECOJobOutputReceiver;
-import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import java.util.UUID;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.KeyCounter;
@@ -72,16 +71,7 @@ public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputRec
     private void neoecoae$releaseCompletedWorkerOutputs(boolean success, CallbackInfo ci) {
         if (!(job instanceof ECOExternalCpuJob access)) return;
         var craftingJobId = access.neoecoae$link().getCraftingID();
-        if (!success) {
-            ECOCraftingJobLifecycle.cancelAndRecover(cpu.getLevel(), craftingJobId);
-            return;
-        }
-        ECOCraftingJobLifecycle.finish(cpu.getLevel(), craftingJobId, true);
-        var grid = cpu.getGrid();
-        if (grid == null) return;
-        for (var worker : grid.getMachines(ECOCraftingWorkerBlockEntity.class)) {
-            worker.releaseCompletedJobOutputs(craftingJobId);
-        }
+        ECOCraftingJobLifecycle.finish(cpu.getLevel(), craftingJobId, success);
     }
 
     @Unique private cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuFastPath neoecoae$batchDispatcher;

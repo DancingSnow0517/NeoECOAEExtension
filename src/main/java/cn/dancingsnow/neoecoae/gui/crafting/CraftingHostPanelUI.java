@@ -42,7 +42,7 @@ public final class CraftingHostPanelUI {
         BooleanSupplier activeCooling, Runnable toggleActiveCooling, IntSupplier activeWorkerCores,
         IntSupplier workerCores, IntSupplier singleCoreCapacity, LongSupplier ftParallelCapacity,
         LongSupplier overflowCapacity, LongSupplier parallelLimit, IntSupplier theoreticalOverclockTimes, IntSupplier effectiveOverclockTimes,
-        IntSupplier executionTicks, LongSupplier performanceAverageNanos, LongSupplier energyUsage,
+        IntSupplier executionTicks, LongSupplier performanceAverageNanos, LongSupplier energyUsage, BooleanSupplier creativeEnergy,
         IntSupplier coolantAmount, IntSupplier coolantCapacity, IntSupplier coolantMaxOverclock,
         Supplier<FluidStack> coolantFluid, Supplier<FluidStack> outputFluid, IntSupplier outputCapacity,
         Supplier<HolderLookup.Provider> registries, Supplier<? extends java.util.Collection<?>> tasks,

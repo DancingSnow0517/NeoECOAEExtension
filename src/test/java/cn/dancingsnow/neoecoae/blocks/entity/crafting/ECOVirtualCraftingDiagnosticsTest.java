@@ -315,7 +315,7 @@ class ECOVirtualCraftingDiagnosticsTest {
             assertFalse(blocked.outputsReady());
             assertEquals(crafts, blocked.craftCount());
             assertEquals(job, blocked.craftingJobId());
-            verify(current.worker(), never()).onBatchStopped();
+            verify(current.worker(), never()).onBatchStopped(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
             doReturn(STARTED).when(current.host()).tryStartVirtualLaneTickWithResult();
             current.thread().tick(current.host(), 9, 1, 1);
             var completed = current.thread().createSnapshot();

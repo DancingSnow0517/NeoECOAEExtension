@@ -450,7 +450,7 @@ class CraftingHostPanelRenderingTest {
             Component::empty, Component::empty, () -> 1, () -> true, overclocked, () -> false, toggleOverclocked,
             cooling, toggleCooling, () -> 1, () -> 2, () -> 1, () -> 1L, () -> 0L, () -> 64L,
             () -> 3, () -> 3, () -> 4, () -> 0L, () -> 500_000L,
-            () -> 25, () -> 100, () -> 9, () -> FluidStack.EMPTY, () -> FluidStack.EMPTY, () -> 16000,
+            () -> false, () -> 25, () -> 100, () -> 9, () -> FluidStack.EMPTY, () -> FluidStack.EMPTY, () -> 16000,
             () -> RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY), List::of,
             () -> false, () -> 0, () -> {}, () -> 0, ignored -> {}, () -> state,
             () -> 1L, () -> 64L, () -> 0, () -> 0, () -> hostItem, () -> workerItems);

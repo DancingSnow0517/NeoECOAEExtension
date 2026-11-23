@@ -53,16 +53,15 @@ public final class ECOFastPathFacade {
     }
 
     public static boolean supports(ICraftingProvider provider) {
-        return provider instanceof ECOFastPathDispatchProvider
-            || ECOParallelCraftingProviders.find(provider) instanceof ECOFastPathDispatchProvider
+        return ECOParallelCraftingProviders.findFastPath(provider) != null
             || ECOExtendedAEPlusMatrixBridge.supportsProvider(provider)
             || ECOUselessBatchProviderBridge.supports(provider);
     }
 
     @Nullable
     public static ECOFastPathDispatchProvider resolveProvider(ICraftingProvider provider) {
-        if (provider instanceof ECOFastPathDispatchProvider nativeProvider) return nativeProvider;
-        if (ECOParallelCraftingProviders.find(provider) instanceof ECOFastPathDispatchProvider adapted) return adapted;
+        var adapted = ECOParallelCraftingProviders.findFastPath(provider);
+        if (adapted != null) return adapted;
         var matrix = ECOExtendedAEPlusMatrixBridge.adapt(provider);
         return matrix != null ? matrix : ECOUselessBatchProviderBridge.adapt(provider);
     }

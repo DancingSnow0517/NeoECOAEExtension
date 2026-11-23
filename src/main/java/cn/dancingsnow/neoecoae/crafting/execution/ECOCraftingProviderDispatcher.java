@@ -5,7 +5,7 @@ import cn.dancingsnow.neoecoae.crafting.execution.batch.*;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
-import java.util.List;
+import java.util.Iterator;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -88,7 +88,7 @@ final class ECOCraftingProviderDispatcher {
         if (owner != null) owner.getProcessingMonitor().considered(job.link.getCraftingID(), pattern, provider);
     }
 
-    Result dispatchCandidate(ECOCraftingDispatchRequest originalRequest, List<ICraftingProvider> providers,
+    Result dispatchCandidate(ECOCraftingDispatchRequest originalRequest, Iterator<? extends ICraftingProvider> providers,
             ECOCraftingDispatchBudget budget, IEnergyService energyService,
             ECODispatchStallDiagnostics diagnostics, Consumer<ICraftingProvider> markProviderAttempt,
             Runnable markNormalResume, ECOCraftingNormalPush normalPush) {
@@ -99,7 +99,8 @@ final class ECOCraftingProviderDispatcher {
                 originalRequest.inventory(), originalRequest.level());
         double singlePower = CraftingCpuHelper.calculatePatternPower(request.inputs());
 
-        for (var provider : providers) {
+        while (providers.hasNext()) {
+            var provider = providers.next();
             if (isOmniDispatchDeferred(provider, request.pattern())) continue;
             boolean blocking = ECOExternalProviderBlocking.isEnabled(provider);
             if (!blocking && request.job().exactOrder) {

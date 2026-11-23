@@ -752,7 +752,7 @@ class ECOProcessingDispatchIntegrationTest {
         int[] marks = {0};
         try (var helper = mockStatic(appeng.crafting.execution.CraftingCpuHelper.class)) {
             helper.when(() -> appeng.crafting.execution.CraftingCpuHelper.calculatePatternPower(any())).thenReturn(1.0);
-            var result = outer.dispatchCandidate(f.request, List.of(f.provider), new ECOCraftingDispatchBudget(64, 64),
+            var result = outer.dispatchCandidate(f.request, List.of(f.provider).iterator(), new ECOCraftingDispatchBudget(64, 64),
                     f.energy, diagnostics, ignored -> marks[0]++, () -> {}, (request, provider) -> fail("paused"));
             assertFalse(result.accepted());
         }
@@ -858,7 +858,7 @@ class ECOProcessingDispatchIntegrationTest {
                 ECOCraftingProviderDispatcher.ECOCraftingNormalPush push) {
             try (var helper = mockStatic(appeng.crafting.execution.CraftingCpuHelper.class)) {
                 helper.when(() -> appeng.crafting.execution.CraftingCpuHelper.calculatePatternPower(any())).thenReturn(1.0);
-                return outer.dispatchCandidate(request, List.of(provider), new ECOCraftingDispatchBudget(64, 64),
+                return outer.dispatchCandidate(request, List.of(provider).iterator(), new ECOCraftingDispatchBudget(64, 64),
                         energy, mock(ECODispatchStallDiagnostics.class), ignored -> {}, () -> {}, push);
             }
         }
