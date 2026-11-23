@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.display.processing;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingTargetProvider.Target;
@@ -95,7 +96,7 @@ public final class ECOWorkstationMachineStatus {
                 accept(target, reader.read(machine, context));
                 return true;
             } catch (RuntimeException | LinkageError incompatible) {
-                if (FAILED_READERS.add(reader.getClass())) org.slf4j.LoggerFactory.getLogger("neoecoae").warn(
+                if (NEConfig.ecoDispatchWatchdogDebug && FAILED_READERS.add(reader.getClass())) org.slf4j.LoggerFactory.getLogger("neoecoae").warn(
                     "Processing reader {} could not observe {}; crafting is unaffected", reader.getClass().getName(), target, incompatible);
                 return false;
             }

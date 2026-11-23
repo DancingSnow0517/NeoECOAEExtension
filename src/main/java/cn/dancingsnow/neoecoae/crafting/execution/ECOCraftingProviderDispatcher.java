@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOPatternPushDiagnostics;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.*;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
@@ -376,7 +377,7 @@ final class ECOCraftingProviderDispatcher {
             String path, RuntimeException failure) {
         String reason = "AMBIGUOUS_" + path.toUpperCase(java.util.Locale.ROOT) + "_PROVIDER_OWNERSHIP";
         request.job().failPermanently(reason);
-        LOGGER.error("ECO {} provider {} threw after dispatch began; the job is suspended without replaying inputs",
+        if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error("ECO {} provider {} threw after dispatch began; the job is suspended without replaying inputs",
                 path, provider.getClass().getName(), failure);
     }
 

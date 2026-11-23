@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.api.me.provider;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.networking.crafting.ICraftingProvider;
 
 import org.jetbrains.annotations.Nullable;
@@ -127,7 +128,7 @@ public final class ECOParallelCraftingProviders {
             } catch (RuntimeException broken) {
                 // A broken adapter must not take the dispatch path down with it: this is called while a CPU is
                 // choosing where to send a craft, where a throw would strand the job rather than skip a provider.
-                LOGGER.warn("Crafting provider adapter for {} failed",
+                if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.warn("Crafting provider adapter for {} failed",
                         entry.getKey().getName(), broken);
                 return null;
             }

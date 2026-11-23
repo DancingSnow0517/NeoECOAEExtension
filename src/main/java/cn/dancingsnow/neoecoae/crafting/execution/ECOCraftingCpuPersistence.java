@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
 import appeng.me.service.CraftingService;
@@ -71,7 +72,7 @@ final class ECOCraftingCpuPersistence {
         try {
             job.writeCraftingGraph(jobData, registries);
         } catch (RuntimeException unavailable) {
-            appeng.core.AELog.warn("Cannot save ECO crafting graph: %s", unavailable.getMessage());
+            if (NEConfig.ecoDispatchWatchdogDebug) appeng.core.AELog.warn("Cannot save ECO crafting graph: %s", unavailable.getMessage());
         }
         host.outputDeliveryForPersistence().writePendingFinalOutputs(jobData, registries);
         host.writeJobAttachments(jobData, registries);

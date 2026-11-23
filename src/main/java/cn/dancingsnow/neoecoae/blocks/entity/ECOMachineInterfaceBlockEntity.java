@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.orientation.BlockOrientation;
@@ -1428,14 +1429,16 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (task != null) {
             task.releaseClaims();
             task.coordinator().release(this);
-            var report = unavailable || patternTransferNoSpace > 0 || patternTransferNoTarget > 0
-                    || patternTransferIncompatible > 0 || patternTransferSourceChanged > 0
-                    ? LOGGER.atWarn() : LOGGER.atInfo();
-            report.log("Pattern migration at {}: inserted={}, alreadyPresent={}, unchanged={}, noSpace={}, "
-                            + "noTarget={}, incompatible={}, sourceChanged={}, unavailable={}",
-                    worldPosition, patternTransferInserted, patternTransferAlreadyPresent,
-                    patternTransferUnchanged, patternTransferNoSpace, patternTransferNoTarget,
-                    patternTransferIncompatible, patternTransferSourceChanged, unavailable);
+            if (NEConfig.ecoDispatchWatchdogDebug) {
+                var report = unavailable || patternTransferNoSpace > 0 || patternTransferNoTarget > 0
+                        || patternTransferIncompatible > 0 || patternTransferSourceChanged > 0
+                        ? LOGGER.atWarn() : LOGGER.atInfo();
+                report.log("Pattern migration at {}: inserted={}, alreadyPresent={}, unchanged={}, noSpace={}, "
+                                + "noTarget={}, incompatible={}, sourceChanged={}, unavailable={}",
+                        worldPosition, patternTransferInserted, patternTransferAlreadyPresent,
+                        patternTransferUnchanged, patternTransferNoSpace, patternTransferNoTarget,
+                        patternTransferIncompatible, patternTransferSourceChanged, unavailable);
+            }
         }
         patternTransferTask = null;
         patternTransferInProgress = false;

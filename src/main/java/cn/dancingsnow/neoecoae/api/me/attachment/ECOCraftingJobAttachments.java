@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.api.me.attachment;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingJobContext;
 import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingJobResult;
 import java.util.ArrayList;
@@ -43,7 +44,7 @@ public final class ECOCraftingJobAttachments {
                 entry.getValue().load(persisted.getCompound(id).copy(), registries);
                 unboundData.put(entry.getKey(), persisted.getCompound(id).copy());
             } catch (RuntimeException failure) {
-                LOGGER.error("ECO job attachment {} could not be restored; preserving raw state", id, failure);
+                if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error("ECO job attachment {} could not be restored; preserving raw state", id, failure);
                 bound.remove(entry.getKey());
                 unboundData.put(entry.getKey(), persisted.getCompound(id).copy());
             }
@@ -51,7 +52,7 @@ public final class ECOCraftingJobAttachments {
         for (String idString : persisted.getAllKeys()) {
             ResourceLocation id = ResourceLocation.tryParse(idString);
             if (id == null) {
-                LOGGER.warn("Ignoring ECO job attachment with invalid id {}", idString);
+                if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.warn("Ignoring ECO job attachment with invalid id {}", idString);
             } else if (!bound.containsKey(id)) {
                 unboundData.put(id, persisted.getCompound(idString).copy());
             }
@@ -73,7 +74,7 @@ public final class ECOCraftingJobAttachments {
                     throw new IllegalStateException("Unable to persist ECO job attachment " + entry.getKey(), failure);
                 }
                 persisted.put(entry.getKey().toString(), previous.copy());
-                LOGGER.error("ECO job attachment {} save failed; retaining its previous payload",
+                if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error("ECO job attachment {} save failed; retaining its previous payload",
                         entry.getKey(), failure);
             }
         }
@@ -90,7 +91,7 @@ public final class ECOCraftingJobAttachments {
             try {
                 attachment.clear(result);
             } catch (RuntimeException failure) {
-                LOGGER.warn("ECO job attachment {} failed to clear", attachment.id(), failure);
+                if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.warn("ECO job attachment {} failed to clear", attachment.id(), failure);
             }
         }
         reset();
@@ -107,7 +108,7 @@ public final class ECOCraftingJobAttachments {
                 bound.put(entry.getKey(), attachment);
                 unboundData.remove(entry.getKey());
             } catch (RuntimeException failure) {
-                LOGGER.error("ECO job attachment {} could not be restored", entry.getKey(), failure);
+                if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error("ECO job attachment {} could not be restored", entry.getKey(), failure);
             }
         }
     }

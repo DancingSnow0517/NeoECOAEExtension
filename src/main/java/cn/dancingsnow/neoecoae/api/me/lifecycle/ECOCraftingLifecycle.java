@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.api.me.lifecycle;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.jetbrains.annotations.ApiStatus;
@@ -47,7 +48,7 @@ public final class ECOCraftingLifecycle {
             try {
                 listener.onJobStarted(context);
             } catch (RuntimeException failure) {
-                LOGGER.warn("ECO crafting lifecycle listener failed during job start", failure);
+                if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.warn("ECO crafting lifecycle listener failed during job start", failure);
             }
         }
     }
@@ -58,7 +59,7 @@ public final class ECOCraftingLifecycle {
             try {
                 listener.onPatternDispatched(event);
             } catch (RuntimeException failure) {
-                LOGGER.warn("ECO crafting lifecycle listener failed during dispatch notification", failure);
+                if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.warn("ECO crafting lifecycle listener failed during dispatch notification", failure);
             }
         }
     }
@@ -69,7 +70,7 @@ public final class ECOCraftingLifecycle {
             try {
                 listener.onJobFinished(context, result);
             } catch (RuntimeException failure) {
-                LOGGER.warn("ECO crafting lifecycle listener failed during job finish", failure);
+                if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.warn("ECO crafting lifecycle listener failed during job finish", failure);
             }
         }
     }

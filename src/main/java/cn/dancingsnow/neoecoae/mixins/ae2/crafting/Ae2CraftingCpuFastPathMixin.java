@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.crafting;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.crafting.execution.CraftingCpuLogic;
 import appeng.crafting.execution.ExecutingCraftingJob;
@@ -47,7 +48,7 @@ public abstract class Ae2CraftingCpuFastPathMixin {
             if (job instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob access)
                 access.neoecoae$suspended(true);
             cluster.markDirty();
-            NEOECOAE_BATCH_LOG.error("Suspended native CPU after batch dispatch failure", failure);
+            if (NEConfig.ecoDispatchWatchdogDebug) NEOECOAE_BATCH_LOG.error("Suspended native CPU after batch dispatch failure", failure);
             cir.setReturnValue(0);
         }
     }

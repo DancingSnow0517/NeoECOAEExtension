@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.compat.advancedae.crafting;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
@@ -94,7 +95,7 @@ public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputRec
         } catch (RuntimeException failure) {
             if (job instanceof ECOExternalCpuJob access) access.neoecoae$suspended(true);
             cpu.markDirty();
-            NEOECOAE$LOGGER.error("Suspended AdvancedAE CPU after batch dispatch failure", failure);
+            if (NEConfig.ecoDispatchWatchdogDebug) NEOECOAE$LOGGER.error("Suspended AdvancedAE CPU after batch dispatch failure", failure);
             cir.setReturnValue(0);
         }
     }

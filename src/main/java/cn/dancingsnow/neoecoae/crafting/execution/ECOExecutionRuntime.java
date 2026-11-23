@@ -839,7 +839,7 @@ public final class ECOExecutionRuntime {
         try {
             if (!pattern.supportsPushInputsToExternalInventory()) return false;
         } catch (RuntimeException unavailable) {
-            LOGGER.debug("Pattern {} failed supportsPushInputsToExternalInventory; treating inputs as unfixed",
+            if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.debug("Pattern {} failed supportsPushInputsToExternalInventory; treating inputs as unfixed",
                 pattern.getClass().getName(), unavailable);
             return false;
         }

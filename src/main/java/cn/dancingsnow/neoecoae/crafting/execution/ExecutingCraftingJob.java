@@ -18,6 +18,7 @@
 
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import java.util.HashMap;
@@ -339,7 +340,7 @@ public class ExecutingCraftingJob extends cn.dancingsnow.neoecoae.api.me.Executi
                 return graphSnapshot;
             } catch (RuntimeException unavailable) {
                 // This optional presentation data must never prevent the executable job from recovering.
-                appeng.core.AELog.warn("Cannot restore ECO crafting graph: %s", unavailable.getMessage());
+                if (NEConfig.ecoDispatchWatchdogDebug) appeng.core.AELog.warn("Cannot restore ECO crafting graph: %s", unavailable.getMessage());
             }
         }
         if (graphPlan != null) {

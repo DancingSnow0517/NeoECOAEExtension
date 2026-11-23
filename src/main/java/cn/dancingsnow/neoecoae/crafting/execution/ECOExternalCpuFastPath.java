@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
 
 import appeng.api.config.Actionable;
@@ -102,7 +103,7 @@ public final class ECOExternalCpuFastPath {
                     markDirty.run();
                     throw failure;
                 } catch (RuntimeException rejected) {
-                    LOGGER.warn("External CPU batch rejected; resources restored", rejected);
+                    if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.warn("External CPU batch rejected; resources restored", rejected);
                     continue;
                 }
                 try {

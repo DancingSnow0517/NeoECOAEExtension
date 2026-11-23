@@ -557,11 +557,11 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             try {
                 double overflow = energyService.injectPower(charged, Actionable.MODULATE);
                 if (!Double.isFinite(overflow) || overflow > 0.01D) {
-                    LOGGER.error(
+                    if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error(
                         "ECO virtual crafting energy refund was incomplete: overflow {} of {}", overflow, charged);
                 }
             } catch (RuntimeException failure) {
-                LOGGER.error("ECO virtual crafting energy refund failed for {} energy", charged, failure);
+                if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error("ECO virtual crafting energy refund failed for {} energy", charged, failure);
             }
         }
         return false;
