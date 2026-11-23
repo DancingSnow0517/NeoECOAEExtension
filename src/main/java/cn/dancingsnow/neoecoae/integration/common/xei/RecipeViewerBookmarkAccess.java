@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.integration.xei;
+package cn.dancingsnow.neoecoae.integration.common.xei;
 
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.integration.emi.EmiBookmarkAccess;

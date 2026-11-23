@@ -22,7 +22,7 @@ import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
-import cn.dancingsnow.neoecoae.integration.xei.RecipeViewerBookmarkAccess;
+import cn.dancingsnow.neoecoae.integration.common.xei.RecipeViewerBookmarkAccess;
 import cn.dancingsnow.neoecoae.network.ECOForceCraftStartFlagC2SPacket;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.utils.ModularUITooltipComponent;
 import com.mojang.datafixers.util.Either;

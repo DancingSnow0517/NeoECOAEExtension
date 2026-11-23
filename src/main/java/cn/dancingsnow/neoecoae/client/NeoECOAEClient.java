@@ -33,7 +33,7 @@ import net.minecraftforge.client.event.ScreenEvent;
 import appeng.menu.implementations.CellWorkbenchMenu;
 import appeng.client.gui.Icon;
 import appeng.client.gui.widgets.IconButton;
-import cn.dancingsnow.neoecoae.integration.xei.RecipeViewerBookmarkAccess;
+import cn.dancingsnow.neoecoae.integration.common.xei.RecipeViewerBookmarkAccess;
 import cn.dancingsnow.neoecoae.network.ECOImportJeiBookmarksC2SPacket;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;

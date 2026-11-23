@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.jei;
 
-import cn.dancingsnow.neoecoae.integration.xei.HiddenEasterEggRecipes;
+import cn.dancingsnow.neoecoae.integration.common.xei.HiddenEasterEggRecipes;
 import mezz.jei.api.recipe.IRecipeManager;
 import mezz.jei.api.recipe.RecipeType;
 import net.minecraft.world.item.crafting.Recipe;

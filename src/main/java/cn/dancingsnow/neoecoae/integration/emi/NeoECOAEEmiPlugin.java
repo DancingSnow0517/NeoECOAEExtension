@@ -73,10 +73,10 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
             return EmiStackInteraction.EMPTY;
         });
         registry.removeRecipes(recipe -> {
-            if (cn.dancingsnow.neoecoae.integration.xei.HiddenEasterEggRecipes.isHidden(recipe.getId())) return true;
+            if (cn.dancingsnow.neoecoae.integration.common.xei.HiddenEasterEggRecipes.isHidden(recipe.getId())) return true;
             var backing = recipe.getBackingRecipe();
             return backing != null
-                && cn.dancingsnow.neoecoae.integration.xei.HiddenEasterEggRecipes.isHidden(backing.getId());
+                && cn.dancingsnow.neoecoae.integration.common.xei.HiddenEasterEggRecipes.isHidden(backing.getId());
         });
         // ECO's planner/report and graph screens draw AE keys directly on a canvas rather than in
         // vanilla slots. Expose those custom hit regions so EMI's recipe and usage actions work there.

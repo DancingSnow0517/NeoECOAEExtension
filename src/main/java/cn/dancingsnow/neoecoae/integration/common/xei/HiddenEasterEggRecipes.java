@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.integration.xei;
+package cn.dancingsnow.neoecoae.integration.common.xei;
 
 import net.minecraft.resources.ResourceLocation;
 

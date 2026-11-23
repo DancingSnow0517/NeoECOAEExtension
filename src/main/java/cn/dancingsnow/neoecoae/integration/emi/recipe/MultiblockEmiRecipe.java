@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.emi.recipe;
 
 import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
-import cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapper;
+import cn.dancingsnow.neoecoae.integration.common.xei.multiblock.MultiBlockInfoWrapper;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.RequiredItem;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.integration.xei.emi.ModularUIEMIRecipe;

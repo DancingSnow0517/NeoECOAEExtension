@@ -2,8 +2,8 @@ package cn.dancingsnow.neoecoae.integration.emi.recipe;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
-import cn.dancingsnow.neoecoae.integration.recipe.LargeWorkstationRecipeDisplay;
-import cn.dancingsnow.neoecoae.integration.recipe.WorkstationRecipeInfoLayout;
+import cn.dancingsnow.neoecoae.integration.common.xei.recipe.LargeWorkstationRecipeDisplay;
+import cn.dancingsnow.neoecoae.integration.common.xei.recipe.WorkstationRecipeInfoLayout;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;
 import appeng.api.stacks.GenericStack;
