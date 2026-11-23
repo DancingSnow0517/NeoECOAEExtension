@@ -4,7 +4,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.menu.me.common.MEStorageMenu;
-import cn.dancingsnow.neoecoae.mixins.terminalbigamount.MEStorageMenuExactAmountMixin;
+import cn.dancingsnow.neoecoae.mixins.ae2.terminalbigamount.MEStorageMenuExactAmountMixin;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import java.util.Set;

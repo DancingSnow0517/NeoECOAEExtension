@@ -14,7 +14,7 @@ import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.Ae2LtIOPortBlockEntityMixin;
 import cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.Ae2LtIOPortMenuMixin;
-import cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.ECOThunderboltMixinPlugin;
+import cn.dancingsnow.neoecoae.mixins.ECOMixinLoadConfig;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import java.io.IOException;
@@ -105,7 +105,7 @@ class ECOAe2LtIOPortTest {
     }
 
     @Test void optionalMixinsFollowPortAvailabilityWithoutLoadingTheMod() throws Exception {
-        String pluginName = ECOThunderboltMixinPlugin.class.getName();
+        String pluginName = ECOMixinLoadConfig.class.getName();
         var parent = getClass().getClassLoader();
         for (boolean available : List.of(false, true)) {
             var loader = new ClassLoader(parent) {

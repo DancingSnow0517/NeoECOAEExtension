@@ -1,10 +1,11 @@
 {
   "required": false,
   "minVersion": "0.8",
-  "package": "cn.dancingsnow.neoecoae.mixins.terminalbigamount",
+  "package": "cn.dancingsnow.neoecoae.mixins.ae2",
+  "plugin": "cn.dancingsnow.neoecoae.mixins.ECOMixinLoadConfig",
   "compatibilityLevel": "JAVA_25",
-  "mixins": ["MEStorageMenuExactAmountMixin"],
-  "client": ["client.MEStorageScreenExactAmountMixin", "client.RepoExactAmountMixin"],
+  "mixins": ["terminalbigamount.MEStorageMenuExactAmountMixin"],
+  "client": ["client.terminalbigamount.MEStorageScreenExactAmountMixin", "client.terminalbigamount.RepoExactAmountMixin"],
   "server": [],
   "injectors": { "defaultRequire": 0 },
   "mixinextras": { "minVersion": "0.5.3" }

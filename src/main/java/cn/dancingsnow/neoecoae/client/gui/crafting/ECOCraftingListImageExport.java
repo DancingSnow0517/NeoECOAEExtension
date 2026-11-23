@@ -194,7 +194,7 @@ final class ECOCraftingListImageExport {
         var result = new java.util.concurrent.CompletableFuture<NativeImage>();
         var target = new TextureTarget("ECO crafting report", WIDTH * SCALE, strip.height() * SCALE, true);
         var previousTarget = client.getMainRenderTarget();
-        var access = (cn.dancingsnow.neoecoae.mixins.client.accessor.MinecraftRenderTargetAccessor) client;
+        var access = (cn.dancingsnow.neoecoae.mixins.minecraft.client.accessor.MinecraftRenderTargetAccessor) client;
         var window = client.gameRenderer.getGameRenderState().windowRenderState;
         int width = window.width, height = window.height, scale = window.guiScale;
         var projection = RenderSystem.getProjectionMatrixBuffer();

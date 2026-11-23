@@ -18,7 +18,7 @@ class KeyReuseMixinScopeTest {
             for (var entry : config.getAsJsonArray("mixins")) {
                 String name = entry.getAsString();
                 assertTrue(name.equals("MekanismKeyReuseMixin") || name.equals("MatterKeyReuseMixin"));
-                String path = "cn/dancingsnow/neoecoae/mixins/keyreuse/" + name + ".class";
+                String path = config.get("package").getAsString().replace('.', '/') + "/" + name + ".class";
                 try (var bytecode = loader.getResourceAsStream(path)) {
                     assertNotNull(bytecode);
                     ClassNode node = new ClassNode();

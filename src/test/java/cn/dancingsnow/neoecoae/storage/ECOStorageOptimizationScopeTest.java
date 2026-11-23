@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.storage;
 
+import cn.dancingsnow.neoecoae.mixins.ECOMixinLoadConfig;
 import com.google.gson.JsonParser;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -15,7 +16,8 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Terminal/watcher sharing is global by design; FE factories and CPU return budgets remain ECO-owned. */
 class ECOStorageOptimizationScopeTest {
     @Test void internalLayoutBridgesRequireTheCheckedAe2Version() {
-        var plugin = new cn.dancingsnow.neoecoae.mixins.ae2.storage.StoragePerformanceMixinPlugin();
+        var plugin = new ECOMixinLoadConfig();
+        String checkedMixin = "cn.dancingsnow.neoecoae.mixins.ae2.storage.KeyCounterSnapshotMixin";
         try (var loading = org.mockito.Mockito.mockStatic(net.neoforged.fml.loading.LoadingModList.class)) {
             var mods = org.mockito.Mockito.mock(net.neoforged.fml.loading.LoadingModList.class);
             var ae2 = org.mockito.Mockito.mock(net.neoforged.fml.loading.moddiscovery.ModInfo.class);
@@ -23,10 +25,11 @@ class ECOStorageOptimizationScopeTest {
             org.mockito.Mockito.when(mods.getMods()).thenReturn(List.of(ae2));
             org.mockito.Mockito.when(ae2.getModId()).thenReturn("ae2");
             org.mockito.Mockito.when(ae2.getVersion()).thenReturn(new org.apache.maven.artifact.versioning.DefaultArtifactVersion("26.1.13-beta"));
-            assertTrue(plugin.shouldApplyMixin("appeng.api.stacks.KeyCounter", "example.KeyCounterSnapshotMixin"));
+            assertTrue(plugin.shouldApplyMixin("appeng.api.stacks.KeyCounter", checkedMixin));
             org.mockito.Mockito.when(ae2.getVersion()).thenReturn(new org.apache.maven.artifact.versioning.DefaultArtifactVersion("26.1.14-beta"));
-            assertFalse(plugin.shouldApplyMixin("appeng.api.stacks.KeyCounter", "example.KeyCounterSnapshotMixin"));
-            assertTrue(plugin.shouldApplyMixin("appeng.me.storage.NetworkStorage", "example.NetworkStorageMixin"));
+            assertFalse(plugin.shouldApplyMixin("appeng.api.stacks.KeyCounter", checkedMixin));
+            assertTrue(plugin.shouldApplyMixin("appeng.me.storage.NetworkStorage",
+                "cn.dancingsnow.neoecoae.mixins.ae2.storage.NetworkStorageMixin"));
         }
     }
 

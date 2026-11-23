@@ -8,13 +8,13 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.blocks.entity.LargeWorkstationPatternProvider;
-import cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.ECOThunderboltMixinPlugin;
+import cn.dancingsnow.neoecoae.mixins.ECOMixinLoadConfig;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class ECOThunderboltWorkstationBridgeTest {
     @Test void mixinFollowsThunderboltBatchApiAvailability() {
-        var plugin = new ECOThunderboltMixinPlugin();
+        var plugin = new ECOMixinLoadConfig();
         boolean available = getClass().getClassLoader().getResource(
             "com/moakiee/thunderbolt/api/crafting/batch/IBatchCraftingProvider.class") != null
             && getClass().getClassLoader().getResource(

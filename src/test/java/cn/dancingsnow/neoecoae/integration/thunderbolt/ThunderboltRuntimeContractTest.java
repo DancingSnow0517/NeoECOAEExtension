@@ -11,7 +11,7 @@ import cn.dancingsnow.neoecoae.integration.ECOPatternIntegrations;
 import cn.dancingsnow.neoecoae.integration.ae2.ECOProviderPatternIntrospection;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemanticAdapters;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
-import cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.ECOThunderboltMixinPlugin;
+import cn.dancingsnow.neoecoae.mixins.ECOMixinLoadConfig;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -83,7 +83,7 @@ class ThunderboltRuntimeContractTest {
 
     @Test void providerApiIsNotInjectedIntoNeoEcoHosts() throws Exception {
         assertTrue(batchContract().isInterface());
-        var plugin = new ECOThunderboltMixinPlugin();
+        var plugin = new ECOMixinLoadConfig();
         String prefix = "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.";
         assertFalse(plugin.shouldApplyMixin("unused", prefix + "ECOThunderboltProviderMixin"));
         assertFalse(plugin.shouldApplyMixin("unused", prefix + "ECOLegacyThunderboltBridgeMixin"));

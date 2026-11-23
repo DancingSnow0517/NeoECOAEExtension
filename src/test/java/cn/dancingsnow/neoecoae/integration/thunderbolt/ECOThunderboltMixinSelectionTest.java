@@ -4,13 +4,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.net.URL;
-import cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.ECOThunderboltMixinPlugin;
+import cn.dancingsnow.neoecoae.mixins.ECOMixinLoadConfig;
 import org.junit.jupiter.api.Test;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 
 class ECOThunderboltMixinSelectionTest {
     private static final String PACKAGE = "cn.dancingsnow.neoecoae.mixins.compat.thunderbolt.";
-    private static final String PLUGIN = PACKAGE + "ECOThunderboltMixinPlugin";
+    private static final String PLUGIN = ECOMixinLoadConfig.class.getName();
 
     @Test void oldApiIsExplicitlyUnsupported() throws Exception { check(false, true, false, false); }
     @Test void modernApiDoesNotInjectAProviderContract() throws Exception { check(true, false, false, false); }
@@ -18,7 +18,7 @@ class ECOThunderboltMixinSelectionTest {
     @Test void mixedApisDoNotInjectAProviderContract() throws Exception { check(true, true, false, false); }
 
     @Test void timeWheelCancellationBridgeRequiresAe2LightningTech() {
-        var plugin = new ECOThunderboltMixinPlugin();
+        var plugin = new ECOMixinLoadConfig();
         String mixin = PACKAGE + "Ae2LtTimeWheelCraftingCpuLogicMixin";
         assertEquals(
                 getClass().getClassLoader().getResource(
@@ -27,7 +27,7 @@ class ECOThunderboltMixinSelectionTest {
     }
 
     @Test void releasedEnginesExposeTheOptionalCaptureContract() {
-        var plugin = new ECOThunderboltMixinPlugin();
+        var plugin = new ECOMixinLoadConfig();
         String root = "com.moakiee.thunderbolt.core.crafting.planner.";
         assertTrue(plugin.shouldApplyMixin(root + "ThunderboltV2PlanningEngine", PACKAGE + "ThunderboltPlanningEngineMixin"));
         assertTrue(plugin.shouldApplyMixin(root + "CpSatPlanningEngine", PACKAGE + "ThunderboltPlanningEngineMixin"));

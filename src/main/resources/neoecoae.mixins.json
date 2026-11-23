@@ -58,23 +58,23 @@
     "minecraft.SavedDataStorageMixin"
   ],
   "client": [
-    "client.ae2.PatternAccessTermScreenMixin",
-    "client.ae2.ECOContainerSlotHitMixin",
-    "client.jei.RecipeLayoutMixin",
-    "client.jei.MultiblockRecipesGuiMixin",
-    "client.jei.RecipeLayoutBuilderMixin",
-    "client.accessor.MenuScreensAccessor",
-    "client.ae2.AEBaseScreenGrayToolbarMixin",
-    "client.ae2.CellWorkbenchScreenMixin",
-    "client.ae2.CpuSelectionListMixin",
-    "client.ae2.CpuSelectionListPagingMixin",
-    "client.ae2.CraftConfirmScreenMixin",
-    "client.ae2.CraftingCpuScreenMixin",
-    "client.ae2.CraftingStatusTableMixin",
-    "client.ae2.PatternEncodingTermScreenMixin",
-    "client.ae2.SetStockAmountScreenMixin",
-    "client.ae2.FluidHatchNumberEntryWidgetMixin",
-    "client.accessor.MinecraftRenderTargetAccessor"
+    "ae2.client.PatternAccessTermScreenMixin",
+    "ae2.client.ECOContainerSlotHitMixin",
+    "jei.client.RecipeLayoutMixin",
+    "jei.client.MultiblockRecipesGuiMixin",
+    "jei.client.RecipeLayoutBuilderMixin",
+    "minecraft.client.accessor.MenuScreensAccessor",
+    "ae2.client.AEBaseScreenGrayToolbarMixin",
+    "ae2.client.CellWorkbenchScreenMixin",
+    "ae2.client.CpuSelectionListMixin",
+    "ae2.client.CpuSelectionListPagingMixin",
+    "ae2.client.CraftConfirmScreenMixin",
+    "ae2.client.CraftingCpuScreenMixin",
+    "ae2.client.CraftingStatusTableMixin",
+    "ae2.client.PatternEncodingTermScreenMixin",
+    "ae2.client.SetStockAmountScreenMixin",
+    "ae2.client.FluidHatchNumberEntryWidgetMixin",
+    "minecraft.client.accessor.MinecraftRenderTargetAccessor"
   ],
   "server": [],
   "injectors": {
@@ -83,5 +83,5 @@
   "mixinextras": {
     "minVersion": "0.5.3"
   },
-  "plugin": "cn.dancingsnow.neoecoae.mixins.ae2.storage.StoragePerformanceMixinPlugin"
+  "plugin": "cn.dancingsnow.neoecoae.mixins.ECOMixinLoadConfig"
 }

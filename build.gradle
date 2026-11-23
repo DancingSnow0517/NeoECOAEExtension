@@ -315,7 +315,7 @@ sourceSets.main.java {
     exclude 'cn/dancingsnow/neoecoae/integration/appmek/**'
     exclude 'cn/dancingsnow/neoecoae/integration/ae2/keyreuse/ECOChemicalKeys.java'
     exclude 'cn/dancingsnow/neoecoae/integration/ae2/keyreuse/SharedChemicalKey.java'
-    exclude 'cn/dancingsnow/neoecoae/mixins/keyreuse/MekanismKeyReuseMixin.java'
+    exclude 'cn/dancingsnow/neoecoae/mixins/ae2/keyreuse/MekanismKeyReuseMixin.java'
     exclude 'cn/dancingsnow/neoecoae/integration/arsenergistique/**'
     exclude 'cn/dancingsnow/neoecoae/integration/dataenergistics/**'
     exclude 'cn/dancingsnow/neoecoae/integration/emi/**'
@@ -345,7 +345,7 @@ sourceSets.test {
         exclude 'cn/dancingsnow/neoecoae/integration/appbot/**'
         exclude 'cn/dancingsnow/neoecoae/mixins/compat/**'
         // Tests of compat mixins excluded from the main source set.
-        exclude 'cn/dancingsnow/neoecoae/compat/fluxnetworks/**'
+        exclude 'cn/dancingsnow/neoecoae/integration/fluxnetworks/**'
         exclude 'cn/dancingsnow/neoecoae/integration/thunderbolt/ECOThunderboltMixinSelectionTest.java'
         exclude 'cn/dancingsnow/neoecoae/integration/thunderbolt/ECOThunderboltWorkstationBridgeTest.java'
         exclude 'cn/dancingsnow/neoecoae/integration/thunderbolt/ThunderboltRuntimeContractTest.java'
