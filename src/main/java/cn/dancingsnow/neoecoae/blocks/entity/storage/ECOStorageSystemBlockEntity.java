@@ -662,7 +662,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         CompoundTag tag = drop.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
         saveInfiniteMembers(tag);
         tag.store(CONTROLLER_DOMAIN_TAG, net.minecraft.core.UUIDUtil.CODEC, infiniteDomainId);
+        tag.remove(CONTROLLER_CLAIM_TAG);
+        tag.remove(PENDING_CLAIM_TAG);
         if (infiniteClaimToken != null) tag.store(CONTROLLER_CLAIM_TAG, net.minecraft.core.UUIDUtil.CODEC, infiniteClaimToken);
+        if (pendingInfiniteClaimToken != null) tag.store(PENDING_CLAIM_TAG, net.minecraft.core.UUIDUtil.CODEC, pendingInfiniteClaimToken);
         tag.putString(CONTROLLER_MODE_TAG, hostMode.id());
         drop.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
     }
@@ -676,7 +679,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         loadInfiniteMembers(tag);
         setInfiniteDomainId(tag.read(CONTROLLER_DOMAIN_TAG, net.minecraft.core.UUIDUtil.CODEC).orElseThrow());
         infiniteClaimToken = tag.read(CONTROLLER_CLAIM_TAG, net.minecraft.core.UUIDUtil.CODEC).orElse(null);
-        pendingInfiniteClaimToken = UUID.randomUUID();
+        pendingInfiniteClaimToken = tag.read(PENDING_CLAIM_TAG, net.minecraft.core.UUIDUtil.CODEC).orElseGet(UUID::randomUUID);
         infiniteModeController.resetClaim();
         setStorageHostMode(ECOStorageHostMode.fromId(tag.getStringOr(CONTROLLER_MODE_TAG, "")));
         setChanged();
@@ -728,6 +731,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             setChanged();
         }
         infiniteMembersDirty = false;
+        infiniteModeController.membersChanged();
     }
 
     public void refreshBulkCraftingPublication() {
@@ -782,7 +786,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         }
         int absent = hostMode == ECOStorageHostMode.FORMED_INFINITE || hostMode == ECOStorageHostMode.RESTORING_TO_NORMAL
                 ? Math.max(0, ECOInfiniteStorageModeController.MINIMUM_MIGRATION_SOURCES - present) : 0;
-        return missing.size() + invalidInfiniteMemberIds.size() + invalidInfiniteMigrationSourceIds.size() + absent;
+        return Math.max(missing.size(), absent) + invalidInfiniteMemberIds.size() + invalidInfiniteMigrationSourceIds.size();
     }
 
     boolean hasInvalidInfiniteMembers() {

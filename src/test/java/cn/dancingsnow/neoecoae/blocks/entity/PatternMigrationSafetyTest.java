@@ -19,6 +19,7 @@ import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.api.PatternStorageHost;
 import cn.dancingsnow.neoecoae.grid.PatternCatalog;
 import cn.dancingsnow.neoecoae.grid.PatternMigrationCoordinator;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.util.InventoryTestBootstrap;
 import java.lang.reflect.Field;
 import java.util.Arrays;
@@ -97,23 +98,27 @@ class PatternMigrationSafetyTest {
         var f = new Fixture();
         var source = f.host(3);
         source.items[0] = pattern(0);
-        source.items[1] = pattern(0);
+        var target = f.host(3);
+        target.items[1] = pattern(0);
         f.register(source);
+        f.register(target);
 
         assertEquals(ECOPatternInsertionResult.ALREADY_PRESENT,
-                f.route(source, source.host).result());
-        verify(source.host, never()).insertPreparedPatternKnownUnique(any());
+                f.route(source, target.host).result());
+        verify(target.host, never()).insertPreparedPatternKnownUnique(any());
     }
 
     @Test void auxiliaryCopyStillCountsAsADuplicateWhenThePhysicalSourceIsExcluded() {
         var f = new Fixture();
         var source = f.host(2);
         source.items[0] = pattern(0);
-        when(source.host.getAuxiliaryEncodedPatterns()).thenReturn(List.of(pattern(0)));
+        var target = f.host(2);
+        when(target.host.getAuxiliaryEncodedPatterns()).thenReturn(List.of(pattern(0)));
         f.register(source);
+        f.register(target);
 
         assertEquals(ECOPatternInsertionResult.ALREADY_PRESENT,
-                f.route(source, source.host).result());
+                f.route(source, target.host).result());
     }
 
     @Test void duplicateInAnotherDomainDoesNotBlockAUniqueDestination() {
@@ -290,6 +295,9 @@ class PatternMigrationSafetyTest {
             when(node.getGrid()).thenReturn(grid);
             field(machine, "formed", true);
             field(machine, "level", mock(ServerLevel.class));
+            var cluster = mock(NECraftingCluster.class);
+            when(cluster.getPatternDomain()).thenReturn(domain);
+            field(machine, "cluster", cluster);
             Class<?> taskClass = Arrays.stream(ECOMachineInterfaceBlockEntity.class.getDeclaredClasses())
                     .filter(type -> type.getSimpleName().equals("PatternTransferTask")).findFirst().orElseThrow();
             var constructor = taskClass.getDeclaredConstructors()[0];
@@ -297,14 +305,20 @@ class PatternMigrationSafetyTest {
             var task = constructor.newInstance(machine, grid, catalog, catalog, domain);
             field(machine, "patternTransferTask", task);
             assertTrue(PatternMigrationCoordinator.forGrid(grid).tryAcquire(machine));
+            tick(machine, Long.MIN_VALUE);
+            finishIndex();
             return machine;
         }
 
         void tick(ECOMachineInterfaceBlockEntity<?> machine) throws Exception {
+            tick(machine, Long.MAX_VALUE);
+        }
+
+        void tick(ECOMachineInterfaceBlockEntity<?> machine, long deadline) throws Exception {
             var method = ECOMachineInterfaceBlockEntity.class.getDeclaredMethod(
                     "tickPatternTransfer", ServerLevel.class, long.class);
             method.setAccessible(true);
-            method.invoke(machine, field(machine, "level"), Long.MAX_VALUE);
+            method.invoke(machine, field(machine, "level"), deadline);
         }
     }
 

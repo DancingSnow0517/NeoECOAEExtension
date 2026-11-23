@@ -85,10 +85,11 @@ class ECOInfiniteStorageMigrationControllerTest {
         var entity = mock(ECODriveBlockEntity.class);
         when(entity.getBlockPos()).thenReturn(new BlockPos(x, 0, 0));
         when(entity.getCellStack()).thenReturn(stack);
+        when(entity.isInstalledStorageAvailable()).thenReturn(true);
         when(entity.getCellInventory()).thenReturn(cell);
         when(entity.getMainNode()).thenReturn(mock(IManagedGridNode.class));
         doAnswer(call -> {
-            ECOInfiniteStorageMember.markMember(stack, domain);
+            ECOInfiniteStorageMember.markAnonymous(stack);
             completions.add("x" + x);
             return null;
         }).when(entity).convertCellToInfiniteMember(domain);
@@ -117,6 +118,7 @@ class ECOInfiniteStorageMigrationControllerTest {
         field(host, "stageRunner", new ECOStorageStageRunner(host));
         doReturn(Blocks.STONE.defaultBlockState()).when(host).getBlockState();
         doReturn(false).when(host).isStorageServerStopping();
+        doReturn(true).when(host).hasRequiredInfiniteComponents();
         doNothing().when(host).setChanged();
         doNothing().when(host).markForUpdate();
         doNothing().when(host).invalidateStorageStatistics();
@@ -173,11 +175,20 @@ class ECOInfiniteStorageMigrationControllerTest {
         var tick = new AtomicLong(1);
         var target = drive(domain, 0, 0, 0);
         ECOInfiniteStorageMember.markMember(target.stack(), domain);
-        var host = host(domain, tick, List.of(target));
+        var targets = new ArrayList<Drive>();
+        targets.add(target);
+        for (int slot = 1; slot < ECOInfiniteStorageModeController.MINIMUM_MIGRATION_SOURCES; slot++) {
+            var member = drive(domain, slot, 0, 0);
+            ECOInfiniteStorageMember.markMember(member.stack(), domain);
+            targets.add(member);
+        }
+        var host = host(domain, tick, targets);
         field(host, "hostMode", ECOStorageHostMode.RESTORING_TO_NORMAL);
         doNothing().when(host).refreshInfiniteStorageAccess();
         doNothing().when(host).exitInfiniteModeIfSafe();
-        when(host.getLevel().getBlockEntity(target.entity().getBlockPos())).thenReturn(target.entity());
+        for (var member : targets) {
+            when(host.getLevel().getBlockEntity(member.entity().getBlockPos())).thenReturn(member.entity());
+        }
         var engine = memoryEngine();
         var key = key(1);
         engine.insert(key, 10, appeng.api.config.Actionable.MODULATE);
@@ -298,7 +309,7 @@ class ECOInfiniteStorageMigrationControllerTest {
         assertEquals(0D, progress.getFirst(), 1e-9);
         assertEquals((1 + 1.0D / 5) / 3, progress.get(1), 1e-9);
         assertTrue(host.storageFaults().snapshot().isEmpty());
-        for (Drive drive : List.of(a, b, c)) assertTrue(ECOInfiniteStorageMember.isMemberOf(drive.stack(), domain));
+        for (Drive drive : List.of(a, b, c)) assertTrue(ECOInfiniteStorageMember.isAnonymous(drive.stack()));
     }
 
     @Test void blockedDomainIsReportedWithoutCooldownAndRecoversWhenTheDomainDoes() throws Exception {

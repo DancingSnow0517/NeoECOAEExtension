@@ -62,13 +62,31 @@ class ECOInfiniteStorageAccessTest {
         field(host, "invalidInfiniteMemberIds", new net.minecraft.nbt.ListTag());
         field(host, "invalidInfiniteMigrationSourceIds", new net.minecraft.nbt.ListTag());
         field(host, "infiniteMembersDirty", true);
+        var cluster = mock(NEStorageCluster.class);
+        var drives = anonymousDrives(ECOInfiniteStorageModeController.MINIMUM_MIGRATION_SOURCES);
+        when(cluster.getDrives()).thenReturn(drives);
+        field(host, "cluster", cluster);
         doReturn(Blocks.STONE.defaultBlockState()).when(host).getBlockState();
+        doReturn(true).when(host).hasRequiredInfiniteComponents();
         doReturn(false).when(host).isStorageServerStopping();
         doNothing().when(host).setChanged();
         doNothing().when(host).markForUpdate();
         doNothing().when(host).invalidateStorageStatistics();
         doNothing().when(host).refreshDriveStorageProviders();
         return host;
+    }
+
+    private static List<ECODriveBlockEntity> anonymousDrives(int count) {
+        var drives = new ArrayList<ECODriveBlockEntity>();
+        for (int slot = 0; slot < count; slot++) {
+            var drive = mock(ECODriveBlockEntity.class);
+            var matrix = new ItemStack(Items.DIAMOND);
+            ECOInfiniteStorageMember.markAnonymous(matrix);
+            when(drive.getCellStack()).thenReturn(matrix);
+            when(drive.isInstalledStorageAvailable()).thenReturn(true);
+            drives.add(drive);
+        }
+        return drives;
     }
 
     private static ECOInfiniteStorageModeController controller(ECOStorageSystemBlockEntity host) throws Exception {
@@ -142,6 +160,7 @@ class ECOInfiniteStorageAccessTest {
         for (int i = 0; i < 13; i++) {
             var drive = mock(ECODriveBlockEntity.class, CALLS_REAL_METHODS);
             field(drive, "cluster", cluster);
+            doReturn(true).when(drive).isInstalledStorageAvailable();
             doReturn(mock(IManagedGridNode.class)).when(drive).getMainNode();
             doReturn(true).when(drive).isItemValid(any());
             doNothing().when(drive).setChanged();
@@ -229,14 +248,19 @@ class ECOInfiniteStorageAccessTest {
         ECOInfiniteStorageMember.markMember(member, host.infiniteDomainId());
         var memberDrive = mock(ECODriveBlockEntity.class);
         when(memberDrive.getCellStack()).thenReturn(member);
+        when(memberDrive.isInstalledStorageAvailable()).thenReturn(true);
         var specialDrive = mock(ECODriveBlockEntity.class, CALLS_REAL_METHODS);
         field(specialDrive, "cluster", cluster);
         field(specialDrive, "cellStack", new ItemStack(Items.DIRT));
         doNothing().when(specialDrive).setChanged();
+        doReturn(true).when(specialDrive).isInstalledStorageAvailable();
         var special = mock(IECOStorageCell.class);
         doReturn(special).when(specialDrive).getCellInventory();
         when(special.getTier()).thenReturn(tier);
-        when(cluster.getDrives()).thenReturn(List.of(memberDrive, specialDrive));
+        var drives = anonymousDrives(ECOInfiniteStorageModeController.MINIMUM_MIGRATION_SOURCES - 1);
+        drives.add(memberDrive);
+        drives.add(specialDrive);
+        when(cluster.getDrives()).thenReturn(drives);
         host.rememberInfiniteMembers();
         var engine = new SavedDataInfiniteStorageEngine(ECOInfiniteStorageData.createNew());
         field(controller(host), "mountedEngine", engine);

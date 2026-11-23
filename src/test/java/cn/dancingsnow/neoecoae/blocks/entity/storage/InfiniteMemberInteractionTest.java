@@ -97,6 +97,27 @@ class InfiniteMemberInteractionTest {
     }
 
     @Test
+    void controllerPickupRetainsBothTokensOfAnUnfinishedClaim() throws Exception {
+        var domain = UUID.randomUUID();
+        var current = UUID.randomUUID();
+        var pending = UUID.randomUUID();
+        var original = host(domain);
+        var formed = cn.dancingsnow.neoecoae.storage.infinite.ECOStorageHostMode.FORMED_INFINITE;
+        field(original, "hostMode", formed);
+        original.setInfiniteClaimTokens(current, pending);
+        var item = new ItemStack(Items.DIRT);
+        original.applyInfiniteDomainToControllerDrop(item);
+
+        var placed = host(domain);
+        field(placed, "hostMode", formed);
+        field(placed, "infiniteModeController", mock(ECOInfiniteStorageModeController.class));
+        placed.restoreInfiniteDomainFromItem(item);
+
+        assertEquals(current, placed.infiniteClaimToken());
+        assertEquals(pending, placed.pendingInfiniteClaimToken());
+    }
+
+    @Test
     void missingIdentitySurvivesControllerPickupAndReturnsInAnotherSlot() throws Exception {
         UUID domain = UUID.randomUUID();
         var host = host(domain);
@@ -114,6 +135,7 @@ class InfiniteMemberInteractionTest {
         load.invoke(restored, controller.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA).copyTag());
         assertEquals(1, restored.getMissingInfiniteMembers());
         var drive = mock(ECODriveBlockEntity.class);
+        when(drive.isInstalledStorageAvailable()).thenReturn(true);
         when(drive.getCellStack()).thenReturn(member);
         var cluster = mock(NEStorageCluster.class);
         when(cluster.getDrives()).thenReturn(List.of(drive));
@@ -142,6 +164,7 @@ class InfiniteMemberInteractionTest {
         var cell = mock(IECOStorageCell.class);
         when(host.getCluster()).thenReturn(cluster);
         when(cluster.getDrives()).thenReturn(List.of(drive));
+        when(drive.isInstalledStorageAvailable()).thenReturn(true);
         when(drive.getCellInventory()).thenReturn(cell);
         when(cell.getTier()).thenReturn(tier);
         when(host.getBlockState()).thenReturn(net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
