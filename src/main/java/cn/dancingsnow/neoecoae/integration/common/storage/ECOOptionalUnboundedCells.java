@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.integration.storage;
+package cn.dancingsnow.neoecoae.integration.common.storage;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.cells.StorageCell;

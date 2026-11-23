@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.integration.ae2lt;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGrid;
 import appeng.api.stacks.KeyCounter;
-import cn.dancingsnow.neoecoae.integration.processing.ProcessingReflection;
+import cn.dancingsnow.neoecoae.integration.common.processing.ProcessingReflection;
 import cn.dancingsnow.neoecoae.integration.thunderbolt.ThunderboltApi;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission;
 import java.lang.reflect.Method;
