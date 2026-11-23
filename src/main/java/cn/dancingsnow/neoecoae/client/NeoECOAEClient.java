@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.api.ECOComputationModels;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
 import cn.dancingsnow.neoecoae.client.all.NEExtraModels;
 import cn.dancingsnow.neoecoae.client.gui.ECOModularContainerScreen;
+import cn.dancingsnow.neoecoae.client.gui.crafting.CraftingPatternScreen;
 import cn.dancingsnow.neoecoae.client.gui.crafting.ECOCraftConfirmScreenIntegration;
 import cn.dancingsnow.neoecoae.client.gui.workstation.LargeIntegratedWorkingStationPatternProviderScreen;
 import cn.dancingsnow.neoecoae.client.rendering.FixedBlockEntityRenderers;
@@ -143,6 +144,7 @@ public class NeoECOAEClient {
     @SubscribeEvent
     public static void onRegisterMenuScreens(RegisterMenuScreensEvent event) {
         event.register(NEMenus.HOST_DISK.get(), ECOModularContainerScreen::new);
+        event.register(NEMenus.CRAFTING_PATTERNS.get(), CraftingPatternScreen::new);
         InitScreens.register(
             event,
             LargeIntegratedWorkingStationPatternProviderMenu.TYPE,

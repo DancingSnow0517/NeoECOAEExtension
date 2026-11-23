@@ -33,7 +33,7 @@ import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
 import cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode;
 import cn.dancingsnow.neoecoae.storage.StorageInterfaceFilter;
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.gui.crafting.CraftingInterfaceUI;
+import cn.dancingsnow.neoecoae.gui.crafting.CraftingPatternMenu;
 import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewEntry;
 import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewSync;
 import cn.dancingsnow.neoecoae.util.PatternSearchKeywords;
@@ -55,7 +55,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -85,7 +84,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private static final int PATTERN_TRANSFER_SAFETY_LIMIT_PER_TICK = 256;
     private static final int PATTERN_ORGANIZE_SAFETY_LIMIT_PER_TICK = 256;
     public static final int FUZZY_PLANNING_SLOT_COUNT = 63;
-    public static final int PATTERN_INTERFACE_VISIBLE_SLOTS = 54;
     private static final String PATTERN_BUS_POSITIONS_SYNC_KEY = "patternBusPositions";
     private static final String PATTERN_BUS_SLOT_COUNTS_SYNC_KEY = "patternBusSlotCounts";
 
@@ -532,100 +530,52 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         patternPreviewSync.open(player, menuId, payload.getInt("revision"), payload.getLong("epoch"));
     }
 
-    /** Resolve physical identity only when acting; browsing never modifies server state. */
     @RPCMethod
-    public void actOnPatternPreview(RPCSender sender, CompoundTag payload) {
-        if (sender.isServer() || !(level instanceof ServerLevel) || !formed
-                || !(supportsCraftingInterfaceUi() || supportsIntegratedWorkingStationInterfaceUi()) || isPatternMutationLocked() || payload == null) return;
+    public void openPatternWindow(RPCSender sender, CompoundTag payload) {
+        if (sender.isServer() || payload == null || !formed) return;
         ServerPlayer player = sender.asPlayer();
-        if (player == null || !patternPreviewSync.isViewer(player)
-                || payload.getInt("menu") != player.containerMenu.containerId) return;
-        ensurePatternInterfaceMapping();
-        if (payload.getInt("revision") < 0) return;
-        long busPosition = payload.getLong("bus");
-        int physicalSlot = payload.getInt("slot");
-        PatternSlotRef target = resolvePatternSlot(busPosition, physicalSlot);
-        if (target == null || target.bus().isRemoved() || target.bus().getGrid() != getMainNode().getGrid()) return;
-        InternalInventory inventory = target.bus().getPatternSlotInventory();
-        if (physicalSlot < 0 || physicalSlot >= inventory.size()) return;
-        ItemStack existing = inventory.getStackInSlot(physicalSlot);
-        if (target.bus().ownsAuxiliary(existing) || !payload.contains("stack", Tag.TAG_COMPOUND)) return;
-        // Unrelated automation must not invalidate a click or force a full catalogue resend.
-        ItemStack expectedTarget = ItemStack.parseOptional(level.registryAccess(), payload.getCompound("stack"));
-        if (!ItemStack.matches(existing, expectedTarget)) return;
-        ItemStack carried = player.containerMenu.getCarried();
-        int action = payload.getInt("action");
-        int button = payload.getInt("button");
-        if (button < 0 || button > 1) return;
-        if (action == 2) {
-            int sourceSlot = payload.getInt("sourceSlot");
-            if (sourceSlot < 0 || sourceSlot >= 36 || !carried.isEmpty()) return;
-            ItemStack source = player.getInventory().getItem(sourceSlot);
-            ItemStack expected = ItemStack.parseOptional(level.registryAccess(), payload.getCompound("sourceStack"));
-            if (source.isEmpty() || !ItemStack.matches(source, expected) || !existing.isEmpty()
-                    || !inventory.isItemValid(physicalSlot, source) || hasDuplicatePattern(target, source)) return;
-            ItemStack remainder = inventory.insertItem(physicalSlot, source.copy(), false);
-            player.getInventory().setItem(sourceSlot, remainder);
-        } else if (action == 1) {
-            ItemStack available = inventory.extractItem(physicalSlot, Integer.MAX_VALUE, true);
-            if (!available.isEmpty() && canStoreInPlayerInventory(player, available)) {
-                ItemStack extracted = inventory.extractItem(physicalSlot, available.getCount(), false);
-                player.getInventory().add(extracted);
-                if (!extracted.isEmpty()) player.drop(extracted, false);
-            }
-        } else if (action == 0) {
-            if (carried.isEmpty()) {
-                int amount = button == 1 ? (existing.getCount() + 1) / 2 : existing.getCount();
-                player.containerMenu.setCarried(inventory.extractItem(physicalSlot, amount, false));
-            } else if (existing.isEmpty() || ItemStack.isSameItemSameComponents(existing, carried)) {
-                if (inventory.isItemValid(physicalSlot, carried) && !hasDuplicatePattern(target, carried)) {
-                    int amount = button == 1 ? 1 : carried.getCount();
-                    ItemStack remainder = inventory.insertItem(physicalSlot, carried.copyWithCount(amount), false);
-                    carried.shrink(amount - remainder.getCount());
-                    player.containerMenu.setCarried(carried);
-                }
-            } else if (inventory.isItemValid(physicalSlot, carried) && !hasDuplicatePattern(target, carried)
-                    && carried.getCount() <= Math.min(inventory.getSlotLimit(physicalSlot), carried.getMaxStackSize())) {
-                ItemStack removed = existing.copy();
-                inventory.setItemDirect(physicalSlot, carried.copy());
-                player.containerMenu.setCarried(removed);
-            }
+        if (player == null || !(player.containerMenu instanceof CraftingPatternMenu menu)
+                || menu.containerId != payload.getInt("menu") || !patternPreviewSync.isViewer(player)) return;
+        long[] buses = payload.getLongArray("buses");
+        int[] physicalSlots = payload.getIntArray("slots");
+        if (buses.length != physicalSlots.length || buses.length > CraftingPatternMenu.MAX_WINDOW_SLOTS) return;
+        var window = new ArrayList<CraftingPatternMenu.Address>(buses.length);
+        for (int index = 0; index < buses.length; index++) {
+            window.add(new CraftingPatternMenu.Address(buses[index], physicalSlots[index]));
         }
-        player.containerMenu.broadcastChanges();
+        menu.openWindow(player, this, window);
     }
 
-    /** Validates every drag target against the stack actually shown when the gesture began. */
     @RPCMethod
-    public void quickMovePatternPreview(RPCSender sender, CompoundTag payload) {
-        if (sender.isServer() || !(level instanceof ServerLevel) || !formed
-                || !(supportsCraftingInterfaceUi() || supportsIntegratedWorkingStationInterfaceUi()) || isPatternMutationLocked() || payload == null) return;
-        ServerPlayer player = sender.asPlayer();
-        if (player == null || !patternPreviewSync.isViewer(player)
-                || payload.getInt("menu") != player.containerMenu.containerId) return;
-        ensurePatternInterfaceMapping();
-        if (payload.getInt("revision") < 0) return;
-        ListTag targets = payload.getList("targets", Tag.TAG_COMPOUND);
-        int targetCount = Math.min(targets.size(), PATTERN_INTERFACE_VISIBLE_SLOTS);
-        for (int index = 0; index < targetCount; index++) {
-            CompoundTag targetTag = targets.getCompound(index);
-            int physicalSlot = targetTag.getInt("slot");
-            PatternSlotRef target = resolvePatternSlot(targetTag.getLong("bus"), physicalSlot);
-            if (target == null || target.bus().isRemoved() || target.bus().getGrid() != getMainNode().getGrid()) {
-                continue;
-            }
-            InternalInventory inventory = target.bus().getPatternSlotInventory();
-            if (physicalSlot < 0 || physicalSlot >= inventory.size()) continue;
-            ItemStack existing = inventory.getStackInSlot(physicalSlot);
-            if (target.bus().ownsAuxiliary(existing)) continue;
-            ItemStack expected = ItemStack.parseOptional(level.registryAccess(), targetTag.getCompound("stack"));
-            if (existing.isEmpty() || !ItemStack.matches(existing, expected)) continue;
-            ItemStack available = inventory.extractItem(physicalSlot, Integer.MAX_VALUE, true);
-            if (available.isEmpty() || !canStoreInPlayerInventory(player, available)) continue;
-            ItemStack extracted = inventory.extractItem(physicalSlot, available.getCount(), false);
-            player.getInventory().add(extracted);
-            if (!extracted.isEmpty()) player.drop(extracted, false);
+    public void insertCarriedPattern(RPCSender sender, int menuId, boolean single) {
+        if (!sender.isServer() && sender.asPlayer() instanceof ServerPlayer player
+                && player.containerMenu instanceof CraftingPatternMenu menu && menu.containerId == menuId
+                && patternPreviewSync.isViewer(player)) {
+            menu.insertCarriedPattern(player, this, single);
         }
-        player.containerMenu.broadcastChanges();
+    }
+
+    public @Nullable ECOCraftingPatternBusBlockEntity resolvePatternMenuBus(CraftingPatternMenu.Address address) {
+        if (!formed || !supportsCraftingInterfaceUi()) return null;
+        ensurePatternInterfaceMapping();
+        PatternSlotRef target = resolvePatternSlot(address.busPosition(), address.physicalSlot());
+        return target != null && isPatternMenuTarget(target) ? target.bus() : null;
+    }
+
+    private boolean isPatternMenuTarget(PatternSlotRef target) {
+        return getMainNode().getGrid() != null && !target.bus().isRemoved()
+                && target.bus().getGrid() == getMainNode().getGrid() && mayMapPatternBus(target.bus())
+                && target.slot() < target.bus().getPatternSlotInventory().size();
+    }
+
+    public boolean mayUsePatternMenuSlot(ECOCraftingPatternBusBlockEntity bus, int physicalSlot) {
+        return !isPatternMutationLocked()
+                && resolvePatternMenuBus(new CraftingPatternMenu.Address(bus.getBlockPos().asLong(), physicalSlot)) == bus
+                && !bus.ownsAuxiliary(bus.getPatternSlotInventory().getStackInSlot(physicalSlot));
+    }
+
+    public boolean mayPlacePatternMenuStack(ECOCraftingPatternBusBlockEntity bus, int physicalSlot, ItemStack stack) {
+        return !hasDuplicatePattern(new PatternSlotRef(bus, physicalSlot), stack);
     }
 
     @Nullable
@@ -926,11 +876,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             return;
         }
         for (ServerPlayer player : serverLevel.players()) {
-            if (!(player.containerMenu instanceof ModularUIContainerMenu menu)
-                    || !(menu.uiHolder instanceof BlockUIMenuType.BlockUIHolder holder)
-                    || !holder.pos.equals(worldPosition)) {
-                continue;
-            }
+            boolean openHere = player.containerMenu instanceof ModularUIContainerMenu menu
+                    && menu.uiHolder instanceof BlockUIMenuType.BlockUIHolder holder && holder.pos.equals(worldPosition);
+            if (player.containerMenu instanceof CraftingPatternMenu menu && menu.isFor(this)) openHere = true;
+            if (!openHere) continue;
             player.closeContainer();
             patternPreviewSync.resend(player);
         }
@@ -1023,57 +972,21 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         patternOrganizeTotalSlots = patternOrganizeTask.totalSlots();
     }
 
-    /** Validates the player-inventory quick-move fallback for clients without a normal menu click. */
-    @RPCMethod
-    public void insertPatternFromPlayer(RPCSender sender, int inventorySlot) {
-        if (sender.isServer() || !(level instanceof ServerLevel serverLevel)
-                || inventorySlot < 0 || inventorySlot >= 36 || !formed || !(supportsCraftingInterfaceUi() || supportsIntegratedWorkingStationInterfaceUi())) {
-            return;
-        }
-        ServerPlayer player = sender.asPlayer();
-        if (!isPatternInterfacePlayer(player, serverLevel)) {
-            return;
-        }
-        tryInsertPatternFromPlayer(player, inventorySlot);
-    }
-
-    /** Server-authoritative single-slot quick move shared by RPC and menu integrations. */
-    public boolean tryInsertPatternFromPlayer(ServerPlayer player, int inventorySlot) {
-        if (player == null || inventorySlot < 0 || inventorySlot >= 36 || level == null || level.isClientSide
-                || !formed || !(supportsCraftingInterfaceUi() || supportsIntegratedWorkingStationInterfaceUi()) || isPatternMutationLocked()
-                || !isPatternInterfacePlayer(player, (ServerLevel) level)) {
-            return false;
-        }
-        ItemStack source = player.getInventory().getItem(inventorySlot);
-        if (source.isEmpty()) {
-            return false;
-        }
-        // A pattern disk is not an encoded pattern, which is why the pattern test cannot be a precondition
-        // here: a bus holds one in the same slot, and its own screen accepts it. So neither kind gates the
-        // search - every slot below asks its own bus whether it takes this stack, and a stack no bus takes
-        // finds no slot.
+    public ItemStack insertPatternFromMenu(ItemStack source) {
+        if (source.isEmpty() || !(level instanceof ServerLevel) || !formed || !supportsCraftingInterfaceUi()
+                || isPatternMutationLocked()) return source;
         boolean encodedPattern = PatternDetailsHelper.isEncodedPattern(source)
                 && PatternDetailsHelper.decodePattern(source, level) instanceof IMolecularAssemblerSupportedPattern;
         ensurePatternInterfaceMapping();
-        for (int slot = 0; slot < patternSlotRefs.size(); slot++) {
-            PatternSlotRef ref = patternSlotRefs.get(slot);
-            if (!encodedPattern && !ref.bus().ownsAuxiliary(source)) {
-                continue;
-            }
-            if (!getPatternStack(slot).isEmpty() || hasDuplicatePattern(ref, source)) {
-                continue;
-            }
-            InternalInventory target = ref.bus().getPatternSlotInventory();
-            if (!target.isItemValid(ref.slot(), source)) {
-                continue;
-            }
-            ItemStack remainder = target.insertItem(ref.slot(), source.copy(), false);
-            if (remainder.getCount() < source.getCount()) {
-                player.getInventory().setItem(inventorySlot, remainder);
-                return true;
-            }
+        for (PatternSlotRef target : patternSlotRefs) {
+            if ((!encodedPattern && !target.bus().ownsAuxiliary(source)) || !isPatternMenuTarget(target)) continue;
+            InternalInventory inventory = target.bus().getPatternSlotInventory();
+            if (!inventory.getStackInSlot(target.slot()).isEmpty() || !inventory.isItemValid(target.slot(), source)) continue;
+            if (hasDuplicatePattern(target, source)) return source;
+            ItemStack remaining = inventory.insertItem(target.slot(), source, false);
+            if (remaining.getCount() < source.getCount()) return remaining;
         }
-        return false;
+        return source;
     }
 
     /**
@@ -1883,9 +1796,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             // The large workstation interface uses the copied AE2/ExtendedAE menu opened
             // from useWithoutItem. It must never fall back to the old LDLib2 panel.
             return null;
-        }
-        if (supportsCraftingInterfaceUi()) {
-            return CraftingInterfaceUI.create(this, holder.player);
         }
         if (supportsComputationInterfaceUi()) {
             return ComputationInterfaceUI.create((ECOMachineInterfaceBlockEntity<NEComputationCluster>) this, holder.player);

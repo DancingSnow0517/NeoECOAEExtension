@@ -37,12 +37,9 @@ import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathEx
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathRecipe;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedVirtualExecution;
 import cn.dancingsnow.neoecoae.crafting.planner.growth.NetGrowthPatternValidationRegistry;
-import cn.dancingsnow.neoecoae.gui.crafting.CraftingPatternBusUI;
 import cn.dancingsnow.neoecoae.integration.ae2pattern.PatternDiskSupport;
 import cn.dancingsnow.neoecoae.util.PatternSearchKeywords;
 import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.LazyManaged;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
@@ -98,7 +95,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
     // Inventory callbacks save changes; polling would re-encode every pattern on LDLib's async thread each period.
     private final AppEngInternalInventory inventory;
     private final InternalInventory effectiveInventory = new EffectivePatternInventory();
-    private final IItemHandlerModifiable pageItemHandler = new PagedPatternItemHandler();
     private final ECOCraftingPatternBusCatalog catalog;
     private final ECOCraftingPatternBusDispatcher dispatcher;
     private static final int EXTERNAL_NONCE_HISTORY = 1024;
@@ -956,12 +952,6 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
             .forEach(drops::add);
     }
 
-    public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        return CraftingPatternBusUI.create(new CraftingPatternBusUI.Config(
-            () -> cn.dancingsnow.neoecoae.gui.GuiTitleProvider.title(getBlockState(),
-                Component.translatable("block.neoecoae.crafting_pattern_bus")),
-            pageItemHandler, this::getPageCount, this::visiblePage, this::changePage), holder.player);
-    }
 
     public int getPageCount() {
         // catalog 在构造器体里才赋值，而本方法会被构造期路径间接触发（字段初始化器算 getPatternSlotCount），
@@ -979,29 +969,12 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return activePages;
     }
 
-    /**
-     * The page the UI is on, clamped to the pages that currently exist.
-     *
-     * <p>Slot lookups and the paging buttons both go through this, so a visible index always resolves to the
-     * same physical slot on either side.</p>
-     */
-    private int visiblePage() {
+    public int getInitialMenuPage() {
         return Math.clamp(currentPage, 0, getPageCount() - 1);
     }
 
     public int getPatternSlotCount() {
         return getPageCount() * SLOTS_PER_PAGE;
-    }
-
-    private void changePage(int targetPage) {
-        int pageCount = getPageCount();
-        int clamped = Math.clamp(targetPage, 0, pageCount - 1);
-        if (clamped == visiblePage()) {
-            return;
-        }
-        currentPage = clamped;
-        setChanged();
-        markForUpdate();
     }
 
     private static int clampPages(int pages) {
@@ -1216,71 +1189,5 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         }
     }
 
-    private final class PagedPatternItemHandler implements IItemHandlerModifiable {
-        @Override
-        public int getSlots() {
-            return SLOTS_PER_PAGE;
-        }
-
-        @Override
-        public ItemStack getStackInSlot(int slot) {
-            int actualSlot = toActualSlot(slot);
-            return actualSlot >= 0 ? inventory.getStackInSlot(actualSlot) : ItemStack.EMPTY;
-        }
-
-        @Override
-        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            int actualSlot = toActualSlot(slot);
-            return actualSlot >= 0 ? itemHandler.insertItem(actualSlot, stack, simulate) : stack;
-        }
-
-        @Override
-        public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            int actualSlot = toActualSlot(slot);
-            return actualSlot >= 0 ? itemHandler.extractItem(actualSlot, amount, simulate) : ItemStack.EMPTY;
-        }
-
-        @Override
-        public int getSlotLimit(int slot) {
-            int actualSlot = toActualSlot(slot);
-            return actualSlot >= 0 ? itemHandler.getSlotLimit(actualSlot) : 0;
-        }
-
-        @Override
-        public boolean isItemValid(int slot, ItemStack stack) {
-            int actualSlot = toActualSlot(slot);
-            return actualSlot >= 0 && itemHandler.isItemValid(actualSlot, stack);
-        }
-
-        @Override
-        public void setStackInSlot(int slot, ItemStack stack) {
-            int actualSlot = toActualSlot(slot);
-            if (actualSlot < 0) {
-                // Refusing silently would drop the write while the caller believes it succeeded, which
-                // is how a pattern disk can end up duplicated into the player inventory while staying in
-                // the bus. Out-of-range visible slots are a caller bug, so say so instead of swallowing it.
-                LOGGER.warn("[PatternBus] at {} refused a write to out-of-range pattern slot {}", worldPosition, slot);
-                return;
-            }
-            ItemStack next = stack == null ? ItemStack.EMPTY : stack;
-            if (!next.isEmpty() && !inventory.isItemValid(actualSlot, next)) {
-                return;
-            }
-            ItemStack previous = inventory.getStackInSlot(actualSlot);
-            if (ItemStack.matches(previous, next)) {
-                return;
-            }
-            inventory.setItemDirect(actualSlot, next);
-        }
-
-        private int toActualSlot(int visibleSlot) {
-            if (visibleSlot < 0 || visibleSlot >= SLOTS_PER_PAGE) {
-                return -1;
-            }
-            int page = visiblePage();
-            int actualSlot = page * SLOTS_PER_PAGE + visibleSlot;
-            return actualSlot < getPatternSlotCount() ? actualSlot : -1;
-        }
-    }
 
 }
