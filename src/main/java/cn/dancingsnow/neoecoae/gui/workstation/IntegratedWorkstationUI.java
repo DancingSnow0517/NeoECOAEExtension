@@ -100,7 +100,7 @@ public final class IntegratedWorkstationUI {
         progress.bind(DataBindingBuilder.floatValS2C(() -> (float) config.processingTime().getAsInt()).build());
         progress.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = HoverTooltips.empty()
             .append(Component.literal("%.0f%%".formatted(progress.getValue() / Math.max(1, config.maxProcessingSteps()) * 100))));
-        root.addChild(place(progress, 123, 68, 16, 3));
+        root.addChild(place(progress, 123, 67, 16, 4));
         root.addChild(place(new WorkstationFluidGauge(config.outputFluid(), 0, true, false, 5), 152, 23, 16, 54));
         root.addChild(clearButton(154, config.clearOutputFluid()));
 
