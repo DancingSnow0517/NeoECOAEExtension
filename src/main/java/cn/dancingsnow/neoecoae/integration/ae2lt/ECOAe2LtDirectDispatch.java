@@ -7,7 +7,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOBatchAdmission.StopReason;
-import cn.dancingsnow.neoecoae.compat.processing.ProcessingReflection;
+import cn.dancingsnow.neoecoae.integration.common.processing.ProcessingReflection;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import java.lang.reflect.*;

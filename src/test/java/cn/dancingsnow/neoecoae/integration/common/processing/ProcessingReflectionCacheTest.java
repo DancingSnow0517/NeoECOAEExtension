@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.compat.processing;
+package cn.dancingsnow.neoecoae.integration.common.processing;
 
 import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;

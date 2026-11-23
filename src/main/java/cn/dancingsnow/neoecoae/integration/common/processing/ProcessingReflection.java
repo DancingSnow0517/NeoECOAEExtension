@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.compat.processing;
+package cn.dancingsnow.neoecoae.integration.common.processing;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;

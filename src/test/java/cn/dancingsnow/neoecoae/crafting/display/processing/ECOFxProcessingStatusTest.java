@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.display.processing;
 
-import static cn.dancingsnow.neoecoae.compat.processing.ProcessingTestSupport.*;
+import static cn.dancingsnow.neoecoae.integration.common.processing.ProcessingTestSupport.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
