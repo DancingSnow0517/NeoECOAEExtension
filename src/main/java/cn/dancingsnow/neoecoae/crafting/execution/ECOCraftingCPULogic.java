@@ -830,6 +830,9 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
     void notifyJobOwner(ExecutingCraftingJob job, CraftingJobStatusPacket.Status status) {
         this.lastModifiedOnTick = TickHandler.instance().getCurrentTick();
+        if (status == CraftingJobStatusPacket.Status.STARTED) {
+            return;
+        }
 
         var playerId = job.playerId;
         if (playerId == null || job.finalOutput == null) {
