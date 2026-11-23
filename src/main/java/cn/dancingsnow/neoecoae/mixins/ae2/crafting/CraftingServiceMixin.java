@@ -502,7 +502,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
 
         for (ECOComputationSystemBlockEntity blockEntity : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
             NEComputationCluster cluster = blockEntity.getCluster();
-            if (cluster != null) {
+            if (cluster != null && neoecoae$ownsCluster(cluster)) {
                 this.neoecoae$computationClusters.add(cluster);
                 for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
                     UUID jobId = cpu.getLogic().getProcessingJobId();
@@ -515,6 +515,14 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             }
         }
 
+    }
+
+    @Unique
+    private boolean neoecoae$ownsCluster(NEComputationCluster cluster) {
+        if (cluster.isDestroyed()) return false;
+        IGridNode node = cluster.getNode();
+        IGrid currentGrid = node == null ? null : node.getGrid();
+        return currentGrid != null && currentGrid.getCraftingService() == (Object) this;
     }
 
     // AE2 19.2.18 loads the inserted local twice in its loop and once for its return.
@@ -859,7 +867,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             @Local(name = "cpus") ImmutableSet.Builder<ICraftingCPU> cpus
     ) {
         for (var cluster : this.neoecoae$computationClusters) {
-            if (cluster.isDestroyed()) continue;
+            if (!neoecoae$ownsCluster(cluster)) continue;
             List<ECOCraftingCPU> ecoCpus = cluster.getActiveCPUs();
             for (var cpu : ecoCpus) {
                 cpus.add(cpu);
@@ -887,7 +895,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     @Inject(method = "hasCpu", at = @At("HEAD"), cancellable = true)
     private void onHasCpu(ICraftingCPU cpu, CallbackInfoReturnable<Boolean> cir) {
         for (var cluster : this.neoecoae$computationClusters) {
-            if (cluster.isDestroyed()) continue;
+            if (!neoecoae$ownsCluster(cluster)) continue;
             for (var activeCpu : cluster.getActiveCPUs()) {
                 if (activeCpu == cpu) {
                     cir.setReturnValue(true);
