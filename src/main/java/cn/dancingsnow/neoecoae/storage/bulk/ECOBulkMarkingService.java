@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.storage.bulk;
 
 import static cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingAdd;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.config.Actionable;
@@ -437,7 +438,7 @@ public final class ECOBulkMarkingService {
                                 transferred = saturatingAdd(transferred, transfer(
                                     sourceStorage, target.storage(), itemKey, entry.getLongValue(), actionSource));
                             } catch (RuntimeException failure) {
-                                LOGGER.error("Bulk migration failed for {} from drive {}",
+                                if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error("Bulk migration failed for {} from drive {}",
                                     itemKey, drive.getBlockPos(), failure);
                             }
                         }
@@ -461,7 +462,7 @@ public final class ECOBulkMarkingService {
                                 transferred = saturatingAdd(transferred, transfer(
                                     network, target.storage(), key, entry.getLongValue(), actionSource));
                             } catch (RuntimeException failure) {
-                                LOGGER.error("Bulk migration failed for {} from the network", key, failure);
+                                if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error("Bulk migration failed for {} from the network", key, failure);
                             }
                         }
                     }
@@ -511,7 +512,7 @@ public final class ECOBulkMarkingService {
             long remainder = inserted - extracted;
             long restored = acknowledge(to.extract(key, remainder, Actionable.MODULATE, actionSource), remainder);
             if (restored != remainder) {
-                LOGGER.error("Bulk migration could not return {} of {} {} to the source",
+                if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error("Bulk migration could not return {} of {} {} to the source",
                     remainder - restored, remainder, key);
             }
         }
@@ -521,11 +522,11 @@ public final class ECOBulkMarkingService {
     /** Clamps an inventory acknowledgement instead of aborting a batch that already moved items. */
     private static long acknowledge(long ack, long requested) {
         if (ack < 0L) {
-            LOGGER.error("Storage inventory acknowledged {} of {} moved units", ack, requested);
+            if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error("Storage inventory acknowledged {} of {} moved units", ack, requested);
             return 0L;
         }
         if (ack > requested) {
-            LOGGER.error("Storage inventory acknowledged {} of {} moved units", ack, requested);
+            if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error("Storage inventory acknowledged {} of {} moved units", ack, requested);
             return requested;
         }
         return ack;

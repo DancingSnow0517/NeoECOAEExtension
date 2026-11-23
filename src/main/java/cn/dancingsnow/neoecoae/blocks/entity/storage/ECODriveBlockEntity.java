@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.api.power.ECOPowerRole;
 
 import appeng.api.networking.IGridNodeListener;
@@ -221,7 +222,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
             }
             setCellStack(replacement);
         } catch (RuntimeException failure) {
-            LOGGER.error("Failed to update the storage disk at {}", getBlockPos(), failure);
+            if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error("Failed to update the storage disk at {}", getBlockPos(), failure);
         }
         return cellStack == replacement;
     }

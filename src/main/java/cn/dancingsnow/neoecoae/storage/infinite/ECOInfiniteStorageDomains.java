@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.storage.infinite;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.nio.file.Path;
 import java.util.IdentityHashMap;
@@ -123,7 +124,7 @@ public final class ECOInfiniteStorageDomains {
                 ECOInfiniteStorageData.factory(dataFile, () -> importLegacy(overworld, domainId, legacyFile)), dataName);
         data.bindPersistence(dataFile, overworld.registryAccess());
         if (data.status() != ECOInfiniteStorageData.DomainStatus.HEALTHY) {
-            LOGGER.warn("ECO domain {} opened with status {}: {}", domainId, data.status(), data.failures());
+            if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.warn("ECO domain {} opened with status {}: {}", domainId, data.status(), data.failures());
         }
         return new SavedDataInfiniteStorageEngine(data);
     }
@@ -140,7 +141,7 @@ public final class ECOInfiniteStorageDomains {
         } catch (java.io.IOException | RuntimeException e) {
             data = ECOInfiniteStorageData.createNew();
             data.markUnreadable("Cannot import legacy domain snapshot; original files retained: " + e);
-            LOGGER.error("Cannot import ECO domain {}; original files retained", domainId, e);
+            if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error("Cannot import ECO domain {}; original files retained", domainId, e);
         }
         return data;
     }

@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.storage.infinite;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.stacks.AEKey;
@@ -290,7 +291,7 @@ public final class ECOInfiniteStorageData extends SavedData {
         try {
             root.put("data", save(new CompoundTag(), registries));
         } catch (RuntimeException e) {
-            LoggerFactory.getLogger(ECOInfiniteStorageData.class).error("Cannot serialize infinite domain {}", file, e);
+            if (NEConfig.ecoCraftingOutputDeliveryDebug) LoggerFactory.getLogger(ECOInfiniteStorageData.class).error("Cannot serialize infinite domain {}", file, e);
             writeFailure = e.toString();
             return CompletableFuture.failedFuture(e);
         }
@@ -306,7 +307,7 @@ public final class ECOInfiniteStorageData extends SavedData {
                 completion.complete(null);
             } catch (IOException | RuntimeException e) {
                 if (writeFailure == null)
-                    LoggerFactory.getLogger(ECOInfiniteStorageData.class).error("Cannot save infinite domain {}", file, e);
+                    if (NEConfig.ecoCraftingOutputDeliveryDebug) LoggerFactory.getLogger(ECOInfiniteStorageData.class).error("Cannot save infinite domain {}", file, e);
                 writeFailure = e.toString();
                 completion.completeExceptionally(e);
             }

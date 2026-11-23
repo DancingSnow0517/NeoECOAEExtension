@@ -289,7 +289,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingD
 
         int actualTypes = this.storedAmounts.size();
         if (actualTypes > this.maxItemTypes) {
-            LOGGER.warn(
+            LOGGER.debug(
                     "ECO storage cell contains more types than allowed: actual={} max={} stack={}",
                     actualTypes,
                     this.maxItemTypes,

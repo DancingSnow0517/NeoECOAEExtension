@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
@@ -82,7 +83,7 @@ final class ECOCraftingOutputDelivery {
                 && pendingFinalOutputs.isEmpty();
         if (physicallyComplete) {
             if (current.executionRuntime != null && !current.executionRuntime.isComplete()) {
-                LOGGER.warn("ECO crafting job {} reached terminal crafting state but execution runtime is incomplete; "
+                if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.warn("ECO crafting job {} reached terminal crafting state but execution runtime is incomplete; "
                                 + "forcing finalization", current.link.getCraftingID());
             }
             host.finishJob(true);
@@ -175,7 +176,7 @@ final class ECOCraftingOutputDelivery {
                 host.exactInventory().setEnabled(true);
                 host.exactInventory().restoreQuantities(Map.of(key, quantity));
             } catch (RuntimeException listenerFailure) {
-                LOGGER.warn("ECO exact output retained after an inventory listener failed", listenerFailure);
+                if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.warn("ECO exact output retained after an inventory listener failed", listenerFailure);
             }
             if (host.getJob() == current) {
                 host.recordCompletedCraftingWork(claimed.longValueSaturated(), key.getType());
@@ -346,13 +347,13 @@ final class ECOCraftingOutputDelivery {
 
     private void stopUncertainDelivery(ExecutingCraftingJob current, RuntimeException failure, Actionable mode) {
         if (mode == Actionable.SIMULATE) {
-            LOGGER.warn("ECO final output simulation failed", failure);
+            if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.warn("ECO final output simulation failed", failure);
             return;
         }
         current.failPermanently("FINAL_OUTPUT_DELIVERY_UNCERTAIN");
         // Cancelling this job must not automatically return the same uncertain inventory either.
         host.inventoryReturnForPersistence().stop("FINAL_OUTPUT_DELIVERY_UNCERTAIN");
-        LOGGER.error("ECO final output acceptance is unknown; stopping automatic delivery for job {}",
+        if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error("ECO final output acceptance is unknown; stopping automatic delivery for job {}",
                 current.link.getCraftingID(), failure);
     }
 
@@ -398,7 +399,7 @@ final class ECOCraftingOutputDelivery {
             deliveringFinalOutput = true;
             return routeClaimedOutput(current, key, amount, Actionable.MODULATE, true).deliveredAmount();
         } catch (RuntimeException failure) {
-            LOGGER.error("Final output delivery failed; items remain in the CPU inventory", failure);
+            if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error("Final output delivery failed; items remain in the CPU inventory", failure);
             return 0L;
         } finally {
             deliveringFinalOutput = false;
@@ -434,7 +435,7 @@ final class ECOCraftingOutputDelivery {
                     pendingFinalOutputs.mergeLong(stack.what(), stack.amount(), NEMath::saturatingAdd);
                 }
             } catch (RuntimeException failure) {
-                LOGGER.warn("Ignoring invalid persisted dynamic final-output delivery entry {}", index, failure);
+                if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.warn("Ignoring invalid persisted dynamic final-output delivery entry {}", index, failure);
             }
         }
     }
