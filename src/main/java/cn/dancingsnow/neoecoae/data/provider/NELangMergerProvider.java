@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.data.provider;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.config.NELogConfig;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -47,7 +48,7 @@ public class NELangMergerProvider implements DataProvider {
         try (BufferedReader bfr = Files.newBufferedReader(path)) {
             original = JsonParser.parseReader(bfr);
         } catch (IOException e) {
-            LOGGER.error("Error reading language file!", e);
+            if (NELogConfig.AUXILIARY_DEBUG) LOGGER.error("Error reading language file!", e);
             throw new RuntimeException(e);
         }
 
@@ -55,7 +56,7 @@ public class NELangMergerProvider implements DataProvider {
         for (Pair<String, JsonElement> pair : getAllLocalizationFiles()) {
             String lang = pair.getFirst();
             JsonObject localization = pair.getSecond().getAsJsonObject();
-            LOGGER.info("Loading localization file: {}", pair.getFirst());
+            if (NELogConfig.AUXILIARY_DEBUG) LOGGER.info("Loading localization file: {}", pair.getFirst());
             JsonObject newElement = new JsonObject();
             int unlocalized = 0;
             for (Map.Entry<String, JsonElement> entry : original.getAsJsonObject().entrySet()) {
@@ -87,11 +88,11 @@ public class NELangMergerProvider implements DataProvider {
                 try (BufferedReader bfr = Files.newBufferedReader(p)) {
                     localizationFiles.add(Pair.of(p.getFileName().toString(), JsonParser.parseReader(bfr)));
                 } catch (IOException e) {
-                    LOGGER.error("Error reading file {}", p, e);
+                    if (NELogConfig.AUXILIARY_DEBUG) LOGGER.error("Error reading file {}", p, e);
                 }
             });
         } catch (IOException e) {
-            LOGGER.error("Failed to list assets in lang file!", e);
+            if (NELogConfig.AUXILIARY_DEBUG) LOGGER.error("Failed to list assets in lang file!", e);
         }
 
 

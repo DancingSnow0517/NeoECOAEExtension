@@ -4,6 +4,7 @@ import appeng.api.implementations.blockentities.IChestOrDrive;
 import appeng.blockentity.AEBaseBlockEntity;
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuse;
 import cn.dancingsnow.neoecoae.config.DevToolsConfig;
+import cn.dancingsnow.neoecoae.config.NELogConfig;
 import com.google.gson.GsonBuilder;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
@@ -297,7 +298,7 @@ final class DevNetworkProfiler {
                 data.put("exportError", problem.toString());
                 try { Files.writeString(current.json, new GsonBuilder().serializeNulls().setPrettyPrinting().create().toJson(data)); }
                 catch (Exception writing) { problem.addSuppressed(writing); }
-                LoggerFactory.getLogger(DevNetworkProfiler.class).warn("Could not export network profile", problem);
+                if (NELogConfig.AUXILIARY_DEBUG) LoggerFactory.getLogger(DevNetworkProfiler.class).warn("Could not export network profile", problem);
             }
             if (current.server.isRunning()) current.server.execute(() -> {
                 var player = current.owner == null ? null : current.server.getPlayerList().getPlayer(current.owner);
