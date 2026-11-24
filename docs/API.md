@@ -306,14 +306,14 @@ root.addChild(priority.window()); // Add at the same location on client and serv
 
 | Optional capability | Requirement |
 | --- | --- |
-| [IECOStorageMigrationCell](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStorageMigrationCell.java) | Lossless enumeration, clearing, simulation, persistence and recovery before migration |
+| [IECOStorageMigrationCell](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStorageMigrationCell.java) | Reliable emptiness and read-only legacy receipt reconciliation; existing migration methods remain ABI-compatible |
 | [IECOBulkMarkableCellItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOBulkMarkableCellItem.java) | Enables the marking UI, without registering a backend |
 | [IECOBulkDisplayCell](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOBulkDisplayCell.java) | Exposes the complete compression chain and effective display cutoff |
 | [INativeMEStorageRestrictedItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/INativeMEStorageRestrictedItem.java) | Defaults to rejecting native ME drive/chest insertion; false resumes normal validation, not guaranteed acceptance |
 
-Native restrictions do not remove existing cells, affect other mods' drives or supply ECO storage. Infinite cells still need complete migration support and explicit eligibility.
+Native restrictions do not remove existing cells, affect other mods' drives or supply ECO storage. Counting a cell toward infinite mode requires explicit eligibility and a reliable, read-only emptiness check.
 
-Infinite transfers keep cells sealed across ordered persistence checkpoints. `IECOStorageMigrationCell.persistMigrationContents(level)` must flush the current contents before returning; a backend stored outside the item must confirm its own file write or throw, rather than only mark data dirty. ECO separately awaits the vanilla chunk write and domain snapshot without blocking a server tick. Simulation and preview methods must not assign identities or modify the live stack.
+Infinite mode is a host condition, not an item state. The host calls `IECOCellHandler.isEmptyInfiniteCandidate` without claiming a native inventory or creating/upgrading the item identity; a cell whose contents cannot be verified must return false. `onCellInstalled` is a separate hook for a real slot installation or load, where a backend may retain its native ownership. Domains do not migrate disk contents. A cached domain view may be revoked at any time; a revoked view exposes no inventory, including exact and incremental listings.
 
 ## Addon extension registration
 
