@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.api.integration;
 
+import cn.dancingsnow.neoecoae.config.NELogConfig;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +28,7 @@ public class IntegrationManager {
             for (ModFileScanData.AnnotationData annotation : scanData.getAnnotations()) {
                 if (annotation.annotationType().getDescriptor().equals(INTEGRATION_NAME) && annotation.targetType() == ElementType.TYPE) {
                     String modid = (String) annotation.annotationData().get("value");
-                    log.debug("Considering integration {} for {}", annotation.memberName(), modid);
+                    if (NELogConfig.AUXILIARY_DEBUG) log.debug("Considering integration {} for {}", annotation.memberName(), modid);
                     IntegrationInstance instance = new IntegrationInstance(
                         modid,
                         annotation.memberName()
@@ -50,7 +51,7 @@ public class IntegrationManager {
     private void load(String modid, boolean client) {
         for (IntegrationInstance instance : instances.get(modid)) {
             instance.newInstance();
-            log.debug("Loading {}integration {} for {}.", client ? "client " : "", instance.instance(), modid);
+            if (NELogConfig.AUXILIARY_DEBUG) log.debug("Loading {}integration {} for {}.", client ? "client " : "", instance.instance(), modid);
             if (client) {
                 instance.invokeClient();
             } else {

@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.registration;
 
 import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.config.NELogConfig;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
@@ -32,6 +33,7 @@ public class NERegistrate extends AbstractRegistrate<NERegistrate> {
         NERegistrate registrate = new NERegistrate(modid);
         Optional<IEventBus> modEventBus = ModList.get().getModContainerById(modid).map(ModContainer::getEventBus);
         modEventBus.ifPresentOrElse(registrate::registerEventListeners, () -> {
+            if (!NELogConfig.AUXILIARY_DEBUG) return;
             String message = "# [Registrate] Failed to register eventListeners for mod " + modid + ", This should be reported to this mod's dev #";
             StringBuilder hashtags = new StringBuilder().append("#".repeat(message.length()));
             logger.fatal(hashtags.toString());

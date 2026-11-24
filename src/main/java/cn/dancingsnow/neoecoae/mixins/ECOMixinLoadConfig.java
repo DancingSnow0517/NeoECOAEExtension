@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins;
 
+import cn.dancingsnow.neoecoae.config.NELogConfig;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -134,7 +135,7 @@ public final class ECOMixinLoadConfig implements IMixinConfigPlugin {
         } catch (ClassNotFoundException absent) {
             return false;
         } catch (Exception | LinkageError failure) {
-            LoggerFactory.getLogger("neoecoae/keyreuse").debug(
+            if (NELogConfig.AUXILIARY_DEBUG) LoggerFactory.getLogger("neoecoae/keyreuse").debug(
                 "Cannot protect ECO key view for {}; retaining uncached addon keys", targetClassName, failure);
             return false;
         }
