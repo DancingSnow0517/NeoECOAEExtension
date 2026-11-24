@@ -4,7 +4,6 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
-import cn.dancingsnow.neoecoae.crafting.planner.cycle.BoundedCycleSolver.CircuitSummary;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveResult;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.PatternRun;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.RepeatLayout;
@@ -186,6 +185,56 @@ final class CycleRecursionPreview {
                 block.singleFiring() ? PlannerAmount.ONE : run.plannerCount()));
         }
         return summary;
+    }
+
+    /** Exact prefix inventory for AE's concrete input keys and normalized container/catalyst returns. */
+    private record CircuitSummary(PlannerAmount[] required, PlannerAmount[] delta,
+            PlannerAmount[] produced, PlannerAmount[] counts) {
+        /** Summarize a fixed run, without searching or changing its order. */
+        static CircuitSummary run(PlannerAmount[] consumed, PlannerAmount[] produced,
+                int transitions, int transition, PlannerAmount count) {
+            CircuitSummary result = new CircuitSummary(zeroes(consumed.length), zeroes(consumed.length),
+                zeroes(consumed.length), zeroes(transitions));
+            for (int key = 0; key < consumed.length; key++) {
+                result.required[key] = batchDeficit(consumed[key], produced[key], count);
+                result.delta[key] = produced[key].subtract(consumed[key]).multiply(count);
+                result.produced[key] = produced[key].multiply(count);
+            }
+            result.counts[transition] = count;
+            return result;
+        }
+
+        CircuitSummary then(CircuitSummary next) {
+            PlannerAmount[] r = required.clone(), d = delta.clone(), p = produced.clone(), c = counts.clone();
+            for (int i = 0; i < r.length; i++) {
+                r[i] = r[i].max(next.required[i].subtract(d[i]));
+                d[i] = d[i].add(next.delta[i]);
+                p[i] = p[i].add(next.produced[i]);
+            }
+            for (int i = 0; i < c.length; i++) c[i] = c[i].add(next.counts[i]);
+            return new CircuitSummary(r, d, p, c);
+        }
+
+        CircuitSummary repeated(PlannerAmount times) {
+            if (times.signum() <= 0) throw new IllegalArgumentException("Circuit repetitions must be positive");
+            PlannerAmount[] r = required.clone(), d = delta.clone(), p = produced.clone(), c = counts.clone();
+            for (int i = 0; i < r.length; i++) {
+                if (d[i].signum() < 0) r[i] = r[i].subtract(d[i].multiply(times.subtract(PlannerAmount.ONE)));
+                d[i] = d[i].multiply(times);
+                p[i] = p[i].multiply(times);
+            }
+            for (int i = 0; i < c.length; i++) c[i] = c[i].multiply(times);
+            return new CircuitSummary(r, d, p, c);
+        }
+
+        /** Minimum stock needed before a repeated transition can run without a deficit on this key. */
+        private static PlannerAmount batchDeficit(PlannerAmount consumed, PlannerAmount produced, PlannerAmount count) {
+            if (consumed.signum() <= 0 || count.signum() <= 0) return PlannerAmount.ZERO;
+            PlannerAmount requiredBeforeLast = produced.compareTo(consumed) >= 0
+                ? consumed
+                : consumed.multiply(count).subtract(produced.multiply(count.subtract(PlannerAmount.ONE)));
+            return requiredBeforeLast.max(PlannerAmount.ZERO);
+        }
     }
 
     private static PlannerAmount[] zeroes(int size) {

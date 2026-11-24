@@ -192,8 +192,8 @@ dependencies {
     // jarJar is non-transitive and Minecraft already ships fastutil). Runs get it below, after the neoForge block.
     jarJar(implementation("com.y271727uy:computatio")) {
         version {
-            strictly '[0.1.1,0.2.0)'
-            prefer '0.1.1'
+            strictly '[0.1.3,0.2.0)'
+            prefer '0.1.3'
         }
     }
 
@@ -353,7 +353,7 @@ neoForge {
 // MC 1.21.1 runs do not load plain Java libraries by themselves. MDG creates this configuration once the neoForge
 // block is configured, so the dependency is declared here rather than in the main dependencies block.
 dependencies {
-    additionalRuntimeClasspath("com.y271727uy:computatio:0.1.1")
+    additionalRuntimeClasspath("com.y271727uy:computatio:0.1.3")
 }
 
 sourceSets.main.java {
