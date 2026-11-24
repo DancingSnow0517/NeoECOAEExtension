@@ -1029,7 +1029,11 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     public boolean canExtractInfiniteComponents() {
-        return blockedInfiniteComponentExtractionReason() == null;
+        return !hasBuiltInInfiniteComponents() && blockedInfiniteComponentExtractionReason() == null;
+    }
+
+    protected boolean hasBuiltInInfiniteComponents() {
+        return false;
     }
 
     @Nullable

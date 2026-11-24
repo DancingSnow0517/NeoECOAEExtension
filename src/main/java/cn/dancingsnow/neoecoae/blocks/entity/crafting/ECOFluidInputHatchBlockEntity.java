@@ -49,7 +49,7 @@ public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyField
     public LongFluidTank tank = new LongFluidTank() {
         @Override
         public int getCapacity() {
-            return upgrades != null && hasNetworkPullCard() ? Integer.MAX_VALUE : 16_000;
+            return upgrades != null && hasNetworkPullCard() ? Integer.MAX_VALUE : super.getCapacity();
         }
 
         @Override
@@ -58,7 +58,7 @@ public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyField
         @Override
         public int getSpace() {
             return upgrades != null && hasNetworkPullCard() ? super.getSpace()
-                : (int) Math.max(0, 16_000L - getStoredAmount());
+                : (int) Math.max(0, super.getCapacity() - getStoredAmount());
         }
 
         @Override
@@ -76,6 +76,7 @@ public class ECOFluidInputHatchBlockEntity extends ECOFluidInputHatchLegacyField
 
     public ECOFluidInputHatchBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
+        tank.setCapacity(16_000);
         super.tank = tank;
         upgrades = UpgradeInventories.forMachine(blockState.getBlock(), 1, this::saveChanges);
     }

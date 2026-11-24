@@ -377,6 +377,10 @@ Positional arguments `(energy, inputItems, inputFluid, itemOutput, fluidOutput)`
 
 ## Panels and models
 
+A block entity with a separate crafting interface at its own position can implement `CraftingPatternMenuHost`. Return the same interface instance for decoding, validity checks and preview sync. On the server, provide an immutable layout key that changes when slot addresses become stale. Open the interface with `CraftingPatternMenu.openInterface`.
+
+Host subclasses can override `getCraftingControllerPanelState` or `getComputationControllerPanelState` to describe their members. `isCraftingPanelVirtualMode` and `getVirtualCraftingBlockedNotice` control the crafting capacity display and its tooltip. Internal drives can supply a read-only icon with `ICellHost.getBuiltInCellForDisplay`. Storage hosts can override `hasBuiltInInfiniteComponents` to make the infinite component slot read-only.
+
 Register custom tiers and cell types with matching IDs on both sides in synchronized registries exposed by [NERegistries.Keys](../src/main/java/cn/dancingsnow/neoecoae/all/NERegistries.java). Implement required `IECOTier` values; use `supportsComponentTier` for component compatibility and `supportsFeature` for advanced eligibility.
 
 `IECOTier.getPanelTierName()` supplies names, `getHostMarkerTexture()` supplies markers and `getPanelAtlas(String)` replaces full atlases for that tier. Null preserves defaults. Resolution is tier atlas, global LDLib2 `ui-eco` provider, then original image. Preserve atlas dimensions and crop layout.

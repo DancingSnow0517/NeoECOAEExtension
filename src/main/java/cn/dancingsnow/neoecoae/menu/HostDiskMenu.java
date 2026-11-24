@@ -230,7 +230,10 @@ public final class HostDiskMenu extends ModularUIContainerMenu {
         public ItemStack getItem() {
             if (holder.player.level().isClientSide) return super.getItem();
             ICellHost owner = owner();
-            ItemStack cell = owner == null ? null : owner.getCellStack();
+            ItemStack cell = owner != null ? owner.getCellStack()
+                : drive instanceof ICellHost internal && !drive.isRemoved() && holder.cluster != null
+                    && drive.getCluster() == holder.cluster && holder.isStillValid(holder.player)
+                    ? internal.getBuiltInCellForDisplay() : null;
             return cell == null ? ItemStack.EMPTY : cell;
         }
 

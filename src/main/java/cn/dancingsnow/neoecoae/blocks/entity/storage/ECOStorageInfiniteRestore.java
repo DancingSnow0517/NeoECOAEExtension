@@ -500,7 +500,8 @@ final class ECOStorageInfiniteRestore {
 
         @Override
         public void setStackInSlot(int slot, ItemStack stack) {
-            if (slot != 0 || (!stack.isEmpty() && !ECOStorageSystemBlockEntity.isInfiniteComponent(stack))) {
+            if (host.hasBuiltInInfiniteComponents() || slot != 0
+                    || (!stack.isEmpty() && !ECOStorageSystemBlockEntity.isInfiniteComponent(stack))) {
                 return;
             }
             ItemStack current = delegate.getStackInSlot(slot);
@@ -517,7 +518,8 @@ final class ECOStorageInfiniteRestore {
 
         @Override
         public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            if (slot != 0 || stack.isEmpty() || !ECOStorageSystemBlockEntity.isInfiniteComponent(stack)) {
+            if (host.hasBuiltInInfiniteComponents() || slot != 0 || stack.isEmpty()
+                    || !ECOStorageSystemBlockEntity.isInfiniteComponent(stack)) {
                 return stack;
             }
             return delegate.insertItem(slot, stack, simulate);
@@ -525,7 +527,7 @@ final class ECOStorageInfiniteRestore {
 
         @Override
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            if (slot != 0 || amount <= 0) {
+            if (host.hasBuiltInInfiniteComponents() || slot != 0 || amount <= 0) {
                 return ItemStack.EMPTY;
             }
             ItemStack stack = delegate.getStackInSlot(slot);
@@ -562,7 +564,8 @@ final class ECOStorageInfiniteRestore {
 
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            return slot == 0 && ECOStorageSystemBlockEntity.isInfiniteComponent(stack) && delegate.isItemValid(slot, stack);
+            return !host.hasBuiltInInfiniteComponents() && slot == 0
+                    && ECOStorageSystemBlockEntity.isInfiniteComponent(stack) && delegate.isItemValid(slot, stack);
         }
     }
 }

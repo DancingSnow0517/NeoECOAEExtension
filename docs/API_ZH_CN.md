@@ -377,6 +377,10 @@ ServerEvents.recipes(event => {
 
 ## 面板与模型
 
+在自身坐标托管独立合成接口的方块实体可实现 `CraftingPatternMenuHost`。菜单解码、有效性校验和预览同步共用同一个接口实例。服务端应提供不可变的布局键，原槽位地址失效时更新它。使用 `CraftingPatternMenu.openInterface` 打开接口菜单。
+
+主机子类可覆盖 `getCraftingControllerPanelState` 或 `getComputationControllerPanelState` 描述面板成员。`isCraftingPanelVirtualMode` 和 `getVirtualCraftingBlockedNotice` 分别影响合成容量显示和阻塞提示。内置驱动器通过 `ICellHost.getBuiltInCellForDisplay` 提供只读盘图标。存储主机可覆盖 `hasBuiltInInfiniteComponents` 将无限组件槽设为只读。
+
 自定义档位与盘类型在 [NERegistries.Keys](../src/main/java/cn/dancingsnow/neoecoae/all/NERegistries.java) 对应同步注册表中，以两端相同 ID 注册。实现 `IECOTier` 的必需参数；组件兼容用 `supportsComponentTier`，高级能力用 `supportsFeature`。
 
 `IECOTier.getPanelTierName()` 提供名称，`getHostMarkerTexture()` 提供标记，`getPanelAtlas(String)` 为当前档位替换完整图集。返回 null 使用默认外观。图集优先级：档位 → 全局 LDLib2 `ui-eco` provider → 原图。替换图保持原尺寸与裁剪布局。
