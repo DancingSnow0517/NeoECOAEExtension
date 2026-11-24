@@ -920,16 +920,10 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
     private void beginExternalPatternIndexBuild(IGrid grid) {
         ReferenceSet<PatternContainer> visited = new ReferenceOpenHashSet<>();
         List<PatternContainer> sources = new ArrayList<>();
-        for (Class<?> machineClass : grid.getMachineClasses()) {
-            if (!PatternContainer.class.isAssignableFrom(machineClass)) {
-                continue;
-            }
-            Class<? extends PatternContainer> containerClass = machineClass.asSubclass(PatternContainer.class);
-            for (PatternContainer container : grid.getActiveMachines(containerClass)) {
-                if (visited.add(container)
-                        && (!(container instanceof PatternStorageHost host) || host.allowsPatternMigrationSource())) {
-                    sources.add(container);
-                }
+        for (PatternContainer container : NEMachineLookup.getActiveMachines(grid, PatternContainer.class)) {
+            if (visited.add(container)
+                    && (!(container instanceof PatternStorageHost host) || host.allowsPatternMigrationSource())) {
+                sources.add(container);
             }
         }
         externalCraftingHistory.keySet().retainAll(visited);

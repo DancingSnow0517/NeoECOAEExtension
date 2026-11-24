@@ -34,6 +34,7 @@ import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
 import cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode;
 import cn.dancingsnow.neoecoae.storage.StorageInterfaceFilter;
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingPatternMenu;
 import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewEntry;
 import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewSync;
@@ -801,7 +802,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 // slots just because both are attached to the same ME network.
                 buses.addAll(craftingCluster.getPatternDomainBuses());
             } else {
-                buses.addAll(grid.getActiveMachines(ECOCraftingPatternBusBlockEntity.class));
+                buses.addAll(NEMachineLookup.getActiveMachines(grid, ECOCraftingPatternBusBlockEntity.class));
             }
             buses.removeIf(bus -> {
                 var node = bus.getGridNode();

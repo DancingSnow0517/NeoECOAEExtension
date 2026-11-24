@@ -17,6 +17,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountSource;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOPlannerInventory;
+import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
 import cn.dancingsnow.neoecoae.storage.ECOCellMutationBatch;
 import cn.dancingsnow.neoecoae.storage.ECOCreativeCell;
 import cn.dancingsnow.neoecoae.storage.transfer.StorageExtractionExclusions;
@@ -50,7 +51,7 @@ public final class ECOBulkMarkingService {
         var node = host.getMainNode();
         var grid = node == null ? null : node.getGrid();
         if (grid != null) {
-            for (var drive : grid.getMachines(ECODriveBlockEntity.class)) {
+            for (var drive : NEMachineLookup.getMachines(grid, ECODriveBlockEntity.class)) {
                 if (!drives.contains(drive)) drives.add(drive);
             }
         }

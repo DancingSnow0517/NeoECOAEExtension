@@ -46,7 +46,7 @@ public final class ECOPlannerInventory {
      */
     public static Set<AEKey> collectUnboundedKeys(IGrid grid) {
         Set<AEKey> unbounded = new HashSet<>();
-        for (var drive : grid.getMachines(ECODriveBlockEntity.class)) {
+        for (var drive : NEMachineLookup.getMachines(grid, ECODriveBlockEntity.class)) {
             if (!drive.isMounted() || !drive.isOnline()) continue;
             var cell = drive.getCellInventory();
             if (cell instanceof ECOCreativeCell creative) unbounded.addAll(creative.configuredKeys());

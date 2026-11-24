@@ -471,7 +471,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     public Set<ResourceLocation> neoecoae$getFuzzyPlanningItemIds() {
         Set<ResourceLocation> result = new java.util.LinkedHashSet<>();
         for (ECOMachineInterfaceBlockEntity<?> machineInterface
-                : grid.getMachines(ECOMachineInterfaceBlockEntity.class)) {
+                : NEMachineLookup.getMachines(grid, ECOMachineInterfaceBlockEntity.class)) {
             if (machineInterface.supportsComputationInterfaceUi() && machineInterface.isTargetOnline()) {
                 result.addAll(machineInterface.getFuzzyPlanningItemIds());
             }
