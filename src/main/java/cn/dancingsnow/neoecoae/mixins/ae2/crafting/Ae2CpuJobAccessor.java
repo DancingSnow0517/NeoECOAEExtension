@@ -12,7 +12,7 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(value = ExecutingCraftingJob.class, remap = false)
 public abstract class Ae2CpuJobAccessor
-        implements cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob {
+        implements cn.dancingsnow.neoecoae.grid.crafting.execution.external.ECOExternalCpuJob {
     @Accessor("tasks")
     public abstract Map<IPatternDetails, Object> neoecoae$tasks();
 

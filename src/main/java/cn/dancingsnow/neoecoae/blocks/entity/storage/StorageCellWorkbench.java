@@ -9,7 +9,7 @@ import appeng.core.definitions.AEBlocks;
 import appeng.menu.slot.AppEngSlot;
 import cn.dancingsnow.neoecoae.api.storage.IECOCellWorkbenchDrive;
 import cn.dancingsnow.neoecoae.api.storage.IECOConfigurableCellHost;
-import cn.dancingsnow.neoecoae.storage.ECOStorageCellSettings;
+import cn.dancingsnow.neoecoae.grid.storage.cell.ECOStorageCellSettings;
 import java.util.Objects;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
@@ -53,10 +53,10 @@ public final class StorageCellWorkbench extends CellWorkbenchBlockEntity {
     public BlockEntity controller() { return controller; }
 
     @Nullable
-    public cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell bulkCell() {
+    public cn.dancingsnow.neoecoae.grid.storage.bulk.ECOBulkStorageCell bulkCell() {
         var drive = drive();
         return drive != null && drive.getCellInventory() instanceof
-            cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell bulk ? bulk : null;
+            cn.dancingsnow.neoecoae.grid.storage.bulk.ECOBulkStorageCell bulk ? bulk : null;
     }
 
     private ItemStack stack() {

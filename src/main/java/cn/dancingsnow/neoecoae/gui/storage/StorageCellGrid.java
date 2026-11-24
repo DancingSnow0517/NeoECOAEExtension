@@ -7,7 +7,7 @@ import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.menu.HostDiskMenu.DiskSlot;
-import cn.dancingsnow.neoecoae.storage.ECOStorageCellSettings;
+import cn.dancingsnow.neoecoae.grid.storage.cell.ECOStorageCellSettings;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;

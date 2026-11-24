@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
-import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
+import cn.dancingsnow.neoecoae.grid.crafting.display.CraftingOutputDisplay;
 import java.util.List;
 import net.neoforged.neoforge.fluids.FluidStack;
 

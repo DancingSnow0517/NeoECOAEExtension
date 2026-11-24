@@ -20,7 +20,7 @@ import appeng.crafting.CraftingLink;
 import appeng.crafting.pattern.AECraftingPattern;
 import appeng.me.service.CraftingService;
 import appeng.me.service.helpers.NetworkCraftingProviders;
-import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.cpu.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOCraftingProviderRevision;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingServiceDiagnostics;
@@ -64,7 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
+import cn.dancingsnow.neoecoae.integration.ae2.ECOGridMachineFinder;
 
 @Mixin(CraftingService.class)
 public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings, ECOCraftingOutputRouter,
@@ -72,7 +72,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     @Inject(method = "getProviders", at = @At("HEAD"), cancellable = true)
     private void neoecoae$componentPolicyProviders(IPatternDetails pattern,
             CallbackInfoReturnable<Iterable<appeng.api.networking.crafting.ICraftingProvider>> cir) {
-        if (pattern instanceof cn.dancingsnow.neoecoae.crafting.ECOComponentInsensitiveProcessingPattern policy) {
+        if (pattern instanceof cn.dancingsnow.neoecoae.grid.crafting.pattern.ECOComponentInsensitiveProcessingPattern policy) {
             var physical = ((CraftingService) (Object) this).getProviders(policy.ecoProviderPattern());
             cir.setReturnValue(() -> java.util.stream.StreamSupport.stream(physical.spliterator(), false)
                 .map(policy::provider).iterator());
@@ -91,7 +91,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         if (!(level instanceof net.minecraft.server.level.ServerLevel serverLevel)
                 || !serverLevel.getServer().isSameThread()) return;
         var service = grid.getService(cn.dancingsnow.neoecoae.api.IECOPatternStorageService.class);
-        if (service instanceof cn.dancingsnow.neoecoae.grid.PatternCatalog catalog) catalog.flushBulkPublications();
+        if (service instanceof cn.dancingsnow.neoecoae.grid.pattern.PatternCatalog catalog) catalog.flushBulkPublications();
     }
 
     @Override
@@ -376,10 +376,10 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     public void neoecoae$setIgnoringPatternSubstitutions(boolean ignoringPatternSubstitutions) {
         neoecoae$planningModeInitialized = true;
         neoecoae$liteCraftingMode = ignoringPatternSubstitutions;
-        for (ECOCraftingSystemBlockEntity host : NEMachineLookup.getMachines(grid, ECOCraftingSystemBlockEntity.class)) {
+        for (ECOCraftingSystemBlockEntity host : ECOGridMachineFinder.getMachines(grid, ECOCraftingSystemBlockEntity.class)) {
             host.applyNetworkIgnoringPatternSubstitutions(ignoringPatternSubstitutions);
         }
-        for (ECOComputationSystemBlockEntity host : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
+        for (ECOComputationSystemBlockEntity host : ECOGridMachineFinder.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
             host.applyNetworkIgnoringPatternSubstitutions(ignoringPatternSubstitutions);
         }
     }
@@ -411,7 +411,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     public void neoecoae$setFastPlannerEnabled(boolean enabled) {
         neoecoae$fastPlannerInitialized = true;
         neoecoae$fastPlannerEnabled = enabled;
-        for (ECOComputationSystemBlockEntity host : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
+        for (ECOComputationSystemBlockEntity host : ECOGridMachineFinder.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
             host.applyNetworkFastCraftingPlannerEnabled(enabled);
         }
     }
@@ -430,7 +430,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     public void neoecoae$setSmartDoublingEnabled(boolean enabled) {
         neoecoae$smartDoublingInitialized = true;
         neoecoae$smartDoublingEnabled = enabled;
-        for (ECOComputationSystemBlockEntity host : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
+        for (ECOComputationSystemBlockEntity host : ECOGridMachineFinder.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
             host.applyNetworkSmartDoublingEnabled(enabled);
         }
     }
@@ -439,14 +439,14 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     public void neoecoae$setCyclePlanningEnabled(boolean enabled) {
         neoecoae$cyclePlanningInitialized = true;
         neoecoae$cyclePlanningEnabled = enabled;
-        for (ECOComputationSystemBlockEntity host : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
+        for (ECOComputationSystemBlockEntity host : ECOGridMachineFinder.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
             host.applyNetworkCyclePlanningEnabled(enabled);
         }
     }
 
     @Override
     public boolean neoecoae$hasComputationHost() {
-        for (ECOComputationSystemBlockEntity host : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
+        for (ECOComputationSystemBlockEntity host : ECOGridMachineFinder.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
             if (host.isFormed() && host.getMainNode().isOnline()) {
                 return true;
             }
@@ -456,7 +456,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
 
     @Override
     public boolean neoecoae$hasComputationHost(IActionSource actionSource) {
-        for (ECOComputationSystemBlockEntity host : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
+        for (ECOComputationSystemBlockEntity host : ECOGridMachineFinder.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
             NEComputationCluster cluster = host.getCluster();
             if (host.isFormed() && host.getMainNode().isOnline()
                     && cluster != null && cluster.isActive()
@@ -471,7 +471,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     public Set<ResourceLocation> neoecoae$getFuzzyPlanningItemIds() {
         Set<ResourceLocation> result = new java.util.LinkedHashSet<>();
         for (ECOMachineInterfaceBlockEntity<?> machineInterface
-                : NEMachineLookup.getMachines(grid, ECOMachineInterfaceBlockEntity.class)) {
+                : ECOGridMachineFinder.getMachines(grid, ECOMachineInterfaceBlockEntity.class)) {
             if (machineInterface.supportsComputationInterfaceUi() && machineInterface.isTargetOnline()) {
                 result.addAll(machineInterface.getFuzzyPlanningItemIds());
             }
@@ -501,7 +501,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         this.neoecoae$computationClusters.clear();
         this.neoecoae$cpusByJob.clear();
 
-        for (ECOComputationSystemBlockEntity blockEntity : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
+        for (ECOComputationSystemBlockEntity blockEntity : ECOGridMachineFinder.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
             NEComputationCluster cluster = blockEntity.getCluster();
             if (cluster != null && neoecoae$ownsCluster(cluster)) {
                 this.neoecoae$computationClusters.add(cluster);
@@ -614,7 +614,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
 
         // Submission and NBT recovery can precede AE2's next CPU-cache refresh. Do not cache misses.
         Set<NEComputationCluster> visited = new HashSet<>(this.neoecoae$computationClusters);
-        for (ECOComputationSystemBlockEntity host : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
+        for (ECOComputationSystemBlockEntity host : ECOGridMachineFinder.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
             NEComputationCluster cluster = host.getCluster();
             if (cluster == null || !visited.add(cluster)) continue;
             ECOCraftingCPU owner = neoecoae$findCpuForJob(cluster, jobId);
@@ -745,7 +745,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         // ECO's phased/cycle or exact-order runtime must stay on an ECO CPU.
         boolean ecoOwnedPlan = ECOPlanningResultRegistry.isECOOwnedPlan(job);
         if (ecoOwnedPlan && target != null && !(target instanceof ECOCraftingCPU)
-                && !cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuSupport.accepts(target, job)) {
+                && !cn.dancingsnow.neoecoae.grid.crafting.execution.external.ECOExternalCpuSupport.accepts(target, job)) {
             neoecoae$traceSubmissionRoute("eco-owned-plan-rejected-non-eco-cpu", job,
                     CraftingSubmitResult.NO_CPU_FOUND);
             cir.setReturnValue(CraftingSubmitResult.NO_CPU_FOUND);
@@ -786,7 +786,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             ICraftingSubmitResult result = cluster.submitJob(this.grid, job, src, requestingMachine);
             neoecoae$traceSubmissionRoute("automatic-eco-cluster", job, result);
             cir.setReturnValue(result);
-        } else if (ecoOwnedPlan && !cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuSupport.supportsPlan(job)) {
+        } else if (ecoOwnedPlan && !cn.dancingsnow.neoecoae.grid.crafting.execution.external.ECOExternalCpuSupport.supportsPlan(job)) {
             // Runtime-dependent plans cannot fall through when no eligible ECO CPU exists.
             neoecoae$traceSubmissionRoute("eco-owned-plan-no-eco-cpu", job,
                     CraftingSubmitResult.NO_CPU_FOUND);

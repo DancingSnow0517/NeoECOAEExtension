@@ -19,8 +19,8 @@ import cn.dancingsnow.neoecoae.api.ECOPreparedPattern;
 import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
-import cn.dancingsnow.neoecoae.grid.PatternMigrationCoordinator;
-import cn.dancingsnow.neoecoae.grid.PatternCatalog;
+import cn.dancingsnow.neoecoae.grid.pattern.PatternMigrationCoordinator;
+import cn.dancingsnow.neoecoae.grid.pattern.PatternCatalog;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator;
@@ -31,10 +31,10 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEIntegratedWorkingStationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
-import cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode;
-import cn.dancingsnow.neoecoae.storage.StorageInterfaceFilter;
+import cn.dancingsnow.neoecoae.grid.storage.transfer.ECOStorageInterfaceMode;
+import cn.dancingsnow.neoecoae.grid.storage.transfer.StorageInterfaceFilter;
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
+import cn.dancingsnow.neoecoae.integration.ae2.ECOGridMachineFinder;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingPatternMenu;
 import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewEntry;
 import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewSync;
@@ -802,7 +802,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 // slots just because both are attached to the same ME network.
                 buses.addAll(craftingCluster.getPatternDomainBuses());
             } else {
-                buses.addAll(NEMachineLookup.getActiveMachines(grid, ECOCraftingPatternBusBlockEntity.class));
+                buses.addAll(ECOGridMachineFinder.getActiveMachines(grid, ECOCraftingPatternBusBlockEntity.class));
             }
             buses.removeIf(bus -> {
                 var node = bus.getGridNode();
@@ -1243,7 +1243,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
         long accepted = storage.getInventory().insert(key, replacement.getCount(),
                 appeng.api.config.Actionable.SIMULATE, appeng.api.networking.security.IActionSource.ofMachine(this));
-        return cn.dancingsnow.neoecoae.grid.PatternRefund.covers(replacement, accepted);
+        return cn.dancingsnow.neoecoae.grid.pattern.PatternRefund.covers(replacement, accepted);
     }
 
     private boolean refundConsumedPattern(ItemStack replacement) {
@@ -1265,7 +1265,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
         long accepted = storage.getInventory().insert(key, blank.getCount(),
                 appeng.api.config.Actionable.SIMULATE, appeng.api.networking.security.IActionSource.ofMachine(this));
-        if (!cn.dancingsnow.neoecoae.grid.PatternRefund.covers(blank, accepted)) {
+        if (!cn.dancingsnow.neoecoae.grid.pattern.PatternRefund.covers(blank, accepted)) {
             return false;
         }
         // Only commit once the whole amount fits: a committed insert cannot be rolled back, and a retry after
@@ -1343,7 +1343,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                     // there would mint a blank for a pattern that was merely moved.
                     boolean consumed = insertion.consumedSource();
                     boolean covered = !consumed || refundConsumedPattern(insertion.blankReplacement());
-                    if (!cn.dancingsnow.neoecoae.grid.PatternRefund.mayClearSource(consumed, covered)) {
+                    if (!cn.dancingsnow.neoecoae.grid.pattern.PatternRefund.mayClearSource(consumed, covered)) {
                         task.skipCandidate(step.candidate());
                         patternTransferNoSpace++;
                         continue;
@@ -1362,7 +1362,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                     // The network already reaches this recipe, so the source item would be destroyed without
                     // ever being stored. The player still owns that pattern, so the blank is owed here too - a
                     // recipe the storage counts must not make the caller's copy disappear.
-                    if (!cn.dancingsnow.neoecoae.grid.PatternRefund.mayClearSource(true,
+                    if (!cn.dancingsnow.neoecoae.grid.pattern.PatternRefund.mayClearSource(true,
                             refundConsumedPattern(task.storageService().blankPatternReplacementFor(stack)))) {
                         task.skipCandidate(step.candidate());
                         patternTransferNoSpace++;

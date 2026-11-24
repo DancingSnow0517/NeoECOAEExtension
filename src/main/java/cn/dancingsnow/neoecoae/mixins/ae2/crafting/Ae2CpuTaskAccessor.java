@@ -5,7 +5,7 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(targets = "appeng.crafting.execution.ExecutingCraftingJob$TaskProgress", remap = false)
 public abstract class Ae2CpuTaskAccessor
-        implements cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob.Task {
+        implements cn.dancingsnow.neoecoae.grid.crafting.execution.external.ECOExternalCpuJob.Task {
     @Accessor("value")
     public abstract long neoecoae$value();
 

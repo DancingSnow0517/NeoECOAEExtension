@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.client.gui.graph;
 
-import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot.Bounds;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.GraphLayoutSnapshot.Bounds;
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferUploader;

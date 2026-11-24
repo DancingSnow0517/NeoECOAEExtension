@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.network;
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.grid.crafting.amount.ExactAmount;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.HashSet;

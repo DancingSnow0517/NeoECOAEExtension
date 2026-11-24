@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.storage;
 
 import appeng.api.stacks.KeyCounter;
-import cn.dancingsnow.neoecoae.crafting.display.terminal.KeyCounterSnapshotAccess;
-import cn.dancingsnow.neoecoae.crafting.display.terminal.KeyCounterSnapshots;
+import cn.dancingsnow.neoecoae.grid.crafting.display.terminal.KeyCounterSnapshotAccess;
+import cn.dancingsnow.neoecoae.grid.crafting.display.terminal.KeyCounterSnapshots;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
 import org.spongepowered.asm.mixin.Final;

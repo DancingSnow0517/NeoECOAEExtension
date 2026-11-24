@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.util.List;

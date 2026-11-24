@@ -6,7 +6,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.util.IConfigManager;
-import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.ECOBatchCraftingHelper;
 import java.util.HashMap;
 import java.util.List;
 import net.minecraft.core.Direction;

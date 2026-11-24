@@ -4,7 +4,7 @@ import cn.dancingsnow.neoecoae.api.capability.ECOFeature;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageEngine;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;

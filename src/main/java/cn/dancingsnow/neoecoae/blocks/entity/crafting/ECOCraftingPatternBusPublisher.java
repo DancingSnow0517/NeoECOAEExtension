@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
 import appeng.api.networking.IGrid;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
-import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
+import cn.dancingsnow.neoecoae.integration.ae2.ECOGridMachineFinder;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.LinkedHashSet;
@@ -46,7 +46,7 @@ final class ECOCraftingPatternBusPublisher {
     void notifyPatternInterfaceTopologyChanged(@Nullable IGrid grid) {
         if (host.getLevel() == null || host.getLevel().isClientSide) return;
         for (var machineInterface : subscribers) machineInterface.onPatternBusTopologyChanged(host);
-        if (grid != null) for (var machineInterface : NEMachineLookup.getMachines(grid, ECOMachineInterfaceBlockEntity.class)) {
+        if (grid != null) for (var machineInterface : ECOGridMachineFinder.getMachines(grid, ECOMachineInterfaceBlockEntity.class)) {
             if (!subscribers.contains(machineInterface) && machineInterface.mayMapPatternBus(host)) {
                 machineInterface.onPatternBusTopologyChanged(host);
             }

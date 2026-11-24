@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.blocks.entity;
 
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
 
 import appeng.api.config.Actionable;
@@ -25,8 +25,8 @@ import appeng.api.util.AECableType;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.Machine;
-import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.State;
+import cn.dancingsnow.neoecoae.grid.crafting.display.processing.ECOProcessingProgress.Machine;
+import cn.dancingsnow.neoecoae.grid.crafting.display.processing.ECOProcessingProgress.State;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
@@ -37,9 +37,9 @@ import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.achievement.ECOAdvancementService;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputRouter;
-import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
-import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOFastPathStacks;
-import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.ECOBatchCraftingHelper;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.verify.ECOFastPathStacks;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.worker.lifecycle.ECOCraftingJobLifecycle;
 import cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.workstation.LargeWorkstationUI;

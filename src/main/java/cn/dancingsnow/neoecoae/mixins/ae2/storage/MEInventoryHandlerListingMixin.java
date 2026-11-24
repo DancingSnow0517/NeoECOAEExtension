@@ -10,8 +10,8 @@ import appeng.util.prioritylist.IPartitionList;
 import appeng.util.prioritylist.PrecisePriorityList;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.PrecisePriorityListAccessor;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
-import cn.dancingsnow.neoecoae.storage.StorageListingDelta;
-import cn.dancingsnow.neoecoae.storage.StorageListingVersion;
+import cn.dancingsnow.neoecoae.grid.storage.listing.StorageListingDelta;
+import cn.dancingsnow.neoecoae.grid.storage.listing.StorageListingVersion;
 import java.util.function.ObjLongConsumer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -43,8 +43,8 @@ public abstract class MEInventoryHandlerListingMixin extends DelegatingMEInvento
         // that overload and may bypass its own filtered view. Only these direct ECO sources have
         // a verified identical no-arg/consumer listing; nested and unknown views keep native queries.
         Class<?> sourceType = getDelegate().getClass();
-        if (sourceType != cn.dancingsnow.neoecoae.storage.ECOStorageCell.class
-                && sourceType != cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorage.class) return false;
+        if (sourceType != cn.dancingsnow.neoecoae.grid.storage.cell.ECOStorageCell.class
+                && sourceType != cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorage.class) return false;
         if (partitionList == DefaultPriorityList.INSTANCE) return true;
         if (partitionList.getClass() != PrecisePriorityList.class
                 || !(partitionList instanceof PrecisePriorityListAccessor accessor)) return false;

@@ -147,7 +147,7 @@ public final class MenuDataTransport {
         CraftingReportStream.clear();
         STATS.clear();
         ExactCpuSnapshot.clear();
-        cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot.clear();
+        cn.dancingsnow.neoecoae.grid.crafting.display.terminal.TerminalInventorySnapshot.clear();
         peakPlayerTickBytes = 0;
     }
 

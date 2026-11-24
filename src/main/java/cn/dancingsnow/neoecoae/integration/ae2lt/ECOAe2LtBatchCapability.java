@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.integration.ae2lt;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.KeyCounter;
-import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOFastPathStacks;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.verify.ECOFastPathStacks;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.RecordComponent;

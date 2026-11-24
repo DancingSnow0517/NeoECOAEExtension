@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.integration;
 import appeng.api.crafting.IPatternDetails;
 import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternWrappers;
 import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternSemanticsRegistry;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.cpu.ECOProcessingMonitor;
 import cn.dancingsnow.neoecoae.integration.mmcr.processing.MmcrProcessingStatus;
 import cn.dancingsnow.neoecoae.integration.thunderbolt.ThunderPatternSemanticAdapter;
 import cn.dancingsnow.neoecoae.integration.thunderbolt.ThunderboltApi;
@@ -17,7 +18,7 @@ public final class ECOPatternIntegrations {
 
     public static synchronized void initialize() {
         if (initialized) return;
-        cn.dancingsnow.neoecoae.crafting.execution.ECOProcessingMonitor.initialize();
+        ECOProcessingMonitor.initialize();
         cn.dancingsnow.neoecoae.integration.ae2.ECORemoteProviderLocator.initialize();
         cn.dancingsnow.neoecoae.integration.thunderbolt.ECOOverloadCpuAccountingBridge.initialize();
         cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingStatusRegistry.register(id("mmcr_processing"),

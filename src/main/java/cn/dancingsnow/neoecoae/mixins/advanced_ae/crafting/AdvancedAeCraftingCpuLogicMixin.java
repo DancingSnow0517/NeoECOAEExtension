@@ -10,8 +10,8 @@ import appeng.api.networking.energy.IEnergyService;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
-import cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob;
-import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.external.ECOExternalCpuJob;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.worker.lifecycle.ECOCraftingJobLifecycle;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.world.level.Level;
@@ -75,11 +75,11 @@ public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputRec
         ECOCraftingJobLifecycle.finish(cpu.getLevel(), craftingJobId, success);
     }
 
-    @Unique private cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuFastPath neoecoae$batchDispatcher;
+    @Unique private cn.dancingsnow.neoecoae.grid.crafting.execution.external.ECOExternalCpuFastPath neoecoae$batchDispatcher;
 
-    @Unique private cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuFastPath neoecoae$batchDispatcher() {
+    @Unique private cn.dancingsnow.neoecoae.grid.crafting.execution.external.ECOExternalCpuFastPath neoecoae$batchDispatcher() {
         if (neoecoae$batchDispatcher == null) neoecoae$batchDispatcher =
-                new cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuFastPath(cpu::markDirty);
+                new cn.dancingsnow.neoecoae.grid.crafting.execution.external.ECOExternalCpuFastPath(cpu::markDirty);
         return neoecoae$batchDispatcher;
     }
 
@@ -106,7 +106,7 @@ public abstract class AdvancedAeCraftingCpuLogicMixin implements ECOJobOutputRec
             appeng.api.networking.security.IActionSource source,
             appeng.api.networking.crafting.ICraftingRequester requester,
             CallbackInfoReturnable<appeng.api.networking.crafting.ICraftingSubmitResult> cir) {
-        if (!cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuSupport.supportsPlan(plan))
+        if (!cn.dancingsnow.neoecoae.grid.crafting.execution.external.ECOExternalCpuSupport.supportsPlan(plan))
             cir.setReturnValue(appeng.crafting.execution.CraftingSubmitResult.NO_CPU_FOUND);
     }
 

@@ -2,11 +2,11 @@ package cn.dancingsnow.neoecoae.gui.computation;
 
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
-import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
+import cn.dancingsnow.neoecoae.grid.crafting.display.processing.ECOProcessingProgress;
 
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.BigNumberFormatter;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;

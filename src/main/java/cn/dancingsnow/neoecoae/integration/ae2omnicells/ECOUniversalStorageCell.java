@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.ae2omnicells;
 
-import static cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingAdd;
+import static cn.dancingsnow.neoecoae.grid.crafting.amount.NEMath.saturatingAdd;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
@@ -11,8 +11,8 @@ import appeng.api.storage.cells.StorageCell;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
-import cn.dancingsnow.neoecoae.storage.StorageByteAccounting;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.grid.storage.StorageByteAccounting;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOUniversalStorageCellItem;
 import com.wintercogs.ae2omnicells.common.me.IAEUniversalCell;
 import it.unimi.dsi.fastutil.longs.Long2LongMap;

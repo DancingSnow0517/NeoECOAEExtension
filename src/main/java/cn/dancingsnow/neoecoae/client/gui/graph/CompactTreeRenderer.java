@@ -2,11 +2,11 @@ package cn.dancingsnow.neoecoae.client.gui.graph;
 
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEItemKey;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
-import cn.dancingsnow.neoecoae.crafting.graph.ClientCraftingGraph;
-import cn.dancingsnow.neoecoae.crafting.graph.CompactTreeNode;
-import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot;
-import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.grid.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.ClientCraftingGraph;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.tree.CompactTreeNode;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.GraphLayoutSnapshot;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.report.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.util.ArrayList;
 import java.util.List;

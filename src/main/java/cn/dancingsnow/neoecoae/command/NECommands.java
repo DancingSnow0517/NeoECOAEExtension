@@ -3,12 +3,12 @@ package cn.dancingsnow.neoecoae.command;
 import static net.minecraft.commands.Commands.literal;
 
 import appeng.api.networking.IGrid;
-import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.cpu.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageDomains;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageDomains;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ReferenceSet;
@@ -26,7 +26,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
-import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
+import cn.dancingsnow.neoecoae.integration.ae2.ECOGridMachineFinder;
 
 public final class NECommands {
     private static final Map<UUID, UUID> STORAGE_RECOVERY = new HashMap<>();
@@ -103,7 +103,7 @@ public final class NECommands {
 
     private static int storageReport(net.minecraft.commands.CommandSourceStack source, net.minecraft.core.BlockPos pos) {
         try {
-            var report = cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageDomains.diagnosticReport(source.getServer());
+            var report = cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageDomains.diagnosticReport(source.getServer());
             if (pos != null && source.getLevel().getBlockEntity(pos)
                 instanceof cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity controller) {
                 report.addProperty("controller", pos.toShortString());
@@ -164,7 +164,7 @@ public final class NECommands {
         }
         ReferenceSet<NEComputationCluster> clusters = new ReferenceOpenHashSet<>();
         for (IGrid grid : grids) {
-            for (ECOComputationSystemBlockEntity host : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
+            for (ECOComputationSystemBlockEntity host : ECOGridMachineFinder.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
                 if (host.getCluster() != null) {
                     clusters.add(host.getCluster());
                 }

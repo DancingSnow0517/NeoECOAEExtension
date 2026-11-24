@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me.diagnostics;
 
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.Machine;
+import cn.dancingsnow.neoecoae.grid.crafting.display.processing.ECOProcessingProgress.Machine;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.world.level.block.entity.BlockEntity;

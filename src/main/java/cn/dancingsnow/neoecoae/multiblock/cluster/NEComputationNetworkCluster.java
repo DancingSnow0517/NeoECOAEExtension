@@ -14,8 +14,7 @@ import appeng.crafting.execution.CraftingSubmitResult;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
-import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
-import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.grid.crafting.amount.NEMath;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;

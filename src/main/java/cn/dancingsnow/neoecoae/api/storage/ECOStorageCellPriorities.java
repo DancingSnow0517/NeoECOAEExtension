@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.api.storage;
 
 import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
-import cn.dancingsnow.neoecoae.storage.ECOStorageCellSettings;
+import cn.dancingsnow.neoecoae.grid.storage.cell.ECOStorageCellSettings;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;

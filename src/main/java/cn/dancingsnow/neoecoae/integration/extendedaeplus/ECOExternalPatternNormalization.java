@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.integration.extendedaeplus;
 import appeng.api.crafting.IPatternDetails;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ReferenceSet;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.grid.crafting.amount.PlannerAmount;
 import java.math.BigInteger;
 import java.util.*;
 

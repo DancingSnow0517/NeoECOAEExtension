@@ -1,0 +1,97 @@
+package cn.dancingsnow.neoecoae.grid.crafting.graph;
+
+import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.cycle.CycleClusterLayout;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.cycle.RecursiveCycleLayout;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.tree.CompactTreeLayout;
+import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
+
+/** Selects the main-graph backend and keeps cycle focus independent from the tree projection. */
+public final class GraphLayout implements GraphLayoutEngine {
+    private static final Logger LOGGER = LoggerFactory.getLogger(GraphLayout.class);
+    private static final String MODE_PROPERTY = "neoecoae.graph.layout";
+
+    public enum Mode {
+        COMPACT_TREE,
+        LEGACY;
+
+        public static Mode fromSystemProperty() {
+            String value;
+            try {
+                value = System.getProperty(MODE_PROPERTY, "COMPACT_TREE");
+            } catch (SecurityException ignored) {
+                value = "COMPACT_TREE";
+            }
+            try {
+                return valueOf(value.trim().toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException exception) {
+                if (NEConfig.ecoCraftSubmissionDebug) LOGGER.debug("Unknown {} value '{}'; using COMPACT_TREE", MODE_PROPERTY, value);
+                return COMPACT_TREE;
+            }
+        }
+    }
+
+    private final Mode mode;
+    private final GraphLayoutEngine legacy;
+    private final GraphLayoutEngine circular;
+    private final GraphLayoutEngine cycleCluster;
+    private final GraphLayoutEngine compactTree;
+    private boolean reportedCompactTreeFailure;
+
+    public GraphLayout() {
+        this(Mode.fromSystemProperty());
+    }
+
+    public GraphLayout(Mode mode) {
+        this(mode, new LayeredGraphLayout(), new RecursiveCycleLayout(), new LayeredGraphLayout(),
+            new CompactTreeLayout());
+    }
+
+    // Package-visible for backend selection tests without touching the screen.
+    GraphLayout(Mode mode, GraphLayoutEngine legacy, GraphLayoutEngine circular,
+            GraphLayoutEngine compactTree) {
+        this(mode, legacy, circular, new CycleClusterLayout(), compactTree);
+    }
+
+    GraphLayout(Mode mode, GraphLayoutEngine legacy, GraphLayoutEngine circular,
+            GraphLayoutEngine cycleCluster, GraphLayoutEngine compactTree) {
+        this.mode = mode;
+        this.legacy = legacy;
+        this.circular = circular;
+        this.cycleCluster = cycleCluster;
+        this.compactTree = compactTree;
+    }
+
+    public Mode mode() {
+        return mode;
+    }
+
+    @Override
+    public GraphLayoutSnapshot layout(ClientCraftingGraph graph, long version) {
+        if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) {
+            return circular.layout(graph, version);
+        }
+        if (graph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER) {
+            return cycleCluster.layout(graph, version);
+        }
+        if (mode == Mode.COMPACT_TREE) {
+            try {
+                return compactTree.layout(graph, version);
+            } catch (RuntimeException | LinkageError | StackOverflowError exception) {
+                reportCompactTreeFailure(graph, exception);
+                return legacy.layout(graph, version);
+            }
+        }
+        return legacy.layout(graph, version);
+    }
+
+    private void reportCompactTreeFailure(ClientCraftingGraph graph, Throwable exception) {
+        if (NEConfig.ecoCraftSubmissionDebug && !reportedCompactTreeFailure) {
+            reportedCompactTreeFailure = true;
+            LOGGER.warn("Compact tree layout failed for {} nodes and {} edges; falling back to legacy layout",
+                graph.nodes().size(), graph.links().size(), exception);
+        }
+    }
+
+}

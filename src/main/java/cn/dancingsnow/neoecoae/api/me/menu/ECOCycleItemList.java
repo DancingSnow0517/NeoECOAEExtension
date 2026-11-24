@@ -9,8 +9,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.math.BigInteger;
-import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus;
-import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.solve.cycle.CycleSolveStatus;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.result.execution.ExecutionCountKnowledge;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 
 /** Cycle members synchronized with the crafting confirmation screen. */

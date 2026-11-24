@@ -6,15 +6,9 @@ import cn.dancingsnow.neoecoae.gui.crafting.CraftingPatternMenu;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import appeng.menu.locator.MenuLocators;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
-import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import net.minecraft.server.level.ServerPlayer;
@@ -24,13 +18,13 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
 
 public class ECOMachineInterface<C extends NECluster<C>> extends NEBlock<ECOMachineInterfaceBlockEntity<C>> implements BlockUIMenuType.BlockUI {
-    public static final EnumProperty<cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode> STORAGE_MODE =
-        EnumProperty.create("storage_mode", cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode.class);
+    public static final EnumProperty<cn.dancingsnow.neoecoae.grid.storage.transfer.ECOStorageInterfaceMode> STORAGE_MODE =
+        EnumProperty.create("storage_mode", cn.dancingsnow.neoecoae.grid.storage.transfer.ECOStorageInterfaceMode.class);
 
     public ECOMachineInterface(Properties properties) {
         super(properties);
         registerDefaultState(defaultBlockState().setValue(STORAGE_MODE,
-            cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode.STORAGE));
+            cn.dancingsnow.neoecoae.grid.storage.transfer.ECOStorageInterfaceMode.STORAGE));
     }
 
     @Override

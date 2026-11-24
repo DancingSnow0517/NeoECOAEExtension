@@ -7,11 +7,11 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.storage.MEStorage;
 import appeng.me.storage.NetworkStorage;
 import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
-import cn.dancingsnow.neoecoae.crafting.display.terminal.StorageListingAccumulator;
-import cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot;
-import cn.dancingsnow.neoecoae.storage.ECOCreativeCell;
-import cn.dancingsnow.neoecoae.storage.ECOCreativeSupply;
-import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
+import cn.dancingsnow.neoecoae.grid.crafting.display.terminal.StorageListingAccumulator;
+import cn.dancingsnow.neoecoae.grid.crafting.display.terminal.TerminalInventorySnapshot;
+import cn.dancingsnow.neoecoae.grid.storage.cell.ECOCreativeCell;
+import cn.dancingsnow.neoecoae.grid.storage.supply.ECOCreativeSupply;
+import cn.dancingsnow.neoecoae.grid.storage.listing.NetworkInventoryCache;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -248,7 +248,7 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, Netwo
     private long neoecoae$filterCreativeInput(MEStorage storage, appeng.api.stacks.AEKey key, long amount,
             appeng.api.config.Actionable mode, appeng.api.networking.security.IActionSource source,
             Operation<Long> original) {
-        if (cn.dancingsnow.neoecoae.storage.transfer.StorageExtractionExclusions.contains(storage)) {
+        if (cn.dancingsnow.neoecoae.grid.storage.transfer.StorageExtractionExclusions.contains(storage)) {
             return 0L;
         }
         var probe = neoecoae$creativeProbe;
@@ -258,7 +258,7 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, Netwo
                     && amount == 1 && mode == Actionable.SIMULATE && supplied == 1;
             return supplied;
         }
-        return cn.dancingsnow.neoecoae.storage.transfer.ECOCreativeExtractionFilter.extractSource(
+        return cn.dancingsnow.neoecoae.grid.storage.transfer.ECOCreativeExtractionFilter.extractSource(
             storage, key, mode, () -> original.call(storage, key, amount, mode, source));
     }
 

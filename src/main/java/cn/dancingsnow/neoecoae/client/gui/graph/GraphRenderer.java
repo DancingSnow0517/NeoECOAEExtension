@@ -2,14 +2,14 @@ package cn.dancingsnow.neoecoae.client.gui.graph;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
-import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
-import cn.dancingsnow.neoecoae.crafting.graph.ClientCraftingGraph;
-import cn.dancingsnow.neoecoae.crafting.graph.CraftingGraphProgress;
-import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot;
-import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot.Bounds;
-import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.BigNumberFormatter;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.grid.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.ClientCraftingGraph;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.CraftingGraphProgress;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.GraphLayoutSnapshot;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.GraphLayoutSnapshot.Bounds;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.report.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import com.mojang.blaze3d.systems.RenderSystem;
 import java.util.ArrayList;
@@ -237,7 +237,7 @@ public final class GraphRenderer implements AutoCloseable {
                     // Recursive rows are checkpoints, not separate live executions of the whole cycle.
                     var target = graph.nodes().get(link.toId());
                     if (source == null || source.recursion() == null
-                            || source.recursion().role() != cn.dancingsnow.neoecoae.crafting.graph.RecursiveCycleNode.Role.STEP
+                            || source.recursion().role() != cn.dancingsnow.neoecoae.grid.crafting.graph.cycle.RecursiveCycleNode.Role.STEP
                             || !running(graph, target, progress)) continue;
                 } else if (!running(graph, source, progress)) continue;
                 var points = route(graph, layout, link);

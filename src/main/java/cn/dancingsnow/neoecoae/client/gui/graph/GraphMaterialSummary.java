@@ -1,10 +1,10 @@
 package cn.dancingsnow.neoecoae.client.gui.graph;
 
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
-import cn.dancingsnow.neoecoae.crafting.graph.ClientCraftingGraph;
-import cn.dancingsnow.neoecoae.crafting.graph.CraftingGraphProgress;
-import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot;
-import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.grid.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.ClientCraftingGraph;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.CraftingGraphProgress;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.GraphLayoutSnapshot;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.report.snapshot.CraftingGraphSnapshot;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.math.Axis;
 import java.util.ArrayList;

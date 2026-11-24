@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
-import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
-import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.State;
+import cn.dancingsnow.neoecoae.grid.crafting.display.processing.ECOProcessingProgress;
+import cn.dancingsnow.neoecoae.grid.crafting.display.processing.ECOProcessingProgress.State;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;

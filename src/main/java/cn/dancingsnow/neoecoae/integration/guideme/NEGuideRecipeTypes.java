@@ -2,9 +2,8 @@ package cn.dancingsnow.neoecoae.integration.guideme;
 
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
-import cn.dancingsnow.neoecoae.recipe.LargeIntegratedWorkingStationRecipe;
 import guideme.compiler.tags.RecipeTypeMappingSupplier;
 import guideme.document.DefaultStyles;
 import guideme.document.LytRect;

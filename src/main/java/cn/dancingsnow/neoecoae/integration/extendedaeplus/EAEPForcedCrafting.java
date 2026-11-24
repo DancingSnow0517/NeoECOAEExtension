@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.integration.extendedaeplus;
 
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.stacks.KeyCounter;
-import cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOForcedCraftingPlan;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.ae2.ECOForcedCraftingPlan;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import net.neoforged.fml.ModList;

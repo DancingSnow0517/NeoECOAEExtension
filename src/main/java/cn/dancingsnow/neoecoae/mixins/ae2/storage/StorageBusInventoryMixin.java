@@ -6,7 +6,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.me.storage.MEInventoryHandler;
-import cn.dancingsnow.neoecoae.storage.transfer.StorageBusTransferFilter;
+import cn.dancingsnow.neoecoae.grid.storage.transfer.StorageBusTransferFilter;
 import org.spongepowered.asm.mixin.Mixin;
 
 /** Tags the exact inventory mounted by storage buses, preserving their access and priority rules. */

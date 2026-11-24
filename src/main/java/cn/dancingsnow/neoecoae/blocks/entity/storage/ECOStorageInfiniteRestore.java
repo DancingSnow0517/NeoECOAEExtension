@@ -2,17 +2,15 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
 import cn.dancingsnow.neoecoae.api.capability.ECOFeature;
 
-import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageTransfer;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOStorageHostMode;
-import cn.dancingsnow.neoecoae.storage.infinite.HugeAmount;
-import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
-import com.lowdragmc.lowdraglib2.gui.ui.UI;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageEngine;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageTransfer;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOStorageHostMode;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.HugeAmount;
+import cn.dancingsnow.neoecoae.grid.crafting.amount.NEMath;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;

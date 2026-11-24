@@ -2,20 +2,18 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
 import cn.dancingsnow.neoecoae.api.capability.ECOFeature;
 
-import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorage;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageDomains;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageTransfer;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOStorageHostMode;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorage;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageDomains;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageEngine;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageTransfer;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOStorageHostMode;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.IStorageProvider;
 import appeng.api.storage.MEStorage;
-import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
