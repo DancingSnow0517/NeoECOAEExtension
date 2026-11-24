@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.storage.bulk;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.stacks.AEItemKey;
@@ -89,14 +90,16 @@ public final class ECOCompressionService {
             || overrides.stream().anyMatch(rule -> rule.lower().equals(edge.lower()) || rule.higher().equals(edge.higher())));
         for (Edge edge : overrides) if (!disabled.contains(edge.lower()) && !disabled.contains(edge.higher())) edges.add(edge);
         install(buildChains(edges));
-        LOGGER.debug("ECO compression: {} reversible chains", snapshot.chains().size());
+        if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.debug("ECO compression: {} reversible chains", snapshot.chains().size());
     }
     static List<Edge> recognizeRecipes(List<CraftingRecipe> recipeList, RegistryAccess registries, Level level) {
         List<RecipeCandidate> candidates = new ArrayList<>();
         for (CraftingRecipe recipe : recipeList) {
             if (!(recipe instanceof ShapedRecipe || recipe instanceof ShapelessRecipe) || recipe.isSpecial()) continue;
             try { candidates.addAll(recognize(recipe, registries, level)); }
-            catch (RuntimeException failure) { LOGGER.debug("Skipping ECO compression recipe {}: {}", recipe, failure.toString()); }
+            catch (RuntimeException failure) {
+                if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.debug("Skipping ECO compression recipe {}: {}", recipe, failure.toString());
+            }
         }
         List<Edge> edges = new ArrayList<>();
         Set<RecipeCandidate> recipes = new HashSet<>(candidates);

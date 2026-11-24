@@ -23,7 +23,7 @@ public final class GraphLayout implements GraphLayoutEngine {
             try {
                 return valueOf(value.trim().toUpperCase(java.util.Locale.ROOT));
             } catch (IllegalArgumentException exception) {
-                LOGGER.debug("Unknown {} value '{}'; using COMPACT_TREE", MODE_PROPERTY, value);
+                if (NEConfig.ecoCraftSubmissionDebug) LOGGER.debug("Unknown {} value '{}'; using COMPACT_TREE", MODE_PROPERTY, value);
                 return COMPACT_TREE;
             }
         }

@@ -134,7 +134,8 @@ final class ECODispatchStallDiagnostics {
     }
 
     void finishResolveTick() {
-        if (jobId == null || (resolveFailures == 0L && repeatedFailureSameEpoch == 0L)) return;
+        if (!NEConfig.ecoDispatchWatchdogDebug || jobId == null
+                || (resolveFailures == 0L && repeatedFailureSameEpoch == 0L)) return;
         LOGGER.info("[ECO Dispatch Resolve] tick={} resolveAttempts={} resolveFailures={} repeatedFailureSameEpoch={}",
             resolveStatsTick, resolveAttempts, resolveFailures, repeatedFailureSameEpoch);
     }

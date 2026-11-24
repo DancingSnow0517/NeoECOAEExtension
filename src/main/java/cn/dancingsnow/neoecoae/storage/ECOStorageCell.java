@@ -23,6 +23,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
@@ -288,7 +289,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingD
         }
 
         int actualTypes = this.storedAmounts.size();
-        if (actualTypes > this.maxItemTypes) {
+        if (NEConfig.ecoCraftingOutputDeliveryDebug && actualTypes > this.maxItemTypes) {
             LOGGER.debug(
                     "ECO storage cell contains more types than allowed: actual={} max={} stack={}",
                     actualTypes,
