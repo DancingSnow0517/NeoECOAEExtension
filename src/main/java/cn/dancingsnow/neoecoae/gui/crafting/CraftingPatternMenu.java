@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
+import cn.dancingsnow.neoecoae.api.CraftingPatternMenuHost;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.gui.GuiTitleProvider;
@@ -10,7 +11,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -19,6 +22,7 @@ import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -38,12 +42,15 @@ public final class CraftingPatternMenu extends ModularUIContainerMenu {
 
     public static void openBus(ServerPlayer player, ECOCraftingPatternBusBlockEntity bus, int page) {
         int pages = bus.getPageCount();
-        player.openMenu(new Holder(player, bus, Math.clamp(page, 0, pages - 1), pages, List.of(),
+        player.openMenu(new Holder(player, bus, bus, Math.clamp(page, 0, pages - 1), pages, List.of(),
                 player.containerMenu instanceof CraftingPatternMenu menu && menu.isFor(bus)));
     }
 
     public static void openInterface(ServerPlayer player, ECOMachineInterfaceBlockEntity<?> host) {
-        player.openMenu(new Holder(player, host, 0, 0, List.of(), false));
+        BlockEntity owner = player.level().getBlockEntity(host.getBlockPos());
+        if (owner != null && resolveHost(owner) == host) {
+            player.openMenu(new Holder(player, owner, host, 0, 0, List.of(), false));
+        }
     }
 
     public boolean isFor(BlockEntity host) {
@@ -54,12 +61,21 @@ public final class CraftingPatternMenu extends ModularUIContainerMenu {
         return other.isFor(((Holder) uiHolder).entity);
     }
 
+    public void receivePreview(Player player, BlockPos position, CompoundTag payload) {
+        Holder holder = (Holder) uiHolder;
+        if (holder.player == player && holder.pos.equals(position) && !holder.owner.isRemoved()
+                && player.level().getBlockEntity(position) == holder.owner
+                && resolveHost(holder.owner) instanceof ECOMachineInterfaceBlockEntity<?> host && isFor(host)) {
+            host.getPatternPreviewSync().receive(payload);
+        }
+    }
+
     public void openWindow(ServerPlayer player, ECOMachineInterfaceBlockEntity<?> host, List<Address> requested) {
         Holder holder = (Holder) uiHolder;
         if (!isFor(host) || !stillValid(player) || !getCarried().isEmpty() || requested.size() > MAX_WINDOW_SLOTS) return;
         var window = requested.stream().distinct().filter(address -> host.resolvePatternMenuBus(address) != null).toList();
         if (!holder.slots.keySet().containsAll(window)) {
-            player.openMenu(new Holder(player, host, 0, 0, window, true));
+            player.openMenu(new Holder(player, holder.owner, host, 0, 0, window, true));
         }
     }
 
@@ -72,6 +88,11 @@ public final class CraftingPatternMenu extends ModularUIContainerMenu {
             setCarried(carried.copyWithCount(carried.getCount() - (count - remaining.getCount())));
             broadcastChanges();
         }
+    }
+
+    @Override
+    public void clicked(int slotId, int button, ClickType clickType, Player player) {
+        if (player.level().isClientSide || stillValid(player)) super.clicked(slotId, button, clickType, player);
     }
 
     @Override
@@ -113,34 +134,48 @@ public final class CraftingPatternMenu extends ModularUIContainerMenu {
 
     private static CraftingPatternMenu decode(int id, Inventory inventory, RegistryFriendlyByteBuf buffer) {
         BlockPos position = buffer.readBlockPos();
-        BlockEntity entity = inventory.player.level().getBlockEntity(position);
+        BlockEntity owner = inventory.player.level().getBlockEntity(position);
+        BlockEntity entity = resolveHost(owner);
         if (entity instanceof ECOCraftingPatternBusBlockEntity) {
             return new CraftingPatternMenu(id, inventory,
-                    new Holder(inventory.player, entity, buffer.readVarInt(), buffer.readVarInt(), List.of(), false));
+                    new Holder(inventory.player, owner, entity, buffer.readVarInt(), buffer.readVarInt(), List.of(), false));
         }
         if (entity instanceof ECOMachineInterfaceBlockEntity<?>) {
             int count = buffer.readVarInt();
             if (count < 0 || count > MAX_WINDOW_SLOTS) throw new IllegalArgumentException("Invalid pattern window size");
             List<Address> window = new ArrayList<>(count);
             for (int slot = 0; slot < count; slot++) window.add(new Address(buffer.readLong(), buffer.readVarInt()));
-            return new CraftingPatternMenu(id, inventory, new Holder(inventory.player, entity, 0, 0, window, false));
+            return new CraftingPatternMenu(id, inventory, new Holder(inventory.player, owner, entity, 0, 0, window, false));
         }
         throw new IllegalStateException("No crafting pattern menu host at " + position);
+    }
+
+    private static @Nullable BlockEntity resolveHost(@Nullable BlockEntity owner) {
+        return owner instanceof CraftingPatternMenuHost host ? host.getCraftingPatternMenuInterface() : owner;
+    }
+
+    private static @Nullable Object layoutKey(BlockEntity owner) {
+        return owner instanceof CraftingPatternMenuHost host ? host.getCraftingPatternMenuLayoutKey() : null;
     }
 
     private static final class Holder implements IContainerUIHolder, MenuProvider {
         private final Player player;
         private final BlockPos pos;
+        private final BlockEntity owner;
         private final BlockEntity entity;
+        private final @Nullable Object layoutKey;
         private final int page;
         private final int pageCount;
         private final boolean replacingMenu;
         private final Map<Address, PatternSlot> slots = new LinkedHashMap<>();
 
-        Holder(Player player, BlockEntity entity, int page, int pageCount, List<Address> window, boolean replacingMenu) {
+        Holder(Player player, BlockEntity owner, BlockEntity entity, int page, int pageCount,
+                List<Address> window, boolean replacingMenu) {
             this.player = player;
-            this.pos = entity.getBlockPos();
+            this.pos = owner.getBlockPos();
+            this.owner = owner;
             this.entity = entity;
+            this.layoutKey = player.level().isClientSide ? null : layoutKey(owner);
             this.page = page;
             this.pageCount = pageCount;
             this.replacingMenu = replacingMenu;
@@ -179,8 +214,11 @@ public final class CraftingPatternMenu extends ModularUIContainerMenu {
 
         @Override
         public boolean isStillValid(Player player) {
-            return player.level() == entity.getLevel() && !entity.isRemoved() && player.level().hasChunkAt(pos)
-                    && player.level().getBlockEntity(pos) == entity && player.canInteractWithBlock(pos, 4)
+            return this.player == player && player.level() == owner.getLevel() && player.level() == entity.getLevel()
+                    && !owner.isRemoved() && !entity.isRemoved() && player.level().hasChunkAt(pos)
+                    && player.level().getBlockEntity(pos) == owner && player.canInteractWithBlock(pos, 4)
+                    && resolveHost(owner) == entity
+                    && (player.level().isClientSide || Objects.equals(layoutKey, layoutKey(owner)))
                     && (entity instanceof ECOCraftingPatternBusBlockEntity bus ? page < bus.getPageCount()
                         : ((ECOMachineInterfaceBlockEntity<?>) entity).supportsCraftingInterfaceUi());
         }
@@ -191,8 +229,8 @@ public final class CraftingPatternMenu extends ModularUIContainerMenu {
         }
 
         @Override
-        public ModularUIContainerMenu createMenu(int id, Inventory inventory, Player player) {
-            return new CraftingPatternMenu(id, inventory, this);
+        public @Nullable ModularUIContainerMenu createMenu(int id, Inventory inventory, Player player) {
+            return isStillValid(player) ? new CraftingPatternMenu(id, inventory, this) : null;
         }
 
         @Override

@@ -2,9 +2,9 @@ package cn.dancingsnow.neoecoae.network;
 
 import appeng.menu.me.common.MEStorageMenu;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOBigOrderStatusHost;
-import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountClientCache;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingPatternMenu;
+import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewCodec;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.entity.player.Player;
 
@@ -32,11 +32,8 @@ final class MenuDataCodecs {
             case GRAPH_PROGRESS -> CraftingReportStream.receiveProgress(menu, buf);
             case PATTERNS -> {
                 var pos = buf.readBlockPos();
-                var tag = cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewCodec.read(buf);
-                if (menu instanceof CraftingPatternMenu patterns
-                        && player.level().getBlockEntity(pos) instanceof ECOMachineInterfaceBlockEntity<?> host
-                        && patterns.isFor(host))
-                    host.getPatternPreviewSync().receive(tag);
+                var tag = PatternPreviewCodec.read(buf);
+                if (menu instanceof CraftingPatternMenu patterns) patterns.receivePreview(player, pos, tag);
             }
         }
     }
