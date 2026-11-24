@@ -29,7 +29,7 @@ public interface IECOStorageCell extends StorageCell {
     }
 
     /**
-     * Whether this storage cell may be migrated into the ECO infinite storage domain.
+     * Whether an empty disk of this type may qualify its host for infinite mode.
      * Specialized finite cells can opt out while remaining usable in normal drives.
      */
     default boolean isInfiniteStorageEligible() {

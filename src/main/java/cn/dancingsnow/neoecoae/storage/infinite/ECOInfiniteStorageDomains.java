@@ -5,6 +5,16 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.nio.file.Path;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.concurrent.CompletableFuture;
+import java.nio.file.Files;
+import net.minecraft.core.GlobalPos;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.NbtUtils;
+import net.minecraft.world.level.saveddata.SavedData;
+import net.neoforged.neoforge.common.IOUtilities;
 import java.util.UUID;
 
 import net.minecraft.server.MinecraftServer;
@@ -27,6 +37,109 @@ public final class ECOInfiniteStorageDomains {
     private static final String DATA_NAME_PREFIX = "neoecoae_infinite_";
 
     private static final Map<MinecraftServer, Map<UUID, DomainEntry>> ENGINES = new IdentityHashMap<>();
+
+    private static final String HOSTS_NAME = "neoecoae_storage_hosts";
+
+    public static HostClaims hostClaims(MinecraftServer server) {
+        Path file = server.getWorldPath(LevelResource.ROOT).resolve("data").resolve(HOSTS_NAME + ".dat");
+        var claims = server.overworld().getDataStorage().computeIfAbsent(new SavedData.Factory<>(
+                () -> new HostClaims(!Files.exists(file)), HostClaims::load), HOSTS_NAME);
+        claims.file = file;
+        claims.registries = server.overworld().registryAccess();
+        return claims;
+    }
+
+    public static final class HostClaims extends SavedData {
+        private final Map<UUID, GlobalPos> locations = new HashMap<>();
+        private final Map<GlobalPos, UUID> domains = new HashMap<>();
+        private final boolean readable;
+        private Path file;
+        private HolderLookup.Provider registries;
+        private CompletableFuture<Void> checkpoint = CompletableFuture.completedFuture(null);
+        private UUID pendingDomain;
+        private UUID displacedDomain;
+
+        private HostClaims(boolean readable) { this.readable = readable; }
+
+        private static HostClaims load(CompoundTag tag, HolderLookup.Provider registries) {
+            HostClaims claims = new HostClaims(true);
+            try {
+                if (tag.getInt("version") != 1 || !(tag.get("hosts") instanceof CompoundTag hosts)) {
+                    return new HostClaims(false);
+                }
+                for (String key : hosts.getAllKeys()) {
+                    UUID id = UUID.fromString(key);
+                    GlobalPos location = GlobalPos.CODEC.parse(NbtOps.INSTANCE, hosts.get(key)).getOrThrow();
+                    if (claims.domains.putIfAbsent(location, id) != null) return new HostClaims(false);
+                    claims.locations.put(id, location);
+                }
+                return claims;
+            } catch (RuntimeException malformed) {
+                LOGGER.error("Cannot load infinite storage host associations", malformed);
+                return new HostClaims(false);
+            }
+        }
+
+        public UUID domainAt(GlobalPos location) { return domains.get(location); }
+
+        public GlobalPos locationOf(UUID id) { return locations.get(id); }
+
+        public boolean readable() { return readable; }
+
+        public boolean ready() { return readable && checkpoint.isDone() && !checkpoint.isCompletedExceptionally(); }
+
+        public boolean readyFor(UUID id) {
+            return readable && (ready() || !id.equals(pendingDomain) && !id.equals(displacedDomain));
+        }
+
+        public boolean bind(UUID id, GlobalPos location, boolean rebind) {
+            if (!ready()) return false;
+            GlobalPos previous = locations.get(id);
+            UUID displaced = domains.get(location);
+            if ((!rebind && previous != null && !previous.equals(location))
+                    || (!rebind && displaced != null && !displaced.equals(id))) return false;
+            if (location.equals(previous) && ready()) return true;
+            if (previous != null) domains.remove(previous);
+            if (displaced != null) locations.remove(displaced);
+            locations.put(id, location);
+            domains.put(location, id);
+            pendingDomain = id;
+            displacedDomain = displaced;
+            write();
+            return true;
+        }
+
+        public void retry() {
+            if (readable && checkpoint.isCompletedExceptionally()) write();
+        }
+
+        private void write() {
+            CompoundTag root = new CompoundTag();
+            root.put("data", save(new CompoundTag(), registries));
+            NbtUtils.addCurrentDataVersion(root);
+            var result = new CompletableFuture<Void>();
+            checkpoint = result;
+            IOUtilities.withIOWorker(() -> {
+                try {
+                    IOUtilities.writeNbtCompressed(root, file);
+                    result.complete(null);
+                } catch (java.io.IOException | RuntimeException failure) {
+                    LOGGER.error("Cannot checkpoint infinite storage host associations", failure);
+                    result.completeExceptionally(failure);
+                }
+            });
+        }
+
+        @Override
+        public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+            CompoundTag hosts = new CompoundTag();
+            locations.forEach((id, location) -> hosts.put(id.toString(),
+                    GlobalPos.CODEC.encodeStart(NbtOps.INSTANCE, location).getOrThrow()));
+            tag.put("hosts", hosts);
+            tag.putInt("version", 1);
+            return tag;
+        }
+    }
 
     private ECOInfiniteStorageDomains() {
     }

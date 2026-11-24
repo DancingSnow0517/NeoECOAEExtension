@@ -1,739 +1,276 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
+import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.api.capability.ECOFeature;
-
-import cn.dancingsnow.neoecoae.api.ECOTier;
-import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
-import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
-import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorage;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageDomains;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageTransfer;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOStorageHostMode;
-import appeng.api.stacks.AEKey;
-import appeng.api.storage.IStorageProvider;
-import appeng.api.storage.MEStorage;
-import net.minecraft.core.UUIDUtil;
+import cn.dancingsnow.neoecoae.storage.infinite.SavedDataInfiniteStorageEngine;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.function.LongSupplier;
-
-/**
- * Coordinates infinite-storage mode transitions and the mounted domain lifetime.
- */
 final class ECOInfiniteStorageModeController {
-    static final int MINIMUM_MIGRATION_SOURCES = 12;
-    // Distinct from the "migration" stage, whose runner clears its own fault after every successful run.
-    static final String MIGRATION_FAULT = "migration blocked";
-    static final String COMPONENTS_FAULT = "infinite components";
-    static final String CLAIM_FAULT = "domain claim";
-
+    private static final int REQUIRED_DISKS = 12;
+    private static final String CLAIM_FAULT = "domain claim";
+    private static final String LEGACY_FAULT = "legacy domain";
     private final ECOStorageSystemBlockEntity host;
-    private final ECOInfiniteStorageTransfer transfer = new ECOInfiniteStorageTransfer();
-    private final Set<UUID> preparedSourceSeals = new HashSet<>();
-    private final Map<UUID, java.util.concurrent.CompletableFuture<Void>> pendingSourceSeals = new java.util.HashMap<>();
-    private java.util.concurrent.CompletableFuture<ECOInfiniteStorageEngine.CommitResult> exitCheckpoint;
-
-    private boolean targetInfiniteMode;
+    private Set<ECODriveBlockEntity> occupied = Set.of();
+    private Set<ECODriveBlockEntity> candidates = Set.of();
+    private boolean dirty = true;
     private boolean updating;
-    private long modeCheckTick = Long.MIN_VALUE;
-    private long backendGeneration;
     private boolean hostAccess;
-    // Injectable for tests; the per-tick migration budget is measured with it.
-    LongSupplier migrationClock = System::nanoTime;
-    @Nullable
-    private ECOInfiniteStorageEngine.MigrationBlock migrationBlock;
-    private double migrationProgressHighWater;
+    private long generation;
+    private long retryLegacyAt;
+    @Nullable private MinecraftServer server;
+    @Nullable private UUID domain;
+    @Nullable private SavedDataInfiniteStorageEngine engine;
+    @Nullable private CompletableFuture<ECOInfiniteStorageEngine.CommitResult> creation;
 
-    @Nullable
-    private MinecraftServer mountedServer;
-    @Nullable
-    private UUID mountedDomainId;
-    @Nullable
-    private ECOInfiniteStorageEngine mountedEngine;
-    @Nullable
-    private UUID rejectedClaimDomain;
-    @Nullable
-    private java.util.concurrent.CompletableFuture<?> claimCheckpoint;
+    ECOInfiniteStorageModeController(ECOStorageSystemBlockEntity host) { this.host = host; }
 
-    ECOInfiniteStorageModeController(ECOStorageSystemBlockEntity host) {
-        this.host = host;
+    void membersChanged() {
+        dirty = true;
+        update();
     }
 
     void update() {
-        if (host.getLevel() == null || host.getLevel().isClientSide || host.isStorageServerStopping()
-                || updating || modeCheckTick == host.getLevel().getGameTime()) {
-            return;
-        }
-        modeCheckTick = host.getLevel().getGameTime();
+        if (!(host.getLevel() instanceof ServerLevel level) || !level.getServer().isSameThread()
+                || host.isRemoved() || host.isStorageServerStopping() || updating) return;
         updating = true;
-        ECOStorageHostMode previous = host.storageHostMode();
         try {
-            if (host.consumeInfiniteComponentsDirty()) {
-                targetInfiniteMode = host.hasRequiredInfiniteComponents();
-                // Keep a completed exit latched until the components have actually been removed.
-                if (!targetInfiniteMode && !host.storageHostMode().isInfiniteState()) {
-                    host.clearInfiniteExitRequest();
-                }
-            }
-            processMode();
-        } finally {
-            updating = false;
-            syncModeChanges(previous);
-        }
-    }
-
-    private void processMode() {
-        if (host.hasInvalidInfiniteMembers()) {
-            host.storageFaults().report("members", "Invalid saved infinite member identity; original data retained",
-                    host.getLevel().getGameTime());
-            return;
-        }
-        if (!host.isFormed() || host.getCluster() == null) {
-            if (!host.storageHostMode().isInfiniteState()) {
-                host.setStorageHostMode(ECOStorageHostMode.UNFORMED);
-            }
-            return;
-        }
-        if (host.storageHostMode() == ECOStorageHostMode.UNFORMED) {
-            host.setStorageHostMode(ECOStorageHostMode.FORMED_NORMAL);
-        }
-        advanceClaim();
-        if (host.storageHostMode() == ECOStorageHostMode.MIGRATING_TO_INFINITE) {
-            // Finish the sealed migration before considering an exit, including after reload.
-            runMigrationStep();
-            return;
-        }
-        ECOInfiniteStorageEngine restoringEngine = getEngine();
-        if (host.storageHostMode() == ECOStorageHostMode.RESTORING_TO_NORMAL
-                || host.infiniteRestore().isRestoring()
-                || restoringEngine != null && restoringEngine.hasPendingRestore()
-                || host.isInfiniteExitRequested() && host.storageHostMode().isInfiniteState()) {
-            host.setStorageHostMode(ECOStorageHostMode.RESTORING_TO_NORMAL);
-            host.infiniteRestore().restoreInfiniteDomainToNormalStorageIfPossible();
-            return;
-        }
-        if (host.storageHostMode().isInfiniteState() && !targetInfiniteMode) {
-            // A host placed without its components pauses; only an explicit exit restores to normal storage.
-            host.storageFaults().report(COMPONENTS_FAULT, "Missing infinite components; insert them again",
-                    host.getLevel().getGameTime());
-            return;
-        }
-        host.storageFaults().recovered(COMPONENTS_FAULT);
-        if (host.storageHostMode() == ECOStorageHostMode.FORMED_INFINITE
-                && restoringEngine != null && restoringEngine.canExitOrRestore()) {
-            // No restore references member identities here; legacy bound members become anonymous.
-            host.releaseRestoreBindings();
-        }
-        if (host.storageHostMode() == ECOStorageHostMode.FORMED_NORMAL && canStartMigration()) {
-            ensureDomainId();
-            // Opening the destination must succeed before changing ownership of any source.
-            ECOInfiniteStorageEngine engine = getEngine();
-            if (engine == null || !engine.isHealthy()) {
+            var cluster = host.getCluster();
+            boolean formed = host.isFormed() && cluster != null && !cluster.isDestroyed();
+            if (!host.getTier().supportsFeature(ECOFeature.INFINITE_STORAGE_HOST)) {
+                publish(formed, false);
                 return;
             }
-            host.setStorageHostMode(ECOStorageHostMode.MIGRATING_TO_INFINITE);
-        }
-        if (host.storageHostMode() == ECOStorageHostMode.MIGRATING_TO_INFINITE) {
-            runMigrationStep();
-        }
-    }
-
-    private void syncModeChanges(ECOStorageHostMode previous) {
-        if (previous != host.storageHostMode()) {
-            host.infiniteRestore().invalidateExtractionCheck();
-            host.invalidateStorageStatistics();
-            host.refreshDriveStorageProviders();
-            host.setChanged();
-            host.markForUpdate();
-        }
-    }
-
-    private boolean canStartMigration() {
-        return !host.isInfiniteExitRequested()
-                && host.getTier().supportsFeature(ECOFeature.INFINITE_STORAGE_HOST)
-                && host.isFormed()
-                && host.getCluster() != null
-                && !host.isStorageInterfaceTransferMode()
-                && targetInfiniteMode
-                && countMigrationSources() >= MINIMUM_MIGRATION_SOURCES
-                && !hasForeignMembers()
-                && !hasDuplicateCandidateIdentities();
-    }
-
-    private boolean hasDuplicateCandidateIdentities() {
-        if (host.getCluster() == null) return false;
-        Set<UUID> identities = new HashSet<>();
-        for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
-            ItemStack stack = drive.getCellStack();
-            IECOStorageCell cell = drive.getCellInventory();
-            if (stack == null || stack.isEmpty()
-                    || (!ECOInfiniteStorageMember.isMember(stack) && !ECOInfiniteStorageTransfer.isEligible(cell))) {
-                continue;
-            }
-            var identity = ECOInfiniteStorageMember.getIdentity(stack);
-            if (identity.isPresent() && !identities.add(identity.get())) return true;
-        }
-        return false;
-    }
-
-    int migrationProgressPercent() {
-        if (host.storageHostMode() == ECOStorageHostMode.FORMED_INFINITE) {
-            return 100;
-        }
-        // Floor, so 100% is only shown once the host has actually left the migration state.
-        return Math.clamp((int) Math.floor(migrationProgress() * 100.0D), 0, 100);
-    }
-
-    /**
-     * Completed sources plus the processed share of every source in progress, over all sources. Never decreases
-     * during one migration, even when a matrix is added or a cursor is rebuilt after a reload.
-     */
-    double migrationProgress() {
-        if (host.storageHostMode() == ECOStorageHostMode.FORMED_INFINITE) {
-            return 1.0D;
-        }
-        if (host.storageHostMode() != ECOStorageHostMode.MIGRATING_TO_INFINITE || host.getCluster() == null) {
-            return 0.0D;
-        }
-        int migrated = countInfiniteMembers();
-        int pending = 0;
-        double partial = 0.0D;
-        for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
-            ItemStack stack = drive.getCellStack();
-            IECOStorageCell cell = drive.getCellInventory();
-            if (stack != null && !stack.isEmpty() && ECOInfiniteStorageTransfer.isEligible(cell)
-                    && !ECOInfiniteStorageMember.isMember(stack)) {
-                pending++;
-                partial += transfer.progress(ECOInfiniteStorageMember.getMigrationId(stack));
-            }
-        }
-        migrationProgressHighWater = Math.max(migrationProgressHighWater,
-                combinedMigrationProgress(migrated, partial, pending));
-        return migrationProgressHighWater;
-    }
-
-    static double combinedMigrationProgress(int completed, double partial, int pending) {
-        int total = completed + pending;
-        if (total <= 0) return 1.0D;
-        return Math.clamp((completed + Math.clamp(partial, 0.0D, pending)) / total, 0.0D, 1.0D);
-    }
-
-    /** The reason the running migration currently cannot advance, or {@code null}. */
-    @Nullable
-    ECOInfiniteStorageEngine.MigrationBlock migrationBlock() {
-        return host.storageHostMode() == ECOStorageHostMode.MIGRATING_TO_INFINITE ? migrationBlock : null;
-    }
-
-    private int countMigrationSources() {
-        return countInfiniteMembers() + countPendingMigrationTargets();
-    }
-
-    private boolean hasForeignMembers() {
-        if (host.getCluster() == null) {
-            return false;
-        }
-        for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
-            ItemStack stack = drive.getCellStack();
-            if (ECOInfiniteStorageMember.isBound(stack)
-                    && (host.infiniteDomainId() == null
-                    || !ECOInfiniteStorageMember.isMemberOf(stack, host.infiniteDomainId()))) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private int countPendingMigrationTargets() {
-        if (host.getCluster() == null) {
-            return 0;
-        }
-        int count = 0;
-        for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
-            ItemStack stack = drive.getCellStack();
-            IECOStorageCell cell = drive.getCellInventory();
-            if (stack != null && !stack.isEmpty()
-                    && ECOInfiniteStorageTransfer.isEligible(cell)
-                    && !ECOInfiniteStorageMember.isMember(stack)) {
-                count++;
-            }
-        }
-        return count;
-    }
-
-    private int countInfiniteMembers() {
-        if (host.getCluster() == null || host.infiniteDomainId() == null) {
-            return 0;
-        }
-        int count = 0;
-        for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
-            if (ECOInfiniteStorageMember.isAnonymous(drive.getCellStack()) || ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), host.infiniteDomainId())) {
-                count++;
-            }
-        }
-        return count;
-    }
-
-    private void runMigrationStep() {
-        if (!(host.getLevel() instanceof ServerLevel serverLevel) || host.getCluster() == null) {
-            return;
-        }
-        UUID domainId = ensureDomainId();
-        ECOInfiniteStorageEngine engine = getEngine();
-        if (engine == null) {
-            return;
-        }
-        long tick = host.getLevel().getGameTime();
-        // A blocked domain keeps every source sealed and waits without a cooldown: the domain state, not a drive,
-        // has to change before anything can advance.
-        ECOInfiniteStorageEngine.MigrationBlock blocked = engine.migrationBlock();
-        boolean domainBlocked = blocked != null;
-        if (!domainBlocked) {
-            sealTransferSources(serverLevel, domainId);
-        }
-        var budget = new ECOInfiniteStorageTransfer.Budget(migrationClock,
-                Math.max(0L, NEConfig.infiniteMigrationTickBudgetMicros) * 1_000L,
-                NEConfig.infiniteMigrationKeysPerTick);
-        boolean hasPending = false;
-        // One source at a time in a stable order; leftover budget moves on to the next source in the same tick.
-        for (ECODriveBlockEntity drive : migrationOrder()) {
-            String stage = "migration drive " + drive.getBlockPos();
-            if (tick < host.storageStageRetryTicks().getOrDefault(stage, Long.MIN_VALUE)) {
-                hasPending = true;
-                continue;
-            }
-            try {
-                ItemStack stack = drive.getCellStack();
-                if (ECOInfiniteStorageMember.isMember(stack)) {
-                    if (ECOInfiniteStorageMember.isAnonymous(stack) || ECOInfiniteStorageMember.isMemberOf(stack, domainId)) {
-                        continue;
-                    }
-                    hasPending = true;
-                    host.storageFaults().report(stage, "Foreign infinite storage member", tick);
-                    continue;
-                }
-                IECOStorageCell cell = drive.getCellInventory();
-                if (stack == null || stack.isEmpty() || !ECOInfiniteStorageTransfer.isEligible(cell)) {
-                    continue;
-                }
-                hasPending = true;
-                if (domainBlocked || !preparedSourceSeals.contains(ECOInfiniteStorageMember.getMigrationId(stack))
-                        || !budget.hasRemaining()) {
-                    continue;
-                }
-                ECOInfiniteStorageTransfer.StepResult result = migrateDrive(drive, cell, engine, domainId, budget);
-                if (result.state() == ECOInfiniteStorageTransfer.State.BLOCKED) {
-                    if (blocked == null) blocked = result.block();
-                } else {
-                    host.storageFaults().recovered(stage);
-                }
-            } catch (RuntimeException exception) {
-                hasPending = true;
-                host.storageStageRetryTicks().put(stage, tick + 200L);
-                host.storageFaults().report(stage, exception.toString(), tick, exception);
-            }
-        }
-        if (blocked != null) {
-            reportMigrationBlock(blocked, tick);
-        } else if (migrationBlock != null) {
-            migrationBlock = null;
-            host.storageFaults().recovered(MIGRATION_FAULT);
-        }
-        // As before, an unwritable domain never completes the transition; a degraded readable one may.
-        if (!hasPending && host.infiniteMigrationSourceIds().isEmpty() && engine.isHealthy()) {
-            host.setStorageHostMode(ECOStorageHostMode.FORMED_INFINITE);
-        }
-    }
-
-    private void reportMigrationBlock(ECOInfiniteStorageEngine.MigrationBlock block, long tick) {
-        migrationBlock = block;
-        host.storageFaults().report(MIGRATION_FAULT, block.describe(), tick);
-    }
-
-    private List<ECODriveBlockEntity> migrationOrder() {
-        List<ECODriveBlockEntity> drives = new ArrayList<>(host.getCluster().getDrives());
-        drives.sort(Comparator.comparingLong(drive -> drive.getBlockPos().asLong()));
-        return drives;
-    }
-
-    private ECOInfiniteStorageTransfer.StepResult migrateDrive(
-            ECODriveBlockEntity drive,
-            IECOStorageCell cell,
-            ECOInfiniteStorageEngine engine,
-            UUID domainId,
-            ECOInfiniteStorageTransfer.Budget budget
-    ) {
-        if (!(cell instanceof IECOStorageMigrationCell migrationCell)) {
-            throw new IllegalStateException("Cell handler does not support resumable migration");
-        }
-        UUID migration = ECOInfiniteStorageMember.beginMigration(drive.getCellStack(), domainId);
-        long position = drive.getBlockPos().asLong();
-        ECOInfiniteStorageTransfer.StepResult result = transfer.step(drive.getCellStack(), migrationCell, domainId,
-                engine, host.getLevel().registryAccess(),
-                () -> {
-                    if (!preparedSourceSeals.contains(migration)) {
-                        throw new IllegalStateException("Source seal has not been prepared");
-                    }
-                },
-                () -> drive.convertCellToInfiniteMember(domainId),
-                (key, keyTag, amount) -> ECOInfiniteStorageTransfer.legacyReceipt(
-                        domainId, "to-domain", position, keyTag, amount),
-                budget);
-        if (result.state() != ECOInfiniteStorageTransfer.State.COMPLETED) {
-            return result;
-        }
-        preparedSourceSeals.remove(migration);
-        host.infiniteMigrationSourceIds().remove(migration);
-        IStorageProvider.requestUpdate(drive.getMainNode());
-        host.invalidateStorageStatistics();
-        drive.setChanged();
-        host.setChanged();
-        host.markForUpdate();
-        return result;
-    }
-
-    private void sealTransferSources(ServerLevel serverLevel, UUID domainId) {
-        for (var iterator = pendingSourceSeals.entrySet().iterator(); iterator.hasNext();) {
-            var entry = iterator.next();
-            if (!entry.getValue().isDone()) continue;
-            try {
-                entry.getValue().getNow(null);
-                preparedSourceSeals.add(entry.getKey());
-            } catch (java.util.concurrent.CompletionException failure) {
-                host.storageFaults().report("migration seal", failure.toString(), host.getLevel().getGameTime());
-            }
-            iterator.remove();
-        }
-        Set<UUID> prepared = new HashSet<>();
-        List<ECODriveBlockEntity> sealedDrives = new ArrayList<>();
-        for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
-            if (prepared.size() >= ECOInfiniteStorageTransfer.SEALS_PER_TICK) break;
-            String stage = "migration drive " + drive.getBlockPos();
-            if (host.getLevel().getGameTime() < host.storageStageRetryTicks().getOrDefault(stage, Long.MIN_VALUE)) {
-                continue;
-            }
-            ItemStack stack = drive.getCellStack();
-            IECOStorageCell cell = drive.getCellInventory();
-            if (stack == null || stack.isEmpty() || ECOInfiniteStorageMember.isMember(stack)
-                    || !ECOInfiniteStorageTransfer.isEligible(cell)) {
-                continue;
-            }
-            try {
-                UUID migration = ECOInfiniteStorageMember.beginMigration(stack, domainId);
-                if (host.infiniteMigrationSourceIds().add(migration)) {
-                    host.setChanged();
-                }
-                if (preparedSourceSeals.contains(migration) || pendingSourceSeals.containsKey(migration)) {
-                    continue;
-                }
-                drive.flushPendingCellWrites();
-                ((IECOStorageMigrationCell) cell).persistMigrationContents(serverLevel);
-                drive.setChanged();
-                IStorageProvider.requestUpdate(drive.getMainNode());
-                prepared.add(migration);
-                sealedDrives.add(drive);
-            } catch (RuntimeException exception) {
-                host.storageStageRetryTicks().put(stage, host.getLevel().getGameTime() + 200L);
-                host.storageFaults().report(stage, exception.toString(), host.getLevel().getGameTime(), exception);
-            }
-        }
-        if (!prepared.isEmpty()) {
-            host.setChanged();
-            var checkpoint = ECOStorageChunkPersistence.checkpoint(host, sealedDrives);
-            for (UUID migration : prepared) pendingSourceSeals.put(migration, checkpoint);
-        }
-    }
-
-    UUID migrationTransactionId(UUID domainId, ECODriveBlockEntity drive, AEKey key, long amount, String direction) {
-        ECOInfiniteStorageEngine engine = getEngine();
-        UUID restore = engine == null ? null : engine.restoreTransaction(key);
-        if ("from-domain".equals(direction) && restore != null) {
-            UUID identity = ECOInfiniteStorageMember.identity(drive.getCellStack());
-            drive.setChanged();
-            return UUID.nameUUIDFromBytes((restore + ":" + identity).getBytes(StandardCharsets.UTF_8));
-        }
-        return ECOInfiniteStorageTransfer.legacyReceipt(domainId, direction, drive.getBlockPos().asLong(),
-                String.valueOf(key.toTagGeneric(host.getLevel().registryAccess())), amount);
-    }
-
-    void exitIfSafe() {
-        if (host.getMissingInfiniteMembers() > 0) {
-            return;
-        }
-        ECOInfiniteStorageEngine engine = getEngine();
-        if (engine == null || !engine.canExitOrRestore() || !engine.isEmpty()) {
-            return;
-        }
-        if (exitCheckpoint == null) exitCheckpoint = engine.checkpoint();
-        if (!exitCheckpoint.isDone()) return;
-        if (!exitCheckpoint.getNow(null).successful()) {
-            exitCheckpoint = null;
-            return;
-        }
-        UUID domainId = host.infiniteDomainId();
-        if (host.getCluster() != null && domainId != null) {
-            for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
-                if (ECOInfiniteStorageMember.isMember(drive.getCellStack())) {
-                    drive.convertInfiniteMemberToNormalStorage(domainId);
-                    IStorageProvider.requestUpdate(drive.getMainNode());
-                }
-            }
-        }
-        host.setStorageHostMode(host.isFormed()
-                ? ECOStorageHostMode.FORMED_NORMAL : ECOStorageHostMode.UNFORMED);
-        if (host.getLevel() instanceof ServerLevel && domainId != null) {
-            // Retain transfer receipts: an old source chunk must not import the same inventory again.
-            release();
-        }
-        host.setInfiniteDomainId(null);
-        host.infiniteMemberIds().clear();
-        host.infiniteMigrationSourceIds().clear();
-        host.refreshDriveStorageProviders();
-        host.setChanged();
-        host.markForUpdate();
-    }
-
-    @Nullable
-    ECOInfiniteStorageEngine getEngine() {
-        if (!(host.getLevel() instanceof ServerLevel serverLevel) || host.infiniteDomainId() == null) {
-            if (mountedDomainId != null) release();
-            return null;
-        }
-        MinecraftServer server = serverLevel.getServer();
-        if (mountedEngine == null || mountedServer != server
-                || !host.infiniteDomainId().equals(mountedDomainId)) {
-            release();
-            UUID domainId = host.infiniteDomainId();
-            if (domainId.equals(rejectedClaimDomain)) return null;
-            ECOInfiniteStorageEngine engine = ECOInfiniteStorageDomains.acquire(serverLevel, domainId);
-            UUID pending = host.pendingInfiniteClaimToken();
-            boolean claimed = engine.acceptsClaim(host.infiniteClaimToken())
-                    || pending != null && engine.acceptsClaim(pending);
-            if (!claimed || ECOInfiniteStorageDomains.mountedHosts(server, domainId) > 1) {
-                // An older copy of the host item, or a host already serving this domain.
-                ECOInfiniteStorageDomains.release(server, domainId);
-                rejectedClaimDomain = domainId;
-                host.storageFaults().report(CLAIM_FAULT,
-                        "Infinite domain is claimed by another host; an administrator can recover it",
-                        serverLevel.getGameTime());
-                return null;
-            }
-            host.storageFaults().recovered(CLAIM_FAULT);
-            mountedServer = server;
-            mountedDomainId = domainId;
-            mountedEngine = engine;
-            refreshHostAccess();
-        }
-        return mountedEngine;
-    }
-
-    /** Lets a host placed from an item, or recovered by an administrator, try its claim again. */
-    void resetClaim() {
-        rejectedClaimDomain = null;
-        claimCheckpoint = null;
-    }
-
-    /** Rotates the pending token in; the domain retires older tokens only once both sides are durable. */
-    private void advanceClaim() {
-        if (host.infiniteDomainId() == null) return;
-        ECOInfiniteStorageEngine engine = getEngine();
-        if (engine == null) return;
-        UUID current = host.infiniteClaimToken();
-        UUID pending = host.pendingInfiniteClaimToken();
-        if (pending == null) {
-            if (!engine.acceptsClaim(null)) return;
-            pending = current != null ? current : UUID.randomUUID();
-            host.setInfiniteClaimTokens(current, pending);
-        }
-        if (claimCheckpoint == null) {
-            engine.rotateClaim(current, pending);
-            claimCheckpoint = java.util.concurrent.CompletableFuture.allOf(
-                    engine.checkpoint().thenAccept(result -> {
-                        if (!result.successful()) throw new IllegalStateException(result.failure());
-                    }),
-                    ECOStorageChunkPersistence.checkpoint(host, List.of()));
-            return;
-        }
-        if (!claimCheckpoint.isDone()) return;
-        if (claimCheckpoint.isCompletedExceptionally()) {
-            claimCheckpoint = null;
-            return;
-        }
-        claimCheckpoint = null;
-        engine.settleClaim(pending);
-        host.setInfiniteClaimTokens(pending, null);
-    }
-
-    /** Reattaches existing world data; never copies balances or starts another migration. */
-    @Nullable
-    Component recoverDomain(UUID domainId) {
-        String prefix = "command.neoecoae.storage_recover.";
-        if (!(host.getLevel() instanceof ServerLevel level) || host.isStorageServerStopping()
-                || !host.isFormed() || host.getCluster() == null
-                || host.storageHostMode() != ECOStorageHostMode.FORMED_INFINITE
-                || !host.hasRequiredInfiniteComponents() || host.isInfiniteExitRequested()
-                || host.infiniteRestore().isRestoring()) {
-            return Component.translatable(prefix + "invalid_host");
-        }
-        MinecraftServer server = level.getServer();
-        if (!ECOInfiniteStorageDomains.exists(server, domainId)) {
-            return Component.translatable(prefix + "not_found", domainId.toString());
-        }
-        UUID previousDomain = host.infiniteDomainId();
-        ECOInfiniteStorageEngine previous = getEngine();
-        // A host whose own claim was rejected is still inspected, without being mounted.
-        boolean inspectingRejected = previous == null && previousDomain != null
-                && previousDomain.equals(rejectedClaimDomain);
-        if (inspectingRejected) previous = ECOInfiniteStorageDomains.acquire(level, previousDomain);
-        try {
-            boolean sameDomain = domainId.equals(previousDomain);
-            if (previous == null || !previous.canExitOrRestore() || previous.hasPendingRestore()
-                    || !sameDomain && !previous.isEmpty()) {
-                return Component.translatable(prefix + "occupied");
-            }
-            if (ECOInfiniteStorageDomains.mountedHosts(server, domainId) > (sameDomain ? 1 : 0)) {
-                return Component.translatable(prefix + "mounted");
-            }
-            // Only retag this host's sealed, fully migrated members. A migration/restore in progress
-            // or a foreign member needs its original transaction, not a replacement identity.
-            if (host.hasInvalidInfiniteMembers()) {
-                return Component.translatable(prefix + "invalid_members");
-            }
-            Set<UUID> identities = new HashSet<>();
-            List<ECODriveBlockEntity> members = new ArrayList<>();
-            for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
-                ItemStack stack = drive.getCellStack();
-                if (ECOInfiniteStorageMember.isMigrating(stack)) {
-                    return Component.translatable(prefix + "invalid_members");
-                }
-                if (!ECOInfiniteStorageMember.isMember(stack)) continue;
-                if (ECOInfiniteStorageMember.isAnonymous(stack)) continue;
-                var identity = ECOInfiniteStorageMember.getIdentity(stack);
-                if ((!ECOInfiniteStorageMember.isMemberOf(stack, previousDomain)
-                        && !ECOInfiniteStorageMember.isMemberOf(stack, domainId))
-                        || identity.isEmpty() || !identities.add(identity.get())) {
-                    return Component.translatable(prefix + "invalid_members");
-                }
-                members.add(drive);
-            }
-            ECOInfiniteStorageEngine recovered = ECOInfiniteStorageDomains.acquire(level, domainId);
-            try {
-                if (!recovered.canExitOrRestore() || !recovered.canUseMountedStorage()) {
-                    return Component.translatable(prefix + "unhealthy");
-                }
-                // Invalidate every previously issued view before changing drive membership.
+            var claims = ECOInfiniteStorageDomains.hostClaims(level.getServer());
+            if (level.getGameTime() % 100L == 0L) claims.retry();
+            GlobalPos location = location(level);
+            UUID associated = claims.domainAt(location);
+            UUID saved = host.infiniteDomainId();
+            if (associated != null && !associated.equals(saved)) {
                 release();
-                UUID claim = UUID.randomUUID();
-                recovered.settleClaim(claim);
-                host.setInfiniteClaimTokens(claim, null);
-                resetClaim();
-                host.setInfiniteDomainId(domainId);
-                host.infiniteMemberIds().clear();
-                host.infiniteMigrationSourceIds().clear();
-                for (ECODriveBlockEntity drive : members) {
-                    ECOInfiniteStorageMember.markMember(drive.getCellStack(), domainId);
-                    host.infiniteMemberIds().add(ECOInfiniteStorageMember.identity(drive.getCellStack()));
-                    drive.setChanged();
-                    drive.markForUpdate();
-                }
-                host.invalidateInfiniteMembers();
-                host.infiniteRestore().invalidateExtractionCheck();
-                host.invalidateStorageStatistics();
-                host.refreshDriveStorageProviders();
-                host.setChanged();
-                host.markForUpdate();
-                return null;
-            } finally {
-                ECOInfiniteStorageDomains.release(server, domainId);
+                host.setInfiniteDomainId(associated);
+                saved = associated;
             }
+            if (saved != null && engine == null) openAssociated(level, claims, location, saved);
+
+            List<ECODriveBlockEntity> drives = formed ? cluster.getDrives() : List.of();
+            if (engine != null && (dirty || !engine.canUseMountedStorage() && level.getGameTime() >= retryLegacyAt)) {
+                if (host.hasLegacyRoster()) {
+                    ECOInfiniteStorageMember.recordRoster(engine, host.legacyMigrationSources(), host.hasMalformedLegacyRoster());
+                }
+                List<ECODriveBlockEntity> loaded = drives.stream().filter(ECODriveBlockEntity::isInstalledStorageAvailable)
+                        .filter(drive -> drive.getStorageController() == host).toList();
+                for (ECODriveBlockEntity drive : loaded) drive.upgradeLegacyCell();
+                String reason = ECOInfiniteStorageMember.reconcile(level, domain, engine, loaded);
+                if (reason != null) {
+                    retryLegacyAt = level.getGameTime() + 20L;
+                    host.storageFaults().report(LEGACY_FAULT, domain + ": " + reason, level.getGameTime());
+                } else if (engine.canUseMountedStorage()) {
+                    host.storageFaults().recovered(LEGACY_FAULT);
+                    host.clearLegacyRoster();
+                    for (ECODriveBlockEntity drive : loaded) drive.upgradeLegacyCell();
+                }
+                if (!engine.canUseMountedStorage() && level.getGameTime() % 100L == 0L) engine.checkpoint();
+                dirty = true;
+            }
+
+            if (dirty) {
+                var next = new HashSet<ECODriveBlockEntity>();
+                if (formed) {
+                    for (ECODriveBlockEntity drive : drives) {
+                        if (!drive.isInstalledStorageAvailable() || drive.getStorageController() != host) continue;
+                        if (drive.refreshInfiniteQualification(host)) next.add(drive);
+                    }
+                }
+                candidates = next;
+            }
+            boolean eligible = formed && host.hasRequiredInfiniteComponents() && candidates.size() >= REQUIRED_DISKS;
+            if (eligible && saved == null && claims.ready()) createDomain(level, claims, location);
+            if (creation != null && creation.isDone() && !creation.getNow(null).successful()
+                    && level.getGameTime() % 100L == 0L) creation = engine.checkpoint();
+            if (engine != null && claims.locationOf(domain) == null && creation != null && creation.isDone()
+                    && creation.getNow(null).successful() && claims.ready()) {
+                claims.bind(domain, location, false);
+            }
+            boolean active = eligible && engine != null && location.equals(claims.locationOf(domain)) && claims.readyFor(domain)
+                    && (creation == null || creation.isDone() && creation.getNow(null).successful())
+                    && engine.canUseMountedStorage();
+            publish(formed, active);
+            dirty = false;
+        } catch (RuntimeException failure) {
+            publish(false, false);
+            dirty = true;
+            host.storageFaults().report("domain", "Domain " + domain + ": " + failure, level.getGameTime(), failure);
         } finally {
-            if (inspectingRejected) ECOInfiniteStorageDomains.release(server, previousDomain);
+            updating = false;
         }
     }
 
-    void release() {
-        backendGeneration++;
-        hostAccess = false;
-        transfer.reset();
-        preparedSourceSeals.clear();
-        pendingSourceSeals.clear();
-        exitCheckpoint = null;
-        claimCheckpoint = null;
-        if (mountedServer != null && mountedDomainId != null) {
-            ECOInfiniteStorageDomains.release(mountedServer, mountedDomainId);
+
+    private void openAssociated(ServerLevel level, ECOInfiniteStorageDomains.HostClaims claims, GlobalPos location, UUID id) {
+        if (!claims.readable() || claims.locationOf(id) != null && !location.equals(claims.locationOf(id))) {
+            reportClaim(level, id, "Association is unavailable or belongs to another position");
+            return;
         }
-        mountedServer = null;
-        mountedDomainId = null;
-        mountedEngine = null;
+        if (!ECOInfiniteStorageDomains.exists(level.getServer(), id)) {
+            reportClaim(level, id, "Saved domain is missing; no replacement was created");
+            return;
+        }
+        if (!(location.equals(claims.locationOf(id)) ? claims.readyFor(id) : claims.ready())
+                || ECOInfiniteStorageDomains.mountedHosts(level.getServer(), id) != 0) return;
+        var loaded = (SavedDataInfiniteStorageEngine) ECOInfiniteStorageDomains.acquire(level, id);
+        if (claims.locationOf(id) == null) {
+            if (!loaded.acceptsClaim(host.infiniteClaimToken())
+                    && (host.pendingInfiniteClaimToken() == null || !loaded.acceptsClaim(host.pendingInfiniteClaimToken()))) {
+                ECOInfiniteStorageDomains.release(level.getServer(), id);
+                reportClaim(level, id, "Legacy controller does not hold the saved claim");
+                return;
+            }
+            hold(level, id, loaded);
+            ECOInfiniteStorageMember.recordRoster(loaded, host.legacyMigrationSources(), host.hasMalformedLegacyRoster());
+            creation = loaded.checkpoint();
+        } else {
+            hold(level, id, loaded);
+        }
+    }
+
+    private void createDomain(ServerLevel level, ECOInfiniteStorageDomains.HostClaims claims, GlobalPos location) {
+        UUID id = UUID.randomUUID();
+        var fresh = (SavedDataInfiniteStorageEngine) ECOInfiniteStorageDomains.acquire(level, id);
+        var initialSnapshot = fresh.checkpoint();
+        if (!claims.bind(id, location, false)) {
+            ECOInfiniteStorageDomains.release(level.getServer(), id);
+            return;
+        }
+        hold(level, id, fresh);
+        host.setInfiniteDomainId(id);
+        creation = initialSnapshot;
+    }
+
+    private void hold(ServerLevel level, UUID id, SavedDataInfiniteStorageEngine loaded) {
+        server = level.getServer();
+        domain = id;
+        engine = loaded;
+        host.storageFaults().recovered(CLAIM_FAULT);
+        dirty = true;
+    }
+
+    private void reportClaim(ServerLevel level, UUID id, String reason) {
+        host.storageFaults().report(CLAIM_FAULT, id + ": " + reason, level.getGameTime());
+    }
+
+    private static GlobalPos location(ECOStorageSystemBlockEntity host, ServerLevel level) {
+        return GlobalPos.of(level.dimension(), host.getBlockPos());
+    }
+
+    private GlobalPos location(ServerLevel level) { return location(host, level); }
+
+    private void publish(boolean formed, boolean active) {
+        Set<ECODriveBlockEntity> next = active ? candidates : Set.of();
+        var mode = active ? ECOStorageHostMode.FORMED_INFINITE
+                : formed ? ECOStorageHostMode.FORMED_NORMAL : ECOStorageHostMode.UNFORMED;
+        if (hostAccess == active && occupied.equals(next) && host.storageHostMode() == mode) return;
+        invalidateViews();
+        for (ECODriveBlockEntity drive : occupied) if (!next.contains(drive)) drive.setInfiniteOccupied(false);
+        for (ECODriveBlockEntity drive : next) drive.setInfiniteOccupied(true);
+        occupied = next;
+        hostAccess = active;
+        host.setStorageHostMode(mode);
+        host.invalidateStorageStatistics();
+        host.refreshDriveStorageProviders();
+        host.markForUpdate();
+    }
+
+    void interfaceChanged() {
+        invalidateViews();
+        membersChanged();
+    }
+
+    private void invalidateViews() {
+        generation++;
         host.storageInterfaceTransfer().invalidateInfiniteStorageView();
     }
 
-    UUID ensureDomainId() {
-        UUID domainId = host.infiniteDomainId();
-        if (domainId == null) {
-            domainId = UUID.randomUUID();
-            host.setInfiniteDomainId(domainId);
-            host.setChanged();
+    void topologyChanging() {
+        publish(false, false);
+        candidates = Set.of();
+        dirty = true;
+    }
+
+    void release() {
+        topologyChanging();
+        invalidateViews();
+        if (server != null && domain != null) ECOInfiniteStorageDomains.release(server, domain);
+        server = null;
+        domain = null;
+        engine = null;
+        creation = null;
+    }
+
+    @Nullable ECOInfiniteStorageEngine getEngine() { return engine; }
+
+    MEStorage createStorageView(ECOInfiniteStorageEngine backend) {
+        long issued = generation;
+        return new ECOInfiniteStorage(backend, host.getBlockState().getBlock().getName(),
+                () -> issued == generation && backend == engine && canAccess());
+    }
+
+    boolean canAccess() {
+        return hostAccess && engine != null && host.isFormed() && !host.isRemoved() && !host.isStorageServerStopping()
+                && host.hasRequiredInfiniteComponents() && engine.canUseMountedStorage();
+    }
+
+    boolean occupies(ECODriveBlockEntity drive) { return occupied.contains(drive); }
+
+    int missingDisks() { return Math.max(0, REQUIRED_DISKS - candidates.size()); }
+
+    @Nullable
+    Component recoverDomain(UUID id) {
+        String prefix = "command.neoecoae.storage_recover.";
+        if (!(host.getLevel() instanceof ServerLevel level) || host.isStorageServerStopping() || !host.isFormed()
+                || !host.getTier().supportsFeature(ECOFeature.INFINITE_STORAGE_HOST)) {
+            return Component.translatable(prefix + "invalid_host");
         }
-        return domainId;
-    }
-
-    MEStorage createStorageView(ECOInfiniteStorageEngine engine) {
-        refreshHostAccess();
-        long generation = backendGeneration;
-        return new ECOInfiniteStorage(engine, host.getBlockState().getBlock().getName(),
-                () -> generation == backendGeneration && engine == mountedEngine
-                        && hostAccess && !host.isStorageServerStopping() && engine.canUseMountedStorage());
-    }
-
-    void hostModeChanged() {
-        backendGeneration++;
-        migrationProgressHighWater = 0.0D;
-        if (migrationBlock != null) {
-            // Leaving the migration (for example to restore) also retires its block diagnostics.
-            migrationBlock = null;
-            host.storageFaults().recovered(MIGRATION_FAULT);
+        var claims = ECOInfiniteStorageDomains.hostClaims(level.getServer());
+        if (!claims.ready()) return Component.translatable(prefix + "unhealthy");
+        if (!ECOInfiniteStorageDomains.exists(level.getServer(), id)) return Component.translatable(prefix + "not_found", id);
+        GlobalPos location = location(level);
+        UUID previous = claims.domainAt(location);
+        if (previous == null) previous = host.infiniteDomainId();
+        if (previous != null && !id.equals(previous)) {
+            if (!ECOInfiniteStorageDomains.exists(level.getServer(), previous)) return Component.translatable(prefix + "occupied");
+            var old = ECOInfiniteStorageDomains.acquire(level, previous);
+            try {
+                if (!old.canUseMountedStorage() || !old.isEmpty()) return Component.translatable(prefix + "occupied");
+            } finally {
+                ECOInfiniteStorageDomains.release(level.getServer(), previous);
+            }
         }
-        refreshHostAccess();
-    }
-
-    void membersChanged() {
-        boolean previouslyAccessible = hostAccess;
-        refreshHostAccess();
-        if (previouslyAccessible != hostAccess && host.getLevel() != null
-                && !host.getLevel().isClientSide && !host.isStorageServerStopping()) {
-            host.refreshDriveStorageProviders();
+        int current = ECOInfiniteStorageDomains.mountedHosts(level.getServer(), id);
+        if (current > (id.equals(domain) ? 1 : 0)) return Component.translatable(prefix + "mounted");
+        var recovered = ECOInfiniteStorageDomains.acquire(level, id);
+        try {
+            if (!recovered.canUseMountedStorage()) return Component.translatable(prefix + "unhealthy");
+            if (!claims.bind(id, location, true)) return Component.translatable(prefix + "unhealthy");
+            release();
+            host.setInfiniteDomainId(id);
+        } finally {
+            ECOInfiniteStorageDomains.release(level.getServer(), id);
         }
-    }
-
-    /** Called synchronously by host transitions; domain health and restore locks are engine-owned. */
-    void refreshHostAccess() {
-        hostAccess = host.isFormed()
-                && !host.isRemoved()
-                && host.storageHostMode() == ECOStorageHostMode.FORMED_INFINITE
-                && host.infiniteDomainId() != null
-                && !host.isInfiniteExitRequested()
-                && !host.infiniteRestore().isRestoring()
-                && host.hasRequiredInfiniteComponents()
-                && mountedEngine != null
-                && host.getMissingInfiniteMembers() == 0;
-    }
-
-    boolean canInsertIntoDomain() {
-        return hostAccess && !host.isStorageServerStopping() && mountedEngine.canUseMountedStorage();
+        membersChanged();
+        return null;
     }
 }

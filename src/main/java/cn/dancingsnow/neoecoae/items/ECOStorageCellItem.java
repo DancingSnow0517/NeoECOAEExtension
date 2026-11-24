@@ -25,9 +25,7 @@ import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.INativeMEStorageRestrictedItem;
 import cn.dancingsnow.neoecoae.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import lombok.Getter;
-import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -137,15 +135,6 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem, INati
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
-        if (ECOInfiniteStorageMember.isMember(stack)) {
-            lines.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
-                .withStyle(ChatFormatting.LIGHT_PURPLE));
-            if (ECOInfiniteStorageMember.isBound(stack)) {
-                lines.add(Component.translatable("tooltip.neoecoae.storage.infinite_restore_bound")
-                    .withStyle(ChatFormatting.AQUA));
-            }
-            return;
-        }
         var handler = getCellInventory(stack);
         if (handler == null) {
             return;
@@ -185,9 +174,6 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem, INati
 
     @Override
     public Optional<TooltipComponent> getTooltipImage(ItemStack stack) {
-        if (ECOInfiniteStorageMember.isMember(stack)) {
-            return Optional.empty();
-        }
         var handler = getCellInventory(stack);
         if (handler == null) {
             return Optional.empty();
@@ -306,10 +292,6 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem, INati
             return false;
         }
 
-        if (ECOInfiniteStorageMember.isMember(stack)) {
-            player.displayClientMessage(Component.translatable("tooltip.neoecoae.storage.infinite_member"), true);
-            return false;
-        }
 
         // Only the server can authoritatively inspect contents and replace the held cell.
         if (level.isClientSide()) {
@@ -354,6 +336,13 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem, INati
         @Override
         public boolean isCell(ItemStack stack) {
             return stack.getItem() instanceof ECOStorageCellItem;
+        }
+
+        @Override
+        public boolean isEmptyInfiniteCandidate(ItemStack stack, ISaveProvider host,
+                IECOTier hostTier, @Nullable IECOStorageCell mounted) {
+            return IECOCellHandler.super.isEmptyInfiniteCandidate(stack, host, hostTier,
+                    mounted != null ? mounted : getCellInventory(stack.copy(), null));
         }
 
         @Override

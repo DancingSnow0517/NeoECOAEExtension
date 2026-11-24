@@ -204,18 +204,16 @@ public final class StorageHostUI {
     }
 
     private static UIElement infiniteComponentSlot(Config config) {
-        ItemHandlerSlot slot = new ItemHandlerSlot(config.infiniteComponentInventory(), 0)
-            .setCanTake(player -> canTakeInfiniteComponent(player, config.canExtractInfiniteComponents()));
+        ItemHandlerSlot slot = new ItemHandlerSlot(config.infiniteComponentInventory(), 0) {
+            @Override
+            public int getMaxStackSize(ItemStack stack) {
+                return mayPlace(stack) ? Math.min(getMaxStackSize(), stack.getMaxStackSize()) : 0;
+            }
+        };
+        slot.setCanTake(player -> config.canExtractInfiniteComponents().getAsBoolean());
         return new ItemSlot(slot).style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
     }
 
-    private static boolean canTakeInfiniteComponent(@Nullable Player player, BooleanSupplier canExtract) {
-        if (canExtract.getAsBoolean()) return true;
-        if (player != null) {
-            player.displayClientMessage(Component.translatable("tooltip.neoecoae.storage.infinite_component_locked"), true);
-        }
-        return false;
-    }
 
     static InventorySlots playerInventory() {
         InventorySlots inventory = new InventorySlots();

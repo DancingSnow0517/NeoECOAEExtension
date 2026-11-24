@@ -11,7 +11,6 @@ import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.CombinedExactAmountSource;
 import cn.dancingsnow.neoecoae.storage.ECOStorageCell;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.storage.infinite.HugeAmount;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
@@ -90,7 +89,7 @@ final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements EC
     }
 
     private boolean canAccept(AEKey key) {
-        if (ECOInfiniteStorageMember.isSealed(cellStack) || !acceptsKey(key)
+        if (!acceptsKey(key)
             || !getPartitionList().matchesFilter(key, getPartitionListMode()) || item.isBlackListed(cellStack, key)) {
             return false;
         }
@@ -104,7 +103,7 @@ final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements EC
 
     @Override
     public long extract(AEKey key, long amount, Actionable mode, IActionSource source) {
-        if (amount <= 0 || ECOInfiniteStorageMember.isSealed(cellStack)) return 0;
+        if (amount <= 0) return 0;
         HugeAmount current = amounts.getOrDefault(key, HugeAmount.ZERO);
         long extracted = Math.min(current.toLongSaturated(), amount);
         if (mode == Actionable.MODULATE && extracted > 0) {
@@ -117,11 +116,11 @@ final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements EC
     }
 
     @Override
-    public boolean canFitInsideCell() { return amounts.isEmpty() && !ECOInfiniteStorageMember.isSealed(cellStack); }
+    public boolean canFitInsideCell() { return amounts.isEmpty(); }
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
-        if (!ECOInfiniteStorageMember.isSealed(cellStack)) amounts.forEach((key, amount) -> addVisible(out, key, amount));
+        amounts.forEach((key, amount) -> addVisible(out, key, amount));
     }
 
     @Override
@@ -134,7 +133,6 @@ final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements EC
     /** Shares the ECO infinite storage terminal path without reading each cell's contents twice. */
     @Override
     public void neoecoae$listWithExactAmounts(KeyCounter out, BiConsumer<AEKey, ExactAmount> visitor) {
-        if (ECOInfiniteStorageMember.isSealed(cellStack)) return;
         amounts.forEach((key, amount) -> {
             addVisible(out, key, amount);
             visitor.accept(key, ExactAmount.finite(amount.toBigInteger()));
@@ -196,8 +194,7 @@ final class BiggerAE2SingularityStorageCell extends ECOStorageCell implements EC
 
     @Override
     public void neoecoae$visitExactAmounts(BiConsumer<AEKey, ExactAmount> visitor) {
-        if (!ECOInfiniteStorageMember.isSealed(cellStack))
-            amounts.forEach((key, amount) -> visitor.accept(key, ExactAmount.finite(amount.toBigInteger())));
+        amounts.forEach((key, amount) -> visitor.accept(key, ExactAmount.finite(amount.toBigInteger())));
     }
 
     private HugeAmount total() {

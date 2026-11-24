@@ -30,7 +30,6 @@ import cn.dancingsnow.neoecoae.storage.ECOInfiniteResourceCell;
 import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
 import cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell;
 import cn.dancingsnow.neoecoae.storage.bulk.ECOCompressionService;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine;
 import cn.dancingsnow.neoecoae.storage.transfer.ECOIOPortTransfer;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
@@ -48,6 +47,7 @@ final class ECOStorageInterfaceTransfer {
     private final Map<ECODriveBlockEntity, IECOStorageCell> installed = new IdentityHashMap<>();
     private final List<ECODriveBlockEntity> untrackedDrives = new ArrayList<>();
     private boolean hostStorageDirty = true;
+    private long viewGeneration;
 
     ECOStorageInterfaceTransfer(ECOStorageSystemBlockEntity host) {
         this.host = host;
@@ -61,6 +61,7 @@ final class ECOStorageInterfaceTransfer {
     }
 
     void invalidateHostStorage() {
+        viewGeneration++;
         hostStorageDirty = true;
         cachedCluster = null;
         cachedCombinedStorage = null;
@@ -114,14 +115,9 @@ final class ECOStorageInterfaceTransfer {
 
     @Nullable
     MEStorage getStorageInterfaceHostStorage() {
-        if (host.storageHostMode().isTransitioning()
-            || host.storageHostMode().isInfiniteState()
-                && (host.isInfiniteExitRequested() || !host.canUseHostDomainStorage())) {
-            return null;
-        }
         NEStorageCluster cluster = host.getCluster();
-        if (cluster == null) return null;
-        ECOInfiniteStorageEngine engine = host.storageHostMode().isInfiniteState() ? host.getInfiniteEngine() : null;
+        if (cluster == null || !host.isFormed() || cluster.isDestroyed()) return null;
+        ECOInfiniteStorageEngine engine = host.canUseHostDomainStorage() ? host.getInfiniteEngine() : null;
         if (engine != cachedStorageEngine) {
             cachedStorageEngine = engine;
             cachedInfiniteStorage = engine == null ? null : host.createInfiniteStorageView(engine);
@@ -151,21 +147,21 @@ final class ECOStorageInterfaceTransfer {
                 cells.add(eligible);
             }
         }
+        long issued = ++viewGeneration;
         cachedCombinedStorage = cells.isEmpty() ? null : new CombinedStorage(cells,
-                host.getBlockState().getBlock().getName(),
-                () -> !host.storageHostMode().isInfiniteState() || host.canInsertIntoInfiniteDomain());
+                host.getBlockState().getBlock().getName(), () -> issued == viewGeneration);
         hostStorageDirty = false;
         cachedCluster = cluster;
         return cachedCombinedStorage;
     }
 
     private IECOStorageCell installedCell(ECODriveBlockEntity drive) {
-        return drive.isInstalledStorageAvailable() ? drive.getCellInventory() : null;
+        return drive.isInstalledStorageAvailable() && !host.isInfiniteDiskOccupied(drive) && !drive.legacyCellPending()
+                ? drive.getCellInventory() : null;
     }
 
     private IECOStorageCell eligibleCell(ECODriveBlockEntity drive, @Nullable IECOStorageCell inventory) {
-        return inventory != null && host.getTier().compareTo(inventory.getTier()) >= 0
-            && !ECOInfiniteStorageMember.isMember(drive.getInstalledCellStack()) ? inventory : null;
+        return inventory != null && host.getTier().compareTo(inventory.getTier()) >= 0 ? inventory : null;
     }
 
     private static boolean hasNativeNotifications(MEStorage inventory) {

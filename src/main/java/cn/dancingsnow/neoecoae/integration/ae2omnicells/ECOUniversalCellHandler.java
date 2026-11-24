@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 public final class ECOUniversalCellHandler implements IECOCellHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOUniversalCellHandler.class);
     private static final String UUID_TAG = "ae_universal_cell_uuid";
+    private static final String STORAGE_DIRECTORY = "ae_universal_cell_data/";
     public static final ECOUniversalCellHandler INSTANCE = new ECOUniversalCellHandler();
 
     // Server-thread only: UUID claims and releases are skipped on the client (they would also rewrite the client's
@@ -38,6 +39,7 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
     private final Map<ISaveProvider, UUID> ownerIds = new IdentityHashMap<>();
 
     private ECOUniversalCellHandler() {}
+
 
     @Override
     public boolean isCell(ItemStack stack) {
@@ -66,6 +68,7 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
                 return null;
             }
         } else {
+            if (cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.hasTransactionEvidence(stack)) return null;
             if (stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).contains(UUID_TAG)
                     || IAEUniversalCell.getUsedBytes(stack) > 0L || IAEUniversalCell.getUsedTypes(stack) > 0
                     || !IAEUniversalCell.getTooltipShowStacks(stack).isEmpty()) {
@@ -99,6 +102,34 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
     public void clearRuntimeState() {
         owners.clear();
         ownerIds.clear();
+    }
+
+    @Override
+    public void onCellInstalled(ItemStack stack, ISaveProvider host) {
+        var server = ServerLifecycleHooks.getCurrentServer();
+        if (server != null && server.isSameThread() && getStorageId(stack) != null) claimUniqueStorage(stack, host);
+    }
+
+    @Override
+    public boolean isEmptyInfiniteCandidate(ItemStack stack, ISaveProvider host,
+            cn.dancingsnow.neoecoae.api.IECOTier hostTier, @Nullable IECOStorageCell mounted) {
+        if (!(stack.getItem() instanceof ECOUniversalStorageCellItem item) || item.isSpentNuclearWasteCell()
+                || !item.getTier().supportsFeature(cn.dancingsnow.neoecoae.api.capability.ECOFeature.INFINITE_STORAGE_CELL)
+                || hostTier.compareTo(item.getTier()) < 0) return false;
+        var server = ServerLifecycleHooks.getCurrentServer();
+        if (server == null || !server.isSameThread()) return false;
+        UUID id = getStorageId(stack);
+        if (id == null) {
+            return !stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).contains(UUID_TAG)
+                    && IAEUniversalCell.getUsedBytes(stack) == 0L && IAEUniversalCell.getUsedTypes(stack) == 0
+                    && IAEUniversalCell.getTooltipShowStacks(stack).isEmpty();
+        }
+        ISaveProvider owner = owners.get(id);
+        if (owner != null && owner != host) return false;
+        var data = server.overworld().getDataStorage().get(AEUniversalCellData.FACTORY, STORAGE_DIRECTORY + id);
+        if (data == null || !data.getOriginalStorage().isEmpty()) return false;
+        return data.save(new CompoundTag(), server.registryAccess()).getCompound("inventory")
+                .getList("error_entries", net.minecraft.nbt.Tag.TAG_COMPOUND).isEmpty();
     }
 
     private boolean claimUniqueStorage(ItemStack stack, ISaveProvider host) {

@@ -23,7 +23,7 @@ public class CellHostItemHandler implements IItemHandler {
     @Override
     public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
         if (stack.isEmpty()) return ItemStack.EMPTY;
-        ItemStack installed = host.getCellStack();
+        ItemStack installed = simulate ? peekCell() : host.getCellStack();
         if ((installed != null && !installed.isEmpty()) || !host.canExtractCell() || !host.isItemValid(stack)) {
             return stack;
         }
@@ -37,21 +37,16 @@ public class CellHostItemHandler implements IItemHandler {
 
     @Override
     public ItemStack extractItem(int slot, int amount, boolean simulate) {
-        if (host.getCellStack() == null) {
-            return ItemStack.EMPTY;
-        }
-        if (amount <= 0) {
-            return ItemStack.EMPTY;
-        }
-        if (!host.canExtractCell()) {
-            return ItemStack.EMPTY;
-        }
-        ItemStack copy = host.getCellStack().copyWithCount(1);
-        if (cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.isAnonymous(copy)) cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.clearMember(copy);
-        if (!simulate) {
-            host.setCellStack(null);
-        }
-        return copy;
+        if (amount <= 0 || !host.canExtractCell()) return ItemStack.EMPTY;
+        ItemStack installed = simulate ? peekCell() : host.getCellStack();
+        if (installed == null || installed.isEmpty()) return ItemStack.EMPTY;
+        if (!simulate) host.setCellStack(null);
+        return installed.copyWithCount(1);
+    }
+
+    private ItemStack peekCell() {
+        return host instanceof cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity drive
+                ? drive.getInstalledCellStack() : host.getCellStack();
     }
 
     @Override

@@ -33,8 +33,6 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.world.item.component.CustomData;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -50,7 +48,6 @@ import java.util.UUID;
 public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster, ECODriveBlockEntity>
     implements ISyncPersistRPCBlockEntity, IStorageProvider, ICellHost, ISaveProvider, DeferredCellPersistence,
         IECOCellWorkbenchDrive {
-    private static final String RESTORE_RECEIPTS_TAG = "neoecoae_restore_receipts";
     private static final Logger LOGGER = LoggerFactory.getLogger(ECODriveBlockEntity.class);
 
     @Getter
@@ -70,6 +67,9 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     @Getter
     @DescSynced
     private volatile boolean infiniteMember;
+    private boolean infiniteCandidate;
+    private boolean qualificationDirty = true;
+    private boolean legacyCellPending;
 
     // UI requests identify this installation, independently of mutable or transient item components.
     // Recreated on load; no persistent disk data or save migration is needed.
@@ -92,7 +92,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     private ItemStack cachedCellStack;
     @Nullable
     private IECOStorageCell cachedCellInventory;
-    private boolean chunkUnloaded;
+    private boolean chunkUnloaded = true;
 
     public ECODriveBlockEntity(
         BlockEntityType<ECODriveBlockEntity> type,
@@ -116,12 +116,13 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     }
 
     @Nullable
-    ItemStack getInstalledCellStack() {
+    public ItemStack getInstalledCellStack() {
         return cellStack;
     }
 
     boolean isInstalledStorageAvailable() {
-        return !chunkUnloaded && !isRemoved();
+        return !chunkUnloaded && !isRemoved() && level instanceof ServerLevel server
+                && server.getChunkSource().getChunkNow(worldPosition.getX() >> 4, worldPosition.getZ() >> 4) != null;
     }
 
     private void onTransferAvailabilityChanged() {
@@ -134,20 +135,39 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         var item = cellStack == null || cellStack.isEmpty() ? null : cellStack.getItem();
         if (item == null) renderedCell = ItemStack.EMPTY;
         else if (renderedCell.isEmpty() || !renderedCell.is(item)) renderedCell = new ItemStack(item);
-        infiniteMember = ECOInfiniteStorageMember.isMember(cellStack);
     }
 
     @Override
     public void setChanged() {
-        if (level instanceof ServerLevel serverLevel && serverLevel.getServer().isSameThread()) {
-            boolean previouslyMember = infiniteMember;
-            updateRenderedCell();
-            if (previouslyMember != infiniteMember) {
-                var controller = getStorageController();
-                if (controller != null) controller.storageInterfaceTransfer().driveConfigurationChanged(this);
-            }
-        }
+        if (level instanceof ServerLevel serverLevel && serverLevel.getServer().isSameThread()) updateRenderedCell();
         super.setChanged();
+    }
+
+    void setInfiniteOccupied(boolean occupied) {
+        if (infiniteMember == occupied) return;
+        infiniteMember = occupied;
+        markForUpdate();
+    }
+
+    boolean refreshInfiniteQualification(ECOStorageSystemBlockEntity host) {
+        if (!qualificationDirty) return infiniteCandidate;
+        qualificationDirty = false;
+        try {
+            infiniteCandidate = isInstalledStorageAvailable() && getStorageController() == host && !legacyCellPending
+                    && ECOStorageCells.isEmptyInfiniteCandidate(cellStack, this, host.getTier(), cachedCellInventory);
+        } catch (RuntimeException failure) {
+            infiniteCandidate = false;
+            host.storageFaults().report("disk qualification " + worldPosition, failure.toString(), level.getGameTime(), failure);
+        }
+        return infiniteCandidate;
+    }
+
+    private void infiniteCellContentsChanged() {
+        var controller = getStorageController();
+        if (controller == null || !isInstalledStorageAvailable()) return;
+        boolean wasCandidate = infiniteCandidate;
+        qualificationDirty = true;
+        if (wasCandidate != refreshInfiniteQualification(controller)) controller.invalidateInfiniteMembers();
     }
 
     /** Writes cell contents deferred to the end of the tick; required before the stack is read, saved or moved. */
@@ -169,6 +189,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     public void neoecoae$onCellContentsChanged(cn.dancingsnow.neoecoae.storage.ECOStorageCell cell) {
         if (cell != cachedCellInventory || !neoecoae$canDeferCellPersistence()) return;
         var controller = getStorageController();
+        infiniteCellContentsChanged();
         if (controller != null) controller.storageInterfaceTransfer().cellContentsChanged(cell);
     }
 
@@ -181,22 +202,15 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         // The outgoing stack must carry every accepted transfer before it leaves this drive.
         flushPendingCellWrites();
         ECOStorageSystemBlockEntity controller = getStorageController();
+        upgradeLegacyCell();
         ECOStorageCells.releaseCellInventory(this.cellStack, this);
-        // Anonymous members are empty; they leave as ordinary cells.
-        if (ECOInfiniteStorageMember.isAnonymous(this.cellStack)) ECOInfiniteStorageMember.clearMember(this.cellStack);
-        if (cellStack != null) {
-            if (controller != null && controller.isFormedInfiniteMode()
-                    && !ECOInfiniteStorageMember.isMember(cellStack) && !ECOInfiniteStorageMember.isMigrating(cellStack)
-                    && isEmptyInfiniteCandidate(cellStack)) {
-                ECOInfiniteStorageMember.markAnonymous(cellStack);
-            } else if (ECOInfiniteStorageMember.isAnonymous(cellStack)
-                    && (controller == null || !controller.isInfiniteMode())) {
-                ECOInfiniteStorageMember.clearMember(cellStack);
-            }
-        }
         this.cellStack = cellStack;
+        legacyCellPending = false;
         cellInteractionId = UUID.randomUUID();
         invalidateCellInventoryCache();
+        ECOStorageCells.onCellInstalled(cellStack, this);
+        upgradeLegacyCell();
+        if (controller != null) controller.invalidateInfiniteMembers();
         if (controller != null) controller.bulkDriveChanged(this, false);
         if (controller != null) controller.storageInterfaceTransfer().driveConfigurationChanged(this);
         if (getLevel() != null && !isServerStopping()) {
@@ -207,7 +221,6 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
             }
         }
         updateState();
-        if (controller != null) controller.invalidateInfiniteMembers();
         setChanged();
         if (controller != null) controller.refreshStorageConfiguration();
     }
@@ -227,19 +240,8 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         return cellStack == replacement;
     }
 
-    /** Only empty cells may become anonymous members: nothing is migrated on insertion. */
-    static boolean isEmptyInfiniteCandidate(ItemStack stack) {
-        var cell = ECOStorageCells.getCellInventory(stack, null);
-        if (!cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageTransfer.isEligible(cell)) return false;
-        var contents = new appeng.api.stacks.KeyCounter();
-        ((cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell) cell).getMigrationStacks(contents);
-        return contents.isEmpty();
-    }
-
     @Override
     public boolean isItemValid(ItemStack stack) {
-        ECOStorageSystemBlockEntity controller = getStorageController();
-        if (controller != null && !controller.canInsertStorageCell(stack)) return false;
         return ECOStorageCells.isCellHandled(stack);
     }
 
@@ -257,13 +259,6 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     /** Shared by manual interaction and automation; querying this never releases ownership. */
     public CellExtractionBlockReason getCellExtractionBlockReason() {
-        if (ECOInfiniteStorageMember.isMigrating(cellStack)) {
-            return CellExtractionBlockReason.INFINITE_MIGRATION;
-        }
-        if (isLockedByInfiniteMode() && (getStorageController() == null
-            || !getStorageController().isFormedInfiniteMode())) {
-            return CellExtractionBlockReason.INFINITE_MEMBER;
-        }
         return CellExtractionBlockReason.NONE;
     }
 
@@ -283,13 +278,9 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         }
     }
 
+    @Deprecated
     public boolean isLockedByInfiniteMode() {
-        return cluster instanceof NEStorageCluster storageCluster
-            && storageCluster.getController() != null
-            && storageCluster.getController().isInfiniteMode()
-            && cellStack != null
-            && !cellStack.isEmpty()
-            && ECOInfiniteStorageMember.isMember(cellStack);
+        return false;
     }
 
     private void updateState() {
@@ -319,7 +310,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         super.addAdditionalDrops(level, pos, drops);
         flushPendingCellWrites();
         if (cellStack != null) {
-            if (ECOInfiniteStorageMember.isAnonymous(cellStack)) ECOInfiniteStorageMember.clearMember(cellStack);
+            upgradeLegacyCell();
             drops.add(cellStack);
         }
     }
@@ -330,6 +321,13 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
             invalidateCellInventoryCache();
             return null;
         }
+        if (infiniteMember && cachedCellStack != cellStack) return null;
+        return loadCellInventory();
+    }
+
+    @Nullable
+    public IECOStorageCell loadCellInventory() {
+        if (cellStack == null || cellStack.isEmpty()) return null;
         if (cachedCellStack != cellStack) {
             cachedCellStack = cellStack;
             cachedCellInventory = ECOStorageCells.getCellInventory(cellStack, this);
@@ -340,29 +338,31 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     private void invalidateCellInventoryCache() {
         cachedCellStack = null;
         cachedCellInventory = null;
+        qualificationDirty = true;
     }
 
     @Override
     public void onChunkUnloaded() {
+        chunkUnloaded = true;
+        onTransferAvailabilityChanged();
         flushPendingCellWrites();
         var controller = getStorageController();
         if (controller != null) controller.bulkDriveChanged(this, true);
         ECOStorageCells.releaseCellInventory(cellStack, this);
         invalidateCellInventoryCache();
-        chunkUnloaded = true;
         super.onChunkUnloaded();
-        onTransferAvailabilityChanged();
     }
 
     @Override
     public void setRemoved() {
+        chunkUnloaded = true;
+        onTransferAvailabilityChanged();
         flushPendingCellWrites();
         var controller = getStorageController();
         if (controller != null) controller.bulkDriveChanged(this, true);
         ECOStorageCells.releaseCellInventory(cellStack, this);
         invalidateCellInventoryCache();
         super.setRemoved();
-        onTransferAvailabilityChanged();
     }
 
     @Override
@@ -381,33 +381,38 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     @Override
     public void mountInventories(IStorageMounts storageMounts) {
-        if (cluster instanceof NEStorageCluster storageCluster && storageCluster.getController() != null) {
-            IECOTier mainTier = storageCluster.getController().getTier();
-            IECOStorageCell cellInventory = getCellInventory();
-            if (cellInventory != null
-                && mainTier.compareTo(cellInventory.getTier()) >= 0
-                && !storageCluster.getController().isStorageInterfaceTransferMode()
-                && (!storageCluster.getController().isInfiniteMode()
-                    || storageCluster.getController().canUseHostDomainStorage())
-                && !ECOInfiniteStorageMember.isMigrating(cellStack)
-                && !ECOInfiniteStorageMember.isMember(cellStack)) {
+        var controller = getStorageController();
+        if (controller != null && isInstalledStorageAvailable() && !infiniteMember && !legacyCellPending
+                && !controller.isStorageInterfaceTransferMode()) {
+            IECOStorageCell inventory = getCellInventory();
+            if (inventory != null && controller.getTier().compareTo(inventory.getTier()) >= 0) {
                 int priority = cn.dancingsnow.neoecoae.gui.storage.StoragePriority.mountPriority(
-                    storageCluster.getController().getStoragePriority(), getConfiguredCellPriority());
-                storageMounts.mount(cellInventory, priority);
+                    controller.getStoragePriority(), getConfiguredCellPriority());
+                storageMounts.mount(inventory, priority);
                 mounted = true;
                 updateCellState();
-                setChanged();
                 return;
             }
         }
         mounted = false;
         updateCellState();
-        setChanged();
+    }
+
+    @Override
+    public void updateCluster(@Nullable NEStorageCluster next) {
+        var previous = getStorageController();
+        qualificationDirty = true;
+        super.updateCluster(next);
+        var current = getStorageController();
+        if (previous != null && previous != current) previous.driveStorageAvailabilityChanged();
+        if (current != null) current.driveStorageAvailabilityChanged();
     }
 
     @Override
     public void onReady() {
         chunkUnloaded = false;
+        ECOStorageCells.onCellInstalled(cellStack, this);
+        upgradeLegacyCell();
         super.onReady();
         var controller = getStorageController();
         if (controller != null) controller.bulkDriveChanged(this, false);
@@ -530,83 +535,22 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     @Override
     public void saveChanges() {
-        if (cachedCellInventory != null) {
-            cachedCellInventory.persist();
-        }
+        if (cachedCellInventory != null) cachedCellInventory.persist();
+        infiniteCellContentsChanged();
         notifyPersistence();
     }
 
-    public void convertCellToInfiniteMember(UUID domainId) {
-        if (cellStack == null || cellStack.isEmpty()) {
-            return;
-        }
-        // Use the live handler: clearing a separately constructed inventory leaves this drive's cache stale.
-        var inventory = getCellInventory();
-        if (!(inventory instanceof cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell migrationCell)) {
-            throw new IllegalStateException("Missing transfer-capable source cell");
-        }
-        migrationCell.clearMigrationStacks();
-        migrationCell.persistMigrationContents((ServerLevel) level);
-        ECOInfiniteStorageMember.markAnonymous(cellStack);
+    boolean legacyCellPending() { return legacyCellPending; }
+
+    void upgradeLegacyCell() {
+        if (!(level instanceof ServerLevel server) || !server.getServer().isSameThread() || cellStack == null) return;
         var controller = getStorageController();
-        if (controller != null) controller.invalidateInfiniteMembers();
-        setChanged();
-        markForUpdate();
-    }
-
-    public boolean convertInfiniteMemberToNormalStorage(UUID domainId) {
-        if (cellStack == null || cellStack.isEmpty() || !(ECOInfiniteStorageMember.isAnonymous(cellStack) || ECOInfiniteStorageMember.isMemberOf(cellStack, domainId))) {
-            return false;
+        boolean pending = ECOInfiniteStorageMember.prepareCell(server, this, cellStack,
+                controller == null ? null : controller.infiniteDomainId());
+        if (pending != legacyCellPending) {
+            legacyCellPending = pending;
+            qualificationDirty = true;
+            setChanged();
         }
-        ECOInfiniteStorageMember.clearMember(cellStack);
-        var controller = getStorageController();
-        if (controller != null) controller.invalidateInfiniteMembers();
-        clearRestoreReceipts();
-        setChanged();
-        markForUpdate();
-        return true;
-    }
-
-    /** Gives an anonymous member a restore identity; restore receipts and plans are keyed by it. */
-    public void bindCellForRestore(UUID domainId) {
-        if (!ECOInfiniteStorageMember.isAnonymous(cellStack)) return;
-        ECOInfiniteStorageMember.markMember(cellStack, domainId);
-        setChanged();
-        markForUpdate();
-    }
-
-    /** Drops a restore identity once no restore references it. */
-    public void releaseRestoreBinding(UUID domainId) {
-        if (!ECOInfiniteStorageMember.isMemberOf(cellStack, domainId)) return;
-        ECOInfiniteStorageMember.markAnonymous(cellStack);
-        clearRestoreReceipts();
-        setChanged();
-        markForUpdate();
-    }
-
-    @SuppressWarnings("deprecation")
-    public long getRestoreReceipt(UUID transactionId) {
-        if (cellStack == null || cellStack.isEmpty()) return 0L;
-        CompoundTag custom = cellStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).getUnsafe();
-        return custom.getCompound(RESTORE_RECEIPTS_TAG).getLong(transactionId.toString());
-    }
-
-    public void putRestoreReceipt(UUID transactionId, long amount) {
-        if (cellStack == null || cellStack.isEmpty() || amount <= 0L) return;
-        CompoundTag custom = cellStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        CompoundTag receipts = custom.getCompound(RESTORE_RECEIPTS_TAG);
-        receipts.putLong(transactionId.toString(), amount);
-        custom.put(RESTORE_RECEIPTS_TAG, receipts);
-        cellStack.set(DataComponents.CUSTOM_DATA, CustomData.of(custom));
-        setChanged();
-    }
-
-    public void clearRestoreReceipts() {
-        if (cellStack == null || cellStack.isEmpty()) return;
-        CompoundTag custom = cellStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        custom.remove(RESTORE_RECEIPTS_TAG);
-        if (custom.isEmpty()) cellStack.remove(DataComponents.CUSTOM_DATA);
-        else cellStack.set(DataComponents.CUSTOM_DATA, CustomData.of(custom));
-        setChanged();
     }
 }

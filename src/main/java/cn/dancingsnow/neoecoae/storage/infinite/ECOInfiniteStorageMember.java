@@ -1,195 +1,235 @@
 package cn.dancingsnow.neoecoae.storage.infinite;
 
-import appeng.api.config.Actionable;
-import appeng.api.ids.AEComponents;
-import appeng.api.networking.security.IActionSource;
-import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
+import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
-
-import java.util.Optional;
+import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
-
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.item.component.CustomData;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.LoggerFactory;
 
 public final class ECOInfiniteStorageMember {
-    private static final String MEMBER_TAG = "neoecoae_infinite_member";
-    private static final String DOMAIN_TAG = "neoecoae_infinite_domain";
-    private static final String MIGRATION_TAG = "neoecoae_migration_id";
-    private static final String MIGRATION_DOMAIN_TAG = "neoecoae_migration_domain";
-    private static final String IDENTITY_TAG = "neoecoae_member_identity";
+    private static final List<String> KEYS = List.of("neoecoae_infinite_member", "neoecoae_infinite_domain",
+            "neoecoae_member_identity", "neoecoae_migration_id", "neoecoae_migration_domain", "neoecoae_restore_receipts");
+    private static final String DOMAIN = KEYS.get(1);
+    private static final String IDENTITY = KEYS.get(2);
+    private static final String MIGRATION = KEYS.get(3);
+    private static final String MIGRATION_DOMAIN = KEYS.get(4);
+    private static final String RECEIPTS = KEYS.get(5);
 
-    private ECOInfiniteStorageMember() {
+    private ECOInfiniteStorageMember() { }
+
+    private record Evidence(CompoundTag tag) {
+        UUID identity() { return uuid(IDENTITY); }
+        UUID migration() { return uuid(MIGRATION); }
+        UUID domain() { return tag.contains(MIGRATION_DOMAIN) ? uuid(MIGRATION_DOMAIN) : uuid(DOMAIN); }
+        UUID uuid(String key) { return tag.hasUUID(key) ? tag.getUUID(key) : null; }
+        boolean malformed() {
+            return (tag.contains(MIGRATION) != tag.contains(MIGRATION_DOMAIN))
+                    || List.of(DOMAIN, IDENTITY, MIGRATION, MIGRATION_DOMAIN).stream()
+                        .anyMatch(key -> tag.contains(key) && uuid(key) == null)
+                    || tag.contains(DOMAIN) && tag.contains(MIGRATION_DOMAIN) && !uuid(DOMAIN).equals(uuid(MIGRATION_DOMAIN))
+                    || tag.contains(RECEIPTS) && !tag.contains(RECEIPTS, Tag.TAG_COMPOUND);
+        }
+        long receipt(UUID transaction) {
+            CompoundTag receipts = tag.getCompound(RECEIPTS);
+            String key = transaction.toString();
+            if (!receipts.contains(key)) return 0L;
+            if (!receipts.contains(key, Tag.TAG_LONG) || receipts.getLong(key) <= 0L) {
+                throw new IllegalStateException("Malformed restore receipt " + transaction);
+            }
+            return receipts.getLong(key);
+        }
     }
 
-    public static boolean isSealed(@Nullable ItemStack stack) {
-        if (stack == null || stack.isEmpty()) return false;
-        return isSealedData(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY));
-    }
-
-    static boolean isSealedData(CustomData data) {
-        CompoundTag tag = readTag(data);
-        return tag.hasUUID(MIGRATION_TAG) || tag.getBoolean(MEMBER_TAG);
-    }
-
-    /**
-     * Read-only access: mutations must still copy the tag and replace the component.
-     */
+    @Nullable
     @SuppressWarnings("deprecation")
-    private static CompoundTag readTag(CustomData data) {
-        return data.getUnsafe();
-    }
-
-    public static UUID identity(ItemStack stack) {
-        var existing = getIdentity(stack);
-        if (existing.isPresent()) return existing.get();
-        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        UUID identity = UUID.randomUUID();
-        tag.putUUID(IDENTITY_TAG, identity);
-        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
-        return identity;
-    }
-
-    public static Optional<UUID> getIdentity(@Nullable ItemStack stack) {
-        if (stack == null || stack.isEmpty()) return Optional.empty();
-        CompoundTag tag = readTag(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY));
-        return tag.hasUUID(IDENTITY_TAG) ? Optional.of(tag.getUUID(IDENTITY_TAG)) : Optional.empty();
-    }
-
-    public static boolean isMigrating(@Nullable ItemStack stack) {
-        return getMigrationId(stack) != null;
-    }
-
-    public static @Nullable UUID getMigrationId(@Nullable ItemStack stack) {
+    private static Evidence evidence(ItemStack stack) {
         if (stack == null || stack.isEmpty()) return null;
-        return migrationId(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY));
+        CustomData custom = stack.get(DataComponents.CUSTOM_DATA);
+        return custom != null && KEYS.stream().anyMatch(custom::contains) ? new Evidence(custom.getUnsafe()) : null;
     }
 
-    public static Optional<UUID> getMigrationDomainId(@Nullable ItemStack stack) {
-        if (stack == null || stack.isEmpty()) return Optional.empty();
-        CompoundTag tag = readTag(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY));
-        return tag.hasUUID(MIGRATION_DOMAIN_TAG) ? Optional.of(tag.getUUID(MIGRATION_DOMAIN_TAG)) : Optional.empty();
-    }
-
-    static @Nullable UUID migrationId(CustomData data) {
-        CompoundTag tag = readTag(data);
-        return tag.hasUUID(MIGRATION_TAG) ? tag.getUUID(MIGRATION_TAG) : null;
-    }
-
-    public static UUID beginMigration(ItemStack stack, UUID domain) {
+    private static void clearSettledKeys(ItemStack stack) {
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        if (tag.hasUUID(MIGRATION_TAG)) {
-            if (!tag.hasUUID(MIGRATION_DOMAIN_TAG) || !domain.equals(tag.getUUID(MIGRATION_DOMAIN_TAG))) {
-                throw new IllegalStateException("Storage cell belongs to another migration");
+        KEYS.forEach(tag::remove);
+        if (tag.isEmpty()) stack.remove(DataComponents.CUSTOM_DATA);
+        else stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+    }
+
+    public static boolean hasTransactionEvidence(ItemStack stack) {
+        Evidence cell = evidence(stack);
+        return cell != null && (cell.tag().contains(MIGRATION) || cell.tag().contains(RECEIPTS) || cell.domain() != null);
+    }
+
+    public static boolean prepareCell(ServerLevel level, ECODriveBlockEntity drive, ItemStack stack, @Nullable UUID hostDomain) {
+        Evidence cell = evidence(stack);
+        if (cell == null) return false;
+        UUID domain = cell.domain();
+        if (domain == null && !cell.malformed() && !cell.tag().contains(RECEIPTS)) {
+            clearSettledKeys(stack);
+            drive.setChanged();
+            return false;
+        }
+        UUID inspected = domain != null ? domain : hostDomain;
+        if (inspected == null || !ECOInfiniteStorageDomains.exists(level.getServer(), inspected)) {
+            LoggerFactory.getLogger(ECOInfiniteStorageMember.class).warn(
+                    "Unresolved legacy storage disk at {} (domain {}): association or SavedData unavailable", drive.getBlockPos(), inspected);
+            return true;
+        }
+        var engine = (SavedDataInfiniteStorageEngine) ECOInfiniteStorageDomains.acquire(level, inspected);
+        try {
+            var data = engine.legacyData();
+            if (cell.malformed() || domain == null) {
+                data.noteLegacyEvidence(Set.of(), "Malformed or unbound legacy transaction evidence at " + drive.getBlockPos());
+                engine.checkpoint();
+                return true;
             }
-            return tag.getUUID(MIGRATION_TAG);
-        }
-        UUID id = UUID.randomUUID();
-        tag.putUUID(MIGRATION_TAG, id);
-        tag.putUUID(MIGRATION_DOMAIN_TAG, domain);
-        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
-        return id;
-    }
-
-    public static boolean isMember(@Nullable ItemStack stack) {
-        return stack != null
-                && !stack.isEmpty()
-                && isMemberData(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY));
-    }
-
-    static boolean isMemberData(CustomData data) {
-        return readTag(data).getBoolean(MEMBER_TAG);
-    }
-
-    public static Optional<UUID> getDomainId(@Nullable ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
-            return Optional.empty();
-        }
-        return domainId(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY));
-    }
-
-    static Optional<UUID> domainId(CustomData data) {
-        CompoundTag tag = readTag(data);
-        if (!tag.getBoolean(MEMBER_TAG) || !tag.hasUUID(DOMAIN_TAG)) {
-            return Optional.empty();
-        }
-        return Optional.of(tag.getUUID(DOMAIN_TAG));
-    }
-
-    public static boolean isMemberOf(@Nullable ItemStack stack, UUID domainId) {
-        return getDomainId(stack).map(domainId::equals).orElse(false);
-    }
-
-    public static void markMember(@Nullable ItemStack stack, UUID domainId) {
-        if (stack == null || stack.isEmpty()) {
-            return;
-        }
-        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        tag.putBoolean(MEMBER_TAG, true);
-        tag.remove(MIGRATION_TAG);
-        tag.remove(MIGRATION_DOMAIN_TAG);
-        tag.putUUID(DOMAIN_TAG, domainId);
-        if (!tag.hasUUID(IDENTITY_TAG)) tag.putUUID(IDENTITY_TAG, UUID.randomUUID());
-        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
-    }
-
-    public static boolean isAnonymous(@Nullable ItemStack stack) {
-        return isMember(stack)
-                && !readTag(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY)).hasUUID(DOMAIN_TAG);
-    }
-
-    public static void markAnonymous(@Nullable ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
-            return;
-        }
-        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        tag.putBoolean(MEMBER_TAG, true);
-        tag.remove(MIGRATION_TAG);
-        tag.remove(MIGRATION_DOMAIN_TAG);
-        tag.remove(DOMAIN_TAG);
-        tag.remove(IDENTITY_TAG);
-        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
-    }
-
-    public static boolean isBound(@Nullable ItemStack stack) {
-        return getDomainId(stack).isPresent();
-    }
-
-    public static void clearMember(@Nullable ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
-            return;
-        }
-        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        tag.remove(MEMBER_TAG);
-        tag.remove(DOMAIN_TAG);
-        // Identities identify one membership lifetime. Keeping them on an ordinary cell makes
-        // creative/NBT copies indistinguishable during the next restore.
-        tag.remove(IDENTITY_TAG);
-        if (tag.isEmpty()) {
-            stack.remove(DataComponents.CUSTOM_DATA);
-        } else {
-            stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
-        }
-    }
-
-    public static void clearStoredContents(@Nullable ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
-            return;
-        }
-        var inventory = ECOStorageCells.getCellInventory(stack, null);
-        if (inventory instanceof IECOStorageMigrationCell migrationCell) {
-            migrationCell.clearMigrationStacks();
-        } else if (inventory != null) {
-            var available = inventory.getAvailableStacks();
-            for (var entry : available) {
-                inventory.extract(entry.getKey(), entry.getLongValue(), Actionable.MODULATE, IActionSource.empty());
+            if (cell.migration() != null && !data.legacySourceSettled(cell.migration())) {
+                data.noteLegacyEvidence(Set.of(cell.migration()), "");
+                engine.checkpoint();
+                return true;
             }
-            inventory.persist();
+            if (!data.canRead() || data.hasPendingRestore() || data.hasUnresolvedLegacyEvidence()) return true;
+            clearSettledKeys(stack);
+            drive.setChanged();
+            return false;
+        } finally {
+            ECOInfiniteStorageDomains.release(level.getServer(), inspected);
         }
-        // Standard ECO cells use this component. Removing it is also a safe fallback if no handler was available.
-        stack.remove(AEComponents.STORAGE_CELL_INV);
     }
+
+    public static void recordRoster(SavedDataInfiniteStorageEngine engine, Set<UUID> sources, boolean malformed) {
+        engine.legacyData().noteLegacyEvidence(sources, malformed ? "Invalid legacy controller transaction roster" : "");
+        if (!sources.isEmpty() || malformed) engine.checkpoint();
+    }
+
+    @Nullable
+    public static String reconcile(ServerLevel level, UUID domain, SavedDataInfiniteStorageEngine engine,
+            List<ECODriveBlockEntity> drives) {
+        var data = engine.legacyData();
+        Set<UUID> sources = data.legacySources();
+        Set<AEKey> restores = data.legacyRestoreKeys();
+        if (!data.legacyFailure().isEmpty()) return data.legacyFailure();
+        if (data.hasUnresolvedLegacyEvidence()) return "Saved domain contains unreadable legacy transaction evidence";
+        if (sources.isEmpty() && restores.isEmpty()) return null;
+        if (!data.mayReconcileLegacy()) return "Legacy evidence or domain ledger is not readable and durable";
+        try {
+            Map<UUID, Disk> sourceDisks = new HashMap<>();
+            Map<UUID, Disk> targets = new HashMap<>();
+            for (ECODriveBlockEntity drive : drives) {
+                Evidence evidence = evidence(drive.getCellStack());
+                if (evidence == null || !domain.equals(evidence.domain())) continue;
+                if (evidence.malformed()) throw new IllegalStateException("Malformed disk evidence at " + drive.getBlockPos());
+                Disk disk = new Disk(drive, evidence);
+                if (evidence.migration() != null && sources.contains(evidence.migration())
+                        && sourceDisks.putIfAbsent(evidence.migration(), disk) != null) {
+                    throw new IllegalStateException("Duplicate legacy migration evidence " + evidence.migration());
+                }
+                if (evidence.identity() != null && targets.putIfAbsent(evidence.identity(), disk) != null && !restores.isEmpty()) {
+                    throw new IllegalStateException("Duplicate legacy restore evidence " + evidence.identity());
+                }
+            }
+            if (!sourceDisks.keySet().containsAll(sources)) return "Original migration source evidence is missing: " + sources;
+            Map<AEKey, BigInteger> overlaps = new HashMap<>();
+            Map<AEKey, String> ledgerKeys = new HashMap<>();
+            if (!sources.isEmpty()) data.amounts.forEach((key, amount) -> ledgerKeys.put(key, keyTag(level, key)));
+            for (var entry : sourceDisks.entrySet()) {
+                Disk disk = entry.getValue();
+                var contents = disk.inventory(level).migrationEntries();
+                var observedKeys = new java.util.HashSet<AEKey>();
+                while (contents.hasNext()) {
+                    var content = contents.next();
+                    AEKey key = content.getKey();
+                    long amount = content.getLongValue();
+                    String keyTag = keyTag(level, key);
+                    if (amount <= 0L) throw new IllegalStateException("Invalid legacy source amount");
+                    observedKeys.add(key);
+                    UUID sealed = id(entry.getKey() + ":" + keyTag);
+                    UUID oldSlot = id(domain + ":to-domain:" + disk.drive().getBlockPos().asLong() + ":" + keyTag + ":" + amount);
+                    boolean amountMatches = engine.hasMigrationReceipt(oldSlot);
+                    if (!amountMatches && engine.hasMigrationReceipt(sealed)) {
+                        return "Legacy credit has no matching source position and quantity: " + entry.getKey();
+                    }
+                    if (amountMatches) {
+                        addOverlap(overlaps, key, amount);
+                    }
+                }
+                for (var credited : ledgerKeys.entrySet()) {
+                    if (!observedKeys.contains(credited.getKey())
+                            && engine.hasMigrationReceipt(id(entry.getKey() + ":" + credited.getValue()))) {
+                        return "Credited resource is missing from the legacy source: " + entry.getKey();
+                    }
+                }
+            }
+            for (AEKey key : restores) {
+                UUID transaction = data.restoreTransaction(key);
+                Set<UUID> originalTargets = data.restoreTargetIds(key);
+                var plan = data.restorePlan(key);
+                if (originalTargets.isEmpty() || !targets.keySet().containsAll(originalTargets)) {
+                    return "Original restore target evidence is missing for " + transaction;
+                }
+                for (UUID identity : originalTargets) {
+                    Disk disk = targets.get(identity);
+                    long observed = disk.inventory(level).getMigrationAmount(key);
+                    long receipt = disk.evidence().receipt(id(transaction + ":" + identity));
+                    var goal = plan.get(identity);
+                    if (goal == null) {
+                        if (plan.isEmpty() && (receipt <= 0L || observed < receipt)) {
+                            return "Insufficient evidence for an older restore without before/after quantities: " + transaction;
+                        }
+                        if (!plan.isEmpty() && receipt != 0L) return "Receipt for an unallocated restore target: " + transaction;
+                        addOverlap(overlaps, key, receipt);
+                        continue;
+                    }
+                    long prior = goal.transferred() - (goal.after() - goal.before());
+                    if (observed < goal.before() || observed > goal.after()
+                            || receipt != prior && (receipt != goal.transferred() || observed != goal.after())) {
+                        return "Restore target quantity or receipt conflicts with saved plan: " + transaction;
+                    }
+                    addOverlap(overlaps, key, prior + (observed - goal.before()));
+                }
+            }
+            if (!engine.settleLegacy(sources, restores, overlaps)) return "Proven overlapping quantities exceed the saved balance";
+            engine.checkpoint();
+            return null;
+        } catch (RuntimeException failure) {
+            return failure.toString();
+        }
+    }
+
+    private record Disk(ECODriveBlockEntity drive, Evidence evidence) {
+        IECOStorageMigrationCell inventory(ServerLevel level) {
+            if (!(drive.loadCellInventory() instanceof IECOStorageMigrationCell cell)) {
+                throw new IllegalStateException("Unreadable legacy disk at " + drive.getBlockPos());
+            }
+            if (!cell.canVerifyLegacyContents(level)) {
+                throw new IllegalStateException("Incomplete legacy disk contents at " + drive.getBlockPos());
+            }
+            return cell;
+        }
+    }
+
+    private static void addOverlap(Map<AEKey, BigInteger> overlaps, AEKey key, long amount) {
+        if (amount > 0L) overlaps.merge(key, BigInteger.valueOf(amount), BigInteger::add);
+    }
+
+    private static UUID id(String value) { return UUID.nameUUIDFromBytes(value.getBytes(StandardCharsets.UTF_8)); }
+
+    private static String keyTag(ServerLevel level, AEKey key) {
+        return String.valueOf(key.toTagGeneric(level.registryAccess()));
+    }
+
+    static UUID settlementId(UUID migration) { return id("neoecoae:legacy-settled:" + migration); }
 }

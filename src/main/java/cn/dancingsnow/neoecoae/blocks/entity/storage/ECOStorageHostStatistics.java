@@ -201,7 +201,7 @@ final class ECOStorageHostStatistics {
             var stack = drive.getCellStack();
             if (view == null) {
                 cellEntries.add(StorageHostUI.CellEntry.EMPTY.atDrive(drive.getBlockPos(),
-                    stack == null ? ItemStack.EMPTY : stack, drive.getCellExtractionBlockReasonText(), drive.getCellInteractionId()));
+                    stack == null ? ItemStack.EMPTY : stack, occupiedTooltip(drive), drive.getCellInteractionId()));
                 continue;
             }
             int cellTypeId = view.type();
@@ -229,7 +229,7 @@ final class ECOStorageHostStatistics {
                     supported && drive.isOnline()
             ).withPanelTier(view.inventory().getTier())
                 .withExactUsedBytes(exactUsedBytes)
-                .atDrive(drive.getBlockPos(), stack, drive.getCellExtractionBlockReasonText(), drive.getCellInteractionId()));
+                .atDrive(drive.getBlockPos(), stack, occupiedTooltip(drive), drive.getCellInteractionId()));
             if (view.infiniteResource()) continue;
             if (view.member()) {
                 continue;
@@ -268,6 +268,12 @@ final class ECOStorageHostStatistics {
         );
     }
 
+    private net.minecraft.network.chat.Component occupiedTooltip(ECODriveBlockEntity drive) {
+        return host.canUseHostDomainStorage() && host.isInfiniteDiskOccupied(drive)
+                ? net.minecraft.network.chat.Component.translatable("gui.neoecoae.storage.cell.occupied_by_infinite_domain")
+                : null;
+    }
+
     private static int legacyCellKind(List<AEKeyType> keyTypes) {
         if (keyTypes.contains(AEKeyType.items())) {
             return StorageHostUI.CellEntry.KIND_ITEM;
@@ -286,7 +292,7 @@ final class ECOStorageHostStatistics {
             IECOStorageCell inventory = drive.getCellInventory();
             if (inventory == null) { driveUiSnapshots.remove(drive); return null; }
             long revision = inventory instanceof ECOStorageCell cell ? cell.contentRevision() : -1L;
-            boolean member = host.isInfiniteMemberCell(drive.getCellStack());
+            boolean member = host.isInfiniteDiskOccupied(drive);
             boolean infiniteResource = inventory instanceof ECOInfiniteResourceCell;
             if (previous != null && previous.inventory() == inventory && previous.revision() == revision
                 && previous.member() == member && previous.infiniteResource() == infiniteResource
