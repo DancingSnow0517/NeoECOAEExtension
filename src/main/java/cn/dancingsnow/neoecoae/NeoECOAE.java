@@ -229,6 +229,7 @@ public class NeoECOAE {
         event.enqueueWork(() -> {
             ECOStorageCells.register(ECOStorageCellItem.Handler.INSTANCE);
             ECOStorageCells.register(ECOCreativeCell.Handler.INSTANCE);
+            cn.dancingsnow.neoecoae.integration.thunderbolt.ThunderboltApi.registerFastPathProviders();
         });
     }
 

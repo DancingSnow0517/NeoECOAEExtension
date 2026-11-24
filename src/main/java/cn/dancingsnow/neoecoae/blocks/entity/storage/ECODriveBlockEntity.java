@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.api.power.ECOPowerRole;
 
 import appeng.api.networking.IGridNodeListener;
@@ -40,6 +41,8 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.UUID;
@@ -48,6 +51,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     implements ISyncPersistRPCBlockEntity, IStorageProvider, ICellHost, ISaveProvider, DeferredCellPersistence,
         IECOCellWorkbenchDrive {
     private static final String RESTORE_RECEIPTS_TAG = "neoecoae_restore_receipts";
+    private static final Logger LOGGER = LoggerFactory.getLogger(ECODriveBlockEntity.class);
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -206,6 +210,21 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         if (controller != null) controller.invalidateInfiniteMembers();
         setChanged();
         if (controller != null) controller.refreshStorageConfiguration();
+    }
+
+    public boolean replaceCellFromHostMenu(@Nullable ItemStack expected, @Nullable ItemStack replacement) {
+        if (!isInstalledStorageAvailable() || cellStack != expected || expected == replacement) return false;
+        try {
+            if (expected != null && !expected.isEmpty()) {
+                flushPendingCellWrites();
+                var inventory = getCellInventory();
+                if (inventory != null) inventory.persist();
+            }
+            setCellStack(replacement);
+        } catch (RuntimeException failure) {
+            if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error("Failed to update the storage disk at {}", getBlockPos(), failure);
+        }
+        return cellStack == replacement;
     }
 
     /** Only empty cells may become anonymous members: nothing is migrated on insertion. */

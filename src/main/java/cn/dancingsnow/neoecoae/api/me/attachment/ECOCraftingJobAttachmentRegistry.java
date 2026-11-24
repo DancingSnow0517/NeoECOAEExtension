@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.api.me.attachment;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -53,12 +54,12 @@ public final class ECOCraftingJobAttachmentRegistry {
             try {
                 ECOCraftingJobAttachment attachment = registered.factory().apply(context);
                 if (attachment == null || !registered.id().equals(attachment.id())) {
-                    LOGGER.warn("Ignoring ECO job attachment factory {} with mismatched result", registered.id());
+                    if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.warn("Ignoring ECO job attachment factory {} with mismatched result", registered.id());
                     continue;
                 }
                 result.add(attachment);
             } catch (RuntimeException failure) {
-                LOGGER.error("ECO job attachment factory {} failed", registered.id(), failure);
+                if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error("ECO job attachment factory {} failed", registered.id(), failure);
             }
         }
         return result;
@@ -76,7 +77,7 @@ public final class ECOCraftingJobAttachmentRegistry {
             ECOCraftingJobAttachment attachment = factory.apply(context);
             return attachment != null && id.equals(attachment.id()) ? attachment : null;
         } catch (RuntimeException failure) {
-            LOGGER.error("ECO job attachment factory {} failed while resolving persisted state", id, failure);
+            if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error("ECO job attachment factory {} failed while resolving persisted state", id, failure);
             return null;
         }
     }

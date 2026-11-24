@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.storage;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.storage.cells.ISaveProvider;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -84,7 +85,7 @@ public final class ECOCellMutationBatch implements AutoCloseable {
         flushDeferred();
         for (ECOStorageCell cell : new ArrayList<>(RETRY)) flush(cell);
         if (!RETRY.isEmpty()) {
-            LoggerFactory.getLogger(ECOCellMutationBatch.class)
+            if (NEConfig.ecoCraftingOutputDeliveryDebug) LoggerFactory.getLogger(ECOCellMutationBatch.class)
                 .error("{} ECO cell persistence operation(s) still failed during server shutdown", RETRY.size());
         }
     }
@@ -92,7 +93,7 @@ public final class ECOCellMutationBatch implements AutoCloseable {
     /** A closed world's inventories must never be retried against the next integrated server. */
     public static void clearAfterServerStop() {
         if (!DEFERRED.isEmpty() || !RETRY.isEmpty() || ACTIVE.get() != null) {
-            LoggerFactory.getLogger(ECOCellMutationBatch.class)
+            if (NEConfig.ecoCraftingOutputDeliveryDebug) LoggerFactory.getLogger(ECOCellMutationBatch.class)
                     .error("ECO cell persistence remained pending after world shutdown; no post-save writes were attempted");
         }
         DEFERRED.clear();
@@ -126,7 +127,7 @@ public final class ECOCellMutationBatch implements AutoCloseable {
             RETRY.remove(cell);
         } catch (RuntimeException e) {
             if (RETRY.add(cell)) {
-                LoggerFactory.getLogger(ECOCellMutationBatch.class)
+                if (NEConfig.ecoCraftingOutputDeliveryDebug) LoggerFactory.getLogger(ECOCellMutationBatch.class)
                     .error("ECO cell component save failed; in-memory contents retained for retry", e);
             } else {
                 RETRY.addLast(cell);

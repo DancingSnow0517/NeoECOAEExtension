@@ -5,8 +5,10 @@ import appeng.api.util.IConfigManager;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 
 import cn.dancingsnow.neoecoae.api.integration.Integration;
+import cn.dancingsnow.neoecoae.config.NELogConfig;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
+import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
 
 import io.github.lounode.ae2pattern.api.IPatternDiskHost;
 import io.github.lounode.ae2pattern.api.PatternDiskApi;
@@ -76,13 +78,13 @@ public class PatternDiskIntegration {
         // is installed - and a version enough for one method says nothing about the others.
         String missing = firstMissingEntryPoint();
         if (missing != null) {
-            LOGGER.warn(
+            if (NELogConfig.AUXILIARY_DEBUG) LOGGER.debug(
                     "[NEO ECO] AE2 Pattern Disk is present but its api has no {}(); the pattern-disk integration "
                             + "stands down. This build needs AE2 Pattern Disk 0.7.1 or newer.",
                     missing);
             return;
         }
-        LOGGER.info("[NEO ECO] AE2 Pattern Disk present; pattern-disk storage is available to hosts that opt in");
+        if (NELogConfig.AUXILIARY_DEBUG) LOGGER.debug("[NEO ECO] AE2 Pattern Disk present; pattern-disk storage is available to hosts that opt in");
         // Hand the facade its backend. Until this runs, a host asking for one gets null and stays plain.
         PatternDiskSupport.install(new AepdPatternDiskBackend());
         registerDiskHosts();
@@ -133,10 +135,10 @@ public class PatternDiskIntegration {
         PatternDiskApi.registerDiskHost(grid -> {
             List<IPatternDiskHost> hosts = new ArrayList<>();
             Set<HostPosition> present = new HashSet<>();
-            for (var bus : grid.getActiveMachines(ECOCraftingPatternBusBlockEntity.class)) {
+            for (var bus : NEMachineLookup.getActiveMachines(grid, ECOCraftingPatternBusBlockEntity.class)) {
                 addHost(adapters, hosts, present, bus, bus::getPatternSlotInventory);
             }
-            for (var interfaceBlock : grid.getActiveMachines(
+            for (var interfaceBlock : NEMachineLookup.getActiveMachines(grid,
                     ECOLargeIntegratedWorkingStationInterfaceBlockEntity.class)) {
                 addHost(adapters, hosts, present, interfaceBlock,
                         () -> interfaceBlock.getWorkstationProvider().getPatternInv());

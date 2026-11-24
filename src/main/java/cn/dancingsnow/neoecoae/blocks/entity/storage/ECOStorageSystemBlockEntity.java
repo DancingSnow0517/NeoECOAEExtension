@@ -31,6 +31,7 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostActionUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI;
+import cn.dancingsnow.neoecoae.menu.HostDiskMenu;
 import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
 import cn.dancingsnow.neoecoae.gui.storage.StorageCellPriorityUI;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
@@ -326,8 +327,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 this::getMissingInfiniteMembers,
                 infiniteComponentItemHandler,
                 holder.player,
-                (position, expected, shift) -> StorageCellUiExtraction.extract(this, holder.player, position, expected, shift),
-                (position, expected) -> StorageCellUiInsertion.insert(this, holder.player, position, expected),
                 () -> new ItemStack(getBlockState().getBlock()),
                 this::getInfiniteMigrationProgressPercent,
                 () -> {
@@ -343,8 +342,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                     position -> previewBulkCellMigration(holder.player, position),
                     (position, expected) -> openCellConfiguration(holder.player, position, expected)
                 )
-        ), this::getTier, this::getBlockState,
-            stack -> StorageCellUiInsertion.quickMove(this, holder.player, stack));
+        ), this::getTier, this::getBlockState, HostDiskMenu.disks(holder));
         actionUI.addTo(root);
         root.addChild(cellPriorityWindow.window());
         return ECOModularUI.create(root, holder.player);
@@ -1031,7 +1029,11 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     public boolean canExtractInfiniteComponents() {
-        return blockedInfiniteComponentExtractionReason() == null;
+        return !hasBuiltInInfiniteComponents() && blockedInfiniteComponentExtractionReason() == null;
+    }
+
+    protected boolean hasBuiltInInfiniteComponents() {
+        return false;
     }
 
     @Nullable

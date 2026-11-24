@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOExactInventory;
 
@@ -150,7 +151,7 @@ final class ECOBigOrderController {
                 planning = null;
                 if (failure instanceof InterruptedException) Thread.currentThread().interrupt();
                 order.fail("PLANNING_FAILED");
-                org.slf4j.LoggerFactory.getLogger("neoecoae").warn("[big-order] Segment planning failed", failure);
+                if (NEConfig.ecoPlanningStageDebug) org.slf4j.LoggerFactory.getLogger("neoecoae").warn("[big-order] Segment planning failed", failure);
             }
             host.markCpuDirty();
             if (order.terminal()) {

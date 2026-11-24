@@ -5,13 +5,13 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.IHostPanelTextureProvider.Part;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureState;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureSync;
-import cn.dancingsnow.neoecoae.gui.common.ShiftQuickMove;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.menu.HostDiskMenu.DiskSlot;
 import com.google.gson.JsonObject;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
@@ -30,10 +30,8 @@ import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
-import java.util.function.UnaryOperator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -59,8 +57,7 @@ public final class ComputationControllerUI {
         BooleanSupplier fastPlannerEnabled, Runnable toggleFastPlanner,
         IntSupplier networkFrequency, IntConsumer adjustNetworkFrequency,
         Supplier<ItemStack> hostItem,
-        Supplier<List<ComputationDriveEntry>> upperDrives, Supplier<List<ComputationDriveEntry>> lowerDrives,
-        @Nullable Player player, DriveExtractor driveExtractor, DriveInserter driveInserter,
+        @Nullable Player player,
         LongSupplier gameTime, BooleanSupplier canInteract,
         Supplier<List<ECOCraftingCPU>> cpus, Consumer<ECOCraftingCPU> toggleCpuSuspended, Consumer<ECOCraftingCPU> cancelCpu,
         Supplier<Component> endgameStatus,
@@ -72,22 +69,11 @@ public final class ComputationControllerUI {
         }
     }
 
-    @FunctionalInterface
-    public interface DriveExtractor {
-        boolean extract(BlockPos position, ItemStack expected, boolean toInventory);
-    }
-
-    @FunctionalInterface
-    public interface DriveInserter {
-        boolean insert(BlockPos position, ItemStack expected);
-    }
-
     private ComputationControllerUI() {}
 
-    /** {@code hostInsert} receives a player-inventory stack shift-clicked into the host and returns the remainder. */
     public static UIElement create(Config config, Supplier<ComputationControllerPanelState> panelState,
         UIElement guideButton, UIElement buildButton, UIElement buildWindow, Supplier<IECOTier> panelTier,
-        Supplier<BlockState> hostState, UnaryOperator<ItemStack> hostInsert) {
+        Supplier<BlockState> hostState, List<DiskSlot> disks) {
         var textures = new HostPanelTextureSync(hostState, HostPanelTextureState.Panel.COMPUTATION);
         Button cpuMode = ComputationControllerInteractions.createCpuSelectionButton(config);
         cpuMode.setId("computation-cpu-mode");
@@ -139,8 +125,6 @@ public final class ComputationControllerUI {
         });
         listToggle.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
             List.of(Component.translatable("gui.neoecoae.computation.ui.cpu_list")), null, null, null));
-        var insertionDrag = new ShiftQuickMove();
-        var extractionDrag = new ShiftQuickMove();
         UIElement root = NeoUiJsonLoader.load(LAYOUT, new NeoUiJsonContext() {
             @Override
             public IECOTier panelTier() { return panelTier.get(); }
@@ -149,7 +133,7 @@ public final class ComputationControllerUI {
             public UIElement createCustom(JsonObject node) {
                 return switch (node.has("name") ? node.get("name").getAsString() : "") {
                     case "computation_artwork" -> new ComputationControllerArtwork(config, panelState, panelTier, textures);
-                    case "computation_drive_grid" -> new ComputationDriveGrid(config, extractionDrag);
+                    case "computation_drive_grid" -> new ComputationDriveGrid(disks);
                     case "computation_cpu_selector" -> selector;
                     case "computation_status" -> status;
                     case "computation_switch" -> createSwitch(config,
@@ -165,17 +149,12 @@ public final class ComputationControllerUI {
                 if ("player_inventory".equals(node.has("type") ? node.get("type").getAsString() : "")
                     && element instanceof InventorySlots inventory) {
                     inventory.hotbar.layout(layout -> layout.marginTop(4));
-                    inventory.apply(slot -> {
-                        slot.style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
-                        insertionDrag.addInsertionSlot(slot, hostInsert);
-                    });
+                    inventory.apply(slot -> slot.style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
                     inventory.getChildren().forEach(child -> child.style(style ->
                         style.backgroundTexture(IGuiTexture.EMPTY)));
                 }
             }
         });
-        insertionDrag.attachRoot(root);
-        extractionDrag.attachRoot(root);
         rootRef[0] = root;
         root.setOverflowVisible(true);
         mainOf(root).addChild(buildWindow);

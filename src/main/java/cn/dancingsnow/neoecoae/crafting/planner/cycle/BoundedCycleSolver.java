@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.planner.cycle;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -53,7 +54,7 @@ public final class BoundedCycleSolver implements CycleSolver {
         } catch (ECOPlanningBudget.Exhausted exhausted) {
             throw exhausted;
         } catch (RuntimeException failure) {
-            LOGGER.error("BoundedCycleSolver failed for componentId={} memberKeys={} patternCount={}",
+            if (NEConfig.ecoPlanningStageDebug) LOGGER.error("BoundedCycleSolver failed for componentId={} memberKeys={} patternCount={}",
                 request.component().componentId(), request.component().members(),
                 request.component().patterns().size(), failure);
             throw failure;

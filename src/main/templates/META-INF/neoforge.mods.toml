@@ -46,41 +46,8 @@ authors="${mod_authors}" #optional
 # The description text for the mod (multi line!) (#mandatory)
 description='''${mod_description}'''
 
-# The [[mixins]] block allows you to declare your mixin config to FML so that it gets loaded.
 [[mixins]]
 config="${mod_id}.mixins.json"
-
-[[mixins]]
-config="${mod_id}.key_reuse.mixins.json"
-
-# Optional display-only extension. It never participates in storage interactions and is intentionally
-# non-required so AE2 UI changes degrade to the standard long amount display.
-[[mixins]]
-config="${mod_id}.terminal_big_amount.mixins.json"
-
-[[mixins]]
-config="${mod_id}.compat.advanced_ae.mixins.json"
-
-[[mixins]]
-config="${mod_id}.compat.extendedae.mixins.json"
-
-[[mixins]]
-config="${mod_id}.compat.merequester.mixins.json"
-
-[[mixins]]
-config="${mod_id}.compat.ae2omnicells.mixins.json"
-
-[[mixins]]
-config="${mod_id}.compat.thunderbolt.mixins.json"
-
-[[mixins]]
-config="${mod_id}.compat.omnisequence.mixins.json"
-
-[[mixins]]
-config="${mod_id}.compat.fluxnetworks.mixins.json"
-
-[[mixins]]
-config="${mod_id}.compat.appbot.mixins.json"
 
 # The [[accessTransformers]] block allows you to declare where your AT file is.
 # If this block is omitted, a fallback attempt will be made to load an AT from META-INF/accesstransformer.cfg

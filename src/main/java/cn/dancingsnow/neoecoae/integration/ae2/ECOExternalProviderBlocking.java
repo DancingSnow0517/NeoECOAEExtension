@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.ae2;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
 import appeng.api.networking.crafting.ICraftingProvider;
@@ -69,7 +70,7 @@ public final class ECOExternalProviderBlocking {
 
     /** An unreadable blocking switch is treated as enabled so ECO never batches past a provider's blocking mode. */
     private static boolean failClosed(ICraftingProvider provider, String accessor, Exception failure) {
-        if (WARNED_PROVIDER_TYPES.add(provider.getClass())) {
+        if (NEConfig.ecoDispatchWatchdogDebug && WARNED_PROVIDER_TYPES.add(provider.getClass())) {
             LOGGER.warn("Cannot read blocking mode of {} via {}; treating provider as blocking",
                 provider.getClass().getName(), accessor, failure);
         }

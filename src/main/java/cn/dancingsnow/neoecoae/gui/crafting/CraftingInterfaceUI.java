@@ -21,17 +21,20 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.Slot;
 
 /** Compact pattern-manager view; all operations still address the original physical bus slots. */
 public final class CraftingInterfaceUI {
@@ -52,18 +55,15 @@ public final class CraftingInterfaceUI {
 
     private CraftingInterfaceUI() { }
 
-    public static ModularUI create(ECOMachineInterfaceBlockEntity<?> craftingInterface, Player player) {
-        CraftingPatternPreviewState previewState = new CraftingPatternPreviewState(craftingInterface, player);
+    public static ModularUI create(ECOMachineInterfaceBlockEntity<?> craftingInterface, Player player,
+                                   Map<CraftingPatternMenu.Address, ? extends Slot> slots) {
+        CraftingPatternPreviewState previewState = new CraftingPatternPreviewState(craftingInterface, player, slots);
         StatusTooltips operationStatus = new StatusTooltips(craftingInterface);
+        UIElement registration = new UIElement().setDisplay(false);
+        slots.values().forEach(slot -> registration.addChild(new ItemSlot(slot)));
         UIElement root = NeoUiJsonLoader.load(JSON_LAYOUT,
-            new JsonContext(craftingInterface, player, previewState, operationStatus));
-        root.addEventListener(UIEvents.MOUSE_UP, event -> {
-            if (event.button == 0) previewState.endQuickMoveDrag();
-        }, true);
-        root.addEventListener(UIEvents.TICK, event -> {
-            previewState.tick();
-            previewState.endQuickMoveDragIfReleased(root.isMouseDown(0));
-        });
+            new JsonContext(craftingInterface, player, previewState, operationStatus, registration));
+        root.addEventListener(UIEvents.TICK, event -> previewState.tick(root));
         return ECOModularUI.create(root, player);
     }
 
@@ -73,13 +73,15 @@ public final class CraftingInterfaceUI {
         private final Player player;
         private final CraftingPatternPreviewState previewState;
         private final StatusTooltips operationStatus;
+        private final UIElement registration;
 
         private JsonContext(ECOMachineInterfaceBlockEntity<?> host, Player player,
-                            CraftingPatternPreviewState previewState, StatusTooltips operationStatus) {
+                            CraftingPatternPreviewState previewState, StatusTooltips operationStatus, UIElement registration) {
             this.host = host;
             this.player = player;
             this.previewState = previewState;
             this.operationStatus = operationStatus;
+            this.registration = registration;
         }
 
         @Override
@@ -98,7 +100,7 @@ public final class CraftingInterfaceUI {
                 case "side_controls" -> sideControls(host, player, operationStatus);
                 case "status_label" -> statusLabel();
                 case "transfer_progress" -> transferProgress();
-                case "player_inventory" -> playerInventory(previewState, false);
+                case "player_inventory" -> playerInventory();
                 default -> throw new IllegalArgumentException("Unknown crafting interface custom element: "
                     + string(node, "custom", ""));
             };
@@ -108,6 +110,7 @@ public final class CraftingInterfaceUI {
         public void configure(JsonObject node, UIElement element) {
             if ("crafting_interface_root".equals(string(node, "id", ""))) {
                 element.setOverflowVisible(true);
+                element.addChildAt(registration, 0);
             }
         }
 
@@ -184,6 +187,11 @@ public final class CraftingInterfaceUI {
         private long lastFrame;
 
         PatternPreview(CraftingPatternPreviewState state) { this.state = state; }
+
+        public boolean containsPatternPoint(float x, float y) {
+            return x >= getPositionX() + 1 && x < getPositionX() + getSizeWidth() - 1
+                    && y >= getPositionY() + 1 && y < getPositionY() + getSizeHeight() - 1;
+        }
 
         public void advanceFrame() {
             long now = System.nanoTime();
@@ -301,20 +309,12 @@ public final class CraftingInterfaceUI {
         return element.getLocalMouse(x, y).y - element.getPositionY();
     }
 
-    private static UIElement playerInventory(CraftingPatternPreviewState state, boolean withLayout) {
+    private static UIElement playerInventory() {
         InventorySlots inventory = new InventorySlots();
         inventory.getChildren().forEach(child -> child.getStyle().backgroundTexture(IGuiTexture.EMPTY));
         inventory.hotbar.layout(layout -> layout.marginTop(4));
-        inventory.apply(slot -> {
-            slot.getStyle().backgroundTexture(IGuiTexture.EMPTY);
-            slot.addEventListener(UIEvents.MOUSE_DOWN, event -> {
-                if (event.isShiftDown() && (event.button == 0 || event.button == 1) && state.quickMoveFromInventory(slot.getSlot())) {
-                    event.hasHandler = true;
-                    event.stopImmediatePropagation();
-                }
-            });
-        });
-        return withLayout ? HostElements.absolute(inventory, 7, 152, PREVIEW_WIDTH, 76) : inventory;
+        inventory.apply(slot -> slot.getStyle().backgroundTexture(IGuiTexture.EMPTY));
+        return inventory;
     }
 
     private static Button iconButton(ECOIcon icon, String tooltip, Runnable action) {

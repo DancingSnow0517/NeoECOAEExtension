@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.crafting;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.crafting.execution.CraftingCpuLogic;
 import appeng.crafting.execution.ExecutingCraftingJob;
@@ -39,7 +40,7 @@ public abstract class Ae2CraftingCpuFastPathMixin {
         // OmniSequence owns extraction/accounting and has an ECO provider adapter.
         // Thunderbolt's outer batch loop falls back here for ECO providers, which
         // deliberately do not implement its foreign batch-provider interface.
-        if (net.neoforged.fml.ModList.get().isLoaded("molecularmanipulator")) return;
+        if (cn.dancingsnow.neoecoae.api.me.ECOExternalCrafting.ownsDispatch(this)) return;
         try {
             int consumed = neoecoae$fastPath().execute(job, inventory, maxPatterns, crafting, energy, level);
             if (consumed > 0) cir.setReturnValue(consumed);
@@ -47,7 +48,7 @@ public abstract class Ae2CraftingCpuFastPathMixin {
             if (job instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob access)
                 access.neoecoae$suspended(true);
             cluster.markDirty();
-            NEOECOAE_BATCH_LOG.error("Suspended native CPU after batch dispatch failure", failure);
+            if (NEConfig.ecoDispatchWatchdogDebug) NEOECOAE_BATCH_LOG.error("Suspended native CPU after batch dispatch failure", failure);
             cir.setReturnValue(0);
         }
     }

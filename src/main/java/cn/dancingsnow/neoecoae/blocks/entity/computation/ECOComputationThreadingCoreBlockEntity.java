@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.networking.crafting.ICraftingPlan;
@@ -124,11 +125,11 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
                             deferredInit[i] = null;
                             cluster.pickup(cpu.getPlan(), cpu);
                         } else {
-                            LOGGER.error("Deferred ECO crafting CPU at {} has no valid plan; keeping it quarantined for retry",
+                            if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error("Deferred ECO crafting CPU at {} has no valid plan; keeping it quarantined for retry",
                                 worldPosition);
                         }
                     } catch (RuntimeException e) {
-                        LOGGER.error("Unable to restore deferred ECO crafting CPU at {}; keeping its data for retry",
+                        if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error("Unable to restore deferred ECO crafting CPU at {}; keeping its data for retry",
                             worldPosition, e);
                     }
                 }
@@ -283,7 +284,7 @@ public class ECOComputationThreadingCoreBlockEntity extends cn.dancingsnow.neoec
                 out.add(finalOutput.what(), buffered);
             }
         } catch (RuntimeException e) {
-            LOGGER.error("Unable to decode buffered output from deferred ECO crafting CPU", e);
+            if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error("Unable to decode buffered output from deferred ECO crafting CPU", e);
         }
     }
 

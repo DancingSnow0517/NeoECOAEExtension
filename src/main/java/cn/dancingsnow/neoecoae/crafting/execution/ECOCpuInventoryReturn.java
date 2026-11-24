@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
@@ -76,7 +77,7 @@ final class ECOCpuInventoryReturn {
                 // The receiver may have accepted before throwing. Never automatically replay an uncertain transfer.
                 job.failPermanently("SEED_RETURN_UNCERTAIN");
                 stop("SEED_RETURN_UNCERTAIN");
-                LOGGER.error("ECO cycle seed acceptance is unknown; stopping job {}",
+                if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error("ECO cycle seed acceptance is unknown; stopping job {}",
                     job.link.getCraftingID(), uncertain);
                 return;
             }

@@ -9,7 +9,7 @@ import org.jetbrains.annotations.Nullable;
 
 final class WorkstationProgressBar extends UIElement implements IBindable<Float> {
     private static final int WIDTH = 16;
-    private static final int HEIGHT = 3;
+    private static final int HEIGHT = 4;
 
     private final int maxProcessingSteps;
 
@@ -34,7 +34,7 @@ final class WorkstationProgressBar extends UIElement implements IBindable<Float>
     public void drawContents(GUIContext guiContext) {
         int width = Mth.floor(WIDTH * value / maxProcessingSteps);
         if (width > 0) {
-            guiContext.drawTexture(WorkstationTextures.widget(0, 0, width, HEIGHT),
+            guiContext.drawTexture(WorkstationTextures.widget(1, 1, width, HEIGHT),
                 getPositionX(), getPositionY(), width, HEIGHT);
         }
     }

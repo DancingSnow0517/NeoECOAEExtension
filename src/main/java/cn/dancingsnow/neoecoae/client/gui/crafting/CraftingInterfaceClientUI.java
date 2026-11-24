@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.client.gui.crafting;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.client.gui.widget.PatternItemSlotClient;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingInterfaceUI;
+import cn.dancingsnow.neoecoae.gui.crafting.CraftingPatternMenu;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
 import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolder;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -32,6 +33,22 @@ public final class CraftingInterfaceClientUI {
     private static final int SEARCH_TEXT_INSET_Y = 2;
 
     private CraftingInterfaceClientUI() {
+    }
+
+    @SubscribeEvent
+    public static void onPatternWindowChanged(ScreenEvent.Opening event) {
+        if (!(event.getCurrentScreen() instanceof CraftingPatternScreen previous)
+                || !(event.getNewScreen() instanceof CraftingPatternScreen next)
+                || !(previous.getMenu() instanceof CraftingPatternMenu oldMenu)
+                || !(next.getMenu() instanceof CraftingPatternMenu newMenu) || !newMenu.isSameHost(oldMenu)) return;
+        var fields = searchFields(previous);
+        NativeSearchField focused = focusedSearchField(previous);
+        var nextFields = searchFields(next);
+        int index = focused == null ? -1 : fields.indexOf(focused);
+        if (index >= 0 && index < nextFields.size() && nextFields.get(index) instanceof NativeSearchField replacement) {
+            replacement.restoreFocus = true;
+            replacement.editBox.moveCursorTo(focused.editBox.getCursorPosition(), false);
+        }
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
@@ -119,11 +136,12 @@ public final class CraftingInterfaceClientUI {
             event.removeListener(widget);
             event.addListener(nativeField.editBox);
             event.addListener(widget);
-            if (first == null) {
+            if (first == null || nativeField.restoreFocus) {
                 first = nativeField;
             }
         }
         if (first != null) {
+            first.restoreFocus = false;
             first.claimNativeFocus(event.getScreen());
         }
     }
@@ -216,6 +234,7 @@ public final class CraftingInterfaceClientUI {
         private int nativeWidth = -1;
         private int nativeHeight = -1;
         private boolean suppressShortcutCharacter;
+        private boolean restoreFocus;
 
         @Override
         public CraftingInterfaceUI.SearchField setSearchValue(String value) {

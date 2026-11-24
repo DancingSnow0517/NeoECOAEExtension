@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
 import java.util.function.Supplier;
+import net.neoforged.fml.loading.FMLEnvironment;
 
 /** Reflective bridge to client-only UI classes; falls back on dedicated servers, which never load them. */
 public final class ClientUIBridge {
@@ -10,6 +11,7 @@ public final class ClientUIBridge {
     }
 
     public static <T> T call(String methodName, Class<?> paramType, Object arg, Class<T> resultType, Supplier<T> fallback) {
+        if (!FMLEnvironment.dist.isClient()) return fallback.get();
         try {
             Object result = Class.forName(CLIENT_UI_CLASS).getMethod(methodName, paramType).invoke(null, arg);
             if (resultType.isInstance(result)) {

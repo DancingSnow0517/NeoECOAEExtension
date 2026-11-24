@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.dev;
 
+import cn.dancingsnow.neoecoae.config.NELogConfig;
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.config.Actionable;
@@ -61,7 +62,7 @@ final class GeneratorState {
                 feRunning = false;
                 feFailure = error.toString();
                 save.run();
-                org.slf4j.LoggerFactory.getLogger(GeneratorState.class).warn("FE workload paused without retry", error);
+                if (NELogConfig.AUXILIARY_DEBUG) org.slf4j.LoggerFactory.getLogger(GeneratorState.class).warn("FE workload paused without retry", error);
             }
             return;
         }

@@ -15,20 +15,14 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
-
-import java.util.HashSet;
-import java.util.Set;
 
 /** Native AE2 pattern-provider interactions with a smoothly scrolling, clipped pattern viewport. */
 public class LargeIntegratedWorkingStationPatternProviderScreen
     extends PatternProviderScreen<LargeIntegratedWorkingStationPatternProviderMenu> {
 
-    private final Set<Integer> shiftDraggedSlots = new HashSet<>();
     private final WorkstationPatternScroll patternScroll = new WorkstationPatternScroll();
     private final Scrollbar patternScrollbar;
-    private boolean shiftDragging;
     private boolean scrollbarDragging;
     private double scrollbarGrabOffset;
     private long lastScrollFrame;
@@ -84,8 +78,6 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        shiftDraggedSlots.clear();
-        shiftDragging = false;
         var scrollbarBounds = patternScrollbar.getBounds();
         double thumbTop = topPos + scrollbarBounds.getY() + scrollbarThumbOffset();
         if (button == 0 && patternScroll.maximum() > 0
@@ -99,10 +91,6 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
         }
         // Keep the physical slot still while a click or item-drag gesture is being resolved.
         if (overPatterns(mouseX, mouseY)) patternScroll.stop();
-        // The press itself stays a vanilla Shift-click; only the slots crossed afterwards are ours.
-        Slot slot = button == 0 && hasShiftDown() && menu.getCarried().isEmpty() ? slotAt(mouseX, mouseY) : null;
-        shiftDragging = slot != null;
-        if (slot != null) shiftDraggedSlots.add(slot.index);
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
@@ -191,6 +179,7 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
 
     @Override
     protected boolean isHovering(Slot slot, double mouseX, double mouseY) {
+        if (scrollbarDragging) return false;
         if (menu.getSlotSemantic(slot) == SlotSemantics.ENCODED_PATTERN) {
             return slot.isActive() && overPatterns(mouseX, mouseY)
                 && super.isHovering(slot, mouseX, mouseY + fractionalOffset());
@@ -201,7 +190,7 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
     private boolean overPatterns(double mouseX, double mouseY) {
         double x = mouseX - leftPos - PATTERN_LEFT;
         double y = mouseY - topPos - PATTERN_TOP;
-        return x >= 0 && x < PATTERN_WIDTH && y >= 0 && y < WorkstationPatternScroll.VIEWPORT_HEIGHT;
+        return x >= 1 && x < PATTERN_WIDTH - 1 && y >= 1 && y < WorkstationPatternScroll.VIEWPORT_HEIGHT - 1;
     }
 
     private double fractionalOffset() {
@@ -285,37 +274,15 @@ public class LargeIntegratedWorkingStationPatternProviderScreen
             updatePatternSlots();
             return true;
         }
-        if (button == 0 && shiftDragging && hasShiftDown()) {
-            // One drag event per frame: a fast swipe jumps over whole slots, so walk the segment.
-            int steps = Math.max(1, (int) Math.ceil(Math.max(Math.abs(dragX), Math.abs(dragY)) / 4));
-            for (int i = steps - 1; i >= 0; i--) {
-                quickMove(slotAt(mouseX - dragX * i / steps, mouseY - dragY * i / steps));
-            }
-            return true;
-        }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (button == 0) {
-            shiftDragging = false;
             scrollbarDragging = false;
         }
         return super.mouseReleased(mouseX, mouseY, button);
-    }
-
-    /** Vanilla's private findSlot: screen coordinates, active slots only. */
-    private Slot slotAt(double mouseX, double mouseY) {
-        for (Slot slot : menu.slots) {
-            if (isHovering(slot, mouseX, mouseY) && slot.isActive()) return slot;
-        }
-        return null;
-    }
-
-    private void quickMove(Slot slot) {
-        if (slot == null || !shiftDraggedSlots.add(slot.index)) return;
-        slotClicked(slot, slot.index, 0, ClickType.QUICK_MOVE);
     }
 
     private void hideSmartDoublingWidget(String name) {

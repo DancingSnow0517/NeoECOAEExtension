@@ -1,0 +1,37 @@
+{
+  "parent": "neoecoae.terminal_big_amount.mixins.json",
+  "required": false,
+  "minVersion": "0.8",
+  "package": "cn.dancingsnow.neoecoae.mixins",
+  "plugin": "cn.dancingsnow.neoecoae.mixins.ECOMixinLoadConfig",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ae2.keyreuse.MekanismKeyReuseMixin",
+    "ae2.keyreuse.MatterKeyReuseMixin",
+    "advanced_ae.accessor.AdvancedAeCraftingJobAccessor",
+    "advanced_ae.accessor.AdvancedAeElapsedTimeTrackerInvoker",
+    "advanced_ae.accessor.AdvancedAeTaskProgressAccessor",
+    "advanced_ae.crafting.AdvancedAeCraftingCpuLogicMixin",
+    "advanced_ae.crafting.AdvancedAeCraftingServiceMixin",
+    "extendedae.ExtendedAeIOPortBlockEntityMixin",
+    "extendedae.ExtendedAeIOPortMenuMixin",
+    "merequester.RequesterPlanningMixin",
+    "ae2omnicells.AEUniversalCellInventoryMixin",
+    "ae2omnicells.IAEUniversalCellMixin",
+    "ae2omnicells.OmniWasteCellRecognitionMixin",
+    "thunderbolt.Ae2LtTimeWheelCraftingCpuLogicMixin",
+    "thunderbolt.ECOThunderboltWorkstationProviderMixin",
+    "thunderbolt.Ae2LtIOPortBlockEntityMixin",
+    "thunderbolt.Ae2LtIOPortMenuMixin",
+    "thunderbolt.Ae2LtWorkstationWirelessMixin",
+    "thunderbolt.ThunderboltPlanningEngineMixin",
+    "thunderbolt.ECOProcessingPatternFuzzyMixin",
+    "appbot.BotaniaForgeCapabilitiesMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "mixinextras": {
+    "minVersion": "0.5.3"
+  }
+}

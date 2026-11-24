@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.crafting;
 
+import cn.dancingsnow.neoecoae.api.me.ECOExternalCrafting;
 import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
@@ -470,7 +471,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     public Set<ResourceLocation> neoecoae$getFuzzyPlanningItemIds() {
         Set<ResourceLocation> result = new java.util.LinkedHashSet<>();
         for (ECOMachineInterfaceBlockEntity<?> machineInterface
-                : grid.getMachines(ECOMachineInterfaceBlockEntity.class)) {
+                : NEMachineLookup.getMachines(grid, ECOMachineInterfaceBlockEntity.class)) {
             if (machineInterface.supportsComputationInterfaceUi() && machineInterface.isTargetOnline()) {
                 result.addAll(machineInterface.getFuzzyPlanningItemIds());
             }
@@ -502,7 +503,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
 
         for (ECOComputationSystemBlockEntity blockEntity : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
             NEComputationCluster cluster = blockEntity.getCluster();
-            if (cluster != null) {
+            if (cluster != null && neoecoae$ownsCluster(cluster)) {
                 this.neoecoae$computationClusters.add(cluster);
                 for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
                     UUID jobId = cpu.getLogic().getProcessingJobId();
@@ -515,6 +516,14 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             }
         }
 
+    }
+
+    @Unique
+    private boolean neoecoae$ownsCluster(NEComputationCluster cluster) {
+        if (cluster.isDestroyed()) return false;
+        IGridNode node = cluster.getNode();
+        IGrid currentGrid = node == null ? null : node.getGrid();
+        return currentGrid != null && currentGrid.getCraftingService() == (Object) this;
     }
 
     // AE2 19.2.18 loads the inserted local twice in its loop and once for its return.
@@ -556,6 +565,8 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         if (craftingJobId == null || what == null || amount <= 0L) {
             return 0L;
         }
+        var registered = ECOExternalCrafting.insert(getCpus(), craftingJobId, what, java.math.BigInteger.valueOf(amount), type);
+        if (registered != null) return registered.longValueExact();
         ECOCraftingCPU owner = neoecoae$findCpuForJob(craftingJobId);
         if (owner != null) return owner.getLogic().insertForJob(craftingJobId, what, amount, type);
         if (this instanceof ECOAdvancedAeCraftingOutputRouter advancedRouter) {
@@ -576,6 +587,8 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         if (jobId == null || key == null || amount.signum() <= 0) return java.math.BigInteger.ZERO;
         if (amount.bitLength() <= 63)
             return ECOCraftingOutputRouter.super.neoecoae$insertExactIntoCpuForJob(jobId, key, amount, mode);
+        var registered = ECOExternalCrafting.insert(getCpus(), jobId, key, amount, mode);
+        if (registered != null) return registered;
         ECOCraftingCPU owner = neoecoae$findCpuForJob(jobId);
         if (owner != null) return owner.getLogic().insertExactForJob(jobId, key, amount, mode);
         for (var cpu : getCpus()) {
@@ -859,7 +872,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             @Local(name = "cpus") ImmutableSet.Builder<ICraftingCPU> cpus
     ) {
         for (var cluster : this.neoecoae$computationClusters) {
-            if (cluster.isDestroyed()) continue;
+            if (!neoecoae$ownsCluster(cluster)) continue;
             List<ECOCraftingCPU> ecoCpus = cluster.getActiveCPUs();
             for (var cpu : ecoCpus) {
                 cpus.add(cpu);
@@ -887,7 +900,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     @Inject(method = "hasCpu", at = @At("HEAD"), cancellable = true)
     private void onHasCpu(ICraftingCPU cpu, CallbackInfoReturnable<Boolean> cir) {
         for (var cluster : this.neoecoae$computationClusters) {
-            if (cluster.isDestroyed()) continue;
+            if (!neoecoae$ownsCluster(cluster)) continue;
             for (var activeCpu : cluster.getActiveCPUs()) {
                 if (activeCpu == cpu) {
                     cir.setReturnValue(true);

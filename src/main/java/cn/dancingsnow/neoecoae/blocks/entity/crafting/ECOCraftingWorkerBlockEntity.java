@@ -624,7 +624,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
         // cluster shares. Staleness is already impossible: every key carries the reload generation and the
         // dimension, and losing the cluster drops the cache with it.
         if (threads.size() > MAX_PERSISTED_THREAD_RECORDS) {
-            LOGGER.error(
+            if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error(
                 "ECO worker persisted too many crafting threads; excess records will be ignored: worker={} count={}",
                 getBlockPos(),
                 threads.size()

@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
 
 import appeng.api.config.Actionable;
@@ -11,7 +12,6 @@ import appeng.crafting.inv.ListCraftingInventory;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
-import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
 import cn.dancingsnow.neoecoae.integration.ae2.ECOExternalProviderBlocking;
 import net.minecraft.nbt.CompoundTag;
@@ -78,7 +78,7 @@ public final class ECOExternalCpuFastPath {
             double singlePower = 0.0;
             for (var provider : crafting.getProviders(task.getKey())) {
                 var parallel = ECOParallelCraftingProviders.find(provider);
-                if (!(provider instanceof ECOFastPathDispatchProvider) && parallel == null) continue;
+                if (ECOParallelCraftingProviders.findFastPath(provider) == null && parallel == null) continue;
                 if (ECOExternalProviderBlocking.isEnabled(provider)) continue;
                 if (provider.isBusy()) continue;
                 if (inputs == null) {
@@ -102,7 +102,7 @@ public final class ECOExternalCpuFastPath {
                     markDirty.run();
                     throw failure;
                 } catch (RuntimeException rejected) {
-                    LOGGER.warn("External CPU batch rejected; resources restored", rejected);
+                    if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.warn("External CPU batch rejected; resources restored", rejected);
                     continue;
                 }
                 try {

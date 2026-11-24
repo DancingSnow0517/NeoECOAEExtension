@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.menu;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOForceCraftStartSync;
@@ -50,7 +51,7 @@ public abstract class CraftConfirmMenuForceStartMixin implements ECOForceCraftSt
             neoecoae$originalSimulationResult = result;
             result = forced;
         } catch (RuntimeException | LinkageError failure) {
-            org.slf4j.LoggerFactory.getLogger("neoecoae").warn("[craft-submit] Force-start preparation failed", failure);
+            if (NEConfig.ecoCraftSubmissionDebug) org.slf4j.LoggerFactory.getLogger("neoecoae").warn("[craft-submit] Force-start preparation failed", failure);
             neoecoae$rejectForceStart(menu, ci);
         }
     }

@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
 
 import java.util.function.LongSupplier;
@@ -43,7 +44,7 @@ final class ECOCraftingEnergyTransaction {
                 prepaidEnergyCredit = new BigDecimal(data.getString("prepaidEnergyCreditExact"))
                     .max(BigDecimal.ZERO);
             } catch (NumberFormatException invalid) {
-                LOGGER.error("Invalid exact crafting energy credit", invalid);
+                if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error("Invalid exact crafting energy credit", invalid);
             }
         } else {
             double restored = data.getDouble("prepaidEnergyCredit");
@@ -154,9 +155,9 @@ final class ECOCraftingEnergyTransaction {
         if (lastAccountingFailureLogTick != Long.MIN_VALUE && elapsed >= 0L && elapsed < 1200L) return;
         lastAccountingFailureLogTick = tick;
         if (failure == null) {
-            LOGGER.error("ECO crafting energy accounting anomaly: {}", reason);
+            if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error("ECO crafting energy accounting anomaly: {}", reason);
         } else {
-            LOGGER.error("ECO crafting energy accounting anomaly: {}", reason, failure);
+            if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error("ECO crafting energy accounting anomaly: {}", reason, failure);
         }
     }
 

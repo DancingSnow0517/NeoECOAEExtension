@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.client.gui.crafting;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
@@ -266,7 +267,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 ? "WAITING_FOR_DIAGNOSTICS"
             : !startable ? "PLAN_NOT_STARTABLE"
             : bigOrder ? "NO_ELIGIBLE_ECO_CPU" : "NO_MATCHING_CPU";
-        if (!startGate.equals(lastStartGate)) {
+        if (NEConfig.ecoCraftSubmissionDebug && !startGate.equals(lastStartGate)) {
             lastStartGate = startGate;
             org.slf4j.LoggerFactory.getLogger("neoecoae").info(
                 "[craft-confirm] Client start gate: container={}, reason={}, status={}, simulation={}, "
@@ -594,7 +595,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
     private void submit(boolean forceStart) {
         if (menu instanceof ECOCraftConfirmMenuMode mode && !mode.neoecoae$diagnosticsReady()) return;
         lastSubmissionForced = forceStart;
-        org.slf4j.LoggerFactory.getLogger("neoecoae").info(
+        if (NEConfig.ecoCraftSubmissionDebug) org.slf4j.LoggerFactory.getLogger("neoecoae").info(
             "[big-order-submit] Client start: container={}, forced={}, bigOrder={}, status={}",
             menu.containerId, forceStart, usesBigOrderSubmission(forceStart),
             (Object) menu instanceof ECOCraftConfirmMenuMode mode ? mode.neoecoae$getPlanningStatus() : null);

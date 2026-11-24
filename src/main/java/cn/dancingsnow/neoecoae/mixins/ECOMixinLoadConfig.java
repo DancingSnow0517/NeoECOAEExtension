@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins;
 
+import cn.dancingsnow.neoecoae.config.NELogConfig;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -18,17 +19,15 @@ import org.slf4j.LoggerFactory;
  */
 public final class ECOMixinLoadConfig implements IMixinConfigPlugin {
     private static final String MIXIN_PACKAGE = "cn.dancingsnow.neoecoae.mixins.";
-    private static final String THUNDERBOLT_MIXINS = "compat.thunderbolt.";
-    private static final String OMNI_SEQUENCE_MIXINS = "compat.omnisequence.";
+    private static final String THUNDERBOLT_MIXINS = "thunderbolt.";
     private static final String KEY_REUSE_MIXINS = "ae2.keyreuse.";
     private static final Map<String, List<String>> REQUIRED_MODS = Map.of(
-        "compat.advancedae.", List.of("advanced_ae"),
-        "compat.ae2omnicells.", List.of("ae2omnicells"),
-        "compat.appbot.", List.of("appbot", "botania"),
-        "compat.extendedae.", List.of("extendedae"),
-        "compat.fluxnetworks.", List.of("fluxnetworks"),
-        "compat.merequester.", List.of("merequester"),
-        OMNI_SEQUENCE_MIXINS, List.of("molecularmanipulator"),
+        "advanced_ae.", List.of("advanced_ae"),
+        "ae2omnicells.", List.of("ae2omnicells"),
+        "appbot.", List.of("appbot", "botania"),
+        "extendedae.", List.of("extendedae"),
+        "fluxnetworks.", List.of("fluxnetworks"),
+        "merequester.", List.of("merequester"),
         THUNDERBOLT_MIXINS, List.of("thunderbolt"),
         "jei.client.", List.of("jei")
     );
@@ -75,7 +74,7 @@ public final class ECOMixinLoadConfig implements IMixinConfigPlugin {
                 default -> false;
             };
         }
-        return !mixin.startsWith(OMNI_SEQUENCE_MIXINS) || supportsOmniBatchApi();
+        return true;
     }
 
     private static boolean isModLoaded(String modId) {
@@ -122,15 +121,6 @@ public final class ECOMixinLoadConfig implements IMixinConfigPlugin {
         }
     }
 
-    private static boolean supportsOmniBatchApi() {
-        try {
-            var api = Class.forName("com.atir.molecularmanipulator.api.crafting.OmniBatchCraftingApi",
-                false, ECOMixinLoadConfig.class.getClassLoader());
-            return (int) api.getMethod("apiVersion").invoke(null) == 1;
-        } catch (ReflectiveOperationException | LinkageError unavailable) {
-            return false;
-        }
-    }
 
     private static boolean supportsSharedKey(String targetClassName, String stackType, boolean checkHashCode) {
         try {
@@ -145,7 +135,7 @@ public final class ECOMixinLoadConfig implements IMixinConfigPlugin {
         } catch (ClassNotFoundException absent) {
             return false;
         } catch (Exception | LinkageError failure) {
-            LoggerFactory.getLogger("neoecoae/keyreuse").warn(
+            if (NELogConfig.AUXILIARY_DEBUG) LoggerFactory.getLogger("neoecoae/keyreuse").debug(
                 "Cannot protect ECO key view for {}; retaining uncached addon keys", targetClassName, failure);
             return false;
         }

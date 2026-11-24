@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.recipe;
 
+import cn.dancingsnow.neoecoae.config.NELogConfig;
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.stacks.AEFluidKey;
@@ -62,7 +63,7 @@ final class CrystalScienceWorkstationRecipes {
                 int growthTicks = (Integer) seed.getClass().getMethod("getOvergrowTick").invoke(seed);
                 recipes.add(growth(seed, output, growthTicks));
             } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
-                LOGGER.warn("Cannot adapt crystal growth for {}", BuiltInRegistries.ITEM.getKey(seed), failure);
+                if (NELogConfig.AUXILIARY_DEBUG) LOGGER.debug("Cannot adapt crystal growth for {}", BuiltInRegistries.ITEM.getKey(seed), failure);
             }
         }
         return List.copyOf(recipes);

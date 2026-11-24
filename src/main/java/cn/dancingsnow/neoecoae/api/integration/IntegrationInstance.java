@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.api.integration;
 
+import cn.dancingsnow.neoecoae.config.NELogConfig;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
@@ -46,8 +47,8 @@ public final class IntegrationInstance {
                 loader = null;
             }
             this.clientLoader = loader;
-            if (this.loader == null && this.clientLoader == null) {
-                log.warn("Integration {} does not declare any loader method.", className);
+            if (NELogConfig.AUXILIARY_DEBUG && this.loader == null && this.clientLoader == null) {
+                log.debug("Integration {} does not declare any loader method.", className);
             }
         }
         if (instance == null) {

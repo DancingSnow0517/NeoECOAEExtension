@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.dev;
 
+import cn.dancingsnow.neoecoae.config.NELogConfig;
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.stacks.AEKey;
@@ -61,7 +62,7 @@ final class GeneratorPool {
                             AEKey key = (AEKey) factory.invoke(null, argument);
                             if (key != null && !key.hasComponents()) keys.add(key);
                         } catch (ReflectiveOperationException | RuntimeException error) {
-                            LoggerFactory.getLogger(GeneratorPool.class).warn(
+                            if (NELogConfig.AUXILIARY_DEBUG) LoggerFactory.getLogger(GeneratorPool.class).warn(
                                 "Skipping dev generator factory {} for {}", factory, entry, error);
                         }
                     }

@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.dev;
 
 import cn.dancingsnow.neoecoae.config.DevToolsConfig;
+import cn.dancingsnow.neoecoae.config.NELogConfig;
 import com.google.gson.GsonBuilder;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import java.io.IOException;
@@ -142,7 +143,7 @@ final class DevKeyBenchmark {
             message += "; report: " + current.save().toAbsolutePath();
         } catch (IOException problem) {
             message += "; report write failed: " + problem;
-            LoggerFactory.getLogger(DevKeyBenchmark.class).warn("Could not write key benchmark report", problem);
+            if (NELogConfig.AUXILIARY_DEBUG) LoggerFactory.getLogger(DevKeyBenchmark.class).warn("Could not write key benchmark report", problem);
         }
         var player = current.server.getPlayerList().getPlayer(current.owner);
         if (player != null) player.sendSystemMessage(Component.literal(message));

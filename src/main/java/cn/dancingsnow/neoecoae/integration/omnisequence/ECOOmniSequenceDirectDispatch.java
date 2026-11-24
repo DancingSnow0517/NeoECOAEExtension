@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.omnisequence;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.GenericStack;
@@ -52,6 +53,7 @@ public final class ECOOmniSequenceDirectDispatch {
 
     /** OmniSequence failures fall back to AE2 dispatch; the first failure per operation is logged in full. */
     private static void logFailure(String operation, Throwable failure) {
+        if (!NEConfig.ecoDispatchWatchdogDebug) return;
         if (WARNED_OPERATIONS.add(operation)) {
             LOGGER.warn("OmniSequence {} failed; falling back to AE2 dispatch", operation, failure);
         } else {
@@ -281,7 +283,7 @@ public final class ECOOmniSequenceDirectDispatch {
                                         "OmniSequence provider failed without an ownership receipt", failure);
                             }
                             // accept is irrevocable, including when provider cleanup or a duplicate callback fails.
-                            LOGGER.warn("OmniSequence provider failed after reporting batch ownership; retaining its receipt",
+                            if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.warn("OmniSequence provider failed after reporting batch ownership; retaining its receipt",
                                     failure);
                         } finally {
                             delivery.seal();
@@ -300,7 +302,7 @@ public final class ECOOmniSequenceDirectDispatch {
                         try {
                             admission.close();
                         } catch (RuntimeException | LinkageError | AssertionError failure) {
-                            LOGGER.warn("OmniSequence admission cleanup failed; retaining the recorded ownership", failure);
+                            if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.warn("OmniSequence admission cleanup failed; retaining the recorded ownership", failure);
                         }
                     }
                 };

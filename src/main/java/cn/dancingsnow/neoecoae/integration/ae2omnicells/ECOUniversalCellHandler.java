@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.ae2omnicells;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
 import cn.dancingsnow.neoecoae.api.storage.ICellHost;
@@ -61,14 +62,14 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
             // An existing disk must retain its identity so its original file can still be recovered.
             data = AEUniversalCellData.getCellDataByUUID(id);
             if (data == null) {
-                LOGGER.error("Cannot load Omni storage UUID {}; refusing to replace the cell's existing data", id);
+                if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error("Cannot load Omni storage UUID {}; refusing to replace the cell's existing data", id);
                 return null;
             }
         } else {
             if (stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).contains(UUID_TAG)
                     || IAEUniversalCell.getUsedBytes(stack) > 0L || IAEUniversalCell.getUsedTypes(stack) > 0
                     || !IAEUniversalCell.getTooltipShowStacks(stack).isEmpty()) {
-                LOGGER.error("Omni cell has stored-content metadata but no readable storage UUID; refusing to initialize it as empty");
+                if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error("Omni cell has stored-content metadata but no readable storage UUID; refusing to initialize it as empty");
                 return null;
             }
             data = AEUniversalCellData.computeIfAbsentCellDataForItemStack(stack);
@@ -113,7 +114,7 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
             claim(currentId, host);
             return true;
         }
-        LOGGER.error("Refusing to mount duplicate Omni storage UUID {} for {} while owned by {}; cell identity and contents were preserved",
+        if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error("Refusing to mount duplicate Omni storage UUID {} for {} while owned by {}; cell identity and contents were preserved",
                 currentId, host, owner);
         return false;
     }

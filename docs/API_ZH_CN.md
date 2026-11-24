@@ -214,6 +214,10 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 
 外部 CPU 使用 `ECOFastPathFacade.prepare(...)` 与一次性的 `PreparedBatch.submit(energyAccount)`。准备/提交在同一服务器 tick；物资在门面扣账前仍归 CPU 库存。返回 true 后仅按门面总量记账一次，之后记账失败不能重放已经接收的批次。`EnergyAccount` 的 `commit()` 不抛异常，无法退回网络的能量保存在 CPU 持久化余额。`prepareAllocated` 用于已分配输入，所有权不同，使用前阅读门面 Javadoc。
 
+附属可通过 `ECOFastPathFacade.prepareStatefulCalculator` 验证自带的可复用输入模型，缓存与重载代数由 ECO 管理。`ECOParallelCraftingProviders.registerFastPath` 的任务感知重载同时注册单份发配入口，该入口接收当前订单 UUID。
+
+外部 CPU 在通用初始化阶段通过 `ECOExternalCrafting.register` 注册计划准入、显式大订单目标、定向产物及取消和恢复回调。定向产物返回 `null` 表示没有认领订单，返回零表示已认领但未接收。`ECOExecutionRuntime.forExternalCpu` 和 `restoreExternalCpu` 按任务 ID 读取外部账本的剩余份数，账本仍由调用方维护。
+
 [EcoFastpathHost](../src/main/java/cn/dancingsnow/neoecoae/api/fastpath/EcoFastpathHost.java) 是另外的 inspect/submit 协议，需要通过实际接入获取实现，不提供全局能力查询，也不替代 CPU 事务。
 
 ## 产物、进度与机器诊断
@@ -372,6 +376,10 @@ ServerEvents.recipes(event => {
 也支持位置参数 `(energy, inputItems, inputFluid, itemOutput, fluidOutput)`，以及末尾追加 `processingTicks` 的六参数形式。`processingTicks` 为正整数，默认 100，用于 JEI/EMI 展示原始加工时间；当前大型工作站运行时每批固定为 1 tick。输入、能耗和产物沿用原生配方规则，重载服务器脚本后生效。原有 `integrated_working_station` 接口保持不变。
 
 ## 面板与模型
+
+在自身坐标托管独立合成接口的方块实体可实现 `CraftingPatternMenuHost`。菜单解码、有效性校验和预览同步共用同一个接口实例。服务端应提供不可变的布局键，原槽位地址失效时更新它。使用 `CraftingPatternMenu.openInterface` 打开接口菜单。
+
+主机子类可覆盖 `getCraftingControllerPanelState` 或 `getComputationControllerPanelState` 描述面板成员。`isCraftingPanelVirtualMode` 和 `getVirtualCraftingBlockedNotice` 分别影响合成容量显示和阻塞提示。内置驱动器通过 `ICellHost.getBuiltInCellForDisplay` 提供只读盘图标。存储主机可覆盖 `hasBuiltInInfiniteComponents` 将无限组件槽设为只读。
 
 自定义档位与盘类型在 [NERegistries.Keys](../src/main/java/cn/dancingsnow/neoecoae/all/NERegistries.java) 对应同步注册表中，以两端相同 ID 注册。实现 `IECOTier` 的必需参数；组件兼容用 `supportsComponentTier`，高级能力用 `supportsFeature`。
 

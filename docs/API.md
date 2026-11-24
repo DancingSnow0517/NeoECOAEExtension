@@ -214,6 +214,10 @@ True means full acceptance. False or an ordinary exception guarantees no accepta
 
 External CPUs call `ECOFastPathFacade.prepare(...)` and single-use `PreparedBatch.submit(energyAccount)` in one server tick. Inputs remain in CPU inventory until the facade debits them. After true, account the returned totals once; later accounting failure cannot undo provider acceptance. `EnergyAccount.commit()` must not throw; persist energy refunds the network cannot accept. `prepareAllocated` has different ownership for preallocated inputs; read the facade Javadoc before using it.
 
+An addon can validate its reusable-input model through `ECOFastPathFacade.prepareStatefulCalculator`. ECO owns cache validation and recipe reload tracking. The job-aware `ECOParallelCraftingProviders.registerFastPath` overload also registers ordinary single-copy dispatch with the current job UUID.
+
+Register external CPU support through `ECOExternalCrafting.register` during common setup for plan admission, explicitly selected Big Orders, directed outputs, and cancellation and restore callbacks. For directed outputs, `null` leaves ownership unclaimed and zero means the owning CPU declined the output. `ECOExecutionRuntime.forExternalCpu` and `restoreExternalCpu` bind scheduler progress by task ID. The calling CPU owns its remaining-count ledger.
+
 [EcoFastpathHost](../src/main/java/cn/dancingsnow/neoecoae/api/fastpath/EcoFastpathHost.java) is a separate inspect/submit protocol obtained from an actual host integration, without global capability discovery or replacement of CPU transactions.
 
 ## Outputs, progress and machine diagnostics
@@ -372,6 +376,10 @@ The first argument, `energy`, is the total AE cost per recipe operation, in `0..
 Positional arguments `(energy, inputItems, inputFluid, itemOutput, fluidOutput)` are also supported, as is a sixth `processingTicks` argument. `processingTicks` must be positive and defaults to 100. It supplies the original processing time displayed by JEI/EMI; the large workstation currently runs each batch in 1 tick. Inputs, energy and outputs follow the native recipe rules. Reload server scripts to apply changes. The existing `integrated_working_station` interface remains unchanged.
 
 ## Panels and models
+
+A block entity with a separate crafting interface at its own position can implement `CraftingPatternMenuHost`. Return the same interface instance for decoding, validity checks and preview sync. On the server, provide an immutable layout key that changes when slot addresses become stale. Open the interface with `CraftingPatternMenu.openInterface`.
+
+Host subclasses can override `getCraftingControllerPanelState` or `getComputationControllerPanelState` to describe their members. `isCraftingPanelVirtualMode` and `getVirtualCraftingBlockedNotice` control the crafting capacity display and its tooltip. Internal drives can supply a read-only icon with `ICellHost.getBuiltInCellForDisplay`. Storage hosts can override `hasBuiltInInfiniteComponents` to make the infinite component slot read-only.
 
 Register custom tiers and cell types with matching IDs on both sides in synchronized registries exposed by [NERegistries.Keys](../src/main/java/cn/dancingsnow/neoecoae/all/NERegistries.java). Implement required `IECOTier` values; use `supportsComponentTier` for component compatibility and `supportsFeature` for advanced eligibility.
 

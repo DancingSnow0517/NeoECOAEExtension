@@ -19,6 +19,13 @@ public final class ThunderboltApi {
 
     private ThunderboltApi() {}
 
+    public static void registerFastPathProviders() {
+        if (findType("com.moakiee.thunderbolt.api.crafting.batch.BatchProviderAdapters") != null
+                && findType("com.moakiee.thunderbolt.api.crafting.batch.BatchJobView") != null) {
+            ECOThunderboltRegisteredProvider.register();
+        }
+    }
+
     public static boolean isInstance(Class<?> contract, Object value) {
         return contract != null && contract.isInstance(value);
     }

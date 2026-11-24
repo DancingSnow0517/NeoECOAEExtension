@@ -557,11 +557,11 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             try {
                 double overflow = energyService.injectPower(charged, Actionable.MODULATE);
                 if (!Double.isFinite(overflow) || overflow > 0.01D) {
-                    LOGGER.error(
+                    if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error(
                         "ECO virtual crafting energy refund was incomplete: overflow {} of {}", overflow, charged);
                 }
             } catch (RuntimeException failure) {
-                LOGGER.error("ECO virtual crafting energy refund failed for {} energy", charged, failure);
+                if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error("ECO virtual crafting energy refund failed for {} energy", charged, failure);
             }
         }
         return false;
@@ -668,13 +668,21 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     private int getSingleCoreProcessingCapacity() {
-        long capacity = getSingleCoreProcessingCapacityLong();
+        CraftingCapabilitySnapshot snapshot = getCapabilitySnapshot();
+        var perCore = snapshot.batchPerFx();
+        long capacity = snapshot.virtualMode() && !isCraftingPanelVirtualMode(snapshot)
+            ? snapshot.parallelLimit() / Math.max(1, snapshot.physicalFxCount())
+            : perCore.unlimited() ? Long.MAX_VALUE : perCore.finiteValue();
         return (int) Math.min(Integer.MAX_VALUE, capacity);
     }
 
-    private long getSingleCoreProcessingCapacityLong() {
-        CraftingCapabilitySnapshot.Capacity capacity = getCapabilitySnapshot().batchPerFx();
-        return capacity.unlimited() ? Long.MAX_VALUE : capacity.finiteValue();
+    protected boolean isCraftingPanelVirtualMode(CraftingCapabilitySnapshot snapshot) {
+        return snapshot.virtualMode();
+    }
+
+    private CraftingCapabilitySnapshot.Capacity getCraftingPanelBatchCapacity(CraftingCapabilitySnapshot snapshot) {
+        return snapshot.virtualMode() && !isCraftingPanelVirtualMode(snapshot)
+            ? CraftingCapabilitySnapshot.Capacity.finite(snapshot.parallelLimit()) : snapshot.totalBatchCapacity();
     }
 
     /**
@@ -893,7 +901,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             () -> Math.max(1, getCapabilitySnapshot().networkMultiplier()),
             () -> getMainNode().isOnline() && getMainNode().getGrid() != null,
             this::isOverclocked,
-            () -> getCapabilitySnapshot().virtualMode(),
+            () -> isCraftingPanelVirtualMode(getCapabilitySnapshot()),
             () -> setOverclocked(player, !isOverclocked(), showModeSwitchNotice),
             this::isActiveCooling,
             () -> setActiveCooling(player, !isActiveCooling(), showModeSwitchNotice),
@@ -928,7 +936,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             this::getCraftingControllerPanelState,
             this::getDisplayedQueuedCraftCount,
             () -> {
-                CraftingCapabilitySnapshot.Capacity capacity = getCapabilitySnapshot().totalBatchCapacity();
+                CraftingCapabilitySnapshot.Capacity capacity = getCraftingPanelBatchCapacity(getCapabilitySnapshot());
                 return capacity.unlimited() ? Long.MAX_VALUE : capacity.finiteValue();
             },
             () -> {
@@ -962,14 +970,15 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             lower.add(cores.getOrDefault(worker.getBlockPos().relative(top.getOpposite()), 0));
         }
         CraftingCapabilitySnapshot snapshot = getCapabilitySnapshot();
+        var batchCapacity = getCraftingPanelBatchCapacity(snapshot);
         return CraftingControllerPanelState.of(
             getTier().getTier(), upper, lower, workers.size(), mirrored,
             CraftingControllerPanelState.coolantVisible(
                 isActiveCooling(), getDisplayedCoolantFluid(), getDisplayedCoolantAmount()),
             hasNetworkSwitch(),
-            snapshot.totalBatchCapacity().unlimited() ? CraftingControllerPanelState.FULL
+            batchCapacity.unlimited() ? CraftingControllerPanelState.FULL
                 : CraftingControllerPanelState.permille(
-                    getDisplayedQueuedCraftCount(), snapshot.totalBatchCapacity().finiteValue()),
+                    getDisplayedQueuedCraftCount(), batchCapacity.finiteValue()),
             CraftingControllerPanelState.permille(snapshot.activeFxCount(), snapshot.physicalFxCount())
         );
     }
@@ -1068,7 +1077,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         return getRunningThreadCount() > 0;
     }
 
-    Component getVirtualCraftingBlockedNotice() {
+    protected Component getVirtualCraftingBlockedNotice() {
         if (!isFullVirtualCraftingMode()) return Component.empty();
         int coolantTier = getDisplayedCoolingMaxOverclock();
         if (isActiveCooling() && coolantTier >= 0 && coolantTier < MAX_OVERCLOCK_TIMES) {

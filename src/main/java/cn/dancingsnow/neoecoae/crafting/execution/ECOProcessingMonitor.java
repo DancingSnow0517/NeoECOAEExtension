@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.stacks.AEKey;
@@ -267,7 +268,7 @@ public final class ECOProcessingMonitor implements ECOCraftingJobAttachment {
     }
 
     private void report(Throwable failure) {
-        if (failureReported) return;
+        if (failureReported || !NEConfig.ecoDispatchWatchdogDebug) return;
         failureReported = true;
         LoggerFactory.getLogger("neoecoae").warn("Optional processing status could not be read; crafting continues normally", failure);
     }

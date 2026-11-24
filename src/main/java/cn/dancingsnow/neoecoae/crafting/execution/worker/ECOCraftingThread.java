@@ -236,7 +236,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             UUID orphanedJobId = craftingJobId;
             ECOCraftingJobLifecycle.finish(worker.getLevel(), orphanedJobId, false);
             markRecoveryPending(true);
-            LOGGER.warn(
+            if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.warn(
                 "ECO crafting worker stopped waiting for an unavailable owning CPU after {} ticks; "
                     + "the orphaned job was cancelled and its outputs will be recovered to network storage: "
                     + "worker={} job={}",
@@ -711,7 +711,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             long elapsed = tick - lastEjectionFailureLogTick;
             if (lastEjectionFailureLogTick == Long.MIN_VALUE || elapsed < 0L || elapsed >= 100L) {
                 lastEjectionFailureLogTick = tick;
-                LOGGER.error("ECO crafting output ejection failed; pending outputs will be retried", e);
+                if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error("ECO crafting output ejection failed; pending outputs will be retried", e);
             }
             return TickRateModulation.SLOWER;
         } finally {
@@ -728,6 +728,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         int powerMultiply
     ) {
         processingPauseReason = reason;
+        if (!NEConfig.ecoDispatchWatchdogDebug) return;
         long tick = TickHandler.instance().getCurrentTick();
         long elapsed = tick - lastBlockedProgressLogTick;
         if (lastBlockedProgressLogTick != Long.MIN_VALUE && elapsed >= 0L
@@ -1085,7 +1086,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         worker.markDisplayDirty();
         List<GenericStack> stacks = ECOCraftingStackCodec.toGenericStacks(remainder, false);
         if (stacks.isEmpty() && !ECOCraftingStackCodec.isEmpty(remainder)) {
-            LOGGER.error(
+            if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error(
                 "ECO crafting thread cannot retain non-item output remainder for retry: worker={}",
                 worker.getBlockPos()
             );
@@ -1117,7 +1118,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         worker.markDisplayDirty();
         List<GenericStack> stacks = ECOCraftingStackCodec.toGenericStacks(remainder, true);
         if (stacks.isEmpty() && !ECOCraftingStackCodec.isEmpty(remainder)) {
-            LOGGER.error(
+            if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error(
                 "ECO crafting thread cannot retain non-item input remainder for retry: worker={}",
                 worker.getBlockPos()
             );
@@ -1143,7 +1144,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         long elapsed = tick - lastRecoveryFailureLogTick;
         if (lastRecoveryFailureLogTick == Long.MIN_VALUE || elapsed < 0L || elapsed >= 100L) {
             lastRecoveryFailureLogTick = tick;
-            LOGGER.error("ECO crafting recovery failed; pending items will be retried", e);
+            if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error("ECO crafting recovery failed; pending items will be retried", e);
         }
     }
 
@@ -1153,7 +1154,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 NEFakePlayer.getFakePlayer((ServerLevel) worker.getLevel()), craftedOutput, craftingInv
             ));
         } catch (RuntimeException e) {
-            LOGGER.warn("ECO crafting post-crafting event failed: worker={}", worker.getBlockPos(), e);
+            if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.warn("ECO crafting post-crafting event failed: worker={}", worker.getBlockPos(), e);
         }
     }
 
@@ -1474,7 +1475,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     private void quarantineInvalidDeserializedWork() {
         boolean recoverOutputs = shouldRecoverOutputs();
-        LOGGER.error(
+        if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error(
             "Invalid persisted ECO crafting work was quarantined for recovery: worker={} recoverOutputs={}",
             worker.getBlockPos(),
             recoverOutputs

@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.execution.worker;
 
+import cn.dancingsnow.neoecoae.api.me.ECOExternalCrafting;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -61,6 +62,7 @@ public final class ECOCraftingJobLifecycle extends SavedData {
         var data = get(level);
         if (data == null || data.terminatedJobs.putIfAbsent(jobId, completed) != null) return;
         data.setDirty();
+        if (!completed) ECOExternalCrafting.jobCanceled(level, jobId);
         for (var worker : loadedWorkersForJob(level, jobId)) {
             if (completed) worker.releaseCompletedJobOutputs(jobId);
             else worker.recoverTerminatedJob(jobId);
@@ -91,9 +93,13 @@ public final class ECOCraftingJobLifecycle extends SavedData {
         CompoundTag link = cpuData.getCompound("job").getCompound("link");
         if (!link.hasUUID("craftId")) return;
         var data = get(level);
-        if (data != null && Boolean.FALSE.equals(data.terminatedJobs.remove(link.getUUID("craftId")))) {
+        if (data == null) return;
+        var jobId = link.getUUID("craftId");
+        if (Boolean.FALSE.equals(data.terminatedJobs.get(jobId))) {
+            data.terminatedJobs.remove(jobId);
             data.setDirty();
         }
+        if (!data.terminatedJobs.containsKey(jobId)) ECOExternalCrafting.jobRestored(level, jobId);
     }
 
     private static ECOCraftingJobLifecycle load(CompoundTag tag, HolderLookup.Provider registries) {

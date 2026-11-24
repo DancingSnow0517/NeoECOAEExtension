@@ -2,9 +2,9 @@ package cn.dancingsnow.neoecoae.gui.storage;
 
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
-import cn.dancingsnow.neoecoae.gui.common.ShiftQuickMove;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;
+import cn.dancingsnow.neoecoae.menu.HostDiskMenu.DiskSlot;
 import appeng.api.storage.cells.CellState;
 import com.google.gson.JsonObject;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
@@ -23,7 +23,6 @@ import net.minecraft.nbt.CompoundTag;
 import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
-import java.util.function.UnaryOperator;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -77,75 +76,9 @@ public final class StorageHostUI {
         Supplier<String> totalUsedBytesText, Supplier<List<CellEntry>> cellEntries, List<StorageTypeLine> storageTypes,
         BooleanSupplier infiniteStorage, BooleanSupplier migratingToInfinite,
         BooleanSupplier canExtractInfiniteComponents, Supplier<String> domainId, IntSupplier missingMembers,
-        IItemHandlerModifiable infiniteComponentInventory, @Nullable Player player, CellExtractor cellExtractor,
-        CellInserter cellInserter, Supplier<ItemStack> hostItem, IntSupplier migrationProgress,
+        IItemHandlerModifiable infiniteComponentInventory, @Nullable Player player,
+        Supplier<ItemStack> hostItem, IntSupplier migrationProgress,
         Supplier<Component> migrationBlocked, CellActions cellActions) {
-        public Config(Supplier<Component> title, IntSupplier tier, BooleanSupplier formed,
-            LongSupplier storedEnergy, LongSupplier maxEnergy, LongSupplier energyConsumePerTick,
-            Supplier<String> totalUsedBytesText, Supplier<List<CellEntry>> cellEntries, List<StorageTypeLine> storageTypes,
-            BooleanSupplier infiniteStorage, BooleanSupplier migratingToInfinite,
-            BooleanSupplier canExtractInfiniteComponents, Supplier<String> domainId, IntSupplier missingMembers,
-            IItemHandlerModifiable infiniteComponentInventory, @Nullable Player player, CellExtractor cellExtractor,
-            CellInserter cellInserter, Supplier<ItemStack> hostItem, CellActions cellActions) {
-            this(title, tier, formed, storedEnergy, maxEnergy, energyConsumePerTick, totalUsedBytesText, cellEntries,
-                storageTypes, infiniteStorage, migratingToInfinite, canExtractInfiniteComponents, domainId,
-                missingMembers, infiniteComponentInventory, player, cellExtractor, cellInserter, hostItem,
-                () -> 0, Component::empty, cellActions);
-        }
-
-        /**
-         * Compatibility constructor: installs {@link CellActions#NONE}, disabling all five cell actions.
-         * Supply actions explicitly or call {@link #withCellActions(CellActions)} to enable them.
-         */
-        public Config(Supplier<Component> title, IntSupplier tier, BooleanSupplier formed,
-            LongSupplier storedEnergy, LongSupplier maxEnergy, LongSupplier energyConsumePerTick,
-            Supplier<String> totalUsedBytesText, Supplier<List<CellEntry>> cellEntries, List<StorageTypeLine> storageTypes,
-            BooleanSupplier infiniteStorage, BooleanSupplier migratingToInfinite,
-            BooleanSupplier canExtractInfiniteComponents, Supplier<String> domainId, IntSupplier missingMembers,
-            IItemHandlerModifiable infiniteComponentInventory, @Nullable Player player, CellExtractor cellExtractor,
-            CellInserter cellInserter, Supplier<ItemStack> hostItem) {
-            this(title, tier, formed, storedEnergy, maxEnergy, energyConsumePerTick, totalUsedBytesText, cellEntries,
-                storageTypes, infiniteStorage, migratingToInfinite, canExtractInfiniteComponents, domainId,
-                missingMembers, infiniteComponentInventory, player, cellExtractor, cellInserter, hostItem,
-                CellActions.NONE);
-        }
-
-        public Config(Supplier<Component> title, IntSupplier tier, BooleanSupplier formed,
-            LongSupplier storedEnergy, LongSupplier maxEnergy, LongSupplier energyConsumePerTick,
-            Supplier<String> totalUsedBytesText, Supplier<List<CellEntry>> cellEntries, List<StorageTypeLine> storageTypes,
-            BooleanSupplier infiniteStorage, BooleanSupplier migratingToInfinite,
-            BooleanSupplier canExtractInfiniteComponents, Supplier<String> domainId, IntSupplier missingMembers,
-            IItemHandlerModifiable infiniteComponentInventory, @Nullable Player player, CellExtractor cellExtractor,
-            CellInserter cellInserter) {
-            this(title, tier, formed, storedEnergy, maxEnergy, energyConsumePerTick, totalUsedBytesText, cellEntries,
-                storageTypes, infiniteStorage, migratingToInfinite, canExtractInfiniteComponents, domainId,
-                missingMembers, infiniteComponentInventory, player, cellExtractor, cellInserter, () -> ItemStack.EMPTY,
-                CellActions.NONE);
-        }
-
-        public Config(Supplier<Component> title, IntSupplier tier, BooleanSupplier formed,
-            LongSupplier storedEnergy, LongSupplier maxEnergy, LongSupplier energyConsumePerTick,
-            Supplier<String> totalUsedBytesText, Supplier<List<CellEntry>> cellEntries, List<StorageTypeLine> storageTypes,
-            BooleanSupplier infiniteStorage, BooleanSupplier migratingToInfinite,
-            BooleanSupplier canExtractInfiniteComponents, Supplier<String> domainId, IntSupplier missingMembers,
-            IItemHandlerModifiable infiniteComponentInventory, @Nullable Player player, CellExtractor cellExtractor) {
-            this(title, tier, formed, storedEnergy, maxEnergy, energyConsumePerTick, totalUsedBytesText, cellEntries,
-                storageTypes, infiniteStorage, migratingToInfinite, canExtractInfiniteComponents, domainId,
-                missingMembers, infiniteComponentInventory, player, cellExtractor, (position, expected) -> false,
-                () -> ItemStack.EMPTY, CellActions.NONE);
-        }
-
-        public Config(Supplier<Component> title, IntSupplier tier, BooleanSupplier formed,
-            LongSupplier storedEnergy, LongSupplier maxEnergy, LongSupplier energyConsumePerTick,
-            Supplier<String> totalUsedBytesText, Supplier<List<CellEntry>> cellEntries, List<StorageTypeLine> storageTypes,
-            BooleanSupplier infiniteStorage, BooleanSupplier migratingToInfinite,
-            BooleanSupplier canExtractInfiniteComponents, Supplier<String> domainId, IntSupplier missingMembers,
-            IItemHandlerModifiable infiniteComponentInventory) {
-            this(title, tier, formed, storedEnergy, maxEnergy, energyConsumePerTick, totalUsedBytesText, cellEntries,
-                storageTypes, infiniteStorage, migratingToInfinite, canExtractInfiniteComponents, domainId,
-                missingMembers, infiniteComponentInventory, null, (position, expected, shift) -> false,
-                (position, expected) -> false, () -> ItemStack.EMPTY, CellActions.NONE);
-        }
 
         HolderLookup.Provider registries() {
             return player == null ? RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY)
@@ -157,18 +90,8 @@ public final class StorageHostUI {
             return new Config(title, tier, formed, storedEnergy, maxEnergy, energyConsumePerTick,
                 totalUsedBytesText, cellEntries, storageTypes, infiniteStorage, migratingToInfinite,
                 canExtractInfiniteComponents, domainId, missingMembers, infiniteComponentInventory,
-                player, cellExtractor, cellInserter, hostItem, migrationProgress, migrationBlocked, actions);
+                player, hostItem, migrationProgress, migrationBlocked, actions);
         }
-    }
-
-    @FunctionalInterface
-    public interface CellExtractor {
-        boolean extract(BlockPos position, UUID expected, boolean toInventory);
-    }
-
-    @FunctionalInterface
-    public interface CellInserter {
-        boolean insert(BlockPos position, ItemStack expected);
     }
 
     public record CellEntry(int typeId, int tier, int kind, long usedTypes, long totalTypes,
@@ -206,6 +129,11 @@ public final class StorageHostUI {
                 state, online, position, stack, extractionBlockReason, interactionId, tier.getPanelTierName(), exactUsedBytes);
         }
 
+        CellEntry withStack(ItemStack stack) {
+            return new CellEntry(typeId, tier, kind, usedTypes, totalTypes, usedBytes, totalBytes, infinite,
+                state, online, position, stack, extractionBlockReason, interactionId, panelTierName, exactUsedBytes);
+        }
+
         public CellEntry withExactUsedBytes(BigInteger exactUsedBytes) {
             return new CellEntry(typeId, tier, kind, usedTypes, totalTypes, usedBytes, totalBytes, infinite,
                 state, online, position, stack, extractionBlockReason, interactionId, panelTierName,
@@ -230,33 +158,26 @@ public final class StorageHostUI {
         public static final int KIND_GAS = KIND_OTHER;
     }
 
-    /** {@code hostInsert} receives a player-inventory stack shift-clicked into the host and returns the remainder. */
     public static UIElement create(Config config, Supplier<IECOTier> panelTier, Supplier<BlockState> hostState,
-                                   UnaryOperator<ItemStack> hostInsert) {
-        var context = new JsonContext(config, panelTier, hostState, hostInsert);
-        UIElement root = NeoUiJsonLoader.load(JSON_LAYOUT, context);
-        context.insertionDrag.attachRoot(root);
-        context.extractionDrag.attachRoot(root);
-        return root;
+                                   List<DiskSlot> disks) {
+        return NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config, panelTier, hostState, disks));
     }
 
     private static final class JsonContext implements NeoUiJsonContext {
         private final Config config;
         private final Supplier<IECOTier> panelTier;
         private final Supplier<BlockState> hostState;
-        private final UnaryOperator<ItemStack> hostInsert;
-        private final ShiftQuickMove insertionDrag = new ShiftQuickMove();
-        private final ShiftQuickMove extractionDrag = new ShiftQuickMove();
+        private final List<DiskSlot> disks;
         private StoragePanelSync sync;
         private StorageHostCharts charts;
         private int columns;
 
         private JsonContext(Config config, Supplier<IECOTier> panelTier, Supplier<BlockState> hostState,
-                            UnaryOperator<ItemStack> hostInsert) {
+                            List<DiskSlot> disks) {
             this.config = config;
             this.panelTier = panelTier;
             this.hostState = hostState;
-            this.hostInsert = hostInsert;
+            this.disks = disks;
         }
 
         @Override
@@ -274,13 +195,9 @@ public final class StorageHostUI {
                     charts = new StorageHostCharts(sync, columns * 3, config.hostItem().get(), panelTier);
                     yield root;
                 }
-                case "storage_cell_grid" -> new StorageCellGrid(sync, columns, config, panelTier, extractionDrag);
+                case "storage_cell_grid" -> new StorageCellGrid(sync, columns, config, panelTier, disks);
                 case "infinite_component_slot" -> infiniteComponentSlot(config);
-                case "player_inventory" -> {
-                    InventorySlots inventory = playerInventory();
-                    inventory.apply(slot -> insertionDrag.addInsertionSlot(slot, hostInsert));
-                    yield inventory;
-                }
+                case "player_inventory" -> playerInventory();
                 default -> charts.create(custom, definition);
             };
         }

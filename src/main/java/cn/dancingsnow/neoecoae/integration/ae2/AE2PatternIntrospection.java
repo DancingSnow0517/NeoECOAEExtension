@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.ae2;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
@@ -96,7 +97,7 @@ public final class AE2PatternIntrospection {
             // IPatternDetails may be implemented by another addon; one broken pattern only loses its own fast path.
             definition = details.getDefinition();
         } catch (RuntimeException e) {
-            if (WARNED_DEFINITION_FAILURES.add(details.getClass())) {
+            if (NEConfig.ecoPlanningStageDebug && WARNED_DEFINITION_FAILURES.add(details.getClass())) {
                 LOGGER.warn("ECO AE2 fast path skipped: {}.getDefinition() failed", details.getClass().getName(), e);
             }
             return Optional.empty();

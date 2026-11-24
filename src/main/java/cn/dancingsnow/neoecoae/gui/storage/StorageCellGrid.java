@@ -5,8 +5,8 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import java.util.function.Supplier;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
-import cn.dancingsnow.neoecoae.gui.common.ShiftQuickMove;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
+import cn.dancingsnow.neoecoae.menu.HostDiskMenu.DiskSlot;
 import cn.dancingsnow.neoecoae.storage.ECOStorageCellSettings;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
@@ -19,7 +19,9 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.BlockPos;
@@ -31,9 +33,9 @@ final class StorageCellGrid extends UIElement {
     private final StoragePanelSync sync;
     private final int columns;
     private final Supplier<IECOTier> panelTier;
-    private final ShiftQuickMove extractionDrag;
-    private final RPCEmitter extraction;
-    private final RPCEmitter insertion;
+    private final Map<BlockPos, CellWidget> widgets = new HashMap<>();
+    private List<CellWidget> visibleWidgets = List.of();
+    private int visibleOffset;
     private final RPCEmitter migrateMarked;
     private final RPCEmitter previewMigration;
     private final RPCEmitter openConfiguration;
@@ -41,18 +43,12 @@ final class StorageCellGrid extends UIElement {
     private final ECOBulkMigrationDialog migrationDialog;
     private BlockPos previewedPosition;
     private UUID previewedCell;
-    private boolean interacting;
 
     StorageCellGrid(StoragePanelSync sync, int columns, StorageHostUI.Config config, Supplier<IECOTier> panelTier,
-        ShiftQuickMove extractionDrag) {
+        List<DiskSlot> disks) {
         this.sync = sync;
         this.panelTier = panelTier;
         this.columns = columns;
-        this.extractionDrag = extractionDrag;
-        extraction = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, UUID.class, Boolean.class, Boolean.class,
-            (position, expected, shift) -> isOpenMenu(config) && config.cellExtractor().extract(position, expected, shift)));
-        insertion = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, ItemStack.class, Boolean.class,
-            (position, expected) -> isOpenMenu(config) && config.cellInserter().insert(position, expected)));
         openConfiguration = addRPCEvent(RPCEventBuilder.simple(BlockPos.class, UUID.class, Boolean.class,
             (position, expected) -> {
                 if (!isOpenMenu(config)) return false;
@@ -86,9 +82,12 @@ final class StorageCellGrid extends UIElement {
             config.cellActions().openPriority(),
             (position, expected) -> openConfiguration.send(ignored -> {}, position, expected),
             config.cellActions().openCompressionDisplay());
-        for (int i = 0; i < columns * 3; i++) {
-            addChild(new CellSlot(i));
+        for (DiskSlot disk : disks) {
+            var widget = new CellWidget(disk);
+            widgets.put(disk.position(), widget);
+            addChild(widget);
         }
+        sync.onPageUpdate(this::updatePage);
         addEventListener(UIEvents.MOUSE_WHEEL, event -> {
             if (event.deltaY == 0) return;
             sync.scroll(event.deltaY < 0 ? 1 : -1);
@@ -96,7 +95,27 @@ final class StorageCellGrid extends UIElement {
         });
     }
 
-    private void openActionsPopup(StorageHostUI.CellEntry cell, int index, UIEvent event) {
+    private void updatePage() {
+        var state = sync.state();
+        if (state.cellOffset() != visibleOffset) {
+            actionsPopup.close();
+            visibleOffset = state.cellOffset();
+        }
+        var cells = state.cells();
+        var visible = new ArrayList<CellWidget>();
+        for (int index = 0; state.formed() && index < cells.size(); index++) {
+            CellWidget widget = widgets.get(cells.get(index).position());
+            if (widget == null) continue;
+            widget.setCellIndex(index);
+            visible.add(widget);
+        }
+        for (CellWidget widget : visibleWidgets) {
+            if (!visible.contains(widget)) widget.setCellIndex(-1);
+        }
+        visibleWidgets = visible;
+    }
+
+    private void openActionsPopup(StorageHostUI.CellEntry cell, CellWidget widget, UIEvent event) {
         UIElement root = this;
         while (root.getParent() != null) root = root.getParent();
         if (actionsPopup.getParent() == null) {
@@ -109,7 +128,7 @@ final class StorageCellGrid extends UIElement {
                 }
             }, true);
         }
-        actionsPopup.open(cell, () -> cell(index),
+        actionsPopup.open(cell, widget::currentCell,
             event.x - root.getPositionX() + 2,
             event.y - root.getPositionY() + 2,
             Math.round(root.getSizeWidth()), Math.round(root.getSizeHeight()));
@@ -134,7 +153,7 @@ final class StorageCellGrid extends UIElement {
 
     private StorageHostUI.CellEntry cell(int index) {
         List<StorageHostUI.CellEntry> cells = sync.state().cells();
-        return index < cells.size() ? cells.get(index) : StorageHostUI.CellEntry.EMPTY;
+        return index >= 0 && index < cells.size() ? cells.get(index) : StorageHostUI.CellEntry.EMPTY;
     }
 
     @Override
@@ -152,74 +171,61 @@ final class StorageCellGrid extends UIElement {
         }
     }
 
-    final class CellSlot extends ItemSlot {
-        private final int index;
+    private final class CellWidget extends ItemSlot {
+        private int index = -1;
+        private boolean drawn;
 
-        CellSlot(int index) {
-            this.index = index;
-            layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(index % columns * 18)
-                .top(index / columns * 18).width(16).height(16).paddingAll(0));
+        CellWidget(DiskSlot disk) {
+            super(disk);
+            layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).width(16).height(16).paddingAll(0));
             style(style -> style.backgroundTexture(IGuiTexture.EMPTY).overflowVisible(true));
             slotStyle(style -> style.hoverOverlay(NETextures.AE2_SLOT_HIGHLIGHT));
-            extractionDrag.addSlot(this, this::quickExtract);
+            setDisplay(false);
+            disk.setClientActive(() -> drawn);
         }
 
-        @Override public ItemStack getValue() { return cell(index).stack(); }
+        void setCellIndex(int index) {
+            if (this.index == index) return;
+            this.index = index;
+            drawn = false;
+            setDisplay(index >= 0);
+            if (index >= 0) layout(layout -> layout.left(index % columns * 18).top(index / columns * 18));
+        }
+
+        StorageHostUI.CellEntry currentCell() {
+            return cell(index).withStack(getValue());
+        }
 
         @Override
         protected void onMouseDown(UIEvent event) {
-            // Local display slots never enter vanilla's changing slot-index map.
-            event.stopImmediatePropagation();
-            event.hasHandler = true;
-            if (event.button != 0 && event.button != 1 || interacting) return;
-            var cell = cell(index);
-            if (cell.position() == null) return;
-            if (extractionDrag.begin(this, event)) {
-                quickExtract();
-                return;
+            if (drawn && event.button == 1 && !event.isShiftDown()) {
+                var cell = currentCell();
+                if (cell.interactionId() != null && ECOStorageCellSettings.canConfigure(cell.stack())) {
+                    event.stopImmediatePropagation();
+                    event.hasHandler = true;
+                    openActionsPopup(cell, this, event);
+                    return;
+                }
             }
-            if (event.button == 1 && cell.interactionId() != null && ECOStorageCellSettings.canConfigure(cell.stack())) {
-                openActionsPopup(cell, index, event);
-                return;
-            }
-            var mui = getModularUI();
-            if (mui == null || mui.getMenu() == null) return;
-            ItemStack carried = mui.getMenu().getCarried();
-            if (!carried.isEmpty()) {
-                if (!cell.stack().isEmpty()) return;
-                interacting = true;
-                if (!insertion.send((Boolean success) -> interacting = false,
-                    cell.position(), carried.copy())) interacting = false;
-            } else if (!cell.stack().isEmpty() && cell.interactionId() != null) {
-                interacting = true;
-                if (!extraction.send((Boolean success) -> interacting = false,
-                    cell.position(), cell.interactionId(), false)) interacting = false;
-            }
-        }
-
-        private void quickExtract() {
-            var cell = cell(index);
-            if (!interacting && !actionsPopup.isOpen() && cell.position() != null
-                && cell.interactionId() != null && !cell.stack().isEmpty()) {
-                extraction.send(ignored -> {}, cell.position(), cell.interactionId(), true);
-            }
+            super.onMouseDown(event);
         }
 
         @Override
         public List<Component> getFullTooltipTexts(boolean withItemTooltips) {
             if (actionsPopup.isOpen()) return List.of();
-            return tooltip(index);
+            return tooltip(currentCell());
         }
 
         @Override
         protected void onHoverTooltips(UIEvent event) {
             if (actionsPopup.isOpen()) event.hoverTooltips = new HoverTooltips(List.of(), null, null, null);
-            else event.hoverTooltips = new HoverTooltips(tooltip(index), null, null, null);
+            else event.hoverTooltips = new HoverTooltips(tooltip(currentCell()), null, null, null);
         }
 
         @Override
-        protected void drawItemStack(GUIContext context, ItemStack stack) {
-            super.drawItemStack(context, stack);
+        public void drawBackgroundAdditional(GUIContext context) {
+            drawn = true;
+            super.drawBackgroundAdditional(context);
         }
 
         @Override
@@ -230,11 +236,9 @@ final class StorageCellGrid extends UIElement {
         }
     }
 
-    List<Component> tooltip(int index) {
-        StoragePanelState state = sync.state();
+    private List<Component> tooltip(StorageHostUI.CellEntry cell) {
         List<Component> lines = new ArrayList<>();
-        if (index < state.cells().size() && state.cells().get(index).installed()) {
-            StorageHostUI.CellEntry cell = state.cells().get(index);
+        if (!cell.stack().isEmpty()) {
             lines.add(cell.stack().getHoverName().copy());
             long byteCapacity = cell.infinite() || cell.totalBytes() == Long.MAX_VALUE ? -1 : cell.totalBytes();
             lines.add(Component.translatable("gui.neoecoae.storage.legacy.cell_bytes",
@@ -245,6 +249,7 @@ final class StorageCellGrid extends UIElement {
                 HostText.totalPart(capacity(cell.totalTypes()))));
             lines.add(Component.translatable("gui.neoecoae.storage.cell.priority.tooltip",
                 ECOStorageCellSettings.priority(cell.stack())));
+            if (cell.extractionBlockReason() != null) lines.add(cell.extractionBlockReason());
         } else {
             lines.add(Component.translatable("gui.neoecoae.storage.ui.cell_state.absent"));
         }

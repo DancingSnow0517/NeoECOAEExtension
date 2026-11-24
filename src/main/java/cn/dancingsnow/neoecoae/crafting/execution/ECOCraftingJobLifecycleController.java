@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
@@ -56,7 +57,7 @@ final class ECOCraftingJobLifecycleController {
             try {
                 cn.dancingsnow.neoecoae.integration.extendedaeplus.ECOExternalPatternNormalization.normalize(plan.patternTimes());
             } catch (RuntimeException invalidWrapper) {
-                AELog.warn("Cannot normalize imported crafting plan: %s", invalidWrapper.getMessage());
+                if (NEConfig.ecoCraftSubmissionDebug) AELog.warn("Cannot normalize imported crafting plan: %s", invalidWrapper.getMessage());
                 return CraftingSubmitResult.INCOMPLETE_PLAN;
             }
         }

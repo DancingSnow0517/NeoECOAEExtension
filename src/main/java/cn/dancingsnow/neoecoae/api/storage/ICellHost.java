@@ -34,6 +34,11 @@ public interface ICellHost {
     @Nullable
     ItemStack getCellStack();
 
+    /** Supplies a display-only cell for an internal drive with no block entity in the world. */
+    default @Nullable ItemStack getBuiltInCellForDisplay() {
+        return null;
+    }
+
     /**
      * Whether this host accepts the non-empty cell type in its current configuration.
      * This does not indicate that the slot is empty or that its current cell can be replaced.

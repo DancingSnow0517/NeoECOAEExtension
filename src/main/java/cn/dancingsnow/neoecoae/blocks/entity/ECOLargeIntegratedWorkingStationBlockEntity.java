@@ -2601,7 +2601,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 + (awaitingRecipeOutputs == null ? 0L : countStackEntries(awaitingRecipeOutputs))
                 + (unlockStack == null ? 0L : 1L);
             if (saveStackCount > MAX_SAVE_STACKS) {
-                LOGGER.error("Skipping oversized large workstation batch save at {}: {} stack entries",
+                if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error("Skipping oversized large workstation batch save at {}: {} stack entries",
                     createdTick, saveStackCount);
                 tag.putBoolean("pendingStateTooLarge", true);
                 return tag;
@@ -2622,7 +2622,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         @Nullable
         private static PendingBatch load(CompoundTag tag, HolderLookup.Provider registries, long currentTick) {
             if (tag.getBoolean("pendingStateTooLarge")) {
-                LOGGER.error("Discarding a large workstation batch whose persisted state exceeded the save limit");
+                if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error("Discarding a large workstation batch whose persisted state exceeded the save limit");
                 return null;
             }
             long craftCount = tag.getLong("craftCount");

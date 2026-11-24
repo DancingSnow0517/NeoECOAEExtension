@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.menu;
 
+import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.menu.me.crafting.CraftingCPUMenu;
 import appeng.menu.me.crafting.CraftingStatusMenu;
@@ -15,6 +16,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.MenuType;
+import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -30,6 +32,7 @@ public class CraftingStatusMenuMixin extends CraftingCPUMenu implements ECOCpuLi
     @Unique private static final CraftingStatusMenu.CraftingCpuList NEOECOAE_EMPTY_CPUS =
         new CraftingStatusMenu.CraftingCpuList(java.util.List.of());
     @Shadow public CraftingStatusMenu.CraftingCpuList cpuList;
+    @Shadow private ICraftingCPU selectedCpu;
     @Shadow private int selectedCpuSerial;
     @Shadow private ImmutableSet<ICraftingCPU> lastCpuSet;
     @Shadow private int lastUpdate;
@@ -52,15 +55,34 @@ public class CraftingStatusMenuMixin extends CraftingCPUMenu implements ECOCpuLi
         if (isClientSide()) {
             sendClientAction(NEOECOAE_SCROLL_CPU, request);
         } else {
-            var actionHost = getActionHost();
-            var node = actionHost == null ? null : actionHost.getActionableNode();
-            if (node == null || node.getGrid() == null) return;
-            lastCpuSet = node.getGrid().getCraftingService().getCpus();
+            var grid = neoecoae$currentTerminalGrid();
+            if (grid == null) return;
+            lastCpuSet = grid.getCraftingService().getCpus();
             cpuList = createCpuList();
             neoecoae$cpuOffset = Math.clamp(request.offset(), 0,
                 Math.max(0, cpuList.cpus().size() - ECOCpuListPage.ROWS));
             neoecoae$cpuScrollSequence = request.sequence();
         }
+    }
+
+    @Unique
+    @Nullable
+    private IGrid neoecoae$currentTerminalGrid() {
+        var actionHost = getActionHost();
+        var node = actionHost == null ? null : actionHost.getActionableNode();
+        return node == null ? null : node.getGrid();
+    }
+
+    @WrapOperation(method = "broadcastChanges", at = @At(value = "INVOKE",
+        target = "Lappeng/menu/me/crafting/CraftingStatusMenu;getGrid()Lappeng/api/networking/IGrid;"))
+    private IGrid neoecoae$useCurrentTerminalGrid(CraftingStatusMenu menu, Operation<IGrid> original) {
+        return neoecoae$currentTerminalGrid();
+    }
+
+    @Inject(method = "setCPU", at = @At("TAIL"))
+    private void neoecoae$trackSelectedCpu(@Nullable ICraftingCPU cpu, CallbackInfo ci) {
+        selectedCpu = cpu;
+        if (cpu == null) selectedCpuSerial = -1;
     }
 
     @Inject(method = "broadcastChanges", at = @At("HEAD"), cancellable = true)
