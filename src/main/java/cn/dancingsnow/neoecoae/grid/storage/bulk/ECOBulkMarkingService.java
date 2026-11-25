@@ -198,7 +198,7 @@ public final class ECOBulkMarkingService {
             ItemStack stack = drive.getCellStack();
             IECOStorageCell inventory = drive.getCellInventory();
             if (stack == null || stack.isEmpty() || stack.getItem() instanceof ECOBulkStorageCellItem
-                || host.isInfiniteMemberCell(stack) || inventory == null
+                || host.isInfiniteDiskOccupied(drive) || inventory == null
                 || host.getTier().compareTo(inventory.getTier()) < 0) continue;
             collectPreviewItems(inventory, selected.storage(), source, unboundedKeys, items);
         }
@@ -232,7 +232,7 @@ public final class ECOBulkMarkingService {
             ItemStack stack = drive.getCellStack();
             IECOStorageCell inventory = drive.getCellInventory();
             if (stack == null || stack.isEmpty() || stack.getItem() instanceof ECOBulkStorageCellItem
-                || host.isInfiniteMemberCell(stack) || inventory == null
+                || host.isInfiniteDiskOccupied(drive) || inventory == null
                 || host.getTier().compareTo(inventory.getTier()) < 0) continue;
             collectPreviewItems(inventory, selected.storage(), source, unboundedKeys, items);
         }
@@ -417,7 +417,7 @@ public final class ECOBulkMarkingService {
                 ItemStack stack = drive.getCellStack();
                 if (stack == null || stack.isEmpty()
                     || stack.getItem() instanceof ECOBulkStorageCellItem
-                    || host.isInfiniteMemberCell(stack)) {
+                    || host.isInfiniteDiskOccupied(drive)) {
                     continue;
                 }
                 IECOStorageCell sourceStorage = drive.getCellInventory();

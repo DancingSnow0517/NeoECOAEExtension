@@ -4,7 +4,6 @@ import cn.dancingsnow.neoecoae.api.multiblock.ECOMachineKind;
 import cn.dancingsnow.neoecoae.api.multiblock.ECOMultiblockDefinitions;
 import cn.dancingsnow.neoecoae.api.power.ECOPowerRole;
 
-import appeng.api.stacks.AEKey;
 import appeng.api.orientation.OrientationStrategies;
 import appeng.api.orientation.RelativeSide;
 import appeng.api.stacks.KeyCounter;
@@ -15,6 +14,7 @@ import appeng.hooks.ticking.TickHandler;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
+import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
@@ -36,7 +36,6 @@ import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
 import cn.dancingsnow.neoecoae.gui.storage.StorageCellPriorityUI;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
 import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageEngine;
-import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOStorageHostMode;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
@@ -53,7 +52,6 @@ import com.lowdragmc.lowdraglib2.syncdata.rpc.RPCSender;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
@@ -87,7 +85,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private static final String INFINITE_COMPONENT_INVENTORY_PERSIST_KEY = "infiniteComponentInventory";
     private static final String LEGACY_COMPONENT_INVENTORY_PERSIST_KEY = "componentInventory";
     private static final String CONTROLLER_DOMAIN_TAG = "neoecoae_infinite_controller_domain";
-    private static final String CONTROLLER_MODE_TAG = "neoecoae_infinite_controller_mode";
     private static final String CONTROLLER_CLAIM_TAG = "neoecoae_infinite_controller_claim";
     private static final String PERSISTENT_CLAIM_TAG = "neoecoae:infinite_claim";
     private static final String CURRENT_CLAIM_TAG = "infiniteClaimToken";
@@ -112,15 +109,8 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private final ECOStorageCellPriorities cellPriorities = new ECOStorageCellPriorities(
         this::getConfigurableCellDrives,
         player -> level != null && player.level() == level && isFormed() && canPlayerInteract(player));
-    @Persisted
     @DescSynced
     private ECOStorageHostMode hostMode = ECOStorageHostMode.UNFORMED;
-    @Persisted
-    private boolean infiniteExitRequested;
-    private transient boolean infiniteComponentsDirty = true;
-    private transient boolean infiniteMembersDirty = true;
-    private transient int cachedMissingInfiniteMembers = -1;
-    @Persisted
     @DescSynced
     @Nullable
     private UUID infiniteDomainId;
@@ -128,29 +118,27 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private UUID infiniteClaimToken;
     @Nullable
     private UUID pendingInfiniteClaimToken;
-    private final java.util.Set<UUID> infiniteMemberIds = new java.util.HashSet<>();
-    /**
-     * Migration ids which must be seen and completed before the host may enter FORMED_INFINITE.
-     */
-    private final java.util.Set<UUID> infiniteMigrationSourceIds = new java.util.HashSet<>();
-    // Preserve unknown roster entries verbatim; dropping one would falsely authorize leaving the domain.
-    private final net.minecraft.nbt.ListTag invalidInfiniteMemberIds = new net.minecraft.nbt.ListTag();
-    private final net.minecraft.nbt.ListTag invalidInfiniteMigrationSourceIds = new net.minecraft.nbt.ListTag();
+    private final java.util.Set<UUID> legacyMigrationSources = new java.util.HashSet<>();
+    private CompoundTag legacyRoster = new CompoundTag();
+    private boolean malformedLegacyRoster;
 
     @Persisted(key = INFINITE_COMPONENT_INVENTORY_PERSIST_KEY)
     @com.lowdragmc.lowdraglib2.syncdata.annotation.LazyManaged
     // Inventory callbacks mark it dirty on the server; the UI container synchronizes its slot separately.
-    private final AppEngInternalInventory infiniteComponentInventory = new AppEngInternalInventory(this, 1, INFINITE_COMPONENT_REQUIRED);
+    private final AppEngInternalInventory infiniteComponentInventory = new AppEngInternalInventory(this, 1, INFINITE_COMPONENT_REQUIRED) {
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return !isInfiniteComponentSlotReadOnly() && isInfiniteComponent(stack) && super.isItemValid(slot, stack);
+        }
+    };
     // Keep LDLib-managed fields on the block entity; delegate domain-specific behavior and caches.
     private final ECOStorageHostStatistics statistics = new ECOStorageHostStatistics(this);
     private final ECOStorageMegaController megaController = new ECOStorageMegaController(this);
     private final ECOBulkCraftingProvider bulkCrafting = new ECOBulkCraftingProvider(this);
     private final ECOStorageInterfaceTransfer interfaceTransfer = new ECOStorageInterfaceTransfer(this);
-    private final ECOStorageInfiniteRestore infiniteRestore = new ECOStorageInfiniteRestore(this);
     private final ECOInfiniteStorageModeController infiniteModeController =
             new ECOInfiniteStorageModeController(this);
-    private final IItemHandlerModifiable infiniteComponentItemHandler =
-            infiniteRestore.componentItemHandler((IItemHandlerModifiable) infiniteComponentInventory.toItemHandler());
+    private final IItemHandlerModifiable infiniteComponentItemHandler = (IItemHandlerModifiable) infiniteComponentInventory.toItemHandler();
 
     @DescSynced
     private int selectedEcoMegaBulkCell;
@@ -218,8 +206,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     @Override
     public void onReady() {
         super.onReady();
-        infiniteMembersDirty = true;
-        infiniteModeController.refreshHostAccess();
+        infiniteModeController.membersChanged();
         applyIdlePower(ECOPowerRole.STORAGE_CONTROLLER, 256 + (1 << (1 + 4 * tier.getTier())), 0);
     }
 
@@ -229,7 +216,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             return;
         }
         super.updateState(updateExposed);
-        infiniteModeController.refreshHostAccess();
         if (level != null) {
             BlockState state = level.getBlockState(worldPosition);
             if (state.hasProperty(ECOStorageSystemBlock.MIRRORED)) {
@@ -252,7 +238,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     public void tick(Level level, BlockPos pos, BlockState state) {
         long startNanos = System.nanoTime();
         try (var cellBatch = cn.dancingsnow.neoecoae.grid.storage.cell.ECOCellMutationBatch.open()) {
-            if (!stageRunner.run("migration", this::updateInfiniteStorageMode)) return;
+            if (!stageRunner.run("domain", infiniteModeController::update)) return;
             ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
             if (storageInterface != null) {
                 if (!stageRunner.run("transfer", () -> {
@@ -308,6 +294,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         StorageHostActionUI.Elements actionUI = createActionUI(holder);
         var cellPriorityWindow = new StorageCellPriorityUI(holder.player, cellPriorities);
+        int builtInCount = getBuiltInInfiniteComponentCount();
+        ItemStack builtInComponents = builtInCount > 0
+                ? new ItemStack(NEItems.ECO_INFINITE_CELL_COMPONENT.get(), Math.min(builtInCount, INFINITE_COMPONENT_REQUIRED))
+                : ItemStack.EMPTY;
 
         UIElement root = StorageHostUI.create(new StorageHostUI.Config(
                 () -> getItemFromBlockEntity().getDescription(),
@@ -341,7 +331,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                     position -> previewBulkCellMigration(holder.player, position),
                     (position, expected) -> openCellConfiguration(holder.player, position, expected)
                 )
-        ), this::getTier, this::getBlockState, HostDiskMenu.disks(holder));
+        ), this::getTier, this::getBlockState, HostDiskMenu.disks(holder), builtInComponents);
         actionUI.addTo(root);
         root.addChild(cellPriorityWindow.window());
         return ECOModularUI.create(root, holder.player);
@@ -536,9 +526,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     @Override
     public void onChangeInventory(AppEngInternalInventory inv, int slot) {
-        infiniteComponentsDirty = true;
         infiniteModeController.membersChanged();
-        infiniteRestore.invalidateExtractionCheck();
         invalidateStorageStatistics();
         saveChanges();
     }
@@ -599,13 +587,18 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     void refreshDriveStorageProviders() {
-        if (cluster == null) {
-            return;
+        if (!(level instanceof ServerLevel) || isServerStopping()) return;
+        var grids = new java.util.HashSet<appeng.api.networking.IGrid>();
+        if (cluster != null) {
+            for (ECODriveBlockEntity drive : cluster.getDrives()) {
+                var node = drive.getMainNode();
+                if (node.getGrid() != null) grids.add(node.getGrid());
+                IStorageProvider.requestUpdate(node);
+            }
         }
-        for (ECODriveBlockEntity drive : cluster.getDrives()) {
-            IStorageProvider.requestUpdate(drive.getMainNode());
-        }
+        if (getMainNode().getGrid() != null) grids.add(getMainNode().getGrid());
         IStorageProvider.requestUpdate(getMainNode());
+        grids.forEach(grid -> grid.getStorageService().invalidateCache());
     }
 
     /**
@@ -668,17 +661,16 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     void refreshStorageConfiguration() {
         invalidateInfiniteMembers();
         invalidateStorageStatistics();
-        infiniteRestore.invalidateExtractionCheck();
         setChanged();
         markForUpdate();
         refreshDriveStorageProviders();
     }
 
     void driveStorageAvailabilityChanged() {
+        infiniteModeController.membersChanged();
         interfaceTransfer.invalidateHostStorage();
-        infiniteMembersDirty = true;
-        cachedMissingInfiniteMembers = -1;
-        if (!isStorageServerStopping()) infiniteModeController.membersChanged();
+        invalidateStorageStatistics();
+        refreshDriveStorageProviders();
     }
 
     @Override
@@ -690,37 +682,25 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         }
     }
 
-    public void applyInfiniteDomainToControllerDrop(ItemStack drop) {
-        if (infiniteDomainId == null || drop.isEmpty()) {
-            return;
-        }
-        CompoundTag tag = drop.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        saveInfiniteMembers(tag);
-        tag.putUUID(CONTROLLER_DOMAIN_TAG, infiniteDomainId);
-        // The settled token: a rotation in progress keeps it valid until the new one is durable.
-        if (infiniteClaimToken != null) tag.putUUID(CONTROLLER_CLAIM_TAG, infiniteClaimToken);
-        tag.putString(CONTROLLER_MODE_TAG, hostMode.id());
-        drop.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
-    }
+    @Deprecated
+    public void applyInfiniteDomainToControllerDrop(ItemStack drop) { }
 
     public void restoreInfiniteDomainFromItem(ItemStack stack) {
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        if (!tag.hasUUID(CONTROLLER_DOMAIN_TAG)) {
-            return;
-        }
-        infiniteModeController.release();
-        loadInfiniteMembers(tag);
-        setInfiniteDomainId(tag.getUUID(CONTROLLER_DOMAIN_TAG));
+        if (!(level instanceof ServerLevel serverLevel) || !tag.hasUUID(CONTROLLER_DOMAIN_TAG)
+                || infiniteDomainId != null || !tier.supportsFeature(cn.dancingsnow.neoecoae.api.capability.ECOFeature.INFINITE_STORAGE_HOST)) return;
+        var claims = cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageDomains.hostClaims(serverLevel.getServer());
+        UUID id = tag.getUUID(CONTROLLER_DOMAIN_TAG);
+        if (!claims.readable() || claims.locationOf(id) != null
+                || claims.domainAt(net.minecraft.core.GlobalPos.of(level.dimension(), worldPosition)) != null) return;
+        loadLegacyRoster(tag);
+        setInfiniteDomainId(id);
         infiniteClaimToken = tag.hasUUID(CONTROLLER_CLAIM_TAG) ? tag.getUUID(CONTROLLER_CLAIM_TAG) : null;
-        // Every placement retires the token carried by older copies of this item.
-        pendingInfiniteClaimToken = UUID.randomUUID();
-        infiniteModeController.resetClaim();
-        setStorageHostMode(ECOStorageHostMode.fromId(tag.getString(CONTROLLER_MODE_TAG)));
-        setChanged();
+        infiniteModeController.membersChanged();
     }
 
     public String getInfiniteDomainText() {
-        return isInfiniteMode() && infiniteDomainId != null ? infiniteDomainId.toString() : "";
+        return infiniteDomainId != null ? infiniteDomainId.toString() : "";
     }
 
     /** Returns a translated refusal, or null after successfully reattaching the saved domain. */
@@ -730,123 +710,49 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     public boolean canInsertStorageCell(ItemStack stack) {
-        if (!isInfiniteMode()) return !ECOInfiniteStorageMember.isSealed(stack) || ECOInfiniteStorageMember.isAnonymous(stack);
-        if (ECOInfiniteStorageMember.isMigrating(stack)) {
-            UUID migrationId = ECOInfiniteStorageMember.getMigrationId(stack);
-            return hostMode == ECOStorageHostMode.MIGRATING_TO_INFINITE
-                    && infiniteDomainId != null
-                    && ECOInfiniteStorageMember.getMigrationDomainId(stack).map(infiniteDomainId::equals).orElse(false)
-                    && migrationId != null
-                    && infiniteMigrationSourceIds.contains(migrationId)
-                    && (cluster == null || cluster.getDrives().stream().noneMatch(drive ->
-                    migrationId.equals(ECOInfiniteStorageMember.getMigrationId(drive.getCellStack()))));
-        }
-        if (ECOInfiniteStorageMember.isMember(stack)) {
-            if (ECOInfiniteStorageMember.isAnonymous(stack)) return hostMode == ECOStorageHostMode.FORMED_INFINITE;
-            if (infiniteDomainId == null || !ECOInfiniteStorageMember.isMemberOf(stack, infiniteDomainId)) return false;
-            var identity = ECOInfiniteStorageMember.getIdentity(stack);
-            return cluster == null || identity.isEmpty() || cluster.getDrives().stream().noneMatch(drive ->
-                    identity.equals(ECOInfiniteStorageMember.getIdentity(drive.getCellStack())));
-
-        }
-        IECOStorageCell cell = cn.dancingsnow.neoecoae.api.storage.ECOStorageCells.getCellInventory(stack, null);
-        if (cell == null) return false;
-        if (!cell.isInfiniteStorageEligible()) return true;
-        // Only empty matrices join a formed domain; insertion never migrates contents.
-        return hostMode == ECOStorageHostMode.FORMED_INFINITE && ECODriveBlockEntity.isEmptyInfiniteCandidate(stack);
+        return cn.dancingsnow.neoecoae.api.storage.ECOStorageCells.isCellHandled(stack);
     }
 
-    /**
-     * Anonymous members carry no identity; only an active restore binds its targets. Call only while no restore
-     * references member identities.
-     */
-    void releaseRestoreBindings() {
-        if (!infiniteMembersDirty) return;
-        if (level == null || level.isClientSide || cluster == null || infiniteDomainId == null) return;
-        for (ECODriveBlockEntity drive : cluster.getDrives()) {
-            drive.releaseRestoreBinding(infiniteDomainId);
-        }
-        if (!infiniteMemberIds.isEmpty()) {
-            infiniteMemberIds.clear();
-            cachedMissingInfiniteMembers = -1;
-            setChanged();
-        }
-        infiniteMembersDirty = false;
-    }
+    public void invalidateInfiniteMembers() { infiniteModeController.membersChanged(); }
 
-    public void invalidateInfiniteMembers() {
-        infiniteMembersDirty = true;
-        cachedMissingInfiniteMembers = -1;
-        infiniteModeController.membersChanged();
-    }
+    public int getMissingInfiniteMembers() { return infiniteModeController.missingDisks(); }
 
-    public int getMissingInfiniteMembers() {
-        if (!isInfiniteMode()) return 0;
-        boolean serverThread = level instanceof ServerLevel server && server.getServer().isSameThread();
-        if (serverThread && cachedMissingInfiniteMembers >= 0) return cachedMissingInfiniteMembers;
-        // Restore-bound identities must return; every other member only counts toward the minimum.
-        java.util.Set<UUID> missing = new java.util.HashSet<>(infiniteMemberIds);
-        int present = 0;
-        if (cluster != null && infiniteDomainId != null) {
-            for (ECODriveBlockEntity drive : cluster.getDrives()) {
-                var stack = drive.getInstalledCellStack();
-                if (!drive.isInstalledStorageAvailable()) continue;
-                if (ECOInfiniteStorageMember.isAnonymous(stack)) {
-                    present++;
-                } else if (ECOInfiniteStorageMember.isMemberOf(stack, infiniteDomainId)) {
-                    present++;
-                    ECOInfiniteStorageMember.getIdentity(stack).ifPresent(missing::remove);
+    private void loadLegacyRoster(CompoundTag tag) {
+        legacyRoster = new CompoundTag();
+        legacyMigrationSources.clear();
+        malformedLegacyRoster = false;
+        for (String name : List.of("infiniteMemberIds", "infiniteMigrationSourceIds")) {
+            var entry = tag.get(name);
+            if (entry == null) continue;
+            legacyRoster.put(name, entry.copy());
+            if (!(entry instanceof net.minecraft.nbt.ListTag values)) {
+                malformedLegacyRoster = true;
+                continue;
+            }
+            for (var value : values) {
+                try {
+                    UUID id = UUID.fromString(value.getAsString());
+                    if (name.equals("infiniteMigrationSourceIds")) legacyMigrationSources.add(id);
+                } catch (IllegalArgumentException invalid) {
+                    malformedLegacyRoster = true;
                 }
             }
         }
-        int result = missing.size() + invalidInfiniteMemberIds.size() + invalidInfiniteMigrationSourceIds.size();
-        if (hostMode == ECOStorageHostMode.FORMED_INFINITE || hostMode == ECOStorageHostMode.RESTORING_TO_NORMAL) {
-            result += Math.max(0, ECOInfiniteStorageModeController.MINIMUM_MIGRATION_SOURCES - present);
-        }
-        if (serverThread) cachedMissingInfiniteMembers = result;
-        return result;
     }
 
-    boolean hasInvalidInfiniteMembers() {
-        return !invalidInfiniteMemberIds.isEmpty() || !invalidInfiniteMigrationSourceIds.isEmpty();
-    }
+    boolean hasLegacyRoster() { return !legacyRoster.isEmpty(); }
 
-    private void saveInfiniteMembers(CompoundTag tag) {
-        net.minecraft.nbt.ListTag ids = new net.minecraft.nbt.ListTag();
-        for (UUID id : infiniteMemberIds) ids.add(net.minecraft.nbt.StringTag.valueOf(id.toString()));
-        invalidInfiniteMemberIds.forEach(value -> ids.add(value.copy()));
-        tag.put("infiniteMemberIds", ids);
-        net.minecraft.nbt.ListTag migrations = new net.minecraft.nbt.ListTag();
-        for (UUID id : infiniteMigrationSourceIds) {
-            migrations.add(net.minecraft.nbt.StringTag.valueOf(id.toString()));
-        }
-        invalidInfiniteMigrationSourceIds.forEach(value -> migrations.add(value.copy()));
-        tag.put("infiniteMigrationSourceIds", migrations);
-    }
+    java.util.Set<UUID> legacyMigrationSources() { return legacyMigrationSources; }
 
-    private void loadInfiniteMembers(CompoundTag tag) {
-        infiniteMembersDirty = true;
-        cachedMissingInfiniteMembers = -1;
-        infiniteMemberIds.clear();
-        invalidInfiniteMemberIds.clear();
-        for (var value : tag.getList("infiniteMemberIds", net.minecraft.nbt.Tag.TAG_STRING)) {
-            try {
-                infiniteMemberIds.add(UUID.fromString(value.getAsString()));
-            } catch (IllegalArgumentException invalid) {
-                invalidInfiniteMemberIds.add(value.copy());
-            }
-        }
-        infiniteMigrationSourceIds.clear();
-        invalidInfiniteMigrationSourceIds.clear();
-        for (var value : tag.getList("infiniteMigrationSourceIds", net.minecraft.nbt.Tag.TAG_STRING)) {
-            try {
-                infiniteMigrationSourceIds.add(UUID.fromString(value.getAsString()));
-            } catch (IllegalArgumentException invalid) {
-                invalidInfiniteMigrationSourceIds.add(value.copy());
-            }
-        }
-    }
+    boolean hasMalformedLegacyRoster() { return malformedLegacyRoster; }
 
+    void clearLegacyRoster() {
+        if (!hasLegacyRoster()) return;
+        legacyMigrationSources.clear();
+        legacyRoster = new CompoundTag();
+        malformedLegacyRoster = false;
+        setChanged();
+    }
     public boolean isInfiniteMode() {
         return hostMode.isInfiniteState();
     }
@@ -859,29 +765,19 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return hostMode == ECOStorageHostMode.FORMED_INFINITE;
     }
 
-    /** Migration progress in percent; 0 outside a migration and 100 once infinite mode is formed. */
-    public int getInfiniteMigrationProgressPercent() {
-        return infiniteModeController.migrationProgressPercent();
-    }
+    /** @deprecated Infinite mode no longer migrates disks. */
+    @Deprecated
+    public int getInfiniteMigrationProgressPercent() { return isFormedInfiniteMode() ? 100 : 0; }
 
-    /** Why the running migration is waiting, or {@code null} while it advances or no migration runs. */
+    /** @deprecated Infinite mode no longer migrates disks. */
+    @Deprecated
     @Nullable
-    public cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageEngine.MigrationBlock getInfiniteMigrationBlock() {
-        return infiniteModeController.migrationBlock();
-    }
+    public ECOInfiniteStorageEngine.MigrationBlock getInfiniteMigrationBlock() { return null; }
 
-    public boolean canUseHostDomainStorage() {
-        return formed && hostMode.isInfiniteState() && infiniteDomainId != null
-                && hasRequiredInfiniteComponents() && getMissingInfiniteMembers() == 0;
-    }
+    public boolean canUseHostDomainStorage() { return infiniteModeController.canAccess(); }
 
-    public boolean canInsertIntoInfiniteDomain() {
-        return infiniteModeController.canInsertIntoDomain();
-    }
+    public boolean canInsertIntoInfiniteDomain() { return canUseHostDomainStorage(); }
 
-    void refreshInfiniteStorageAccess() {
-        infiniteModeController.refreshHostAccess();
-    }
 
     MEStorage createInfiniteStorageView(ECOInfiniteStorageEngine engine) {
         return infiniteModeController.createStorageView(engine);
@@ -892,12 +788,21 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     public boolean isInfiniteMemberCell(@Nullable ItemStack stack) {
-        return stack != null && ECOInfiniteStorageMember.isMember(stack);
+        return stack != null && cluster != null && cluster.getDrives().stream()
+                .anyMatch(drive -> infiniteModeController.occupies(drive) && drive.getInstalledCellStack() == stack);
+    }
+
+    public boolean isInfiniteDiskOccupied(ECODriveBlockEntity drive) { return infiniteModeController.occupies(drive); }
+
+    @Override
+    public void disconnect(boolean update) {
+        infiniteModeController.topologyChanging();
+        super.disconnect(update);
     }
 
     public void onStorageInterfaceModeChanged() {
         if (level == null || level.isClientSide) return;
-        interfaceTransfer.invalidateHostStorage();
+        infiniteModeController.interfaceChanged();
         ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
         if (level.getBlockState(worldPosition).hasProperty(ECOStorageSystemBlock.STORAGE_MODE)) {
             var mode = storageInterface == null ? cn.dancingsnow.neoecoae.grid.storage.transfer.ECOStorageInterfaceMode.STORAGE
@@ -921,39 +826,18 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return cluster == null ? null : cluster.getTheInterface();
     }
 
-    private void updateInfiniteStorageMode() {
-        infiniteModeController.update();
-    }
 
     boolean hasRequiredInfiniteComponents(ItemStack stack) {
         return isInfiniteComponent(stack) && stack.getCount() >= INFINITE_COMPONENT_REQUIRED;
     }
 
-    void exitInfiniteModeIfSafe() {
-        infiniteModeController.exitIfSafe();
-    }
-
-    UUID migrationTransactionId(
-            UUID domainId,
-            ECODriveBlockEntity drive,
-            AEKey key,
-            long amount,
-            String direction
-    ) {
-        return infiniteModeController.migrationTransactionId(domainId, drive, key, amount, direction);
-    }
-
     @Override
     public void updateCluster(@Nullable NEStorageCluster nextCluster) {
-        if (nextCluster == null) {
-            infiniteModeController.release();
-        }
+        infiniteModeController.topologyChanging();
         interfaceTransfer.invalidateHostStorage();
-        cachedMissingInfiniteMembers = -1;
         bulkCrafting.topologyChanged();
         super.updateCluster(nextCluster);
-        invalidateInfiniteMembers();
-        infiniteModeController.refreshHostAccess();
+        infiniteModeController.membersChanged();
         refreshBulkCraftingPublication();
     }
 
@@ -992,24 +876,23 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             getPersistentData().remove(PERSISTENT_CLAIM_TAG);
         }
         super.saveAdditional(data, registries);
-        data.putString("infiniteHostMode", hostMode.id());
         if (infiniteDomainId != null) {
             data.putUUID("infiniteDomainId", infiniteDomainId);
         }
-        saveInfiniteMembers(data);
+        for (String key : legacyRoster.getAllKeys()) data.put(key, legacyRoster.get(key).copy());
     }
 
     @Override
     public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
         super.loadTag(data, registries);
         loadLegacyInfiniteComponentInventory(data, registries);
-        setStorageHostMode(ECOStorageHostMode.fromId(data.getString("infiniteHostMode")));
+        hostMode = ECOStorageHostMode.UNFORMED;
         setInfiniteDomainId(data.hasUUID("infiniteDomainId") ? data.getUUID("infiniteDomainId") : null);
         CompoundTag claim = getPersistentData().getCompound(PERSISTENT_CLAIM_TAG);
         if (!claim.hasUUID("domain") || !claim.getUUID("domain").equals(infiniteDomainId)) claim = data;
         infiniteClaimToken = claim.hasUUID(CURRENT_CLAIM_TAG) ? claim.getUUID(CURRENT_CLAIM_TAG) : null;
         pendingInfiniteClaimToken = claim.hasUUID(PENDING_CLAIM_TAG) ? claim.getUUID(PENDING_CLAIM_TAG) : null;
-        loadInfiniteMembers(data);
+        loadLegacyRoster(data);
     }
 
     private void loadLegacyInfiniteComponentInventory(CompoundTag data, HolderLookup.Provider registries) {
@@ -1028,16 +911,24 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     public boolean canExtractInfiniteComponents() {
-        return !hasBuiltInInfiniteComponents() && blockedInfiniteComponentExtractionReason() == null;
+        return !isInfiniteComponentSlotReadOnly();
     }
 
     protected boolean hasBuiltInInfiniteComponents() {
         return false;
     }
 
+    protected int getBuiltInInfiniteComponentCount() {
+        return 0;
+    }
+
+    private boolean isInfiniteComponentSlotReadOnly() {
+        return getBuiltInInfiniteComponentCount() > 0 || hasBuiltInInfiniteComponents();
+    }
+
     @Nullable
     public String blockedInfiniteComponentExtractionReason() {
-        return infiniteRestore.blockedInfiniteComponentExtractionReason();
+        return null;
     }
 
     // Package-local collaboration points; public integration and RPC entry points remain on this entity.
@@ -1049,10 +940,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return stageRunner.faults();
     }
 
-    Map<String, Long> storageStageRetryTicks() {
-        return stageRunner.retryTicks();
-    }
-
     ECOStorageHostMode storageHostMode() {
         return hostMode;
     }
@@ -1061,33 +948,18 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         if (hostMode == mode) return;
         hostMode = mode;
         interfaceTransfer.invalidateInfiniteStorageView();
-        infiniteModeController.hostModeChanged();
         refreshBulkCraftingPublication();
     }
 
-    boolean consumeInfiniteComponentsDirty() {
-        boolean dirty = infiniteComponentsDirty;
-        infiniteComponentsDirty = false;
-        return dirty;
-    }
 
     boolean hasRequiredInfiniteComponents() {
-        return hasRequiredInfiniteComponents(infiniteComponentInventory.getStackInSlot(0));
+        int builtInCount = getBuiltInInfiniteComponentCount();
+        return builtInCount > 0 ? builtInCount >= INFINITE_COMPONENT_REQUIRED
+                : hasRequiredInfiniteComponents(infiniteComponentInventory.getStackInSlot(0));
     }
 
-    void clearInfiniteExitRequest() {
-        infiniteExitRequested = false;
-        infiniteModeController.refreshHostAccess();
-    }
 
-    boolean isInfiniteExitRequested() {
-        return infiniteExitRequested;
-    }
 
-    void requestInfiniteExit() {
-        infiniteExitRequested = true;
-        infiniteModeController.refreshHostAccess();
-    }
 
     @Nullable
     UUID infiniteDomainId() {
@@ -1104,31 +976,17 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return pendingInfiniteClaimToken;
     }
 
-    void setInfiniteClaimTokens(@Nullable UUID current, @Nullable UUID pending) {
-        infiniteClaimToken = current;
-        pendingInfiniteClaimToken = pending;
-        setChanged();
-    }
 
     void setInfiniteDomainId(@Nullable UUID domainId) {
         if (java.util.Objects.equals(infiniteDomainId, domainId)) return;
-        infiniteModeController.release();
         infiniteDomainId = domainId;
-        invalidateInfiniteMembers();
-        infiniteModeController.hostModeChanged();
+        infiniteClaimToken = null;
+        pendingInfiniteClaimToken = null;
+        setChanged();
     }
 
-    java.util.Set<UUID> infiniteMemberIds() {
-        return infiniteMemberIds;
-    }
 
-    java.util.Set<UUID> infiniteMigrationSourceIds() {
-        return infiniteMigrationSourceIds;
-    }
 
-    ECOStorageInfiniteRestore infiniteRestore() {
-        return infiniteRestore;
-    }
 
     ECOStorageInterfaceTransfer storageInterfaceTransfer() {
         return interfaceTransfer;
@@ -1136,10 +994,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     boolean isStorageServerStopping() {
         return isServerStopping();
-    }
-
-    AppEngInternalInventory infiniteComponentInventory() {
-        return infiniteComponentInventory;
     }
 
     int selectedEcoMegaBulkCell() {

@@ -22,8 +22,8 @@ import org.jetbrains.annotations.Nullable;
  * is not a bus provides its own answers - the workstation interface's pattern slots belong to its provider, so
  * several of these forward there.</p>
  *
- * <p>The catalog polls {@link #getPatternContentRevision()} and {@link #getAuxiliaryRevision()} on every index
- * refresh, so both must be cheap. {@link #getPatternSlotInventory()} is what the catalog indexes: it must be
+ * <p>The catalog polls {@link #getPatternContentRevision()} and {@link #getAuxiliaryRevision()} for hosts other
+ * than the built-in implementations, so both must be cheap. {@link #getPatternSlotInventory()} must expose
  * the real slots, not a terminal view that appends rows for the patterns on disks - a view would have those
  * patterns counted twice, once as slots and once as auxiliary contents.</p>
  */

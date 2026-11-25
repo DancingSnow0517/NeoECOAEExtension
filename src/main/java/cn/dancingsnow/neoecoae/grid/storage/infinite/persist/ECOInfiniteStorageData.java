@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.grid.storage.infinite.persist;
 
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageEngine;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.grid.storage.infinite.HugeAmount;
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
@@ -49,9 +50,11 @@ public final class ECOInfiniteStorageData extends SavedData {
                            Map<UUID, ECOInfiniteStorageEngine.RestoreTargetAmounts> plan) {
     }
 
-    final InfiniteStorageAmounts amounts = new InfiniteStorageAmounts();
+    public final InfiniteStorageAmounts amounts = new InfiniteStorageAmounts();
     private final List<CompoundTag> rawEntries = new ArrayList<>();
     private final Set<UUID> migrationReceipts = new HashSet<>();
+    private final Set<UUID> legacySources = new HashSet<>();
+    private String legacyFailure = "";
     // Host claim tokens allowed to mount this domain; empty for domains written before claims existed.
     private final Set<UUID> claimTokens = new HashSet<>();
     private final Map<AEKey, Restore> restores = new HashMap<>();
@@ -221,6 +224,18 @@ public final class ECOInfiniteStorageData extends SavedData {
             }
             if (!invalid.isEmpty()) data.unresolvedMetadata.put("claims", invalid);
         }
+        data.legacyFailure = tag.getString("legacyFailure");
+        if (tag.contains("legacySources")) {
+            try {
+                if (!validList(tag, "legacySources", Tag.TAG_INT_ARRAY)) throw new IllegalArgumentException();
+                for (Tag source : tag.getList("legacySources", Tag.TAG_INT_ARRAY)) {
+                    data.legacySources.add(NbtUtils.loadUUID(source));
+                }
+            } catch (RuntimeException malformed) {
+                data.legacyFailure = "Invalid saved legacy source roster";
+                data.unresolvedMetadata.put("legacySources", tag.get("legacySources").copy());
+            }
+        }
         data.refreshMountedStorageAvailability();
         return data;
     }
@@ -263,6 +278,12 @@ public final class ECOInfiniteStorageData extends SavedData {
         ListTag receipts = new ListTag();
         migrationReceipts.forEach(id -> receipts.add(NbtUtils.createUUID(id)));
         tag.put("migrations", receipts);
+        if (!legacySources.isEmpty()) {
+            ListTag sources = new ListTag();
+            legacySources.forEach(id -> sources.add(NbtUtils.createUUID(id)));
+            tag.put("legacySources", sources);
+        }
+        if (!legacyFailure.isEmpty()) tag.putString("legacyFailure", legacyFailure);
         if (!claimTokens.isEmpty()) {
             ListTag claims = new ListTag();
             claimTokens.forEach(id -> claims.add(NbtUtils.createUUID(id)));
@@ -350,7 +371,9 @@ public final class ECOInfiniteStorageData extends SavedData {
     }
 
     private void refreshMountedStorageAvailability() {
-        mountedStorageAvailable = canWrite() && restores.isEmpty();
+        mountedStorageAvailable = canWrite() && restores.isEmpty() && legacySources.isEmpty() && legacyFailure.isEmpty()
+                && !unresolvedMetadata.contains("migrations") && !unresolvedMetadata.contains("claims")
+                && rawEntries.stream().noneMatch(entry -> entry.contains("restore"));
     }
 
     boolean canUseMountedStorage() { return mountedStorageAvailable && hasDurableVisibility(); }
@@ -449,6 +472,45 @@ public final class ECOInfiniteStorageData extends SavedData {
     void subtract(AEKey key, long amount) {
         amounts.subtract(key, amount);
         setDirty(true);
+    }
+
+    public boolean legacySourceSettled(UUID source) {
+        return migrationReceipts.contains(ECOInfiniteStorageMember.settlementId(source));
+    }
+
+    public Set<UUID> legacySources() { return Set.copyOf(legacySources); }
+
+    public Set<AEKey> legacyRestoreKeys() { return Set.copyOf(restores.keySet()); }
+
+    public void noteLegacyEvidence(Set<UUID> sources, String problem) {
+        boolean changed = false;
+        for (UUID source : sources) {
+            if (!legacySourceSettled(source)) changed |= legacySources.add(source);
+        }
+        if (!problem.isEmpty() && legacyFailure.isEmpty()) {
+            legacyFailure = problem;
+            changed = true;
+        }
+        if (changed) setDirty();
+    }
+
+    public String legacyFailure() { return legacyFailure; }
+
+    public boolean hasUnresolvedLegacyEvidence() {
+        return !legacyFailure.isEmpty() || unresolvedMetadata.contains("migrations")
+                || rawEntries.stream().anyMatch(entry -> entry.contains("restore"));
+    }
+
+    public boolean mayReconcileLegacy() {
+        return canTransfer() && hasDurableVisibility() && legacyFailure.isEmpty();
+    }
+
+    void finishLegacy(Set<UUID> sources, Set<AEKey> restored) {
+        for (UUID source : sources) migrationReceipts.add(ECOInfiniteStorageMember.settlementId(source));
+        legacySources.removeAll(sources);
+        restores.keySet().removeAll(restored);
+        setDirty();
+        requireDurableVisibility();
     }
 
     public boolean hasMigrationReceipt(UUID transaction) {
@@ -553,6 +615,8 @@ public final class ECOInfiniteStorageData extends SavedData {
         if (!rawEntries.isEmpty()) result.add("Unresolved entries retained: " + rawEntries.size());
         if (!unresolvedMetadata.isEmpty()) result.add("Unresolved transfer metadata retained");
         restores.values().stream().map(Restore::failure).filter(s -> !s.isEmpty()).forEach(result::add);
+        if (!legacyFailure.isEmpty()) result.add(legacyFailure);
+        if (!legacySources.isEmpty()) result.add("Pending legacy migration sources: " + legacySources);
         return result;
     }
 

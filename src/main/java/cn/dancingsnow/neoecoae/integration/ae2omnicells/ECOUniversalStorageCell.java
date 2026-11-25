@@ -11,7 +11,6 @@ import appeng.api.storage.cells.StorageCell;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
-import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.grid.storage.StorageByteAccounting;
 import cn.dancingsnow.neoecoae.integration.ae2omnicells.item.ECOUniversalStorageCellItem;
 import com.wintercogs.ae2omnicells.common.me.IAEUniversalCell;
@@ -19,21 +18,17 @@ import it.unimi.dsi.fastutil.longs.Long2LongMap;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
-
 public final class ECOUniversalStorageCell implements IECOStorageMigrationCell {
     private final StorageCell delegate;
     private final ItemStack stack;
     private final ECOUniversalStorageCellItem item;
-    private final boolean sealed;
 
     public ECOUniversalStorageCell(StorageCell delegate, ItemStack stack, ECOUniversalStorageCellItem item) {
         this.delegate = delegate;
         this.stack = stack;
         this.item = item;
-        // Sealed state changes replace CUSTOM_DATA and trigger a storage-provider refresh.
-        // Cache it for the lifetime of this mounted cell so hot ME operations do not parse NBT.
-        this.sealed = ECOInfiniteStorageMember.isSealed(stack);
     }
+
 
     @Override
     public IECOTier getTier() {
@@ -82,7 +77,7 @@ public final class ECOUniversalStorageCell implements IECOStorageMigrationCell {
 
     @Override
     public boolean canFitInsideCell() {
-        return !sealed && delegate.canFitInsideCell();
+        return delegate.canFitInsideCell();
     }
 
     @Override
@@ -97,7 +92,6 @@ public final class ECOUniversalStorageCell implements IECOStorageMigrationCell {
 
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
-        if (sealed) return 0L;
         return delegate.insert(what, amount, mode, source);
     }
 
@@ -206,13 +200,11 @@ public final class ECOUniversalStorageCell implements IECOStorageMigrationCell {
 
     @Override
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
-        if (sealed) return 0L;
         return delegate.extract(what, amount, mode, source);
     }
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
-        if (sealed) return;
         delegate.getAvailableStacks(out);
     }
 
@@ -222,6 +214,17 @@ public final class ECOUniversalStorageCell implements IECOStorageMigrationCell {
     @Override
     public long getMigrationAmount(AEKey key) {
         return delegate.extract(key, Long.MAX_VALUE, Actionable.SIMULATE, IActionSource.empty());
+    }
+
+    @Override
+    public boolean canVerifyLegacyContents(net.minecraft.server.level.ServerLevel level) {
+        var id = stack.get(com.wintercogs.ae2omnicells.common.init.OCDataComponents.CELL_UUID.get());
+        if (id == null) return false;
+        var data = com.wintercogs.ae2omnicells.common.me.AEUniversalCellData.getCellDataByUUID(id);
+        if (data == null) return false;
+        var inventory = data.save(new net.minecraft.nbt.CompoundTag(), level.registryAccess()).getCompound("inventory");
+        return inventory.getList("error_entries", net.minecraft.nbt.Tag.TAG_COMPOUND).isEmpty()
+                && inventory.getList("entries", net.minecraft.nbt.Tag.TAG_COMPOUND).size() == data.getOriginalStorage().size();
     }
 
     @Override

@@ -10,7 +10,7 @@ import java.math.BigInteger;
 import java.util.function.BiConsumer;
 
 /** Server-owned quantity table. Existing transfers locate an entry once and mutate its primitive quantity. */
-final class InfiniteStorageAmounts {
+public final class InfiniteStorageAmounts {
     private final Object2ObjectOpenHashMap<AEKey, Entry> entries = new Object2ObjectOpenHashMap<>();
     private AEKey lastKey;
     private Entry lastEntry;
@@ -182,7 +182,7 @@ final class InfiniteStorageAmounts {
     boolean isEmpty() { return size == 0; }
     boolean hasOverflow() { return oversized != 0; }
 
-    void forEach(BiConsumer<AEKey, HugeAmount> action) {
+    public void forEach(BiConsumer<AEKey, HugeAmount> action) {
         if (size == 0) return;
         for (Entry entry : entries.values()) {
             if (entry.amount != 0) action.accept(entry.key, entry.snapshot());

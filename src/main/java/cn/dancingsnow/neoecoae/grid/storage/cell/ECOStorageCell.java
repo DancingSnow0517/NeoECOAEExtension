@@ -106,8 +106,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingD
 
     /** For listings derived only from contents changed through {@link #saveChanges} or {@link #markContentChanged}. */
     protected final long contentListingVersion() {
-        return cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)
-            ? -1L : contentRevision;
+        return contentRevision;
     }
 
     @Override
@@ -266,6 +265,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingD
     }
 
     @Override
+
     public void persist() {
         if (this.isPersisted) {
             return;
@@ -355,7 +355,6 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingD
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
         if (getClass() != ECOStorageCell.class) what = ECOKeyFactory.canonicalize(what);
-        if (cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return 0L;
         if (amount == 0 || !acceptsKey(what)) {
             return 0;
         }
@@ -550,7 +549,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingD
     @Override
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
         if (getClass() != ECOStorageCell.class) what = ECOKeyFactory.canonicalize(what);
-        if (amount <= 0L || cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return 0L;
+        if (amount <= 0L) return 0L;
         var currentAmount = getCellItems().getLong(what);
         if (currentAmount > 0) {
             if (amount >= currentAmount) {
@@ -578,14 +577,17 @@ public class ECOStorageCell implements IECOStorageMigrationCell, StorageListingD
 
     @Override
     public boolean canFitInsideCell() {
-        return !cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)
-            && getAvailableStacks().isEmpty();
+        return getAvailableStacks().isEmpty();
     }
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
-        if (cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return;
         listing.append(this, out, this::getMigrationStacks);
+    }
+
+    @Override
+    public boolean isEmptyForInfiniteStorage() {
+        return getCellItems().isEmpty() && (!isPersisted || getStoredStacks().isEmpty());
     }
 
     @Override

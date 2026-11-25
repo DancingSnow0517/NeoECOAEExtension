@@ -25,9 +25,6 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
-import net.minecraft.world.level.storage.loot.LootParams;
-import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
-import java.util.List;
 
 public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> implements BlockUIMenuType.BlockUI {
 
@@ -107,18 +104,5 @@ public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> 
             && player.distanceToSqr(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D) <= 64.0D;
     }
 
-    @Override
-    public List<ItemStack> getDrops(BlockState state, LootParams.Builder params) {
-        List<ItemStack> drops = super.getDrops(state, params);
-        if (params.getOptionalParameter(LootContextParams.BLOCK_ENTITY) instanceof ECOStorageSystemBlockEntity be) {
-            for (ItemStack drop : drops) {
-                if (drop.is(asItem())) {
-                    be.applyInfiniteDomainToControllerDrop(drop);
-                    break;
-                }
-            }
-        }
-        return drops;
-    }
 }
 

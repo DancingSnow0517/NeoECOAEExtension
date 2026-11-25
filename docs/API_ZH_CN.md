@@ -56,7 +56,7 @@ side = "BOTH"
 
 ## 线程、注册与资源所有权
 
-JEI 多方块转移兼容桥使用 `MultiBlockRecipeTransferHandler.create()` 选择可用 API；仅在客户端且 JEI 存在时加载该类。具备 19.52 上下文接口时，实际样板编码完成或失败后回传转移结果，预检不发送完成通知。旧构造器及六参数 `transferRecipe` 保留给旧版 JEI 和已有二进制；新版接入使用工厂方法，避免遗漏上下文完成通知。
+JEI 多方块转移处理器使用 `IRecipeTransferContext`，仅在客户端且 JEI 存在时加载。实际样板编码完成或失败后回传转移结果，预检不发送完成通知。JEI 19.70.0.467 仍要求声明六参数 `transferRecipe`，但处理器不接受此入口的调用。
 
 规划入口先读取库存快照，因此在所属服务器线程调用。提交、供应器接收、存储变更和产物认领也在服务器线程执行。调用方在开始计算和提交前检查玩家/机器的网络访问权限；底层接口不代替鉴权。
 
@@ -268,6 +268,8 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 
 可写节点服务实现 [IECOPatternStorage](../src/main/java/cn/dancingsnow/neoecoae/api/IECOPatternStorage.java)，`KnownUnique` 方法仅供已证明无重复的调用使用。目录宿主通过 [PatternStorageHost](../src/main/java/cn/dancingsnow/neoecoae/api/PatternStorageHost.java)、[AuxiliaryPatternHolder](../src/main/java/cn/dancingsnow/neoecoae/api/AuxiliaryPatternHolder.java) 提供真实槽位、修订号与稳定内容顺序。可选 `allowsPatternMigrationSource()` 显式允许宿主作为迁移来源。
 
+附属样板总线若使用自有库存，应在服务端线程更新库存后、通知预览界面前调用 `IECOPatternStorageService.onPatternSlotsChanged`。传入批次开始前的修订号和所有变动的物理槽位；槽位布局变化时传 `{-1}`。样板目录也会核对非内置宿主的修订号作为兜底。
+
 外部候选通过 owner UUID 认领；所有退出路径释放认领，源槽清空后删除候选。扫描未 ready 不阻止处理已发现候选；拓扑变化后丢弃旧槽位引用。
 
 ## 存储盘与精确数量
@@ -307,14 +309,14 @@ root.addChild(priority.window()); // 客户端和服务端都添加到同一位�
 
 | 可选能力 | 条件 |
 | --- | --- |
-| [IECOStorageMigrationCell](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStorageMigrationCell.java) | 无损枚举、清空、模拟、持久化与恢复均实现后才参与迁移 |
+| [IECOStorageMigrationCell](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStorageMigrationCell.java) | 可靠判空与旧回执的只读核对；原迁移方法保留二进制兼容 |
 | [IECOBulkMarkableCellItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOBulkMarkableCellItem.java) | 开启压缩标记 UI，不注册库存后端 |
 | [IECOBulkDisplayCell](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOBulkDisplayCell.java) | 提供完整压缩链与实际生效的显示截止等级 |
 | [INativeMEStorageRestrictedItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/INativeMEStorageRestrictedItem.java) | 默认禁止原版 ME 驱动器/箱子插入；false 仅继续原校验，不保证接受 |
 
-无限域迁移会在有序的持久化检查点之间保持盘封印。`IECOStorageMigrationCell.persistMigrationContents(level)` 返回前必须写出当前内容；库存保存在物品之外的后端，需要确认自己的文件写入完成或抛出异常，不能只标脏。ECO 另行等待原版区块写入与域快照完成，不阻塞服务器 tick。模拟与预览方法不得分配身份或修改实际物品栈。
+无限模式由主机判定，不是盘的物品状态。主机调用 `IECOCellHandler.isEmptyInfiniteCandidate` 判空时，不得认领原生库存，也不得分配或提升盘身份；无法确认盘内库存时返回 false。`onCellInstalled` 只用于实际装入或加载，可在该事件中维护后端自身的库存所有权。无限域不迁移盘内容；缓存的域视图可被撤销，撤销后不提供普通、精确或增量库存。
 
-原版插入限制不清理已有盘，不影响其他 Mod 的驱动器，也不提供 ECO 后端。无限盘仍须具备完整迁移实现与明确资格。
+原版插入限制不清理已有盘，不影响其他 Mod 的驱动器，也不提供 ECO 后端。盘要计入无限模式，必须明确符合资格并能可靠地只读判空。
 
 ## 附属扩展注册
 
@@ -381,6 +383,10 @@ ServerEvents.recipes(event => {
 在自身坐标托管独立合成接口的方块实体可实现 `CraftingPatternMenuHost`。菜单解码、有效性校验和预览同步共用同一个接口实例。服务端应提供不可变的布局键，原槽位地址失效时更新它。使用 `CraftingPatternMenu.openInterface` 打开接口菜单。
 
 主机子类可覆盖 `getCraftingControllerPanelState` 或 `getComputationControllerPanelState` 描述面板成员。`isCraftingPanelVirtualMode` 和 `getVirtualCraftingBlockedNotice` 分别影响合成容量显示和阻塞提示。内置驱动器通过 `ICellHost.getBuiltInCellForDisplay` 提供只读盘图标。存储主机可覆盖 `hasBuiltInInfiniteComponents` 将无限组件槽设为只读。
+
+存储主机子类可覆盖 `ECOStorageSystemBlockEntity#getBuiltInInfiniteComponentCount()` 声明固定的内置数量。正数替代实体槽用于组件准入判断和只读显示；返回 64 即满足组件要求，不会生成物品。客户端和服务端必须返回相同数量。返回 0 保留原有实体槽，硬盘和存储域仍按原规则校验。
+
+不落世界的内置存储驱动器可在所属主机加载且成型时计入无限模式。`getBuiltInCellForDisplay` 必须返回实际安装的盘堆栈而非副本，并禁止取出。内置盘必须始终为空，且通过原有档位和空盘检查；它不会挂载为普通库存，也不会参与旧盘迁移。
 
 自定义档位与盘类型在 [NERegistries.Keys](../src/main/java/cn/dancingsnow/neoecoae/all/NERegistries.java) 对应同步注册表中，以两端相同 ID 注册。实现 `IECOTier` 的必需参数；组件兼容用 `supportsComponentTier`，高级能力用 `supportsFeature`。
 
