@@ -2,9 +2,12 @@ package cn.dancingsnow.neoecoae.network;
 
 import appeng.menu.me.common.MEStorageMenu;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOBigOrderStatusHost;
-import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountClientCache;
+import cn.dancingsnow.neoecoae.grid.crafting.display.terminal.ExactAmountClientCache;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingPatternMenu;
 import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewCodec;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
+import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
+import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerMenu;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.entity.player.Player;
 

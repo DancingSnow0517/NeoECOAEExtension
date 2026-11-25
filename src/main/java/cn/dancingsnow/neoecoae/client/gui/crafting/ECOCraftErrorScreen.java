@@ -12,7 +12,7 @@ import appeng.menu.SlotSemantics;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import java.util.ArrayList;
 import java.util.List;
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;

@@ -12,12 +12,11 @@ import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerRequest;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
-import cn.dancingsnow.neoecoae.crafting.planner.ECOCraftingPlannerService;
-import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
-import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService;
-import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
-import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
-import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.ECOCraftingPlannerService;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.control.ECOCancellation;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.ECOPlanningService;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.compile.PlanIdentity;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.result.ECOPlanningResult;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -103,7 +102,7 @@ public abstract class CraftingCalculationMixin implements ECOCraftingCalculation
         }
 
         ECOPlannerOptions options = ecoRequest.neoecoae$getPlannerOptions();
-        var inventory = cn.dancingsnow.neoecoae.crafting.planner.ECOPlannerInventory.capture(grid);
+        var inventory = cn.dancingsnow.neoecoae.grid.crafting.planner.ECOPlannerInventory.capture(grid);
         this.neoecoae$plannerSession = ECOCraftingPlannerService.INSTANCE.createSession(
             grid.getCraftingService(), output.what(), inventory,
             options.cyclePlanningEnabled(),

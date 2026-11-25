@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me.bigorder;
 
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.grid.crafting.amount.PlannerAmount;
 
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;

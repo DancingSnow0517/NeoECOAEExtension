@@ -6,7 +6,7 @@ import appeng.api.parts.IPartItem;
 import appeng.core.definitions.AEItems;
 import appeng.parts.automation.AbstractLevelEmitterPart;
 import appeng.parts.automation.StorageLevelEmitterPart;
-import cn.dancingsnow.neoecoae.storage.StorageThresholdCache;
+import cn.dancingsnow.neoecoae.grid.storage.listing.StorageThresholdCache;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;

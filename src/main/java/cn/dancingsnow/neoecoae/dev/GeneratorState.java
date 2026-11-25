@@ -16,8 +16,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
-import static cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers.grouped;
-import static cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers.compact;
+import static cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers.grouped;
+import static cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers.compact;
 
 final class GeneratorState {
     GeneratorSettings settings = GeneratorSettings.DEFAULT;

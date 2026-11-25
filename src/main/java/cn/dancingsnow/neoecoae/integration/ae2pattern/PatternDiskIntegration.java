@@ -8,7 +8,7 @@ import cn.dancingsnow.neoecoae.api.integration.Integration;
 import cn.dancingsnow.neoecoae.config.NELogConfig;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
-import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
+import cn.dancingsnow.neoecoae.integration.ae2.ECOGridMachineFinder;
 
 import io.github.lounode.ae2pattern.api.IPatternDiskHost;
 import io.github.lounode.ae2pattern.api.PatternDiskApi;
@@ -135,10 +135,10 @@ public class PatternDiskIntegration {
         PatternDiskApi.registerDiskHost(grid -> {
             List<IPatternDiskHost> hosts = new ArrayList<>();
             Set<HostPosition> present = new HashSet<>();
-            for (var bus : NEMachineLookup.getActiveMachines(grid, ECOCraftingPatternBusBlockEntity.class)) {
+            for (var bus : ECOGridMachineFinder.getActiveMachines(grid, ECOCraftingPatternBusBlockEntity.class)) {
                 addHost(adapters, hosts, present, bus, bus::getPatternSlotInventory);
             }
-            for (var interfaceBlock : NEMachineLookup.getActiveMachines(grid,
+            for (var interfaceBlock : ECOGridMachineFinder.getActiveMachines(grid,
                     ECOLargeIntegratedWorkingStationInterfaceBlockEntity.class)) {
                 addHost(adapters, hosts, present, interfaceBlock,
                         () -> interfaceBlock.getWorkstationProvider().getPatternInv());

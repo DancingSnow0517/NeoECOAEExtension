@@ -5,7 +5,7 @@ import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.networking.crafting.ICraftingSimulationRequester;
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.crafting.planner.ECOAutoCraftingPlanning;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.ECOAutoCraftingPlanning;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import java.util.concurrent.Future;

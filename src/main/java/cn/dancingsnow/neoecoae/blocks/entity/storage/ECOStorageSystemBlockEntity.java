@@ -35,16 +35,15 @@ import cn.dancingsnow.neoecoae.menu.HostDiskMenu;
 import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
 import cn.dancingsnow.neoecoae.gui.storage.StorageCellPriorityUI;
 import cn.dancingsnow.neoecoae.integration.StorageBulkMarkingIntegration;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOStorageHostMode;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageEngine;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOStorageHostMode;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildController;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
@@ -235,7 +234,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             BlockState state = level.getBlockState(worldPosition);
             if (state.hasProperty(ECOStorageSystemBlock.MIRRORED)) {
                 var interfaceMode = getStorageInterface();
-                var mode = interfaceMode == null ? cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode.STORAGE
+                var mode = interfaceMode == null ? cn.dancingsnow.neoecoae.grid.storage.transfer.ECOStorageInterfaceMode.STORAGE
                         : interfaceMode.getStorageInterfaceMode();
                 BlockState newState = state.setValue(ECOStorageSystemBlock.MIRRORED, formed && mirrored)
                         .setValue(ECOStorageSystemBlock.STORAGE_MODE, mode);
@@ -252,7 +251,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     public void tick(Level level, BlockPos pos, BlockState state) {
         long startNanos = System.nanoTime();
-        try (var cellBatch = cn.dancingsnow.neoecoae.storage.ECOCellMutationBatch.open()) {
+        try (var cellBatch = cn.dancingsnow.neoecoae.grid.storage.cell.ECOCellMutationBatch.open()) {
             if (!stageRunner.run("migration", this::updateInfiniteStorageMode)) return;
             ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
             if (storageInterface != null) {
@@ -268,7 +267,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         }
     }
 
-    public Collection<cn.dancingsnow.neoecoae.storage.StorageFaults.Fault> storageFailures() {
+    public Collection<cn.dancingsnow.neoecoae.grid.storage.StorageFaults.Fault> storageFailures() {
         return stageRunner.failures();
     }
 
@@ -523,7 +522,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             text.append(fault.component() + " [" + fault.id() + "]\n" + fault.reason() + "\n");
         }
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
-        if (engine instanceof cn.dancingsnow.neoecoae.storage.infinite.SavedDataInfiniteStorageEngine saved) {
+        if (engine instanceof cn.dancingsnow.neoecoae.grid.storage.infinite.persist.SavedDataInfiniteStorageEngine saved) {
             text.append(saved.persistenceSummary() + "\n");
             for (String failure : saved.failures()) text.append(failure + "\n");
         }
@@ -641,7 +640,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     void queueBulkCraftingPublication() {
         var grid = getMainNode().getGrid();
         if (grid != null && grid.getService(cn.dancingsnow.neoecoae.api.IECOPatternStorageService.class)
-                instanceof cn.dancingsnow.neoecoae.grid.PatternCatalog catalog) catalog.enqueueBulkPublication(this);
+                instanceof cn.dancingsnow.neoecoae.grid.pattern.PatternCatalog catalog) catalog.enqueueBulkPublication(this);
     }
 
     @Override
@@ -867,7 +866,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
     /** Why the running migration is waiting, or {@code null} while it advances or no migration runs. */
     @Nullable
-    public cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine.MigrationBlock getInfiniteMigrationBlock() {
+    public cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageEngine.MigrationBlock getInfiniteMigrationBlock() {
         return infiniteModeController.migrationBlock();
     }
 
@@ -901,7 +900,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         interfaceTransfer.invalidateHostStorage();
         ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
         if (level.getBlockState(worldPosition).hasProperty(ECOStorageSystemBlock.STORAGE_MODE)) {
-            var mode = storageInterface == null ? cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode.STORAGE
+            var mode = storageInterface == null ? cn.dancingsnow.neoecoae.grid.storage.transfer.ECOStorageInterfaceMode.STORAGE
                     : storageInterface.getStorageInterfaceMode();
             level.setBlockAndUpdate(worldPosition, level.getBlockState(worldPosition)
                     .setValue(ECOStorageSystemBlock.STORAGE_MODE, mode));
@@ -1046,7 +1045,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         statistics.invalidate();
     }
 
-    cn.dancingsnow.neoecoae.storage.StorageFaults storageFaults() {
+    cn.dancingsnow.neoecoae.grid.storage.StorageFaults storageFaults() {
         return stageRunner.faults();
     }
 

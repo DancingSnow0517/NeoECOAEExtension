@@ -8,7 +8,7 @@ import appeng.api.networking.crafting.ICraftingSubmitResult;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
-import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.result.ECOPlanningResult;
 import java.math.BigInteger;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;

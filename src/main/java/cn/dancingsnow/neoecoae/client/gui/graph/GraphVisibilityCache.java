@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.client.gui.graph;
 
-import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.GraphLayoutSnapshot;
 import java.util.List;
 
 /** Camera changes trigger queries; stationary frames reuse the exact same result. */

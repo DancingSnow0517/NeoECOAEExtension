@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.integration.thunderbolt;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingService;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
-import cn.dancingsnow.neoecoae.crafting.ECOComponentInsensitiveProcessingPattern;
+import cn.dancingsnow.neoecoae.grid.crafting.pattern.ECOComponentInsensitiveProcessingPattern;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.util.Collection;

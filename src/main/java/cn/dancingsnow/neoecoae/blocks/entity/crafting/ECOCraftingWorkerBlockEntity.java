@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.grid.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.verify.ECOVerifiedFastPathRecipe;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.worker.lifecycle.ECOCraftingJobLifecycle;
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import cn.dancingsnow.neoecoae.api.power.ECOPowerRole;
@@ -14,13 +16,12 @@ import appeng.api.storage.MEStorage;
 import appeng.util.SettingsFrom;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity.VirtualLaneStartResult;
-import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle;
-import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingThread;
-import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
-import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
-import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution;
-import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathExecution;
-import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedVirtualExecution;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.worker.ECOCraftingThread;
+import cn.dancingsnow.neoecoae.grid.crafting.display.CraftingOutputDisplay;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.verify.ECOCraftingFastPathCache;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.verify.ECOVerifiedFastPathExecution;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.verify.ECOVerifiedVirtualExecution;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
@@ -270,7 +271,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     }
 
     public boolean pushExactVirtualBatch(
-            cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOVerifiedFastPathRecipe recipe,
+            ECOVerifiedFastPathRecipe recipe,
             java.math.BigInteger count, java.util.UUID job) {
         if (NEConfig.postCraftingEvent
                 || cluster == null || cluster.getController() == null || isWorking()) return false;
@@ -659,7 +660,7 @@ public class ECOCraftingWorkerBlockEntity extends cn.dancingsnow.neoecoae.blocks
     public long getQueuedCraftCount() {
         long total = 0L;
         for (ECOCraftingThread thread : craftingThreads) {
-            total = cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingAdd(total, thread.getCraftCount());
+            total = cn.dancingsnow.neoecoae.grid.crafting.amount.NEMath.saturatingAdd(total, thread.getCraftCount());
         }
         return total;
     }

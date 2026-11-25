@@ -4,7 +4,7 @@ import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
-import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOFastPathStacks;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.verify.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.integration.ae2lt.WorkstationLightningInputs;
 
 /** Transfers additional recipe costs into the same recoverable ownership ledger as CPU inputs. */

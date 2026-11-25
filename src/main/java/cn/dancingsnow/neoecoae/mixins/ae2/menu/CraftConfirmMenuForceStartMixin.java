@@ -41,7 +41,7 @@ public abstract class CraftConfirmMenuForceStartMixin implements ECOForceCraftSt
         if ((Object) menu instanceof cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode mode
                 && mode.neoecoae$shouldShowFastPlannerReport()
                 && mode.neoecoae$getPlanningStatus()
-                    != cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.MISSING_ITEMS) {
+                    != cn.dancingsnow.neoecoae.grid.crafting.planner.result.PlanningStatus.MISSING_ITEMS) {
             neoecoae$rejectForceStart(menu, ci);
             return;
         }

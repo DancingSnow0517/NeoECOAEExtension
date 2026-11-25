@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.jei;
 
-import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.BigNumberFormatter;
 import com.mojang.blaze3d.systems.RenderSystem;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.gui.builder.IRecipeSlotBuilder;

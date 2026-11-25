@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.ae2lt;
 
-import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.worker.lifecycle.ECOCraftingJobLifecycle;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Optional;

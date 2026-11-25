@@ -6,7 +6,7 @@ import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.networking.crafting.ICraftingSimulationRequester;
 import appeng.api.stacks.AEKey;
 import appeng.helpers.MultiCraftingTracker;
-import cn.dancingsnow.neoecoae.crafting.planner.ECOAutoCraftingPlanning;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.ECOAutoCraftingPlanning;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;

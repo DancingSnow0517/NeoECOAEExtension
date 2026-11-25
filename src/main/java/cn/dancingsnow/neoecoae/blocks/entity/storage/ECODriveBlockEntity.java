@@ -13,12 +13,12 @@ import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOCellWorkbenchDrive;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
-import cn.dancingsnow.neoecoae.storage.DeferredCellPersistence;
-import cn.dancingsnow.neoecoae.storage.ECOCellMutationBatch;
-import cn.dancingsnow.neoecoae.storage.ECOCreativeCell;
-import cn.dancingsnow.neoecoae.storage.ECOCreativeSupply;
+import cn.dancingsnow.neoecoae.grid.storage.cell.DeferredCellPersistence;
+import cn.dancingsnow.neoecoae.grid.storage.cell.ECOCellMutationBatch;
+import cn.dancingsnow.neoecoae.grid.storage.cell.ECOCreativeCell;
+import cn.dancingsnow.neoecoae.grid.storage.supply.ECOCreativeSupply;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
@@ -166,7 +166,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     }
 
     @Override
-    public void neoecoae$onCellContentsChanged(cn.dancingsnow.neoecoae.storage.ECOStorageCell cell) {
+    public void neoecoae$onCellContentsChanged(cn.dancingsnow.neoecoae.grid.storage.cell.ECOStorageCell cell) {
         if (cell != cachedCellInventory || !neoecoae$canDeferCellPersistence()) return;
         var controller = getStorageController();
         if (controller != null) controller.storageInterfaceTransfer().cellContentsChanged(cell);
@@ -230,7 +230,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     /** Only empty cells may become anonymous members: nothing is migrated on insertion. */
     static boolean isEmptyInfiniteCandidate(ItemStack stack) {
         var cell = ECOStorageCells.getCellInventory(stack, null);
-        if (!cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageTransfer.isEligible(cell)) return false;
+        if (!cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageTransfer.isEligible(cell)) return false;
         var contents = new appeng.api.stacks.KeyCounter();
         ((cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell) cell).getMigrationStacks(contents);
         return contents.isEmpty();
@@ -481,16 +481,16 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     @Override
     public int getConfiguredCellPriority() {
-        return cellStack == null ? 0 : cn.dancingsnow.neoecoae.storage.ECOStorageCellSettings.priority(cellStack);
+        return cellStack == null ? 0 : cn.dancingsnow.neoecoae.grid.storage.cell.ECOStorageCellSettings.priority(cellStack);
     }
 
     @Override
     public void setConfiguredCellPriority(int priority) {
-        if (cellStack == null || !cn.dancingsnow.neoecoae.storage.ECOStorageCellSettings.canConfigure(cellStack)) return;
-        if (getCellInventory() instanceof cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell bulk) {
+        if (cellStack == null || !cn.dancingsnow.neoecoae.grid.storage.cell.ECOStorageCellSettings.canConfigure(cellStack)) return;
+        if (getCellInventory() instanceof cn.dancingsnow.neoecoae.grid.storage.bulk.ECOBulkStorageCell bulk) {
             bulk.setConfiguredStoragePriority(priority);
         } else {
-            cn.dancingsnow.neoecoae.storage.ECOStorageCellSettings.setPriority(cellStack, priority);
+            cn.dancingsnow.neoecoae.grid.storage.cell.ECOStorageCellSettings.setPriority(cellStack, priority);
         }
         onCellConfigurationChanged();
         var controller = getStorageController();
@@ -516,7 +516,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         }
         if (cachedCellInventory instanceof ECOCreativeCell) invalidateCellInventoryCache();
         var controller = getStorageController();
-        if (getCellInventory() instanceof cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell bulk) {
+        if (getCellInventory() instanceof cn.dancingsnow.neoecoae.grid.storage.bulk.ECOBulkStorageCell bulk) {
             bulk.invalidateConversionPatterns();
         }
         if (controller != null) controller.bulkDriveChanged(this, false);

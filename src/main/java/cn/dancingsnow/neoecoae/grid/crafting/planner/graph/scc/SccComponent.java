@@ -1,0 +1,19 @@
+package cn.dancingsnow.neoecoae.grid.crafting.planner.graph.scc;
+
+import cn.dancingsnow.neoecoae.grid.crafting.planner.graph.CraftingGraphEdge;
+import appeng.api.stacks.AEKey;
+import java.util.List;
+
+/** One maximal strongly-connected set returned by Tarjan. */
+public record SccComponent(
+    int componentId,
+    List<AEKey> members,
+    List<CraftingGraphEdge> internalEdges,
+    boolean cyclic
+) {
+    public SccComponent {
+
+
+        if (members.isEmpty()) throw new IllegalArgumentException("SCC must have at least one member");
+    }
+}

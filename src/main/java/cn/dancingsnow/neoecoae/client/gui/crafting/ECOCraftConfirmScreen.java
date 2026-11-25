@@ -14,15 +14,14 @@ import appeng.core.localization.GuiText;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import appeng.menu.me.crafting.CraftingPlanSummary;
 import appeng.menu.me.crafting.CraftingPlanSummaryEntry;
-import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOCpuTierGlyph;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.client.gui.graph.ECOCraftingGraphScreen;
-import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
-import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService;
-import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
-import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.NEByteFormatter;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.ECOPlanningService;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.report.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.gui.theme.ECOIcon;
 import cn.dancingsnow.neoecoae.integration.jei.JeiBookmarkAccess;
 import cn.dancingsnow.neoecoae.network.ECOForceCraftStartFlagC2SPacket;
@@ -37,7 +36,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.minecraft.world.item.ItemStack;
@@ -329,9 +327,9 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
             if (graphSummary != null) {
                 var tooltip = new ArrayList<>(reportSummary.tooltip());
                 tooltip.add(Component.translatable("gui.neoecoae.crafting_report.total_patterns",
-                    cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers.grouped(graphSummary.patternNodes())));
+                    cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers.grouped(graphSummary.patternNodes())));
                 tooltip.add(Component.translatable("gui.neoecoae.crafting_report.total_cycles",
-                    cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers.grouped(graphSummary.cycleGroups())));
+                    cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers.grouped(graphSummary.cycleGroups())));
                 reportSummary = new ECOCraftReportHeaderRenderer.Summary(
                     reportSummary.elapsed(), reportSummary.bytes(), List.copyOf(tooltip));
             }
@@ -557,11 +555,11 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         var elapsed = state == null || state.loadingSummary() ? reportSummary.elapsed()
             : Component.literal(java.math.BigDecimal.valueOf(Math.max(0L, state.nanos()), 6).toPlainString() + " ms");
         var bytes = state == null || state.bytes() == null ? unknown
-            : Component.literal(cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers.grouped(state.bytes()) + " B");
+            : Component.literal(cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers.grouped(state.bytes()) + " B");
         var header = new ECOCraftingListImageExport.Header(target, requested, elapsed, bytes,
             state != null && state.incompleteBytes(),
-            graph == null ? unknown : Component.literal(cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers.grouped(graph.patternNodes())),
-            graph == null ? unknown : Component.literal(cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers.grouped(graph.cycleGroups())));
+            graph == null ? unknown : Component.literal(cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers.grouped(graph.patternNodes())),
+            graph == null ? unknown : Component.literal(cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers.grouped(graph.cycleGroups())));
         ECOCraftingListImageExport.save(this, entries, header);
     }
 

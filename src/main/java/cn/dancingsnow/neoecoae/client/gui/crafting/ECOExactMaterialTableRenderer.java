@@ -6,10 +6,10 @@ import appeng.client.gui.AEBaseScreen;
 import appeng.client.gui.me.crafting.AbstractTableRenderer;
 import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
-import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
-import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveStatus;
-import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.BigNumberFormatter;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.solve.cycle.CycleSolveStatus;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.report.snapshot.CraftingGraphSnapshot;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -99,7 +99,7 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
 
     /** Only empty simulation shells may replace the native fallback's material table. */
     static boolean isDiagnosticShell(
-            cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus status,
+            cn.dancingsnow.neoecoae.grid.crafting.planner.result.PlanningStatus status,
             boolean simulation, boolean empty) {
         if (status == null || !simulation || !empty) return false;
         return switch (status) {
@@ -110,10 +110,10 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
 
     /** Missing ECO plans use the same quantities as the graph, including acyclic plans. */
     static boolean hasMissingMaterialSnapshot(
-            cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus status,
+            cn.dancingsnow.neoecoae.grid.crafting.planner.result.PlanningStatus status,
             CraftingGraphSnapshot snapshot) {
-        return (status == cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.MISSING_ITEMS
-                || status == cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus.CYCLE_UNRESOLVED)
+        return (status == cn.dancingsnow.neoecoae.grid.crafting.planner.result.PlanningStatus.MISSING_ITEMS
+                || status == cn.dancingsnow.neoecoae.grid.crafting.planner.result.PlanningStatus.CYCLE_UNRESOLVED)
             && !snapshot.nodes().isEmpty();
     }
 

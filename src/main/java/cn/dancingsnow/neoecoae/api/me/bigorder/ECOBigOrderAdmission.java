@@ -1,9 +1,9 @@
 package cn.dancingsnow.neoecoae.api.me.bigorder;
 
-import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
-import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.result.ECOPlanningResult;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.result.PlanningStatus;
 import java.math.BigInteger;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.grid.crafting.amount.PlannerAmount;
 import java.util.function.LongUnaryOperator;
 
 /** Submission allow-list: diagnostic shells never become execution plans. */
@@ -38,8 +38,8 @@ public final class ECOBigOrderAdmission {
     public static boolean allows(ECOPlanningResult result, boolean forced) {
         if (result == null || result.plan() == null || !allows(result.status(), forced)) return false;
         if (result.components().stream().anyMatch(component ->
-                component.status() != cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Status.PLANNED
-                && component.status() != cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Status.NOT_REQUIRED))
+                component.status() != cn.dancingsnow.neoecoae.grid.crafting.planner.result.ComponentPlanningResult.Status.PLANNED
+                && component.status() != cn.dancingsnow.neoecoae.grid.crafting.planner.result.ComponentPlanningResult.Status.NOT_REQUIRED))
             return false;
         // A wide AE2 projection says nothing about feasibility. Neither force-start nor a
         // completed firing vector can override an order-wide impossibility/closure proof.

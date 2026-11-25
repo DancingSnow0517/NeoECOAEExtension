@@ -46,7 +46,7 @@ public interface IECOPatternStorage extends IGridNodeService {
      * Whether this storage can take {@code pattern} into a store other than its slot inventory right
      * now - a pattern disk, for example.
      *
-     * <p>{@link cn.dancingsnow.neoecoae.grid.PatternCatalog} probes every writable storage for this
+     * <p>{@link cn.dancingsnow.neoecoae.grid.pattern.PatternCatalog} probes every writable storage for this
      * <em>before</em> its ordinary destination loop. Without that pass a pattern bound for a disk would be
      * spent on whichever bus happens to expose a free slot first, and the disk it belongs on would never be
      * reached.</p>

@@ -4,7 +4,7 @@ import appeng.menu.locator.MenuHostLocator;
 import appeng.menu.locator.MenuLocators;
 import cn.dancingsnow.neoecoae.api.storage.IECOConfigurableCellHost;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.StorageCellWorkbench;
-import cn.dancingsnow.neoecoae.storage.ECOStorageCellSettings;
+import cn.dancingsnow.neoecoae.grid.storage.cell.ECOStorageCellSettings;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;

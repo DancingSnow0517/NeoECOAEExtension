@@ -26,16 +26,17 @@ import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
-import cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuSupport;
-import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService;
-import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningStageLogger;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.cpu.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.external.ECOExternalCpuSupport;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.ECOPlanningService;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.control.ECOPlanningStageLogger;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingServiceDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
-import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
-import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
-import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
-import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshotFactory;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.result.ECOPlanningResult;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.report.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.report.snapshot.CraftingGraphSnapshotFactory;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.CraftingPlanSummaryAccessor;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.AEBaseMenuAccessor;
@@ -62,7 +63,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
+import cn.dancingsnow.neoecoae.integration.ae2.ECOGridMachineFinder;
 
 // Include Data Energistics, OmniSequence, and AppliedEnhancements merged long-amount planning entry points (priority 1000).
 @Mixin(value = CraftConfirmMenu.class, priority = 1100)
@@ -328,7 +329,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
 
     @Inject(method = "onCPUSelectionChanged", at = @At("TAIL"))
     private void neoecoae$syncSelectedCpuOwnership(CallbackInfo ci) {
-        neoecoae$selectedCpuEco = selectedCpu instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
+        neoecoae$selectedCpuEco = selectedCpu instanceof ECOCraftingCPU;
     }
 
     @Inject(method = "broadcastChanges", at = @At(value = "INVOKE",
@@ -347,20 +348,20 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         if (cpu == null) {
             cpu = neoecoae$resolveBigOrderCpu();
         }
-        if (!(cpu instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU eco)) return -1;
+        if (!(cpu instanceof ECOCraftingCPU eco)) return -1;
         return NERegistries.ECO_TIER.getId(eco.getTier());
     }
 
     @Unique
-    private cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU neoecoae$resolveBigOrderCpu() {
+    private ECOCraftingCPU neoecoae$resolveBigOrderCpu() {
         var grid = getGrid();
         if (grid == null) return null;
-        if (selectedCpu instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU eco) {
+        if (selectedCpu instanceof ECOCraftingCPU eco) {
             return !eco.isBusy() && eco.isActive() && grid.getCraftingService().getCpus().contains(eco) ? eco : null;
         }
         return grid.getCraftingService().getCpus().stream()
-                .filter(cpu -> cpu instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU)
-                .map(cpu -> (cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU) cpu)
+                .filter(cpu -> cpu instanceof ECOCraftingCPU)
+                .map(cpu -> (ECOCraftingCPU) cpu)
                 .filter(cpu -> !cpu.isBusy() && cpu.isActive()
                     && cpu.getSelectionMode() != appeng.api.config.CpuSelectionMode.MACHINE_ONLY)
                 .findFirst().orElse(null);
@@ -376,7 +377,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 cir.setReturnValue(external.bigOrderAvailable(getGrid(), cpu));
                 return;
             }
-            if (cpu instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU eco) {
+            if (cpu instanceof ECOCraftingCPU eco) {
                 cir.setReturnValue(eco.isActive() && !eco.isBusy());
                 return;
             }
@@ -385,7 +386,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     }
 
     @Unique private boolean neoecoae$incompatibleCpu(@Nullable ICraftingCPU cpu, @Nullable ICraftingPlan plan) {
-        if (cpu == null || cpu instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU
+        if (cpu == null || cpu instanceof ECOCraftingCPU
                 || plan == null) return false;
         if (neoecoae$cpuCheckedPlan != plan) {
             neoecoae$cpuCheckOwned = ECOPlanningResultRegistry.isECOOwnedPlan(plan);
@@ -437,9 +438,9 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                 "[big-order-submit] Admission denied: container={}, status={}, forced={}, hasPlan={}, components={}, missingNodes={}",
                 menu.containerId, exact.status(), forced, exact.plan() != null,
                 exact.components().stream().filter(component -> component.status()
-                        != cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Status.PLANNED
+                        != cn.dancingsnow.neoecoae.grid.crafting.planner.result.ComponentPlanningResult.Status.PLANNED
                     && component.status()
-                        != cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Status.NOT_REQUIRED)
+                        != cn.dancingsnow.neoecoae.grid.crafting.planner.result.ComponentPlanningResult.Status.NOT_REQUIRED)
                     .map(component -> component.componentId() + ":" + component.status()).toList(),
                 exact.trace().nodes().stream().filter(node -> node.exactMissing().signum() > 0).count());
             neoecoae$rejectBigOrder("ADMISSION_DENIED", appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
@@ -454,7 +455,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             return;
         }
         if (!forced) {
-            var inventory = cn.dancingsnow.neoecoae.crafting.planner.ECOPlannerInventory.capture(grid);
+            var inventory = cn.dancingsnow.neoecoae.grid.crafting.planner.ECOPlannerInventory.capture(grid);
             for (var entry : exact.exactUsedItems().entrySet()) {
                 var key = entry.getKey();
                 var required = entry.getValue();
@@ -483,7 +484,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
                     cpu.getCluster().submitJob(grid, carrier, getActionSrc(), null));
             } else {
                 var admission = forced
-                    ? new cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan(exact, true)
+                    ? new cn.dancingsnow.neoecoae.grid.crafting.planner.ae2.ECOExactCraftingPlan(exact, true)
                     : exact.exactPlan();
                 if (admission == null) throw new IllegalArgumentException(exact.exactPlanError());
                 submitted = cpu.getCluster().submitJob(grid, admission, getActionSrc(), null);
@@ -721,7 +722,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         }
 
         if (!useEco) {
-            var hosts = NEMachineLookup.getMachines(getGrid(), ECOComputationSystemBlockEntity.class);
+            var hosts = ECOGridMachineFinder.getMachines(getGrid(), ECOComputationSystemBlockEntity.class);
             long formedHosts = hosts.stream().filter(ECOComputationSystemBlockEntity::isFormed).count();
             long onlineHosts = hosts.stream().filter(host -> host.getMainNode().isOnline()).count();
             long eligibleHosts = hosts.stream()
@@ -836,7 +837,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             for (var cycle : snapshot.cycleGroups()) {
                 java.util.Map<AEKey, Long> seedParallelism = planningResult.components().stream()
                     .filter(component -> component.componentId() == cycle.componentId() && component.cycleResult() != null
-                        && component.status() == cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult.Status.PLANNED)
+                        && component.status() == cn.dancingsnow.neoecoae.grid.crafting.planner.result.ComponentPlanningResult.Status.PLANNED)
                     .findFirst().map(component -> component.cycleResult().seedParallelism(component.cycleResult().requiredSeed()))
                     .orElse(java.util.Map.of());
                 var singleNetOutputs = neoecoae$indexExactAmounts(cycle.exactSingleNetOutputs());
@@ -1142,7 +1143,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
 
     @Unique
     private static LinkedHashMap<AEKey, BigInteger> neoecoae$indexExactAmounts(
-            List<cn.dancingsnow.neoecoae.crafting.planner.snapshot.ExactKeyAmount> values) {
+            List<cn.dancingsnow.neoecoae.grid.crafting.planner.report.snapshot.ExactKeyAmount> values) {
         var amounts = new LinkedHashMap<AEKey, BigInteger>();
         for (var value : values) amounts.putIfAbsent(value.key(), value.amount().value());
         return amounts;

@@ -1,15 +1,15 @@
 package cn.dancingsnow.neoecoae.client.gui.graph;
 
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.crafting.graph.ClientCraftingGraph;
-import cn.dancingsnow.neoecoae.crafting.graph.CraftingGraphProgress;
-import cn.dancingsnow.neoecoae.crafting.graph.CompactTreeNode;
-import cn.dancingsnow.neoecoae.crafting.graph.CompactTreeProjection;
-import cn.dancingsnow.neoecoae.crafting.graph.CycleCluster;
-import cn.dancingsnow.neoecoae.crafting.graph.GraphLayout;
-import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutCache;
-import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot;
-import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.ClientCraftingGraph;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.CraftingGraphProgress;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.tree.CompactTreeNode;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.tree.CompactTreeProjection;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.cycle.CycleCluster;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.GraphLayout;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.GraphLayoutCache;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.GraphLayoutSnapshot;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.report.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -407,7 +407,7 @@ public final class ECOCraftingGraphScreen extends Screen {
             // A folder becomes a material occurrence on expansion. Match its path across projection rebuilds.
             boolean sameFolderOccurrence = lastClickWasFolder && doubleClick;
             if (hit.recursion() != null && hit.recursion().role()
-                    == cn.dancingsnow.neoecoae.crafting.graph.RecursiveCycleNode.Role.OUTPUT) {
+                    == cn.dancingsnow.neoecoae.grid.crafting.graph.cycle.RecursiveCycleNode.Role.OUTPUT) {
                 goRoot();
             } else if (hit.kind() == ClientCraftingGraph.Kind.CYCLE_GROUP || hit.kind() == ClientCraftingGraph.Kind.CYCLE_CLUSTER
                     || hit.kind() == ClientCraftingGraph.Kind.REFERENCE && (hit.cycle() != null || hit.cluster() != null)) {
@@ -659,7 +659,7 @@ public final class ECOCraftingGraphScreen extends Screen {
             var cycle = graph.nodes().values().stream().map(ClientCraftingGraph.Node::cycle)
                 .filter(java.util.Objects::nonNull).findFirst().orElseThrow();
             long retained = graph.nodes().values().stream().filter(node -> node.recursion().role()
-                == cn.dancingsnow.neoecoae.crafting.graph.RecursiveCycleNode.Role.RETAINED
+                == cn.dancingsnow.neoecoae.grid.crafting.graph.cycle.RecursiveCycleNode.Role.RETAINED
                 && node.recursion().amount().signum() > 0).count();
             recursionOverview = GraphRenderer.recursionText("overview", cycle.componentId(),
                 cycle.recursion().layers().size(), cycle.requiredSeed().size(), cycle.externalInputs().size(),

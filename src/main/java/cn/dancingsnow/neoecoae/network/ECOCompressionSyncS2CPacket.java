@@ -4,8 +4,8 @@ import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.stacks.AEItemKey;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.storage.bulk.BulkUnits;
-import cn.dancingsnow.neoecoae.storage.bulk.ECOCompressionService;
+import cn.dancingsnow.neoecoae.grid.storage.bulk.BulkUnits;
+import cn.dancingsnow.neoecoae.grid.storage.bulk.ECOCompressionService;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;

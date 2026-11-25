@@ -8,8 +8,8 @@ import java.util.UUID;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
-import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOFastPathStacks;
-import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.verify.ECOFastPathStacks;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.ECOExtractedPatternExecution;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
