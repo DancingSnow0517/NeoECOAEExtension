@@ -86,6 +86,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private static final String LEGACY_COMPONENT_INVENTORY_PERSIST_KEY = "componentInventory";
     private static final String CONTROLLER_DOMAIN_TAG = "neoecoae_infinite_controller_domain";
     private static final String CONTROLLER_CLAIM_TAG = "neoecoae_infinite_controller_claim";
+    private static final String CONTROLLER_PENDING_CLAIM_TAG = "neoecoae_infinite_controller_pending_claim";
     private static final String PERSISTENT_CLAIM_TAG = "neoecoae:infinite_claim";
     private static final String CURRENT_CLAIM_TAG = "infiniteClaimToken";
     private static final String PENDING_CLAIM_TAG = "pendingInfiniteClaimToken";
@@ -682,8 +683,38 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         }
     }
 
-    @Deprecated
-    public void applyInfiniteDomainToControllerDrop(ItemStack drop) { }
+    public static @Nullable UUID readControllerDomain(ItemStack stack) {
+        if (stack.isEmpty()) return null;
+        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        return tag.hasUUID(CONTROLLER_DOMAIN_TAG) ? tag.getUUID(CONTROLLER_DOMAIN_TAG) : null;
+    }
+
+    public void applyInfiniteDomainToControllerDrop(ItemStack drop) {
+        if (infiniteDomainId == null || drop.isEmpty()) {
+            return;
+        }
+        CompoundTag tag = drop.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        tag.putUUID(CONTROLLER_DOMAIN_TAG, infiniteDomainId);
+        if (infiniteClaimToken != null) {
+            tag.putUUID(CONTROLLER_CLAIM_TAG, infiniteClaimToken);
+        } else {
+            tag.remove(CONTROLLER_CLAIM_TAG);
+        }
+        if (pendingInfiniteClaimToken != null) {
+            tag.putUUID(CONTROLLER_PENDING_CLAIM_TAG, pendingInfiniteClaimToken);
+        } else {
+            tag.remove(CONTROLLER_PENDING_CLAIM_TAG);
+        }
+        drop.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+    }
+
+    public void releaseInfiniteDomainClaim() {
+        if (!(level instanceof ServerLevel serverLevel) || infiniteDomainId == null) {
+            return;
+        }
+        var claims = cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageDomains.hostClaims(serverLevel.getServer());
+        claims.unbind(infiniteDomainId, net.minecraft.core.GlobalPos.of(serverLevel.dimension(), worldPosition));
+    }
 
     public void restoreInfiniteDomainFromItem(ItemStack stack) {
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
@@ -695,7 +726,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 || claims.domainAt(net.minecraft.core.GlobalPos.of(level.dimension(), worldPosition)) != null) return;
         loadLegacyRoster(tag);
         setInfiniteDomainId(id);
-        infiniteClaimToken = tag.hasUUID(CONTROLLER_CLAIM_TAG) ? tag.getUUID(CONTROLLER_CLAIM_TAG) : null;
+        setInfiniteClaimTokens(
+                tag.hasUUID(CONTROLLER_CLAIM_TAG) ? tag.getUUID(CONTROLLER_CLAIM_TAG) : null,
+                tag.hasUUID(CONTROLLER_PENDING_CLAIM_TAG) ? tag.getUUID(CONTROLLER_PENDING_CLAIM_TAG) : null);
         infiniteModeController.membersChanged();
     }
 
@@ -976,6 +1009,16 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         return pendingInfiniteClaimToken;
     }
 
+
+    void setInfiniteClaimTokens(@Nullable UUID current, @Nullable UUID pending) {
+        if (java.util.Objects.equals(infiniteClaimToken, current)
+                && java.util.Objects.equals(pendingInfiniteClaimToken, pending)) {
+            return;
+        }
+        infiniteClaimToken = current;
+        pendingInfiniteClaimToken = pending;
+        setChanged();
+    }
 
     void setInfiniteDomainId(@Nullable UUID domainId) {
         if (java.util.Objects.equals(infiniteDomainId, domainId)) return;
