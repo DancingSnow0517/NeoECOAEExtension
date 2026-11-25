@@ -29,6 +29,7 @@ public final class SolveWorkspace {
     private boolean checkpointConsidered;
     private boolean checkpointRetryPossible;
     RetryCheckpoint checkpoint;
+    boolean tryOrderedProducers;
 
     public SolveWorkspace(KeyCounter inventory, Map<AEKey, Integer> candidateChoice) {
         this(PlannerInventorySnapshot.of(inventory), candidateChoice);

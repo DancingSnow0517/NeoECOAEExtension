@@ -874,8 +874,10 @@ public final class ComponentPlanner {
                     || preferred.status() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE)) {
             listener.accept(preferred);
         }
-        // No optional work is needed when there is no competing producer route.
-        if (executable && (!improvePublishedRoute || !network.multiplePaths())) return preferred;
+        if (preferred.state().orderedProducerShortage) return preferred;
+        if (executable && (preferred.cycles().isEmpty() || !improvePublishedRoute || !network.multiplePaths())) {
+            return preferred;
+        }
         try {
             cancellation.checkpoint();
             // Preserve the completed route's material report if this proof itself exhausts the session.
@@ -1176,18 +1178,19 @@ public final class ComponentPlanner {
 
     private static Set<IPatternDetails> selectedExecutionPatterns(SolveState state, AEKey key,
                                                                   Set<AEKey> structuralKeys, boolean includeLocalSpecialProducers) {
-        CompiledPattern selected = state.selected.get(key);
         Set<IPatternDetails> result = new LinkedHashSet<>();
-        if (selected != null && state.patternTimes
-                .getOrDefault(selected.details(), PlannerAmount.ZERO).signum() > 0) {
-            result.add(selected.details());
+        for (var selected : state.selectedProducers(key)) {
+            if (state.patternTimes.getOrDefault(selected.details(), PlannerAmount.ZERO).signum() > 0) {
+                result.add(selected.details());
+            }
         }
         if (includeLocalSpecialProducers) {
-            for (var entry : state.selected.entrySet()) {
-                if (structuralKeys.contains(entry.getKey())) continue;
-                CompiledPattern local = entry.getValue();
-                if (state.patternTimes.getOrDefault(local.details(), PlannerAmount.ZERO).signum() > 0) {
-                    result.add(local.details());
+            for (var localKey : state.selected.keySet()) {
+                if (structuralKeys.contains(localKey)) continue;
+                for (var local : state.selectedProducers(localKey)) {
+                    if (state.patternTimes.getOrDefault(local.details(), PlannerAmount.ZERO).signum() > 0) {
+                        result.add(local.details());
+                    }
                 }
             }
         }

@@ -294,6 +294,17 @@ public final class AcyclicCraftingSolver {
             if (state == null) {
                 return cyclicRouteOutcome(network, inventory, choices, trace);
             }
+            if (attempt == 0 && currentRoute != null && deferredPatterns.isEmpty() && !ignorePatternSubstitutions
+                    && network.multiplePaths() && !state.missing.isEmpty()
+                    && candidates.advanceAfterFailure(network, state, new HashMap<>(choices))) {
+                workspace.tryOrderedProducers = true;
+                try {
+                    state = runOnce(network, new AcyclicRoutePlan(currentRoute), workspace, goals, additionalGoal,
+                        deferredPatterns, Set.of(), false, cancellation, metrics);
+                } finally {
+                    workspace.tryOrderedProducers = false;
+                }
+            }
             if (state.missing.isEmpty() && state.unsupported.isEmpty()) {
                 // Joint credit proves quantities, not startup. An actual supplier-to-consumer
                 // cycle must be reclassified for seed solving before publishing DAG success.
@@ -307,7 +318,7 @@ public final class AcyclicCraftingSolver {
                 trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.FAST_DAG, "Acyclic aggregated solve"));
                 return new Outcome(PlanningStatus.SUCCESS, state, trace);
             }
-            if (!candidates.advanceAfterFailure(network, state, choices)) {
+            if (state.orderedProducerShortage || !candidates.advanceAfterFailure(network, state, choices)) {
                 // A later unsupported alternative must not erase a completely calculated material list.
                 if (!state.unsupported.isEmpty() && missingRoute != null) state = missingRoute;
                 addTrace(network, state, amount, trace);
@@ -549,6 +560,7 @@ public final class AcyclicCraftingSolver {
             network, state, workspace.candidateChoice(), cancellation, ignorePatternSubstitutions);
         Map<AEKey, Integer> liteExpansions = ignorePatternSubstitutions ? new HashMap<>() : null;
         Set<AEKey> limited = new LinkedHashSet<>();
+        Set<AEKey> orderedShortages = workspace.tryOrderedProducers ? new LinkedHashSet<>() : Set.of();
         if (restored) specialResolver.restoreReservations(saved.reusableStock);
         List<AEKey> prefix = checkpointBefore != null && stockLeaves.isEmpty() && retryPossible
                 && route.keys().size() > SolveWorkspace.MIN_CHECKPOINT_EXPANSIONS ? new ArrayList<>() : null;
@@ -677,6 +689,14 @@ public final class AcyclicCraftingSolver {
             }
             int choice = workspace.candidateChoice().getOrDefault(key, 0);
             if (choice >= fast.size()) choice = fast.size() - 1;
+            if (workspace.tryOrderedProducers && choice == 0 && fast.size() > 1
+                    && specialResolver.resolveOrdered(key, requested)) {
+                if (!state.provenance.pendingAmount(key).isZero()) {
+                    orderedShortages.add(key);
+                    unsettled.add(key);
+                }
+                continue;
+            }
             CompiledPattern pattern = fast.get(choice);
             state.selected.put(key, pattern);
             if (deferredPatterns.contains(pattern.details())) {
@@ -756,15 +776,23 @@ public final class AcyclicCraftingSolver {
             if (credited.signum() > 0) state.consumeCrafted(key, credited);
             requested = requested.subtract(credited);
             if (requested.isZero()) continue;
-            if (!limited.contains(key) && (stockLeaves.contains(key) || !network.producersOf(key).isEmpty())) {
+            if (orderedShortages.contains(key)) {
+                state.orderedProducerShortage = true;
+                addCounter(state.missing, key, requested);
+            } else if (!limited.contains(key) && (stockLeaves.contains(key) || !network.producersOf(key).isEmpty())) {
                 state.unsupported.add(key);
             }
             else addCounter(state.missing, key, requested);
         }
+        if (!state.orderedProducers.isEmpty()) {
+            Set<AEKey> orderedKeys = new LinkedHashSet<>(state.demand.keySet());
+            orderedKeys.removeAll(route.keys());
+            state.bytes = state.bytes.add(PlannerAmount.of(orderedKeys.size()).multiply(8L));
+        }
         return state;
     }
 
-    private static void creditPatternOutputs(SolveState state, CompiledPattern pattern, AEKey key,
+    static void creditPatternOutputs(SolveState state, CompiledPattern pattern, AEKey key,
             PlannerAmount requested, Map<AEKey, PlannerAmount> produced) {
         for (var output : produced.entrySet()) {
             PlannerAmount available = output.getValue();
@@ -817,14 +845,15 @@ public final class AcyclicCraftingSolver {
                 state.missing.get(network.goal()).toBigInteger(), PlannerAmount.ZERO.toBigInteger()));
         addMaterialTrace(state.demand, state.usedAmounts(), state.missingAmounts(), trace);
         for (var selected : state.selected.entrySet()) {
-            CompiledPattern pattern = selected.getValue();
-            long times = traceLong(state.patternTimes.getOrDefault(pattern.details(), PlannerAmount.ZERO));
-            trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.PATTERN, selected.getKey(), pattern.details(), 0, 0, 0,
-                0, times, PlanTraceNode.Selection.SELECTED, null));
-            for (CompiledInput input : pattern.inputs()) {
-                PlannerAmount exact = input.amountPerPattern().multiply(state.patternTimes
-                    .getOrDefault(pattern.details(), PlannerAmount.ZERO));
-                trace.addEdge(new PlanTraceEdge(selected.getKey(), input.key(), traceLong(exact), exact.toBigInteger()));
+            for (CompiledPattern pattern : state.selectedProducers(selected.getKey())) {
+                long times = traceLong(state.patternTimes.getOrDefault(pattern.details(), PlannerAmount.ZERO));
+                trace.addNode(new PlanTraceNode(PlanTraceNode.Kind.PATTERN, selected.getKey(), pattern.details(), 0, 0, 0,
+                    0, times, PlanTraceNode.Selection.SELECTED, null));
+                for (CompiledInput input : pattern.inputs()) {
+                    PlannerAmount exact = input.amountPerPattern().multiply(state.patternTimes
+                        .getOrDefault(pattern.details(), PlannerAmount.ZERO));
+                    trace.addEdge(new PlanTraceEdge(selected.getKey(), input.key(), traceLong(exact), exact.toBigInteger()));
+                }
             }
         }
         for (var entry : network.producers().entrySet()) {
