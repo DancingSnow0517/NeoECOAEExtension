@@ -381,6 +381,8 @@ ServerEvents.recipes(event => {
 
 主机子类可覆盖 `getCraftingControllerPanelState` 或 `getComputationControllerPanelState` 描述面板成员。`isCraftingPanelVirtualMode` 和 `getVirtualCraftingBlockedNotice` 分别影响合成容量显示和阻塞提示。内置驱动器通过 `ICellHost.getBuiltInCellForDisplay` 提供只读盘图标。存储主机可覆盖 `hasBuiltInInfiniteComponents` 将无限组件槽设为只读。
 
+存储主机子类可覆盖 `ECOStorageSystemBlockEntity#getBuiltInInfiniteComponentCount()` 声明固定的内置数量。正数替代实体槽用于组件准入判断和只读显示；返回 64 即满足组件要求，不会生成物品。客户端和服务端必须返回相同数量。返回 0 保留原有实体槽，硬盘和存储域仍按原规则校验。
+
 自定义档位与盘类型在 [NERegistries.Keys](../src/main/java/cn/dancingsnow/neoecoae/all/NERegistries.java) 对应同步注册表中，以两端相同 ID 注册。实现 `IECOTier` 的必需参数；组件兼容用 `supportsComponentTier`，高级能力用 `supportsFeature`。
 
 `IECOTier.getPanelTierName()` 提供名称，`getHostMarkerTexture()` 提供标记，`getPanelAtlas(String)` 为当前档位替换完整图集。返回 null 使用默认外观。图集优先级：档位 → 全局 LDLib2 `ui-eco` provider → 原图。替换图保持原尺寸与裁剪布局。

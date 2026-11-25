@@ -14,6 +14,7 @@ import appeng.hooks.ticking.TickHandler;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
+import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
@@ -128,7 +129,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private final AppEngInternalInventory infiniteComponentInventory = new AppEngInternalInventory(this, 1, INFINITE_COMPONENT_REQUIRED) {
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            return !hasBuiltInInfiniteComponents() && isInfiniteComponent(stack) && super.isItemValid(slot, stack);
+            return !isInfiniteComponentSlotReadOnly() && isInfiniteComponent(stack) && super.isItemValid(slot, stack);
         }
     };
     // Keep LDLib-managed fields on the block entity; delegate domain-specific behavior and caches.
@@ -294,6 +295,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         StorageHostActionUI.Elements actionUI = createActionUI(holder);
         var cellPriorityWindow = new StorageCellPriorityUI(holder.player, cellPriorities);
+        int builtInCount = getBuiltInInfiniteComponentCount();
+        ItemStack builtInComponents = builtInCount > 0
+                ? new ItemStack(NEItems.ECO_INFINITE_CELL_COMPONENT.get(), Math.min(builtInCount, INFINITE_COMPONENT_REQUIRED))
+                : ItemStack.EMPTY;
 
         UIElement root = StorageHostUI.create(new StorageHostUI.Config(
                 () -> getItemFromBlockEntity().getDescription(),
@@ -327,7 +332,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                     position -> previewBulkCellMigration(holder.player, position),
                     (position, expected) -> openCellConfiguration(holder.player, position, expected)
                 )
-        ), this::getTier, this::getBlockState, HostDiskMenu.disks(holder));
+        ), this::getTier, this::getBlockState, HostDiskMenu.disks(holder), builtInComponents);
         actionUI.addTo(root);
         root.addChild(cellPriorityWindow.window());
         return ECOModularUI.create(root, holder.player);
@@ -907,11 +912,19 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
     public boolean canExtractInfiniteComponents() {
-        return !hasBuiltInInfiniteComponents();
+        return !isInfiniteComponentSlotReadOnly();
     }
 
     protected boolean hasBuiltInInfiniteComponents() {
         return false;
+    }
+
+    protected int getBuiltInInfiniteComponentCount() {
+        return 0;
+    }
+
+    private boolean isInfiniteComponentSlotReadOnly() {
+        return getBuiltInInfiniteComponentCount() > 0 || hasBuiltInInfiniteComponents();
     }
 
     @Nullable
@@ -941,7 +954,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
 
     boolean hasRequiredInfiniteComponents() {
-        return hasRequiredInfiniteComponents(infiniteComponentInventory.getStackInSlot(0));
+        int builtInCount = getBuiltInInfiniteComponentCount();
+        return builtInCount > 0 ? builtInCount >= INFINITE_COMPONENT_REQUIRED
+                : hasRequiredInfiniteComponents(infiniteComponentInventory.getStackInSlot(0));
     }
 
 
