@@ -13,6 +13,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import dev.vfyjxf.taffy.style.TaffyPosition;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
@@ -48,7 +49,7 @@ public final class CraftingHostPanelUI {
         Supplier<HolderLookup.Provider> registries, Supplier<? extends java.util.Collection<?>> tasks,
         BooleanSupplier ignoringPatternSubstitutions, IntSupplier substitutionPatternCount,
         Runnable toggleIgnoringPatternSubstitutions, IntSupplier networkFrequency, IntConsumer adjustNetworkFrequency,
-        Supplier<CraftingControllerPanelState> panelState, LongSupplier queuedCraftCount,
+        Supplier<CraftingControllerPanelState> panelState, Supplier<BigInteger> queuedCraftCount,
         LongSupplier batchCapacity, IntSupplier normalSwitchCount, IntSupplier highEnergySwitchCount,
         Supplier<ItemStack> hostItem, Supplier<List<CraftingOutputDisplay>> workerOutputs
     ) {}
