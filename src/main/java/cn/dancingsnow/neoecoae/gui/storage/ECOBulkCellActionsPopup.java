@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
-import cn.dancingsnow.neoecoae.storage.ECOStorageCellSettings;
+import cn.dancingsnow.neoecoae.grid.storage.cell.ECOStorageCellSettings;
 import cn.dancingsnow.neoecoae.items.ECOBulkStorageCellItem;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;

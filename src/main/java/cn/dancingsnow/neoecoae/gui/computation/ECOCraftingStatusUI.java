@@ -9,10 +9,10 @@ import appeng.api.storage.ITerminalHost;
 import appeng.menu.ISubMenu;
 import appeng.menu.locator.MenuHostLocator;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
-import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.cpu.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.integration.ae2lt.ECOAe2LtCpuStatus;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
-import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
+import cn.dancingsnow.neoecoae.integration.ae2.ECOGridMachineFinder;
 import com.lowdragmc.lowdraglib2.gui.factory.PlayerUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import java.util.ArrayList;
@@ -63,7 +63,7 @@ public final class ECOCraftingStatusUI {
 
     private static List<ECOComputationSystemBlockEntity> functionalHosts(IGrid grid) {
         List<ECOComputationSystemBlockEntity> hosts = new ArrayList<>();
-        for (var host : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
+        for (var host : ECOGridMachineFinder.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
             var cluster = host.getCluster();
             if (host.isFormed() && host.getMainNode().isOnline() && cluster != null && cluster.isActive()) hosts.add(host);
         }

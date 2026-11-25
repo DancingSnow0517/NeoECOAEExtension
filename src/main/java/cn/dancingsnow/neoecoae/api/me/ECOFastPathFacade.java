@@ -7,20 +7,22 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOBatchDispatchContext;
-import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
-import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOReusableStateModel;
-import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOStatefulBatchCalculator;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.verify.ECOCraftingFastPathCache;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.state.reusable.ECOReusableStateModel;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.state.ECOStatefulBatchCalculator;
 import cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOFastPathDispatchProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOJobAwareCraftingProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.classify.ECORecipeClassifier;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.worker.lifecycle.ECOCraftingJobLifecycle;
 import cn.dancingsnow.neoecoae.integration.extendedaeplus.ECOExtendedAEPlusMatrixBridge;
 import cn.dancingsnow.neoecoae.integration.ae2.ECOExternalProviderBlocking;
-import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOStatefulBatchPlanner;
-import cn.dancingsnow.neoecoae.crafting.execution.batch.ECOParallelProviderAdapter;
-import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
-import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.batch.plan.ECOStatefulBatchPlanner;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.batch.provider.ECOParallelProviderAdapter;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.ECOBatchCraftingHelper;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.ECOExtractedPatternExecution;
 import java.util.List;
 import java.util.UUID;
 import java.util.Objects;
@@ -65,7 +67,7 @@ public final class ECOFastPathFacade {
 
     /** Publish cancellation and recover loaded workers before the external CPU discards its job. */
     public static void cancelJob(@Nullable Level level, UUID craftingJobId) {
-        cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle
+        ECOCraftingJobLifecycle
                 .cancelAndRecover(level, craftingJobId);
     }
 
@@ -139,7 +141,7 @@ public final class ECOFastPathFacade {
         if (allocatedCopies <= 0 || resolveProvider(provider) == null) return null;
         var execution = ECOExtractedPatternExecution.fromProviderPush(pattern, oneCopy, level);
         if (!execution.canUseFastPath() || !execution.expectedContainerItems().isEmpty()
-                || execution.fastPathType() != cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECORecipeClassifier.Type.NORMAL) {
+                || execution.fastPathType() != ECORecipeClassifier.Type.NORMAL) {
             return null;
         }
         long bounded = Math.min(allocatedCopies, execution.arithmeticBatchLimit());
@@ -168,7 +170,7 @@ public final class ECOFastPathFacade {
         if (target == null) return null;
         var execution = ECOExtractedPatternExecution.fromProviderPush(pattern, oneCopy, level);
         if (!execution.canUseFastPath() || !execution.expectedContainerItems().isEmpty()
-                || execution.fastPathType() != cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECORecipeClassifier.Type.NORMAL)
+                || execution.fastPathType() != ECORecipeClassifier.Type.NORMAL)
             return null;
         var outputs = new KeyCounter();
         for (var stack : execution.expectedOutputs()) outputs.add(stack.what(), stack.amount());

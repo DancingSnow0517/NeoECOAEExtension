@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.integration.jade.provider;
 
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.NeoECOAE;

@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.integration.ae2;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.*;
 import cn.dancingsnow.neoecoae.api.me.pattern.ECOPatternWrappers;
-import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOBatchCraftingHelper;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.ECOBatchCraftingHelper;
 import java.util.List;
 import net.minecraft.world.level.Level;
 

@@ -1401,9 +1401,9 @@ public class NEBlocks {
                     .forAllStates(s ->
                         ConfiguredModel.builder()
                             .modelFile(s.getValue(ECOStorageSystemBlock.FORMED)
-                                ? (s.getValue(ECOStorageSystemBlock.STORAGE_MODE) == cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode.INPUT
+                                ? (s.getValue(ECOStorageSystemBlock.STORAGE_MODE) == cn.dancingsnow.neoecoae.grid.storage.transfer.ECOStorageInterfaceMode.INPUT
                                     ? (s.getValue(ECOStorageSystemBlock.MIRRORED) ? mirroredInputModel : inputModel)
-                                    : s.getValue(ECOStorageSystemBlock.STORAGE_MODE) == cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode.OUTPUT
+                                    : s.getValue(ECOStorageSystemBlock.STORAGE_MODE) == cn.dancingsnow.neoecoae.grid.storage.transfer.ECOStorageInterfaceMode.OUTPUT
                                     ? (s.getValue(ECOStorageSystemBlock.MIRRORED) ? mirroredOutputModel : outputModel)
                                     : (s.getValue(ECOStorageSystemBlock.MIRRORED) ? mirroredFormedModel : formedModel))
                                 : modelFile)

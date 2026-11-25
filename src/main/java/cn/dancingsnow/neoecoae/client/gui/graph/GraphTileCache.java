@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.client.gui.graph;
 
-import cn.dancingsnow.neoecoae.crafting.graph.GraphLayoutSnapshot.Bounds;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.GraphLayoutSnapshot.Bounds;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;

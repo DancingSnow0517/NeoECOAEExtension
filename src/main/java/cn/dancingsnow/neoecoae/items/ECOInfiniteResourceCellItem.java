@@ -10,7 +10,7 @@ import appeng.api.upgrades.IUpgradeInventory;
 import appeng.util.ConfigInventory;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
-import cn.dancingsnow.neoecoae.storage.ECOInfiniteResourceCell;
+import cn.dancingsnow.neoecoae.grid.storage.cell.ECOInfiniteResourceCell;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;

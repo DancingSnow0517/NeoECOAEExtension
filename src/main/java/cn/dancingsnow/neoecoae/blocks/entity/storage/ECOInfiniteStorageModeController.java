@@ -2,12 +2,12 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
 import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.api.capability.ECOFeature;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorage;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageDomains;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOStorageHostMode;
-import cn.dancingsnow.neoecoae.storage.infinite.SavedDataInfiniteStorageEngine;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorage;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageDomains;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageEngine;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageMember;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOStorageHostMode;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.persist.SavedDataInfiniteStorageEngine;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;

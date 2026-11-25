@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.network;
 
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
-import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPULogic;
+import cn.dancingsnow.neoecoae.grid.crafting.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.cpu.ECOCraftingCPULogic;
 import java.util.Map;
 import java.util.WeakHashMap;
 

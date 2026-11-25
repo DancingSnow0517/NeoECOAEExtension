@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.mixins.ae2.storage;
 
 import appeng.api.stacks.AEKey;
 import appeng.parts.automation.StorageLevelEmitterPart;
-import cn.dancingsnow.neoecoae.storage.StorageWatcherScope;
+import cn.dancingsnow.neoecoae.grid.storage.listing.StorageWatcherScope;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;

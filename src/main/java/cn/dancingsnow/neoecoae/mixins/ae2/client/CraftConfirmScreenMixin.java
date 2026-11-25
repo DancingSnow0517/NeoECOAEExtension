@@ -5,7 +5,7 @@ import appeng.client.gui.me.crafting.CraftConfirmScreen;
 import appeng.client.gui.style.ScreenStyle;
 import appeng.core.localization.GuiText;
 import appeng.menu.me.crafting.CraftConfirmMenu;
-import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.NEByteFormatter;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;

@@ -2,11 +2,11 @@ package cn.dancingsnow.neoecoae.client.gui.graph;
 
 import appeng.api.stacks.AEKey;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
-import cn.dancingsnow.neoecoae.crafting.display.format.BigNumberFormatter;
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
-import cn.dancingsnow.neoecoae.crafting.graph.ClientCraftingGraph;
-import cn.dancingsnow.neoecoae.crafting.graph.CraftingGraphProgress;
-import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot.MaterialStatus;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.BigNumberFormatter;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.ClientCraftingGraph;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.CraftingGraphProgress;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.report.snapshot.CraftingGraphSnapshot.MaterialStatus;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingListCard;
 import java.math.BigInteger;
 import java.util.Locale;

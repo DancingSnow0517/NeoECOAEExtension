@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.mixins.ae2.crafting;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
-import cn.dancingsnow.neoecoae.crafting.ECOComponentInsensitiveProcessingPattern;
+import cn.dancingsnow.neoecoae.grid.crafting.pattern.ECOComponentInsensitiveProcessingPattern;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;

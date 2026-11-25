@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.thunderbolt;
 
-import cn.dancingsnow.neoecoae.crafting.ECOComponentInsensitiveProcessingPattern;
+import cn.dancingsnow.neoecoae.grid.crafting.pattern.ECOComponentInsensitiveProcessingPattern;
 import com.moakiee.thunderbolt.core.crafting.pattern.FuzzyPatternInputs;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;

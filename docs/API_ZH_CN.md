@@ -30,13 +30,13 @@ side = "BOTH"
 
 [ECOAddonApi](../src/main/java/cn/dancingsnow/neoecoae/api/extension/ECOAddonApi.java) 的 `VERSION` 当前为 1，`supports(feature)` 仅查询下文列出的附属扩展能力，不是整个合成 API 的版本探针。这些扩展契约在同一 Minecraft/加载器分支的同一 API 大版本内保留已有签名，通过重载/default 方法增加能力；跨 Minecraft 版本不能交换 JAR。其他 `public` 类不自动获得这一兼容承诺。
 
-[ECOPlanningService](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/ECOPlanningService.java) 是本文使用的公开规划入口，但位于实现包，应固定模组版本。求解器、Worker、CPU 内部状态和存档引擎不作为附属扩展入口。已弃用的 `api.me.ECOCraftingCPU`、`ECOCraftingCPULogic`、`ExecutingCraftingJob` 仅保留已有二进制/Mixin 目标，新接入不要创建或继承这些类型。
+[ECOPlanningService](../src/main/java/cn/dancingsnow/neoecoae/grid/crafting/planner/ECOPlanningService.java) 是本文使用的公开规划入口，但位于实现包，应固定模组版本。求解器、Worker、CPU 内部状态和存档引擎不作为附属扩展入口。已弃用的 `api.me.ECOCraftingCPU`、`ECOCraftingCPULogic`、`ExecutingCraftingJob` 仅保留已有二进制/Mixin 目标，新接入不要创建或继承这些类型。
 
 ## 入口索引
 
 | 需求 | 入口 |
 | --- | --- |
-| 规划、网络选项 | [ECOPlanningService](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/ECOPlanningService.java)、[ECOPlannerRequester](../src/main/java/cn/dancingsnow/neoecoae/api/me/planning/ECOPlannerRequester.java)、[ECOCraftingNetworkSettings](../src/main/java/cn/dancingsnow/neoecoae/api/me/network/ECOCraftingNetworkSettings.java) |
+| 规划、网络选项 | [ECOPlanningService](../src/main/java/cn/dancingsnow/neoecoae/grid/crafting/planner/ECOPlanningService.java)、[ECOPlannerRequester](../src/main/java/cn/dancingsnow/neoecoae/api/me/planning/ECOPlannerRequester.java)、[ECOCraftingNetworkSettings](../src/main/java/cn/dancingsnow/neoecoae/api/me/network/ECOCraftingNetworkSettings.java) |
 | 精确父订单 | [ECOBigOrderRequest](../src/main/java/cn/dancingsnow/neoecoae/api/me/bigorder/ECOBigOrderRequest.java)、[ECOBigOrderAdmission](../src/main/java/cn/dancingsnow/neoecoae/api/me/bigorder/ECOBigOrderAdmission.java) |
 | 任务事件、附件、暂停策略 | [ECOCraftingLifecycle](../src/main/java/cn/dancingsnow/neoecoae/api/me/lifecycle/ECOCraftingLifecycle.java)、[ECOCraftingJobAttachmentRegistry](../src/main/java/cn/dancingsnow/neoecoae/api/me/attachment/ECOCraftingJobAttachmentRegistry.java)、[ECOCraftingDispatchPolicyRegistry](../src/main/java/cn/dancingsnow/neoecoae/api/me/dispatch/ECOCraftingDispatchPolicyRegistry.java) |
 | 普通并行、FastPath | [ECOParallelCraftingProvider](../src/main/java/cn/dancingsnow/neoecoae/api/me/provider/ECOParallelCraftingProvider.java)、[ECOFastPathDispatchProvider](../src/main/java/cn/dancingsnow/neoecoae/api/me/provider/ECOFastPathDispatchProvider.java)、[ECOFastPathFacade](../src/main/java/cn/dancingsnow/neoecoae/api/me/ECOFastPathFacade.java) |
@@ -79,16 +79,17 @@ import cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderRequest;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.planning.*;
-import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService;
-import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.ECOPlanningService;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.result.PlanningStatus;
 import net.minecraft.server.level.ServerLevel;
+
 import java.math.BigInteger;
 import java.util.Objects;
 import java.util.concurrent.Future;
 
 public final class EcoApiExample {
     public static Future<ICraftingPlan> begin(ServerLevel level, IGrid grid,
-            IActionSource source, AEKey goal, long amount) {
+                                              IActionSource source, AEKey goal, long amount) {
         if (!level.getServer().isSameThread()) {
             throw new IllegalStateException("Server thread required");
         }
@@ -99,14 +100,14 @@ public final class EcoApiExample {
             throw new IllegalStateException("No eligible ECO computation host");
         }
         return ECOPlanningService.begin(level, grid, source, goal, amount,
-            CalculationStrategy.REPORT_MISSING_ITEMS, ECOPlannerOptions.from(settings));
+                CalculationStrategy.REPORT_MISSING_ITEMS, ECOPlannerOptions.from(settings));
     }
 
     // Call once on the server thread after the Future completes and access is rechecked.
     public static ICraftingSubmitResult submit(IGrid grid, IActionSource source,
-            ICraftingRequester requester, ICraftingCPU target, ICraftingPlan plan) {
+                                               ICraftingRequester requester, ICraftingCPU target, ICraftingPlan plan) {
         var result = plan instanceof ECOCraftingPlanDiagnostics bridge
-            ? bridge.neoecoae$getPlanningResult() : null;
+                ? bridge.neoecoae$getPlanningResult() : null;
         if (result == null) result = ECOPlanningResultRegistry.find(plan);
         if (result == null || plan.simulation() || result.status() != PlanningStatus.SUCCESS) {
             throw new IllegalArgumentException("An executable ECO plan is required");
@@ -116,17 +117,17 @@ public final class EcoApiExample {
             throw new IllegalArgumentException("Missing execution contract");
         }
         return ECOPlanningResultRegistry.withSubmissionAlias(plan, result,
-            () -> grid.getCraftingService().submitJob(plan, requester, target, false, source));
+                () -> grid.getCraftingService().submitJob(plan, requester, target, false, source));
     }
 
     // ecoTarget must be an eligible ECO CPU or its idle ECO placeholder.
     public static ICraftingSubmitResult submitBigOrder(IGrid grid, IActionSource source,
-            ICraftingRequester requester, ICraftingCPU ecoTarget, AEKey goal,
-            BigInteger amount, ECOPlannerOptions options) {
+                                                       ICraftingRequester requester, ICraftingCPU ecoTarget, AEKey goal,
+                                                       BigInteger amount, ECOPlannerOptions options) {
         Objects.requireNonNull(ecoTarget, "Select an ECO CPU");
         return new ECOBigOrderRequest(goal, amount, false, options).submit(
-            carrier -> grid.getCraftingService().submitJob(
-                carrier, requester, ecoTarget, false, source));
+                carrier -> grid.getCraftingService().submitJob(
+                        carrier, requester, ecoTarget, false, source));
     }
 }
 ```
@@ -152,7 +153,7 @@ public final class EcoApiExample {
 
 `ECOPlanningService.begin` 仍返回 `Future<ICraftingPlan>`。候选方案保留在请求内部，有限优化结束后只完成一次；已返回的确认结果不会被后台候选替换。附属继续通过 Future 的完成与取消合同管理请求。
 
-精确材料与配方次数使用 [PlannerAmount](../src/main/java/cn/dancingsnow/neoecoae/crafting/amount/PlannerAmount.java)：小数量使用 long，中间层使用带独立符号的 U128 幅值，超出 128 位后自动使用 BigInteger。U128 的有限范围为 `0` 至 `2^128-1`，不代表无限供应，也不是精确订单的总量上限。读取 `exactUsedItems()`、`exactEmittedItems()`、`exactMissingItems()` 与 `exactPatternTimes()`，需要 BigInteger 时调用 `toBigInteger()`；不得用 AE2 的有界 long 投影覆盖精确账本。
+精确材料与配方次数使用 [PlannerAmount](../src/main/java/cn/dancingsnow/neoecoae/grid/crafting/amount/PlannerAmount.java)：小数量使用 long，中间层使用带独立符号的 U128 幅值，超出 128 位后自动使用 BigInteger。U128 的有限范围为 `0` 至 `2^128-1`，不代表无限供应，也不是精确订单的总量上限。读取 `exactUsedItems()`、`exactEmittedItems()`、`exactMissingItems()` 与 `exactPatternTimes()`，需要 BigInteger 时调用 `toBigInteger()`；不得用 AE2 的有界 long 投影覆盖精确账本。
 
 ### 确认菜单报告
 
@@ -160,7 +161,7 @@ public final class EcoApiExample {
 
 材料与图属于同一个 `neoecoae$getDisplayedPlanRevision()`。材料阶段由 `neoecoae$setMaterialReport(version, report, cycles)` 接收，完整图由 `neoecoae$setDiagnostics(version, graph, cycles)` 接收。提交前使用 `neoecoae$lockDisplayedPlan(revision)` 核对已显示的版本。拒绝时可通过 `neoecoae$getPlanRejection()` 获取重新规划或重新确认的提示翻译键。负版本号仅用于原生计划。`neoecoae$getReportSyncFailure()` 的 1、2 分别表示材料、图同步失败。
 
-[CraftingGraphSnapshot](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/snapshot/CraftingGraphSnapshot.java) 的 `materialReport()` 只提供材料阶段的数据。完整图中 `CycleGroup.recursion()` 提供初始库存和有界的精确检查点；`RecursionLayer` 的投入、库存和配方次数均使用 PlannerAmount，`folded` 表示折叠了重复步骤。`Recursion.complete()` 也可描述补足缺料后的条件执行过程，不代替提交合同的可执行判定。报告线协议现为 7，服务器与客户端必须使用匹配协议。
+[CraftingGraphSnapshot](../src/main/java/cn/dancingsnow/neoecoae/grid/crafting/planner/report/CraftingGraphSnapshot.java) 的 `materialReport()` 只提供材料阶段的数据。完整图中 `CycleGroup.recursion()` 提供初始库存和有界的精确检查点；`RecursionLayer` 的投入、库存和配方次数均使用 PlannerAmount，`folded` 表示折叠了重复步骤。`Recursion.complete()` 也可描述补足缺料后的条件执行过程，不代替提交合同的可执行判定。报告线协议现为 7，服务器与客户端必须使用匹配协议。
 
 服务端分多个 tick 序列化菜单报告字段，只有大页生成后独立的字节数组在后台压缩。传输结束前，不要修改已提交的图和循环列表。客户端仍按完整版本接收结果；请使用就绪标志，不要假设报告在下一个 tick 就已到达。
 
@@ -170,7 +171,7 @@ public final class EcoApiExample {
 
 `request.submit(callback)` 在同步回调中把请求绑定到同一个载体对象。不能另取 `carrier()` 延后提交、复制载体或异步调用回调。载体的 long 数量是受限视图，不是精确总量。`fromPlanningResult` 从 long 计划投影读取数量，超 long 总量必须直接构造请求。
 
-父订单按新库存规划有界子段。[ECOBigOrderPlanner.begin](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/ECOBigOrderPlanner.java) 仅探测单个子段，不自行创建父订单。[ECOBigOrderAdmission.allows](../src/main/java/cn/dancingsnow/neoecoae/api/me/bigorder/ECOBigOrderAdmission.java) 检查诊断与强制模式准入；强制模式不生成材料，也不接受未知/不支持的路线。通过 `ECOCraftingProgressView.bigOrder()` 读取父订单状态与精确进度。
+父订单按新库存规划有界子段。[ECOBigOrderPlanner.begin](../src/main/java/cn/dancingsnow/neoecoae/grid/crafting/planner/ECOBigOrderPlanner.java) 仅探测单个子段，不自行创建父订单。[ECOBigOrderAdmission.allows](../src/main/java/cn/dancingsnow/neoecoae/api/me/bigorder/ECOBigOrderAdmission.java) 检查诊断与强制模式准入；强制模式不生成材料，也不接受未知/不支持的路线。通过 `ECOCraftingProgressView.bigOrder()` 读取父订单状态与精确进度。
 
 确认菜单的完整精确计划路径与分段父订单 API 各有提交合同；不要从菜单内部适配器自行拼装父订单。
 

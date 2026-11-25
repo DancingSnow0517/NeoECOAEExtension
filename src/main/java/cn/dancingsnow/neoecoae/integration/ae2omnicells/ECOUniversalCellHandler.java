@@ -68,7 +68,7 @@ public final class ECOUniversalCellHandler implements IECOCellHandler {
                 return null;
             }
         } else {
-            if (cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.hasTransactionEvidence(stack)) return null;
+            if (cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageMember.hasTransactionEvidence(stack)) return null;
             if (stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).contains(UUID_TAG)
                     || IAEUniversalCell.getUsedBytes(stack) > 0L || IAEUniversalCell.getUsedTypes(stack) > 0
                     || !IAEUniversalCell.getTooltipShowStacks(stack).isEmpty()) {

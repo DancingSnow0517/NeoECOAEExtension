@@ -230,7 +230,7 @@ final class ECOStorageMegaController {
         ItemStack candidate
     ) {
         ECODriveBlockEntity selected = drives.get(driveIndex);
-        for (var drive : cn.dancingsnow.neoecoae.storage.bulk.ECOBulkMarkingService.markerDrives(host)) {
+        for (var drive : cn.dancingsnow.neoecoae.grid.storage.bulk.ECOBulkMarkingService.markerDrives(host)) {
             ItemStack cellStack = drive.getCellStack();
             if (cellStack == null || cellStack.isEmpty()
                 || !(cellStack.getItem() instanceof IECOBulkMarkableCellItem cellItem)) {

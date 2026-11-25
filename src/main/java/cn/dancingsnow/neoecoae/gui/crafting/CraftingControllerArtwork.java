@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers;
 import static cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.UI_HEIGHT;
 import static cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI.UI_WIDTH;
 import cn.dancingsnow.neoecoae.api.IECOTier;

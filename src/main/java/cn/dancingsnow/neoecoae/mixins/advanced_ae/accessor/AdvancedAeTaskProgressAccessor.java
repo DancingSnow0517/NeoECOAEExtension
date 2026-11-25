@@ -7,7 +7,7 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 @Pseudo
 @Mixin(targets = "net.pedroksl.advanced_ae.common.logic.ExecutingCraftingJob$TaskProgress", remap = false)
 public abstract class AdvancedAeTaskProgressAccessor
-        implements cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob.Task {
+        implements cn.dancingsnow.neoecoae.grid.crafting.execution.external.ECOExternalCpuJob.Task {
     @Accessor("value")
     public abstract long neoecoae$getValue();
 

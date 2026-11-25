@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
-import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.NEByteFormatter;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingTooltipCard;
 import java.math.BigDecimal;
 import java.util.List;

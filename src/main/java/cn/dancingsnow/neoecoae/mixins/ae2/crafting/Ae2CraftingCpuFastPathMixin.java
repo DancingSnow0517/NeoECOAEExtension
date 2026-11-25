@@ -7,8 +7,8 @@ import appeng.crafting.execution.ExecutingCraftingJob;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.service.CraftingService;
-import cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuFastPath;
-import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.external.ECOExternalCpuFastPath;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.worker.lifecycle.ECOCraftingJobLifecycle;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
@@ -45,7 +45,7 @@ public abstract class Ae2CraftingCpuFastPathMixin {
             int consumed = neoecoae$fastPath().execute(job, inventory, maxPatterns, crafting, energy, level);
             if (consumed > 0) cir.setReturnValue(consumed);
         } catch (RuntimeException failure) {
-            if (job instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob access)
+            if (job instanceof cn.dancingsnow.neoecoae.grid.crafting.execution.external.ECOExternalCpuJob access)
                 access.neoecoae$suspended(true);
             cluster.markDirty();
             if (NEConfig.ecoDispatchWatchdogDebug) NEOECOAE_BATCH_LOG.error("Suspended native CPU after batch dispatch failure", failure);
@@ -59,7 +59,7 @@ public abstract class Ae2CraftingCpuFastPathMixin {
             appeng.api.networking.security.IActionSource source,
             appeng.api.networking.crafting.ICraftingRequester requester,
             CallbackInfoReturnable<appeng.api.networking.crafting.ICraftingSubmitResult> cir) {
-        if (!cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuSupport.supportsPlan(plan))
+        if (!cn.dancingsnow.neoecoae.grid.crafting.execution.external.ECOExternalCpuSupport.supportsPlan(plan))
             cir.setReturnValue(appeng.crafting.execution.CraftingSubmitResult.NO_CPU_FOUND);
     }
 
@@ -70,7 +70,7 @@ public abstract class Ae2CraftingCpuFastPathMixin {
 
     @Inject(method = "finishJob", at = @At("HEAD"))
     private void neoecoae$releaseWorkerOutput(boolean success, CallbackInfo ci) {
-        if (!(job instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob access)) return;
+        if (!(job instanceof cn.dancingsnow.neoecoae.grid.crafting.execution.external.ECOExternalCpuJob access)) return;
         var craftingJobId = access.neoecoae$link().getCraftingID();
         ECOCraftingJobLifecycle.finish(cluster.getLevel(), craftingJobId, success);
     }
@@ -81,7 +81,7 @@ public abstract class Ae2CraftingCpuFastPathMixin {
             appeng.api.crafting.IPatternDetails pattern, appeng.api.stacks.KeyCounter[] inputs,
             com.llamalad7.mixinextras.injector.wrapoperation.Operation<Boolean> original) {
         if (provider instanceof cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity bus
-                && job instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob access)
+                && job instanceof cn.dancingsnow.neoecoae.grid.crafting.execution.external.ECOExternalCpuJob access)
             return bus.pushPattern(pattern, inputs, access.neoecoae$link().getCraftingID());
         return original.call(provider, pattern, inputs);
     }

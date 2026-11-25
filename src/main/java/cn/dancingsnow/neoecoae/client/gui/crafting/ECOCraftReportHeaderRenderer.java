@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.client.gui.crafting;
 
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import java.math.BigDecimal;
 import java.math.BigInteger;

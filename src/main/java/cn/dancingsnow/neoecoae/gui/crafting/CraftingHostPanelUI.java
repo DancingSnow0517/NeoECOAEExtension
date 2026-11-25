@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureState;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureSync;
-import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
+import cn.dancingsnow.neoecoae.grid.crafting.display.CraftingOutputDisplay;
 import cn.dancingsnow.neoecoae.gui.common.HostSideButtonBar;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonContext;
 import cn.dancingsnow.neoecoae.gui.json.NeoUiJsonLoader;

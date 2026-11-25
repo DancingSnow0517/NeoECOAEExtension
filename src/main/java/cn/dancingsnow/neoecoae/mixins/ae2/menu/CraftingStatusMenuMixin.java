@@ -10,7 +10,7 @@ import cn.dancingsnow.neoecoae.api.me.menu.ECOCpuListPageHost;
 import com.google.common.collect.ImmutableSet;
 import cn.dancingsnow.neoecoae.api.IOverlayTextureHolder;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftingCpuListEntry;
-import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.cpu.ECOCraftingCPU;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;

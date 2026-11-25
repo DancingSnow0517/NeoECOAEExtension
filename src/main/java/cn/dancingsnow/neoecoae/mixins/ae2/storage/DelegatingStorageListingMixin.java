@@ -4,8 +4,8 @@ import appeng.api.stacks.AEKey;
 import appeng.api.storage.MEStorage;
 import appeng.me.storage.DelegatingMEInventory;
 import cn.dancingsnow.neoecoae.mixins.ae2.accessor.DelegatingMEInventoryAccessor;
-import cn.dancingsnow.neoecoae.storage.StorageListingDelta;
-import cn.dancingsnow.neoecoae.storage.StorageListingVersion;
+import cn.dancingsnow.neoecoae.grid.storage.listing.StorageListingDelta;
+import cn.dancingsnow.neoecoae.grid.storage.listing.StorageListingVersion;
 import java.util.function.ObjLongConsumer;
 import org.spongepowered.asm.mixin.Mixin;
 

@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.api.me.menu;
 
 import cn.dancingsnow.neoecoae.api.ECOCpuTierGlyph;
-import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
-import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.report.snapshot.CraftingGraphSnapshot;
 import java.util.List;
 import java.math.BigInteger;
 import org.jetbrains.annotations.Nullable;

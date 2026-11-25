@@ -1,11 +1,12 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
+import cn.dancingsnow.neoecoae.grid.crafting.execution.cpu.ECOCraftingCPULogic;
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 import cn.dancingsnow.neoecoae.integration.ae2lt.ECOAe2LtCpuStatus;
 
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingListCard;
-import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingMachineActions;
-import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress;
+import cn.dancingsnow.neoecoae.grid.crafting.display.processing.ECOProcessingMachineActions;
+import cn.dancingsnow.neoecoae.grid.crafting.display.processing.ECOProcessingProgress;
 
 import appeng.api.client.AEKeyRendering;
 import appeng.api.networking.crafting.ICraftingCPU;
@@ -23,10 +24,10 @@ import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.api.ECOCpuTierGlyph;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
-import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPU;
-import cn.dancingsnow.neoecoae.crafting.execution.ExecutingCraftingJob;
-import cn.dancingsnow.neoecoae.crafting.graph.CraftingGraphProgress;
-import cn.dancingsnow.neoecoae.crafting.planner.snapshot.CraftingGraphSnapshot;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.cpu.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.job.ExecutingCraftingJob;
+import cn.dancingsnow.neoecoae.grid.crafting.graph.CraftingGraphProgress;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.report.snapshot.CraftingGraphSnapshot;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCycleItemList;
 import cn.dancingsnow.neoecoae.network.CraftingReportStream;
 import cn.dancingsnow.neoecoae.network.MenuDataTransport;
@@ -51,7 +52,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import java.math.BigInteger;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.grid.crafting.amount.PlannerAmount;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -1569,9 +1570,9 @@ final class ComputationCpuStatusPanel extends BindableValue<CompoundTag> {
                 .toList();
         }
 
-        private ComputationCpuItemEntry itemForKey(cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPULogic logic,
-                appeng.api.stacks.AEKey key, Map<appeng.api.stacks.AEKey, BigInteger> stored,
-                Map<appeng.api.stacks.AEKey, BigInteger> active, Map<appeng.api.stacks.AEKey, BigInteger> pending) {
+        private ComputationCpuItemEntry itemForKey(ECOCraftingCPULogic logic,
+                                                   appeng.api.stacks.AEKey key, Map<appeng.api.stacks.AEKey, BigInteger> stored,
+                                                   Map<appeng.api.stacks.AEKey, BigInteger> active, Map<appeng.api.stacks.AEKey, BigInteger> pending) {
             BigInteger storedAmount = stored.containsKey(key) ? stored.get(key)
                 : BigInteger.valueOf(Math.max(0L, logic.getStored(key)));
             BigInteger activeAmount = active.containsKey(key) ? active.get(key)

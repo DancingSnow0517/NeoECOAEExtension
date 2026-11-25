@@ -6,9 +6,9 @@ import static cn.dancingsnow.neoecoae.integration.common.processing.ProcessingRe
 
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOProcessingStatusReader;
-import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.Machine;
-import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingProgress.State;
-import cn.dancingsnow.neoecoae.crafting.display.processing.ECOProcessingSamples;
+import cn.dancingsnow.neoecoae.grid.crafting.display.processing.ECOProcessingProgress.Machine;
+import cn.dancingsnow.neoecoae.grid.crafting.display.processing.ECOProcessingProgress.State;
+import cn.dancingsnow.neoecoae.grid.crafting.display.processing.ECOProcessingSamples;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.network.chat.Component;

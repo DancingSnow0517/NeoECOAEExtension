@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.integration.common.xei.recipe;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.integration.ae2lt.WorkstationLightningInputs;
 import cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules;
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.integration.appflux.WorkstationFluxEnergy;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationModule;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationRecipe;

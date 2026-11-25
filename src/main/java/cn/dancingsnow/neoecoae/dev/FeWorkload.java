@@ -1,13 +1,13 @@
 package cn.dancingsnow.neoecoae.dev;
 
-import static cn.dancingsnow.neoecoae.crafting.amount.NEMath.saturatingAdd;
+import static cn.dancingsnow.neoecoae.grid.crafting.amount.NEMath.saturatingAdd;
 
 import java.math.BigInteger;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Random;
-import static cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers.grouped;
-import static cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers.compact;
+import static cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers.grouped;
+import static cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers.compact;
 
 /** Reproducible network traffic. Timings include the key factory and storage call, not the whole tick. */
 final class FeWorkload {

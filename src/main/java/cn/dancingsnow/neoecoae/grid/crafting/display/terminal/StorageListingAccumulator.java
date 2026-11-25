@@ -1,0 +1,102 @@
+package cn.dancingsnow.neoecoae.grid.crafting.display.terminal;
+
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.MEStorage;
+import cn.dancingsnow.neoecoae.grid.crafting.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.grid.storage.listing.SaturatingStackAccumulator;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import java.math.BigInteger;
+import java.util.Map;
+import java.util.function.Consumer;
+
+/** Reuses one mounted-inventory counter per network; ordinary listings need only one merge pass. */
+public final class StorageListingAccumulator {
+    private static final BigInteger MAX_LONG = BigInteger.valueOf(Long.MAX_VALUE);
+    private final KeyCounter contribution = new KeyCounter();
+
+    public void append(MEStorage storage, KeyCounter output, Consumer<KeyCounter> listing) {
+        if (!ExactAmountCollector.isActive() && storage instanceof ExactAmountSource source
+                && source.neoecoae$hasSaturatingListing()) {
+            listing.accept(output);
+            return;
+        }
+        if (output.isEmpty()) {
+            // The first nonempty mount has nothing to merge with. Listing into an isolated
+            // counter and rebuilding every submap in output doubles work for a one-mount network.
+            try {
+                if (ExactAmountCollector.isActive()) ExactAmountCollector.collect(storage, output, listing);
+                else {
+                    listing.accept(output);
+                    sanitize(storage, output);
+                }
+            } catch (RuntimeException | Error failure) {
+                // Preserve the previous empty output if a third-party listing only partly completed.
+                output.clear();
+                throw failure;
+            }
+            return;
+        }
+        contribution.clear();
+        // KeyCounter.addAll can clone a source submap efficiently when the destination
+        // has no submap. Keeping an empty variant map instead forces entry-by-entry
+        // addition, which allocates more for inventories with many NBT variants.
+        contribution.removeEmptySubmaps();
+        if (ExactAmountCollector.isActive()) {
+            ExactAmountCollector.collect(storage, contribution, listing);
+            SaturatingStackAccumulator.addAll(output, contribution);
+            return;
+        }
+
+        listing.accept(contribution);
+        Map<AEKey, ExactAmount> exactAmounts = null;
+        for (var entry : contribution) {
+            long amount = entry.getLongValue();
+            if (amount < 0) {
+                // Malformed third-party projections are rare. Query exact values only on
+                // this cold path, so valid ordinary listings never traverse their source twice.
+                if (exactAmounts == null) exactAmounts = ExactAmountCollector.sourceAmounts(storage);
+                ExactAmount exact = exactAmounts.get(entry.getKey());
+                if (exact == null) continue;
+                amount = exact.infinite() ? Long.MAX_VALUE : exact.value().min(MAX_LONG).longValueExact();
+            }
+            if (amount != 0) SaturatingStackAccumulator.add(output, entry.getKey(), amount);
+        }
+    }
+
+    /**
+     * Lists one mount into an empty {@code counter} and copies its nonzero amounts to {@code out} in the same pass,
+     * with the repairs {@link #append} applies. Leaves the counter's submaps in place for the next listing.
+     */
+    public void appendFlat(MEStorage storage, KeyCounter counter, Object2LongMap<AEKey> out) {
+        storage.getAvailableStacks(counter);
+        Map<AEKey, ExactAmount> exactAmounts = null;
+        for (var entry : counter) {
+            long amount = entry.getLongValue();
+            if (amount < 0) {
+                if (exactAmounts == null) exactAmounts = ExactAmountCollector.sourceAmounts(storage);
+                amount = repaired(exactAmounts.get(entry.getKey()));
+            }
+            if (amount != 0) out.put(entry.getKey(), amount);
+        }
+    }
+
+    private static long repaired(ExactAmount exact) {
+        return exact == null ? 0 : exact.infinite() ? Long.MAX_VALUE : exact.value().min(MAX_LONG).longValueExact();
+    }
+
+    private static void sanitize(MEStorage storage, KeyCounter output) {
+        Map<AEKey, ExactAmount> exactAmounts = null;
+        boolean removeZeros = false;
+        for (var entry : output) {
+            long amount = entry.getLongValue();
+            if (amount < 0) {
+                if (exactAmounts == null) exactAmounts = ExactAmountCollector.sourceAmounts(storage);
+                long repaired = repaired(exactAmounts.get(entry.getKey()));
+                output.set(entry.getKey(), repaired);
+                removeZeros |= repaired == 0;
+            } else removeZeros |= amount == 0;
+        }
+        if (removeZeros) output.removeZeros();
+    }
+}

@@ -1,0 +1,292 @@
+package cn.dancingsnow.neoecoae.grid.crafting.planner.solve.cycle;
+
+import appeng.api.crafting.IPatternDetails;
+import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.compile.CompiledPattern;
+import cn.dancingsnow.neoecoae.grid.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.result.execution.ExecutionCountKnowledge;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+/**
+ * Complete answer of one cycle solve. Every numeric field is expressed in the SCC's own terms:
+ *
+ * <ul>
+ *   <li>{@code patternTimes} — how many times each SCC pattern fires.</li>
+ *   <li>{@code externalDemand} — material the SCC boundary must deliver, net of the SCC's own byproducts.</li>
+ *   <li>{@code requiredSeed} — start-up stock the witness needs before the loop is self-sustaining.</li>
+ *   <li>{@code seedShortfall} — the part of {@code requiredSeed} the stock snapshot cannot cover.</li>
+ *   <li>{@code producedOutputs} — gross production of the witness, byproducts included.</li>
+ *   <li>{@code deliverableOutputs} — what is on hand for the required keys once the witness has run.</li>
+ *   <li>{@code executionWitness} — a concrete, replayable, never-negative firing order.</li>
+ *   <li>{@code executionPlan} — the same work in compact {@code pattern × count} form.</li>
+ * </ul>
+ *
+ * <p>{@code requiredSeed} together with {@code externalDemand} is exactly what the witness needs:
+ * replaying the witness from {@code requiredSeed}, importing {@code externalDemand} across the
+ * boundary, keeps every stock level at or above zero.
+ *
+ * <p>{@code executionPlan} is metadata, never a second source of truth. For an expanded witness it is the
+ * order-preserving run-length encoding of {@code executionWitness}. The bounded solver may also keep a verified
+ * multi-pattern witness in compact batch form when expanding it would be proportional to millions of firings; in
+ * that case the witness list is empty and the ordered {@code executionPlan} is the available execution trace.
+ */
+public record CycleSolveResult(
+    CycleSolveStatus status,
+    ExecutionCountKnowledge executionCountKnowledge,
+    Map<IPatternDetails, PlannerAmount> exactPatternTimes,
+    Map<AEKey, PlannerAmount> exactExternalDemand,
+    Map<AEKey, PlannerAmount> exactRequiredSeed,
+    Map<AEKey, PlannerAmount> exactSeedShortfall,
+    Map<AEKey, PlannerAmount> exactProducedOutputs,
+    Map<AEKey, PlannerAmount> exactDeliverableOutputs,
+    List<CycleFiring> executionWitness,
+    List<PatternRun> executionPlan,
+    List<CycleSolveDiagnostic> diagnostics,
+    CycleSolveMetrics metrics,
+    List<Map<AEKey, PlannerAmount>> exactStartupCandidates
+) {
+    public CycleSolveResult {
+        executionCountKnowledge = executionCountKnowledge == null ? ExecutionCountKnowledge.UNKNOWN
+            : executionCountKnowledge;
+
+
+
+
+
+
+
+
+
+        RepeatLayout.plannerMultipliers(executionPlan);
+
+        exactStartupCandidates = exactStartupCandidates == null ? List.of() : exactStartupCandidates;
+        if (status == CycleSolveStatus.SUCCESS && !exactSeedShortfall.isEmpty()) {
+            throw new IllegalArgumentException("A successful cycle solve cannot report a seed shortfall");
+        }
+        if (!executionWitness.isEmpty()
+                && !totalRunCount(executionPlan).equals(PlannerAmount.of(executionWitness.size()))) {
+            throw new IllegalArgumentException("A compact execution plan must account for every witness step");
+        }
+    }
+
+    /** Additional startup candidates are proposals, never execution or sufficiency certificates. */
+    public CycleSolveResult(CycleSolveStatus status, ExecutionCountKnowledge knowledge,
+            Map<IPatternDetails, PlannerAmount> exactTimes, Map<IPatternDetails, Long> times,
+            Map<AEKey, Long> external, Map<AEKey, Long> seed, Map<AEKey, Long> shortfall,
+            Map<AEKey, Long> produced, Map<AEKey, Long> delivered, List<CycleFiring> witness,
+            List<PatternRun> plan, List<CycleSolveDiagnostic> diagnostics, CycleSolveMetrics metrics) {
+        this(status, knowledge, exactTimes, exactMap(external), exactMap(seed), exactMap(shortfall),
+            exactMap(produced), exactMap(delivered), witness, plan, diagnostics, metrics, List.of());
+    }
+
+    public CycleSolveResult(CycleSolveStatus status, ExecutionCountKnowledge knowledge,
+            Map<IPatternDetails, PlannerAmount> exactTimes, Map<IPatternDetails, Long> times,
+            Map<AEKey, Long> external, Map<AEKey, Long> seed, Map<AEKey, Long> shortfall,
+            Map<AEKey, Long> produced, Map<AEKey, Long> delivered, List<CycleFiring> witness,
+            List<PatternRun> plan, List<CycleSolveDiagnostic> diagnostics, CycleSolveMetrics metrics,
+            List<Map<AEKey, Long>> candidates) {
+        this(status, knowledge, exactTimes, exactMap(external), exactMap(seed), exactMap(shortfall),
+            exactMap(produced), exactMap(delivered), witness, plan, diagnostics, metrics,
+            candidates.stream().map(CycleSolveResult::exactMap).toList());
+    }
+
+    public CycleSolveResult withStartupCandidates(List<Map<AEKey, Long>> candidates) {
+        return withExactStartupCandidates(candidates.stream().map(CycleSolveResult::exactMap).toList());
+    }
+
+    public CycleSolveResult withExactStartupCandidates(List<Map<AEKey, PlannerAmount>> candidates) {
+        return new CycleSolveResult(status, executionCountKnowledge, exactPatternTimes, exactExternalDemand,
+            exactRequiredSeed, exactSeedShortfall, exactProducedOutputs, exactDeliverableOutputs,
+            executionWitness, executionPlan, diagnostics, metrics, candidates);
+    }
+
+    /** Runtime-compatible constructor. Exact counts are derived before any diagnostic arithmetic. */
+    public CycleSolveResult(CycleSolveStatus status, Map<IPatternDetails, Long> patternTimes,
+            Map<AEKey, Long> externalDemand, Map<AEKey, Long> requiredSeed, Map<AEKey, Long> seedShortfall,
+            Map<AEKey, Long> producedOutputs, Map<AEKey, Long> deliverableOutputs,
+            List<CycleFiring> executionWitness, List<PatternRun> executionPlan,
+            List<CycleSolveDiagnostic> diagnostics, CycleSolveMetrics metrics) {
+        this(status, inferredKnowledge(status, patternTimes), exact(patternTimes), patternTimes, externalDemand,
+            requiredSeed, seedShortfall, producedOutputs, deliverableOutputs, executionWitness, executionPlan,
+            diagnostics, metrics);
+    }
+
+    /** Legacy shape: the compact plan is the run-length encoding of the per-firing witness. */
+    public CycleSolveResult(CycleSolveStatus status, Map<IPatternDetails, Long> patternTimes,
+            Map<AEKey, Long> externalDemand, Map<AEKey, Long> requiredSeed, Map<AEKey, Long> seedShortfall,
+            Map<AEKey, Long> producedOutputs, Map<AEKey, Long> deliverableOutputs,
+            List<CycleFiring> executionWitness, List<CycleSolveDiagnostic> diagnostics,
+            CycleSolveMetrics metrics) {
+        this(status, patternTimes, externalDemand, requiredSeed, seedShortfall, producedOutputs,
+            deliverableOutputs, executionWitness, compress(executionWitness), diagnostics, metrics);
+    }
+
+    /** Order-preserving run-length encoding; it never merges non-adjacent runs. */
+    private static List<PatternRun> compress(List<CycleFiring> witness) {
+        List<PatternRun> runs = new ArrayList<>();
+        CompiledPattern current = null;
+        long count = 0;
+        for (CycleFiring firing : witness) {
+            if (current != null && current.details() == firing.pattern().details()) {
+                count++;
+                continue;
+            }
+            if (current != null) runs.add(new PatternRun(current, count));
+            current = firing.pattern();
+            count = 1;
+        }
+        if (current != null) runs.add(new PatternRun(current, count));
+        return runs;
+    }
+
+    private static PlannerAmount totalRunCount(List<PatternRun> runs) {
+        PlannerAmount total = PlannerAmount.ZERO;
+        PlannerAmount[] repeats = RepeatLayout.plannerMultipliers(runs);
+        for (int i = 0; i < runs.size(); i++) {
+            total = total.add(runs.get(i).plannerCount().multiply(repeats[i]));
+        }
+        return total;
+    }
+
+    public static CycleSolveResult failure(CycleSolveStatus status, List<CycleSolveDiagnostic> diagnostics,
+            CycleSolveMetrics metrics) {
+        return new CycleSolveResult(status, ExecutionCountKnowledge.UNKNOWN, Map.of(), Map.of(), Map.of(), Map.of(),
+            Map.of(), Map.of(), Map.of(), List.of(), List.of(), diagnostics, metrics);
+    }
+
+    public static CycleSolveResult failure(CycleSolveStatus status, CycleSolveDiagnostic.Code code, String message) {
+        return failure(status, List.of(new CycleSolveDiagnostic(code, message)), CycleSolveMetrics.NONE);
+    }
+
+    public static CycleSolveResult cancelled() {
+        return failure(CycleSolveStatus.CANCELLED, CycleSolveDiagnostic.Code.CANCELLED,
+            "Cycle solving was cancelled");
+    }
+
+    public static CycleSolveResult notImplemented(String message) {
+        return failure(CycleSolveStatus.NOT_IMPLEMENTED, CycleSolveDiagnostic.Code.NOT_IMPLEMENTED, message);
+    }
+
+    /** Pure annotation: same answer, extra explanation. Used to record why a fast path stepped aside. */
+    public CycleSolveResult withAdditionalDiagnostics(List<CycleSolveDiagnostic> extra) {
+        if (extra.isEmpty()) return this;
+        List<CycleSolveDiagnostic> merged = new ArrayList<>(extra);
+        merged.addAll(diagnostics);
+        return new CycleSolveResult(status, executionCountKnowledge, exactPatternTimes, exactExternalDemand,
+            exactRequiredSeed, exactSeedShortfall, exactProducedOutputs, exactDeliverableOutputs,
+            executionWitness, executionPlan, merged, metrics, exactStartupCandidates);
+    }
+
+    /** Exact total firings in the plan; it may exceed the legacy long projection. */
+    public PlannerAmount plannerTotalFirings() {
+        PlannerAmount total = PlannerAmount.ZERO;
+        for (PlannerAmount count : exactPatternTimes.values()) total = total.add(count);
+        return total;
+    }
+
+    /**
+     * Legacy long accessor. Callers that cannot prove representability must use
+     * {@link #plannerTotalFirings()} instead; this conversion intentionally never saturates or truncates.
+     */
+    public long totalFirings() {
+        return plannerTotalFirings().longValueExact();
+    }
+
+    public String summary() {
+        String detail = diagnostics.stream()
+            .map(diagnostic -> diagnostic.code() + ": " + diagnostic.message())
+            .collect(Collectors.joining("; "));
+        return detail.isEmpty() ? status.name() : status.name() + " (" + detail + ")";
+    }
+
+    /** Positive-only view, convenient for merging into planner reporting. */
+    public Map<AEKey, Long> positiveExternalDemand() {
+        return bounded(positiveExactExternalDemand());
+    }
+
+    public Map<AEKey, PlannerAmount> positiveExactExternalDemand() {
+        Map<AEKey, PlannerAmount> result = new LinkedHashMap<>();
+        exactExternalDemand.forEach((key, amount) -> {
+            if (amount.signum() > 0) result.put(key, amount);
+        });
+        return result;
+    }
+
+    /** Legacy display/API projections; the solver and component planner consume the exact maps above. */
+    public Map<IPatternDetails, Long> patternTimes() { return bounded(exactPatternTimes); }
+    public Map<AEKey, Long> externalDemand() { return bounded(exactExternalDemand); }
+    public Map<AEKey, Long> requiredSeed() { return bounded(exactRequiredSeed); }
+    public Map<AEKey, Long> seedShortfall() { return bounded(exactSeedShortfall); }
+    public Map<AEKey, Long> producedOutputs() { return bounded(exactProducedOutputs); }
+    public Map<AEKey, Long> deliverableOutputs() { return bounded(exactDeliverableOutputs); }
+    public List<Map<AEKey, Long>> startupCandidates() {
+        return exactStartupCandidates.stream().map(CycleSolveResult::bounded).toList();
+    }
+
+    private static <K> Map<K, Long> bounded(Map<K, PlannerAmount> values) {
+        Map<K, Long> result = new LinkedHashMap<>();
+        values.forEach((key, amount) -> result.put(key, amount.longValueSaturated()));
+        return result;
+    }
+
+    private static <K> Map<K, PlannerAmount> exactMap(Map<K, Long> values) {
+        Map<K, PlannerAmount> result = new LinkedHashMap<>();
+        values.forEach((key, amount) -> result.put(key, PlannerAmount.of(amount)));
+        return result;
+    }
+
+    public boolean hasExactExecutionCounts() {
+        return executionCountKnowledge == ExecutionCountKnowledge.EXACT;
+    }
+
+    /**
+     * Seed-only upper bounds on simultaneous uses, based on committed reservations, not free network stock.
+     * Only inventory-neutral keys are reusable seeds. Machines and ordered-step barriers may lower throughput.
+     * Count the smallest consuming firing for each key so this remains an upper bound across mixed recipes.
+     */
+    public Map<AEKey, Long> seedParallelism(Map<AEKey, Long> reservations) {
+        if (status != CycleSolveStatus.SUCCESS || executionPlan.isEmpty()) return Map.of();
+        Map<AEKey, PlannerAmount> net = new LinkedHashMap<>();
+        Map<AEKey, PlannerAmount> smallestUse = new LinkedHashMap<>();
+        Map<IPatternDetails, CompiledPattern> unique = new LinkedHashMap<>();
+        executionPlan.forEach(run -> unique.putIfAbsent(run.pattern().details(), run.pattern()));
+        for (CompiledPattern pattern : unique.values()) {
+            PlannerAmount times = exactPatternTimes.getOrDefault(pattern.details(), PlannerAmount.ZERO);
+            if (times.signum() <= 0) continue;
+            Map<AEKey, PlannerAmount> inputs = new LinkedHashMap<>();
+            pattern.inputs().forEach(input -> inputs.merge(input.key(), input.amountPerPattern(), PlannerAmount::add));
+            inputs.forEach((key, amount) -> {
+                net.merge(key, PlannerAmount.ZERO.subtract(amount.multiply(times)), PlannerAmount::add);
+                smallestUse.merge(key, amount, PlannerAmount::min);
+            });
+            pattern.grossOutputs().forEach(output ->
+                net.merge(output.what(), times.multiply(output.amount()), PlannerAmount::add));
+        }
+        Map<AEKey, Long> result = new LinkedHashMap<>();
+        exactRequiredSeed.forEach((key, amount) -> {
+            PlannerAmount use = smallestUse.get(key);
+            if (amount.signum() > 0 && use != null && use.signum() > 0
+                    && net.getOrDefault(key, PlannerAmount.ZERO).isZero()) {
+                result.put(key, PlannerAmount.of(Math.max(0L, reservations.getOrDefault(key, 0L)))
+                    .divide(use).longValueExact());
+            }
+        });
+        return result;
+    }
+
+    private static Map<IPatternDetails, PlannerAmount> exact(Map<IPatternDetails, Long> values) {
+        Map<IPatternDetails, PlannerAmount> result = new LinkedHashMap<>();
+        values.forEach((pattern, count) -> result.put(pattern, PlannerAmount.of(count == null ? 0L : count)));
+        return result;
+    }
+
+    private static ExecutionCountKnowledge inferredKnowledge(CycleSolveStatus status,
+            Map<IPatternDetails, Long> patternTimes) {
+        return status == CycleSolveStatus.SUCCESS || !patternTimes.isEmpty()
+            ? ExecutionCountKnowledge.EXACT : ExecutionCountKnowledge.UNKNOWN;
+    }
+}

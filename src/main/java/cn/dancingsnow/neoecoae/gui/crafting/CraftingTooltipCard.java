@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.utils.ModularUITooltipComponent;

@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.common.xei.multiblock;
 
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.network.CraftingCapabilitySnapshot;
@@ -13,9 +13,9 @@ import cn.dancingsnow.neoecoae.blocks.entity.LargeWorkstationOverclock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
-import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
-import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
-import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingThread;
+import cn.dancingsnow.neoecoae.grid.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.NEByteFormatter;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.worker.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.multiblock.placement.RequiredItem;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;

@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.minecraft;
 
-import cn.dancingsnow.neoecoae.crafting.display.processing.ECORemoteMachineReach;
+import cn.dancingsnow.neoecoae.grid.crafting.display.processing.ECORemoteMachineReach;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;

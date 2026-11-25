@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.api.me.planning;
 
-import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.result.ECOPlanningResult;
 import org.jetbrains.annotations.Nullable;
 
 /**

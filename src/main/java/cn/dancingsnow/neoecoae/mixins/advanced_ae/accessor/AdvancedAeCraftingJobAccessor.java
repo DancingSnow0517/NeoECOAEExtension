@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 @Mixin(value = ExecutingCraftingJob.class, remap = false)
 // Concrete bridge methods must be merged into the target, not exposed as an accessor-only interface.
 public abstract class AdvancedAeCraftingJobAccessor
-        implements cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob {
+        implements cn.dancingsnow.neoecoae.grid.crafting.execution.external.ECOExternalCpuJob {
     @Accessor("link")
     public abstract CraftingLink neoecoae$getLink();
 

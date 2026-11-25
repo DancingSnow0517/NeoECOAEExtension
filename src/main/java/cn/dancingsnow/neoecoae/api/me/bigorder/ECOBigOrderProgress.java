@@ -1,9 +1,9 @@
 package cn.dancingsnow.neoecoae.api.me.bigorder;
 
-import cn.dancingsnow.neoecoae.crafting.execution.bigorder.ECOBigCraftingOrder;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.bigorder.ECOBigCraftingOrder;
 
 import java.math.BigInteger;
-import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
+import cn.dancingsnow.neoecoae.grid.crafting.amount.PlannerAmount;
 import java.util.UUID;
 
 public record ECOBigOrderProgress(UUID orderId, ECOBigOrderState state, BigInteger requested,

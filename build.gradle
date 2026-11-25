@@ -138,15 +138,15 @@ repositories {
     }
     maven { url "https://maven.shedaniel.me/" }
     maven { url "https://maven.minecraftforge.net/" }
-    exclusiveContent {
-        forRepository {
-            maven {
-                url = uri('https://y271727uy.github.io/Computatio/')
-            }
-        }
-        filter {
-            includeModule('com.y271727uy', 'computatio')
-        }
+    maven {
+        url = uri('https://server.cjsah.net:1002/maven/releases')
+        mavenContent { releasesOnly() }
+        content { includeModule('com.y271727uy', 'computatio') }
+    }
+    maven {
+        url = uri('https://server.cjsah.net:1002/maven/snapshots')
+        mavenContent { snapshotsOnly() }
+        content { includeModule('com.y271727uy', 'computatio') }
     }
 }
 

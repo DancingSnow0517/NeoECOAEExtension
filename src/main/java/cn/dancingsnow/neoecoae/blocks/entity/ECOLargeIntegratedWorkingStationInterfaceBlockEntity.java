@@ -342,7 +342,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
             workstationProvider.refreshDiskPatterns();
             var grid = getMainNode().getGrid();
             if (grid != null && grid.getService(cn.dancingsnow.neoecoae.api.IECOPatternStorageService.class)
-                    instanceof cn.dancingsnow.neoecoae.grid.PatternCatalog catalog) {
+                    instanceof cn.dancingsnow.neoecoae.grid.pattern.PatternCatalog catalog) {
                 catalog.onHostAuxiliaryChanged(this);
             }
         }
@@ -470,7 +470,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
         advertisedDiskRevision = diskRevision();
         var grid = getMainNode().getGrid();
         if (grid != null && grid.getService(cn.dancingsnow.neoecoae.api.IECOPatternStorageService.class)
-                instanceof cn.dancingsnow.neoecoae.grid.PatternCatalog catalog) {
+                instanceof cn.dancingsnow.neoecoae.grid.pattern.PatternCatalog catalog) {
             catalog.onHostPatternSlotsChanged(this, previousRevision, new int[] { slot });
         }
     }

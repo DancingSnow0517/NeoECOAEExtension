@@ -2,13 +2,13 @@ package cn.dancingsnow.neoecoae.multiblock.cluster;
 
 import cn.dancingsnow.neoecoae.api.capability.ECOFeature;
 
-import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.me.network.CraftingCapabilitySnapshot;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternDispatch;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
-import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
-import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.verify.ECOCraftingFastPathCache;
+import cn.dancingsnow.neoecoae.grid.crafting.amount.NEMath;
+import appeng.hooks.ticking.TickHandler;
 import net.neoforged.neoforge.fluids.FluidStack;
 
 import java.util.ArrayList;

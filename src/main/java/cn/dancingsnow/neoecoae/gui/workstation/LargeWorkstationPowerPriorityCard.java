@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.workstation;
 
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingListCard;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingTooltipCard;
 import com.lowdragmc.lowdraglib2.gui.texture.SDFRectTexture;

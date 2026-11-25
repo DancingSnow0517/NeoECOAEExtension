@@ -20,7 +20,7 @@ public record ECOCraftingDispatchEvent(
 
     public ECOCraftingDispatchEvent(ECOCraftingJobContext job, IPatternDetails pattern,
             java.math.BigInteger dispatchedCrafts, ICraftingProvider provider) {
-        this(job, pattern, cn.dancingsnow.neoecoae.crafting.adapter.ae2.ECOExactCraftingPlan.bounded(dispatchedCrafts),
+        this(job, pattern, cn.dancingsnow.neoecoae.grid.crafting.planner.ae2.ECOExactCraftingPlan.bounded(dispatchedCrafts),
             provider, dispatchedCrafts);
     }
 

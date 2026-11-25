@@ -20,18 +20,18 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
-import cn.dancingsnow.neoecoae.crafting.amount.ExactAmount;
-import cn.dancingsnow.neoecoae.crafting.display.terminal.CombinedExactAmountSource;
-import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountCollector;
-import cn.dancingsnow.neoecoae.storage.SaturatingStackAccumulator;
-import cn.dancingsnow.neoecoae.storage.ECOCreativeCell;
-import cn.dancingsnow.neoecoae.storage.ECOStorageCell;
-import cn.dancingsnow.neoecoae.storage.ECOInfiniteResourceCell;
-import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
-import cn.dancingsnow.neoecoae.storage.bulk.ECOBulkStorageCell;
-import cn.dancingsnow.neoecoae.storage.bulk.ECOCompressionService;
-import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageEngine;
-import cn.dancingsnow.neoecoae.storage.transfer.ECOIOPortTransfer;
+import cn.dancingsnow.neoecoae.grid.crafting.amount.ExactAmount;
+import cn.dancingsnow.neoecoae.grid.crafting.display.terminal.CombinedExactAmountSource;
+import cn.dancingsnow.neoecoae.grid.crafting.display.terminal.ExactAmountCollector;
+import cn.dancingsnow.neoecoae.grid.storage.listing.SaturatingStackAccumulator;
+import cn.dancingsnow.neoecoae.grid.storage.cell.ECOCreativeCell;
+import cn.dancingsnow.neoecoae.grid.storage.cell.ECOStorageCell;
+import cn.dancingsnow.neoecoae.grid.storage.cell.ECOInfiniteResourceCell;
+import cn.dancingsnow.neoecoae.grid.storage.listing.NetworkInventoryCache;
+import cn.dancingsnow.neoecoae.grid.storage.bulk.ECOBulkStorageCell;
+import cn.dancingsnow.neoecoae.grid.storage.bulk.ECOCompressionService;
+import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageEngine;
+import cn.dancingsnow.neoecoae.grid.storage.transfer.ECOIOPortTransfer;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
@@ -307,7 +307,7 @@ final class ECOStorageInterfaceTransfer {
         @Override
         public void getAvailableStacks(KeyCounter out) {
             if (!allowAccess.getAsBoolean()) return;
-            var accumulator = new cn.dancingsnow.neoecoae.crafting.display.terminal.StorageListingAccumulator();
+            var accumulator = new cn.dancingsnow.neoecoae.grid.crafting.display.terminal.StorageListingAccumulator();
             for (MEStorage inventory : inventories) {
                 accumulator.append(inventory, out, inventory::getAvailableStacks);
             }

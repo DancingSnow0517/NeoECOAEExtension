@@ -30,13 +30,13 @@ Replace `examplemod` and the version range. Optional integrations use `type = "o
 
 [ECOAddonApi](../src/main/java/cn/dancingsnow/neoecoae/api/extension/ECOAddonApi.java) currently has `VERSION == 1`. Its `supports(feature)` checks only the addon extension families below, not the entire crafting API. Within one API major version on the same Minecraft/loader branch, those contracts retain existing signatures and add overloads/default methods. JARs from different Minecraft versions are not interchangeable. Other public implementation classes do not automatically carry that compatibility policy.
 
-[ECOPlanningService](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/ECOPlanningService.java) is the public planning boundary used here, but lives in an implementation package; pin the mod version. Solvers, Workers, CPU mutable internals and persistence engines are not addon extension points. Deprecated `api.me.ECOCraftingCPU`, `ECOCraftingCPULogic` and `ExecutingCraftingJob` preserve existing binary/Mixin targets; do not construct or subclass them for new integrations.
+[ECOPlanningService](../src/main/java/cn/dancingsnow/neoecoae/grid/crafting/planner/ECOPlanningService.java) is the public planning boundary used here, but lives in an implementation package; pin the mod version. Solvers, Workers, CPU mutable internals and persistence engines are not addon extension points. Deprecated `api.me.ECOCraftingCPU`, `ECOCraftingCPULogic` and `ExecutingCraftingJob` preserve existing binary/Mixin targets; do not construct or subclass them for new integrations.
 
 ## Entry points
 
 | Need | Entry points |
 | --- | --- |
-| Planning and grid settings | [ECOPlanningService](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/ECOPlanningService.java), [ECOPlannerRequester](../src/main/java/cn/dancingsnow/neoecoae/api/me/planning/ECOPlannerRequester.java), [ECOCraftingNetworkSettings](../src/main/java/cn/dancingsnow/neoecoae/api/me/network/ECOCraftingNetworkSettings.java) |
+| Planning and grid settings | [ECOPlanningService](../src/main/java/cn/dancingsnow/neoecoae/grid/crafting/planner/ECOPlanningService.java), [ECOPlannerRequester](../src/main/java/cn/dancingsnow/neoecoae/api/me/planning/ECOPlannerRequester.java), [ECOCraftingNetworkSettings](../src/main/java/cn/dancingsnow/neoecoae/api/me/network/ECOCraftingNetworkSettings.java) |
 | Exact parent orders | [ECOBigOrderRequest](../src/main/java/cn/dancingsnow/neoecoae/api/me/bigorder/ECOBigOrderRequest.java), [ECOBigOrderAdmission](../src/main/java/cn/dancingsnow/neoecoae/api/me/bigorder/ECOBigOrderAdmission.java) |
 | Events, attachments, dispatch policies | [ECOCraftingLifecycle](../src/main/java/cn/dancingsnow/neoecoae/api/me/lifecycle/ECOCraftingLifecycle.java), [ECOCraftingJobAttachmentRegistry](../src/main/java/cn/dancingsnow/neoecoae/api/me/attachment/ECOCraftingJobAttachmentRegistry.java), [ECOCraftingDispatchPolicyRegistry](../src/main/java/cn/dancingsnow/neoecoae/api/me/dispatch/ECOCraftingDispatchPolicyRegistry.java) |
 | Parallel and FastPath providers | [ECOParallelCraftingProvider](../src/main/java/cn/dancingsnow/neoecoae/api/me/provider/ECOParallelCraftingProvider.java), [ECOFastPathDispatchProvider](../src/main/java/cn/dancingsnow/neoecoae/api/me/provider/ECOFastPathDispatchProvider.java), [ECOFastPathFacade](../src/main/java/cn/dancingsnow/neoecoae/api/me/ECOFastPathFacade.java) |
@@ -79,16 +79,17 @@ import cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderRequest;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.planning.*;
-import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService;
-import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.ECOPlanningService;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.result.PlanningStatus;
 import net.minecraft.server.level.ServerLevel;
+
 import java.math.BigInteger;
 import java.util.Objects;
 import java.util.concurrent.Future;
 
 public final class EcoApiExample {
     public static Future<ICraftingPlan> begin(ServerLevel level, IGrid grid,
-            IActionSource source, AEKey goal, long amount) {
+                                              IActionSource source, AEKey goal, long amount) {
         if (!level.getServer().isSameThread()) {
             throw new IllegalStateException("Server thread required");
         }
@@ -99,14 +100,14 @@ public final class EcoApiExample {
             throw new IllegalStateException("No eligible ECO computation host");
         }
         return ECOPlanningService.begin(level, grid, source, goal, amount,
-            CalculationStrategy.REPORT_MISSING_ITEMS, ECOPlannerOptions.from(settings));
+                CalculationStrategy.REPORT_MISSING_ITEMS, ECOPlannerOptions.from(settings));
     }
 
     // Call once on the server thread after the Future completes and access is rechecked.
     public static ICraftingSubmitResult submit(IGrid grid, IActionSource source,
-            ICraftingRequester requester, ICraftingCPU target, ICraftingPlan plan) {
+                                               ICraftingRequester requester, ICraftingCPU target, ICraftingPlan plan) {
         var result = plan instanceof ECOCraftingPlanDiagnostics bridge
-            ? bridge.neoecoae$getPlanningResult() : null;
+                ? bridge.neoecoae$getPlanningResult() : null;
         if (result == null) result = ECOPlanningResultRegistry.find(plan);
         if (result == null || plan.simulation() || result.status() != PlanningStatus.SUCCESS) {
             throw new IllegalArgumentException("An executable ECO plan is required");
@@ -116,17 +117,17 @@ public final class EcoApiExample {
             throw new IllegalArgumentException("Missing execution contract");
         }
         return ECOPlanningResultRegistry.withSubmissionAlias(plan, result,
-            () -> grid.getCraftingService().submitJob(plan, requester, target, false, source));
+                () -> grid.getCraftingService().submitJob(plan, requester, target, false, source));
     }
 
     // ecoTarget must be an eligible ECO CPU or its idle ECO placeholder.
     public static ICraftingSubmitResult submitBigOrder(IGrid grid, IActionSource source,
-            ICraftingRequester requester, ICraftingCPU ecoTarget, AEKey goal,
-            BigInteger amount, ECOPlannerOptions options) {
+                                                       ICraftingRequester requester, ICraftingCPU ecoTarget, AEKey goal,
+                                                       BigInteger amount, ECOPlannerOptions options) {
         Objects.requireNonNull(ecoTarget, "Select an ECO CPU");
         return new ECOBigOrderRequest(goal, amount, false, options).submit(
-            carrier -> grid.getCraftingService().submitJob(
-                carrier, requester, ecoTarget, false, source));
+                carrier -> grid.getCraftingService().submitJob(
+                        carrier, requester, ecoTarget, false, source));
     }
 }
 ```
@@ -152,7 +153,7 @@ Built-in bridges explicitly select ECO planning for AE2 crafting cards (includin
 
 `ECOPlanningService.begin` still returns `Future<ICraftingPlan>`. Candidates remain private until bounded optimization selects one final result. A completed confirmation result is never replaced by a later background candidate. Addons continue to manage requests through the Future completion and cancellation contract.
 
-Exact materials and recipe counts use [PlannerAmount](../src/main/java/cn/dancingsnow/neoecoae/crafting/amount/PlannerAmount.java): long for small values, a U128 magnitude with a separate sign for the middle tier, and BigInteger beyond 128 bits. U128 covers finite values from `0` to `2^128-1`; it does not indicate unlimited supply or cap the total of an exact order. Read `exactUsedItems()`, `exactEmittedItems()`, `exactMissingItems()` and `exactPatternTimes()`, calling `toBigInteger()` when needed. Never replace the exact ledger with AE2's bounded long projections.
+Exact materials and recipe counts use [PlannerAmount](../src/main/java/cn/dancingsnow/neoecoae/grid/crafting/amount/PlannerAmount.java): long for small values, a U128 magnitude with a separate sign for the middle tier, and BigInteger beyond 128 bits. U128 covers finite values from `0` to `2^128-1`; it does not indicate unlimited supply or cap the total of an exact order. Read `exactUsedItems()`, `exactEmittedItems()`, `exactMissingItems()` and `exactPatternTimes()`, calling `toBigInteger()` when needed. Never replace the exact ledger with AE2's bounded long projections.
 
 ### Confirmation reports
 
@@ -160,7 +161,7 @@ Exact materials and recipe counts use [PlannerAmount](../src/main/java/cn/dancin
 
 Materials and the graph share `neoecoae$getDisplayedPlanRevision()`. Receive material data with `neoecoae$setMaterialReport(version, report, cycles)` and the complete graph with `neoecoae$setDiagnostics(version, graph, cycles)`. Before submission, call `neoecoae$lockDisplayedPlan(revision)` with the displayed revision. On rejection, `neoecoae$getPlanRejection()` gives the translation key for replan or review. A negative revision is reserved for native plans. `neoecoae$getReportSyncFailure()` values 1 and 2 indicate material and graph synchronization failures respectively.
 
-[CraftingGraphSnapshot](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/snapshot/CraftingGraphSnapshot.java) exposes material-stage data through `materialReport()`. In a complete graph, `CycleGroup.recursion()` provides initial stock and bounded exact checkpoints. Each `RecursionLayer` carries PlannerAmount inputs, inventory and firing counts; `folded` marks repeated steps represented together. `Recursion.complete()` may describe execution conditional on supplying missing materials and does not replace the submission contract's executability check. The report wire protocol is now 7; server and client protocols must match.
+[CraftingGraphSnapshot](../src/main/java/cn/dancingsnow/neoecoae/grid/crafting/planner/report/CraftingGraphSnapshot.java) exposes material-stage data through `materialReport()`. In a complete graph, `CycleGroup.recursion()` provides initial stock and bounded exact checkpoints. Each `RecursionLayer` carries PlannerAmount inputs, inventory and firing counts; `folded` marks repeated steps represented together. `Recursion.complete()` may describe execution conditional on supplying missing materials and does not replace the submission contract's executability check. The report wire protocol is now 7; server and client protocols must match.
 
 The server serializes menu report fields over successive ticks. Only compression of large, detached byte arrays runs in the background. Treat the submitted graph and cycle lists as immutable until the transfer finishes. Clients still receive one complete revision; use the readiness flags rather than assuming the report arrives on the next tick.
 
@@ -170,7 +171,7 @@ The server serializes menu report fields over successive ticks. Only compression
 
 `request.submit(callback)` binds the request to that exact carrier object for the synchronous callback. Do not submit a separately obtained `carrier()` later, copy the carrier or run the callback asynchronously. Its long output is a bounded projection. `fromPlanningResult` reads a long plan projection; construct the request directly for totals exceeding long.
 
-The parent plans bounded child segments against fresh inventory. [ECOBigOrderPlanner.begin](../src/main/java/cn/dancingsnow/neoecoae/crafting/planner/ECOBigOrderPlanner.java) probes one segment without creating a parent. [ECOBigOrderAdmission.allows](../src/main/java/cn/dancingsnow/neoecoae/api/me/bigorder/ECOBigOrderAdmission.java) checks diagnostic/forced admission; forced mode creates no materials and does not accept unknown or unsupported routes. Read exact parent state through `ECOCraftingProgressView.bigOrder()`.
+The parent plans bounded child segments against fresh inventory. [ECOBigOrderPlanner.begin](../src/main/java/cn/dancingsnow/neoecoae/grid/crafting/planner/ECOBigOrderPlanner.java) probes one segment without creating a parent. [ECOBigOrderAdmission.allows](../src/main/java/cn/dancingsnow/neoecoae/api/me/bigorder/ECOBigOrderAdmission.java) checks diagnostic/forced admission; forced mode creates no materials and does not accept unknown or unsupported routes. Read exact parent state through `ECOCraftingProgressView.bigOrder()`.
 
 The confirmation menu's full exact-plan submission and the segmented parent API have distinct contracts. Do not construct parent orders from internal menu adapters.
 

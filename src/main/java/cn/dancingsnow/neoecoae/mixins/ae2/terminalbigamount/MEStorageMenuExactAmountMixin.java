@@ -4,8 +4,8 @@ import appeng.menu.me.common.MEStorageMenu;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.MEStorage;
-import cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalExactAmountSync;
-import cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventoryChanges;
+import cn.dancingsnow.neoecoae.grid.crafting.display.terminal.TerminalExactAmountSync;
+import cn.dancingsnow.neoecoae.grid.crafting.display.terminal.TerminalInventoryChanges;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;

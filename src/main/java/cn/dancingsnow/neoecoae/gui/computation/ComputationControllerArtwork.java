@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.computation;
 
-import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.DisplayNumbers;
 import static cn.dancingsnow.neoecoae.gui.computation.ComputationControllerTextures.HEIGHT;
 import static cn.dancingsnow.neoecoae.gui.computation.ComputationControllerTextures.WIDTH;
 import cn.dancingsnow.neoecoae.api.IECOTier;
@@ -8,7 +8,7 @@ import cn.dancingsnow.neoecoae.api.IHostPanelTextureProvider.Part;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTextureState;
 import cn.dancingsnow.neoecoae.gui.common.HostProgressAnimation;
-import cn.dancingsnow.neoecoae.crafting.display.format.NEByteFormatter;
+import cn.dancingsnow.neoecoae.grid.crafting.display.format.NEByteFormatter;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
