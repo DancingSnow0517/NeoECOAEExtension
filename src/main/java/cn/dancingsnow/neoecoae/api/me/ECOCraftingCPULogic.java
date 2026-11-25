@@ -16,10 +16,9 @@ import net.minecraft.world.level.Level;
  * Binary compatibility target for integrations compiled against the original NeoECOAE package layout.
  *
  * <p>ExtendedAE Plus applies accessors to this exact class to inspect the active job and finish virtual
- * crafting. AE2LT 2.1 and AE2 Utility also target this legacy class with injections. The implementation remains in
- * {@code crafting.execution}; its subclass mirrors the legacy job reference so those accessors continue
- * to observe the live state. The no-op methods below retain the bytecode targets expected by already
- * released AE2LT and AE2 Utility builds; their guarded call sites are never executed by the current implementation.</p>
+ * crafting. This class is also a current injection target for AE2LT and AE2 Utility. The implementation remains in
+ * {@code crafting.execution}; its subclass mirrors the job reference so those accessors observe the live state.
+ * The guarded call sites below are injection targets and are never executed by the current implementation.</p>
  */
 @Deprecated(forRemoval = false)
 public abstract class ECOCraftingCPULogic {
@@ -31,7 +30,7 @@ public abstract class ECOCraftingCPULogic {
     protected void finishJob(boolean success) {
     }
 
-    /** Legacy AE2LT and AE2 Utility injection target; the active implementation overrides this method. */
+    /** Current injection target for AE2LT and AE2 Utility; the active implementation overrides this method. */
     public long insert(AEKey what, long amount, Actionable type) {
         if (ae2ltLegacyMixinAnchorEnabled()) {
             ListCraftingInventory waitingFor = null;
@@ -41,7 +40,7 @@ public abstract class ECOCraftingCPULogic {
         return 0L;
     }
 
-    /** Legacy AE2LT injection target; current crafting dispatch runs in the execution subclass. */
+    /** Current injection target for AE2LT; crafting dispatch runs in the execution subclass. */
     public int executeCrafting(
             int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
         if (ae2ltLegacyMixinAnchorEnabled()) {
@@ -51,7 +50,7 @@ public abstract class ECOCraftingCPULogic {
         return 0;
     }
 
-    /** Legacy AE2LT persistence injection targets. */
+    /** Current persistence injection targets for AE2LT. */
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
     }
 

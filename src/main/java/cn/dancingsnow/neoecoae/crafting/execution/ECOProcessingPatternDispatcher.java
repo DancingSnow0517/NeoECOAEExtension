@@ -77,8 +77,7 @@ final class ECOProcessingPatternDispatcher {
         var byPattern = eligibility.get(provider);
         var cached = byPattern == null ? null : byPattern.get(pattern);
         if (cached != null && tick - cached.tick() < ELIGIBILITY_CACHE_TICKS) return cached.supported();
-        return ECOAe2LtDirectDispatch.isProvider(provider)
-                || provider instanceof PatternProviderLogic || ECOAdvancedAEPatternScaling.isProvider(provider)
+        return provider instanceof PatternProviderLogic || ECOAdvancedAEPatternScaling.isProvider(provider)
                 || hasProviderLogic(provider);
     }
 
@@ -329,10 +328,8 @@ final class ECOProcessingPatternDispatcher {
         if (provider instanceof ECOParallelCraftingProvider) return false;
         if (Contract.forProvider(provider) != null) return false;
         // A successful push can still own overflow. Require a live observation of AE2's send buffer.
-        if (ECOAe2LtDirectDispatch.isProvider(provider)) {
-            // Missing transport hooks allow only the caller's original one-copy fallback, never ordinary scaling.
-            return direct != null
-                    && isProcessingPattern(ECOProviderPatternIntrospection.unwrap(request.pattern()))
+        if (direct != null) {
+            return isProcessingPattern(ECOProviderPatternIntrospection.unwrap(request.pattern()))
                     && request.pattern().getInputs().length > 0 && !request.pattern().getOutputs().isEmpty()
                     && request.pattern().supportsPushInputsToExternalInventory();
         }

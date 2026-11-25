@@ -245,11 +245,11 @@ dependencies {
         compileOnly(files(localAe2LtJar))
         devMods(files(localAe2LtJar))
     } else {
-        // 2.1.2 uses static transfer hooks compatible with JEI's optimized local-slot reuse.
-        compileOnly("maven.modrinth:ae2-lightning-tech:wchBNoWt") { transitive = false }
-        devMods("maven.modrinth:ae2-lightning-tech:wchBNoWt") { transitive = false }
+        // 2.1.4-beta3
+        compileOnly("maven.modrinth:ae2-lightning-tech:OkvUBTmh") { transitive = false }
+        devMods("maven.modrinth:ae2-lightning-tech:OkvUBTmh") { transitive = false }
     }
-    compileOnly("maven.modrinth:thunderbolt-core:i3H7uX2O") { transitive = false } // 2.0.3, required by AE2LT 2.1.2
+    compileOnly("maven.modrinth:thunderbolt-core:i3H7uX2O") { transitive = false } // 2.0.3
     devMods("maven.modrinth:thunderbolt-core:i3H7uX2O") { transitive = false }
     // JDT Time Accelerators is optional and requires the separate
     // Just Dire Things mod, so it is not included in the default dev runtime.
