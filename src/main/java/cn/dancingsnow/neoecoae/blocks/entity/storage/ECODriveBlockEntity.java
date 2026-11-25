@@ -150,16 +150,26 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     }
 
     boolean refreshInfiniteQualification(ECOStorageSystemBlockEntity host) {
+        if (getStorageController() != host || !(isInstalledStorageAvailable() || hasLoadedBuiltInCell(host))) return false;
         if (!qualificationDirty) return infiniteCandidate;
         qualificationDirty = false;
         try {
-            infiniteCandidate = isInstalledStorageAvailable() && getStorageController() == host && !legacyCellPending
+            infiniteCandidate = !legacyCellPending
                     && ECOStorageCells.isEmptyInfiniteCandidate(cellStack, this, host.getTier(), cachedCellInventory);
         } catch (RuntimeException failure) {
             infiniteCandidate = false;
-            host.storageFaults().report("disk qualification " + worldPosition, failure.toString(), level.getGameTime(), failure);
+            host.storageFaults().report("disk qualification " + worldPosition, failure.toString(), host.getLevel().getGameTime(), failure);
         }
         return infiniteCandidate;
+    }
+
+    private boolean hasLoadedBuiltInCell(ECOStorageSystemBlockEntity host) {
+        if (isRemoved() || !(host.getLevel() instanceof ServerLevel server) || (level != null && level != server)
+                || !host.getMainNode().isReady() || cellStack == null || cellStack.isEmpty()
+                || canExtractCell() || getBuiltInCellForDisplay() != cellStack) return false;
+        BlockPos hostPos = host.getBlockPos();
+        var chunk = server.getChunkSource().getChunkNow(hostPos.getX() >> 4, hostPos.getZ() >> 4);
+        return chunk != null && chunk.getBlockEntities().get(hostPos) == host;
     }
 
     private void infiniteCellContentsChanged() {

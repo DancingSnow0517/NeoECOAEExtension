@@ -91,7 +91,6 @@ final class ECOInfiniteStorageModeController {
                 var next = new HashSet<ECODriveBlockEntity>();
                 if (formed) {
                     for (ECODriveBlockEntity drive : drives) {
-                        if (!drive.isInstalledStorageAvailable() || drive.getStorageController() != host) continue;
                         if (drive.refreshInfiniteQualification(host)) next.add(drive);
                     }
                 }

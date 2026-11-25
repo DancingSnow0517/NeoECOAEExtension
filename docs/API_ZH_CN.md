@@ -383,6 +383,8 @@ ServerEvents.recipes(event => {
 
 存储主机子类可覆盖 `ECOStorageSystemBlockEntity#getBuiltInInfiniteComponentCount()` 声明固定的内置数量。正数替代实体槽用于组件准入判断和只读显示；返回 64 即满足组件要求，不会生成物品。客户端和服务端必须返回相同数量。返回 0 保留原有实体槽，硬盘和存储域仍按原规则校验。
 
+不落世界的内置存储驱动器可在所属主机加载且成型时计入无限模式。`getBuiltInCellForDisplay` 必须返回实际安装的盘堆栈而非副本，并禁止取出。内置盘必须始终为空，且通过原有档位和空盘检查；它不会挂载为普通库存，也不会参与旧盘迁移。
+
 自定义档位与盘类型在 [NERegistries.Keys](../src/main/java/cn/dancingsnow/neoecoae/all/NERegistries.java) 对应同步注册表中，以两端相同 ID 注册。实现 `IECOTier` 的必需参数；组件兼容用 `supportsComponentTier`，高级能力用 `supportsFeature`。
 
 `IECOTier.getPanelTierName()` 提供名称，`getHostMarkerTexture()` 提供标记，`getPanelAtlas(String)` 为当前档位替换完整图集。返回 null 使用默认外观。图集优先级：档位 → 全局 LDLib2 `ui-eco` provider → 原图。替换图保持原尺寸与裁剪布局。
