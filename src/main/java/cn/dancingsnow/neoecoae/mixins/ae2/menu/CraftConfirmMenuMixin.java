@@ -425,7 +425,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
             .waitsForMaterials(exact, forced);
         if (!waitingForMaterials
                 && !cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderAdmission.allows(exact, forced)) {
-            NEOECOAE_LOGGER.warn(
+            if (NEConfig.ecoCraftSubmissionDebug) NEOECOAE_LOGGER.warn(
                 "[big-order-submit] Admission denied: container={}, status={}, forced={}, hasPlan={}, components={}, missingNodes={}",
                 menu.containerId, exact.status(), forced, exact.plan() != null,
                 exact.components().stream().filter(component -> component.status()
@@ -455,7 +455,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
                         required, inventory.amountOf(key), inventory.isUnbounded(key), amount ->
                             grid.getStorageService().getInventory().extract(key, amount,
                                 Actionable.SIMULATE, getActionSrc()))) {
-                    NEOECOAE_LOGGER.warn("[big-order-submit] Inventory check failed: container={}, key={}, required={}, unbounded={}",
+                    if (NEConfig.ecoCraftSubmissionDebug) NEOECOAE_LOGGER.warn("[big-order-submit] Inventory check failed: container={}, key={}, required={}, unbounded={}",
                         menu.containerId, key, required, inventory.isUnbounded(key));
                     neoecoae$rejectBigOrder("MISSING_INGREDIENT",
                         appeng.crafting.execution.CraftingSubmitResult.missingIngredient(
@@ -483,7 +483,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
                 submitted = cpu.getCluster().submitJob(grid, admission, getActionSrc(), null);
             }
         } catch (RuntimeException invalid) {
-            NEOECOAE_LOGGER.warn("[big-order-submit] Exact order rejected", invalid);
+            if (NEConfig.ecoCraftSubmissionDebug) NEOECOAE_LOGGER.warn("[big-order-submit] Exact order rejected", invalid);
             neoecoae$rejectBigOrder("EXACT_ORDER_INVALID",
                 appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
             return;
@@ -505,7 +505,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
         }
         menu.setAutoStart(false);
         menu.submitError = new CraftConfirmMenu.SyncableSubmitResult(failure);
-        NEOECOAE_LOGGER.warn(
+        if (NEConfig.ecoCraftSubmissionDebug) NEOECOAE_LOGGER.warn(
             "[big-order-submit] Rejected: reason={}, container={}, output={}, status={}, selectedCpu={}, error={}, detail={}",
             reason, menu.containerId, result == null ? null : result.finalOutput(), neoecoae$getPlanningStatus(),
             neoecoae$describeCpu(selectedCpu), failure.errorCode(), failure.errorDetail());
@@ -807,7 +807,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
                     .map(diagnostic -> diagnostic.code() + ": " + diagnostic.message())
                     .collect(java.util.stream.Collectors.joining("\n"));
                 // Keep the complete failure evidence in the server log; only the UI payload is bounded.
-                NEOECOAE_LOGGER.warn("[ECO-CRAFT-SUBMIT] ECO diagnostic: status={}, output={}, diagnostics={}",
+                if (NEConfig.ecoCraftSubmissionDebug) NEOECOAE_LOGGER.warn("[ECO-CRAFT-SUBMIT] ECO diagnostic: status={}, output={}, diagnostics={}",
                     planningResult.status(), diagnosticPlan.finalOutput(), neoecoae$planningDiagnostic);
                 if (neoecoae$planningDiagnostic.length() > 4096) {
                     neoecoae$planningDiagnostic = neoecoae$planningDiagnostic.substring(0, 4096);
@@ -1046,7 +1046,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
         menu.submitError = new CraftConfirmMenu.SyncableSubmitResult(
             appeng.crafting.execution.CraftingSubmitResult.missingIngredient(
                 new appeng.api.stacks.GenericStack(missing.getWhat(), missing.getMissingAmount())));
-        NEOECOAE_LOGGER.warn(
+        if (NEConfig.ecoCraftSubmissionDebug) NEOECOAE_LOGGER.warn(
             "[craft-submit] Rejected: reason=INVENTORY_RECHECK, container={}, key={}, missing={}",
             menu.containerId, missing.getWhat(), missing.getMissingAmount());
         if (menu.getPlayer() instanceof ServerPlayer player) {
@@ -1154,8 +1154,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
                 submitResult.successful(), submitResult.errorCode(), submitResult.errorDetail(),
                 submittedPlan.finalOutput().what(), submittedPlan.finalOutput().amount(), neoecoae$describeCpu(target));
         }
-        if (!submitResult.successful() && (NEConfig.ecoCraftSubmissionDebug
-                || cn.dancingsnow.neoecoae.integration.extendedaeplus.EAEPForcedCrafting.isForced(submittedPlan))) {
+        if (!submitResult.successful() && NEConfig.ecoCraftSubmissionDebug) {
             String cpuDetails = service instanceof ECOCraftingServiceDiagnostics diagnostics
                 ? diagnostics.neoecoae$describeCpuSelection(submittedPlan, source)
                 : "crafting service diagnostics unavailable";

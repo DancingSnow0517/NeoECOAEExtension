@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
@@ -96,7 +97,7 @@ final class ECOCraftingOutputDelivery {
                 && pendingFinalOutputs.isEmpty();
         if (physicallyComplete) {
             if (current.executionRuntime != null && !current.executionRuntime.isComplete()) {
-                LOGGER.warn("ECO crafting job {} reached terminal crafting state but execution runtime is incomplete; "
+                if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.warn("ECO crafting job {} reached terminal crafting state but execution runtime is incomplete; "
                                 + "forcing finalization", current.link.getCraftingID());
             }
             host.finishJob(true);
@@ -190,7 +191,7 @@ final class ECOCraftingOutputDelivery {
                 host.exactInventory().setEnabled(true);
                 host.exactInventory().restoreQuantities(Map.of(key, quantity));
             } catch (RuntimeException listenerFailure) {
-                LOGGER.warn("ECO exact output retained after an inventory listener failed", listenerFailure);
+                if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.warn("ECO exact output retained after an inventory listener failed", listenerFailure);
             }
             if (host.getJob() == current) {
                 host.recordCompletedCraftingWork(claimed.longValueSaturated(), key.getType());
@@ -375,7 +376,7 @@ final class ECOCraftingOutputDelivery {
             }
             return clampRoutedAmount(inserted, amount);
         } catch (RuntimeException failure) {
-            LOGGER.error("Final output delivery failed; items remain in the CPU inventory", failure);
+            if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error("Final output delivery failed; items remain in the CPU inventory", failure);
             return 0L;
         } finally {
             deliveringFinalOutput = false;
@@ -409,7 +410,7 @@ final class ECOCraftingOutputDelivery {
                     pendingFinalOutputs.mergeLong(stack.what(), stack.amount(), NEMath::saturatingAdd);
                 }
             } catch (RuntimeException failure) {
-                LOGGER.warn("Ignoring invalid persisted dynamic final-output delivery entry {}", index, failure);
+                if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.warn("Ignoring invalid persisted dynamic final-output delivery entry {}", index, failure);
             }
         }
     }

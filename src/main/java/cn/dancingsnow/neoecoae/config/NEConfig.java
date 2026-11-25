@@ -272,10 +272,12 @@ public class NEConfig {
         .comment(
             "启用 ECO 合成产物交付等待诊断日志。",
             "同一任务的 Worker 连续 200 tick 无法交付产物后记录首条汇总警告，之后每 1200 tick 再次记录。",
-            "等待结束后会记录一条恢复信息；此选项只控制日志，不会改变产物所有权、重试或恢复逻辑。",
+            "等待结束后会记录一条恢复信息；同时控制存储写入、迁移和压缩诊断日志。",
+            "此选项只控制日志，不会改变产物所有权、重试或恢复逻辑。",
             "Enable ECO crafting output-delivery wait diagnostic logs.",
             "Logs one aggregated warning per job after its workers have been unable to deliver outputs for 200 ticks, then every 1200 ticks.",
-            "Logs a recovery message when the wait ends; this option only controls logging and never changes output ownership, retry or recovery behavior.")
+            "Logs a recovery message when the wait ends; also controls storage persistence, migration and compression diagnostics.",
+            "This option only controls logging and never changes output ownership, retry or recovery behavior.")
         .translation("neoecoae.configuration.ecoCraftingOutputDeliveryDebug")
         .define("ecoCraftingOutputDeliveryDebug", false);
 
@@ -303,10 +305,10 @@ public class NEConfig {
     public static int ecoPlanningMaxMillis = 120_000;
     public static int ecoPlanningMaxWork = 50_000_000;
     public static int ecoPlanningMaxMemoryMiB = 64;
-    public static boolean ecoPlanningStageDebug = false;
-    public static boolean ecoCraftSubmissionDebug = false;
-    public static boolean ecoDispatchWatchdogDebug = false;
-    public static boolean ecoCraftingOutputDeliveryDebug = false;
+    public static volatile boolean ecoPlanningStageDebug = false;
+    public static volatile boolean ecoCraftSubmissionDebug = false;
+    public static volatile boolean ecoDispatchWatchdogDebug = false;
+    public static volatile boolean ecoCraftingOutputDeliveryDebug = false;
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent.Loading event) {
@@ -316,6 +318,15 @@ public class NEConfig {
     @SubscribeEvent
     public static void onReload(ModConfigEvent.Reloading event) {
         if (event.getConfig().getSpec() == SPEC) applyConfig();
+    }
+
+    @SubscribeEvent
+    public static void onUnload(ModConfigEvent.Unloading event) {
+        if (event.getConfig().getSpec() != SPEC) return;
+        ecoPlanningStageDebug = false;
+        ecoCraftSubmissionDebug = false;
+        ecoDispatchWatchdogDebug = false;
+        ecoCraftingOutputDeliveryDebug = false;
     }
 
     private static void applyConfig() {

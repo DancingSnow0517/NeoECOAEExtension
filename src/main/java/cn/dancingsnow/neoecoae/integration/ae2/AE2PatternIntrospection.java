@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.ae2;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;

@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.recipe;
 
+import cn.dancingsnow.neoecoae.config.NELogConfig;
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.stacks.AEFluidKey;

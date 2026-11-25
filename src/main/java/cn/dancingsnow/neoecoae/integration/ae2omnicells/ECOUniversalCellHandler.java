@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.ae2omnicells;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;

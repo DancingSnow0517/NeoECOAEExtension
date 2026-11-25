@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.client;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.client.gui.me.crafting.CraftingCPUScreen;
 import appeng.menu.me.crafting.CraftingStatusMenu;
 import appeng.menu.me.crafting.CraftingCPUMenu;
@@ -38,7 +39,7 @@ public abstract class CraftingCpuScreenMixin extends AEBaseScreen<CraftingCPUMen
             Operation<Object> original) {
         // Check the merged entry: a normal delta omits its key and gets it from the existing row.
         if (value instanceof CraftingStatusEntry entry && entry.getWhat() == null) {
-            if (!neoecoae$warnedAboutMissingKey) {
+            if (NEConfig.ecoCraftSubmissionDebug && !neoecoae$warnedAboutMissingKey) {
                 neoecoae$warnedAboutMissingKey = true;
                 org.slf4j.LoggerFactory.getLogger("neoecoae").warn(
                     "Skipped unresolved crafting status entry: serial={}, stored={}, active={}, pending={}",

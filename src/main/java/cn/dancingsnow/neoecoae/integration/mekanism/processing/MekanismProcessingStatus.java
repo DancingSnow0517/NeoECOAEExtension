@@ -21,24 +21,28 @@ import net.minecraftforge.fluids.FluidStack;
 /** Covers inherited Mekanism machines and the independently implemented Extras/MoreMachine factories. */
 public final class MekanismProcessingStatus implements ECOProcessingStatusReader {
     @Override public boolean supports(BlockEntity machine) {
-        return is(machine, "mekanism.common.tile.prefab.TileEntityRecipeMachine")
-            || is(machine, "mekanism.common.tile.factory.TileEntityFactory")
+        return is(machine, "mekanism.common.tile.prefab.TileEntityRecipeMachine") || isFactory(machine);
+    }
+
+    private static boolean isFactory(BlockEntity machine) {
+        return is(machine, "mekanism.common.tile.factory.TileEntityFactory")
             || is(machine, "com.jerry.mekextras.common.tile.factory.TileEntityExtraFactory")
             || is(machine, "com.jerry.mekmm.common.tile.factory.TileEntityMoreMachineFactory");
     }
 
     @Override public Observation read(BlockEntity machine, Context context) {
         var lanes = new ArrayList<Machine>();
-        Object monitors = field(machine, "recipeCacheLookupMonitors");
         int duration = integer(call(machine, "getTicksRequired"));
-        if (monitors instanceof Object[] factories) {
+        // Probing a field absent from the subclass reaches TileEntityMekanism, whose client-only
+        // SoundInstance field cannot be resolved on dedicated servers.
+        if (isFactory(machine) && field(machine, "recipeCacheLookupMonitors") instanceof Object[] factories) {
             Object states = field(machine, "activeStates");
             for (int i = 0; i < factories.length; i++) {
                 Object cached = call(factories[i], "getCachedRecipe", i);
                 boolean active = states instanceof boolean[] flags && i < flags.length && flags[i];
                 add(machine, context.output(), cached, integer(call(machine, "getProgress", i)), duration, active, lanes);
             }
-        } else {
+        } else if (!isFactory(machine)) {
             Object cached = call(field(machine, "recipeCacheLookupMonitor"), "getCachedRecipe", 0);
             add(machine, context.output(), cached, integer(call(machine, "getOperatingTicks")), duration,
                 Boolean.TRUE.equals(call(machine, "getActive")), lanes);

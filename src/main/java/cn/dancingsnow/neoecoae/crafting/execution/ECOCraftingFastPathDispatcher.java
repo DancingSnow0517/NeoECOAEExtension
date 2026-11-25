@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 
 import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
@@ -185,7 +186,7 @@ final class ECOCraftingFastPathDispatcher {
             request.job().failPermanently("INDETERMINATE_FAST_PATH_ACCEPTANCE");
             throw failure;
         } catch (RuntimeException failure) {
-            LOGGER.warn("Atomic batch rejected; inputs restored, trying ordinary provider push", failure);
+            if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.warn("Atomic batch rejected; inputs restored, trying ordinary provider push", failure);
         }
         if (!accepted) {
             diagnostics.batchRejected(request.pattern(), provider);

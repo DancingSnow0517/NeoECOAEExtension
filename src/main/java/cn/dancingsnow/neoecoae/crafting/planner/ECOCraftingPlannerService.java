@@ -216,7 +216,7 @@ public final class ECOCraftingPlannerService {
                     logTotal(startedNanos, result);
                     return result;
                 } catch (RuntimeException e) {
-                    LOGGER.error("[ECO-PLANNER] calculation failed goal={} amount={} simulation={} "
+                    if (NEConfig.ecoPlanningStageDebug) LOGGER.error("[ECO-PLANNER] calculation failed goal={} amount={} simulation={} "
                                     + "cyclePlanningEnabled={} ignorePatternSubstitutions={} fuzzyItems={}",
                             goal, amount, simulation, cyclePlanningEnabled, ignorePatternSubstitutions,
                             fuzzyPlanningItemIds, e);
@@ -346,7 +346,7 @@ public final class ECOCraftingPlannerService {
         }
 
         private void logTotal(long startedNanos, ECOPlanningResult result) {
-            result.trace().diagnostics().stream()
+            if (NEConfig.ecoPlanningStageDebug) result.trace().diagnostics().stream()
                 .filter(d -> d.code() == PlannerDiagnostic.Code.CYCLE_BUDGET_EXHAUSTED)
                 .findFirst().ifPresent(d -> LOGGER.warn(
                     "[ECO-PLANNER] CYCLE_BUDGET_EXHAUSTED request={} goal={} amount={} elapsedMs={} detail={}",

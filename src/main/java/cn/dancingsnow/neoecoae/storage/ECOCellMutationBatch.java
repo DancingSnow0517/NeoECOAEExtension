@@ -48,7 +48,7 @@ public final class ECOCellMutationBatch implements AutoCloseable {
 
     public static void drainRetries() {
         for (ECOStorageCell cell : new java.util.ArrayList<>(RETRY)) flush(cell);
-        if (!RETRY.isEmpty()) {
+        if (!RETRY.isEmpty() && cn.dancingsnow.neoecoae.config.NEConfig.ecoCraftingOutputDeliveryDebug) {
             LoggerFactory.getLogger(ECOCellMutationBatch.class)
                 .error("{} ECO cell persistence operation(s) still failed during server shutdown", RETRY.size());
         }

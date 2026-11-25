@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.crafting.planner;
 
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
 
@@ -48,13 +49,13 @@ public final class ECOPlanningStageLogger {
     }
 
     public static boolean isEnabled() {
-        return CURRENT.get() != null;
+        return NEConfig.ecoPlanningStageDebug && CURRENT.get() != null;
     }
 
     /** Numeric summaries are emitted once per solve and must not lose counters to diagnostic truncation. */
     public static void statistics(String stage, long startedNanos, String counters) {
         Context context = CURRENT.get();
-        if (context == null) return;
+        if (!NEConfig.ecoPlanningStageDebug || context == null) return;
         LOGGER.info("[ECO-PLANNER-STATS] request={} stage={} elapsedMs={} {} goal={} amount={} simulation={}",
             context.requestId(), stage, (System.nanoTime() - startedNanos) / 1_000_000.0D, counters,
             context.goal(), context.amount(), context.simulation());
@@ -62,7 +63,7 @@ public final class ECOPlanningStageLogger {
 
     public static void finish(String stage, long startedNanos, boolean success, @Nullable String reason) {
         Context context = CURRENT.get();
-        if (context == null) return;
+        if (!NEConfig.ecoPlanningStageDebug || context == null) return;
         long now = System.nanoTime();
         long elapsedNanos = now >= startedNanos ? now - startedNanos : 0L;
         LOGGER.info(

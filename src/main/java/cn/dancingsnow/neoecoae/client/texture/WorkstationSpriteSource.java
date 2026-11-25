@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.client.texture;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.config.NELogConfig;
 import com.google.common.base.Suppliers;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.serialization.Codec;
@@ -60,7 +61,7 @@ public record WorkstationSpriteSource(Map<String, ResourceLocation> palettes) im
                     if (loaded.length < 7) throw new IllegalArgumentException("Expected at least seven palette entries");
                     return loaded;
                 } catch (IllegalArgumentException exception) {
-                    LOGGER.warn("Unable to color workstation with {}; using the original masks", palette, exception);
+                    if (NELogConfig.AUXILIARY_DEBUG) LOGGER.debug("Unable to color workstation with {}; using the original masks", palette, exception);
                     return null;
                 }
             });

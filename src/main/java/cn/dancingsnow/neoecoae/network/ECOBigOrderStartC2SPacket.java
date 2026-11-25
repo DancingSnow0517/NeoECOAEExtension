@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.network;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOCraftConfirmMenuMode;
@@ -21,17 +22,17 @@ public record ECOBigOrderStartC2SPacket(int containerId, boolean forced, long re
             logger.info("[big-order-submit] Server received: player={}, container={}, currentContainer={}, forced={}",
                 context.player().getGameProfile().getName(), packet.containerId, current.containerId, packet.forced);
             if (!(current instanceof CraftConfirmMenu menu) || menu.containerId != packet.containerId) {
-                logger.warn("[big-order-submit] Rejected packet: reason=MENU_MISMATCH, menuType={}",
+                if (NEConfig.ecoCraftSubmissionDebug) logger.warn("[big-order-submit] Rejected packet: reason=MENU_MISMATCH, menuType={}",
                     current.getClass().getName());
                 return;
             }
             if (!menu.stillValid(context.player())) {
-                logger.warn("[big-order-submit] Rejected packet: reason=MENU_INVALID, container={}", packet.containerId);
+                if (NEConfig.ecoCraftSubmissionDebug) logger.warn("[big-order-submit] Rejected packet: reason=MENU_INVALID, container={}", packet.containerId);
                 context.player().closeContainer();
                 return;
             }
             if (!(menu instanceof ECOCraftConfirmMenuMode mode)) {
-                logger.warn("[big-order-submit] Rejected packet: reason=ECO_MENU_UNAVAILABLE, container={}", packet.containerId);
+                if (NEConfig.ecoCraftSubmissionDebug) logger.warn("[big-order-submit] Rejected packet: reason=ECO_MENU_UNAVAILABLE, container={}", packet.containerId);
                 menu.submitError = new CraftConfirmMenu.SyncableSubmitResult(
                     appeng.crafting.execution.CraftingSubmitResult.INCOMPLETE_PLAN);
                 return;

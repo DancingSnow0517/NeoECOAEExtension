@@ -5,6 +5,7 @@ import appeng.api.networking.IGrid;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.BiFunction;
 
 /**
  * Grid machine lookups that also find subclasses of the requested type.
@@ -24,12 +25,21 @@ public final class NEMachineLookup {
     }
 
     public static <T> Collection<T> getMachines(IGrid grid, Class<T> type) {
+        return findMachines(grid, type, IGrid::getMachines);
+    }
+
+    public static <T> Collection<T> getActiveMachines(IGrid grid, Class<T> type) {
+        return findMachines(grid, type, IGrid::getActiveMachines);
+    }
+
+    private static <T> Collection<T> findMachines(IGrid grid, Class<T> type,
+            BiFunction<IGrid, Class<?>, Collection<?>> lookup) {
         List<T> machines = new ArrayList<>();
         for (Class<?> machineClass : grid.getMachineClasses()) {
             if (!type.isAssignableFrom(machineClass)) {
                 continue;
             }
-            for (Object machine : grid.getMachines(machineClass)) {
+            for (Object machine : lookup.apply(grid, machineClass)) {
                 if (type.isInstance(machine)) {
                     machines.add(type.cast(machine));
                 }

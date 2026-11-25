@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.client.gui.crafting;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.stacks.AEKey;
 import appeng.client.gui.AEBaseScreen;
 import appeng.client.gui.me.crafting.AbstractTableRenderer;
@@ -94,7 +95,7 @@ final class ECOCraftingListImageExport {
             client.gui.getChat().addMessage(Component.translatable(
                 "gui.neoecoae.crafting_report.export_saved", link));
         } catch (Exception exception) {
-            LoggerFactory.getLogger("neoecoae").warn("Could not export crafting list image", exception);
+            if (NEConfig.ecoCraftSubmissionDebug) LoggerFactory.getLogger("neoecoae").warn("Could not export crafting list image", exception);
             client.gui.getChat().addMessage(Component.translatable("screenshot.failure", exception.getMessage()));
         }
     }

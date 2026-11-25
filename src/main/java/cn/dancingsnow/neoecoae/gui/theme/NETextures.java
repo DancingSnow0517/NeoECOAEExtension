@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.theme;
 
+import cn.dancingsnow.neoecoae.config.NELogConfig;
+
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.editor.resource.BuiltinPath;
@@ -257,7 +259,7 @@ public class NETextures {
                     String name = pathPrefix + field.getName();
                     provider.addResource(name, texture);
                     BuiltinPath path = new BuiltinPath("ui-eco:" + name);
-                    LOGGER.debug("Registering builtin texture: {}", path);
+                    if (NELogConfig.AUXILIARY_DEBUG) LOGGER.debug("Registering builtin texture: {}", path);
                     IGuiTexture builtinTexture = new UIResourceTexture(path);
                     field.set(null, builtinTexture);
                 } catch (Exception e) {

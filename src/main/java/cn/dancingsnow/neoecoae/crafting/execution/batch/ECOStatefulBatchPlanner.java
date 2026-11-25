@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.execution.batch;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.*;
 import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
 
@@ -132,7 +133,7 @@ public final class ECOStatefulBatchPlanner {
                 batch.remainingTotal(), ECOBatchCraftingHelper.energyRequest(power, size), () -> preparation.push(batch),
                 exactInputs ? exactTotal : Map.of());
         } catch (RuntimeException unavailable) {
-            LOGGER.debug("ECO batch preparation unavailable; no inputs extracted", unavailable);
+            if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.debug("ECO batch preparation unavailable; no inputs extracted", unavailable);
             return null;
         }
     }

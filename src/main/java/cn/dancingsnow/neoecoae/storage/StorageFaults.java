@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.storage;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.util.LinkedHashMap;
 import java.util.Collection;
 import java.util.Map;
@@ -33,7 +34,7 @@ public final class StorageFaults {
             previous == null ? 1L : previous.occurrences() + 1L, stackTrace);
         faults.put(component, next);
         if (previous == null || !previous.reason().equals(reason) || tick - previous.lastTick() >= 200L) {
-            LOGGER.error("ECO storage fault {} [{}]: {}", next.id(), component, reason, cause);
+            if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error("ECO storage fault {} [{}]: {}", next.id(), component, reason, cause);
         }
     }
 

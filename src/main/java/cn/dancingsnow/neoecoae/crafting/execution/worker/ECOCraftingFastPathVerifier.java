@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.crafting.execution.worker;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.stacks.AEFluidKey;
@@ -116,7 +117,7 @@ final class ECOCraftingFastPathVerifier {
                 execution.fastPathType() == ECORecipeClassifier.Type.DURABILITY_MUTATION);
         if (analysis.rejected()) {
             if ("STATE_SLOT_COUNT_MISMATCH".equals(analysis.rejectReason())) {
-                LOGGER.warn("Fast path state slot mismatch: expected={} actual={}",
+                if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.warn("Fast path state slot mismatch: expected={} actual={}",
                         formatSlots(beforeSlots), formatSlots(remainingSlots));
             }
             return negative(cache, key, tick, analysis.rejectReason());

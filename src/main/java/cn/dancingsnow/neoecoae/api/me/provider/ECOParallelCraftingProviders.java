@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.api.me.provider;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.networking.crafting.ICraftingProvider;
 
 import org.jetbrains.annotations.Nullable;
