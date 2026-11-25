@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.grid.crafting.planner.solve;
 
 import cn.dancingsnow.neoecoae.grid.crafting.planner.solve.supply.PlannerInventorySnapshot;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.grid.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.grid.crafting.planner.compile.CompiledInput;
@@ -127,8 +128,12 @@ public final class SolveWorkspace {
     }
 
     static Map<AEKey, PlannerAmount> outputAmounts(CompiledPattern pattern, PlannerAmount times) {
+        return outputAmounts(pattern.outputs(), times);
+    }
+
+    static Map<AEKey, PlannerAmount> outputAmounts(List<GenericStack> outputs, PlannerAmount times) {
         Map<AEKey, PlannerAmount> produced = new LinkedHashMap<>();
-        for (var output : pattern.outputs()) {
+        for (var output : outputs) {
             PlannerAmount total = PlannerAmount.of(output.amount()).multiply(times);
             produced.put(output.what(), produced.getOrDefault(output.what(), PlannerAmount.ZERO).add(total));
         }
