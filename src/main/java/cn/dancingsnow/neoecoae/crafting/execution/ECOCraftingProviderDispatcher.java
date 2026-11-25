@@ -1,11 +1,14 @@
 package cn.dancingsnow.neoecoae.crafting.execution;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOPatternPushDiagnostics;
 import cn.dancingsnow.neoecoae.crafting.execution.batch.*;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOIndeterminateBatchException;
 
 import java.util.List;
 import java.util.Collections;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import java.util.Iterator;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -74,7 +77,7 @@ final class ECOCraftingProviderDispatcher {
         if (owner != null) owner.getProcessingMonitor().considered(job.link.getCraftingID(), pattern, provider);
     }
 
-    Result dispatchCandidate(ECOCraftingDispatchRequest originalRequest, List<ICraftingProvider> providers,
+    Result dispatchCandidate(ECOCraftingDispatchRequest originalRequest, Iterator<ICraftingProvider> providers,
             ECOCraftingDispatchBudget budget, IEnergyService energyService,
             ECODispatchStallDiagnostics diagnostics, Consumer<ICraftingProvider> markProviderAttempt,
             Runnable markNormalResume, ECOCraftingNormalPush normalPush) {
@@ -85,7 +88,8 @@ final class ECOCraftingProviderDispatcher {
                 originalRequest.inventory(), originalRequest.level());
         double singlePower = CraftingCpuHelper.calculatePatternPower(request.inputs());
 
-        for (var provider : providers) {
+        while (providers.hasNext()) {
+            var provider = providers.next();
             boolean blocking = ECOExternalProviderBlocking.isEnabled(provider);
             if (!blocking && request.job().exactOrder) {
                 var exact = limit == Long.MAX_VALUE
@@ -263,7 +267,7 @@ final class ECOCraftingProviderDispatcher {
             String path, RuntimeException failure) {
         String reason = "AMBIGUOUS_" + path.toUpperCase(java.util.Locale.ROOT) + "_PROVIDER_OWNERSHIP";
         request.job().failPermanently(reason);
-        LOGGER.error("ECO {} provider {} threw after dispatch began; the job is suspended without replaying inputs",
+        if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error("ECO {} provider {} threw after dispatch began; the job is suspended without replaying inputs",
                 path, provider.getClass().getName(), failure);
     }
 

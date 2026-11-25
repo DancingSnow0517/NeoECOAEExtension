@@ -2,11 +2,11 @@ package cn.dancingsnow.neoecoae.multiblock.cluster;
 
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.me.network.CraftingCapabilitySnapshot;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternDispatch;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.crafting.execution.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
-import appeng.hooks.ticking.TickHandler;
 import net.minecraftforge.fluids.FluidStack;
 
 import java.util.ArrayList;
@@ -35,9 +35,8 @@ public class NECraftingNetworkCluster {
     private final List<NECraftingCluster> members = new ArrayList<>();
     /** Changes when membership or one member's pattern-bus inventory changes. */
     private long patternDomainGeneration;
-    private final Set<ECOCraftingWorkerBlockEntity> availableWorkerSnapshot =
-        Collections.newSetFromMap(new IdentityHashMap<>());
-    private long availabilitySnapshotTick = Long.MIN_VALUE;
+    private @Nullable ECOCraftingPatternDispatch availableWorkerSnapshot;
+    private long dispatchGeneration;
 
     /** Group-wide once-per-tick bookkeeping for {@link #VIRTUAL_CRAFTING_POWER_PER_TICK}. */
     private long virtualPowerTick = Long.MIN_VALUE;
@@ -60,13 +59,11 @@ public class NECraftingNetworkCluster {
     private CraftingCapabilitySnapshot capabilityCapacityCache;
 
     public void configure(List<NECraftingCluster> newMembers) {
+        if (isSameMembership(newMembers)) return;
         capabilitySnapshotCache = null;
         capabilityCapacityCache = null;
-        invalidateDispatchAvailability();
-        boolean membershipChanged = !isSameMembership(newMembers);
-        if (membershipChanged) {
-            patternDomainGeneration++;
-        }
+        invalidateDispatchTopology();
+        patternDomainGeneration++;
         this.members.clear();
         this.members.addAll(newMembers);
         this.members.sort(Comparator.comparing(
@@ -75,11 +72,7 @@ public class NECraftingNetworkCluster {
                 .thenComparingInt(pos -> pos.getY())
                 .thenComparingInt(pos -> pos.getZ())
         ));
-        if (membershipChanged) {
-            // Regrouping may bring in hosts from a different structure generation. Dropping the shared
-            // knowledge costs one cold start per recipe and can never execute a stale verification.
-            fastPathCache.clear();
-        }
+        fastPathCache.clear();
         synchronizeUiState();
     }
 
@@ -132,18 +125,16 @@ public class NECraftingNetworkCluster {
     /**
      * Every worker that is topologically able to execute a pattern for this exchange group right now.
      *
-     * <p>The list is rebuilt per dispatch on purpose: it must never retain a reference to a worker whose
-     * multiblock was rebuilt or whose block entity was removed, so stale entries are filtered out here rather
-     * than cached and revalidated later.
+     * <p>Used to rebuild the index after a topology or capacity change, and by the displays.
      */
     public List<ECOCraftingWorkerBlockEntity> collectCandidateWorkers() {
         List<ECOCraftingWorkerBlockEntity> candidates = new ArrayList<>();
         for (NECraftingCluster member : members) {
-            if (member.isDestroyed() || member.getController() == null) {
+            if (member.isDestroyed() || member.getNetworkCluster() != this || member.getController() == null) {
                 continue;
             }
             for (ECOCraftingWorkerBlockEntity worker : member.getWorkers()) {
-                if (worker.isRemoved() || worker.getCluster() != member) {
+                if (!worker.isLoadedForDispatch() || worker.getCluster() != member) {
                     continue;
                 }
                 candidates.add(worker);
@@ -171,56 +162,32 @@ public class NECraftingNetworkCluster {
 
     /** Allocation-free counterpart of {@link #collectCandidateWorkers()} for busy checks. */
     public boolean hasAvailableCandidateWorker() {
-        refreshDispatchAvailability();
-        return !availableWorkerSnapshot.isEmpty();
+        return getDispatchCandidates().best() != null;
     }
 
     /** Invalidates membership-derived availability after a network topology change. */
     public void invalidateDispatchAvailability() {
-        availabilitySnapshotTick = Long.MIN_VALUE;
-        availableWorkerSnapshot.clear();
+        availableWorkerSnapshot = null;
     }
 
-    /** Keeps an already-built tick snapshot exact without rescanning every member for every candidate. */
+    public void invalidateDispatchTopology() {
+        dispatchGeneration++;
+        invalidateDispatchAvailability();
+    }
+
+    public long getDispatchGeneration() {
+        return dispatchGeneration;
+    }
+
     public void onWorkerAvailabilityChanged(ECOCraftingWorkerBlockEntity worker) {
-        long currentTick = TickHandler.instance().getCurrentTick();
-        if (availabilitySnapshotTick != currentTick) {
-            return;
-        }
-        if (isDispatchCandidate(worker) && worker.getAvailableThreadSlots() > 0) {
-            availableWorkerSnapshot.add(worker);
-        } else {
-            availableWorkerSnapshot.remove(worker);
-        }
+        if (availableWorkerSnapshot != null) availableWorkerSnapshot.update(worker);
     }
 
-    private void refreshDispatchAvailability() {
-        long currentTick = TickHandler.instance().getCurrentTick();
-        if (availabilitySnapshotTick == currentTick) {
-            return;
+    public ECOCraftingPatternDispatch getDispatchCandidates() {
+        if (availableWorkerSnapshot == null) {
+            availableWorkerSnapshot = new ECOCraftingPatternDispatch(collectCandidateWorkers());
         }
-        availableWorkerSnapshot.clear();
-        for (NECraftingCluster member : members) {
-            if (member.isDestroyed() || member.getController() == null) {
-                continue;
-            }
-            for (ECOCraftingWorkerBlockEntity worker : member.getWorkers()) {
-                if (isDispatchCandidate(worker) && worker.getAvailableThreadSlots() > 0) {
-                    availableWorkerSnapshot.add(worker);
-                }
-            }
-        }
-        availabilitySnapshotTick = currentTick;
-    }
-
-    private boolean isDispatchCandidate(ECOCraftingWorkerBlockEntity worker) {
-        if (worker.isRemoved()) {
-            return false;
-        }
-        NECraftingCluster owner = worker.getCluster();
-        return owner != null && !owner.isDestroyed()
-            && owner.getController() != null
-            && owner.getNetworkCluster() == this;
+        return availableWorkerSnapshot;
     }
 
     public boolean isOverclocked() {
@@ -338,12 +305,8 @@ public class NECraftingNetworkCluster {
             coolantAmount = saturatingIntAdd(coolantAmount, controller.getCoolant());
             coolantCapacity = saturatingIntAdd(coolantCapacity, ECOCraftingSystemBlockEntity.MAX_COOLANT);
             coolantMaxOverclock = Math.max(coolantMaxOverclock, controller.getLocalCoolingMaxOverclock());
-            for (ECOCraftingWorkerBlockEntity worker : member.getWorkers()) {
-                if (worker.isWorking()) {
-                    activeFxCount = saturatingIntAdd(activeFxCount, 1);
-                }
-                runningBatchCount = saturatingIntAdd(runningBatchCount, worker.getRunningBatchCount());
-            }
+            activeFxCount = saturatingIntAdd(activeFxCount, member.getActiveWorkerCount());
+            runningBatchCount = saturatingIntAdd(runningBatchCount, member.getRunningBatchCount());
         }
         boolean overclocked = leader != null && leader.isLocallyOverclocked();
         boolean activeCooling = leader != null && leader.isLocallyActiveCooling();

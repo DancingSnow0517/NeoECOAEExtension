@@ -222,7 +222,6 @@ public final class NELogicalNetworkManager {
 
         Map<NetworkGroupKey, List<NECraftingCluster>> groups = new HashMap<>();
         for (NECraftingCluster cluster : state.crafting) {
-            cluster.setNetworkCluster(null);
             NetworkGroupKey key = craftingNetworkKey(cluster);
             state.craftingKeys.put(cluster, key);
             groups.computeIfAbsent(key, ignored -> new ArrayList<>()).add(cluster);
@@ -234,15 +233,15 @@ public final class NELogicalNetworkManager {
             for (int start = 0; start < clusters.size(); start += NETWORK_HOST_LIMIT) {
                 int partition = start / NETWORK_HOST_LIMIT;
                 NetworkPartitionKey key = new NetworkPartitionKey(entry.getKey(), partition);
-                activeKeys.add(key);
                 List<NECraftingCluster> members = clusters.subList(
                     start,
                     Math.min(start + NETWORK_HOST_LIMIT, clusters.size())
                 );
                 if (members.size() < 2) {
-                    // Solo member: no multiplier applies, so no network cluster is needed.
+                    members.get(0).setNetworkCluster(null);
                     continue;
                 }
+                activeKeys.add(key);
                 NECraftingNetworkCluster network = state.craftingNetworks.computeIfAbsent(
                     key,
                     ignored -> new NECraftingNetworkCluster()

@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.crafting;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.crafting.execution.CraftingCpuLogic;
 import appeng.crafting.execution.ExecutingCraftingJob;
@@ -47,7 +48,7 @@ public abstract class Ae2CraftingCpuFastPathMixin {
             if (job instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob access)
                 access.neoecoae$suspended(true);
             cluster.markDirty();
-            NEOECOAE_BATCH_LOG.error("Suspended native CPU after batch dispatch failure", failure);
+            if (NEConfig.ecoDispatchWatchdogDebug) NEOECOAE_BATCH_LOG.error("Suspended native CPU after batch dispatch failure", failure);
             cir.setReturnValue(0);
         }
     }
@@ -71,15 +72,7 @@ public abstract class Ae2CraftingCpuFastPathMixin {
     private void neoecoae$releaseWorkerOutput(boolean success, CallbackInfo ci) {
         if (!(job instanceof cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuJob access)) return;
         var craftingJobId = access.neoecoae$link().getCraftingID();
-        if (!success) {
-            ECOCraftingJobLifecycle.cancelAndRecover(cluster.getLevel(), craftingJobId);
-            return;
-        }
-        ECOCraftingJobLifecycle.finish(cluster.getLevel(), craftingJobId, true);
-        var grid = cluster.getGrid();
-        if (grid == null) return;
-        for (var worker : grid.getMachines(cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity.class))
-            worker.releaseCompletedJobOutputs(craftingJobId);
+        ECOCraftingJobLifecycle.finish(cluster.getLevel(), craftingJobId, success);
     }
 
     @com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation(method = "executeCrafting",

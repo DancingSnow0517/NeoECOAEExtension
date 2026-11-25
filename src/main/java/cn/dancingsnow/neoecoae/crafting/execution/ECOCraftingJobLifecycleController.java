@@ -18,7 +18,6 @@ import cn.dancingsnow.neoecoae.crafting.execution.worker.ECOCraftingJobLifecycle
 import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingJobResult;
 import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingLifecycle;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingWorkerRecovery;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.core.AELog;
 import appeng.core.sync.packets.CraftingJobStatusPacket;
@@ -68,7 +67,7 @@ final class ECOCraftingJobLifecycleController {
             try {
                 cn.dancingsnow.neoecoae.integration.extendedaeplus.ECOExternalPatternNormalization.normalize(plan.patternTimes());
             } catch (RuntimeException invalidWrapper) {
-                AELog.warn("Cannot normalize imported crafting plan: %s", invalidWrapper.getMessage());
+                if (NEConfig.ecoCraftSubmissionDebug) AELog.warn("Cannot normalize imported crafting plan: %s", invalidWrapper.getMessage());
                 return CraftingSubmitResult.INCOMPLETE_PLAN;
             }
         }
@@ -148,8 +147,6 @@ final class ECOCraftingJobLifecycleController {
         ECOCraftingJobLifecycle.finish(host.cpu.getLevel(), finishingJob.link.getCraftingID(), success);
         if (success) {
             finishingJob.link.markDone();
-            ECOCraftingWorkerRecovery.releaseCompletedOutputs(
-                    host.cpu.getGrid(), finishingJob.link.getCraftingID());
         } else {
             finishingJob.link.cancel();
         }
@@ -179,16 +176,11 @@ final class ECOCraftingJobLifecycleController {
         if (current == null) {
             return;
         }
-        UUID craftingJobId = current.link.getCraftingID();
         if (host.bigOrder.progress() != null) {
             host.bigOrder.cancel();
-            ECOCraftingJobLifecycle.finish(host.cpu.getLevel(), craftingJobId, false);
-            ECOCraftingWorkerRecovery.recoverTerminatedInputs(host.cpu.getLevel(), craftingJobId);
-            finish(false);
-        } else {
-            finish(false);
-            ECOCraftingWorkerRecovery.recoverTerminatedInputs(host.cpu.getLevel(), craftingJobId);
+            ECOCraftingJobLifecycle.finish(host.cpu.getLevel(), current.link.getCraftingID(), false);
         }
+        finish(false);
     }
 
     void initializeJobAttachments() {
