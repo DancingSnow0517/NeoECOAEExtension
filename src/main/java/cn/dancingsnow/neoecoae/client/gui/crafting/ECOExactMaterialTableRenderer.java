@@ -43,6 +43,7 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
         private Set<ResourceLocation> fuzzyItems = Set.of();
         private boolean materialDetails;
         private boolean completeByteEstimate;
+        private boolean missingInputs;
 
         void update(CraftingGraphSnapshot snapshot, List<ECOCycleItemList.Entry> cycles) {
             // Network diagnostics replace both DTOs. Never hash/compare their full contents in a frame.
@@ -79,6 +80,8 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
             sorted = sortMaterials(snapshot.nodes(), missingSeeds::contains);
             missing = sorted.stream().filter(node -> node.missingBigInteger().signum() > 0)
                 .map(CraftingGraphSnapshot.MaterialNode::key).toList();
+            missingInputs = sorted.stream().anyMatch(node -> node.nodeId() != snapshot.rootNodeId()
+                && node.missingBigInteger().signum() > 0);
             materialDetails = snapshot.hasMaterialDetails();
             completeByteEstimate = snapshot.hasCompleteByteEstimate();
         }
@@ -93,6 +96,7 @@ final class ECOExactMaterialTableRenderer extends AbstractTableRenderer<Crafting
         boolean containsComponent(int componentId) { return componentIds.contains(componentId); }
         boolean isFuzzyItem(ResourceLocation itemId) { return fuzzyItems.contains(itemId); }
         boolean hasMaterialDetails() { return materialDetails; }
+        boolean hasMissingInputs() { return missingInputs; }
         boolean hasCompleteByteEstimate() { return completeByteEstimate; }
     }
 

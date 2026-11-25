@@ -66,6 +66,14 @@ public final class ComponentPlanner {
                 && components.stream().allMatch(component -> component.status() == ComponentPlanningResult.Status.PLANNED
                     || component.status() == ComponentPlanningResult.Status.NOT_REQUIRED);
         }
+
+        public boolean hasMaterialReport() {
+            if (state.missingAmounts().isEmpty()) return false;
+            return status == PlanningStatus.MISSING_ITEMS || status == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE
+                || (status == PlanningStatus.PARTIAL || status == PlanningStatus.CYCLE_UNRESOLVED)
+                    && components.stream().anyMatch(component -> component.externalDemandStatus()
+                        == CycleExternalDemandStatus.UNSUPPORTED && !component.externalMissingItems().isEmpty());
+        }
     }
 
     @FunctionalInterface
@@ -861,10 +869,7 @@ public final class ComponentPlanner {
         boolean executable = offerCandidate(preferred, listener);
         // The full preferred walk owns the material table even when it cannot execute. Speculative route
         // probes below may stop at their first failure and must never be offered as complete shortage reports.
-        if (!preferred.completeCandidate() && improvePublishedRoute && listener != null
-                && !preferred.state().missingAmounts().isEmpty()
-                && (preferred.status() == PlanningStatus.MISSING_ITEMS
-                    || preferred.status() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE)) {
+        if (!preferred.completeCandidate() && improvePublishedRoute && listener != null && preferred.hasMaterialReport()) {
             listener.accept(preferred);
         }
         // No optional work is needed when there is no competing producer route.

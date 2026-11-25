@@ -103,6 +103,7 @@
   "gui.neoecoae.crafting_report.quantity_unknown": "数量未确定",
   "gui.neoecoae.crafting_report.planning_failed": "规划未完成（悬停 CPU 按钮查看原因）",
   "gui.neoecoae.crafting_report.search_incomplete": "路线搜索未完成，已保留已算出的材料",
+  "gui.neoecoae.crafting_report.partial_shortage": "已列出已算出的缺料，其他路线尚未验证",
   "gui.neoecoae.crafting_report.exact_incomplete": "执行方案未完成，请悬停 CPU 查看原因",
   "gui.neoecoae.crafting_report.supply_insufficient": "已确认可用供应不足以完成整单",
   "gui.neoecoae.crafting_report.optimizing": "后台优化",

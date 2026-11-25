@@ -136,15 +136,13 @@ public final class ECOCraftingPlannerService {
                                         candidateCancellation.checkpoint();
                                         if (!ready.executable()) {
                                             if (onReady != null && accepted[0] == null && !reportedMissing[0]
-                                                    && !ready.exactMissingItems().isEmpty()
-                                                    && (ready.status() == PlanningStatus.MISSING_ITEMS
-                                                        || ready.status() == PlanningStatus.PLANNED_BUT_AMOUNT_UNREPRESENTABLE)) {
+                                                     && candidate.hasMaterialReport()) {
                                                 callerCancellation.checkpoint();
                                                 attach(ready);
                                                 reportedMissing[0] = true;
                                                 onReady.accept(ready);
                                                 ECOPlanningStageLogger.finish("first_material_report", startedNanos, true,
-                                                    "MISSING_ITEMS; alternative routes remain unproven");
+                                                     ready.status() + ": alternative routes remain unproven");
                                             }
                                             return false;
                                         }

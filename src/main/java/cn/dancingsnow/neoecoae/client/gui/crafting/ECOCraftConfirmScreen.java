@@ -189,12 +189,17 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
                 .withStyle(neColor -> neColor.withColor(AE2_TEXT_DARK));
         }
 
+        boolean partialShortage = (Object) menu instanceof ECOCraftConfirmMenuMode mode
+            && (mode.neoecoae$getPlanningStatus() == PlanningStatus.CYCLE_UNRESOLVED
+                || mode.neoecoae$getPlanningStatus() == PlanningStatus.PARTIAL)
+            && !mode.neoecoae$provenInfeasible() && materialData.hasMissingInputs();
         if ((Object) menu instanceof ECOCraftConfirmMenuMode mode
-                && mode.neoecoae$getPlanningStatus() == PlanningStatus.CYCLE_UNRESOLVED) {
+                && (mode.neoecoae$getPlanningStatus() == PlanningStatus.CYCLE_UNRESOLVED || partialShortage)) {
             boolean retainedMaterials = materialData.hasMaterialDetails();
             boolean seedEstimate = materialData.hasEstimatedStartupSeed();
             cpuDetails = Component.translatable(seedEstimate
-                    ? "gui.neoecoae.crafting_report.seed_requirement_unknown" : retainedMaterials
+                    ? "gui.neoecoae.crafting_report.seed_requirement_unknown" : partialShortage
+                    ? "gui.neoecoae.crafting_report.partial_shortage" : retainedMaterials
                     ? "gui.neoecoae.crafting_report.search_incomplete"
                     : "gui.neoecoae.crafting_report.planning_failed")
                 .withStyle(neColor -> neColor.withColor(0x604100));
@@ -229,7 +234,7 @@ public final class ECOCraftConfirmScreen extends AEBaseScreen<CraftConfirmMenu> 
         setTextContent(TEXT_ID_DIALOG_TITLE, Component.empty());
         setTextContent("complex_tree_hint", (Object) menu instanceof ECOCraftConfirmMenuMode mode
                 && mode.neoecoae$getPlanningStatus() == PlanningStatus.CYCLE_UNRESOLVED
-                && !mode.neoecoae$provenInfeasible()
+                && !mode.neoecoae$provenInfeasible() && !partialShortage
             ? Component.translatable(materialData.hasEstimatedStartupSeed()
                     ? "gui.neoecoae.crafting_report.seed_requirement_unknown"
                     : "gui.neoecoae.crafting_report.complex_tree_hint").withStyle(neColor -> neColor.withColor(0xFFCC66))

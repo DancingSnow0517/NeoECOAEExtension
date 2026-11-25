@@ -265,11 +265,17 @@ final class ExternalDemandPlanner {
         if (solved.status() == PlanningStatus.AMOUNT_OVERFLOW) {
             return failure(CycleExternalDemandStatus.OVERFLOW, Map.of(), "External DAG arithmetic overflow");
         }
-        return failure(CycleExternalDemandStatus.UNSUPPORTED, Map.of(),
-            "External demands=" + demands + " status=" + solved.status()
-                + ": " + solved.trace().diagnostics().stream()
-                    .map(diagnostic -> diagnostic.code() + ": " + diagnostic.message())
-                    .collect(java.util.stream.Collectors.joining("; ")));
+        String diagnostic = "External demands=" + demands + " status=" + solved.status()
+            + ": " + solved.trace().diagnostics().stream()
+                .map(entry -> entry.code() + ": " + entry.message())
+                .collect(java.util.stream.Collectors.joining("; "));
+        SolveState preview = solved.missingRoutePreview();
+        if (preview != null && !preview.missingAmounts().isEmpty()) {
+            return new Outcome(CycleExternalDemandStatus.UNSUPPORTED, Map.of(), List.of(preview),
+                Map.copyOf(preview.missingAmounts()), Set.of(), Map.of(),
+                "Retained external route shortage; " + diagnostic);
+        }
+        return failure(CycleExternalDemandStatus.UNSUPPORTED, Map.of(), diagnostic);
     }
 
     private FilteredRoute filteredRoute(CompiledNetwork network, Set<AEKey> forbiddenMembers,

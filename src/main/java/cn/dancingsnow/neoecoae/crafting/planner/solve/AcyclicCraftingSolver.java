@@ -28,15 +28,17 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jetbrains.annotations.Nullable;
 
 public final class AcyclicCraftingSolver {
     public record Outcome(PlanningStatus status, SolveState state, ECOPlanTrace trace,
-            Map<AEKey, Integer> cyclicRouteChoices) {
+            Map<AEKey, Integer> cyclicRouteChoices, @Nullable SolveState missingRoutePreview) {
         public Outcome(PlanningStatus status, SolveState state, ECOPlanTrace trace) {
             this(status, state, trace, Map.of());
         }
-        public Outcome {
-
+        public Outcome(PlanningStatus status, SolveState state, ECOPlanTrace trace,
+                Map<AEKey, Integer> cyclicRouteChoices) {
+            this(status, state, trace, cyclicRouteChoices, null);
         }
     }
     private final CandidateResolver candidates = new CandidateResolver();
@@ -293,7 +295,7 @@ public final class AcyclicCraftingSolver {
                     retryCheck = new ActiveRouteSelector.RetryCheck(universe, deferredPatterns, metrics, cancellation);
                 }
                 if (retryCheck.requiresCycle(choices, cancellation)) {
-                    return cyclicRouteOutcome(network, inventory, choices, trace);
+                    return cyclicRouteOutcome(network, inventory, choices, trace, missingRoute);
                 }
             }
             List<AEKey> currentRoute = selectedRoute(
@@ -305,13 +307,13 @@ public final class AcyclicCraftingSolver {
                     workspace, goals, additionalGoal,
                     deferredPatterns, Set.of(), ignorePatternSubstitutions, cancellation, metrics);
             if (state == null) {
-                return cyclicRouteOutcome(network, inventory, choices, trace);
+                return cyclicRouteOutcome(network, inventory, choices, trace, missingRoute);
             }
             if (state.missing.isEmpty() && state.unsupported.isEmpty()) {
                 // Joint credit proves quantities, not startup. An actual supplier-to-consumer
                 // cycle must be reclassified for seed solving before publishing DAG success.
                 if (state.executionProvenance().hasPatternCycle(state.patternTimes.keySet(), cancellation)) {
-                    return cyclicRouteOutcome(network, inventory, choices, trace);
+                    return cyclicRouteOutcome(network, inventory, choices, trace, missingRoute);
                 }
                 addTrace(network, state, amount, trace);
                 if (addExecutionRepresentabilityDiagnostics(state, trace)) {
@@ -361,16 +363,16 @@ public final class AcyclicCraftingSolver {
                 "Candidate failed downstream; rolled back attempt " + (attempt + 1)));
         }
         trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.NATIVE_FALLBACK, "Candidate retry budget exhausted"));
-        return new Outcome(PlanningStatus.PARTIAL_UNSUPPORTED, state, trace);
+        return new Outcome(PlanningStatus.PARTIAL_UNSUPPORTED, state, trace, Map.of(), missingRoute);
     }
 
     private static Outcome cyclicRouteOutcome(CompiledNetwork network, PlannerInventorySnapshot inventory,
-            Map<AEKey, Integer> choices, ECOPlanTrace trace) {
+            Map<AEKey, Integer> choices, ECOPlanTrace trace, @Nullable SolveState missingRoutePreview) {
         SolveState state = new SolveState(inventory);
         state.unsupported.add(network.goal());
         trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.CANDIDATE_DEFERRED_CYCLE,
             "Selected alternate producer route requires cycle component planning"));
-        return new Outcome(PlanningStatus.PARTIAL_UNSUPPORTED, state, trace, choices);
+        return new Outcome(PlanningStatus.PARTIAL_UNSUPPORTED, state, trace, choices, missingRoutePreview);
     }
 
     /**

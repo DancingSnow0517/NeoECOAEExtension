@@ -863,6 +863,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting_report.bookmark_missing", "Save Missing");
         provider.add("gui.neoecoae.crafting_report.complex_tree_hint", "Check the patterns in this complex crafting tree");
         provider.add("gui.neoecoae.crafting_report.search_incomplete", "Route search incomplete; calculated materials are retained");
+        provider.add("gui.neoecoae.crafting_report.partial_shortage", "Known shortages shown; other routes remain unverified");
         provider.add("gui.neoecoae.crafting_report.cycle_unsupported", "A cyclic recipe cannot be handled by the current solver.");
         provider.add("gui.neoecoae.crafting_report.total_consumed", "Used: %s");
         provider.add("gui.neoecoae.crafting_report.total_produced", "Output: %s");
