@@ -31,7 +31,9 @@ public final class ECOInfiniteStorageMember {
 
     static boolean isSealedData(CompoundTag data) {
         CompoundTag tag = readTag(data);
-        return tag.hasUUID(MIGRATION_TAG) || tag.getBoolean(MEMBER_TAG);
+        return tag.contains(MIGRATION_TAG) || tag.contains(MIGRATION_DOMAIN_TAG)
+            || tag.getBoolean(MEMBER_TAG) || tag.contains(DOMAIN_TAG)
+            || tag.contains("neoecoae_restore_receipts") || tag.contains(MEMBER_TAG) && !tag.contains(MEMBER_TAG, net.minecraft.nbt.Tag.TAG_BYTE);
     }
 
     /**
@@ -40,6 +42,30 @@ public final class ECOInfiniteStorageMember {
     @SuppressWarnings("deprecation")
     private static CompoundTag readTag(CompoundTag data) {
         return data;
+    }
+
+    public static boolean hasMalformedEvidence(@Nullable ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return false;
+        CompoundTag tag = NEItemData.read(stack);
+        if (tag.contains(MIGRATION_TAG) != tag.contains(MIGRATION_DOMAIN_TAG)
+            || tag.contains(MIGRATION_TAG) && (!tag.hasUUID(MIGRATION_TAG) || !tag.hasUUID(MIGRATION_DOMAIN_TAG))
+            || tag.contains(DOMAIN_TAG) && (!tag.getBoolean(MEMBER_TAG) || !tag.hasUUID(DOMAIN_TAG))
+            || tag.contains(MEMBER_TAG) && !tag.contains(MEMBER_TAG, net.minecraft.nbt.Tag.TAG_BYTE)
+            || tag.contains(IDENTITY_TAG) && !tag.hasUUID(IDENTITY_TAG)) return true;
+        if (!tag.contains("neoecoae_restore_receipts")) return false;
+        if (!tag.hasUUID(DOMAIN_TAG) && !tag.hasUUID(MIGRATION_DOMAIN_TAG)) return true;
+        if (!tag.contains("neoecoae_restore_receipts", net.minecraft.nbt.Tag.TAG_COMPOUND)) return true;
+        try {
+            CompoundTag receipts = tag.getCompound("neoecoae_restore_receipts");
+            for (String key : receipts.getAllKeys()) {
+                UUID.fromString(key);
+                if (receipts.contains(key, net.minecraft.nbt.Tag.TAG_LONG)) {
+                    if (receipts.getLong(key) <= 0) return true;
+                } else if (!receipts.contains(key, net.minecraft.nbt.Tag.TAG_COMPOUND)
+                    || HugeAmount.read(receipts.getCompound(key)).isZero()) return true;
+            }
+            return false;
+        } catch (RuntimeException malformed) { return true; }
     }
 
     public static UUID identity(ItemStack stack) {

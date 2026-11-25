@@ -20,6 +20,7 @@ import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
 import cn.dancingsnow.neoecoae.api.PatternStorageHost;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
@@ -44,6 +45,8 @@ import java.util.UUID;
 import java.util.Comparator;
 import java.util.ArrayDeque;
 import java.util.Locale;
+import java.util.LinkedHashSet;
+import java.util.TreeMap;
 
 /**
  * Grid-owned source of truth for ECO and external pattern locations, key counts and free capacity.
@@ -103,8 +106,18 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
      * changing hands and fall back to a full re-derivation.</p>
      */
     private final Map<PatternStorageHost, BitSet> busAuxiliarySlots = new IdentityHashMap<>();
+    private final Map<PatternStorageHost, BitSet> occupiedHostSlots = new IdentityHashMap<>();
+    private final Map<PatternStorageHost, Integer> indexedSlotCounts = new IdentityHashMap<>();
+    private final Set<PatternStorageHost> untrackedHosts = new LinkedHashSet<>();
+    private final Set<cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity> bulkHosts = new LinkedHashSet<>();
+    private final Set<cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity> dirtyBulkHosts = new LinkedHashSet<>();
+    private long bulkCompressionRevision = -1;
+    private record WritableHostKey(long position, long sequence) {}
+    private final Map<PatternStorageHost, WritableHostKey> writableHostKeys = new IdentityHashMap<>();
+    private final TreeMap<WritableHostKey, IECOPatternStorage> writableHosts = new TreeMap<>(
+        Comparator.comparingLong(WritableHostKey::position).thenComparingLong(WritableHostKey::sequence));
     private List<IECOPatternStorage> writablePatternStorages = List.of();
-    private boolean writablePatternStorageCacheInitialized;
+    private long writableHostSequence;
     private long patternCapacityGeneration;
     @Nullable
     private IECOPatternStorage preferredStorage;
@@ -140,24 +153,36 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
     @Override
     public void addNode(IGridNode gridNode, @Nullable CompoundTag savedData) {
         IGridServiceProvider.super.addNode(gridNode, savedData);
+        if (gridNode.getOwner() instanceof cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity host) {
+            bulkHosts.add(host); dirtyBulkHosts.add(host);
+        }
         invalidateExternalPatternIndex();
         IECOPatternStorage service = gridNode.getService(IECOPatternStorage.class);
         if (service == null) return;
         patternStorages.put(gridNode, service);
-        refreshPatternIndexes();
+        if (service instanceof PatternStorageHost host) {
+            if (host.getClass() != ECOCraftingPatternBusBlockEntity.class) untrackedHosts.add(host);
+            rebuildBusPatternIndex(host);
+            updateWritableHost(host);
+        }
     }
 
     @Override
     public void removeNode(IGridNode gridNode) {
         IGridServiceProvider.super.removeNode(gridNode);
+        if (gridNode.getOwner() instanceof cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity host) {
+            bulkHosts.remove(host); dirtyBulkHosts.remove(host);
+        }
         IECOPatternStorage removed = patternStorages.remove(gridNode);
         if (removed == preferredStorage) {
             preferredStorage = null;
         }
         if (removed instanceof PatternStorageHost host) {
+            untrackedHosts.remove(host);
             removeBusPatternIndex(host);
+            var key = writableHostKeys.remove(host);
+            if (key != null && writableHosts.remove(key) != null) writableMembershipChanged();
         }
-        rebuildWritablePatternStorageCache();
         invalidateExternalPatternIndex();
     }
 
@@ -198,9 +223,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             return ECOPatternInsertion.of(ECOPatternInsertionResult.INCOMPATIBLE);
         }
         ItemStack patternItem = prepared.stack();
-        if (!writablePatternStorageCacheInitialized) {
-            refreshPatternIndexes();
-        }
+        refreshPatternIndexes();
         AEItemKey patternKey = ECOKeyFactory.item(patternItem);
         if (patternKey != null && containsPatternInDomain(domain, patternKey)) {
             return ECOPatternInsertion.of(ECOPatternInsertionResult.ALREADY_PRESENT);
@@ -290,7 +313,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                                                                @Nullable ECOPreparedPattern prepared,
                                                                boolean requireHeldPatterns,
                                                                @Nullable Object domain) {
-        for (IECOPatternStorage value : writablePatternStorages) {
+        for (IECOPatternStorage value : writablePatternStorages()) {
             if (!matchesStorageDomain(value, domain)) {
                 continue;
             }
@@ -364,9 +387,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
             return ECOPatternInsertionResult.INCOMPATIBLE;
         }
 
-        if (!writablePatternStorageCacheInitialized) {
-            refreshPatternIndexes();
-        }
+        refreshPatternIndexes();
         AEItemKey patternKey = ECOKeyFactory.item(patternItem);
         if (patternKey != null && containsPatternInDomain(domain, patternKey)) {
             return ECOPatternInsertionResult.ALREADY_PRESENT;
@@ -408,7 +429,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         // arbitrary IECOPatternStorage implementations when all buses are full: those services
         // may be backed by a storage drive or another item inventory and must never receive an
         // encoded pattern as a side effect of organizing patterns.
-        for (IECOPatternStorage value : writablePatternStorages) {
+        for (IECOPatternStorage value : writablePatternStorages()) {
             if (value == preferredStorage) {
                 continue;
             }
@@ -808,6 +829,7 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
 
     @Override
     public void onServerEndTick() {
+        flushBulkPublications();
         externalPatternTick++;
         if (!externalPatternClaimTicks.isEmpty()) {
             List<UUID> expired = new ArrayList<>();
@@ -820,7 +842,6 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                 releaseExternalPatternCandidates(owner);
             }
         }
-        refreshPatternIndexes();
         if (externalPatternIndexBuilding) {
             scanExternalPatternIndex();
         } else if (!externalPatternIndexDirty && ++externalPatternIndexAge >= EXTERNAL_PATTERN_INDEX_MAX_AGE_TICKS) {
@@ -1022,83 +1043,72 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                 externalPatternScanBudgetHits, externalPatternScanNanos);
     }
 
+    public void enqueueBulkPublication(cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity host) {
+        if (bulkHosts.contains(host)) dirtyBulkHosts.add(host);
+    }
+
+    public void flushBulkPublications() {
+        var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        if (server == null || !server.isSameThread()) return;
+        long revision = cn.dancingsnow.neoecoae.storage.bulk.ECOCompressionService.revision();
+        if (bulkCompressionRevision != revision) {
+            bulkCompressionRevision = revision;
+            dirtyBulkHosts.addAll(bulkHosts);
+        }
+        if (dirtyBulkHosts.isEmpty()) return;
+        var current = List.copyOf(dirtyBulkHosts);
+        dirtyBulkHosts.clear();
+        for (var host : current) host.refreshBulkCraftingPublication();
+    }
+
     private void refreshPatternIndexes() {
-        Set<PatternStorageHost> current =
-                Collections.newSetFromMap(new IdentityHashMap<>());
-        boolean changed = false;
-        for (IECOPatternStorage storage : patternStorages.values()) {
-            if (!(storage instanceof PatternStorageHost bus)) {
-                continue;
-            }
-            current.add(bus);
-            if (!busPatternRevisions.containsKey(bus)
-                    || busPatternRevisions.getInt(bus) != bus.getPatternContentRevision()) {
-                rebuildBusPatternIndex(bus);
-                bus.refreshAdvertisedPatterns();
-                changed = true;
-                continue;
-            }
-            // A disk rewriting its contents leaves the slot layout untouched, so the slot revision above
-            // does not move. Re-derive just the auxiliary side, or the network keeps counting patterns
-            // that are gone and keeps missing ones that arrived.
-            if (!busAuxiliaryRevisions.containsKey(bus)
-                    || busAuxiliaryRevisions.getLong(bus) != bus.getAuxiliaryRevision()) {
-                dropAuxiliaryCounts(bus);
-                indexAuxiliaryPatterns(bus);
-                // The disk changed without moving the slot layout, so nothing told AE2 to re-read this
-                // provider. Without the nudge its crafting service keeps dispatching the old list until an
-                // unrelated grid change forces a rescan.
-                bus.refreshAdvertisedPatterns();
-                changed = true;
+        for (PatternStorageHost host : untrackedHosts) {
+            if (busPatternRevisions.getInt(host) != host.getPatternContentRevision()) {
+                rebuildBusPatternIndex(host);
+                host.refreshAdvertisedPatterns();
+                updateWritableHost(host);
+            } else if (refreshAuxiliaryIndex(host)) {
+                host.refreshAdvertisedPatterns();
+                updateWritableHost(host);
             }
         }
-        if (!busPatternRevisions.isEmpty()) {
-            List<PatternStorageHost> stale = new ArrayList<>();
-            for (PatternStorageHost bus : busPatternRevisions.keySet()) {
-                if (!current.contains(bus)) {
-                    stale.add(bus);
-                }
-            }
-            for (PatternStorageHost bus : stale) {
-                removeBusPatternIndex(bus);
-                changed = true;
-            }
-        }
-        if (changed || !writablePatternStorageCacheInitialized) {
-            rebuildWritablePatternStorageCache();
+    }
+
+    private boolean refreshAuxiliaryIndex(PatternStorageHost host) {
+        if (busAuxiliaryRevisions.getLong(host) == host.getAuxiliaryRevision()) return false;
+        dropAuxiliaryCounts(host);
+        indexAuxiliaryPatterns(host);
+        return true;
+    }
+
+    public void onHostAuxiliaryChanged(PatternStorageHost host) {
+        if (busPatternRevisions.containsKey(host) && refreshAuxiliaryIndex(host)) {
+            busPatternRevisions.put(host, host.getPatternContentRevision());
+            updateWritableHost(host);
         }
     }
 
     @Override
-    public void onPatternSlotsChanged(ECOCraftingPatternBusBlockEntity bus,
-                                      int previousRevision,
-                                      int[] changedSlots) {
-        boolean indexed = busPatternRevisions.containsKey(bus);
-        int indexedRevision = busPatternRevisions.getInt(bus);
-        var inventory = bus.getPatternSlotInventory();
-        boolean unknownRange = Arrays.stream(changedSlots)
-                .anyMatch(slot -> slot < 0 || slot >= inventory.size());
-        if (!indexed || indexedRevision != previousRevision || unknownRange) {
-            rebuildBusPatternIndex(bus);
-            rebuildWritablePatternStorageCache();
+    public void onPatternSlotsChanged(ECOCraftingPatternBusBlockEntity bus, int previousRevision, int[] changedSlots) {
+        onHostPatternSlotsChanged(bus, previousRevision, changedSlots);
+    }
+
+    public void onHostPatternSlotsChanged(PatternStorageHost host, int previousRevision, int[] changedSlots) {
+        if (!busPatternRevisions.containsKey(host)) return;
+        var inventory = host.getPatternSlotInventory();
+        int slotCount = inventory.size();
+        if (busPatternRevisions.getInt(host) != previousRevision || indexedSlotCounts.get(host) != slotCount
+                || Arrays.stream(changedSlots).anyMatch(slot -> slot < 0 || slot >= slotCount)) {
+            rebuildBusPatternIndex(host);
+            updateWritableHost(host);
             return;
         }
-        // A slot that held, or now holds, an auxiliary container voids the "no record = was empty"
-        // shortcut below, because disks never get a record. Moving one is rare, so re-derive the bus
-        // instead of guessing the empty-slot delta: guessing clamps the count, and the bus silently
-        // drops out of the writable set while it still has free slots.
-        BitSet auxiliarySlots = busAuxiliarySlots.get(bus);
-        for (int slot : changedSlots) {
-            boolean holdsAuxiliary = slot >= 0 && slot < inventory.size()
-                    && bus.ownsAuxiliary(inventory.getStackInSlot(slot));
-            if ((auxiliarySlots != null && auxiliarySlots.get(slot)) || holdsAuxiliary) {
-                rebuildBusPatternIndex(bus);
-                rebuildWritablePatternStorageCache();
-                return;
-            }
-        }
-        Object2IntOpenHashMap<AEItemKey> busCounts = busPatternKeys.computeIfAbsent(bus, ignored -> new Object2IntOpenHashMap<>());
-        Int2ObjectMap<PatternRecord> records = busPatternRecords.computeIfAbsent(bus, ignored -> new Int2ObjectOpenHashMap<>());
+        var busCounts = busPatternKeys.get(host);
+        var records = busPatternRecords.get(host);
+        BitSet auxiliarySlots = busAuxiliarySlots.get(host);
+        int previousFirstDisk = auxiliarySlots.nextSetBit(0);
+        BitSet occupied = occupiedHostSlots.get(host);
+        boolean auxiliaryTouched = false;
         int emptyDelta = 0;
         for (int slot : changedSlots) {
             PatternRecord previous = records.remove(slot);
@@ -1107,32 +1117,31 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
                 decrementCount(busCounts, previous.key());
                 decrementCount(networkPatternCounts, previous.key());
             }
-            ItemStack current = slot >= 0 && slot < inventory.size()
-                    ? inventory.getStackInSlot(slot)
-                    : ItemStack.EMPTY;
-            if (!current.isEmpty() && !bus.ownsAuxiliary(current) && bus.shouldIndexPattern(current)) {
+            ItemStack current = inventory.getStackInSlot(slot);
+            boolean wasEmpty = !occupied.get(slot);
+            boolean isEmpty = current.isEmpty();
+            boolean isAuxiliary = !isEmpty && host.ownsAuxiliary(current);
+            auxiliaryTouched |= auxiliarySlots.get(slot) || isAuxiliary;
+            auxiliarySlots.set(slot, isAuxiliary);
+            occupied.set(slot, !isEmpty);
+            if (!isEmpty && !isAuxiliary && host.shouldIndexPattern(current)) {
                 AEItemKey key = ECOKeyFactory.item(current);
                 if (key != null) {
                     busCounts.addTo(key, 1);
                     networkPatternCounts.addTo(key, 1);
-                    PatternRecord record = createRecord(bus, slot, current);
+                    PatternRecord record = createRecord(host, slot, current);
                     records.put(slot, record);
                     addLocation(record);
                 }
             }
-            boolean wasEmpty = previous == null;
-            boolean isEmpty = current.isEmpty();
-            if (wasEmpty != isEmpty) {
-                emptyDelta += isEmpty ? 1 : -1;
-            }
+            if (wasEmpty != isEmpty) emptyDelta += isEmpty ? 1 : -1;
         }
-        busPatternRevisions.put(bus, bus.getPatternContentRevision());
-        int previousEmpty = busEmptySlotCounts.getInt(bus);
-        int nextEmpty = Math.max(0, previousEmpty + emptyDelta);
-        busEmptySlotCounts.put(bus, nextEmpty);
-        if ((previousEmpty == 0) != (nextEmpty == 0)) {
-            rebuildWritablePatternStorageCache();
+        busPatternRevisions.put(host, host.getPatternContentRevision());
+        if (auxiliaryTouched) {
+            refreshAuxiliaryIndex(host);
         }
+        if (emptyDelta != 0) busEmptySlotCounts.addTo(host, emptyDelta);
+        if (auxiliaryTouched || emptyDelta != 0) updateWritableHost(host);
     }
 
     private static void decrementCount(Object2IntOpenHashMap<AEItemKey> target, AEItemKey key) {
@@ -1145,13 +1154,16 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         Int2ObjectMap<PatternRecord> records = new Int2ObjectOpenHashMap<>();
         int emptySlots = 0;
         BitSet auxiliarySlots = new BitSet();
+        BitSet occupied = new BitSet();
         var inventory = bus.getPatternSlotInventory();
-        for (int slot = 0; slot < inventory.size(); slot++) {
+        int slotCount = inventory.size();
+        for (int slot = 0; slot < slotCount; slot++) {
             ItemStack stack = inventory.getStackInSlot(slot);
             if (stack.isEmpty()) {
                 emptySlots++;
                 continue;
             }
+            occupied.set(slot);
             // A container the auxiliary store serves from is not itself a pattern; its contents reach
             // networkPatternCounts through indexAuxiliaryPatterns instead. The slot is still remembered,
             // because the per-slot delta reads "no record" as "was empty".
@@ -1176,6 +1188,8 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         busPatternRevisions.put(bus, bus.getPatternContentRevision());
         busEmptySlotCounts.put(bus, emptySlots);
         busAuxiliarySlots.put(bus, auxiliarySlots);
+        occupiedHostSlots.put(bus, occupied);
+        indexedSlotCounts.put(bus, slotCount);
         indexAuxiliaryPatterns(bus);
     }
 
@@ -1223,6 +1237,8 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         dropAuxiliaryCounts(bus);
         busAuxiliaryRevisions.removeLong(bus);
         busAuxiliarySlots.remove(bus);
+        occupiedHostSlots.remove(bus);
+        indexedSlotCounts.remove(bus);
         busPatternRevisions.removeInt(bus);
         busEmptySlotCounts.removeInt(bus);
     }
@@ -1258,52 +1274,33 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         externalPatternRecords.clear();
     }
 
-    private void rebuildWritablePatternStorageCache() {
-        List<IECOPatternStorage> next = new ArrayList<>();
-        for (IECOPatternStorage storage : patternStorages.values()) {
-            if (storage instanceof PatternStorageHost bus) {
-                // An auxiliary store keeps the bus writable even with every slot occupied: a bus full of
-                // pattern disks is exactly the case where slot capacity says nothing about room.
-                if (busEmptySlotCounts.getInt(bus) > 0 || bus.hasAuxiliaryRoom()) {
-                    next.add(storage);
-                }
-            }
-        }
-        // Ordered by position, because this list decides which bus takes a pattern and the map behind it is an
-        // identity map whose order is neither stable nor meaningful. Without this, which disk a pattern lands
-        // on could differ between runs of the same world.
-        next.sort(Comparator.comparingLong(storage -> ((PatternStorageHost) storage)
-                .getBlockPos()
-                .asLong()));
-        if (!sameStorageList(writablePatternStorages, next)) {
-            writablePatternStorages = next;
-            patternCapacityGeneration = patternCapacityGeneration == Long.MAX_VALUE
-                    ? 1L
-                    : patternCapacityGeneration + 1L;
-            if (preferredStorage != null && !writablePatternStorages.contains(preferredStorage)) {
-                preferredStorage = null;
-            }
-        }
-        writablePatternStorageCacheInitialized = true;
+    private List<IECOPatternStorage> writablePatternStorages() {
+        if (writablePatternStorages == null) writablePatternStorages = List.copyOf(writableHosts.values());
+        return writablePatternStorages;
     }
 
-    private static boolean sameStorageList(List<IECOPatternStorage> first, List<IECOPatternStorage> second) {
-        if (first.size() != second.size()) {
-            return false;
+    private void updateWritableHost(PatternStorageHost host) {
+        if (!(host instanceof IECOPatternStorage storage)) return;
+        var key = writableHostKeys.computeIfAbsent(host,
+            entry -> new WritableHostKey(entry.getBlockPos().asLong(), writableHostSequence++));
+        if (busEmptySlotCounts.getInt(host) > 0 || host.hasAuxiliaryRoom()) {
+            if (writableHosts.put(key, storage) == null) writableMembershipChanged();
+        } else if (writableHosts.remove(key) != null) {
+            if (preferredStorage == host) preferredStorage = null;
+            writableMembershipChanged();
         }
-        for (int index = 0; index < first.size(); index++) {
-            if (first.get(index) != second.get(index)) {
-                return false;
-            }
-        }
-        return true;
+    }
+
+    private void writableMembershipChanged() {
+        writablePatternStorages = null;
+        patternCapacityGeneration = patternCapacityGeneration == Long.MAX_VALUE ? 1L : patternCapacityGeneration + 1L;
     }
 
     private void markStorageFull(IECOPatternStorage storage) {
         if (storage instanceof PatternStorageHost bus) {
             if (busEmptySlotCounts.getInt(bus) > 0) {
                 busEmptySlotCounts.put(bus, 0);
-                rebuildWritablePatternStorageCache();
+                updateWritableHost(bus);
             }
         }
     }

@@ -36,6 +36,31 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
     public boolean flush() { return data.flush(); }
 
     public UUID ownerToken() { return data.ownerToken(); }
+    public boolean noteLegacyRoster(Set<UUID> sources, boolean malformed) { return data.noteLegacyRoster(sources, malformed); }
+    public Set<UUID> legacyMigrationSources() { return data.legacyMigrationSources(); }
+    public boolean legacyRosterMalformed() { return data.legacyRosterMalformed(); }
+    public boolean legacySourceSettled(UUID source) { return data.legacySourceSettled(source); }
+    public Set<AEKey> legacyRestoreKeys() { return data.legacyRestoreKeys(); }
+    public Set<AEKey> legacyLedgerKeys() {
+        Set<AEKey> keys = new java.util.HashSet<>();
+        data.amounts.forEach((key, amount) -> keys.add(key));
+        return keys;
+    }
+    public boolean legacyMemberSettled(UUID id) { return data.legacyMemberSettled(id); }
+    public boolean settleLegacy(Set<UUID> sources, Set<AEKey> restored, Map<AEKey, BigInteger> overlaps, Set<UUID> members) {
+        if (!pendingTransfers.isEmpty()) return false;
+        boolean settled = data.settleLegacy(sources, restored, overlaps, members);
+        typeStats.clear();
+        lastStats = null;
+        lastType = null;
+        data.amounts.forEach((key, amount) -> {
+            MutableTypeStats stats = typeStats.computeIfAbsent(key.getType(), ignored -> new MutableTypeStats());
+            stats.types++;
+            stats.total.add(amount);
+        });
+        statisticsDirty = true;
+        return settled;
+    }
 
     public boolean persistOwnerToken(UUID token) {
         UUID previous = data.ownerToken();

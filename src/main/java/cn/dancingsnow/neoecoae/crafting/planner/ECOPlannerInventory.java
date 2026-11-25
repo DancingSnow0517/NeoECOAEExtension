@@ -21,6 +21,8 @@ public final class ECOPlannerInventory {
     private ECOPlannerInventory() {}
 
     public static PlannerInventorySnapshot capture(IGrid grid) {
+        if (grid.getService(cn.dancingsnow.neoecoae.api.IECOPatternStorageService.class) instanceof cn.dancingsnow.neoecoae.grid.PatternCatalog catalog)
+            catalog.flushBulkPublications();
         var storage = cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot.resolve(
             grid.getStorageService().getInventory());
         var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
@@ -44,7 +46,7 @@ public final class ECOPlannerInventory {
      */
     public static Set<AEKey> collectUnboundedKeys(IGrid grid) {
         Set<AEKey> unbounded = new HashSet<>();
-        for (var drive : grid.getMachines(ECODriveBlockEntity.class)) {
+        for (var drive : NEMachineLookup.getMachines(grid, ECODriveBlockEntity.class)) {
             if (!drive.isMounted() || !drive.isOnline()) continue;
             var cell = drive.getCellInventory();
             if (cell instanceof ECOCreativeCell creative) unbounded.addAll(creative.configuredKeys());

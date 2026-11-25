@@ -4,10 +4,10 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
-        provider.add("command.neoecoae.storage_recover.invalid_host", "Right-click a formed host in infinite mode with its infinite components installed and no migration or restore in progress.");
+        provider.add("command.neoecoae.storage_recover.invalid_host", "Right-click a formed L9 storage host.");
         provider.add("command.neoecoae.storage_recover.invalid_members", "Recovery refused: member matrices are missing, invalid, duplicated, foreign, or still migrating.");
         provider.add("command.neoecoae.storage_recover.not_enough_matrices", "Recovery requires %s eligible matrices. Found %s.");
-        provider.add("command.neoecoae.storage_recover.mounted", "Recovery refused: the domain still has an owner. Use its original controller or explicitly force recovery.");
+        provider.add("command.neoecoae.storage_recover.mounted", "Recovery refused: the domain is claimed by another loaded host.");
         provider.add("command.neoecoae.storage_recover.migrating", "Recovery refused: the host or an inserted matrix is still migrating.");
         provider.add("command.neoecoae.storage_recover.previous_not_empty", "Recovery refused: the current domain %s is not empty.");
         provider.add("command.neoecoae.storage_recover.restore_blocked", "Recovery refused: a pending restore has failed or has no exact saved plan. Reconcile it before taking over.");
@@ -17,12 +17,12 @@ public class NELangGenerator {
         provider.add("command.neoecoae.storage_recover.revoked", "This host lost its binding to domain %s after a forced recovery.");
         provider.add("command.neoecoae.storage_recover.not_found", "No saved infinite storage domain exists for UUID %s.");
         provider.add("command.neoecoae.storage_recover.occupied", "Recovery refused: the host must have a healthy domain with no pending transfers. To switch UUIDs, empty the current domain first.");
-        provider.add("command.neoecoae.storage_recover.select_host", "Right-click a formed host that is already in infinite mode.");
+        provider.add("command.neoecoae.storage_recover.select_host", "Right-click a formed L9 storage host to recover the domain.");
         provider.add("command.neoecoae.storage_recover.success", "Infinite storage recovered: %s");
         provider.add("command.neoecoae.storage_recover.unhealthy", "Recovery refused: resolve storage data, persistence, or unfinished transfer problems and retry.");
-        provider.add("command.neoecoae.storage_force_recover.select_host", "Right-click a formed target host with infinite components installed to force recovery.");
+        provider.add("command.neoecoae.storage_force_recover.select_host", "Right-click a formed L9 storage host to recover the domain.");
         provider.add("command.neoecoae.storage_force_recover.success", "Infinite storage force recovered: %s");
-        provider.add("command.neoecoae.storage_force_recover.invalid_host", "Specify or right-click a formed host with its 64 infinite components installed.");
+        provider.add("command.neoecoae.storage_force_recover.invalid_host", "Specify or right-click a formed L9 storage host.");
 
         provider.add("item.neoecoae.dev_resource_generator", "Dev Random Resource Generator / Cell");
         provider.add("neoecoae.configuration.keyReuse", "AE key reuse");
@@ -161,7 +161,7 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.processing.already_dispatched", "This step is fully dispatched; accepted machine batches continue.");
         provider.add("gui.neoecoae.crafting.mode_switch_blocked", "Cannot change overclocking or cooling while running");
         provider.add("gui.neoecoae.crafting.ui.recipe_slots", "Slots");
-        provider.add("tooltip.neoecoae.infinite_component.unlock", "Insert 64 components and install 12 L9 storage matrices to enable infinite storage");
+        provider.add("tooltip.neoecoae.infinite_component.unlock", "Install 64 components and 12 eligible empty L9 matrices to enable infinite storage");
         provider.add("gui.ae2.ConfirmCraftCpuStatus", "Storage: %s; Co-Processing Units: %s");
         provider.add("gui.ae2.ConfirmCraftNoCpu", "Storage: N/A; Co-Processing Units: N/A");
         provider.add("gui.neoecoae.crafting.cycle_planning.off", "Cycle Planning: Disabled");
@@ -329,19 +329,19 @@ public class NELangGenerator {
             "Can drive storage matrix",
             "The drivable storage matrix tier depends on the storage subsystem host controller"
         );
-        provider.add("tooltip.neoecoae.storage.infinite_component_locked", "Cannot remove infinite components: stored contents cannot safely fit back into normal matrices");
-        provider.add("tooltip.neoecoae.storage.infinite_member_locked", "Infinite storage matrices cannot be removed while the storage host is in infinite mode");
+        provider.add("tooltip.neoecoae.storage.infinite_component_locked", "Unresolved legacy component data");
+        provider.add("tooltip.neoecoae.storage.infinite_member_locked", "This matrix has unresolved legacy domain ownership evidence");
         provider.add("gui.neoecoae.storage.members_missing", "Missing %s member matrices");
         provider.add("gui.neoecoae.storage.members_return", "Please insert them again");
         provider.add("jade.neoecoae.storage.infinite_enabled", "Infinite storage enabled");
         provider.add("tooltip.neoecoae.storage.persistence_failed", "Storage data could not be saved; cell extraction is temporarily locked.");
-        provider.add("tooltip.neoecoae.storage.infinite_migration_locked", "Cannot remove this matrix while infinite storage migration is in progress");
+        provider.add("tooltip.neoecoae.storage.infinite_migration_locked", "This matrix has unresolved legacy transfer evidence");
         provider.add("tooltip.neoecoae.infinite_component.header", "Infinite Storage: Activation Requirements");
         provider.add("tooltip.neoecoae.infinite_component.components",
             "Component slots: 64 infinite storage components in the storage host");
         provider.add("tooltip.neoecoae.infinite_component.matrices",
-            "Drives: any 12 L9 storage matrices in the same storage host");
-        provider.add("tooltip.neoecoae.storage.infinite_member", "Managed by the storage host");
+            "Drives: 12 eligible empty L9 storage matrices in the same formed host");
+        provider.add("tooltip.neoecoae.storage.infinite_member", "Slot occupied by the infinite domain");
         provider.add("tooltip.neoecoae.infinite_resource.contents", "Infinite supply: Water / Cobblestone / Lava");
         provider.add("tooltip.neoecoae.infinite_resource.unbounded", "Can be extracted directly by the ME network and never runs out");
         provider.add("tooltip.neoecoae.infinite_resource.sink", "Accepts only the three listed resources; inserted resources are destroyed");

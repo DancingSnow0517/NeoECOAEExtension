@@ -73,6 +73,15 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     @Unique
     private volatile long neoecoae$providerRevision;
 
+    @Inject(method = "beginCraftingCalculation", at = @At("HEAD"))
+    private void neoecoae$publishBulkBeforePlanning(net.minecraft.world.level.Level level,
+            appeng.api.networking.crafting.ICraftingSimulationRequester requester, AEKey what, long amount,
+            appeng.api.networking.crafting.CalculationStrategy strategy, CallbackInfoReturnable<?> cir) {
+        if (!(level instanceof net.minecraft.server.level.ServerLevel serverLevel) || !serverLevel.getServer().isSameThread()) return;
+        if (grid.getService(cn.dancingsnow.neoecoae.api.IECOPatternStorageService.class) instanceof cn.dancingsnow.neoecoae.grid.PatternCatalog catalog)
+            catalog.flushBulkPublications();
+    }
+
     @Override
     public long neoecoae$getProviderRevision() {
         return neoecoae$providerRevision;
@@ -450,7 +459,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     public Set<ResourceLocation> neoecoae$getFuzzyPlanningItemIds() {
         Set<ResourceLocation> result = new java.util.LinkedHashSet<>();
         for (ECOMachineInterfaceBlockEntity<?> machineInterface
-                : grid.getMachines(ECOMachineInterfaceBlockEntity.class)) {
+                : NEMachineLookup.getMachines(grid, ECOMachineInterfaceBlockEntity.class)) {
             if (machineInterface.supportsComputationInterfaceUi() && machineInterface.isTargetOnline()) {
                 result.addAll(machineInterface.getFuzzyPlanningItemIds());
             }
@@ -482,7 +491,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
 
         for (ECOComputationSystemBlockEntity blockEntity : NEMachineLookup.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
             NEComputationCluster cluster = blockEntity.getCluster();
-            if (cluster != null) {
+            if (cluster != null && neoecoae$ownsCluster(cluster)) {
                 this.neoecoae$computationClusters.add(cluster);
                 for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
                     UUID jobId = cpu.getLogic().getProcessingJobId();
@@ -594,6 +603,13 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             }
         }
         return null;
+    }
+
+    @Unique
+    private boolean neoecoae$ownsCluster(NEComputationCluster cluster) {
+        if (cluster.isDestroyed()) return false;
+        IGridNode node = cluster.getNode();
+        return node != null && node.getGrid() == grid;
     }
 
     @Unique
@@ -822,7 +838,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
             ImmutableSet.Builder<ICraftingCPU> cpus
     ) {
         for (var cluster : this.neoecoae$computationClusters) {
-            if (cluster.isDestroyed()) continue;
+            if (!neoecoae$ownsCluster(cluster)) continue;
             List<ECOCraftingCPU> ecoCpus = cluster.getActiveCPUs();
             for (var cpu : ecoCpus) {
                 cpus.add(cpu);
@@ -850,7 +866,7 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     @Inject(method = "hasCpu", at = @At("HEAD"), cancellable = true)
     private void onHasCpu(ICraftingCPU cpu, CallbackInfoReturnable<Boolean> cir) {
         for (var cluster : this.neoecoae$computationClusters) {
-            if (cluster.isDestroyed()) continue;
+            if (!neoecoae$ownsCluster(cluster)) continue;
             for (var activeCpu : cluster.getActiveCPUs()) {
                 if (activeCpu == cpu) {
                     cir.setReturnValue(true);

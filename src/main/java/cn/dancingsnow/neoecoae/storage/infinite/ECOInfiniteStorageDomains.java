@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.storage.infinite;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
+
 import cn.dancingsnow.neoecoae.storage.persistence.Legacy2042DomainSnapshot;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.io.IOException;
@@ -141,6 +143,10 @@ public final class ECOInfiniteStorageDomains {
             domain.addProperty("canRestore", engine.canExitOrRestore());
             if (engine instanceof SavedDataInfiniteStorageEngine saved) {
                 domain.addProperty("persistence", saved.persistenceSummary());
+                domain.addProperty("legacyMigrationSources", saved.legacyMigrationSources().toString());
+                domain.addProperty("legacyRosterMalformed", saved.legacyRosterMalformed());
+                domain.addProperty("pendingLegacyRestores", saved.legacyRestoreKeys().size());
+                domain.addProperty("canMount", saved.canUseMountedStorage());
                 com.google.gson.JsonArray failures = new com.google.gson.JsonArray();
                 saved.failures().forEach(failures::add);
                 domain.add("failures", failures);
@@ -191,7 +197,7 @@ public final class ECOInfiniteStorageDomains {
             data.markUnreadable("Cannot publish the durable infinite domain identity");
         }
         if (data.status() != ECOInfiniteStorageData.DomainStatus.HEALTHY) {
-            LOGGER.warn("ECO domain {} opened with status {}: {}", domainId, data.status(), data.failures());
+            if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.warn("ECO domain {} opened with status {}: {}", domainId, data.status(), data.failures());
         }
         return new SavedDataInfiniteStorageEngine(data);
     }
@@ -222,7 +228,7 @@ public final class ECOInfiniteStorageDomains {
         } catch (java.io.IOException | RuntimeException e) {
             data = ECOInfiniteStorageData.createNew();
             data.markUnreadable("Cannot import legacy domain snapshot; original files retained: " + e);
-            LOGGER.error("Cannot import ECO domain {}; original files retained", domainId, e);
+            if (NEConfig.ecoCraftingOutputDeliveryDebug) LOGGER.error("Cannot import ECO domain {}; original files retained", domainId, e);
         }
         return data;
     }

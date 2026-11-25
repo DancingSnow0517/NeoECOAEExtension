@@ -41,7 +41,14 @@ final class ECOStorageInterfaceTransfer {
         this.host = host;
     }
 
+    private long viewGeneration;
+
+    void cellContentsChanged(ECOStorageCell cell) {
+        if (cachedCombinedStorage != null) cachedCombinedStorage.contentsChanged(cell);
+    }
+
     void invalidateInfiniteStorageView() {
+        viewGeneration++;
         cachedStorageEngine = null;
         cachedInfiniteStorage = null;
         cachedCombinedStorage = null;
@@ -58,7 +65,7 @@ final class ECOStorageInterfaceTransfer {
 
         long bulkMoved = 0;
         if (storageInterface.isStorageInputMode() && host.isFormedInfiniteMode()
-                && host.canUseHostDomainStorage() && !host.isInfiniteExitRequested()
+                && host.canUseHostDomainStorage()
                 && host.getInfiniteEngine() instanceof cn.dancingsnow.neoecoae.storage.infinite.SavedDataInfiniteStorageEngine saved) {
             bulkMoved = cn.dancingsnow.neoecoae.storage.transfer.GTLFastInfinityTransfer.transfer(
                 grid.getStorageService().getInventory(), host.infiniteDomainId(), saved,
@@ -91,11 +98,8 @@ final class ECOStorageInterfaceTransfer {
 
     @Nullable
     MEStorage getStorageInterfaceHostStorage() {
-        if (host.storageHostMode().isTransitioning()
-            || host.storageHostMode().isInfiniteState()
-                && (host.isInfiniteExitRequested() || !host.canUseHostDomainStorage())) {
-            return null;
-        }
+        if (!host.canUseNormalStorage()) return null;
+        if (cachedCombinedStorage != null) return cachedCombinedStorage;
         List<MEStorage> cells = candidateCells;
         cells.clear();
         if (host.canUseHostDomainStorage()) {
@@ -109,10 +113,12 @@ final class ECOStorageInterfaceTransfer {
         if (host.getCluster() == null) return null;
 
         for (ECODriveBlockEntity drive : host.getCluster().getDrives()) {
+            if (!drive.isInstalledStorageAvailable() || drive.getStorageController() != host) continue;
             IECOStorageCell cell = drive.getCellInventory();
             if (cell != null
                 && host.getTier().compareTo(cell.getTier()) >= 0
-                && !host.isInfiniteMemberCell(drive.getCellStack())) {
+                && !drive.isLockedByInfiniteMode()
+                && !cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.isSealed(drive.getCellStack())) {
                 cells.add(cell);
             }
         }
@@ -121,8 +127,9 @@ final class ECOStorageInterfaceTransfer {
             return null;
         }
         if (cachedCombinedStorage == null || !cachedCombinedStorage.hasInventories(cells)) {
+            long issued = viewGeneration;
             cachedCombinedStorage = new CombinedStorage(cells, host.getBlockState().getBlock().getName(),
-                    () -> !host.storageHostMode().isInfiniteState() || host.canInsertIntoInfiniteDomain());
+                    () -> issued == viewGeneration && host.canUseNormalStorage());
         }
         return cachedCombinedStorage;
     }
@@ -135,12 +142,17 @@ final class ECOStorageInterfaceTransfer {
         private final List<MEStorage> fluidInserts;
         private final net.minecraft.network.chat.Component description;
         private final BooleanSupplier allowAccess;
+        private final java.util.Set<MEStorage> trackedListings = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        private final java.util.Set<MEStorage> changedListings = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        private final List<MEStorage> untrackedListings;
 
         CombinedStorage(List<MEStorage> inventories, net.minecraft.network.chat.Component description,
                 BooleanSupplier allowAccess) {
             this.inventories = List.copyOf(inventories);
             this.description = description;
             this.allowAccess = allowAccess;
+            for (MEStorage inventory : inventories) if (inventory.getClass() == ECOStorageCell.class) trackedListings.add(inventory);
+            untrackedListings = inventories.stream().filter(inventory -> !trackedListings.contains(inventory)).toList();
             itemInserts = insertCandidates(AEKeyType.items());
             fluidInserts = insertCandidates(AEKeyType.fluids());
         }
@@ -167,6 +179,17 @@ final class ECOStorageInterfaceTransfer {
             return result.size() == inventories.size() ? inventories : List.copyOf(result);
         }
 
+        void contentsChanged(MEStorage inventory) {
+            if (trackedListings.contains(inventory)) changedListings.add(inventory);
+        }
+        @Override public boolean neoecoae$visitChangedMounts(java.util.function.Consumer<MEStorage> action) {
+            if (!allowAccess.getAsBoolean()) return true;
+            var snapshot = List.copyOf(changedListings);
+            changedListings.clear();
+            snapshot.forEach(action);
+            untrackedListings.forEach(action);
+            return true;
+        }
         @Override public long neoecoae$mountGeneration() { return allowAccess.getAsBoolean() ? 0 : 1; }
 
         @Override public boolean neoecoae$withMounts(java.util.function.Consumer<List<MEStorage>> action) {

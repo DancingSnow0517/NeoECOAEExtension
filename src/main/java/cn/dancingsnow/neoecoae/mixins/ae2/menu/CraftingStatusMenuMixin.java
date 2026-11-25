@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins.ae2.menu;
 
+import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.menu.me.crafting.CraftingCPUMenu;
 import appeng.menu.me.crafting.CraftingStatusMenu;
@@ -14,12 +15,31 @@ import net.minecraft.world.inventory.MenuType;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 
 @Mixin(value = CraftingStatusMenu.class, remap = false)
 public class CraftingStatusMenuMixin extends CraftingCPUMenu {
     @Shadow private int lastUpdate;
+    @Shadow private ICraftingCPU selectedCpu;
+    @Shadow private int selectedCpuSerial;
+
+    @WrapOperation(method = {"broadcastChanges()V", "m_38946_()V"}, at = @At(value = "INVOKE",
+        target = "Lappeng/menu/me/crafting/CraftingStatusMenu;getGrid()Lappeng/api/networking/IGrid;"))
+    private IGrid neoecoae$useCurrentTerminalGrid(CraftingStatusMenu menu, Operation<IGrid> original) {
+        var actionHost = getActionHost();
+        var node = actionHost == null ? null : actionHost.getActionableNode();
+        return node == null ? null : node.getGrid();
+    }
+
+    @Inject(method = "setCPU", at = @At("TAIL"))
+    private void neoecoae$trackSelectedCpu(@Nullable ICraftingCPU cpu, CallbackInfo ci) {
+        selectedCpu = cpu;
+        if (cpu == null) selectedCpuSerial = -1;
+    }
 
     @WrapOperation(method = {"broadcastChanges()V", "m_38946_()V"}, at = @At(value = "INVOKE",
         target = "Lappeng/menu/me/crafting/CraftingStatusMenu;createCpuList()Lappeng/menu/me/crafting/CraftingStatusMenu$CraftingCpuList;"))

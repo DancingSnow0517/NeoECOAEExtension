@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.storage.infinite;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import appeng.api.stacks.AEKey;
@@ -35,7 +36,7 @@ import org.slf4j.LoggerFactory;
  * {@link net.minecraft.world.level.storage.DimensionDataStorage} cycle (autosave, {@code /save-all}, shutdown).
  */
 public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.storage.persistence.StorageSavedData {
-    public static final int CURRENT_VERSION = 4;
+    public static final int CURRENT_VERSION = 5;
 
     public enum DomainStatus {HEALTHY, DEGRADED, RECOVERY_READ_ONLY, UNAVAILABLE}
 
@@ -69,6 +70,10 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.storag
     private KeyCodec codec;
     private UUID domainIdentity;
     private UUID ownerToken;
+    private final Set<UUID> legacyMigrationSources = new HashSet<>();
+    private final Set<UUID> settledLegacySources = new HashSet<>();
+    private final Set<UUID> settledLegacyMembers = new HashSet<>();
+    private boolean legacyRosterMalformed;
     private CompoundTag legacy2042 = new CompoundTag();
     private ListTag legacy2042Receipts = new ListTag();
     private final Map<UUID, CompoundTag> legacy2042ReceiptIndex = new HashMap<>();
@@ -123,6 +128,12 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.storag
             if (!tag.hasUUID("ownerToken")) { data.markUnreadable("Invalid infinite domain owner token"); return data; }
             data.ownerToken = tag.getUUID("ownerToken");
         }
+        try {
+            readLegacyIds(tag, "legacyMigrationSources", data.legacyMigrationSources);
+            readLegacyIds(tag, "settledLegacySources", data.settledLegacySources);
+            readLegacyIds(tag, "settledLegacyMembers", data.settledLegacyMembers);
+            data.legacyRosterMalformed = tag.getBoolean("legacyRosterMalformed");
+        } catch (RuntimeException invalid) { data.legacyRosterMalformed = true; }
         data.legacy2042RestoreBlocked = tag.getBoolean("legacy2042RestoreBlocked");
         data.legacy2042 = tag.getCompound(cn.dancingsnow.neoecoae.storage.persistence.Legacy2042Storage.ORIGIN).copy();
         if (tag.contains(cn.dancingsnow.neoecoae.storage.persistence.Legacy2042Storage.RECEIPTS)) {
@@ -240,6 +251,10 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.storag
     public CompoundTag save(CompoundTag tag) {
         if (unreadable || incompleteLegacy) throw new IllegalStateException("Refusing to save an incomplete domain");
         tag.putInt("version", CURRENT_VERSION);
+        writeLegacyIds(tag, "legacyMigrationSources", legacyMigrationSources);
+        writeLegacyIds(tag, "settledLegacySources", settledLegacySources);
+        writeLegacyIds(tag, "settledLegacyMembers", settledLegacyMembers);
+        if (legacyRosterMalformed) tag.putBoolean("legacyRosterMalformed", true);
         if (legacy2042RestoreBlocked) tag.putBoolean("legacy2042RestoreBlocked", true);
         if (!legacy2042.isEmpty()) {
             tag.put(cn.dancingsnow.neoecoae.storage.persistence.Legacy2042Storage.ORIGIN, legacy2042.copy());
@@ -340,10 +355,54 @@ public final class ECOInfiniteStorageData extends cn.dancingsnow.neoecoae.storag
     }
 
     private void refreshMountedStorageAvailability() {
-        mountedStorageAvailable = canWrite() && restores.isEmpty();
+        mountedStorageAvailable = canWrite() && rawEntries.isEmpty() && unresolvedMetadata.isEmpty() && restores.isEmpty() && legacyMigrationSources.isEmpty() && !legacyRosterMalformed;
     }
 
-    boolean canUseMountedStorage() { return mountedStorageAvailable; }
+    boolean canUseMountedStorage() { return mountedStorageAvailable && writeFailure() == null; }
+
+    private static void readLegacyIds(CompoundTag tag, String name, Set<UUID> out) {
+        if (!tag.contains(name)) return;
+        if (!validList(tag, name, Tag.TAG_INT_ARRAY)) throw new IllegalArgumentException("Invalid " + name);
+        for (Tag value : tag.getList(name, Tag.TAG_INT_ARRAY)) out.add(net.minecraft.nbt.NbtUtils.loadUUID(value));
+    }
+
+    private static void writeLegacyIds(CompoundTag tag, String name, Set<UUID> ids) {
+        ListTag values = new ListTag();
+        ids.forEach(id -> values.add(net.minecraft.nbt.NbtUtils.createUUID(id)));
+        tag.put(name, values);
+    }
+
+    boolean noteLegacyRoster(Set<UUID> sources, boolean malformed) {
+        if (!canRead()) return false;
+        boolean changed = false;
+        for (UUID id : sources) if (!settledLegacySources.contains(id)) changed |= legacyMigrationSources.add(id);
+        if (malformed && !legacyRosterMalformed) { legacyRosterMalformed = true; changed = true; }
+        if (changed) setDirty();
+        return !changed || flush();
+    }
+
+    Set<UUID> legacyMigrationSources() { return Set.copyOf(legacyMigrationSources); }
+    boolean legacyRosterMalformed() { return legacyRosterMalformed; }
+    boolean legacySourceSettled(UUID source) { return settledLegacySources.contains(source); }
+
+    Set<AEKey> legacyRestoreKeys() { return Set.copyOf(restores.keySet()); }
+
+    boolean legacyMemberSettled(UUID id) { return settledLegacyMembers.contains(id); }
+
+    boolean settleLegacy(Set<UUID> sources, Set<AEKey> restored, Map<AEKey, BigInteger> overlaps, Set<UUID> members) {
+        if (!canExitOrRestore() || legacyRosterMalformed || !legacyMigrationSources.containsAll(sources)
+                || !restores.keySet().containsAll(restored) || hasBlockedRestore()) return false;
+        for (var entry : overlaps.entrySet()) {
+            if (entry.getValue().signum() < 0 || entry.getValue().compareTo(amounts.exact(entry.getKey())) > 0) return false;
+        }
+        overlaps.forEach((key, amount) -> amounts.set(key, amounts.get(key).subtract(HugeAmount.of(amount))));
+        legacyMigrationSources.removeAll(sources);
+        settledLegacySources.addAll(sources);
+        restored.forEach(restores::remove);
+        settledLegacyMembers.addAll(members);
+        setDirty();
+        return flush();
+    }
 
     public long revision() {
         return revision;

@@ -44,6 +44,9 @@ public final class NetworkInventoryCache {
 
         /** True only when the current locked mount list has already been checked for duplicate identities. */
         default boolean neoecoae$distinctMountsGuaranteed() { return false; }
+
+        /** Optional single-reader feed, complete for unchanged topology; also visits any untracked mounts. */
+        default boolean neoecoae$visitChangedMounts(Consumer<MEStorage> action) { return false; }
     }
 
     private static final class Mount {
@@ -142,12 +145,18 @@ public final class NetworkInventoryCache {
             long mountGeneration = storage.neoecoae$mountGeneration();
             if (!valid || repairPublished && ++refreshes >= FULL_REBUILD_INTERVAL) {
                 if (valid) StoragePerformance.count(StoragePerformance.Counter.CACHE_REPAIR);
+                StoragePerformance.count(StoragePerformance.Counter.CACHE_REBUILD);
                 valid = false;
                 refreshes = 0;
                 rebuild(inventories, published, amounts, fullListing);
             } else {
                 try {
-                    update(inventories, mountGeneration != generation, amounts, fullListing);
+                    boolean remounted = mountGeneration != generation;
+                    int current = nextEpoch();
+                    if (remounted || repairPublished || !storage.neoecoae$visitChangedMounts(
+                            inventory -> updateMount(inventory, false, amounts, fullListing, current))) {
+                        update(inventories, remounted, amounts, fullListing, current);
+                    }
                 } catch (RuntimeException | Error failure) {
                     revert(amounts);
                     valid = false;
@@ -198,6 +207,7 @@ public final class NetworkInventoryCache {
         totals.clear();
         int current = nextEpoch();
         for (MEStorage inventory : inventories) {
+            StoragePerformance.count(StoragePerformance.Counter.CACHE_MOUNT_VISIT);
             Mount mount = new Mount(inventory);
             mount.version = mount.currentVersion();
             mount.identity = mount.currentIdentity();
@@ -229,51 +239,9 @@ public final class NetworkInventoryCache {
     }
 
     private void update(List<MEStorage> inventories, boolean remounted, Object2LongMap<AEKey> amounts,
-            BiConsumer<MEStorage, KeyCounter> fullListing) {
-        int current = nextEpoch();
+            BiConsumer<MEStorage, KeyCounter> fullListing, int current) {
         for (MEStorage inventory : inventories) {
-            Mount mount = mounts.get(inventory);
-            boolean added = mount == null;
-            if (added) mount = new Mount(inventory);
-            long version = mount.currentVersion();
-            Object identity = mount.currentIdentity();
-            boolean viewChanged = !added && identity != mount.identity;
-            if (added) {
-                list(inventory, mount, mount.content, fullListing);
-                mounts.put(inventory, mount);
-                for (var entry : Object2LongMaps.fastIterable(mount.content)) adjust(amounts, entry.getKey(), entry.getLongValue());
-            } else if (remounted || viewChanged || version == StorageListingVersion.UNKNOWN || version != mount.version) {
-                if (remounted) StoragePerformance.count(StoragePerformance.Counter.CACHE_REMOUNT);
-                if (version == StorageListingVersion.UNKNOWN) StoragePerformance.count(StoragePerformance.Counter.CACHE_UNKNOWN_VERSION);
-                if (!remounted && !viewChanged && mount.delta != null
-                        && applyChanges(mount.delta, mount, version, amounts)) {
-                    mount.version = version;
-                    mount.epoch = current;
-                    continue;
-                }
-                StoragePerformance.count(mount.delta == null ? StoragePerformance.Counter.CACHE_NO_DELTA
-                    : StoragePerformance.Counter.CACHE_EXPIRED_DELTA);
-                Object2LongOpenHashMap<AEKey> fresh = flatScratch;
-                fresh.clear();
-                list(inventory, mount, fresh, fullListing);
-                Object2LongOpenHashMap<AEKey> old = mount.content;
-                // Contents never hold zeros, so a missing key reads as 0 on either side.
-                for (var entry : Object2LongMaps.fastIterable(old)) {
-                    long now = fresh.getLong(entry.getKey());
-                    if (now != entry.getLongValue()) adjust(amounts, entry.getKey(), now - entry.getLongValue());
-                }
-                for (var entry : Object2LongMaps.fastIterable(fresh)) {
-                    if (old.getLong(entry.getKey()) == 0) adjust(amounts, entry.getKey(), entry.getLongValue());
-                }
-                old.clear();
-                flatScratch = old;
-                mount.content = fresh;
-            } else {
-                StoragePerformance.count(StoragePerformance.Counter.CACHE_UNCHANGED);
-            }
-            mount.version = version;
-            mount.identity = identity;
-            mount.epoch = current;
+            updateMount(inventory, remounted, amounts, fullListing, current);
         }
         if (mounts.size() != inventories.size()) {
             for (var iterator = mounts.values().iterator(); iterator.hasNext();) {
@@ -283,6 +251,52 @@ public final class NetworkInventoryCache {
                 iterator.remove();
             }
         }
+    }
+
+    private void updateMount(MEStorage inventory, boolean remounted, Object2LongMap<AEKey> amounts,
+            BiConsumer<MEStorage, KeyCounter> fullListing, int current) {
+        StoragePerformance.count(StoragePerformance.Counter.CACHE_MOUNT_VISIT);
+        Mount mount = mounts.get(inventory);
+        boolean added = mount == null;
+        if (added) mount = new Mount(inventory);
+        long version = mount.currentVersion();
+        Object identity = mount.currentIdentity();
+        boolean viewChanged = !added && identity != mount.identity;
+        if (added) {
+            list(inventory, mount, mount.content, fullListing);
+            mounts.put(inventory, mount);
+            for (var entry : Object2LongMaps.fastIterable(mount.content)) adjust(amounts, entry.getKey(), entry.getLongValue());
+        } else if (remounted || viewChanged || version == StorageListingVersion.UNKNOWN || version != mount.version) {
+            if (remounted) StoragePerformance.count(StoragePerformance.Counter.CACHE_REMOUNT);
+            if (version == StorageListingVersion.UNKNOWN) StoragePerformance.count(StoragePerformance.Counter.CACHE_UNKNOWN_VERSION);
+            if (!remounted && !viewChanged && mount.delta != null
+                    && applyChanges(mount.delta, mount, version, amounts)) {
+                mount.version = version;
+                mount.epoch = current;
+                return;
+            }
+            StoragePerformance.count(mount.delta == null ? StoragePerformance.Counter.CACHE_NO_DELTA
+                : StoragePerformance.Counter.CACHE_EXPIRED_DELTA);
+            Object2LongOpenHashMap<AEKey> fresh = flatScratch;
+            fresh.clear();
+            list(inventory, mount, fresh, fullListing);
+            Object2LongOpenHashMap<AEKey> old = mount.content;
+            for (var entry : Object2LongMaps.fastIterable(old)) {
+                long now = fresh.getLong(entry.getKey());
+                if (now != entry.getLongValue()) adjust(amounts, entry.getKey(), now - entry.getLongValue());
+            }
+            for (var entry : Object2LongMaps.fastIterable(fresh)) {
+                if (old.getLong(entry.getKey()) == 0) adjust(amounts, entry.getKey(), entry.getLongValue());
+            }
+            old.clear();
+            flatScratch = old;
+            mount.content = fresh;
+        } else {
+            StoragePerformance.count(StoragePerformance.Counter.CACHE_UNCHANGED);
+        }
+        mount.version = version;
+        mount.identity = identity;
+        mount.epoch = current;
     }
 
     /** Applies a mount's reported key changes; false when it must be listed in full instead. */

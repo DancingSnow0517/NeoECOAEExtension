@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
 
 import cn.dancingsnow.neoecoae.platform.JdkCompat;
@@ -35,6 +36,7 @@ import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
 import cn.dancingsnow.neoecoae.storage.ECOStorageInterfaceMode;
 import cn.dancingsnow.neoecoae.storage.StorageInterfaceFilter;
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.grid.NEMachineLookup;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingInterfaceUI;
 import cn.dancingsnow.neoecoae.gui.crafting.PatternMenuActions;
 import cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewEntry;
@@ -72,7 +74,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
-import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -153,6 +154,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     /** Identity of the local crafting host or its shared Network Switch domain. */
     private transient Object patternInterfaceDomain;
     private transient long patternInterfaceDomainGeneration;
+    private transient List<ECOCraftingPatternBusBlockEntity> mappedPatternBuses = List.of();
     @Getter
     private final transient PatternPreviewSync patternPreviewSync = new PatternPreviewSync(this);
     private transient PatternMenuOpening patternMenuOpening;
@@ -449,55 +451,13 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     /** Auxiliary revision each bus's preview rows were last drawn from, keyed by bus position. */
-    private final Long2LongOpenHashMap busAuxiliaryPreviewRevisions = new Long2LongOpenHashMap();
     private final Long2ObjectOpenHashMap<AuxiliaryPreviewSnapshot> auxiliaryPreviewCache = new Long2ObjectOpenHashMap<>();
     private record AuxiliaryPreviewSnapshot(long revision, List<PatternPreviewEntry.DiskPattern> rows) {}
 
-    /**
-     * Marks the rows of any bus whose disk contents moved, since that is what those rows now show.
-     *
-     * <p>A bus tells this interface when one of its slots changes, but a disk taking another recipe leaves the
-     * slot exactly as it was - only the disk's contents differ - so nothing else would ever ask the terminal to
-     * redraw, and the recipes it lists would stay at whatever they were when the screen opened.</p>
-     */
-    private void refreshAuxiliaryPreviewRows() {
-        int offset = 0;
-        for (int busIndex = 0; busIndex < patternBusSlotCounts.length; busIndex++) {
-            int slotCount = patternBusSlotCounts[busIndex];
-            if (slotCount > 0 && offset < patternSlotRefs.size()) {
-                noteAuxiliaryRevision(patternSlotRefs.get(offset).bus(), offset, slotCount);
-            }
-            offset += slotCount;
-        }
-    }
-
-    /** Marks {@code count} rows dirty when {@code bus}'s disks have moved since they were last drawn. */
-    private void noteAuxiliaryRevision(ECOCraftingPatternBusBlockEntity bus, int start, int count) {
-        long revision = bus.getAuxiliaryRevision();
-        long position = bus.getBlockPos().asLong();
-        boolean seen = busAuxiliaryPreviewRevisions.containsKey(position);
-        long previous = busAuxiliaryPreviewRevisions.put(position, revision);
-        if (!seen || previous == revision) {
-            // First sight of this bus, or its disks have not moved. The first sight is deliberately not a change:
-            // the screen that opens next builds its rows from the current contents anyway.
-            return;
-        }
-        patternPreviewSync.dirty(start, count);
-        patternContentRevision = nextPatternContentRevision();
-    }
-
-    /** @return whether the slot holds a container the auxiliary store serves from rather than a pattern */
     protected boolean holdsAuxiliaryDisk(PatternSlotRef ref) {
         return ref.bus().ownsAuxiliary(ref.bus().getPatternSlotInventory().getStackInSlot(ref.slot()));
     }
 
-    /**
-     * A disk's slot, reported as the recipes the disk holds.
-     *
-     * <p>A disk is not a pattern, so the index keeps no record for its slot and the row used to come out empty.
-     * What the row is for is the recipes inside, and those are exactly what the bus advertises to autocrafting -
-     * so the row carries that list instead of the disk item.</p>
-     */
     protected PatternPreviewEntry auxiliaryPreviewEntry(PatternSlotRef ref) {
         var bus = ref.bus();
         // The auxiliary API publishes a bus-wide list, not a per-disk list. Attach it once only.
@@ -525,24 +485,15 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 rows, true);
     }
 
-    /**
-     * The recipes one of the bus's containers publishes, as preview rows.
-     *
-     * <p>A function so a variant can change what those rows carry without touching how they are assembled or how
-     * the client expands them into lines. The default is what the container advertises to autocrafting, which is
-     * the same set the terminal's own view appends.</p>
-     */
     protected List<PatternPreviewEntry.DiskPattern> auxiliaryPreviewRows(ECOCraftingPatternBusBlockEntity bus) {
-        List<ItemStack> patterns = bus.getAuxiliaryEncodedPatterns();
+        var patterns = bus.getAuxiliaryEncodedPatterns();
         var keywords = bus.getAuxiliaryPatternSearchDirections();
-        List<PatternPreviewEntry.DiskPattern> held = new ArrayList<>(patterns.size());
+        var rows = new ArrayList<PatternPreviewEntry.DiskPattern>(patterns.size());
         for (int index = 0; index < patterns.size(); index++) {
-            // Guarded: the two lists come from one store in one pass, but a row built from a short list would
-            // otherwise throw while a screen is being drawn.
             var terms = index < keywords.size() ? keywords.get(index) : PatternSearchKeywords.Directions.EMPTY;
-            held.add(new PatternPreviewEntry.DiskPattern(patterns.get(index).copy(), terms.inputs(), terms.output()));
+            rows.add(new PatternPreviewEntry.DiskPattern(patterns.get(index).copy(), terms.inputs(), terms.output()));
         }
-        return held;
+        return rows;
     }
 
     @Nullable
@@ -765,6 +716,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     @Override
     public void updateCluster(@Nullable C nextCluster) {
         releasePatternMigrationLease();
+        clearPatternBusSubscriptions();
         super.updateCluster(nextCluster);
         patternInterfaceMappingInitialized = false;
         patternSlotRefs = List.of();
@@ -781,6 +733,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (!(level instanceof ServerLevel)) {
             return;
         }
+        clearPatternBusSubscriptions();
         patternInterfaceMappingInitialized = false;
         patternSlotRefs = List.of();
         onInterfaceTopologyChanged();
@@ -789,12 +742,14 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     @Override
     public void onChunkUnloaded() {
         releasePatternMigrationLease();
+        clearPatternBusSubscriptions();
         super.onChunkUnloaded();
     }
 
     @Override
     public void setRemoved() {
         releasePatternMigrationLease();
+        clearPatternBusSubscriptions();
         super.setRemoved();
     }
 
@@ -833,6 +788,18 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         patternInterfaceMappingDirty = true;
     }
 
+    public boolean mayMapPatternBus(ECOCraftingPatternBusBlockEntity bus) {
+        if (!formed || !supportsPatternPreview()) return false;
+        if (!(cluster instanceof NECraftingCluster)) return true;
+        var busCluster = bus.getCraftingCluster();
+        return busCluster != null && patternDomain() == busCluster.getPatternDomain();
+    }
+
+    private void clearPatternBusSubscriptions() {
+        for (var bus : mappedPatternBuses) bus.setPatternPreviewSubscriber(this, false);
+        mappedPatternBuses = List.of();
+    }
+
     /** Called by a Pattern Bus after a real slot mutation; this path never scans the inventory. */
     public void onPatternBusInventoryChanged(ECOCraftingPatternBusBlockEntity bus) {
         onPatternBusInventoryChanged(bus, -1);
@@ -853,8 +820,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
         busIndex = Arrays.binarySearch(patternBusPositions, bus.getBlockPos().asLong());
         if (busIndex < 0) return;
-        int offset = 0;
-        for (int index = 0; index < busIndex; index++) offset += patternBusSlotCounts[index];
+        int offset = patternBusOffsets[busIndex];
         if (changedSlot >= 0 && changedSlot < slotCount) patternPreviewSync.dirty(offset + changedSlot, 1);
         else patternPreviewSync.dirty(offset, slotCount);
         patternContentRevision = nextPatternContentRevision();
@@ -875,10 +841,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         if (busIndex < 0) {
             return;
         }
-        int offset = 0;
-        for (int index = 0; index < busIndex; index++) {
-            offset += patternBusSlotCounts[index];
-        }
+        int offset = patternBusOffsets[busIndex];
         for (int changedSlot : changedSlots) {
             if (changedSlot >= 0 && changedSlot < slotCount) {
                 patternPreviewSync.dirty(offset + changedSlot, 1);
@@ -888,11 +851,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     }
 
     private boolean isMappedBus(int busIndex, ECOCraftingPatternBusBlockEntity bus) {
-        int offset = 0;
-        for (int index = 0; index < busIndex; index++) {
-            offset += patternBusSlotCounts[index];
-        }
-        return offset < patternSlotRefs.size() && patternSlotRefs.get(offset).bus() == bus;
+        return busIndex < mappedPatternBuses.size() && mappedPatternBuses.get(busIndex) == bus;
     }
 
     private void ensurePatternInterfaceMapping() {
@@ -914,7 +873,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 // slots just because both are attached to the same ME network.
                 buses.addAll(craftingCluster.getPatternDomainBuses());
             } else {
-                buses.addAll(grid.getActiveMachines(ECOCraftingPatternBusBlockEntity.class));
+                buses.addAll(NEMachineLookup.getActiveMachines(grid, ECOCraftingPatternBusBlockEntity.class));
             }
             buses.removeIf(bus -> {
                 var node = bus.getGridNode();
@@ -938,7 +897,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             slotCounts[busIndex] = slotCount;
             totalSlots += slotCount;
         }
-        boolean sameMapping = patternInterfaceDomain == domain
+        boolean sameMapping = mappedPatternBuses.equals(buses) && patternInterfaceDomain == domain
                 && patternInterfaceDomainGeneration == domainGeneration
                 && patternSlotRefs.size() == totalSlots
                 && Arrays.equals(patternBusPositions, positions)
@@ -955,6 +914,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             return;
         }
 
+        clearPatternBusSubscriptions();
+        mappedPatternBuses = List.copyOf(buses);
+        for (var bus : mappedPatternBuses) bus.setPatternPreviewSubscriber(this, true);
+
         List<PatternSlotRef> refs = new ArrayList<>(totalSlots);
         for (int busIndex = 0; busIndex < buses.size(); busIndex++) {
             for (int slot = 0; slot < slotCounts[busIndex]; slot++) {
@@ -970,7 +933,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         patternInterfaceDomain = domain;
         patternInterfaceDomainGeneration = domainGeneration;
         auxiliaryPreviewCache.clear();
-        busAuxiliaryPreviewRevisions.clear();
         patternInterfaceMappingInitialized = true;
         patternInterfaceMappingDirty = false;
         patternPreviewSync.reset();
@@ -1175,7 +1137,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             // Network Switch regrouping is asynchronous to this block entity tick. Rebuild the
             // mapping when the domain identity changes so an open menu cannot retain stale rows.
             ensurePatternInterfaceMapping();
-            refreshAuxiliaryPreviewRows();
             patternPreviewSync.tick(serverLevel);
         }
         long startedNanos = System.nanoTime();

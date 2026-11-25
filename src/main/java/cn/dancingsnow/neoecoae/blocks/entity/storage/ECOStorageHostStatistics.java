@@ -272,7 +272,7 @@ final class ECOStorageHostStatistics {
             IECOStorageCell inventory = drive.getCellInventory();
             if (inventory == null) { driveUiSnapshots.remove(drive); return null; }
             long revision = inventory instanceof ECOStorageCell cell ? cell.contentRevision() : -1L;
-            boolean member = host.isInfiniteMemberCell(drive.getCellStack());
+            boolean member = drive.isLockedByInfiniteMode() || cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.isSealed(drive.getCellStack());
             boolean infiniteResource = inventory instanceof ECOInfiniteResourceCell;
             if (previous != null && previous.inventory() == inventory && previous.revision() == revision
                 && previous.member() == member && previous.infiniteResource() == infiniteResource

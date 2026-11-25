@@ -28,6 +28,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.crafting.amount.NEMath;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
@@ -72,6 +73,10 @@ public class ECOStorageCell implements IECOStorageMigrationCell,
     public ECOStorageRepository.Session storageSession() { return storageAccess.session(); }
     public boolean storageWritable() { return storageAccess.writable(); }
     @Override public boolean isInfiniteStorageEligible() { return storageWritable(); }
+    private boolean unavailableForOrdinaryAccess() {
+        return cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)
+            || container instanceof cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity drive && drive.isLockedByInfiniteMode();
+    }
     public long contentRevision() { return storageData().contentRevision(); }
 
     @Override
@@ -115,7 +120,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell,
 
     /** For listings that are exactly {@link #getCellItems()} while the cell may be read. */
     protected final long contentListingVersion() {
-        if (cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)
+        if (unavailableForOrdinaryAccess()
                 || !storageData().canRead() || !storageAccess.claimed() && storageAccess.session() != null) return -1L;
         return storageData().amounts().contentRevision();
     }
@@ -299,6 +304,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell,
     protected void saveChanges() {
         storageData().setDirty();
         this.isPersisted = false;
+        if (container instanceof cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity drive) drive.onStorageContentsChanged(this);
         if (ECOCellMutationBatch.defer(this)) return;
         if (storageAccess.session() != null) storageAccess.session().schedule(cellStack, persistenceNotification);
     }
@@ -318,7 +324,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell,
         StoragePerformance.count(StoragePerformance.Counter.CELL_INSERT);
         StoragePerformance.count(mode == Actionable.SIMULATE ? StoragePerformance.Counter.SIMULATE : StoragePerformance.Counter.MODULATE);
         // StorageAmounts uses AEKey value semantics and canonicalizes only a newly admitted key.
-        if (cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return 0L;
+        if (unavailableForOrdinaryAccess()) return 0L;
         if (!storageWritable() || amount <= 0 || what == null || !acceptsKey(what)) {
             return 0;
         }
@@ -509,7 +515,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell,
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
         StoragePerformance.count(StoragePerformance.Counter.CELL_EXTRACT);
         StoragePerformance.count(mode == Actionable.SIMULATE ? StoragePerformance.Counter.SIMULATE : StoragePerformance.Counter.MODULATE);
-        if (!storageWritable() || amount <= 0L || cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return 0L;
+        if (!storageWritable() || amount <= 0L || unavailableForOrdinaryAccess()) return 0L;
         if (storageData().amounts().isBig(what)) {
             if (mode == Actionable.MODULATE) { storageData().amounts().subtract(what, amount); saveChanges(); }
             return amount;
@@ -538,13 +544,13 @@ public class ECOStorageCell implements IECOStorageMigrationCell,
 
     @Override
     public boolean canFitInsideCell() {
-        return !cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)
+        return !unavailableForOrdinaryAccess()
             && storageData().canMutate() && getStoredItemTypes() == 0;
     }
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
-        if (cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return;
+        if (unavailableForOrdinaryAccess()) return;
         if (!storageData().canRead() || !storageAccess.claimed() && storageAccess.session() != null) return;
         getMigrationStacks(out);
     }
@@ -613,7 +619,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell,
 
     @Override public BigInteger insertBigInteger(AEKey key, BigInteger amount, Actionable mode, IActionSource source) {
         if (!storageWritable() || key == null || amount == null || amount.signum() <= 0
-            || cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)
+            || unavailableForOrdinaryAccess()
             || !acceptsKey(key) || !partitionList.matchesFilter(key, partitionListMode)
             || cellType.isBlackListed(cellStack, key)) return BigInteger.ZERO;
         if (amount.compareTo(MAX_LONG) <= 0 && getStoredItemCount() < Long.MAX_VALUE)
@@ -630,7 +636,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell,
 
     @Override public BigInteger extractBigInteger(AEKey key, BigInteger amount, Actionable mode, IActionSource source) {
         if (!storageWritable() || key == null || amount == null || amount.signum() <= 0
-            || cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return BigInteger.ZERO;
+            || unavailableForOrdinaryAccess()) return BigInteger.ZERO;
         HugeAmount current = storageData().amounts().get(key), extracted = current.min(HugeAmount.of(amount));
         if (mode == Actionable.MODULATE && !extracted.isZero()) {
             storageData().amounts().set(key, current.subtract(extracted)); saveChanges();
@@ -641,7 +647,7 @@ public class ECOStorageCell implements IECOStorageMigrationCell,
     @Override public void neoecoae$visitExactAmounts(java.util.function.BiConsumer<AEKey,
             cn.dancingsnow.neoecoae.crafting.amount.ExactAmount> visitor) {
         if (!storageData().canRead() || storageAccess.session() != null && !storageAccess.claimed()
-            || cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember.isSealed(cellStack)) return;
+            || unavailableForOrdinaryAccess()) return;
         storageData().amounts().visitExact((key, amount) -> visitor.accept(key,
             cn.dancingsnow.neoecoae.crafting.amount.ExactAmount.finite(amount)));
     }

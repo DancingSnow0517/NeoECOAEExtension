@@ -11,6 +11,8 @@ import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
+import cn.dancingsnow.neoecoae.storage.ECOCreativeCell;
+import cn.dancingsnow.neoecoae.storage.ECOCreativeSupply;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
 import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
@@ -63,6 +65,9 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
     @Getter
     @DescSynced
     private boolean mounted = false;
+    private boolean infiniteOccupied;
+    private boolean infiniteCandidate;
+    private boolean unloading;
     @Getter
     @DescSynced
     private boolean online = false;
@@ -93,37 +98,6 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         if (this.cellStack != null && cachedCellInventory instanceof cn.dancingsnow.neoecoae.storage.ECOStorageCell ordinary
             && !ordinary.storageData().flush()) return;
         ECOStorageSystemBlockEntity controller = getStorageController();
-        if (cellStack != null) {
-            try {
-                var inventory = ECOStorageCells.getCellInventory(cellStack, this);
-                if (ECOInfiniteStorageMember.isAnonymous(cellStack) && (controller == null || !controller.isInfiniteMode())) {
-                    ECOInfiniteStorageMember.clearMember(cellStack);
-                } else if (controller != null && controller.isFormedInfiniteMode()
-                        && !ECOInfiniteStorageMember.isSealed(cellStack) && isEmptyInfiniteCandidate(inventory)) {
-                    ECOInfiniteStorageMember.markAnonymous(cellStack);
-                }
-            }
-            catch (RuntimeException failure) {
-                ECOStorageCells.releaseCellInventory(cellStack, this);
-                org.slf4j.LoggerFactory.getLogger(ECODriveBlockEntity.class).error("Cannot prepare ECO disk installation", failure);
-                return;
-            }
-        }
-        if (controller != null) controller.rememberInfiniteMembers();
-        if (ECOInfiniteStorageMember.isAnonymous(this.cellStack)) {
-            CompoundTag original = NEItemData.copy(this.cellStack);
-            try { ECOInfiniteStorageMember.clearMember(this.cellStack); }
-            catch (IllegalStateException failure) {
-                NEItemData.write(this.cellStack, original);
-                try {
-                    cn.dancingsnow.neoecoae.storage.persistence.ECOStorageRepository.persistMetadata(this.cellStack, true);
-                } catch (IllegalStateException rollback) {
-                    failure.addSuppressed(rollback);
-                }
-                org.slf4j.LoggerFactory.getLogger(ECODriveBlockEntity.class).error("Cannot remove anonymous matrix", failure);
-                return;
-            }
-        }
         ECOStorageCells.releaseCellInventory(this.cellStack, this);
         this.cellStack = cellStack;
         cellInteractionId = UUID.randomUUID();
@@ -160,6 +134,10 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     static boolean isEmptyInfiniteCandidate(@Nullable IECOStorageCell inventory) {
         if (!cn.dancingsnow.neoecoae.storage.infinite.ECOInfiniteStorageTransfer.isEligible(inventory)) return false;
+        if (inventory.getClass() == cn.dancingsnow.neoecoae.storage.ECOStorageCell.class) {
+            var data = ((cn.dancingsnow.neoecoae.storage.ECOStorageCell) inventory).storageData();
+            return data.writeFailure() == null && data.amounts().isEmpty();
+        }
         var contents = new appeng.api.stacks.KeyCounter();
         ((cn.dancingsnow.neoecoae.api.storage.IECOStorageMigrationCell) inventory).getMigrationStacks(contents);
         return contents.isEmpty();
@@ -178,13 +156,10 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         if (cachedCellInventory instanceof cn.dancingsnow.neoecoae.storage.ECOStorageCell ordinary
             && (!ordinary.storageData().canMutate() || ordinary.storageData().writeFailure() != null))
             return CellExtractionBlockReason.PERSISTENCE_FAILED;
-        if (ECOInfiniteStorageMember.isMigrating(cellStack)) {
+        if (ECOInfiniteStorageMember.isSealed(cellStack) && !ECOInfiniteStorageMember.isMember(cellStack) || hasLegacyRestoreReceipts()) {
             return CellExtractionBlockReason.INFINITE_MIGRATION;
         }
-        if (isLockedByInfiniteMode() && (!ECOInfiniteStorageMember.isAnonymous(cellStack)
-            || !getStorageController().isFormedInfiniteMode())) {
-            return CellExtractionBlockReason.INFINITE_MEMBER;
-        }
+        if (ECOInfiniteStorageMember.isMember(cellStack)) return CellExtractionBlockReason.INFINITE_MEMBER;
         return CellExtractionBlockReason.NONE;
     }
 
@@ -205,13 +180,54 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         }
     }
 
-    public boolean isLockedByInfiniteMode() {
-        return cluster != null
-            && cluster.getController() != null
-            && cluster.getController().isInfiniteMode()
-            && cellStack != null
-            && !cellStack.isEmpty()
-            && ECOInfiniteStorageMember.isMember(cellStack);
+    public boolean isLockedByInfiniteMode() { return infiniteOccupied; }
+
+    boolean isInstalledStorageAvailable() {
+        return !unloading && !isRemoved() && level != null && level.hasChunkAt(worldPosition)
+            && level.getBlockEntity(worldPosition) == this;
+    }
+    boolean refreshInfiniteQualification() {
+        if (!isInstalledStorageAvailable() || cellStack == null || cellStack.isEmpty() || hasLegacyRestoreReceipts()) {
+            infiniteCandidate = false;
+            return false;
+        }
+        var inventory = getCellInventory();
+        if (ECOInfiniteStorageMember.isAnonymous(cellStack) && !ECOInfiniteStorageMember.hasMalformedEvidence(cellStack)
+                && !NEItemData.read(cellStack).contains(RESTORE_RECEIPTS_TAG)
+                && isEmptyInfiniteCandidate(inventory)) {
+            clearSettledInfiniteMarkers();
+            inventory = getCellInventory();
+        }
+        infiniteCandidate = !hasLegacyRestoreReceipts() && !ECOInfiniteStorageMember.isSealed(cellStack)
+            && isEmptyInfiniteCandidate(inventory);
+        return infiniteCandidate;
+    }
+    void clearInfiniteOccupancy() { infiniteOccupied = false; }
+    void setInfiniteOccupied(boolean occupied) {
+        if (infiniteOccupied == occupied) return;
+        infiniteOccupied = occupied;
+        setChanged(); markForUpdate();
+    }
+    void clearSettledInfiniteMarkers() {
+        if (cellStack == null || cellStack.isEmpty()) return;
+        CompoundTag original = NEItemData.copy(cellStack);
+        CompoundTag clean = original.copy();
+        for (String key : java.util.List.of("neoecoae_infinite_member", "neoecoae_infinite_domain", "neoecoae_member_identity",
+            "neoecoae_migration_id", "neoecoae_migration_domain", "neoecoae_restore_receipts")) clean.remove(key);
+        try {
+            NEItemData.write(cellStack, clean);
+            cn.dancingsnow.neoecoae.storage.persistence.ECOStorageRepository.persistMetadata(cellStack, true);
+        } catch (RuntimeException failure) {
+            NEItemData.write(cellStack, original);
+            throw failure;
+        }
+        ECOStorageCells.releaseCellInventory(cellStack, this);
+        invalidateCellInventoryCache();
+        setChanged();
+        updateCellState();
+        IStorageProvider.requestUpdate(getMainNode());
+        var controller = getStorageController();
+        if (controller != null) controller.storageDriveChanged(this, false);
     }
 
     private void updateState() {
@@ -320,28 +336,32 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     @Override
     public void onChunkUnloaded() {
+        unloading = true;
+        var controller = getStorageController();
+        if (controller != null && !isServerStopping()) { controller.storageDriveChanged(this, true); controller.invalidateInfiniteMembers(); }
         ECOStorageCells.releaseCellInventory(cellStack, this);
         super.onChunkUnloaded();
     }
 
     @Override
     public void setRemoved() {
+        unloading = true;
+        var controller = getStorageController();
+        if (controller != null) { controller.storageDriveChanged(this, true); controller.invalidateInfiniteMembers(); }
         ECOStorageCells.releaseCellInventory(cellStack, this);
         super.setRemoved();
     }
 
     @Override
     public void mountInventories(IStorageMounts storageMounts) {
-        if (cluster != null && cluster.getController() != null) {
+        if (isInstalledStorageAvailable() && cluster != null && cluster.getController() != null) {
             IECOTier mainTier = cluster.getController().getTier();
             IECOStorageCell cellInventory = getCellInventory();
             if (cellInventory != null
                 && mainTier.compareTo(cellInventory.getTier()) >= 0
                 && !cluster.getController().isStorageInterfaceTransferMode()
-                && (!cluster.getController().isInfiniteMode()
-                    || cluster.getController().canUseHostDomainStorage())
-                && !ECOInfiniteStorageMember.isMigrating(cellStack)
-                && !ECOInfiniteStorageMember.isMember(cellStack)) {
+                && !infiniteOccupied
+                && !ECOInfiniteStorageMember.isSealed(cellStack)) {
                 int priority = cn.dancingsnow.neoecoae.gui.storage.StoragePriority.mountPriority(
                     cluster.getController().getStoragePriority(), getConfiguredCellPriority());
                 storageMounts.mount(cellInventory, priority);
@@ -358,6 +378,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     @Override
     public void onReady() {
+        unloading = false;
         super.onReady();
         if (level instanceof ServerLevel && getBlockState().hasProperty(ECODriveBlock.HAS_CELL)) {
             boolean hasCell = cellStack != null && !cellStack.isEmpty() || !unresolvedCellStack.isEmpty();
@@ -366,7 +387,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         }
         updateState();
         var controller = getStorageController();
-        if (controller != null) controller.invalidateInfiniteMembers();
+        if (controller != null) { controller.storageDriveChanged(this, false); controller.invalidateInfiniteMembers(); }
     }
 
     @Override
@@ -376,7 +397,37 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         }
         super.onMainNodeStateChanged(reason);
         online = getMainNode().isOnline();
+        updateCreativeAvailability();
         setChanged();
+    }
+
+    @Override
+    protected void onMainNodeGridChanged() {
+        if (isServerStopping()) return;
+        online = getMainNode().isOnline();
+        updateCreativeAvailability();
+    }
+
+    private void updateCreativeAvailability() {
+        if (!(cachedCellInventory instanceof ECOCreativeCell creative)) return;
+        var grid = getMainNode().getGrid();
+        if (grid == null) return;
+        if (grid.getStorageService().getInventory() instanceof ECOCreativeSupply.Source storage) {
+            var supply = storage.neoecoae$activeRefillSupply();
+            if (supply != null) supply.availabilityChanged(creative, online);
+        }
+    }
+
+    public void onStorageContentsChanged(cn.dancingsnow.neoecoae.storage.ECOStorageCell cell) {
+        var controller = getStorageController();
+        if (controller == null) return;
+        controller.storageInterfaceTransfer().cellContentsChanged(cell);
+        if (cell.getClass() == cn.dancingsnow.neoecoae.storage.ECOStorageCell.class
+                && controller.getTier() == cn.dancingsnow.neoecoae.api.ECOTier.L9 && cachedCellInventory == cell
+                && isInstalledStorageAvailable() && !ECOInfiniteStorageMember.isSealed(cellStack)
+                && infiniteCandidate != isEmptyInfiniteCandidate(cell)) {
+            controller.storageCellQualificationChanged();
+        }
     }
 
     @Override
@@ -440,6 +491,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         if (level == null || level.isClientSide) {
             return;
         }
+        if (cachedCellInventory instanceof ECOCreativeCell) invalidateCellInventoryCache();
         updateCellState();
         setChanged();
         markForUpdate();

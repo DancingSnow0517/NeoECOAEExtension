@@ -4,6 +4,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.me.service.StorageService;
 import appeng.me.storage.NetworkStorage;
+import cn.dancingsnow.neoecoae.storage.ECOCreativeSupply;
 import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import net.minecraft.server.MinecraftServer;
@@ -30,6 +31,15 @@ public abstract class StorageServiceMixin {
     @Shadow private boolean cachedStacksNeedUpdate;
 
     @Shadow private void postWatcherUpdate(AEKey what, long newAmount) { throw new AssertionError(); }
+
+    @Inject(method = "postWatcherUpdate", at = @At("HEAD"))
+    private void neoecoae$wakeExactRefillFromInventoryDelta(AEKey key, long amount, CallbackInfo ci) {
+        if (amount <= 0 || !(storage instanceof ECOCreativeSupply.Source source)) return;
+        var supply = source.neoecoae$activeRefillSupply();
+        if (supply == null) return;
+        var server = ServerLifecycleHooks.getCurrentServer();
+        if (server != null && server.isSameThread() && supply.hasRefillListeners()) supply.stockChanged(key);
+    }
 
     @Inject(method = "updateCachedStacks", at = @At("HEAD"), cancellable = true)
     private void neoecoae$updateChangedMounts(CallbackInfo ci) {

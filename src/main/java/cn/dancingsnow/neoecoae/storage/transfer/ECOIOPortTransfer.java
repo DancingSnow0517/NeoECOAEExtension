@@ -14,6 +14,8 @@ import cn.dancingsnow.neoecoae.storage.StorageInterfaceFilter;
 import cn.dancingsnow.neoecoae.storage.StorageListingDelta;
 import cn.dancingsnow.neoecoae.storage.StorageListingVersion;
 import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
+import cn.dancingsnow.neoecoae.storage.StoragePerformance;
+import cn.dancingsnow.neoecoae.storage.StoragePerformance.Counter;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMaps;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountCollector;
@@ -34,6 +36,7 @@ public final class ECOIOPortTransfer {
     private boolean listedBusScope;
     private Predicate<AEKey> previousFilter;
     private NetworkInventoryCache mountListing;
+    private boolean usingMountListing;
     private final Object2LongOpenHashMap<AEKey> listedAmounts = new Object2LongOpenHashMap<>();
 
     /** Only candidate keys are buffered; all resources remain in the source's authoritative inventory. */
@@ -42,6 +45,7 @@ public final class ECOIOPortTransfer {
         listedIdentity = null; listedVersion = StorageListingVersion.UNKNOWN; previousFilter = null;
         outputListing.clear(); outputListing.removeEmptySubmaps();
         mountListing = null;
+        usingMountListing = false;
         listedAmounts.clear();
         previousDestination = null;
         nextOutputTick = lastOutputTick = Long.MIN_VALUE;
@@ -112,11 +116,15 @@ public final class ECOIOPortTransfer {
             if (mountListing != null) mountListing.invalidate();
         }
 
-        if (from instanceof NetworkInventoryCache.Mounts mounts
-                && refreshMountListing(mounts, stableFilter, filter)) {
+        boolean hadMountListing = usingMountListing;
+        usingMountListing = from instanceof NetworkInventoryCache.Mounts mounts
+                && refreshMountListing(mounts, stableFilter, filter);
+        if (usingMountListing) {
+            listedSource = null;
             available = null;
-            discoverAll = false;
+            discoverAll = !hadMountListing;
         } else if (fillHost) {
+            if (mountListing != null) mountListing.invalidate();
             if (excludeStorageBuses) {
                 // The shared cache includes bus inventories and must stay unchanged for ordinary network users.
                 available = new KeyCounter();
@@ -125,6 +133,7 @@ public final class ECOIOPortTransfer {
                 available = grid.getStorageService().getCachedInventory();
             }
         } else {
+            if (mountListing != null) mountListing.invalidate();
             available = null;
             discoverAll = refreshOutputListing(from, stableFilter, filter);
         }
@@ -133,6 +142,7 @@ public final class ECOIOPortTransfer {
             Iterable<it.unimi.dsi.fastutil.objects.Object2LongMap.Entry<AEKey>> entries =
                 available == null ? Object2LongMaps.fastIterable(listedAmounts) : available;
             for (var entry : entries) {
+                StoragePerformance.count(Counter.TRANSFER_KEY_DISCOVERY_VISIT);
                 if (entry.getLongValue() > 0L) {
                     listed++;
                     if (filter.test(entry.getKey())) queue.add(entry.getKey());
@@ -148,6 +158,7 @@ public final class ECOIOPortTransfer {
         int keysRemaining = Math.min(KEYS_PER_TICK, queue.size());
         while (keysRemaining-- > 0 && !queue.isEmpty()) {
             var key = queue.first();
+            StoragePerformance.count(Counter.TRANSFER_KEY_ATTEMPT);
             // Also recheck pending keys after a filter or interface change.
             if (!filter.test(key)) { queue.removeFirst(); continue; }
             long amount = availableAmount(available, key);

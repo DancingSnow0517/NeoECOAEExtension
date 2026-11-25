@@ -9,8 +9,11 @@ import appeng.me.storage.NetworkStorage;
 import cn.dancingsnow.neoecoae.api.storage.ECOBigIntegerStorage;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.StorageListingAccumulator;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot;
+import cn.dancingsnow.neoecoae.storage.ECOCreativeCell;
+import cn.dancingsnow.neoecoae.storage.ECOCreativeSupply;
 import cn.dancingsnow.neoecoae.storage.NetworkInventoryCache;
 import cn.dancingsnow.neoecoae.storage.transfer.ECOCreativeExtractionFilter;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import org.spongepowered.asm.mixin.Mixin;
@@ -20,18 +23,21 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.math.BigInteger;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.function.Consumer;
+import net.minecraftforge.server.ServerLifecycleHooks;
 
 /** Prevents storage totals from disappearing when an unbounded stack is combined with another inventory. */
 @Mixin(value = NetworkStorage.class, remap = false)
 public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, NetworkInventoryCache.Mounts,
-        TerminalInventorySnapshot.Source {
+        TerminalInventorySnapshot.Source, ECOCreativeSupply.Source {
     private static final BigInteger MAX_LONG = BigInteger.valueOf(Long.MAX_VALUE);
 
     @Unique private final StorageListingAccumulator neoecoae$listing = new StorageListingAccumulator();
@@ -40,6 +46,9 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, Netwo
     @Unique private long neoecoae$listedMountGeneration = Long.MIN_VALUE;
     @Unique private boolean neoecoae$distinctMounts;
     @Unique private TerminalInventorySnapshot.Cache neoecoae$terminalCache;
+    @Unique private ECOCreativeSupply neoecoae$creativeSupply;
+    @Unique private ECOCreativeSupply.Probe neoecoae$requestedCreativeProbe;
+    @Unique private ECOCreativeSupply.Probe neoecoae$creativeProbe;
 
     @Shadow private boolean mountsInUse;
     @Shadow @Final private NavigableMap<Integer, List<MEStorage>> priorityInventory;
@@ -47,10 +56,89 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, Netwo
 
     @Shadow private boolean isQueuedForRemoval(MEStorage inventory) { throw new AssertionError(); }
     @Shadow private void flushQueuedOperations() { throw new AssertionError(); }
+    @Shadow public abstract long extract(AEKey what, long amount, Actionable mode, IActionSource source);
 
     @Inject(method = {"mount", "unmount"}, at = @At("HEAD"))
     private void neoecoae$countMountChange(CallbackInfo ci) {
         neoecoae$mountGeneration++;
+    }
+
+    @Inject(method = "mount", at = @At("RETURN"))
+    private void neoecoae$indexCreativeMount(int priority, MEStorage inventory, CallbackInfo ci) {
+        if (!mountsInUse && inventory instanceof ECOCreativeCell cell && cell.drive() != null) {
+            neoecoae$creativeSupply().mounted(cell);
+        }
+    }
+
+    @Inject(method = "unmount", at = @At("RETURN"))
+    private void neoecoae$indexCreativeUnmount(MEStorage inventory, CallbackInfo ci) {
+        if (!mountsInUse && inventory instanceof ECOCreativeCell cell && neoecoae$creativeSupply != null) {
+            neoecoae$creativeSupply.unmounted(cell);
+        }
+    }
+
+    @Override
+    public ECOCreativeSupply neoecoae$creativeSupply() {
+        if (neoecoae$creativeSupply == null) neoecoae$creativeSupply = new ECOCreativeSupply();
+        return neoecoae$creativeSupply;
+    }
+
+    @Override
+    public ECOCreativeSupply neoecoae$activeRefillSupply() {
+        return neoecoae$creativeSupply;
+    }
+
+    @Override
+    public long neoecoae$probeCreative(ECOCreativeCell cell, AEKey key, IActionSource source) {
+        if (mountsInUse || neoecoae$requestedCreativeProbe != null) return 0;
+        var probe = new ECOCreativeSupply.Probe(cell, key, source);
+        neoecoae$requestedCreativeProbe = probe;
+        try {
+            return extract(key, 1, Actionable.SIMULATE, source) == 1 && probe.supplied ? 1 : 0;
+        } finally {
+            neoecoae$requestedCreativeProbe = null;
+        }
+    }
+
+    @WrapMethod(method = "extract")
+    private long neoecoae$bindCreativeProbe(AEKey key, long amount, Actionable mode, IActionSource source,
+            Operation<Long> original) {
+        var requested = neoecoae$requestedCreativeProbe;
+        if (requested == null) return original.call(key, amount, mode, source);
+        var enclosing = neoecoae$creativeProbe;
+        if (!requested.bound && requested.key == key && requested.source == source
+                && amount == 1 && mode == Actionable.SIMULATE) {
+            requested.bound = true;
+            neoecoae$creativeProbe = requested;
+        } else {
+            neoecoae$creativeProbe = null;
+        }
+        try {
+            return original.call(key, amount, mode, source);
+        } finally {
+            neoecoae$creativeProbe = enclosing;
+        }
+    }
+
+    @WrapOperation(method = "extract", at = @At(value = "INVOKE",
+        target = "Ljava/util/NavigableMap;values()Ljava/util/Collection;"))
+    private Collection<List<MEStorage>> neoecoae$creativeProbeOnly(NavigableMap<Integer, List<MEStorage>> mounts,
+            Operation<Collection<List<MEStorage>>> original) {
+        var probe = neoecoae$creativeProbe;
+        return probe == null ? original.call(mounts) : probe.mounts;
+    }
+
+    @Inject(method = "insert", at = @At("RETURN"))
+    private void neoecoae$signalAcceptedInsertion(AEKey key, long amount, Actionable mode, IActionSource source,
+            CallbackInfoReturnable<Long> ci) {
+        if (mode == Actionable.MODULATE && ci.getReturnValueJ() > 0) neoecoae$refillStockChanged(key);
+    }
+
+    @Unique
+    private void neoecoae$refillStockChanged(AEKey key) {
+        if (neoecoae$creativeSupply == null) return;
+        var server = ServerLifecycleHooks.getCurrentServer();
+        if (server != null && server.isSameThread()) neoecoae$creativeSupply.stockChanged(key);
     }
 
     @Override
@@ -139,6 +227,9 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, Netwo
             mountsInUse = false;
         }
         flushQueuedOperations();
+        if (mode == Actionable.MODULATE && accepted.signum() == 0 && requested.compareTo(remaining) > 0) {
+            neoecoae$refillStockChanged(what);
+        }
         return requested.subtract(remaining).toBigInteger();
     }
 
@@ -174,6 +265,13 @@ public abstract class NetworkStorageMixin implements ECOBigIntegerStorage, Netwo
             Operation<Long> original) {
         if (cn.dancingsnow.neoecoae.storage.transfer.StorageExtractionExclusions.contains(storage)) {
             return 0L;
+        }
+        var probe = neoecoae$creativeProbe;
+        if (probe != null) {
+            long supplied = original.call(storage, key, amount, mode, source);
+            probe.supplied = storage == probe.cell && key == probe.key && source == probe.source
+                    && amount == 1 && mode == Actionable.SIMULATE && supplied == 1;
+            return supplied;
         }
         // Keep the Operation chain for other Mixins, but do not capture a supplier for the ordinary path.
         if (!cn.dancingsnow.neoecoae.storage.transfer.ECOCreativeExtractionFilter.isActive(mode)) {

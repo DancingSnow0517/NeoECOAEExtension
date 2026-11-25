@@ -663,6 +663,10 @@ public class ECOCraftingPatternBusBlockEntity extends cn.dancingsnow.neoecoae.bl
         return catalog.decodedPatternDetails(slot);
     }
 
+    public void setPatternPreviewSubscriber(cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity<?> host, boolean mapped) {
+        publisher.subscribe(host, mapped);
+    }
+
     void notifyPatternInterfaceHosts(int slot) {
         publisher.notifyPatternInterfaceHosts(slot);
     }
