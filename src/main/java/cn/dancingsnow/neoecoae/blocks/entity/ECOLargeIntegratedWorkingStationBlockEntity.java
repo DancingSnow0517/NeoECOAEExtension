@@ -116,7 +116,6 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     private final LargeWorkstationModuleInventory moduleInventory = new LargeWorkstationModuleInventory(this::moduleChanged);
     /** Accepted ordinary-path batches, bounded by MAX_PENDING_BATCHES backpressure. */
     private final Deque<PendingBatch> pendingBatches = new ArrayDeque<>();
-    private boolean pendingOutputCountValid;
     private long pendingOutputStackCount;
     private int communicationUpdateDepth;
     private boolean communicationUpdatePending;
@@ -378,23 +377,14 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
     }
 
     @Nullable
-    private CoolingRecipe getCoolingRecipeForInput() {
-        if (level == null) return null;
-        FluidStack input = getInputTank().getFluid();
-        if (input.isEmpty()) return null;
+    private final LargeWorkstationCoolantLookup coolantRecipes = new LargeWorkstationCoolantLookup();
 
-        CoolingRecipe best = null;
-        for (CoolingRecipe holder : level.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get())) {
-            CoolingRecipe recipe = holder;
-            if (recipe.input().ingredient().test(input)
-                && (best == null || recipe.maxOverclock() > best.maxOverclock())) {
-                best = holder;
-            }
-        }
-        return best;
+    private CoolingRecipe getCoolingRecipeForInput() {
+        return coolantRecipes.find(level, getInputTank().getFluid());
     }
 
     private LargeWorkstationOverclock getCurrentBatchProfile() {
+        if (!overclocked) return LargeWorkstationOverclock.NORMAL;
         return isTemperatureEnabled() ? LargeWorkstationOverclock.forTemperature(overclocked, temperature)
             : getCoolantBatchProfile(getCoolingRecipeForInput());
     }
@@ -767,7 +757,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             ECOCraftingJobLifecycle.finish(level, selected.craftingJobId, false);
         }
         notifyPatternAborted(selected.unlockStack);
-        pendingOutputCountValid = false;
+        pendingOutputStackCount -= PendingBatch.countStackEntries(selected.pendingOutput);
         pendingBatches.remove(selected);
         PendingBatch first = pendingBatches.peekFirst();
         setProcessingTime(first == null ? 0 : first.progress);
@@ -1000,7 +990,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         double restoredRefund = data.getDouble("pendingPowerRefund");
         pendingPowerRefund = Double.isFinite(restoredRefund) && restoredRefund > 0.0D ? restoredRefund : 0.0D;
         coolingOutput.load(data);
-        pendingOutputCountValid = false;
+        pendingOutputStackCount = 0;
         pendingBatches.clear();
         ListTag batches = data.getList("pendingBatches", Tag.TAG_COMPOUND);
         setPauseReason(PauseReason.NONE);
@@ -1009,6 +999,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             PendingBatch batch = PendingBatch.load(batches.getCompound(index), currentTick);
             if (batch != null) {
                 pendingBatches.addLast(batch);
+                pendingOutputStackCount += PendingBatch.countStackEntries(batch.pendingOutput);
             }
         }
         PendingBatch first = pendingBatches.peekFirst();
@@ -1093,31 +1084,22 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             && (!isTemperatureEnabled() || !overheated)
             && getMainNode().isActive()
             && pendingBatches.size() < MAX_PENDING_BATCHES
-            && getPendingOutputStackCount() < MAX_PENDING_OUTPUT_STACKS;
-    }
-
-    private long getPendingOutputStackCount() {
-        if (pendingOutputCountValid) return pendingOutputStackCount;
-        long count = 0L;
-        counting:
-        for (PendingBatch batch : pendingBatches) {
-            for (var entry : batch.pendingOutput) {
-                if (entry.getLongValue() > 0L && ++count >= MAX_PENDING_OUTPUT_STACKS) break counting;
-            }
-        }
-        pendingOutputStackCount = count;
-        pendingOutputCountValid = true;
-        return count;
+            && pendingOutputStackCount < MAX_PENDING_OUTPUT_STACKS;
     }
 
     private void addBatchOutputs(PendingBatch batch, KeyCounter outputs) {
-        pendingOutputCountValid = false;
-        batch.pendingOutput.addAll(outputs);
+        for (var entry : outputs) {
+            AEKey key = entry.getKey();
+            boolean wasPresent = batch.pendingOutput.get(key) > 0;
+            batch.pendingOutput.add(key, entry.getLongValue());
+            if (wasPresent != (batch.pendingOutput.get(key) > 0)) pendingOutputStackCount += wasPresent ? -1 : 1;
+        }
     }
 
     private void removeBatchOutput(PendingBatch batch, AEKey key, long amount) {
-        pendingOutputCountValid = false;
+        boolean wasPresent = batch.pendingOutput.get(key) > 0;
         batch.pendingOutput.remove(key, amount);
+        if (wasPresent && batch.pendingOutput.get(key) <= 0) pendingOutputStackCount--;
     }
 
     /** Applies AE2 pattern-provider blocking semantics to the controller's owned, pending input ledger. */
@@ -1167,7 +1149,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     private void enqueueBatch(PendingBatch batch, @Nullable KeyCounter[] consumedInputs) {
         boolean wasEmpty = pendingBatches.isEmpty();
-        pendingOutputCountValid = false;
+        pendingOutputStackCount += PendingBatch.countStackEntries(batch.pendingOutput);
         pendingBatches.addLast(batch);
         if (consumedInputs != null) {
             for (KeyCounter counter : consumedInputs) {
@@ -1551,6 +1533,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             batch.outputTotal.clear();
             batch.outputTotal.addAll(ownedOutputs);
             if (taken == next.craftCount) {
+                pendingOutputStackCount -= PendingBatch.countStackEntries(next.pendingOutput);
                 iterator.remove();
             } else {
                 next.craftCount -= taken;
@@ -1904,7 +1887,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
 
     private void removeFirstBatch(PendingBatch batch) {
         if (pendingBatches.peekFirst() != batch) return;
-        pendingOutputCountValid = false;
+        pendingOutputStackCount -= PendingBatch.countStackEntries(batch.pendingOutput);
         pendingBatches.removeFirst();
         PendingBatch next = pendingBatches.peekFirst();
         setProcessingTime(next == null ? 0 : next.progress);
@@ -2288,7 +2271,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 ECOCraftingJobLifecycle.finish(level, batch.craftingJobId, false);
             }
             notifyPatternAborted(batch.unlockStack);
-            pendingOutputCountValid = false;
+            pendingOutputStackCount -= PendingBatch.countStackEntries(batch.pendingOutput);
             pendingBatches.remove(batch);
         }
         PendingBatch first = pendingBatches.peekFirst();
@@ -2335,7 +2318,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 }
             }
         }
-        pendingOutputCountValid = false;
+        pendingOutputStackCount = 0;
         pendingBatches.clear();
     }
 
@@ -2346,7 +2329,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 ECOCraftingJobLifecycle.finish(level, batch.craftingJobId, false);
             }
         }
-        pendingOutputCountValid = false;
+        pendingOutputStackCount = 0;
         pendingBatches.clear();
         super.clearContent();
         moduleInventory.setStackInSlot(0, ItemStack.EMPTY);
@@ -2475,7 +2458,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
                 + countStackEntries(missingExtras)
                 + (unlockStack == null ? 0L : 1L);
             if (saveStackCount > MAX_SAVE_STACKS) {
-                LOGGER.error("Skipping oversized large workstation batch save at {}: {} stack entries",
+                if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error("Skipping oversized large workstation batch save at {}: {} stack entries",
                     createdTick, saveStackCount);
                 tag.putBoolean("pendingStateTooLarge", true);
                 return tag;
@@ -2491,7 +2474,7 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
         @Nullable
         private static PendingBatch load(CompoundTag tag, long currentTick) {
             if (tag.getBoolean("pendingStateTooLarge")) {
-                LOGGER.error("Discarding a large workstation batch whose persisted state exceeded the save limit");
+                if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.error("Discarding a large workstation batch whose persisted state exceeded the save limit");
                 return null;
             }
             long craftCount = tag.getLong("craftCount");

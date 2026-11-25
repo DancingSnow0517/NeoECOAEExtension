@@ -57,6 +57,11 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
     private final IUpgradeInventory capacityUpgrades;
     private final InternalInventory visiblePatternInventory = new EffectivePatternInventory();
     private List<IPatternDetails> compatiblePatterns = List.of();
+    private final java.util.TreeMap<Integer, IPatternDetails> compatibleSlots = new java.util.TreeMap<>();
+    private final java.util.BitSet dirtySlots = new java.util.BitSet();
+    private boolean decodeAllSlots = true;
+    private Set<IPatternDetails> compatiblePatternSet = Set.of();
+    private long recipeGeneration = Long.MIN_VALUE;
     private Set<AEItemKey> advertisedKeys = Set.of();
     private int advertisementRevision;
     private boolean compatiblePatternsDirty = true;
@@ -208,6 +213,8 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
     @Override
     public void readFromNBT(CompoundTag tag) {
         super.readFromNBT(tag);
+        decodeAllSlots = true;
+        compatiblePatternsDirty = true;
         capacityUpgrades.readFromNBT(tag, "workstationCapacityUpgrades");
         disableSmartDoubling();
     }
@@ -238,21 +245,29 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
     }
 
     @Override
-    public void onChangeInventory(appeng.api.inventories.InternalInventory inv, int slot) {
-        super.onChangeInventory(inv, slot);
-        // The host is the storage the grid indexes, but its patterns live in this logic's inventory. Without
-        // this the catalog's revision for the host never moves, so a slot cleared here stays counted forever.
+    public void onChangeInventory(InternalInventory inv, int slot) {
+        if (slot >= 0 && slot < MAX_PATTERN_SLOTS) dirtySlots.set(slot);
+        else decodeAllSlots = true;
+        host.saveChanges();
+        compatiblePatternsDirty = true;
         host.onPatternSlotsChanged();
+        disableSmartDoubling();
+        requestProviderUpdate();
     }
 
     @Override
     public void updatePatterns() {
-        disableSmartDoubling();
+        decodeAllSlots = true;
         compatiblePatternsDirty = true;
-        // PatternProviderLogic.requestUpdate() refreshes the AE2 provider synchronously. Invalidate the
-        // workstation-specific compatibility cache before delegating, otherwise the refresh can remount the
-        // previous filtered list and leave the newly decoded patterns invisible until the network is replugged.
-        super.updatePatterns();
+        disableSmartDoubling();
+        requestProviderUpdate();
+    }
+
+    private void decodeSlot(int slot, ECOLargeIntegratedWorkingStationBlockEntity controller) {
+        ItemStack stack = getMenuPatternInventory().getStackInSlot(slot);
+        var pattern = stack.isEmpty() ? null : PatternDetailsHelper.decodePattern(stack, host.getLevel());
+        if (pattern != null && controller.acceptPattern(pattern, null, false)) compatibleSlots.put(slot, pattern);
+        else compatibleSlots.remove(slot);
     }
 
     private void disableSmartDoubling() {
@@ -276,19 +291,29 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
             }
             lastController = null;
             compatiblePatterns = List.of();
+            compatiblePatternSet = Set.of();
+            decodeAllSlots = true;
             advertisedKeys = Set.of();
             return List.of();
         }
         Object recipes = LargeWorkstationRecipes.getAvailable(host.getLevel(), controller.getInstalledModule());
-        if (!compatiblePatternsDirty && lastController == controller && lastRecipes == recipes) {
+        long generation = cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection.reloadGeneration();
+        if (!compatiblePatternsDirty && lastController == controller && lastRecipes == recipes && recipeGeneration == generation) {
             return compatiblePatterns;
         }
-        List<IPatternDetails> result = new ArrayList<>();
-        for (var pattern : super.getAvailablePatterns()) {
-            if (controller.acceptPattern(pattern, null, false)) result.add(pattern);
+        boolean sourceChanged = lastController != controller || lastRecipes != recipes || recipeGeneration != generation;
+        if (decodeAllSlots || sourceChanged) {
+            compatibleSlots.clear();
+            for (int slot = 0; slot < getMenuPatternInventory().size(); slot++) decodeSlot(slot, controller);
+        } else {
+            for (int slot = dirtySlots.nextSetBit(0); slot >= 0; slot = dirtySlots.nextSetBit(slot + 1)) decodeSlot(slot, controller);
         }
-        boolean sourceChanged = lastController != controller || lastRecipes != recipes;
+        dirtySlots.clear();
+        decodeAllSlots = false;
+        recipeGeneration = generation;
+        List<IPatternDetails> result = List.copyOf(compatibleSlots.values());
         compatiblePatterns = result;
+        compatiblePatternSet = new HashSet<>(result);
         Set<AEItemKey> keys = new HashSet<>();
         for (IPatternDetails pattern : result) {
             keys.add(pattern.getDefinition());
@@ -381,7 +406,7 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
         @Nullable ECOLargeIntegratedWorkingStationBlockEntity controller,
         IPatternDetails pattern
     ) {
-        if (controller == null || !host.getMainNode().isActive() || !getAvailablePatterns().contains(pattern)
+        if (controller == null || !host.getMainNode().isActive() || getAvailablePatterns().isEmpty() || !compatiblePatternSet.contains(pattern)
                 || isCraftingLocked()) {
             return false;
         }

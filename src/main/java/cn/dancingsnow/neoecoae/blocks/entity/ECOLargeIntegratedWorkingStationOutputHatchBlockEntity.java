@@ -45,14 +45,18 @@ public class ECOLargeIntegratedWorkingStationOutputHatchBlockEntity
         }
     }
 
+    private final cn.dancingsnow.neoecoae.util.AdjacentFluidHandlers adjacentFluidHandlers =
+        new cn.dancingsnow.neoecoae.util.AdjacentFluidHandlers();
+
     public void tick(Level level, BlockPos pos, BlockState state) {
+        if (level.isClientSide || tank.isEmpty()) return;
         var cluster = getCluster();
         for (Direction face : Direction.values()) {
             BlockPos neighborPos = pos.relative(face);
             if (cluster != null && cluster.containsBlockEntity(level.getBlockEntity(neighborPos))) {
                 continue;
             }
-            IFluidHandler target = cn.dancingsnow.neoecoae.platform.ForgeBlockCapabilities.find(level, neighborPos, ForgeCapabilities.FLUID_HANDLER, face.getOpposite());
+            IFluidHandler target = adjacentFluidHandlers.get(level, pos, face);
             if (target != null
                 && !FluidUtil.tryFluidTransfer(target, tank, tank.getFluidAmount(), true).isEmpty()) {
                 return;

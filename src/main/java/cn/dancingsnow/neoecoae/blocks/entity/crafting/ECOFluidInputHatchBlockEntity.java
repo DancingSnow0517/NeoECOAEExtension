@@ -142,6 +142,9 @@ public class ECOFluidInputHatchBlockEntity extends cn.dancingsnow.neoecoae.block
         tank.setFluid(FluidStack.EMPTY);
     }
 
+    private final cn.dancingsnow.neoecoae.util.AdjacentFluidHandlers adjacentFluidHandlers =
+        new cn.dancingsnow.neoecoae.util.AdjacentFluidHandlers();
+
     public void tick(Level level, BlockPos pos, BlockState state) {
         if (level.isClientSide) return;
         if (hasNetworkPullCard()) {
@@ -153,8 +156,9 @@ public class ECOFluidInputHatchBlockEntity extends cn.dancingsnow.neoecoae.block
             }
             return;
         }
+        if (tank.getFluidAmount() >= tank.getCapacity()) return;
         for (Direction face : Direction.values()) {
-            IFluidHandler sourceHandler = cn.dancingsnow.neoecoae.platform.ForgeBlockCapabilities.find(level, pos.relative(face), ForgeCapabilities.FLUID_HANDLER, face.getOpposite());
+            IFluidHandler sourceHandler = adjacentFluidHandlers.get(level, pos, face);
             if (sourceHandler != null) {
                 if (!FluidUtil.tryFluidTransfer(tank, sourceHandler, tank.getCapacity(), true).isEmpty()) {
                     return;
