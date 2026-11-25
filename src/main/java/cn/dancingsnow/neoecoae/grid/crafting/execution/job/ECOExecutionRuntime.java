@@ -843,6 +843,10 @@ public final class ECOExecutionRuntime {
         for (int end = 0; end < ends.length; end++) {
             var last = phase.steps().get(end);
             if (last.repetitions() <= 1L) continue;
+            if (ends.length == 1 && phase.taskIds().size() == 1) {
+                ends[end] = end;
+                continue;
+            }
             int start = end - last.repeatWidth() + 1;
             var tasks = new java.util.HashSet<Integer>();
             boolean safe = true;
@@ -856,7 +860,6 @@ public final class ECOExecutionRuntime {
     }
 
     // Reordering fixed processing copies is safe only while competing consumers retain their inputs.
-    // Unknown substitutions and crafting/tool mutations continue to follow the original ordered witness.
     private static boolean fixedProcessingInputs(IPatternDetails pattern) {
         return PatternContractReader.readFixedProcessingInputs(pattern).wellFormed();
     }
@@ -896,7 +899,8 @@ public final class ECOExecutionRuntime {
         if (phase.type() == ECOExecutionSchedule.Type.DAG) return upper;
         int index = candidate.orderedStepIndex();
         int end = index < 0 ? -1 : batchGroupEnds.get(phaseIndex)[index];
-        if (phase.type() == ECOExecutionSchedule.Type.CYCLE && end < 0) return upper;
+        if (phase.type() == ECOExecutionSchedule.Type.CYCLE
+                && (end < 0 || phase.steps().get(end).repeatWidth() == 1)) return upper;
         long witnessed = phase.type() == ECOExecutionSchedule.Type.DYNAMIC_CYCLE ? 1L
             : remainingSteps.get(phaseIndex)[index].longValueSaturated();
         var totals = new Object2LongOpenHashMap<AEKey>();
