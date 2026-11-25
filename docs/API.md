@@ -56,7 +56,7 @@ Handler operations and quantity reads follow the server-thread, simulation/execu
 
 ## Threads, registration and ownership
 
-The JEI multiblock transfer bridge selects the available API through `MultiBlockRecipeTransferHandler.create()`; load this class only on the client when JEI is present. With the 19.52 context API, actual pattern encoding reports completion or failure; preview checks do not send completion notifications. The old constructor and six-argument `transferRecipe` remain available for older JEI and existing binaries. New integrations should use the factory so context completion notifications are preserved.
+The JEI multiblock transfer handler uses `IRecipeTransferContext`; load this class only on the client when JEI is present. Actual pattern encoding reports completion or failure; preview checks do not send completion notifications. JEI 19.70.0.467 still requires the six-argument `transferRecipe` declaration, but the handler rejects calls to it.
 
 Begin planning on the owning server thread: it captures grid inventory before handing work to the executor. Submission, provider acceptance, storage mutations and output claims also run on that thread. The caller checks player/machine access before calculation and again before submission; these low-level APIs do not authenticate callers.
 
