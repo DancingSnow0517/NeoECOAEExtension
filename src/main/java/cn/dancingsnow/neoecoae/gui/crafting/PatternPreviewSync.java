@@ -213,7 +213,7 @@ public final class PatternPreviewSync {
             return;
         }
         nextSyncTick = now + MenuDataTransport.UPDATE_INTERVAL;
-        if (reset || !dirtySlots.isEmpty()) host.refreshPatternCatalog();
+        if (needsSync || reset || !dirtySlots.isEmpty()) host.refreshPatternCatalog();
         int size = host.getPatternInterfaceSlotCount();
         int revision = host.getPatternContentRevision();
         boolean full = reset || cachedEntries.size() != size;

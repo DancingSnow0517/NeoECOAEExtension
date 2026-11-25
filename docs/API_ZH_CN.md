@@ -267,6 +267,8 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 
 可写节点服务实现 [IECOPatternStorage](../src/main/java/cn/dancingsnow/neoecoae/api/IECOPatternStorage.java)，`KnownUnique` 方法仅供已证明无重复的调用使用。目录宿主通过 [PatternStorageHost](../src/main/java/cn/dancingsnow/neoecoae/api/PatternStorageHost.java)、[AuxiliaryPatternHolder](../src/main/java/cn/dancingsnow/neoecoae/api/AuxiliaryPatternHolder.java) 提供真实槽位、修订号与稳定内容顺序。可选 `allowsPatternMigrationSource()` 显式允许宿主作为迁移来源。
 
+附属样板总线若使用自有库存，应在服务端线程更新库存后、通知预览界面前调用 `IECOPatternStorageService.onPatternSlotsChanged`。传入批次开始前的修订号和所有变动的物理槽位；槽位布局变化时传 `{-1}`。样板目录也会核对非内置宿主的修订号作为兜底。
+
 外部候选通过 owner UUID 认领；所有退出路径释放认领，源槽清空后删除候选。扫描未 ready 不阻止处理已发现候选；拓扑变化后丢弃旧槽位引用。
 
 ## 存储盘与精确数量

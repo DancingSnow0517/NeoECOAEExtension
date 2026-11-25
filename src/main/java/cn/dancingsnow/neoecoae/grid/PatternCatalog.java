@@ -165,8 +165,8 @@ public class PatternCatalog implements IECOPatternStorageService, IGridServicePr
         if (service == null) return;
         patternStorages.put(gridNode, service);
         if (service instanceof PatternStorageHost host) {
-            if (!(host instanceof ECOCraftingPatternBusBlockEntity)
-                    && !(host instanceof ECOLargeIntegratedWorkingStationInterfaceBlockEntity)) untrackedHosts.add(host);
+            if (host.getClass() != ECOCraftingPatternBusBlockEntity.class
+                    && host.getClass() != ECOLargeIntegratedWorkingStationInterfaceBlockEntity.class) untrackedHosts.add(host);
             rebuildBusPatternIndex(host);
             updateWritableHost(host);
         }

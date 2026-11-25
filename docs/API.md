@@ -267,6 +267,8 @@ Physical item storage returns no blank. When a container absorbs the recipe, `co
 
 Writable node services implement [IECOPatternStorage](../src/main/java/cn/dancingsnow/neoecoae/api/IECOPatternStorage.java); `KnownUnique` methods require proof of uniqueness. Directory hosts use [PatternStorageHost](../src/main/java/cn/dancingsnow/neoecoae/api/PatternStorageHost.java) and [AuxiliaryPatternHolder](../src/main/java/cn/dancingsnow/neoecoae/api/AuxiliaryPatternHolder.java) to expose real slots, revisions and stable content ordering. Opt into migration sourcing with `allowsPatternMigrationSource()`.
 
+For an add-on pattern bus with its own inventory, call `IECOPatternStorageService.onPatternSlotsChanged` after updating the inventory on the server thread and before notifying preview viewers. Pass the pre-batch revision and all changed physical slots, or `{-1}` if the slot layout changed. The catalog also checks revisions for non-built-in hosts as a fallback.
+
 Claim external candidates under an owner UUID and release claims on every exit path. Remove candidates after clearing the source. An unfinished scan can still expose usable candidates; discard old slot references after topology changes.
 
 ## Storage cells and exact amounts
