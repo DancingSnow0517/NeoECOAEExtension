@@ -1,7 +1,5 @@
 package cn.dancingsnow.neoecoae.crafting.planner.snapshot;
 
-import cn.dancingsnow.neoecoae.integration.ae2.keyreuse.ECOKeyFactory;
-
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ExactCycleAmount;
 import java.math.BigInteger;
@@ -12,11 +10,11 @@ public record ExactKeyAmount(AEKey key, ExactCycleAmount amount) {
     private static final int MAX_INTEGER_BYTES = 4096;
 
     static ExactKeyAmount read(FriendlyByteBuf data) {
-        return new ExactKeyAmount(ECOKeyFactory.readKey(data), new ExactCycleAmount(readBigInteger(data)));
+        return new ExactKeyAmount(CraftingGraphSnapshot.readKey(data), new ExactCycleAmount(readBigInteger(data)));
     }
 
     void write(FriendlyByteBuf data) {
-        AEKey.writeKey(data, key);
+        CraftingGraphSnapshot.writeKey(data, key);
         byte[] bytes = amount.value().toByteArray();
         if (bytes.length > MAX_INTEGER_BYTES) throw new IllegalArgumentException("Exact cycle amount is too large");
         data.writeByteArray(bytes);

@@ -10,9 +10,12 @@ import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
+import cn.dancingsnow.neoecoae.crafting.planner.semantic.PatternSemantics;
 import cn.dancingsnow.neoecoae.crafting.planner.semantic.SpecialPatternAnalysis;
 import cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialSource;
 import cn.dancingsnow.neoecoae.crafting.planner.provenance.MaterialDemand;
+import java.util.ArrayDeque;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +31,7 @@ public final class SpecialPatternResolver {
     private final boolean ignorePatternSubstitutions;
     private final Map<AEKey, PlannerAmount> resolving = new java.util.LinkedHashMap<>();
     private final Map<AEKey, PlannerAmount> reusableStock = new java.util.LinkedHashMap<>();
+    private Set<AEKey> orderedPath;
     private CompiledPattern specialOwner;
     private int specialSlot = -1;
 
@@ -48,6 +52,162 @@ public final class SpecialPatternResolver {
     void restoreReservations(Map<AEKey, PlannerAmount> reservations) {
         reusableStock.putAll(reservations);
     }
+
+    boolean resolveOrdered(AEKey key, PlannerAmount requested) throws InterruptedException {
+        var trial = forkOrdered(new LinkedHashSet<>());
+        trial.state.missing.asMap().clear();
+        trial.state.unsupported.clear();
+        try {
+            trial.resolveOrderedProducers(key, null, requested);
+            for (var deficit : state.missing) trial.state.missing.add(deficit.getKey(), deficit.getValue());
+            trial.state.unsupported.addAll(state.unsupported);
+            commitOrdered(trial);
+            return true;
+        } catch (UnresolvedOrderedRoute ignored) {
+            return false;
+        }
+    }
+
+    private SpecialPatternResolver forkOrdered(Set<AEKey> path) {
+        var trial = new SpecialPatternResolver(network, state.copy(), choices, cancellation, ignorePatternSubstitutions);
+        trial.orderedPath = path;
+        trial.restoreReservations(reusableStock);
+        return trial;
+    }
+
+    private void commitOrdered(SpecialPatternResolver trial) {
+        state.replaceWith(trial.state);
+        reusableStock.clear();
+        restoreReservations(trial.reusableStock);
+    }
+
+    private PlannerAmount resolveOrderedProducers(AEKey key, MaterialDemand demand, PlannerAmount requested)
+            throws InterruptedException {
+        cancellation.checkpoint();
+        var producers = network.fastProducersOf(key);
+        if (producers.isEmpty()) {
+            if (!network.producersOf(key).isEmpty()) throw new UnresolvedOrderedRoute();
+            return requested;
+        }
+        if (orderedPath.size() >= 256 || !orderedPath.add(key)) throw new UnresolvedOrderedRoute();
+        try {
+            if (producers.size() == 1) {
+                CompiledPattern pattern = producers.get(0);
+                return fireOrdered(pattern, demand, requested, requested.ceilDiv(pattern.outputPerPattern()))
+                    ? PlannerAmount.ZERO : requested;
+            }
+            PlannerAmount remaining = requested;
+            for (CompiledPattern pattern : producers) {
+                if (remaining.isZero()) break;
+                if (canBatchOrdered(pattern)) {
+                    PlannerAmount limit = remaining.ceilDiv(pattern.outputPerPattern());
+                    var full = probeOrdered(pattern, demand, remaining, limit);
+                    if (full != null) {
+                        commitOrdered(full);
+                        return PlannerAmount.ZERO;
+                    }
+                    PlannerAmount accepted = PlannerAmount.ZERO;
+                    SpecialPatternResolver best = null;
+                    for (limit = limit.subtract(PlannerAmount.ONE); accepted.compareTo(limit) < 0;) {
+                        PlannerAmount count = accepted.add(limit).add(PlannerAmount.ONE).shiftRight(1);
+                        var probe = probeOrdered(pattern, demand, remaining, count);
+                        if (probe == null) limit = count.subtract(PlannerAmount.ONE);
+                        else {
+                            accepted = count;
+                            best = probe;
+                        }
+                    }
+                    if (best != null) {
+                        commitOrdered(best);
+                        remaining = remaining.subtract(accepted.multiply(pattern.outputPerPattern()));
+                    }
+                } else {
+                    while (remaining.signum() > 0) {
+                        cancellation.checkpoint();
+                        var probe = probeOrdered(pattern, demand, remaining, PlannerAmount.ONE);
+                        if (probe == null) break;
+                        commitOrdered(probe);
+                        remaining = remaining.subtract(remaining.min(pattern.outputPerPattern()));
+                    }
+                }
+            }
+            return remaining;
+        } finally {
+            orderedPath.remove(key);
+        }
+    }
+
+    private boolean canBatchOrdered(CompiledPattern producer) throws InterruptedException {
+        var pending = new ArrayDeque<CompiledPattern>();
+        Set<AEKey> visited = new LinkedHashSet<>();
+        Set<AEKey> consumed = new LinkedHashSet<>();
+        Set<AEKey> byproducts = new LinkedHashSet<>();
+        pending.add(producer);
+        visited.add(producer.producedKey());
+        while (!pending.isEmpty()) {
+            cancellation.checkpoint();
+            var pattern = pending.removeFirst();
+            var semantics = pattern.semantics();
+            if (!pattern.specialAnalysis().requirements().isEmpty() || !semantics.supported()
+                    || semantics.executionRestriction() != PatternSemantics.ExecutionRestriction.NONE) return false;
+            for (GenericStack output : pattern.grossOutputs()) {
+                if (!output.what().equals(pattern.producedKey())) byproducts.add(output.what());
+            }
+            for (CompiledInput input : pattern.inputs()) {
+                if (input.ignoresComponents() || input.remainderKey() != null) return false;
+                consumed.add(input.key());
+                if (network.emittable().contains(input.key()) || !visited.add(input.key())) continue;
+                var producers = network.fastProducersOf(input.key());
+                if (producers.size() > 1) return false;
+                if (!producers.isEmpty()) pending.add(producers.get(0));
+            }
+        }
+        return Collections.disjoint(consumed, byproducts);
+    }
+
+    private SpecialPatternResolver probeOrdered(CompiledPattern pattern, MaterialDemand demand,
+            PlannerAmount requested, PlannerAmount firings) throws InterruptedException {
+        cancellation.checkpoint();
+        var trial = forkOrdered(orderedPath);
+        return trial.fireOrdered(pattern, demand, requested, firings) ? trial : null;
+    }
+
+    private boolean fireOrdered(CompiledPattern pattern, MaterialDemand demand,
+            PlannerAmount requested, PlannerAmount firings) throws InterruptedException {
+        resolve(pattern, firings);
+        if (!state.unsupported.isEmpty()) throw new UnresolvedOrderedRoute();
+        if (!state.missing.isEmpty()) return false;
+        for (int slot = 0; slot < pattern.inputs().size(); slot++) {
+            cancellation.checkpoint();
+            var input = pattern.inputs().get(slot);
+            if (pattern.specialAnalysis().excludesFromCycleGraph(input)) continue;
+            PlannerAmount required = SolveWorkspace.inputAmount(input, firings);
+            var inputDemand = MaterialDemand.input(pattern.details(), slot, input.key(), required);
+            state.provenance.register(inputDemand);
+            state.bytes = state.bytes.add(PlannerAmount.stackBytes(required, input.key().getAmountPerByte()));
+            resolveInput(pattern, inputDemand, input.source(), input.ignoresComponents());
+            if (!state.unsupported.isEmpty()) throw new UnresolvedOrderedRoute();
+            if (!state.missing.isEmpty()) return false;
+        }
+        AEKey key = pattern.producedKey();
+        PlannerAmount supplied = requested.min(pattern.outputPerPattern().multiply(firings));
+        creditOrdered(pattern, demand, supplied, firings);
+        state.selected.putIfAbsent(key, pattern);
+        state.orderedProducers.computeIfAbsent(key, ignored -> new LinkedHashSet<>()).add(pattern);
+        return true;
+    }
+
+    private void creditOrdered(CompiledPattern pattern, MaterialDemand demand, PlannerAmount supplied, PlannerAmount firings) {
+        AEKey key = pattern.producedKey();
+        var source = new MaterialSource.PatternOutput(pattern.details(), true);
+        if (demand == null) state.provenance.allocatePending(key, key, source, supplied);
+        else state.provenance.allocate(demand, key, source, supplied);
+        recordFirings(pattern, firings);
+        AcyclicCraftingSolver.creditPatternOutputs(state, pattern, key, supplied,
+            SolveWorkspace.outputAmounts(pattern, firings));
+    }
+
+    private static final class UnresolvedOrderedRoute extends RuntimeException {}
 
     public static PlannerAmount requiredTools(PlannerAmount uses, int capacityPerTool) {
         if (capacityPerTool <= 0) throw new IllegalArgumentException("capacityPerTool must be positive");
@@ -208,12 +368,18 @@ public final class SpecialPatternResolver {
             boolean ignoreComponents)
             throws InterruptedException {
         if (requested.signum() <= 0) return;
+        MaterialDemand demand = inputDemand(owner, key, requested);
+        resolveInput(owner, demand, owner.inputs().get(demand.inputSlot()).source(), ignoreComponents);
+    }
+
+    private void resolveInput(CompiledPattern owner, MaterialDemand demand, IPatternDetails.IInput matchingInput,
+            boolean ignoreComponents) throws InterruptedException {
+        AEKey key = demand.key();
+        PlannerAmount requested = demand.amount();
         state.demand.merge(key, requested, PlannerAmount::add);
         state.demandProducers.put(key, owner.details());
         state.parents.computeIfAbsent(key, ignored -> new LinkedHashSet<>()).add(owner.producedKey());
 
-        MaterialDemand demand = inputDemand(owner, key, requested);
-        IPatternDetails.IInput matchingInput = owner.inputs().get(demand.inputSlot()).source();
         PlannerAmount stored = consumeStored(key, requested, ignoreComponents, demand, matchingInput);
         requested = requested.subtract(stored);
         PlannerAmount crafted = requested.min(state.craftedAmount(key));
@@ -225,6 +391,11 @@ public final class SpecialPatternResolver {
         if (network.emittable().contains(key)) {
             state.emitted.add(key, requested);
             state.provenance.allocate(demand, key, MaterialSource.Emitted.INSTANCE, requested);
+            return;
+        }
+        if (orderedPath != null) {
+            PlannerAmount remaining = resolveOrderedProducers(key, demand, requested);
+            if (remaining.signum() > 0) state.missing.add(key, remaining);
             return;
         }
         PlannerAmount pending = resolving.get(key);
@@ -251,8 +422,7 @@ public final class SpecialPatternResolver {
             state.selected.put(key, producer);
             state.provenance.allocate(demand, key, new MaterialSource.PatternOutput(producer.details(), true), requested);
             PlannerAmount times = requested.ceilDiv(producer.outputPerPattern());
-            state.patternTimes.merge(producer.details(), times, PlannerAmount::add);
-            state.bytes = state.bytes.add(times);
+            recordFirings(producer, times);
             for (var output : producer.outputs()) {
                 PlannerAmount produced = PlannerAmount.of(output.amount()).multiply(times);
                 if (output.what().equals(key)) produced = produced.subtract(requested);
@@ -267,6 +437,11 @@ public final class SpecialPatternResolver {
         } finally {
             resolving.remove(key);
         }
+    }
+
+    private void recordFirings(CompiledPattern pattern, PlannerAmount times) {
+        state.patternTimes.merge(pattern.details(), times, PlannerAmount::add);
+        state.bytes = state.bytes.add(times);
     }
 
     private MaterialDemand inputDemand(CompiledPattern owner, AEKey key, PlannerAmount amount) {
