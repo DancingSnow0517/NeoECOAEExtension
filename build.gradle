@@ -211,8 +211,8 @@ dependencies {
 
     // Optional transfer fast path. Never place this on the default runtime classpath.
 
-    // Optional OmniSequence v1 batch API. Compile against the upstream classes without installing the mod at runtime.
-    compileOnly("curse.maven:omnisequence-transfinite-1624558:8991983") { transitive = false }
+    // OmniSequence 21.3.0.3 registers itself through NeoECOAE's API; only the post-accounting flush is compiled here.
+    compileOnly("curse.maven:omnisequence-transfinite-1624558:9737299") { transitive = false }
 
     // Pattern-disk API: AE2 Pattern Disk publishes PatternDiskApi for integrations whose machines hold pattern
     // disks. The integration still does not require the mod - the guard in PatternDiskIntegration stands it down
