@@ -858,21 +858,7 @@ public final class ECOExecutionRuntime {
     // Reordering fixed processing copies is safe only while competing consumers retain their inputs.
     // Unknown substitutions and crafting/tool mutations continue to follow the original ordered witness.
     private static boolean fixedProcessingInputs(IPatternDetails pattern) {
-        try {
-            if (!pattern.supportsPushInputsToExternalInventory()) return false;
-        } catch (RuntimeException unavailable) {
-            if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.debug("Pattern {} failed supportsPushInputsToExternalInventory; treating inputs as unfixed",
-                pattern.getClass().getName(), unavailable);
-            return false;
-        }
-        var view = PatternContractReader.read(pattern);
-        if (!view.wellFormed()) return false;
-        for (var input : view.inputs()) {
-            if (input.possible().length != 1 || input.primary().amount() <= 0L || input.multiplier() <= 0L) {
-                return false;
-            }
-        }
-        return true;
+        return PatternContractReader.readFixedProcessingInputs(pattern).wellFormed();
     }
 
     private void addAllPhaseTasks(List<DispatchCandidate> result, int phaseIndex, List<Integer> taskIds,
