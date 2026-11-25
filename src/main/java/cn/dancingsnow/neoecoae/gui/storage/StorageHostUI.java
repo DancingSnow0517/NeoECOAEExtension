@@ -160,7 +160,12 @@ public final class StorageHostUI {
 
     public static UIElement create(Config config, Supplier<IECOTier> panelTier, Supplier<BlockState> hostState,
                                    List<DiskSlot> disks) {
-        return NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config, panelTier, hostState, disks));
+        return create(config, panelTier, hostState, disks, ItemStack.EMPTY);
+    }
+
+    public static UIElement create(Config config, Supplier<IECOTier> panelTier, Supplier<BlockState> hostState,
+                                   List<DiskSlot> disks, ItemStack builtInComponents) {
+        return NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config, panelTier, hostState, disks, builtInComponents));
     }
 
     private static final class JsonContext implements NeoUiJsonContext {
@@ -168,16 +173,18 @@ public final class StorageHostUI {
         private final Supplier<IECOTier> panelTier;
         private final Supplier<BlockState> hostState;
         private final List<DiskSlot> disks;
+        private final ItemStack builtInComponents;
         private StoragePanelSync sync;
         private StorageHostCharts charts;
         private int columns;
 
         private JsonContext(Config config, Supplier<IECOTier> panelTier, Supplier<BlockState> hostState,
-                            List<DiskSlot> disks) {
+                            List<DiskSlot> disks, ItemStack builtInComponents) {
             this.config = config;
             this.panelTier = panelTier;
             this.hostState = hostState;
             this.disks = disks;
+            this.builtInComponents = builtInComponents;
         }
 
         @Override
@@ -196,26 +203,27 @@ public final class StorageHostUI {
                     yield root;
                 }
                 case "storage_cell_grid" -> new StorageCellGrid(sync, columns, config, panelTier, disks);
-                case "infinite_component_slot" -> infiniteComponentSlot(config);
+                case "infinite_component_slot" -> infiniteComponentSlot(config, builtInComponents);
                 case "player_inventory" -> playerInventory();
                 default -> charts.create(custom, definition);
             };
         }
     }
 
-    private static UIElement infiniteComponentSlot(Config config) {
-        ItemHandlerSlot slot = new ItemHandlerSlot(config.infiniteComponentInventory(), 0)
-            .setCanTake(player -> canTakeInfiniteComponent(player, config.canExtractInfiniteComponents()));
+    private static UIElement infiniteComponentSlot(Config config, ItemStack builtInComponents) {
+        if (!builtInComponents.isEmpty()) {
+            return new ItemSlot().setItem(builtInComponents, false).style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
+        }
+        ItemHandlerSlot slot = new ItemHandlerSlot(config.infiniteComponentInventory(), 0) {
+            @Override
+            public int getMaxStackSize(ItemStack stack) {
+                return mayPlace(stack) ? Math.min(getMaxStackSize(), stack.getMaxStackSize()) : 0;
+            }
+        };
+        slot.setCanTake(player -> config.canExtractInfiniteComponents().getAsBoolean());
         return new ItemSlot(slot).style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
     }
 
-    private static boolean canTakeInfiniteComponent(@Nullable Player player, BooleanSupplier canExtract) {
-        if (canExtract.getAsBoolean()) return true;
-        if (player != null) {
-            player.displayClientMessage(Component.translatable("tooltip.neoecoae.storage.infinite_component_locked"), true);
-        }
-        return false;
-    }
 
     static InventorySlots playerInventory() {
         InventorySlots inventory = new InventorySlots();

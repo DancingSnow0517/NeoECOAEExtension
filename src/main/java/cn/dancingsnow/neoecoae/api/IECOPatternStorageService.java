@@ -83,7 +83,11 @@ public interface IECOPatternStorageService extends IGridService {
         return 0L;
     }
 
-    /** Applies one atomic pattern-bus mutation to the network catalog. */
+    /**
+     * Applies one pattern-bus mutation on the server thread, after the inventory changed and before notifying
+     * preview subscribers. Use the revision before the batch and report all changed physical slots together.
+     * Pass {@code new int[] { -1 }} to reindex when physical slot addresses have changed.
+     */
     default void onPatternSlotsChanged(ECOCraftingPatternBusBlockEntity bus,
                                        int previousRevision,
                                        int[] changedSlots) {

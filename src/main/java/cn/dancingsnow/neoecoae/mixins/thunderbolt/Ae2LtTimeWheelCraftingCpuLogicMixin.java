@@ -18,13 +18,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(targets = "com.moakiee.ae2lt.crafting.timewheel.Ae2LtTimeWheelCraftingCpuLogic", remap = false)
 public abstract class Ae2LtTimeWheelCraftingCpuLogicMixin {
     @WrapOperation(method = "tryPushPattern", at = @At(value = "INVOKE",
-        target = "Lappeng/api/networking/crafting/ICraftingProvider;pushPattern(Lappeng/api/crafting/IPatternDetails;[Lappeng/api/stacks/KeyCounter;)Z"), require = 0)
+        target = "Lappeng/api/networking/crafting/ICraftingProvider;pushPattern(Lappeng/api/crafting/IPatternDetails;[Lappeng/api/stacks/KeyCounter;)Z"))
     private boolean neoecoae$preserveJobOnReleasedEngine(ICraftingProvider provider, IPatternDetails pattern,
             KeyCounter[] inputs, Operation<Boolean> ordinary) {
         return ECOAe2LtJobDispatch.push(this, provider, pattern, inputs, () -> ordinary.call(provider, pattern, inputs));
     }
 
-    @Inject(method = "finishJob", at = @At("HEAD"), require = 0)
+    @Inject(method = "finishJob", at = @At("HEAD"))
     private void neoecoae$recoverCancelledWorkers(boolean success, CallbackInfo ci) {
         if (success) {
             ECOAe2LtCancellationBridge.complete(this);

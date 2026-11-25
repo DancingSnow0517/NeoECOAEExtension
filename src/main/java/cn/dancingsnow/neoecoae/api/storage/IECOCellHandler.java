@@ -10,6 +10,16 @@ public interface IECOCellHandler {
 
     @Nullable IECOStorageCell getCellInventory(ItemStack is, @Nullable ISaveProvider host);
 
+    default boolean isEmptyInfiniteCandidate(ItemStack stack, ISaveProvider host,
+            cn.dancingsnow.neoecoae.api.IECOTier hostTier, @Nullable IECOStorageCell mounted) {
+        return mounted instanceof IECOStorageMigrationCell migration && mounted.isInfiniteStorageEligible()
+                && mounted.getTier().supportsFeature(cn.dancingsnow.neoecoae.api.capability.ECOFeature.INFINITE_STORAGE_CELL)
+                && hostTier.compareTo(mounted.getTier()) >= 0 && migration.isEmptyForInfiniteStorage();
+    }
+
+    default void onCellInstalled(ItemStack stack, ISaveProvider host) {
+    }
+
     default void releaseCellInventory(@Nullable ItemStack stack, @Nullable ISaveProvider host) {
     }
 

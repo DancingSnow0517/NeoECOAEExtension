@@ -11,7 +11,6 @@ import appeng.util.ConfigInventory;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.grid.storage.cell.ECOInfiniteResourceCell;
-import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageMember;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -124,11 +123,6 @@ public class ECOInfiniteResourceCellItem extends ECOStorageCellItem {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
-        if (ECOInfiniteStorageMember.isMember(stack)) {
-            lines.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
-                .withStyle(ChatFormatting.LIGHT_PURPLE));
-            return;
-        }
         lines.add(Component.translatable(tooltipGroup + ".contents")
             .withStyle(ChatFormatting.AQUA));
         lines.add(Component.translatable("tooltip.neoecoae.infinite_resource.unbounded")

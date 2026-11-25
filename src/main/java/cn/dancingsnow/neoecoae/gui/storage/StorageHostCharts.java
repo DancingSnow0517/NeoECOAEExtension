@@ -661,7 +661,6 @@ final class StorageHostCharts {
         if (!state().domainId().isEmpty()) lines.add(Component.literal("UUID: " + state().domainId()).withColor(0x55FFFF));
         if (state().missingMembers() > 0) {
             lines.add(Component.translatable("gui.neoecoae.storage.members_missing", state().missingMembers()).withColor(0xFF6A75));
-            lines.add(Component.translatable("gui.neoecoae.storage.members_return").withColor(0xFF6A75));
         }
         return lines;
     }

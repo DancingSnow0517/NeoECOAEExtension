@@ -306,6 +306,29 @@ public final class SavedDataInfiniteStorageEngine implements ECOInfiniteStorageE
         return data.checkpoint();
     }
 
+    public ECOInfiniteStorageData legacyData() { return data; }
+
+    public boolean settleLegacy(Set<UUID> sources, Set<AEKey> restored, Map<AEKey, BigInteger> debits) {
+        if (!data.mayReconcileLegacy() || debits.entrySet().stream().anyMatch(entry ->
+                entry.getValue().compareTo(data.getAmount(entry.getKey()).toBigInteger()) > 0)) return false;
+        BigInteger limit = BigInteger.valueOf(Long.MAX_VALUE);
+        debits.forEach((key, amount) -> {
+            if (amount.signum() <= 0) return;
+            BigInteger remaining = amount;
+            while (remaining.signum() > 0) {
+                long part = remaining.min(limit).longValueExact();
+                data.subtract(key, part);
+                remaining = remaining.subtract(BigInteger.valueOf(part));
+            }
+            MutableTypeStats stats = statsFor(key.getType());
+            stats.total.subtract(HugeAmount.of(amount));
+            if (data.getAmount(key).isZero() && --stats.types == 0) removeStats(key.getType());
+        });
+        statisticsDirty = true;
+        data.finishLegacy(sources, restored);
+        return true;
+    }
+
     public List<String> failures() {
         return data.failures();
     }

@@ -10,11 +10,19 @@ import java.util.Iterator;
 import net.minecraft.server.level.ServerLevel;
 
 /**
- * Optional-neutral contract for storage cells that can participate in resumable infinite-domain migration.
- * Implementations may belong to optional integrations; common storage code must depend only on this contract.
+ * Bulk migration and legacy reconciliation contract. Infinite hosts use its read-only contents checks without
+ * migrating ordinary disk balances when their mode changes.
  */
 public interface IECOStorageMigrationCell extends IECOStorageCell {
     void getMigrationStacks(KeyCounter out);
+
+    default boolean isEmptyForInfiniteStorage() {
+        KeyCounter contents = new KeyCounter();
+        getMigrationStacks(contents);
+        return contents.isEmpty();
+    }
+
+    default boolean canVerifyLegacyContents(ServerLevel level) { return true; }
 
     default long getMigrationAmount(AEKey key) {
         KeyCounter contents = new KeyCounter();

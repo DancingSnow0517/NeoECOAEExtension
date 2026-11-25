@@ -113,7 +113,7 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
 
     @Override
     public void registerRecipeTransferHandlers(IRecipeTransferRegistration registration) {
-        registration.addRecipeTransferHandler(MultiBlockRecipeTransferHandler.create(), MULTIBLOCK_TYPE);
+        registration.addRecipeTransferHandler(new MultiBlockRecipeTransferHandler(), MULTIBLOCK_TYPE);
     }
 
     public static <R extends Recipe<?>> RecipeType<RecipeHolder<R>> createRecipeHolderType(String name) {

@@ -52,6 +52,25 @@ public class ECOStorageCells {
         return null;
     }
 
+    public static boolean isEmptyInfiniteCandidate(ItemStack stack, ISaveProvider host,
+            cn.dancingsnow.neoecoae.api.IECOTier hostTier, @Nullable IECOStorageCell mounted) {
+        if (stack == null || stack.isEmpty()) return false;
+        for (IECOCellHandler handler : handlers) {
+            if (handler.isCell(stack)) return handler.isEmptyInfiniteCandidate(stack, host, hostTier, mounted);
+        }
+        return false;
+    }
+
+    public static void onCellInstalled(@Nullable ItemStack stack, ISaveProvider host) {
+        if (stack == null || stack.isEmpty()) return;
+        for (IECOCellHandler handler : handlers) {
+            if (handler.isCell(stack)) {
+                handler.onCellInstalled(stack, host);
+                return;
+            }
+        }
+    }
+
     public static void releaseCellInventory(@Nullable ItemStack stack, @Nullable ISaveProvider host) {
         if (stack == null || stack.isEmpty() || host == null) {
             return;

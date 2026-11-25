@@ -61,7 +61,7 @@ public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountS
     }
 
     @Override
-    public boolean neoecoae$hasSaturatingListing() { return engine instanceof SavedDataInfiniteStorageEngine; }
+    public boolean neoecoae$hasSaturatingListing() { return allowInsert.getAsBoolean() && engine instanceof SavedDataInfiniteStorageEngine; }
 
     @Override
     public long neoecoae$listingVersion() {
@@ -142,7 +142,7 @@ public final class ECOInfiniteStorage implements MEStorage, CombinedExactAmountS
     }
 
     @Override
-    public boolean neoecoae$hasSparseExactAmounts() { return engine instanceof SavedDataInfiniteStorageEngine; }
+    public boolean neoecoae$hasSparseExactAmounts() { return allowInsert.getAsBoolean() && engine instanceof SavedDataInfiniteStorageEngine; }
 
     @Override
     public boolean neoecoae$mayHaveExceptionalAmounts() { return allowInsert.getAsBoolean() && engine.hasHugeStacks(); }

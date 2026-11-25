@@ -176,7 +176,7 @@ dependencies {
     devMods("curse.maven:jade-324717:8591319") { transitive = false }
     devMods("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}") { transitive = false }
     devMods("curse.maven:ae2-jei-integration-1074338:7727898") { transitive = false }
-    devMods("curse.maven:extendedae-plus-1337639:9343779") { transitive = false } // 1.6.4.1, JEI 19.70 compatible
+    devMods("maven.modrinth:extendedae-plus:Bm8LwH2q") { transitive = false } // 1.6.4.2
     devMods("maven.modrinth:merequester:hLs5MFnR") { transitive = false } // 1.21.1-1.5.0
     // All storage-cell integrations share the same development client.
     devMods("maven.modrinth:applied-replicatics:nQ4pLTkV") { transitive = false } // 21.1-1.2.1
@@ -211,8 +211,8 @@ dependencies {
 
     // Optional transfer fast path. Never place this on the default runtime classpath.
 
-    // Optional OmniSequence v1 batch API. Compile against the upstream classes without installing the mod at runtime.
-    compileOnly("curse.maven:omnisequence-transfinite-1624558:8991983") { transitive = false }
+    // OmniSequence 21.3.0.3 registers itself through NeoECOAE's API; only the post-accounting flush is compiled here.
+    compileOnly("curse.maven:omnisequence-transfinite-1624558:9737299") { transitive = false }
 
     // Pattern-disk API: AE2 Pattern Disk publishes PatternDiskApi for integrations whose machines hold pattern
     // disks. The integration still does not require the mod - the guard in PatternDiskIntegration stands it down
@@ -245,11 +245,11 @@ dependencies {
         compileOnly(files(localAe2LtJar))
         devMods(files(localAe2LtJar))
     } else {
-        // 2.1.2 uses static transfer hooks compatible with JEI's optimized local-slot reuse.
-        compileOnly("maven.modrinth:ae2-lightning-tech:wchBNoWt") { transitive = false }
-        devMods("maven.modrinth:ae2-lightning-tech:wchBNoWt") { transitive = false }
+        // 2.1.4-beta3
+        compileOnly("maven.modrinth:ae2-lightning-tech:OkvUBTmh") { transitive = false }
+        devMods("maven.modrinth:ae2-lightning-tech:OkvUBTmh") { transitive = false }
     }
-    compileOnly("maven.modrinth:thunderbolt-core:i3H7uX2O") { transitive = false } // 2.0.3, required by AE2LT 2.1.2
+    compileOnly("maven.modrinth:thunderbolt-core:i3H7uX2O") { transitive = false } // 2.0.3
     devMods("maven.modrinth:thunderbolt-core:i3H7uX2O") { transitive = false }
     // JDT Time Accelerators is optional and requires the separate
     // Just Dire Things mod, so it is not included in the default dev runtime.

@@ -1,12 +1,10 @@
 package cn.dancingsnow.neoecoae.mixins;
 
 import cn.dancingsnow.neoecoae.config.NELogConfig;
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import net.neoforged.fml.loading.LoadingModList;
-import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
@@ -19,7 +17,6 @@ import org.slf4j.LoggerFactory;
  */
 public final class ECOMixinLoadConfig implements IMixinConfigPlugin {
     private static final String MIXIN_PACKAGE = "cn.dancingsnow.neoecoae.mixins.";
-    private static final String THUNDERBOLT_MIXINS = "thunderbolt.";
     private static final String KEY_REUSE_MIXINS = "ae2.keyreuse.";
     private static final Map<String, List<String>> REQUIRED_MODS = Map.of(
         "advanced_ae.", List.of("advanced_ae"),
@@ -28,13 +25,9 @@ public final class ECOMixinLoadConfig implements IMixinConfigPlugin {
         "extendedae.", List.of("extendedae"),
         "fluxnetworks.", List.of("fluxnetworks"),
         "merequester.", List.of("merequester"),
-        THUNDERBOLT_MIXINS, List.of("thunderbolt"),
+        "thunderbolt.", List.of("thunderbolt"),
         "jei.client.", List.of("jei")
     );
-    private static final String THUNDERBOLT_API = "com/moakiee/thunderbolt/api/crafting/";
-    private static final String PLANNING_REQUEST = "L" + THUNDERBOLT_API + "PlanningRequest;";
-    private static final String PLANNING_CAPTURE = "(Lappeng/api/networking/IGrid;" + PLANNING_REQUEST
-        + ")Ljava/lang/Object;";
     private static final Set<String> AE2_FAST_PATH_VERSIONS = Set.of("19.2.17", "19.2.18", "19.2.19", "19.2.20");
     private static final Set<String> AE2_VERSION_CHECKED = Set.of(
         "ae2.accessor.PrecisePriorityListAccessor",
@@ -62,9 +55,6 @@ public final class ECOMixinLoadConfig implements IMixinConfigPlugin {
             }
         }
 
-        if (mixin.startsWith(THUNDERBOLT_MIXINS)) {
-            return supportsThunderboltMixin(targetClassName, mixin.substring(THUNDERBOLT_MIXINS.length()));
-        }
         if (mixin.startsWith(KEY_REUSE_MIXINS)) {
             return switch (mixin.substring(KEY_REUSE_MIXINS.length())) {
                 case "MatterKeyReuseMixin" -> supportsSharedKey(targetClassName,
@@ -81,46 +71,6 @@ public final class ECOMixinLoadConfig implements IMixinConfigPlugin {
         var mods = LoadingModList.get();
         return mods != null && mods.getMods().stream().anyMatch(mod -> mod.getModId().equals(modId));
     }
-
-    private static boolean supportsThunderboltMixin(String targetClassName, String mixin) {
-        String target = targetClassName.replace('.', '/') + ".class";
-        return switch (mixin) {
-            case "ThunderboltPlanningEngineMixin" -> hasMethod(THUNDERBOLT_API + "CraftingPlanningEngine.class",
-                "capture", PLANNING_CAPTURE)
-                && hasMethod(target, "createSession", "(" + PLANNING_REQUEST + "Ljava/lang/Object;L"
-                    + THUNDERBOLT_API + "PlanningAttemptContext;)L" + THUNDERBOLT_API + "PlanningEngineSession;")
-                && !hasMethod(target, "capture", PLANNING_CAPTURE);
-            case "ECOProcessingPatternFuzzyMixin" -> hasMethod(
-                "com/moakiee/thunderbolt/core/crafting/pattern/FuzzyPatternInputs.class",
-                "acceptsSameIdVariants", "(I)Z");
-            case "Ae2LtIOPortBlockEntityMixin", "Ae2LtIOPortMenuMixin", "Ae2LtTimeWheelCraftingCpuLogicMixin" ->
-                hasClassResource(target);
-            case "Ae2LtWorkstationWirelessMixin" ->
-                hasMethod(target, "canKeepVirtualConnection", "(Lappeng/api/networking/IGridNode;)Z");
-            case "ECOThunderboltWorkstationProviderMixin" ->
-                hasClassResource(THUNDERBOLT_API + "batch/IBatchCraftingProvider.class")
-                    && hasClassResource(THUNDERBOLT_API + "batch/BatchJobView.class");
-            default -> false;
-        };
-    }
-
-    private static boolean hasClassResource(String resource) {
-        return ECOMixinLoadConfig.class.getClassLoader().getResource(resource) != null;
-    }
-
-    private static boolean hasMethod(String resource, String name, String descriptor) {
-        try (var input = ECOMixinLoadConfig.class.getClassLoader().getResourceAsStream(resource)) {
-            if (input == null) {
-                return false;
-            }
-            var node = new ClassNode();
-            new ClassReader(input).accept(node, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
-            return node.methods.stream().anyMatch(method -> method.name.equals(name) && method.desc.equals(descriptor));
-        } catch (IOException | RuntimeException unavailable) {
-            return false;
-        }
-    }
-
 
     private static boolean supportsSharedKey(String targetClassName, String stackType, boolean checkHashCode) {
         try {

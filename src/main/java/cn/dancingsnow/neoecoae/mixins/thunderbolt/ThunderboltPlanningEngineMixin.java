@@ -23,7 +23,7 @@ public abstract class ThunderboltPlanningEngineMixin implements CraftingPlanning
         return ECOThunderboltPlanningBridge.capture(request.craftingService());
     }
 
-    @ModifyVariable(method = "createSession", at = @At("HEAD"), argsOnly = true, ordinal = 0, require = 0)
+    @ModifyVariable(method = "createSession", at = @At("HEAD"), argsOnly = true, ordinal = 0)
     private PlanningRequest neoecoae$useCapturedComponents(PlanningRequest value, PlanningRequest request,
             Object capturedInput, PlanningAttemptContext context) {
         if (!(capturedInput instanceof Set<?> captured)) return value;

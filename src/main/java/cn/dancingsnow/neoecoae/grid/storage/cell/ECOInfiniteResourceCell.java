@@ -5,7 +5,6 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.cells.ISaveProvider;
-import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.items.ECOInfiniteResourceCellItem;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
@@ -44,8 +43,7 @@ public class ECOInfiniteResourceCell extends ECOStorageCell implements ExactAmou
     }
 
     private boolean isServable(AEKey what) {
-        return what != null && isLockedKey(what)
-            && !ECOInfiniteStorageMember.isSealed(cellStack);
+        return what != null && isLockedKey(what);
     }
 
     /**
@@ -87,9 +85,6 @@ public class ECOInfiniteResourceCell extends ECOStorageCell implements ExactAmou
      */
     @Override
     public void getAvailableStacks(KeyCounter out) {
-        if (ECOInfiniteStorageMember.isSealed(cellStack)) {
-            return;
-        }
         for (AEKey key : resourceItem().suppliedKeys()) {
             // KeyCounter.add performs a plain long addition.  Adding an unbounded
             // value after a normal cell (or after another infinite cell) would
@@ -102,9 +97,7 @@ public class ECOInfiniteResourceCell extends ECOStorageCell implements ExactAmou
 
     @Override
     public void neoecoae$visitExactAmounts(java.util.function.BiConsumer<AEKey, ExactAmount> visitor) {
-        if (!ECOInfiniteStorageMember.isSealed(cellStack)) {
-            for (AEKey key : resourceItem().suppliedKeys()) visitor.accept(key, ExactAmount.unbounded());
-        }
+        for (AEKey key : resourceItem().suppliedKeys()) visitor.accept(key, ExactAmount.unbounded());
     }
 
     @Override

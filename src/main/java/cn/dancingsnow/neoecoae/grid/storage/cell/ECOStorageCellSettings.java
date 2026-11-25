@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae.grid.storage.cell;
 
-import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.items.ECOBulkStorageCellItem;
 import cn.dancingsnow.neoecoae.items.ECOInfiniteResourceCellItem;
 import net.minecraft.core.component.DataComponents;
@@ -15,8 +14,7 @@ public final class ECOStorageCellSettings {
     private ECOStorageCellSettings() {}
 
     public static boolean canConfigure(ItemStack stack) {
-        return !stack.isEmpty() && !(stack.getItem() instanceof ECOInfiniteResourceCellItem)
-            && !ECOInfiniteStorageMember.isMember(stack) && !ECOInfiniteStorageMember.isMigrating(stack);
+        return !stack.isEmpty() && !(stack.getItem() instanceof ECOInfiniteResourceCellItem);
     }
 
     public static int priority(ItemStack stack) {

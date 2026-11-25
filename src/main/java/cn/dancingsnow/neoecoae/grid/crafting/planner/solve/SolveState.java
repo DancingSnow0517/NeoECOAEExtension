@@ -33,6 +33,8 @@ public final class SolveState {
     public final Map<IPatternDetails, PlannerAmount> patternTimes = new LinkedHashMap<>();
     final Map<AEKey, IPatternDetails> demandProducers = new HashMap<>();
     public final Map<AEKey, CompiledPattern> selected = new HashMap<>();
+    final Map<AEKey, Set<CompiledPattern>> orderedProducers = new LinkedHashMap<>();
+    boolean orderedProducerShortage;
     final Map<AEKey, IPatternDetails> deferredSuppliers = new LinkedHashMap<>();
     public final Map<AEKey, Set<AEKey>> parents = new HashMap<>();
     public final Set<AEKey> unsupported = new LinkedHashSet<>();
@@ -75,6 +77,15 @@ public final class SolveState {
     public long demandFor(AEKey key) { return demandAmountFor(key).longValueExact(); }
     public PlannerAmount demandAmountFor(AEKey key) { return demand.getOrDefault(key, PlannerAmount.ZERO); }
     public boolean hasPlannedCrafting() { return !patternTimes.isEmpty(); }
+    Set<CompiledPattern> selectedProducers(AEKey key) {
+        CompiledPattern primary = selected.get(key);
+        var ordered = orderedProducers.get(key);
+        if (ordered == null) return primary == null ? Set.of() : Set.of(primary);
+        if (primary == null || ordered.contains(primary)) return ordered;
+        Set<CompiledPattern> result = new LinkedHashSet<>(ordered);
+        result.add(primary);
+        return result;
+    }
     /** AE2-facing storage size; exact only after representability has been established. */
     public long bytes() { return bytes.longValueExact(); }
     /** Includes expanded missing-material branches without treating their tasks as executable. */
@@ -247,6 +258,8 @@ public final class SolveState {
         copy.stockedWorkingInputs.putAll(stockedWorkingInputs);
         pendingWorkingInputs.forEach((pattern, amounts) -> copy.pendingWorkingInputs.put(pattern, new HashMap<>(amounts)));
         copy.selected.putAll(selected);
+        orderedProducers.forEach((key, patterns) -> copy.orderedProducers.put(key, new LinkedHashSet<>(patterns)));
+        copy.orderedProducerShortage = orderedProducerShortage;
         copy.deferredSuppliers.putAll(deferredSuppliers);
         parents.forEach((key, value) -> copy.parents.put(key, new LinkedHashSet<>(value)));
         copy.unsupported.addAll(unsupported); copy.bytes = bytes;
@@ -270,12 +283,14 @@ public final class SolveState {
         bytes = bytes.add(external.bytes);
     }
 
-    private void replaceWith(SolveState source) {
+    void replaceWith(SolveState source) {
         replaceCounter(stored, source.stored); replaceCounter(crafted, source.crafted);
         replaceCounter(used, source.used); replaceCounter(emitted, source.emitted); replaceCounter(missing, source.missing);
         demand.clear(); demand.putAll(source.demand); patternTimes.clear(); patternTimes.putAll(source.patternTimes);
         demandProducers.clear(); demandProducers.putAll(source.demandProducers);
         selected.clear(); selected.putAll(source.selected); parents.clear();
+        orderedProducers.clear(); orderedProducers.putAll(source.orderedProducers);
+        orderedProducerShortage = source.orderedProducerShortage;
         deferredSuppliers.clear(); deferredSuppliers.putAll(source.deferredSuppliers);
         source.parents.forEach((key, value) -> parents.put(key, new LinkedHashSet<>(value)));
         unsupported.clear(); unsupported.addAll(source.unsupported); bytes = source.bytes;

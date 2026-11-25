@@ -56,7 +56,7 @@ Handler operations and quantity reads follow the server-thread, simulation/execu
 
 ## Threads, registration and ownership
 
-The JEI multiblock transfer bridge selects the available API through `MultiBlockRecipeTransferHandler.create()`; load this class only on the client when JEI is present. With the 19.52 context API, actual pattern encoding reports completion or failure; preview checks do not send completion notifications. The old constructor and six-argument `transferRecipe` remain available for older JEI and existing binaries. New integrations should use the factory so context completion notifications are preserved.
+The JEI multiblock transfer handler uses `IRecipeTransferContext`; load this class only on the client when JEI is present. Actual pattern encoding reports completion or failure; preview checks do not send completion notifications. JEI 19.70.0.467 still requires the six-argument `transferRecipe` declaration, but the handler rejects calls to it.
 
 Begin planning on the owning server thread: it captures grid inventory before handing work to the executor. Submission, provider acceptance, storage mutations and output claims also run on that thread. The caller checks player/machine access before calculation and again before submission; these low-level APIs do not authenticate callers.
 
@@ -268,6 +268,8 @@ Physical item storage returns no blank. When a container absorbs the recipe, `co
 
 Writable node services implement [IECOPatternStorage](../src/main/java/cn/dancingsnow/neoecoae/api/IECOPatternStorage.java); `KnownUnique` methods require proof of uniqueness. Directory hosts use [PatternStorageHost](../src/main/java/cn/dancingsnow/neoecoae/api/PatternStorageHost.java) and [AuxiliaryPatternHolder](../src/main/java/cn/dancingsnow/neoecoae/api/AuxiliaryPatternHolder.java) to expose real slots, revisions and stable content ordering. Opt into migration sourcing with `allowsPatternMigrationSource()`.
 
+For an add-on pattern bus with its own inventory, call `IECOPatternStorageService.onPatternSlotsChanged` after updating the inventory on the server thread and before notifying preview viewers. Pass the pre-batch revision and all changed physical slots, or `{-1}` if the slot layout changed. The catalog also checks revisions for non-built-in hosts as a fallback.
+
 Claim external candidates under an owner UUID and release claims on every exit path. Remove candidates after clearing the source. An unfinished scan can still expose usable candidates; discard old slot references after topology changes.
 
 ## Storage cells and exact amounts
@@ -307,14 +309,14 @@ root.addChild(priority.window()); // Add at the same location on client and serv
 
 | Optional capability | Requirement |
 | --- | --- |
-| [IECOStorageMigrationCell](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStorageMigrationCell.java) | Lossless enumeration, clearing, simulation, persistence and recovery before migration |
+| [IECOStorageMigrationCell](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStorageMigrationCell.java) | Reliable emptiness and read-only legacy receipt reconciliation; existing migration methods remain ABI-compatible |
 | [IECOBulkMarkableCellItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOBulkMarkableCellItem.java) | Enables the marking UI, without registering a backend |
 | [IECOBulkDisplayCell](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOBulkDisplayCell.java) | Exposes the complete compression chain and effective display cutoff |
 | [INativeMEStorageRestrictedItem](../src/main/java/cn/dancingsnow/neoecoae/api/storage/INativeMEStorageRestrictedItem.java) | Defaults to rejecting native ME drive/chest insertion; false resumes normal validation, not guaranteed acceptance |
 
-Native restrictions do not remove existing cells, affect other mods' drives or supply ECO storage. Infinite cells still need complete migration support and explicit eligibility.
+Native restrictions do not remove existing cells, affect other mods' drives or supply ECO storage. Counting a cell toward infinite mode requires explicit eligibility and a reliable, read-only emptiness check.
 
-Infinite transfers keep cells sealed across ordered persistence checkpoints. `IECOStorageMigrationCell.persistMigrationContents(level)` must flush the current contents before returning; a backend stored outside the item must confirm its own file write or throw, rather than only mark data dirty. ECO separately awaits the vanilla chunk write and domain snapshot without blocking a server tick. Simulation and preview methods must not assign identities or modify the live stack.
+Infinite mode is a host condition, not an item state. The host calls `IECOCellHandler.isEmptyInfiniteCandidate` without claiming a native inventory or creating/upgrading the item identity; a cell whose contents cannot be verified must return false. `onCellInstalled` is a separate hook for a real slot installation or load, where a backend may retain its native ownership. Domains do not migrate disk contents. A cached domain view may be revoked at any time; a revoked view exposes no inventory, including exact and incremental listings.
 
 ## Addon extension registration
 
@@ -381,6 +383,10 @@ Positional arguments `(energy, inputItems, inputFluid, itemOutput, fluidOutput)`
 A block entity with a separate crafting interface at its own position can implement `CraftingPatternMenuHost`. Return the same interface instance for decoding, validity checks and preview sync. On the server, provide an immutable layout key that changes when slot addresses become stale. Open the interface with `CraftingPatternMenu.openInterface`.
 
 Host subclasses can override `getCraftingControllerPanelState` or `getComputationControllerPanelState` to describe their members. `isCraftingPanelVirtualMode` and `getVirtualCraftingBlockedNotice` control the crafting capacity display and its tooltip. Internal drives can supply a read-only icon with `ICellHost.getBuiltInCellForDisplay`. Storage hosts can override `hasBuiltInInfiniteComponents` to make the infinite component slot read-only.
+
+Storage host subclasses can override `ECOStorageSystemBlockEntity#getBuiltInInfiniteComponentCount()` to declare a fixed component count. A positive count replaces the physical slot for qualification and read-only display; 64 meets the component requirement without creating items. Return the same count on the client and server. A count of zero keeps the physical slot, and this hook does not alter the drive or domain requirements.
+
+A detached internal storage drive may count toward infinite mode while its owning host is loaded and formed. Return the actual installed stack from `getBuiltInCellForDisplay`, not a copy, and deny extraction. Use a permanently empty cell that passes the usual tier and empty-cell checks. This does not mount the internal cell as ordinary storage or include it in legacy migration.
 
 Register custom tiers and cell types with matching IDs on both sides in synchronized registries exposed by [NERegistries.Keys](../src/main/java/cn/dancingsnow/neoecoae/all/NERegistries.java). Implement required `IECOTier` values; use `supportsComponentTier` for component compatibility and `supportsFeature` for advanced eligibility.
 
