@@ -19,10 +19,10 @@ Java 包路径均相对于 `src/main/java/cn/dancingsnow/neoecoae/`。
 | --- | --- |
 | API 或附属接入 | [API](docs/API_ZH_CN.md)、`api/` 及对应调用点 |
 | 注册、依赖、可选联动 | `NeoECOAE.java`、`all/`、`api/integration/`、`integration/`、`mixins/`、`build.gradle`、`src/main/templates/META-INF/neoforge.mods.toml` |
-| 规划、循环、精确订单 | `api/me/planning/`、`api/me/bigorder/`、`crafting/planner/`、`crafting/adapter/` 和对应测试 |
-| CPU、发配、事务、产物 | `api/me/provider/`、`api/me/output/`、`crafting/execution/`；先区分准备、接收、记账与交付 |
-| 样板导入或迁移 | `api/IECOPatternStorage*.java`、`api/ECOPatternInsertion.java`、`api/PatternStorageHost.java` 及服务实现 |
-| 存储盘、精确数量、迁移 | `api/storage/`、`storage/`、`storage/bulk/` 和对应持久化/恢复测试 |
+| 规划、循环、精确订单 | `api/me/planning/`、`api/me/bigorder/`、`grid/crafting/planner/`；AE2 计划适配在 `grid/crafting/planner/ae2/` |
+| CPU、发配、事务、产物 | `api/me/provider/`、`api/me/output/`、`grid/crafting/execution/`；先区分准备、接收、记账与交付 |
+| 样板导入或迁移 | `api/IECOPatternStorage*.java`、`api/ECOPatternInsertion.java`、`api/PatternStorageHost.java`、`grid/pattern/` |
+| 存储盘、精确数量、迁移 | `api/storage/`、`grid/storage/cell/`、`grid/storage/bulk/`；无限存储的持久化与恢复在 `grid/storage/infinite/persist/` |
 | 多方块、档位、模型 | `api/IECOTier.java`、`api/multiblock/`、`multiblock/`、`blocks/entity/` 与客户端模型实现 |
 | 工作站、配方、温控 | `recipe/`、`api/workstation/`、`blocks/entity/ECOLargeIntegratedWorkingStationBlockEntity.java`、`config/NEConfig.java` |
 | UI、同步、面板贴图 | `gui/`、`menu/`、`network/`、`src/main/resources/assets/neoecoae/screens/`；面板扩展见 [API](docs/API_ZH_CN.md#面板与模型) |
