@@ -135,9 +135,9 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
 
     private void onCapacityUpgradesChanged() {
         host.saveChanges();
-        host.onPatternSlotsChanged();
         host.markForUpdate();
         updatePatterns();
+        host.onPatternSlotsChanged(-1);
     }
 
     int getRequiredPatternRows() {
@@ -250,7 +250,7 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
         else decodeAllSlots = true;
         host.saveChanges();
         compatiblePatternsDirty = true;
-        host.onPatternSlotsChanged();
+        host.onPatternSlotsChanged(slot);
         disableSmartDoubling();
         requestProviderUpdate();
     }
@@ -296,7 +296,7 @@ public final class LargeWorkstationPatternProvider extends PatternProviderLogic
             advertisedKeys = Set.of();
             return List.of();
         }
-        Object recipes = LargeWorkstationRecipes.getAvailable(host.getLevel(), controller.getInstalledModule());
+        Object recipes = LargeWorkstationRecipes.getSupportedRecipes(host.getLevel());
         long generation = cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection.reloadGeneration();
         if (!compatiblePatternsDirty && lastController == controller && lastRecipes == recipes && recipeGeneration == generation) {
             return compatiblePatterns;

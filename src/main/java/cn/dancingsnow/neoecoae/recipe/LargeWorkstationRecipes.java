@@ -107,6 +107,10 @@ public final class LargeWorkstationRecipes {
     @Nullable public static synchronized LargeWorkstationRecipeGroup getGroup(Level level, ResourceLocation id) {
         getAll(level); return CACHE.get(level.getRecipeManager()).groupsById.get(id);
     }
+    public static synchronized List<LargeWorkstationRecipe> getSupportedRecipes(Level level) {
+        getAll(level);
+        return CACHE.get(level.getRecipeManager()).executionRecipes;
+    }
     public static List<LargeWorkstationRecipe> getAvailable(Level level, LargeWorkstationModule module) {
         return getAvailable(level.getRecipeManager(), level.registryAccess(), module);
     }
@@ -254,11 +258,10 @@ public final class LargeWorkstationRecipes {
     }
 
     private static synchronized LargeWorkstationRecipeIndex index(Level level, @Nullable LargeWorkstationModule module) {
-        var available = module == null ? getAll(level) : getAvailable(level, module);
+        var recipes = module == null ? getSupportedRecipes(level) : getAvailable(level, module);
         var cache = CACHE.get(level.getRecipeManager());
         // Independent lists have no recipe-manager generation to own a persistent cache.
-        if (cache == null) return new LargeWorkstationRecipeIndex(available);
-        var recipes = module == null ? cache.executionRecipes : available;
+        if (cache == null) return new LargeWorkstationRecipeIndex(recipes);
         return cache.indexes.computeIfAbsent(recipes,
             entries -> new LargeWorkstationRecipeIndex(entries, cache.prepared));
     }

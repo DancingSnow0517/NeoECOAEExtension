@@ -54,6 +54,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
 
     private final LargeWorkstationPatternProvider workstationProvider;
     private transient boolean workstationProviderRefreshQueued;
+    private long advertisedRecipeGeneration = -1;
 
     public ECOLargeIntegratedWorkingStationInterfaceBlockEntity(
         BlockEntityType<?> type,
@@ -195,17 +196,14 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
         super.tick();
         if (level instanceof ServerLevel) {
             workstationProvider.updateRedstoneState();
+            long generation = cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection.reloadGeneration();
+            if (generation != advertisedRecipeGeneration) {
+                advertisedRecipeGeneration = generation;
+                refreshWorkstationProviderLifecycle();
+            }
         }
     }
 
-    /**
-     * Re-advertises once the disks' contents move.
-     *
-     * <p>AE2's provider list is pushed, not polled: a disk changed by something other than this host - a
-     * player taking a pattern back out through a terminal, or another host writing to a disk in a shared slot
-     * - would otherwise stay invisible until the network is replugged. Polling the revision is what the bus
-     * does for the same reason.</p>
-     */
     @Override
     protected void onInterfaceTopologyChanged() {
         refreshWorkstationProviderLifecycle();
@@ -236,6 +234,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
         }
 
         provider.updatePatterns();
+        onPatternSlotsChanged(-1);
         if (workstationProviderRefreshQueued) {
             return;
         }
@@ -246,6 +245,7 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
             if (!isServerStopping() && !isRemoved() && level == serverLevel
                 && getMainNode().isReady() && workstationProvider == provider) {
                 provider.updatePatterns();
+                onPatternSlotsChanged(-1);
             }
         });
     }
@@ -269,8 +269,14 @@ public final class ECOLargeIntegratedWorkingStationInterfaceBlockEntity
     private int patternSlotRevision;
 
     /** Called by {@link LargeWorkstationPatternProvider} when its pattern slots change. */
-    void onPatternSlotsChanged() {
-        patternSlotRevision++;
+    void onPatternSlotsChanged(int slot) {
+        int previous = patternSlotRevision++;
+        if (!(level instanceof ServerLevel) || workstationProvider == null) return;
+        var grid = getMainNode().getGrid();
+        if (grid != null && grid.getService(cn.dancingsnow.neoecoae.api.IECOPatternStorageService.class)
+                instanceof cn.dancingsnow.neoecoae.grid.PatternCatalog catalog) {
+            catalog.onHostPatternSlotsChanged(this, previous + workstationProvider.getAdvertisementRevision(), new int[] {slot});
+        }
     }
 
     /**

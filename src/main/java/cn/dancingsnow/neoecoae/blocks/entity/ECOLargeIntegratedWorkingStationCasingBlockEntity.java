@@ -52,7 +52,7 @@ public class ECOLargeIntegratedWorkingStationCasingBlockEntity
     public void updateState(boolean updateExposed) {
         super.updateState(updateExposed);
         if (level == null || level.isClientSide || notLoaded() || isRemoved() || isServerStopping()) return;
-        BlockState state = getBlockState();
+        BlockState state = level.getBlockState(worldPosition);
         if (!state.hasProperty(ECOLargeIntegratedWorkingStationCasing.POWER_PORT)) return;
         boolean port = formed && cluster != null && cluster.isTopPowerPort(worldPosition);
         if (state.getValue(ECOLargeIntegratedWorkingStationCasing.POWER_PORT) != port) {
