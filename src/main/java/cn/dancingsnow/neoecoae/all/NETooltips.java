@@ -59,6 +59,10 @@ public class NETooltips {
                 Component.translatable("tooltip.neoecoae.storage_system"),
                 Component.translatable("tooltip.neoecoae.max_lenth", NEConfig.storageSystemMaxLength)
             );
+            var domain = cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity.readControllerDomain(stack);
+            if (domain != null) {
+                tooltip.add(Component.literal("UUID: " + domain).withStyle(ChatFormatting.AQUA));
+            }
         }
         if (stack.is(NEBlocks.ECO_DRIVE.asItem())) {
             addTooltips(tooltip, flags,

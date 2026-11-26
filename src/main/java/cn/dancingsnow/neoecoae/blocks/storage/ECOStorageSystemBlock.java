@@ -6,27 +6,27 @@ import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory.BlockUIMenuType;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.ModularUI;
+import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
-import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
-import net.minecraft.world.phys.BlockHitResult;
-import org.jetbrains.annotations.Nullable;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
-import java.util.List;
+import net.minecraft.world.phys.BlockHitResult;
+import org.jetbrains.annotations.Nullable;
 
 public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> implements BlockUIMenuType.BlockUI {
 
@@ -90,6 +90,29 @@ public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> 
         if (!level.isClientSide() && level.getBlockEntity(pos) instanceof ECOStorageSystemBlockEntity be) {
             be.restoreInfiniteDomainFromItem(stack);
         }
+    }
+
+    @Override
+    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
+        if (!level.isClientSide() && !newState.is(state.getBlock())
+                && level.getBlockEntity(pos) instanceof ECOStorageSystemBlockEntity be) {
+            be.releaseInfiniteDomainClaim();
+        }
+        super.onRemove(state, level, pos, newState, isMoving);
+    }
+
+    @Override
+    public List<ItemStack> getDrops(BlockState state, LootParams.Builder params) {
+        List<ItemStack> drops = super.getDrops(state, params);
+        if (params.getOptionalParameter(LootContextParams.BLOCK_ENTITY) instanceof ECOStorageSystemBlockEntity be) {
+            for (ItemStack drop : drops) {
+                if (drop.is(asItem())) {
+                    be.applyInfiniteDomainToControllerDrop(drop);
+                    break;
+                }
+            }
+        }
+        return drops;
     }
 
     public static boolean isPlayerCloseEnough(Level level, BlockPos pos, Player player) {

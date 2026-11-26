@@ -186,8 +186,21 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
         return !unloading && !isRemoved() && level != null && level.hasChunkAt(worldPosition)
             && level.getBlockEntity(worldPosition) == this;
     }
-    boolean refreshInfiniteQualification() {
-        if (!isInstalledStorageAvailable() || cellStack == null || cellStack.isEmpty() || hasLegacyRestoreReceipts()) {
+    boolean refreshInfiniteQualification(ECOStorageSystemBlockEntity host) {
+        if (getStorageController() != host) return false;
+        if (!isInstalledStorageAvailable()) {
+            var stack = getCellStack();
+            if (unloading || isRemoved() || !(host.getLevel() instanceof ServerLevel server)
+                    || level != null && level != server || !host.getMainNode().isReady()
+                    || stack == null || stack.isEmpty() || canExtractCell() || getBuiltInCellForDisplay() != stack
+                    || hasLegacyRestoreReceipts() || ECOInfiniteStorageMember.isSealed(stack)) return false;
+            var pos = host.getBlockPos();
+            var chunk = server.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
+            if (chunk == null || chunk.getBlockEntities().get(pos) != host) return false;
+            var cell = getCellInventory();
+            return cell != null && host.getTier().compareTo(cell.getTier()) >= 0 && isEmptyInfiniteCandidate(cell);
+        }
+        if (cellStack == null || cellStack.isEmpty() || hasLegacyRestoreReceipts()) {
             infiniteCandidate = false;
             return false;
         }

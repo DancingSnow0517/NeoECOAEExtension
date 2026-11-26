@@ -156,12 +156,15 @@ public class ECOComputationSystemBlockEntity extends NEBlockEntity<NEComputation
         var slots = new HashMap<Integer, net.minecraft.world.inventory.Slot>();
         var openingCluster = cluster;
         var drives = holder.menuData().getList("drives", net.minecraft.nbt.Tag.TAG_COMPOUND);
+        var members = new java.util.HashMap<BlockPos, ECOComputationDriveBlockEntity>();
+        if (!holder.player.level().isClientSide && openingCluster != null) {
+            for (var member : openingCluster.getUpperDrives()) members.put(member.getBlockPos(), member);
+            for (var member : openingCluster.getLowerDrives()) members.put(member.getBlockPos(), member);
+        }
         for (int index = 0; index < drives.size(); index++) {
             var entry = drives.getCompound(index);
             var position = BlockPos.of(entry.getLong("pos"));
-            var drive = !holder.player.level().isClientSide && openingCluster != null
-                && level.getBlockEntity(position) instanceof ECOComputationDriveBlockEntity candidate
-                && candidate.getCluster() == openingCluster ? candidate : null;
+            var drive = members.get(position);
             slots.put(entry.getInt("slot"), new cn.dancingsnow.neoecoae.gui.common.DriveMenuSlot(holder.player, drive,
                 () -> drive != null && cluster == openingCluster && drive.getCluster() == openingCluster
                     && !drive.isRemoved() && isFormed() && canPlayerInteract(holder.player)));

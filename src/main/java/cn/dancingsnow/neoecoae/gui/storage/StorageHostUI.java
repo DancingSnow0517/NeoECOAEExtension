@@ -230,7 +230,12 @@ public final class StorageHostUI {
 
     public static UIElement create(Config config, Supplier<IECOTier> panelTier, Supplier<BlockState> hostState,
         java.util.Map<BlockPos, net.minecraft.world.inventory.Slot> slots) {
-        return NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config, panelTier, hostState, slots));
+        return create(config, panelTier, hostState, slots, ItemStack.EMPTY);
+    }
+
+    public static UIElement create(Config config, Supplier<IECOTier> panelTier, Supplier<BlockState> hostState,
+        java.util.Map<BlockPos, net.minecraft.world.inventory.Slot> slots, ItemStack builtInComponents) {
+        return NeoUiJsonLoader.load(JSON_LAYOUT, new JsonContext(config, panelTier, hostState, slots, builtInComponents));
     }
 
     private static final class JsonContext implements NeoUiJsonContext {
@@ -238,16 +243,18 @@ public final class StorageHostUI {
         private final Supplier<IECOTier> panelTier;
         private final Supplier<BlockState> hostState;
         private final java.util.Map<BlockPos, net.minecraft.world.inventory.Slot> slots;
+        private final ItemStack builtInComponents;
         private StoragePanelSync sync;
         private StorageHostCharts charts;
         private int columns;
 
         private JsonContext(Config config, Supplier<IECOTier> panelTier, Supplier<BlockState> hostState,
-            java.util.Map<BlockPos, net.minecraft.world.inventory.Slot> slots) {
+            java.util.Map<BlockPos, net.minecraft.world.inventory.Slot> slots, ItemStack builtInComponents) {
             this.config = config;
             this.panelTier = panelTier;
             this.hostState = hostState;
             this.slots = slots;
+            this.builtInComponents = builtInComponents;
         }
 
         @Override
@@ -266,14 +273,17 @@ public final class StorageHostUI {
                     yield root;
                 }
                 case "storage_cell_grid" -> new StorageCellGrid(sync, columns, config, panelTier, slots);
-                case "infinite_component_slot" -> infiniteComponentSlot(config);
+                case "infinite_component_slot" -> infiniteComponentSlot(config, builtInComponents);
                 case "player_inventory" -> playerInventory();
                 default -> charts.create(custom, definition);
             };
         }
     }
 
-    private static UIElement infiniteComponentSlot(Config config) {
+    private static UIElement infiniteComponentSlot(Config config, ItemStack builtInComponents) {
+        if (!builtInComponents.isEmpty()) {
+            return new ItemSlot().setItem(builtInComponents, false).style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
+        }
         ItemHandlerSlot slot = new ItemHandlerSlot(config.infiniteComponentInventory(), 0)
             .setCanTake(player -> canTakeInfiniteComponent(player, config.canExtractInfiniteComponents()));
         return new ItemSlot(slot).style(style -> style.backgroundTexture(IGuiTexture.EMPTY));

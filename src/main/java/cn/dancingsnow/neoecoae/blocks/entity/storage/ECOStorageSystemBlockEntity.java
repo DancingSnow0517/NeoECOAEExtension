@@ -11,6 +11,7 @@ import appeng.hooks.ticking.TickHandler;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
+import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
@@ -93,7 +94,6 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private static final String LEGACY_COMPONENT_INVENTORY_PERSIST_KEY = "componentInventory";
     private static final String CONTROLLER_DOMAIN_TAG = "neoecoae_infinite_controller_domain";
     private static final String CONTROLLER_BINDING_TAG = "neoecoae_infinite_controller_binding";
-    private static final String CONTROLLER_MODE_TAG = "neoecoae_infinite_controller_mode";
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -323,11 +323,13 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     private java.util.Map<BlockPos, net.minecraft.world.inventory.Slot> driveMenuSlots(BlockUIMenuType.BlockUIHolder holder) {
         var slots = new java.util.LinkedHashMap<BlockPos, net.minecraft.world.inventory.Slot>();
         var openingCluster = cluster;
+        var members = new java.util.HashMap<BlockPos, ECODriveBlockEntity>();
+        if (!holder.player.level().isClientSide && openingCluster != null) {
+            for (var member : openingCluster.getDrives()) members.put(member.getBlockPos(), member);
+        }
         for (long packed : holder.menuData().getLongArray("drives")) {
             var position = BlockPos.of(packed);
-            var drive = !holder.player.level().isClientSide && openingCluster != null
-                && level.getBlockEntity(position) instanceof ECODriveBlockEntity candidate
-                && openingCluster.getDrives().contains(candidate) ? candidate : null;
+            var drive = members.get(position);
             slots.put(position, new cn.dancingsnow.neoecoae.gui.common.DriveMenuSlot(holder.player, drive,
                 () -> drive != null && cluster == openingCluster && drive.getCluster() == openingCluster
                     && !drive.isRemoved() && isFormed() && canPlayerInteract(holder.player)));
@@ -346,6 +348,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
             () -> net.minecraft.network.chat.Component.translatable(
                 "gui.neoecoae.storage.cell.priority.title")
         ));
+        int builtInCount = getBuiltInInfiniteComponentCount();
+        ItemStack builtInComponents = builtInCount > 0
+                ? new ItemStack(NEItems.ECO_INFINITE_CELL_COMPONENT.get(), Math.min(builtInCount, INFINITE_COMPONENT_REQUIRED))
+                : ItemStack.EMPTY;
 
         UIElement root = StorageHostUI.create(new StorageHostUI.Config(
                 () -> getItemFromBlockEntity().getDescription(),
@@ -385,7 +391,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
                 ),
                 this::getInfiniteMigrationProgressPercent,
                 this::getInfiniteMigrationBlockText
-         ), this::getTier, this::getBlockState, driveMenuSlots(holder));
+         ), this::getTier, this::getBlockState, driveMenuSlots(holder), builtInComponents);
         actionUI.addTo(root, MultiblockBuildUI.create(this, holder.player));
         root.addChild(cellPriorityWindow);
         return ECOModularUI.create(root, holder.player,
@@ -745,6 +751,24 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     }
 
 
+    public static @Nullable UUID readControllerDomain(ItemStack stack) {
+        CompoundTag tag = NEItemData.read(stack);
+        return tag.hasUUID(CONTROLLER_DOMAIN_TAG) ? tag.getUUID(CONTROLLER_DOMAIN_TAG) : null;
+    }
+
+    public void applyInfiniteDomainToControllerDrop(ItemStack drop) {
+        if (infiniteDomainId == null || drop.isEmpty()) return;
+        infiniteModeController.prepareControllerDrop();
+        NEItemData.update(drop, tag -> {
+            tag.putUUID(CONTROLLER_DOMAIN_TAG, infiniteDomainId);
+            if (infiniteBindingToken != null) tag.putUUID(CONTROLLER_BINDING_TAG, infiniteBindingToken);
+            else tag.remove(CONTROLLER_BINDING_TAG);
+            saveInfiniteMembers(tag);
+        });
+    }
+
+    public void releaseInfiniteDomainClaim() { infiniteModeController.removeController(); }
+
     public void restoreInfiniteDomainFromItem(ItemStack stack) {
         CompoundTag tag = NEItemData.copy(stack);
         if (!tag.hasUUID(CONTROLLER_DOMAIN_TAG)) {
@@ -1012,8 +1036,16 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         );
     }
 
+    protected boolean hasBuiltInInfiniteComponents() { return false; }
+
+    protected int getBuiltInInfiniteComponentCount() { return 0; }
+
+    boolean isInfiniteComponentSlotReadOnly() {
+        return getBuiltInInfiniteComponentCount() > 0 || hasBuiltInInfiniteComponents();
+    }
+
     public boolean canExtractInfiniteComponents() {
-        return !hasLegacyCompatibilityFailure();
+        return !isInfiniteComponentSlotReadOnly() && !hasLegacyCompatibilityFailure();
     }
 
     boolean hasLegacyCompatibilityFailure() { return !legacy2042ComponentData.isEmpty(); }
@@ -1048,7 +1080,9 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
 
 
     boolean hasRequiredInfiniteComponents() {
-        return hasRequiredInfiniteComponents(infiniteComponentInventory.getStackInSlot(0));
+        int builtInCount = getBuiltInInfiniteComponentCount();
+        return builtInCount > 0 ? builtInCount >= INFINITE_COMPONENT_REQUIRED
+                : hasRequiredInfiniteComponents(infiniteComponentInventory.getStackInSlot(0));
     }
 
 
@@ -1068,6 +1102,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
     UUID infiniteBindingToken() { return infiniteBindingToken; }
 
     void setInfiniteBindingToken(@Nullable UUID token) {
+        if (java.util.Objects.equals(infiniteBindingToken, token)) return;
         infiniteBindingToken = token;
         setChanged();
     }

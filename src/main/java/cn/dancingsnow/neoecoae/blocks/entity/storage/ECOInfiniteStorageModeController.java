@@ -24,7 +24,6 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -41,6 +40,7 @@ final class ECOInfiniteStorageModeController {
     private Set<ECODriveBlockEntity> candidates = Set.of();
     private boolean dirty = true;
     private boolean updating;
+    private boolean removing;
     private boolean hostAccess;
     private long generation;
     private long nextCheck;
@@ -63,7 +63,7 @@ final class ECOInfiniteStorageModeController {
 
     void update() {
         if (!(host.getLevel() instanceof ServerLevel level) || !level.getServer().isSameThread()
-                || host.isRemoved() || host.isStorageServerStopping() || updating) return;
+                || host.isRemoved() || removing || host.isStorageServerStopping() || updating) return;
         updating = true;
         try {
             var cluster = host.getCluster();
@@ -96,24 +96,24 @@ final class ECOInfiniteStorageModeController {
             boolean recheck = dirty || level.getGameTime() >= nextCheck;
             if (recheck) {
                 nextCheck = level.getGameTime() + 20L;
-                var drives = formed ? cluster.getDrives().stream()
-                    .filter(drive -> drive.isInstalledStorageAvailable() && drive.getStorageController() == host).toList()
-                    : List.<ECODriveBlockEntity>of();
+                var drives = formed ? cluster.getDrives() : List.<ECODriveBlockEntity>of();
                 if (engine != null) {
                     if (!engine.noteLegacyRoster(host.infiniteMigrationSourceIds(), host.hasMalformedLegacyRoster())) {
                         publish(formed, false);
                         return;
                     }
-                    verifyLegacy(level, drives);
+                    // Detached display drives never supply evidence for a legacy transfer.
+                    var installed = drives.stream().filter(d -> d.isInstalledStorageAvailable() && d.getStorageController() == host).toList();
+                    verifyLegacy(level, installed);
                     if (engine.canUseMountedStorage()) {
                         host.clearLegacyRoster();
-                        for (var drive : drives) clearSettledCell(drive);
+                        for (var drive : installed) clearSettledCell(drive);
                     }
                 }
                 var next = new LinkedHashSet<ECODriveBlockEntity>();
                 var diskIds = new HashSet<UUID>();
                 for (var drive : drives) {
-                    if (!drive.refreshInfiniteQualification()) continue;
+                    if (!drive.refreshInfiniteQualification(host)) continue;
                     UUID id = ECOCellReference.id(drive.getCellStack());
                     if (id == null || diskIds.add(id)) next.add(drive);
                 }
@@ -126,9 +126,16 @@ final class ECOInfiniteStorageModeController {
                 UUID id = UUID.randomUUID();
                 var fresh = (SavedDataInfiniteStorageEngine) ECOInfiniteStorageDomains.acquire(level, id);
                 host.setInfiniteDomainId(id);
-                hold(level, id, fresh);
-                if (!fresh.flush() || !catalog.bindHost(id, location, false))
-                    host.storageFaults().report("domain claim", id + ": cannot persist domain association", level.getGameTime());
+                try {
+                    if (fresh.flush() && catalog.bindHost(id, location, false)) {
+                        host.setInfiniteBindingToken(catalog.claimToken(id));
+                        hold(level, id, fresh);
+                    } else {
+                        host.storageFaults().report("domain claim", id + ": cannot persist domain association", level.getGameTime());
+                    }
+                } finally {
+                    if (engine != fresh) ECOInfiniteStorageDomains.release(level.getServer(), id);
+                }
             }
             if (engine != null && !engine.canUseMountedStorage() && level.getGameTime() % 100L == 0L) engine.flush();
             boolean active = eligible && engine != null && catalog.ready() && location.equals(catalog.locationOf(domain))
@@ -154,14 +161,47 @@ final class ECOInfiniteStorageModeController {
         boolean accepted = false;
         try {
             if (catalog.locationOf(id) == null) {
-                if (!Objects.equals(loaded.ownerToken(), host.infiniteBindingToken())) return;
+                UUID expected = catalog.claimToken(id);
+                // Legacy domains have no catalog token; preserve their original owner-token check.
+                if (expected == null) expected = loaded.ownerToken();
+                if (!java.util.Objects.equals(expected, host.infiniteBindingToken())) {
+                    host.storageFaults().report("domain claim", id + ": controller has no valid claim", level.getGameTime());
+                    return;
+                }
                 if (!loaded.noteLegacyRoster(host.infiniteMigrationSourceIds(), host.hasMalformedLegacyRoster())) return;
-                if (!loaded.flush() || !catalog.bindHost(id, location, false)) return;
+                if (!loaded.flush()) return;
             }
+            if (!catalog.bindHost(id, location, false)) return;
+            host.setInfiniteBindingToken(catalog.claimToken(id));
             hold(level, id, loaded);
             accepted = true;
         } finally {
             if (!accepted) ECOInfiniteStorageDomains.release(level.getServer(), id);
+        }
+    }
+
+    /** Loot may be computed before or after onRemove. Never take a token from another position. */
+    void prepareControllerDrop() {
+        if (removing || host.isRemoved() || !(host.getLevel() instanceof ServerLevel level) || host.infiniteDomainId() == null
+                || !level.hasChunkAt(host.getBlockPos()) || level.getBlockEntity(host.getBlockPos()) != host) return;
+        if (catalog == null) catalog = StorageCatalogSavedData.open(ECOStorageRepository.session(level.getServer()));
+        UUID id = host.infiniteDomainId();
+        GlobalPos location = GlobalPos.of(level.dimension(), host.getBlockPos());
+        if (location.equals(catalog.locationOf(id)) && catalog.bindHost(id, location, false)) {
+            host.setInfiniteBindingToken(catalog.claimToken(id));
+        }
+    }
+
+    void removeController() {
+        if (!(host.getLevel() instanceof ServerLevel level)) return;
+        prepareControllerDrop();
+        removing = true;
+        release();
+        UUID id = host.infiniteDomainId();
+        GlobalPos pos = GlobalPos.of(level.dimension(), host.getBlockPos());
+        if (id != null && catalog != null && pos.equals(catalog.locationOf(id))
+                && (host.infiniteBindingToken() == null || !catalog.unbindHost(id, pos))) {
+            host.storageFaults().report("domain claim", id + ": cannot release controller claim", level.getGameTime());
         }
     }
 
@@ -366,8 +406,10 @@ final class ECOInfiniteStorageModeController {
         try {
             if (!loaded.canUseMountedStorage() || !catalog.bindHost(id, location, true)) return Component.translatable(prefix + "unhealthy");
             release(); host.setInfiniteDomainId(id);
+            host.setInfiniteBindingToken(catalog.claimToken(id));
         } finally { ECOInfiniteStorageDomains.release(level.getServer(), id); }
-        membersChanged(); return null;
+        membersChanged();
+        return id.equals(domain) ? null : Component.translatable(prefix + "unhealthy");
     }
     @Nullable Component forceRecoverDomain(UUID id, Consumer<Component> success) {
         Component refusal = recoverDomain(id);

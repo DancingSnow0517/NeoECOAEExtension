@@ -35,6 +35,15 @@ public interface ICellHost {
     ItemStack getCellStack();
 
     /**
+     * Supplies a read-only cell icon for an internal drive with no block entity in the world.
+     * An internal storage drive can also qualify for infinite mode by returning its actual installed,
+     * permanently empty cell here and denying extraction. A display-only copy does not qualify.
+     */
+    default @Nullable ItemStack getBuiltInCellForDisplay() {
+        return null;
+    }
+
+    /**
      * Whether this host accepts the non-empty cell type in its current configuration.
      * This does not indicate that the slot is empty or that its current cell can be replaced.
      */

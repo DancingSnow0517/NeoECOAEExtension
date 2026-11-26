@@ -8,29 +8,32 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import org.jetbrains.annotations.Nullable;
 
 public final class DriveMenuSlot extends Slot {
-    private final boolean client;
+    private final Level level;
     private final ICellHost drive;
     private final BooleanSupplier valid;
 
     public DriveMenuSlot(Player player, @Nullable ICellHost drive, BooleanSupplier valid) {
         super(new SimpleContainer(1), 0, 0, 0);
-        this.client = player.level().isClientSide;
+        this.level = player.level();
         this.drive = drive;
         this.valid = valid;
     }
 
-    private boolean available() {
-        return drive != null && valid.getAsBoolean();
+    private boolean installed() {
+        return !(drive instanceof BlockEntity be)
+            || be.getLevel() == level && level.hasChunkAt(be.getBlockPos()) && level.getBlockEntity(be.getBlockPos()) == be;
     }
 
     @Override
     public ItemStack getItem() {
-        if (client) return super.getItem();
-        if (!available()) return ItemStack.EMPTY;
-        var stack = drive.getCellStack();
+        if (level.isClientSide) return super.getItem();
+        if (drive == null || !valid.getAsBoolean()) return ItemStack.EMPTY;
+        var stack = installed() ? drive.getCellStack() : drive.getBuiltInCellForDisplay();
         return stack == null ? ItemStack.EMPTY : stack;
     }
 
@@ -42,14 +45,14 @@ public final class DriveMenuSlot extends Slot {
 
     @Override
     public void set(ItemStack stack) {
-        if (client) super.set(stack);
+        if (level.isClientSide) super.set(stack);
     }
 
     @Override
     public ItemStack remove(int amount) { return ItemStack.EMPTY; }
 
     public ItemStack click(int button, ClickType type, Player player) {
-        if (!available() || player.level().isClientSide || !player.containerMenu.stillValid(player)
+        if (drive == null || !valid.getAsBoolean() || !installed() || player.level().isClientSide || !player.containerMenu.stillValid(player)
             || button < 0 || button > 1) return ItemStack.EMPTY;
         var carried = player.containerMenu.getCarried();
         var installed = getItem();

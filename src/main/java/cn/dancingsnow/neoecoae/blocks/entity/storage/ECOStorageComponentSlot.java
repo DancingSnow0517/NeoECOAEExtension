@@ -15,7 +15,7 @@ final class ECOStorageComponentSlot {
                 return stack.isEmpty() ? ItemStack.EMPTY : new ItemStack(stack.getItem(), stack.getCount());
             }
             @Override public void setStackInSlot(int slot, ItemStack stack) {
-                if (slot == 0 && (stack.isEmpty() || ECOStorageSystemBlockEntity.isInfiniteComponent(stack)))
+                if (!host.isInfiniteComponentSlotReadOnly() && slot == 0 && (stack.isEmpty() || ECOStorageSystemBlockEntity.isInfiniteComponent(stack)))
                     delegate.setStackInSlot(slot, stack);
             }
             @Override public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
@@ -26,7 +26,7 @@ final class ECOStorageComponentSlot {
             }
             @Override public int getSlotLimit(int slot) { return delegate.getSlotLimit(slot); }
             @Override public boolean isItemValid(int slot, ItemStack stack) {
-                return slot == 0 && ECOStorageSystemBlockEntity.isInfiniteComponent(stack) && delegate.isItemValid(slot, stack);
+                return !host.isInfiniteComponentSlotReadOnly() && slot == 0 && ECOStorageSystemBlockEntity.isInfiniteComponent(stack) && delegate.isItemValid(slot, stack);
             }
         };
     }

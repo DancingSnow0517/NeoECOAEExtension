@@ -100,6 +100,30 @@ public final class StorageSavedDataServerProbe {
             "Component removal altered the frozen domain");
         check(componentHandler.insertItem(0, components, false).isEmpty() && host.canUseHostDomainStorage(), "Component replacement did not resume");
         check(view.get().getAvailableStacks().isEmpty(), "Old view revived after mode change");
+        // Exercise the actual loot table and onRemove path, not just hand-built item NBT.
+        ItemStack portable = controllerDrop(world, host);
+        check(domainId.equals(ECOStorageSystemBlockEntity.readControllerDomain(portable)), "Controller drop lost its domain");
+        world.removeBlock(host.getBlockPos(), false);
+        var moved = recoveryHost(world, 120, portable, recoveryDrives(world, 120));
+        moved.tick(world, moved.getBlockPos(), moved.getBlockState());
+        check(moved.canUseHostDomainStorage() && domainId.toString().equals(moved.getInfiniteDomainText())
+            && domain.getAmount(key).toBigInteger().intValueExact() == 100, "Moved controller did not recover its exact stock");
+        ItemStack renewed = controllerDrop(world, moved);
+        world.removeBlock(moved.getBlockPos(), false);
+        var stale = recoveryHost(world, 136, portable, recoveryDrives(world, 136));
+        stale.tick(world, stale.getBlockPos(), stale.getBlockState());
+        check(!stale.canUseHostDomainStorage() && ECOInfiniteStorageDomains.mountedHosts(server, domainId) == 0,
+            "A stale copy reclaimed the unbound domain");
+        var frozen = recoveryHost(world, 152, renewed);
+        frozen.tick(world, frozen.getBlockPos(), frozen.getBlockState());
+        check(domainId.toString().equals(frozen.getInfiniteDomainText()) && !frozen.canUseHostDomainStorage()
+            && ECOInfiniteStorageDomains.mountedHosts(server, domainId) == 1, "An unqualified moved host exposed or lost its claim");
+        var fixture = new CompoundTag();
+        fixture.putUUID("domain", domainId);
+        fixture.put("stale", portable.save(new CompoundTag()));
+        fixture.put("current", controllerDrop(world, frozen).save(new CompoundTag()));
+        world.removeBlock(frozen.getBlockPos(), false);
+        NEAtomicNbtFile.write(fixture, root.resolve("controller-relocation.dat"));
         UUID restoreId = UUID.randomUUID();
         var restoring = (SavedDataInfiniteStorageEngine) ECOInfiniteStorageDomains.acquire(world, restoreId);
         check(restoring.insert(key, 100, Actionable.MODULATE) == 100, "Cannot seed legacy restore");
@@ -148,7 +172,16 @@ public final class StorageSavedDataServerProbe {
         return drive;
     }
 
+    private static ItemStack controllerDrop(ServerLevel world, ECOStorageSystemBlockEntity host) {
+        return net.minecraft.world.level.block.Block.getDrops(host.getBlockState(), world, host.getBlockPos(), host).stream()
+            .filter(stack -> stack.is(host.getBlockState().getBlock().asItem())).findFirst().orElseThrow();
+    }
+
     private static ECOStorageSystemBlockEntity recoveryHost(ServerLevel world, int offset, ECODriveBlockEntity... drives) {
+        return recoveryHost(world, offset, ItemStack.EMPTY, drives);
+    }
+
+    private static ECOStorageSystemBlockEntity recoveryHost(ServerLevel world, int offset, ItemStack placed, ECODriveBlockEntity... drives) {
         var pos = new BlockPos(offset, 100, 0);
         world.setBlockAndUpdate(pos, NEBlocks.STORAGE_SYSTEM_L9.getDefaultState());
         var host = (ECOStorageSystemBlockEntity) world.getBlockEntity(pos);
@@ -164,6 +197,7 @@ public final class StorageSavedDataServerProbe {
         legacy.put("Items", items);
         state.put("infiniteComponentSlot", legacy);
         host.load(state);
+        if (!placed.isEmpty()) host.getBlockState().getBlock().setPlacedBy(world, pos, host.getBlockState(), null, placed);
         var cluster = new NEStorageCluster(pos, pos);
         for (ECODriveBlockEntity drive : drives) cluster.addBlockEntity(drive);
         cluster.addBlockEntity(host);
@@ -176,10 +210,26 @@ public final class StorageSavedDataServerProbe {
     private static void run(MinecraftServer server, String phase) throws Exception {
         var world = server.overworld();
         var root = server.getWorldPath(LevelResource.ROOT);
-        if (phase.equals("recovery")) {
+        if (phase.equals("recovery") || phase.equals("recovery-reload")) {
             check(root.toAbsolutePath().normalize().getFileName().toString().startsWith("saveddata-recovery-"),
                 "Use an isolated recovery world");
-            verifyForcedRecovery(world, root);
+            if (phase.equals("recovery")) {
+                verifyForcedRecovery(world, root);
+            } else {
+                var fixture = NbtIo.readCompressed(root.resolve("controller-relocation.dat").toFile());
+                UUID id = fixture.getUUID("domain");
+                var stale = recoveryHost(world, 168, ItemStack.of(fixture.getCompound("stale")), recoveryDrives(world, 168));
+                stale.tick(world, stale.getBlockPos(), stale.getBlockState());
+                check(!stale.canUseHostDomainStorage() && ECOInfiniteStorageDomains.mountedHosts(server, id) == 0,
+                    "Restart revived a stale controller claim");
+                var current = recoveryHost(world, 184, ItemStack.of(fixture.getCompound("current")), recoveryDrives(world, 184));
+                current.tick(world, current.getBlockPos(), current.getBlockState());
+                var view = new java.util.concurrent.atomic.AtomicReference<appeng.api.storage.MEStorage>();
+                current.mountInventories((storage, priority) -> view.set(storage));
+                check(id.toString().equals(current.getInfiniteDomainText()) && current.canUseHostDomainStorage()
+                    && view.get().getAvailableStacks().get(ECOKeyFactory.item(Items.DIAMOND)) == 100,
+                    "Restart lost the renewed claim or the exact domain contents");
+            }
             return;
         }
         var fixturePath = root.resolve("saveddata-acceptance-fixture.dat");
