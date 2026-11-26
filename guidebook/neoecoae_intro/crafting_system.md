@@ -135,7 +135,7 @@ Meet all of the following conditions to enter **Virtual Crafting Mode**:
 2. All 8 hosts have a <ItemLink id="neoecoae:crafting_high_energy_network_switch" />.
 3. Both **Overclocking** and **Active Cooling** are enabled.
 
-- **Unlimited batch size, 1-tick completion**: The UI displays **Unlimited**. Each FX lane can accept all remaining crafts for one pattern (up to the signed 64-bit limit) and return the full output on its first working tick, provided it has power and cooling.
+- **Unlimited batch size, 1-tick completion**: The UI displays **Unlimited**. With an ECO exact order, a verified pattern without reusable or durability-changing inputs can use batches and outputs larger than the signed 64-bit limit. Each FX lane can complete its accepted batch on the first working tick with sufficient power and cooling.
 - **Power and cooling**: The group pays **10,000,000 AE** once per working tick, subject to the AE2 power multiplier, instead of per craft or per occupied slot. Each working lane uses **10,000 cooling points per tick** from the shared pool, supplied by a coolant rated for **level 9**. The default is Cryotheum Solution; hover over the information icon on the right to see supported fluids. Lanes wait if cooling is insufficient without reverting to finite mode.
 
 Fast workers still need timely dispatch from the CPU. See the [ECO Computation System](neoecoae:neoecoae_intro/computation_system.md) for scheduling details.

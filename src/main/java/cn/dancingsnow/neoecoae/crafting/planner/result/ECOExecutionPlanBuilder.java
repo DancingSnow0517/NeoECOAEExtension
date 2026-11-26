@@ -112,7 +112,7 @@ public final class ECOExecutionPlanBuilder {
             ComponentPlanningResult component = componentById.get(schedulePhase.componentId());
             if (schedulePhase.type() == ECOExecutionSchedule.Type.CYCLE && component != null
                     && component.cycleResult() != null) {
-                for (PatternRun run : component.cycleResult().executionPlan()) {
+                for (PatternRun run : ECOOrderedCycleBatching.normalize(component.cycleResult().executionPlan())) {
                     if (run.plannerCount().signum() <= 0) continue;
                     Integer taskId = taskIdByIdentity.get(requireIdentity(run.details()));
                     if (taskId == null || !taskIds.contains(taskId)) {

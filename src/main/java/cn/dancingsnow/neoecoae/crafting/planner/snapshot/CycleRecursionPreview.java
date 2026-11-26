@@ -4,6 +4,7 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledPattern;
+import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleCircuitSummary;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveResult;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.PatternRun;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.RepeatLayout;
@@ -17,6 +18,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.jetbrains.annotations.Nullable;
+
+import static cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleCircuitSummary.zeroes;
 
 /** Projects an existing compact witness into growth checkpoints; never searches for another recipe order. */
 final class CycleRecursionPreview {
@@ -92,7 +95,7 @@ final class CycleRecursionPreview {
         for (Block block : blocks(runs)) {
             work += (long) (block.end() - block.start()) * (keys.size() + patternOrder.size());
             if (work > MAX_DETAIL_WORK) break;
-            CircuitSummary unit = summarize(runs, block, keyIndex, patternIndex);
+            CycleCircuitSummary unit = summarize(runs, block, keyIndex, patternIndex);
             PlannerAmount remaining = block.repetitions();
             boolean first = true;
             while (remaining.signum() > 0 && layers.size() < maxLayers - 1) {
@@ -108,7 +111,7 @@ final class CycleRecursionPreview {
                 boolean folded = batch == null && !first && remaining.compareTo(PlannerAmount.ONE) > 0;
                 if (batch == null) batch = first ? PlannerAmount.ONE : remaining;
                 batch = batch.min(remaining);
-                CircuitSummary step = unit.repeated(batch);
+                CycleCircuitSummary step = unit.repeated(batch);
                 PlannerAmount[] added = zeroes(keys.size());
                 for (int i = 0; i < keys.size(); i++) {
                     added[i] = step.required()[i].subtract(stock[i]).max(PlannerAmount.ZERO);
@@ -166,10 +169,9 @@ final class CycleRecursionPreview {
         return result;
     }
 
-    private static CircuitSummary summarize(List<PatternRun> runs, Block block, Map<AEKey, Integer> keys,
+    private static CycleCircuitSummary summarize(List<PatternRun> runs, Block block, Map<AEKey, Integer> keys,
             Map<IPatternDetails, Integer> patterns) {
-        CircuitSummary summary = new CircuitSummary(zeroes(keys.size()), zeroes(keys.size()),
-            zeroes(keys.size()), zeroes(patterns.size()));
+        CycleCircuitSummary summary = CycleCircuitSummary.empty(keys.size(), patterns.size());
         for (int i = block.start(); i < block.end(); i++) {
             PatternRun run = runs.get(i);
             PlannerAmount[] consumed = zeroes(keys.size()), produced = zeroes(keys.size());
@@ -181,66 +183,10 @@ final class CycleRecursionPreview {
                 int key = keys.get(output.what());
                 produced[key] = produced[key].add(output.amount());
             });
-            summary = summary.then(CircuitSummary.run(consumed, produced, patterns.size(), patterns.get(run.details()),
+            summary = summary.then(CycleCircuitSummary.run(consumed, produced, patterns.size(), patterns.get(run.details()),
                 block.singleFiring() ? PlannerAmount.ONE : run.plannerCount()));
         }
         return summary;
-    }
-
-    /** Exact prefix inventory for AE's concrete input keys and normalized container/catalyst returns. */
-    private record CircuitSummary(PlannerAmount[] required, PlannerAmount[] delta,
-            PlannerAmount[] produced, PlannerAmount[] counts) {
-        /** Summarize a fixed run, without searching or changing its order. */
-        static CircuitSummary run(PlannerAmount[] consumed, PlannerAmount[] produced,
-                int transitions, int transition, PlannerAmount count) {
-            CircuitSummary result = new CircuitSummary(zeroes(consumed.length), zeroes(consumed.length),
-                zeroes(consumed.length), zeroes(transitions));
-            for (int key = 0; key < consumed.length; key++) {
-                result.required[key] = batchDeficit(consumed[key], produced[key], count);
-                result.delta[key] = produced[key].subtract(consumed[key]).multiply(count);
-                result.produced[key] = produced[key].multiply(count);
-            }
-            result.counts[transition] = count;
-            return result;
-        }
-
-        CircuitSummary then(CircuitSummary next) {
-            PlannerAmount[] r = required.clone(), d = delta.clone(), p = produced.clone(), c = counts.clone();
-            for (int i = 0; i < r.length; i++) {
-                r[i] = r[i].max(next.required[i].subtract(d[i]));
-                d[i] = d[i].add(next.delta[i]);
-                p[i] = p[i].add(next.produced[i]);
-            }
-            for (int i = 0; i < c.length; i++) c[i] = c[i].add(next.counts[i]);
-            return new CircuitSummary(r, d, p, c);
-        }
-
-        CircuitSummary repeated(PlannerAmount times) {
-            if (times.signum() <= 0) throw new IllegalArgumentException("Circuit repetitions must be positive");
-            PlannerAmount[] r = required.clone(), d = delta.clone(), p = produced.clone(), c = counts.clone();
-            for (int i = 0; i < r.length; i++) {
-                if (d[i].signum() < 0) r[i] = r[i].subtract(d[i].multiply(times.subtract(PlannerAmount.ONE)));
-                d[i] = d[i].multiply(times);
-                p[i] = p[i].multiply(times);
-            }
-            for (int i = 0; i < c.length; i++) c[i] = c[i].multiply(times);
-            return new CircuitSummary(r, d, p, c);
-        }
-
-        /** Minimum stock needed before a repeated transition can run without a deficit on this key. */
-        private static PlannerAmount batchDeficit(PlannerAmount consumed, PlannerAmount produced, PlannerAmount count) {
-            if (consumed.signum() <= 0 || count.signum() <= 0) return PlannerAmount.ZERO;
-            PlannerAmount requiredBeforeLast = produced.compareTo(consumed) >= 0
-                ? consumed
-                : consumed.multiply(count).subtract(produced.multiply(count.subtract(PlannerAmount.ONE)));
-            return requiredBeforeLast.max(PlannerAmount.ZERO);
-        }
-    }
-
-    private static PlannerAmount[] zeroes(int size) {
-        PlannerAmount[] result = new PlannerAmount[size];
-        Arrays.fill(result, PlannerAmount.ZERO);
-        return result;
     }
 
     private static List<KeyAmount> amounts(List<AEKey> keys, PlannerAmount[] values) {

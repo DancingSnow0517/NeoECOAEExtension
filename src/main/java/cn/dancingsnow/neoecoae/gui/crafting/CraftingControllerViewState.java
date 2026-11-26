@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.crafting;
 
 import cn.dancingsnow.neoecoae.crafting.display.CraftingOutputDisplay;
+import java.math.BigInteger;
 import java.util.List;
 import net.minecraftforge.fluids.FluidStack;
 
@@ -10,7 +11,7 @@ final class CraftingControllerViewState {
     long energyUsage;
     boolean creativeEnergy;
     long performanceAverageNanos;
-    long queuedCraftCount;
+    BigInteger queuedCraftCount = BigInteger.ZERO;
     long batchCapacity;
     long ftParallelCapacity;
     long overflowCapacity;

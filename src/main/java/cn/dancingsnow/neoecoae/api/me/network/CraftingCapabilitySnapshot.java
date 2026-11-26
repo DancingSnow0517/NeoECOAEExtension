@@ -120,6 +120,12 @@ public record CraftingCapabilitySnapshot(
         );
     }
 
+    /** Finite physical batch capacity when a host presents a virtual network in physical mode. */
+    public long parallelLimit() {
+        return virtualMode ? NEMath.saturatingMultiply(physicalFxCount,
+            NEMath.saturatingMultiply(F9_OVERCLOCKED_BATCH_PER_FX, networkMultiplier)) : totalBatchCapacity.finiteValue();
+    }
+
     /** A logical exchange network has at least two switch hosts and a positive multiplier. */
     public boolean exchangeNetwork() {
         return (long) normalSwitchHosts + highEnergySwitchHosts >= 2 && networkMultiplier > 0;

@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.platform.JdkCompat;
 import cn.dancingsnow.neoecoae.crafting.display.format.DisplayNumbers;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import java.math.BigInteger;
 import java.util.List;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.ui.utils.ModularUITooltipComponent;
 import net.minecraft.network.chat.Component;
@@ -34,17 +35,19 @@ final class CraftingControllerTooltips {
     }
 
     ModularUITooltipComponent queueTooltip() {
-        long count = Math.max(0L, view.queuedCraftCount);
+        BigInteger count = view.queuedCraftCount;
+        boolean idle = count.signum() == 0;
         int permille = JdkCompat.clamp(view.state.queuePermille(), 0, CraftingControllerPanelState.FULL);
         boolean unbounded = view.batchCapacity == Long.MAX_VALUE;
-        boolean full = !unbounded && view.batchCapacity > 0L && count >= view.batchCapacity;
-        String state = full ? "full" : count == 0L ? "idle" : "active";
-        int stateColor = full ? CraftingTooltipCard.WARN : count == 0L ? CraftingTooltipCard.MUTED : CraftingTooltipCard.CYAN;
+        boolean full = !unbounded && view.batchCapacity > 0L
+            && count.compareTo(BigInteger.valueOf(view.batchCapacity)) >= 0;
+        String state = full ? "full" : idle ? "idle" : "active";
+        int stateColor = full ? CraftingTooltipCard.WARN : idle ? CraftingTooltipCard.MUTED : CraftingTooltipCard.CYAN;
         return CraftingTooltipCard.builder(CraftingTooltipCard.Icon.STACK,
                 Component.translatable("gui.neoecoae.crafting.ui.queue_heading"))
             .headerRight(CraftingTooltipCard.upper(Component.translatable("gui.neoecoae.crafting.ui.queue_card." + state)),
                 stateColor)
-            .value(CraftingTooltipCard.group(count),
+            .value(DisplayNumbers.grouped(count),
                 unbounded ? "∞" : CraftingTooltipCard.group(Math.max(0L, view.batchCapacity)))
             .segment(permille / (double) CraftingControllerPanelState.FULL, CraftingTooltipCard.CYAN, false)
             .row(Component.translatable("gui.neoecoae.crafting.ui.queue_card.used").withStyle(style -> style.withColor(CraftingTooltipCard.MUTED)),

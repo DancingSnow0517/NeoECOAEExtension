@@ -648,13 +648,21 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     private int getSingleCoreProcessingCapacity() {
-        long capacity = getSingleCoreProcessingCapacityLong();
+        CraftingCapabilitySnapshot snapshot = getCapabilitySnapshot();
+        var perCore = snapshot.batchPerFx();
+        long capacity = snapshot.virtualMode() && !isCraftingPanelVirtualMode(snapshot)
+            ? snapshot.parallelLimit() / Math.max(1, snapshot.physicalFxCount())
+            : perCore.unlimited() ? Long.MAX_VALUE : perCore.finiteValue();
         return (int) Math.min(Integer.MAX_VALUE, capacity);
     }
 
-    private long getSingleCoreProcessingCapacityLong() {
-        CraftingCapabilitySnapshot.Capacity capacity = getCapabilitySnapshot().batchPerFx();
-        return capacity.unlimited() ? Long.MAX_VALUE : capacity.finiteValue();
+    protected boolean isCraftingPanelVirtualMode(CraftingCapabilitySnapshot snapshot) {
+        return snapshot.virtualMode();
+    }
+
+    private CraftingCapabilitySnapshot.Capacity getCraftingPanelBatchCapacity(CraftingCapabilitySnapshot snapshot) {
+        return snapshot.virtualMode() && !isCraftingPanelVirtualMode(snapshot)
+            ? CraftingCapabilitySnapshot.Capacity.finite(snapshot.parallelLimit()) : snapshot.totalBatchCapacity();
     }
 
     /**
@@ -869,7 +877,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             () -> Math.max(1, getCapabilitySnapshot().networkMultiplier()),
             () -> getMainNode().isOnline() && getMainNode().getGrid() != null,
             this::isOverclocked,
-            () -> getCapabilitySnapshot().virtualMode(),
+            () -> isCraftingPanelVirtualMode(getCapabilitySnapshot()),
             () -> setOverclocked(player, !isOverclocked()),
             this::isActiveCooling,
             () -> setActiveCooling(player, !isActiveCooling()),
@@ -901,9 +909,9 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
                 if (canPlayerInteract(player)) adjustNetworkFrequency(delta);
             },
             this::getCraftingControllerPanelState,
-            this::getDisplayedQueuedCraftCount,
+            () -> getDisplayedQueuedCraftQuantity().toBigInteger(),
             () -> {
-                CraftingCapabilitySnapshot.Capacity capacity = getCapabilitySnapshot().totalBatchCapacity();
+                CraftingCapabilitySnapshot.Capacity capacity = getCraftingPanelBatchCapacity(getCapabilitySnapshot());
                 return capacity.unlimited() ? Long.MAX_VALUE : capacity.finiteValue();
             },
             () -> {
@@ -937,14 +945,15 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
             lower.add(cores.getOrDefault(worker.getBlockPos().relative(top.getOpposite()), 0));
         }
         CraftingCapabilitySnapshot snapshot = getCapabilitySnapshot();
+        var batchCapacity = getCraftingPanelBatchCapacity(snapshot);
         return CraftingControllerPanelState.of(
             getTier().getTier(), upper, lower, workers.size(), mirrored,
             CraftingControllerPanelState.coolantVisible(
                 isActiveCooling(), getDisplayedCoolantFluid(), getDisplayedCoolantAmount()),
             hasNetworkSwitch(),
-            snapshot.totalBatchCapacity().unlimited() ? CraftingControllerPanelState.FULL
+            batchCapacity.unlimited() ? CraftingControllerPanelState.FULL
                 : CraftingControllerPanelState.permille(
-                    getDisplayedQueuedCraftCount(), snapshot.totalBatchCapacity().finiteValue()),
+                    getDisplayedQueuedCraftCount(), batchCapacity.finiteValue()),
             CraftingControllerPanelState.permille(snapshot.activeFxCount(), snapshot.physicalFxCount())
         );
     }
@@ -1008,9 +1017,13 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     public long getDisplayedQueuedCraftCount() {
-        long total = 0L;
+        return getDisplayedQueuedCraftQuantity().longValueSaturated();
+    }
+
+    private PlannerAmount getDisplayedQueuedCraftQuantity() {
+        PlannerAmount total = PlannerAmount.ZERO;
         for (ECOCraftingWorkerBlockEntity worker : collectDisplayedWorkers()) {
-            total = NEMath.saturatingAdd(total, worker.getQueuedCraftCount());
+            total = total.add(worker.getQueuedCraftQuantity());
         }
         return total;
     }
@@ -1054,7 +1067,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
         return modeNotice.getString().isEmpty() ? getVirtualCraftingBlockedNotice() : modeNotice;
     }
 
-    Component getVirtualCraftingBlockedNotice() {
+    protected Component getVirtualCraftingBlockedNotice() {
         if (!isFullVirtualCraftingMode()) return Component.empty();
         int coolantTier = getDisplayedCoolingMaxOverclock();
         if (isActiveCooling() && coolantTier >= 0 && coolantTier < MAX_OVERCLOCK_TIMES) {
