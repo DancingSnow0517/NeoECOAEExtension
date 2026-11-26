@@ -171,6 +171,8 @@ The server serializes menu report fields over successive ticks. Only compression
 
 `request.submit(callback)` binds the request to that exact carrier object for the synchronous callback. Do not submit a separately obtained `carrier()` later, copy the carrier or run the callback asynchronously. Its long output is a bounded projection. `fromPlanningResult` reads a long plan projection; construct the request directly for totals exceeding long.
 
+The overloads of `ECOBigOrderAdmission.allows` that take `PlanningStatus` or `ECOPlanningResult` expose planner implementation types: pin the mod version if you call them directly. Submitting an `ECOBigOrderRequest` with an explicit goal and exact amount does not require either type.
+
 The parent plans bounded child segments against fresh inventory. [ECOBigOrderPlanner.begin](../src/main/java/cn/dancingsnow/neoecoae/grid/crafting/planner/ECOBigOrderPlanner.java) probes one segment without creating a parent. [ECOBigOrderAdmission.allows](../src/main/java/cn/dancingsnow/neoecoae/api/me/bigorder/ECOBigOrderAdmission.java) checks diagnostic/forced admission; forced mode creates no materials and does not accept unknown or unsupported routes. Read exact parent state through `ECOCraftingProgressView.bigOrder()`.
 
 The confirmation menu's full exact-plan submission and the segmented parent API have distinct contracts. Do not construct parent orders from internal menu adapters.

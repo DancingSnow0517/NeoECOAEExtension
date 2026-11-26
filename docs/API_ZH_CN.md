@@ -171,6 +171,8 @@ public final class EcoApiExample {
 
 `request.submit(callback)` 在同步回调中把请求绑定到同一个载体对象。不能另取 `carrier()` 延后提交、复制载体或异步调用回调。载体的 long 数量是受限视图，不是精确总量。`fromPlanningResult` 从 long 计划投影读取数量，超 long 总量必须直接构造请求。
 
+`ECOBigOrderAdmission.allows` 接收的 `PlanningStatus` 和 `ECOPlanningResult` 是规划器实现类型，直接调用这些重载时请固定模组版本。使用明确的目标和精确数量构造并提交 `ECOBigOrderRequest` 不需要这两个类型。
+
 父订单按新库存规划有界子段。[ECOBigOrderPlanner.begin](../src/main/java/cn/dancingsnow/neoecoae/grid/crafting/planner/ECOBigOrderPlanner.java) 仅探测单个子段，不自行创建父订单。[ECOBigOrderAdmission.allows](../src/main/java/cn/dancingsnow/neoecoae/api/me/bigorder/ECOBigOrderAdmission.java) 检查诊断与强制模式准入；强制模式不生成材料，也不接受未知/不支持的路线。通过 `ECOCraftingProgressView.bigOrder()` 读取父订单状态与精确进度。
 
 确认菜单的完整精确计划路径与分段父订单 API 各有提交合同；不要从菜单内部适配器自行拼装父订单。

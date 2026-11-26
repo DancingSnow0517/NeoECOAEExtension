@@ -1,7 +1,5 @@
 package cn.dancingsnow.neoecoae.api.me.bigorder;
 
-import cn.dancingsnow.neoecoae.grid.crafting.execution.bigorder.ECOBigCraftingOrder;
-
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -43,7 +41,7 @@ public record ECOBigOrderRequest(AEKey goal, BigInteger requested, boolean force
         java.util.Objects.requireNonNull(goal);
         java.util.Objects.requireNonNull(options);
 
-        ECOBigCraftingOrder.checked(requested);
+        ECOBigOrderAdmission.checkedAmount(requested);
         if (requested.signum() <= 0) throw new IllegalArgumentException("Empty order");
     }
     public ICraftingPlan carrier() {
