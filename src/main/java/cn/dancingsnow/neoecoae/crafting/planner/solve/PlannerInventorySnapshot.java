@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
+import org.jetbrains.annotations.Nullable;
 
 /** Immutable exact stock shared by calculation probes and candidate retries. */
 public final class PlannerInventorySnapshot {
@@ -11,17 +12,29 @@ public final class PlannerInventorySnapshot {
     private final PlannerAmount[] amounts;
     private final java.util.Map<AEKey, PlannerAmount> exactAmounts;
     private final java.util.Set<AEKey> unboundedKeys;
+    private final int positiveEntries;
+    private final boolean negativeStock;
+
+    private final @Nullable Integer captureServerTick;
 
     private PlannerInventorySnapshot(java.util.Map<AEKey, PlannerAmount> inventory,
-            java.util.Set<AEKey> unboundedKeys) {
+            java.util.Set<AEKey> unboundedKeys, @Nullable Integer captureServerTick) {
+        this.captureServerTick = captureServerTick;
         this.keys = new AEKey[inventory.size()];
         this.amounts = new PlannerAmount[inventory.size()];
         this.unboundedKeys = java.util.Set.copyOf(unboundedKeys);
-        int index = 0;
+        int index = 0, positive = 0;
+        boolean negative = false;
         for (var entry : inventory.entrySet()) {
             keys[index] = entry.getKey();
-            amounts[index++] = entry.getValue();
+            PlannerAmount amount = entry.getValue();
+            amounts[index++] = amount;
+            int sign = amount.signum();
+            if (sign > 0) positive++;
+            else if (sign < 0) negative = true;
         }
+        this.positiveEntries = positive;
+        this.negativeStock = negative;
         this.exactAmounts = java.util.Map.copyOf(inventory);
     }
 
@@ -35,21 +48,46 @@ public final class PlannerInventorySnapshot {
             if (entry.getLongValue() <= 0) continue;
             amounts.put(entry.getKey(), PlannerAmount.of(entry.getLongValue()));
         }
-        return new PlannerInventorySnapshot(amounts, unboundedKeys);
+        return exact(amounts, unboundedKeys);
     }
 
     public static PlannerInventorySnapshot exact(java.util.Map<AEKey, PlannerAmount> inventory,
             java.util.Set<AEKey> unboundedKeys) {
-        return new PlannerInventorySnapshot(inventory, unboundedKeys);
+        return exact(inventory, unboundedKeys, null);
     }
 
+    public static PlannerInventorySnapshot exact(java.util.Map<AEKey, PlannerAmount> inventory,
+            java.util.Set<AEKey> unboundedKeys, @Nullable Integer captureServerTick) {
+        return new PlannerInventorySnapshot(inventory, unboundedKeys, captureServerTick);
+    }
+
+    /** Tick passed to the inventory sampler (not the last provider update or the confirmation tick). */
+    public @Nullable Integer captureServerTick() { return captureServerTick; }
     public java.util.Map<AEKey, PlannerAmount> amounts() { return exactAmounts; }
     public PlannerAmount amountOf(AEKey key) { return exactAmounts.getOrDefault(key, PlannerAmount.ZERO); }
     public java.util.Set<AEKey> unboundedKeys() { return unboundedKeys; }
 
-    void initialize(PlannerCounter target) {
-        for (int i = 0; i < keys.length; i++) target.set(keys[i], amounts[i]);
-        unboundedKeys.forEach(target::setUnbounded);
+    /** Same point value as the initialized worker counter, including its unbounded marker. */
+    PlannerAmount storedAmount(AEKey key) {
+        return isUnbounded(key) ? PlannerCounter.UNBOUNDED_MARKER : amountOf(key);
+    }
+
+    // Models that previously initialized a counter must still reject malformed stock, even for unrelated keys.
+    void requireValidStock() {
+        if (negativeStock) throw new IllegalArgumentException("negative planner counter amount");
+    }
+
+    PlannerCounter newStoredCounter() {
+        requireValidStock();
+        return new PlannerCounter(keys, amounts, unboundedKeys, Math.max(positiveEntries, unboundedKeys.size()));
+    }
+
+    java.util.Set<AEKey> copyStoredKeys() {
+        requireValidStock();
+        var result = new java.util.LinkedHashSet<AEKey>();
+        for (int i = 0; i < keys.length; i++) if (!amounts[i].isZero()) result.add(keys[i]);
+        result.addAll(unboundedKeys);
+        return result;
     }
 
     public boolean isUnbounded(AEKey key) {
@@ -68,7 +106,7 @@ public final class PlannerInventorySnapshot {
             }
             remaining.put(keys[i], amount);
         }
-        return new PlannerInventorySnapshot(remaining, unboundedKeys);
+        return new PlannerInventorySnapshot(remaining, unboundedKeys, captureServerTick);
     }
 
     /** Independent bounded projection for APIs that still require long-valued stock. */

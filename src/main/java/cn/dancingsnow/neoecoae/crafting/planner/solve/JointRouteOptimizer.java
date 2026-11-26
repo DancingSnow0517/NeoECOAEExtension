@@ -174,7 +174,7 @@ public final class JointRouteOptimizer {
             column.values().removeIf(value -> value.signum() == 0);
             net.add(column);
         }
-        SolveState stock = new SolveState(inventory);
+        inventory.requireValidStock();
         boolean[] imports = new boolean[keys.size()];
         PlannerAmount[] initial = new PlannerAmount[keys.size()];
         PlannerAmount[] target = new PlannerAmount[keys.size()];
@@ -183,7 +183,7 @@ public final class JointRouteOptimizer {
         for (var key : keys.entrySet()) {
             boolean goal = key.getKey().equals(network.goal());
             imports[key.getValue()] = !goal && (network.emittable().contains(key.getKey()) || inventory.isUnbounded(key.getKey()));
-            initial[key.getValue()] = goal ? PlannerAmount.ZERO : stock.stored.get(key.getKey());
+            initial[key.getValue()] = goal ? PlannerAmount.ZERO : inventory.storedAmount(key.getKey());
         }
         // Reserve the rest of this phase for concrete replay even if quantity optimization exhausts its slice.
         ECOCancellation quantities = new ECOPlanningBudget(cancellation, firstFeasible ? 700_000 : 30_000,
@@ -233,10 +233,11 @@ public final class JointRouteOptimizer {
             }
         }
         if (state == null
-                || ECOPlanMaterialValidator.firstDeficit(state, network.goal(), amount, null, network) != null)
+                || ECOPlanMaterialValidator.firstDeficit(state, network.goal(), amount, network, false) != null)
             return null;
-        state.executionProvenance().requireComplete();
-        if (state.executionProvenance().hasPatternCycle(state.patternTimes.keySet(), cancellation)) return null;
+        var provenance = state.executionProvenance();
+        provenance.requireComplete();
+        if (provenance.hasPatternCycle(state.patternTimes.keySet(), cancellation)) return null;
         if (!activatedFiringsCovered(network, state, patterns, cancellation)) return null;
         ECOPlanTrace trace = new ECOPlanTrace();
         trace.addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.JOINT_ROUTE_OPTIMIZED,
@@ -368,7 +369,7 @@ public final class JointRouteOptimizer {
         state.provenance.allocate(goal, goal.key(), new MaterialSource.CycleOutput(0), goal.amount());
         state.bytes = PlannerAmount.of(demand.size()).multiply(8).add(cost(state));
         demand.forEach((key, count) -> state.bytes = state.bytes.add(PlannerAmount.stackBytes(count, key.getAmountPerByte())));
-        if (ECOPlanMaterialValidator.firstDeficit(state, network.goal(), amount, null, network) != null) return null;
+        if (ECOPlanMaterialValidator.firstDeficit(state, network.goal(), amount, network, false) != null) return null;
         state.executionProvenance().requireComplete();
         var result = new ComponentPlanningResult(Map.of(network.goal(), PlannerAmount.of(amount)), state.usedAmounts(),
             0, ComponentPlanningResult.Type.CYCLIC, ComponentPlanningResult.Status.PLANNED, firings.keySet(), firings.keySet(),

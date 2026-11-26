@@ -89,7 +89,7 @@ final class MaterialBalanceProof {
             columns.add(column);
         }
         floors.keySet().forEach(key -> index(keys, key));
-        SolveState stock = new SolveState(inventory);
+        inventory.requireValidStock();
         boolean[] imports = new boolean[keys.size()];
         PlannerAmount[] initial = new PlannerAmount[keys.size()];
         PlannerAmount[] target = new PlannerAmount[keys.size()];
@@ -100,7 +100,7 @@ final class MaterialBalanceProof {
             boolean goal = key.equals(network.goal());
             imports[slot] = !goal && (network.emittable().contains(key) || inventory.isUnbounded(key));
             // AE2 crafts the requested amount anew: stored copies of the goal do not count toward it.
-            initial[slot] = goal ? PlannerAmount.ZERO : stock.stored.get(key);
+            initial[slot] = goal ? PlannerAmount.ZERO : inventory.storedAmount(key);
             target[slot] = floors.getOrDefault(key, PlannerAmount.ZERO).max(PlannerAmount.ZERO);
         }
         target[0] = target[0].add(PlannerAmount.of(amount));

@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningBudget;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledNetwork;
+import cn.dancingsnow.neoecoae.crafting.planner.trace.QuantityBoundTrace;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
@@ -31,7 +32,9 @@ final class RouteQuantityProof {
     static @Nullable Prepared prepare(CompiledNetwork network, PlannerInventorySnapshot inventory,
             ECOCancellation cancellation) throws InterruptedException {
         OptimisticSupplyModel model = OptimisticSupplyModel.compile(network, cancellation);
-        return model == null ? null : new Prepared(model, inventory, cancellation);
+        if (model == null) return null;
+        cancellation.checkpoint();
+        return new Prepared(model, inventory);
     }
 
     static @Nullable Prepared prepareBounded(CompiledNetwork network, PlannerInventorySnapshot inventory,
@@ -53,7 +56,6 @@ final class RouteQuantityProof {
         private record Branch(long requested, Map<AEKey, Integer> choices) {}
         private final OptimisticSupplyModel model;
         private final PlannerInventorySnapshot inventory;
-        private final Map<AEKey, PlannerAmount> stock;
         private final Map<Branch, Boolean> branchProofs = new Object2ObjectOpenHashMap<>(MAX_BRANCH_PROOFS);
         private long proofNanos;
         private long checkpoints;
@@ -61,6 +63,9 @@ final class RouteQuantityProof {
         private int cacheHits;
         private int limited;
         private String explanation = "";
+        private @Nullable QuantityBoundTrace evidence;
+
+        @Nullable QuantityBoundTrace evidence() { return evidence; }
 
         String metrics() {
             return "proofCalls=" + calls + " proofCacheHits=" + cacheHits + " proofLimited=" + limited
@@ -69,15 +74,13 @@ final class RouteQuantityProof {
 
         String explanation() { return explanation; }
 
-        private Prepared(OptimisticSupplyModel model, PlannerInventorySnapshot inventory, ECOCancellation cancellation)
-                throws InterruptedException {
+        private Prepared(OptimisticSupplyModel model, PlannerInventorySnapshot inventory) {
             this.model = model;
             this.inventory = inventory;
-            this.stock = new Object2ObjectOpenHashMap<>(inventory.amounts().size());
-            for (var entry : inventory.amounts().entrySet()) {
-                cancellation.checkpoint();
-                if (entry.getValue().signum() > 0) stock.put(entry.getKey(), entry.getValue());
-            }
+        }
+
+        private PlannerAmount positiveStock(AEKey key) {
+            return inventory.amountOf(key).max(PlannerAmount.ZERO);
         }
 
         boolean rejectsBranch(long requested, Map<AEKey, Integer> choices, Set<AEKey> fixed,
@@ -97,13 +100,19 @@ final class RouteQuantityProof {
 
         @Nullable PlannerAmount insufficientOutput(long requested, Map<AEKey, Integer> choices, Set<AEKey> fixed,
                 ECOCancellation cancellation) throws InterruptedException {
+            return insufficientOutput(requested, choices, fixed, cancellation, false);
+        }
+
+        @Nullable PlannerAmount insufficientOutput(long requested, Map<AEKey, Integer> choices, Set<AEKey> fixed,
+                ECOCancellation cancellation, boolean captureProof) throws InterruptedException {
             boolean global = fixed.isEmpty();
+            evidence = null;
             ECOPlanningBudget budget = allowance(cancellation, global ? 200_000L : 25_000L,
                 global ? 50_000_000L : 10_000_000L);
             long started = System.nanoTime();
             calls++;
             try {
-                return propagate(requested, choices, fixed, budget);
+                return propagate(requested, choices, fixed, budget, global && captureProof);
             } catch (ECOPlanningBudget.Exhausted unknown) {
                 limited++;
                 return null;
@@ -113,13 +122,15 @@ final class RouteQuantityProof {
             }
         }
 
-        private record Limit(PlannerAmount firings, PlannerAmount output, OptimisticSupplyModel.InputGroup input) {}
+        private record Limit(PlannerAmount firings, OptimisticSupplyModel.Production production,
+                             OptimisticSupplyModel.InputGroup input) {}
 
         private @Nullable PlannerAmount propagate(long requested, Map<AEKey, Integer> choices, Set<AEKey> fixed,
-                ECOCancellation cancellation) throws InterruptedException {
+                ECOCancellation cancellation, boolean captureProof) throws InterruptedException {
             if (requested <= 0) return null;
             Map<AEKey, PlannerAmount> finite = new Object2ObjectOpenHashMap<>(model.keys.size());
             Map<AEKey, List<Limit>> reasons = fixed.isEmpty() ? new Object2ObjectOpenHashMap<>(model.keys.size()) : null;
+            Map<AEKey, QuantityBoundTrace.Node> versions = captureProof ? new Object2ObjectOpenHashMap<>() : null;
             ArrayDeque<AEKey> queue = new ArrayDeque<>(model.keys);
             Set<AEKey> queued = new ObjectOpenHashSet<>(model.keys);
             PlannerAmount target = PlannerAmount.of(requested);
@@ -129,7 +140,7 @@ final class RouteQuantityProof {
                 AEKey key = queue.removeFirst();
                 queued.remove(key);
                 if (model.emitted.contains(key) || inventory.isUnbounded(key)) continue;
-                PlannerAmount bound = stock.getOrDefault(key, PlannerAmount.ZERO);
+                PlannerAmount bound = positiveStock(key);
                 List<Limit> limits = reasons == null ? null : new ArrayList<>();
                 boolean infinite = false;
                 for (var production : model.producers.getOrDefault(key, java.util.List.of())) {
@@ -149,7 +160,7 @@ final class RouteQuantityProof {
                     if (firings == null) infinite = true;
                     else {
                         bound = bound.add(firings.multiply(production.amount()));
-                        if (limits != null) limits.add(new Limit(firings, production.amount(), limitingInput));
+                        if (limits != null) limits.add(new Limit(firings, production, limitingInput));
                     }
                 }
                 if (infinite) continue;
@@ -157,7 +168,11 @@ final class RouteQuantityProof {
                 if (previous != null && previous.compareTo(bound) <= 0) continue;
                 finite.put(key, bound);
                 if (reasons != null) reasons.put(key, limits);
+                if (versions != null) {
+                    versions.put(key, recordBound(revisions, key, bound, limits, versions));
+                }
                 if (key.equals(model.goal) && bound.compareTo(target) < 0) {
+                    if (versions != null) evidence = new QuantityBoundTrace(requested, versions.get(key));
                     if (reasons != null) explanation = explain(finite, reasons);
                     return bound;
                 }
@@ -166,6 +181,22 @@ final class RouteQuantityProof {
                 }
             }
             return null;
+        }
+
+        /** Freeze just the finite input revisions that established this bound (before updating the key itself). */
+        private QuantityBoundTrace.Node recordBound(int revision, AEKey key, PlannerAmount bound, List<Limit> limits,
+                Map<AEKey, QuantityBoundTrace.Node> versions) {
+            var routes = new ArrayList<QuantityBoundTrace.Route>(limits.size());
+            for (Limit limit : limits) {
+                var input = limit.input();
+                var alternatives = new ArrayList<QuantityBoundTrace.Input>(input.alternatives().size());
+                for (var alt : input.alternatives()) {
+                    alternatives.add(new QuantityBoundTrace.Input(versions.get(alt.key()), alt.units()));
+                }
+                routes.add(new QuantityBoundTrace.Route(limit.production().recipe().pattern(), limit.production().amount(),
+                    limit.firings(), input.slot(), input.multiplier(), alternatives));
+            }
+            return new QuantityBoundTrace.Node(revision, key, positiveStock(key), bound, routes);
         }
 
         private String explain(Map<AEKey, PlannerAmount> finite, Map<AEKey, List<Limit>> reasons) {
@@ -178,9 +209,9 @@ final class RouteQuantityProof {
                 if (!visited.add(key)) continue;
                 if (visited.size() > 1) text.append("; ");
                 text.append(key).append(" <= ").append(finite.get(key))
-                    .append(" stock=").append(stock.getOrDefault(key, PlannerAmount.ZERO));
+                    .append(" stock=").append(positiveStock(key));
                 for (Limit limit : reasons.getOrDefault(key, List.of())) {
-                    text.append(" + firings<=").append(limit.firings()).append(" * ").append(limit.output())
+                    text.append(" + firings<=").append(limit.firings()).append(" * ").append(limit.production().amount())
                         .append(" limitedBy=").append(limit.input().alternatives())
                         .append(" multiplier=").append(limit.input().multiplier());
                     for (var input : limit.input().alternatives()) if (!visited.contains(input.key())) pending.add(input.key());

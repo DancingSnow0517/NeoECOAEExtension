@@ -26,8 +26,9 @@ public final class ECOPlannerInventory {
         var storage = cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot.resolve(
             grid.getStorageService().getInventory());
         var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        Integer captureTick = server == null ? null : server.getTickCount();
         var snapshot = cn.dancingsnow.neoecoae.crafting.display.terminal.TerminalInventorySnapshot.sample(
-            storage, server == null ? 0L : server.getTickCount(), true, true, storage::getAvailableStacks);
+            storage, captureTick == null ? 0L : captureTick, true, true, storage::getAvailableStacks);
         var amounts = new java.util.LinkedHashMap<AEKey, cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount>();
         snapshot.visitVisibleAmounts((key, amount) -> amounts.put(key,
             cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount.of(amount)));
@@ -36,7 +37,7 @@ public final class ECOPlannerInventory {
             if (amount.infinite()) unbounded.add(key);
             else amounts.put(key, amount.quantity());
         });
-        return PlannerInventorySnapshot.exact(amounts, unbounded);
+        return PlannerInventorySnapshot.exact(amounts, unbounded, captureTick);
     }
 
     /**

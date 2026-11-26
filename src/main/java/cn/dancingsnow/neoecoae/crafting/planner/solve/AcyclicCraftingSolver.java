@@ -221,6 +221,12 @@ public final class AcyclicCraftingSolver {
     public Outcome solve(CompiledNetwork network, AcyclicRoutePlan route, PlannerInventorySnapshot inventory,
             long amount, Map<AEKey, Integer> initialChoices, Set<IPatternDetails> deferredPatterns,
             boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
+        return solve(network, inventory, amount, initialChoices, deferredPatterns, ignorePatternSubstitutions, cancellation);
+    }
+
+    Outcome solve(CompiledNetwork network, PlannerInventorySnapshot inventory, long amount,
+            Map<AEKey, Integer> initialChoices, Set<IPatternDetails> deferredPatterns,
+            boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
         return solveGoals(network, inventory, Map.of(network.goal(), PlannerAmount.of(amount)), true,
             initialChoices, deferredPatterns, ignorePatternSubstitutions, cancellation);
     }
@@ -395,9 +401,7 @@ public final class AcyclicCraftingSolver {
             Map<AEKey, PlannerAmount> goals, boolean additionalGoal,
             Set<IPatternDetails> deferredPatterns,
             boolean ignorePatternSubstitutions, ECOCancellation cancellation, AcyclicSolveMetrics metrics) throws InterruptedException {
-        PlannerCounter stock = new PlannerCounter();
-        workspace.inventory().initialize(stock);
-        Set<AEKey> stockLeaves = new LinkedHashSet<>(stock.asMap().keySet());
+        Set<AEKey> stockLeaves = workspace.inventory().copyStoredKeys();
         if (additionalGoal) stockLeaves.remove(network.goal());
         while (!stockLeaves.isEmpty()) {
             cancellation.checkpoint();
@@ -833,8 +837,8 @@ public final class AcyclicCraftingSolver {
         PlannerAmount remaining = requested;
         PlannerAmount consumed = PlannerAmount.ZERO;
         for (AEKey storedKey : state.stored.keysSnapshot()) {
-            if (remaining.isZero() || !(storedKey instanceof AEItemKey candidate)
-                    || candidate.getItem() != wanted.getItem()) continue;
+            if (remaining.isZero()) break;
+            if (!(storedKey instanceof AEItemKey candidate) || candidate.getItem() != wanted.getItem()) continue;
             if (!cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching
                     .isValid(consumer, matchingInput, key, storedKey, null)) continue;
             PlannerAmount take = state.stored.available(storedKey, remaining);

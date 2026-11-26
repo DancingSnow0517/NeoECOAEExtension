@@ -25,13 +25,17 @@ import cn.dancingsnow.neoecoae.crafting.planner.graph.CycleStructure;
 import cn.dancingsnow.neoecoae.crafting.planner.graph.TarjanSccAnalyzer;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ComponentPlanningResult;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
+import cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge;
+import cn.dancingsnow.neoecoae.crafting.planner.solve.PlannerInventorySnapshot;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.PlannerDiagnostic;
+import cn.dancingsnow.neoecoae.crafting.planner.trace.QuantityBoundTrace;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -64,7 +68,6 @@ public final class CraftingPlanExport {
     private static final int MAX_LISTED = 200;
     private static final int MAX_SURPLUS = 40;
     private static final int MAX_LOOPS = 4;
-    private static final int MAX_STOCK_MEMBERS = 12;
 
     private CraftingPlanExport() {}
 
@@ -79,13 +82,18 @@ public final class CraftingPlanExport {
     /** Called on the server thread when a craft-confirm menu receives a calculated plan. */
     public static void onPlanReady(ServerPlayer player, IGrid grid, ICraftingPlan plan,
             @Nullable ECOPlanningResult result, @Nullable ECOPlannerOptions options) {
+        onPlanReady(player, grid, plan, result, options, null);
+    }
+
+    public static void onPlanReady(ServerPlayer player, IGrid grid, ICraftingPlan plan,
+            @Nullable ECOPlanningResult result, @Nullable ECOPlannerOptions options, @Nullable PlannerInventorySnapshot stock) {
         if (plan == null || grid == null || !ARMED.remove(player.getUUID())) return;
         try {
             Path dir = player.server.getWorldPath(LevelResource.ROOT).resolve("eco-plan-exports");
             Files.createDirectories(dir);
             Path file = dir.resolve("plan-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
                 + "-" + UUID.randomUUID().toString().substring(0, 4) + ".txt");
-            Files.writeString(file, render(grid, plan, result, options));
+            Files.writeString(file, render(grid, plan, result, options, stock));
             player.sendSystemMessage(Component.literal("ECO plan exported: " + file.toAbsolutePath()));
         } catch (IOException | RuntimeException e) {
             player.sendSystemMessage(Component.literal("ECO plan export failed: " + e));
@@ -93,8 +101,8 @@ public final class CraftingPlanExport {
     }
 
     static String render(IGrid grid, ICraftingPlan plan, @Nullable ECOPlanningResult result,
-            @Nullable ECOPlannerOptions options) {
-        return new Report(grid, plan, result, options).render();
+            @Nullable ECOPlannerOptions options, @Nullable PlannerInventorySnapshot stock) {
+        return new Report(grid, plan, result, options, stock).render();
     }
 
     private static final class Report {
@@ -114,13 +122,18 @@ public final class CraftingPlanExport {
         private final Map<AEKey, PlannerAmount> produced = new HashMap<>();
         private final Map<AEKey, PlannerAmount> consumed = new HashMap<>();
         private final Map<AEKey, Boolean> producedOnlyAsByproduct = new HashMap<>();
-        private final KeyCounter stock;
+        private final @Nullable PlannerInventorySnapshot stock;
+        private final List<QuantityBoundTrace.Node> proofNodes;
 
-        Report(IGrid grid, ICraftingPlan plan, @Nullable ECOPlanningResult result, @Nullable ECOPlannerOptions options) {
+        Report(IGrid grid, ICraftingPlan plan, @Nullable ECOPlanningResult result, @Nullable ECOPlannerOptions options,
+                @Nullable PlannerInventorySnapshot stock) {
             this.grid = grid;
             this.plan = plan;
             this.result = result;
             this.options = options;
+            this.stock = stock;
+            var proof = result == null ? null : result.trace().quantityBound();
+            this.proofNodes = proof == null ? List.of() : proof.nodes();
             this.goal = plan.finalOutput();
             collectPatterns();
             collectTasks();
@@ -130,13 +143,6 @@ public final class CraftingPlanExport {
             this.missing = materials(result == null ? null : result.exactMissingItems(), plan.missingItems(), Map.of());
             this.emitted = materials(result == null ? null : result.exactEmittedItems(), plan.emittedItems(),
                 exact == null ? Map.of() : exact.deferredEmitted());
-            KeyCounter cached;
-            try {
-                cached = grid.getStorageService().getCachedInventory();
-            } catch (RuntimeException e) {
-                cached = new KeyCounter();
-            }
-            this.stock = cached;
             balance();
         }
 
@@ -161,6 +167,13 @@ public final class CraftingPlanExport {
                 for (IPatternDetails pattern : result.exactPatternTimes().keySet()) {
                     if (seen.add(pattern)) all.add(pattern);
                 }
+                for (var component : result.components()) for (IPatternDetails pattern : component.patterns()) {
+                    if (seen.add(pattern)) all.add(pattern);
+                }
+            }
+            // Providers may have changed since planning. Keep the identity of every route cited by the proof.
+            for (var node : proofNodes) for (var route : node.routes()) {
+                if (seen.add(route.pattern())) all.add(route.pattern());
             }
             for (IPatternDetails pattern : all) {
                 ids.put(pattern, "P" + (ids.size() + 1));
@@ -216,18 +229,20 @@ public final class CraftingPlanExport {
 
         private PlannerAmount surplus(AEKey key) {
             PlannerAmount value = produced.getOrDefault(key, PlannerAmount.ZERO).add(used.getOrDefault(key, PlannerAmount.ZERO))
-                .subtract(consumed.getOrDefault(key, PlannerAmount.ZERO));
+                .add(emitted.getOrDefault(key, PlannerAmount.ZERO)).subtract(consumed.getOrDefault(key, PlannerAmount.ZERO));
             return key.equals(goal.what()) ? value.subtract(goal.amount()) : value;
         }
 
         String render() {
             var out = new StringBuilder();
-            out.append("# ECO crafting export\n");
+            out.append("# ECO crafting export v2\n");
             out.append("# Sections: ORDER, PLANNER, PATTERNS, PRODUCER ORDER, CRAFTS, USED FROM STORAGE, MISSING, EMITTED,\n");
-            out.append("#   SURPLUS, IMBALANCED, CYCLES, KEYS.\n");
-            out.append("# Pattern line: P<id> [type] inputs -> outputs, per single craft; 'a|b' = substitutes.\n");
-            out.append("# Keys: item id; other types are prefixed (f: fluid, chemical: ...); 'id#xxxx' = item with NBT.\n");
-            out.append("# Stock 'avail' is the network content when the plan was shown; 'inf' = unbounded storage.\n");
+            out.append("#   SURPLUS, IMBALANCED, CYCLES, QUANTITY BOUND PROOF, INVENTORY, KEYS.\n");
+            out.append("# Pattern line: P<id> [type] inputs -> outputs, per single craft; 'a|b' = substitutes sharing an amount unless overridden.\n");
+            out.append("# Keys: item id; other types are prefixed (e.g. f: fluid); labels are unique within this file; KEYS shows NBT previews.\n");
+            out.append("# Network patterns/order are read at confirmation; stock is not resampled there.\n");
+            out.append("# Task balance = declared production + planned stock + emitted supply - first-choice inputs - goal.\n");
+            out.append("# This vector ignores substitutions actually chosen, tool/return semantics and execution receipts; not a minimum shopping list.\n");
             appendOrder(out);
             appendPlanner(out);
             appendPatterns(out);
@@ -235,9 +250,11 @@ public final class CraftingPlanExport {
             appendCrafts(out);
             appendUsed(out);
             appendAmounts(out, "MISSING", missing);
-            appendAmounts(out, "EMITTED (level emitters)", emitted);
+            appendAmounts(out, "EMITTED (planned external supply, not a receipt)", emitted);
             appendSurplus(out);
             appendCycles(out);
+            appendQuantityBound(out);
+            appendInventory(out);
             if (!names.legend.isEmpty()) {
                 out.append("\n## KEYS\n");
                 names.legend.forEach((tag, desc) -> out.append(tag).append(" = ").append(desc).append('\n'));
@@ -248,8 +265,9 @@ public final class CraftingPlanExport {
         private void appendOrder(StringBuilder out) {
             out.append("\n## ORDER\n");
             out.append("goal: ").append(goal.amount()).append(' ').append(names.of(goal.what())).append('\n');
+            out.append("actualWithdrawal: unobserved (confirmation preview)\n");
             out.append("simulation: ").append(plan.simulation())
-                .append(plan.simulation() ? " (missing inputs, not executable)" : "").append('\n');
+                .append(plan.simulation() ? " (preview, not an execution receipt)" : "").append('\n');
             if (plan.multiplePaths()) out.append("multiplePaths: true\n");
         }
 
@@ -269,11 +287,10 @@ public final class CraftingPlanExport {
             }
             long cyclic = result.components().stream()
                 .filter(component -> component.type() == ComponentPlanningResult.Type.CYCLIC).count();
-            // This port has no background plan improvements, so the confirm screen keeps its first result.
             out.append("result: status=").append(result.status())
                 .append(" calculationMs=").append(result.calculationNanos() / 1_000_000L)
                 .append(" components=").append(result.components().size()).append(" cyclic=").append(cyclic)
-                .append(" (first result shown in the confirm screen)\n");
+                .append(" (displayed plan)\n");
             var counts = new LinkedHashMap<String, Integer>();
             var first = new LinkedHashMap<String, String>();
             for (PlannerDiagnostic diagnostic : result.trace().diagnostics()) {
@@ -297,7 +314,7 @@ public final class CraftingPlanExport {
                 }
             }
             if (cyclic == 0) return;
-            out.append("cycle components:\n");
+            out.append("cycle components (requiredSeed = startup requirement, stockReserved = planned allocation; externalMissingAE2 = long projection):\n");
             for (ComponentPlanningResult component : result.components()) {
                 if (component.type() != ComponentPlanningResult.Type.CYCLIC) continue;
                 out.append("  C").append(component.componentId()).append(' ').append(component.status())
@@ -306,16 +323,18 @@ public final class CraftingPlanExport {
                 CycleSolveResult solved = component.cycleResult();
                 if (solved != null) {
                     out.append(" solve=").append(solved.status())
-                        .append(" firings=").append(solved.plannerTotalFirings());
+                        .append(" firings=").append(solved.executionCountKnowledge() == ExecutionCountKnowledge.EXACT
+                                ? solved.plannerTotalFirings().toString() : "unknown");
                 }
-                out.append(" required=").append(amounts(component.requiredOutputs()));
+                out.append(" required=").append(amounts(component.plannerRequiredOutputs()))
+                    .append(" stockReserved=").append(amounts(component.plannerStockReservations()));
                 if (solved != null) {
-                    out.append(" stockTaken=").append(amounts(solved.requiredSeed()));
-                    if (!solved.seedShortfall().isEmpty()) out.append(" seedShortfall=").append(amounts(solved.seedShortfall()));
-                    if (!solved.externalDemand().isEmpty()) out.append(" externalDemand=").append(amounts(solved.externalDemand()));
+                    out.append(" requiredSeed=").append(amounts(solved.exactRequiredSeed()));
+                    if (!solved.exactSeedShortfall().isEmpty()) out.append(" seedShortfall=").append(amounts(solved.exactSeedShortfall()));
+                    if (!solved.exactExternalDemand().isEmpty()) out.append(" externalDemand=").append(amounts(solved.exactExternalDemand()));
                 }
                 if (!component.externalMissingItems().isEmpty()) {
-                    out.append(" externalMissing=").append(amounts(component.externalMissingItems()));
+                    out.append(" externalMissingAE2=").append(amounts(component.externalMissingItems()));
                 }
                 out.append(" patterns=").append(idList(component.patterns()));
                 if (component.diagnostic() != null && !component.diagnostic().isBlank()) {
@@ -357,16 +376,79 @@ public final class CraftingPlanExport {
             }
         }
 
+        private String available(AEKey key) {
+            if (stock == null) return "unknown";
+            return stock.isUnbounded(key) ? "inf" : stock.amountOf(key).toString();
+        }
+
         private void appendUsed(StringBuilder out) {
             if (used.isEmpty()) return;
-            var rows = new TreeMap<String, String>();
-            used.forEach((key, amount) -> {
-                long available = stock.get(key);
-                boolean all = available != Long.MAX_VALUE && amount.compareTo(PlannerAmount.of(available)) >= 0;
-                rows.put(names.of(key), "used=" + amount + " avail=" + available(available) + (all ? " (all)" : ""));
+            out.append("\n## USED FROM STORAGE (planned, not withdrawn; avail from INVENTORY)\n");
+            used.entrySet().stream().sorted(Comparator.comparing(entry -> names.of(entry.getKey()))).forEach(entry -> {
+                AEKey key = entry.getKey();
+                boolean all = stock != null && !stock.isUnbounded(key) && entry.getValue().equals(stock.amountOf(key));
+                out.append("used=").append(entry.getValue()).append(" avail=").append(available(key))
+                    .append(all ? " (all) " : " ").append(names.of(key)).append('\n');
             });
-            out.append("\n## USED FROM STORAGE (used=taken by this job, avail=network stock; (all) = job takes every copy)\n");
-            rows.forEach((name, row) -> out.append(row).append(' ').append(name).append('\n'));
+        }
+
+        private void appendInventory(StringBuilder out) {
+            // Includes every named input (also unused substitutes), output, ledger key and proof key, not just USED.
+            var keys = new HashSet<>(names.cache.keySet());
+            keys.addAll(producerOrder.keySet());
+            if (stock != null) {
+                keys.addAll(stock.amounts().keySet());
+                keys.addAll(stock.unboundedKeys());
+            }
+            if (result != null) {
+                result.trace().nodes().forEach(node -> { if (node.key() != null) keys.add(node.key()); });
+                result.trace().edges().forEach(edge -> { keys.add(edge.from()); keys.add(edge.to()); });
+                result.trace().components().forEach(component -> keys.addAll(component.members()));
+                result.trace().cycles().forEach(cycle -> keys.addAll(cycle.members()));
+                result.cycles().forEach(cycle -> keys.addAll(cycle.keys()));
+                for (var component : result.components()) {
+                    keys.addAll(component.plannerRequiredOutputs().keySet());
+                    keys.addAll(component.plannerStockReservations().keySet());
+                    keys.addAll(component.externalMissingItems().keySet());
+                }
+            }
+            out.append("\n## INVENTORY (source=").append(stock == null ? "unavailable" : "ECO_REQUEST_START")
+                .append("; captureServerTick=").append(stock == null || stock.captureServerTick() == null
+                    ? "unknown" : stock.captureServerTick().toString())
+                .append("; scope=all snapshot keys + declared pattern I/O + plan/trace keys; keys=").append(keys.size())
+                .append("; 0=known absent, inf=explicit unbounded source, unknown=no matching request snapshot)\n");
+            keys.stream().sorted(Comparator.comparing(names::of)).forEach(key -> out.append("avail=")
+                .append(available(key)).append(' ').append(names.of(key)).append('\n'));
+        }
+
+        private void appendQuantityBound(StringBuilder out) {
+            if (result == null) return;
+            var proof = result.trace().quantityBound();
+            if (proof == null) {
+                if (result.trace().diagnostics().stream().anyMatch(d -> d.code() == PlannerDiagnostic.Code.ROUTE_QUANTITY_BOUND)) {
+                    out.append("\n## QUANTITY BOUND PROOF\nunavailable: detailed proof not captured for this request\n");
+                }
+                return;
+            }
+            out.append("\n## QUANTITY BOUND PROOF (optimistic upper bound, not an executable maximum)\n");
+            out.append("# upper = stock + sum(firingsUpper * outputPerFiring); a stock-only node has no producers.\n");
+            out.append("# firingsUpper = floor(sum(floor(input.upper / units)) / multiplier); compiled slots are zero-based, quantities normalized.\n");
+            out.append("goal=").append(names.of(proof.goal().key())).append(" requested=").append(proof.requested())
+                .append(" root=B").append(proof.goal().revision()).append('\n');
+            for (var node : proofNodes) {
+                out.append('B').append(node.revision()).append(" key=").append(names.of(node.key()))
+                    .append(" stock=").append(node.stock()).append(" upper=").append(node.upper())
+                    .append(node.routes().isEmpty() ? " source=stock-only\n" : " source=routes\n");
+                for (var route : node.routes()) {
+                    out.append("  route=").append(ids.get(route.pattern())).append(" firingsUpper=").append(route.firingsUpper())
+                        .append(" outputPerFiring=").append(route.outputPerFiring()).append(" limitingSlot=").append(route.slot())
+                        .append(" multiplier=").append(route.multiplier()).append('\n');
+                    for (var input : route.alternatives()) {
+                        out.append("    alternative=").append(names.of(input.supply().key())).append(" units=").append(input.units())
+                            .append(" bound=B").append(input.supply().revision()).append('\n');
+                    }
+                }
+            }
         }
 
         private void appendAmounts(StringBuilder out, String title, Map<AEKey, PlannerAmount> amounts) {
@@ -381,6 +463,9 @@ public final class CraftingPlanExport {
             var keys = new LinkedHashSet<AEKey>();
             keys.addAll(produced.keySet());
             keys.addAll(used.keySet());
+            keys.addAll(consumed.keySet());
+            keys.addAll(emitted.keySet());
+            keys.add(goal.what());
             var positive = new ArrayList<Map.Entry<AEKey, PlannerAmount>>();
             var negative = new ArrayList<Map.Entry<AEKey, PlannerAmount>>();
             for (AEKey key : keys) {
@@ -390,7 +475,7 @@ public final class CraftingPlanExport {
             }
             positive.sort(Map.Entry.<AEKey, PlannerAmount>comparingByValue().reversed());
             if (!positive.isEmpty()) {
-                out.append("\n## SURPLUS (produced + taken from stock - consumed = left over after the job;")
+                out.append("\n## SURPLUS (positive declared task balance after goal delivery;")
                     .append(" [sink] = no network pattern consumes it, [byproduct] = only made as a secondary output)\n");
                 int listed = 0;
                 for (var entry : positive) {
@@ -406,7 +491,7 @@ public final class CraftingPlanExport {
                 }
             }
             if (!negative.isEmpty()) {
-                out.append("\n## IMBALANCED (consumed more than produced + stock; usually fuzzy or substitute matching)\n");
+                out.append("\n## IMBALANCED (negative declared task balance, shown as positive deficits; not necessarily MISSING)\n");
                 negative.sort(Map.Entry.comparingByValue());
                 for (var entry : negative) {
                     out.append(entry.getValue().negate()).append(' ').append(names.of(entry.getKey())).append('\n');
@@ -420,14 +505,15 @@ public final class CraftingPlanExport {
             try {
                 ICraftingService service = grid.getCraftingService();
                 boolean cycles = options == null || options.cyclePlanningEnabled();
+                boolean lite = result != null ? result.liteCraftingMode() : options != null && options.ignorePatternSubstitutions();
                 Set<ResourceLocation> fuzzy = options == null ? Set.of() : options.fuzzyPlanningItemIds();
                 var cached = CompiledStructureCache.get(service, CompiledStructureCache.revision(service),
-                    AE2PatternIntrospection.reloadGeneration(), goal.what(), cycles, fuzzy);
+                    AE2PatternIntrospection.reloadGeneration(), goal.what(), cycles, lite, fuzzy);
                 if (cached != null) {
                     condensation = cached.condensation();
                     source = "cached planner structure";
                 } else {
-                    var network = new CraftingNetworkCompiler().compile(service, goal.what(), cycles, fuzzy,
+                    var network = new CraftingNetworkCompiler().compile(service, goal.what(), cycles, lite, fuzzy,
                         ECOCancellation.NONE);
                     var graph = new CraftingGraphBuilder().build(network, ECOCancellation.NONE);
                     condensation = CondensationGraph.build(graph,
@@ -472,13 +558,8 @@ public final class CraftingPlanExport {
                 out.append('\n');
             }
             out.append("  stock:");
-            int listed = 0;
             for (AEKey member : members) {
-                if (++listed > MAX_STOCK_MEMBERS) {
-                    out.append(" ... ").append(members.size() - MAX_STOCK_MEMBERS).append(" more");
-                    break;
-                }
-                out.append(' ').append(names.of(member)).append(" avail=").append(available(stock.get(member)))
+                out.append(' ').append(names.of(member)).append(" avail=").append(available(member))
                     .append(" used=").append(used.getOrDefault(member, PlannerAmount.ZERO))
                     .append(" surplus=").append(surplus(member)).append(';');
             }
@@ -522,7 +603,7 @@ public final class CraftingPlanExport {
                 .collect(Collectors.joining(","));
         }
 
-        private String amounts(Map<AEKey, Long> amounts) {
+        private String amounts(Map<AEKey, ?> amounts) {
             if (amounts.isEmpty()) return "{}";
             return amounts.entrySet().stream().map(entry -> names.of(entry.getKey()) + "=" + entry.getValue())
                 .collect(Collectors.joining(", ", "{", "}"));
@@ -535,10 +616,15 @@ public final class CraftingPlanExport {
             var inputs = new ArrayList<String>();
             for (IPatternDetails.IInput input : pattern.getInputs()) {
                 var alternatives = new ArrayList<String>();
-                for (GenericStack possible : input.getPossibleInputs()) alternatives.add(names.of(possible.what()));
                 GenericStack[] possible = input.getPossibleInputs();
-                long amount = possible.length == 0 ? 0 : possible[0].amount() * input.getMultiplier();
-                inputs.add(amount + " " + String.join("|", alternatives));
+                long multiplier = input.getMultiplier();
+                PlannerAmount first = possible.length == 0 ? PlannerAmount.ZERO
+                    : PlannerAmount.of(possible[0].amount()).multiply(multiplier);
+                for (GenericStack candidate : possible) {
+                    PlannerAmount amount = PlannerAmount.of(candidate.amount()).multiply(multiplier);
+                    alternatives.add((first.equals(amount) ? "" : amount + " ") + names.of(candidate.what()));
+                }
+                inputs.add(first + " " + String.join("|", alternatives));
             }
             sb.append(inputs.isEmpty() ? "-" : String.join(" + ", inputs)).append(" -> ");
             var outputs = new ArrayList<String>();
@@ -556,11 +642,11 @@ public final class CraftingPlanExport {
                 }
             }
             var ordered = new LinkedHashSet<IPatternDetails>();
-            var queue = new ArrayList<AEKey>();
+            var queue = new ArrayDeque<AEKey>();
             var visited = new HashSet<AEKey>();
             queue.add(goal.what());
             while (!queue.isEmpty()) {
-                AEKey key = queue.remove(0);
+                AEKey key = queue.removeFirst();
                 if (!visited.add(key)) continue;
                 for (IPatternDetails pattern : byOutput.getOrDefault(key, List.of())) {
                     if (!ordered.add(pattern)) continue;
@@ -572,10 +658,6 @@ public final class CraftingPlanExport {
             ordered.addAll(tasks.keySet());
             return new ArrayList<>(ordered);
         }
-    }
-
-    private static String available(long amount) {
-        return amount == Long.MAX_VALUE ? "inf" : Long.toString(amount);
     }
 
     private static int idNumber(String id) {
@@ -595,6 +677,7 @@ public final class CraftingPlanExport {
     private static final class KeyNames {
         private final Map<AEKey, String> cache = new HashMap<>();
         private final Map<String, String> legend = new TreeMap<>();
+        private final Set<String> assigned = new HashSet<>();
 
         String of(AEKey key) {
             return cache.computeIfAbsent(key, this::compute);
@@ -603,11 +686,14 @@ public final class CraftingPlanExport {
         private String compute(AEKey key) {
             String base = key instanceof AEItemKey ? key.getId().toString()
                 : key.getType().getId().getPath() + ":" + key.getId();
-            if (!(key instanceof AEItemKey item) || !item.hasTag()) return base;
-            String tag = base + "#" + String.format("%04x", item.hashCode() & 0xFFFF);
-            String nbt = String.valueOf(item.getTag());
-            if (nbt.length() > 240) nbt = nbt.substring(0, 240) + "...";
-            legend.putIfAbsent(tag, key.getDisplayName().getString() + " " + nbt);
+            boolean tagged = !key.equals(key.dropSecondary());
+            String stem = tagged ? base + "#" + String.format("%04x", key.hashCode() & 0xFFFF) : base;
+            String tag = stem;
+            for (int suffix = 2; !assigned.add(tag); suffix++) tag = stem + "~" + suffix;
+            if (tagged || !tag.equals(base)) {
+                String nbt = key.toTagGeneric().toString();
+                legend.put(tag, nbt.length() <= 240 ? nbt : nbt.substring(0, 240) + "...");
+            }
             return tag;
         }
     }

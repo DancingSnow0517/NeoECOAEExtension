@@ -10,11 +10,21 @@ import java.util.Map;
 
 /** Exact planner-side counter. Conversion to AE2's long counter is explicit. */
 final class PlannerCounter implements Iterable<Map.Entry<AEKey, PlannerAmount>> {
-    private final Map<AEKey, PlannerAmount> values = new Object2ObjectLinkedOpenHashMap<>();
+    static final PlannerAmount UNBOUNDED_MARKER = PlannerAmount.of(Long.MAX_VALUE);
+    private final Map<AEKey, PlannerAmount> values;
     private final java.util.Set<AEKey> unbounded = new java.util.LinkedHashSet<>();
 
+    PlannerCounter() { values = new Object2ObjectLinkedOpenHashMap<>(); }
+
+    /** A fresh table only: no previous unbounded flags to clear. Keep the original variant iteration order. */
+    PlannerCounter(AEKey[] keys, PlannerAmount[] amounts, java.util.Set<AEKey> unboundedKeys, int capacity) {
+        values = new Object2ObjectLinkedOpenHashMap<>(capacity);
+        for (int i = 0; i < keys.length; i++) if (!amounts[i].isZero()) values.put(keys[i], amounts[i]);
+        unboundedKeys.forEach(this::setUnbounded);
+    }
+
     void setUnbounded(AEKey key) {
-        values.put(key, PlannerAmount.of(Long.MAX_VALUE));
+        values.put(key, UNBOUNDED_MARKER);
         unbounded.add(key);
     }
 

@@ -6,7 +6,6 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
-import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledInput;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledNetwork;
 import java.util.ArrayList;
@@ -27,16 +26,6 @@ public final class ECOPlanMaterialValidator {
      * plan's reserved initial items, emitted items, and physical pattern outputs. This check intentionally uses the
      * raw AE2 pattern contract, with the same explicit processing item-ID overrides retained by the CPU job.
      */
-    public static @Nullable Issue firstDeficit(SolveState state, AEKey finalGoal, long finalAmount,
-            KeyCounter initialInventory, @Nullable CompiledNetwork network) {
-        return firstDeficit(state, finalGoal, finalAmount, network, false);
-    }
-
-    public static @Nullable Issue firstDeficit(SolveState state, AEKey finalGoal, long finalAmount,
-            KeyCounter initialInventory, @Nullable CompiledNetwork network, boolean liteCrafting) {
-        return firstDeficit(state, finalGoal, finalAmount, network, liteCrafting);
-    }
-
     public static @Nullable Issue firstDeficit(SolveState state, AEKey finalGoal, long finalAmount,
             @Nullable CompiledNetwork network, boolean liteCrafting) {
         if (state == null || finalGoal == null || finalAmount <= 0L) {
@@ -62,8 +51,7 @@ public final class ECOPlanMaterialValidator {
                 }
                 if (times.isZero()) continue;
 
-                GenericStack[] outputs = pattern.getOutputs() == null
-                    ? null : pattern.getOutputs();
+                GenericStack[] outputs = pattern.getOutputs();
                 if (outputs == null) {
                     return new Issue(null, PlannerAmount.ZERO, PlannerAmount.ZERO, "NULL_PATTERN_OUTPUTS");
                 }
@@ -143,14 +131,8 @@ public final class ECOPlanMaterialValidator {
         return null;
     }
 
-    public static @Nullable Issue firstDeficit(SolveState state, AEKey finalGoal, long finalAmount,
-            KeyCounter initialInventory) {
-        return firstDeficit(state, finalGoal, finalAmount, initialInventory, null);
-    }
-
-    /** Backward-compatible form for callers that intentionally validate only the planner counters. */
     public static @Nullable Issue firstDeficit(SolveState state, AEKey finalGoal, long finalAmount) {
-        return firstDeficit(state, finalGoal, finalAmount, null);
+        return firstDeficit(state, finalGoal, finalAmount, null, false);
     }
 
     private static void add(Map<AEKey, PlannerAmount> counter, AEKey key, PlannerAmount amount) {
@@ -189,8 +171,8 @@ public final class ECOPlanMaterialValidator {
         PlannerAmount remaining = requested;
         PlannerAmount consumed = PlannerAmount.ZERO;
         for (var entry : new ArrayList<>(supply.entrySet())) {
-            if (remaining.isZero() || !(entry.getKey() instanceof AEItemKey candidate)
-                    || candidate.getItem() != wanted.getItem()) continue;
+            if (remaining.isZero()) break;
+            if (!(entry.getKey() instanceof AEItemKey candidate) || candidate.getItem() != wanted.getItem()) continue;
             if (demand != null && !cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching
                     .isValid(demand.pattern(), demand.input(), key, entry.getKey(), null)) continue;
             PlannerAmount taken = remaining.min(entry.getValue());

@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.crafting.planner.trace;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.jetbrains.annotations.Nullable;
 
 /** Explanation-only DTO. Solver decisions never depend on this object. */
 public final class ECOPlanTrace {
@@ -12,6 +13,11 @@ public final class ECOPlanTrace {
     private final List<CycleTrace> cycles = new ArrayList<>();
     private final List<PlannerDiagnostic> diagnostics = new ArrayList<>();
 
+    private @Nullable QuantityBoundTrace quantityBound;
+
+    public @Nullable QuantityBoundTrace quantityBound() { return quantityBound; }
+    public void setQuantityBound(QuantityBoundTrace bound) { quantityBound = bound; }
+
     /** Published previews must not share the lists still being annotated by route search. */
     public ECOPlanTrace copy() {
         ECOPlanTrace copy = new ECOPlanTrace();
@@ -20,6 +26,7 @@ public final class ECOPlanTrace {
         copy.components.addAll(components);
         copy.cycles.addAll(cycles);
         copy.diagnostics.addAll(diagnostics);
+        copy.quantityBound = quantityBound;
         return copy;
     }
 

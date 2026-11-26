@@ -22,7 +22,7 @@ import java.util.Set;
 import cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveResult;
 
 public final class SolveState {
-    final PlannerCounter stored = new PlannerCounter();
+    final PlannerCounter stored;
     private final PlannerCounter crafted = new PlannerCounter();
     final MaterialProvenance provenance = new MaterialProvenance();
     final PlannerCounter used = new PlannerCounter();
@@ -42,12 +42,15 @@ public final class SolveState {
     PlannerAmount bytes = PlannerAmount.ZERO;
     private PlannerAmount uncommittedPreviewBytes = PlannerAmount.ZERO;
 
+    private SolveState(PlannerCounter stored) { this.stored = stored; }
+
     SolveState(KeyCounter inventory) {
+        this(new PlannerCounter());
         for (var entry : inventory) if (entry.getLongValue() > 0) stored.add(entry.getKey(), entry.getLongValue());
     }
 
     SolveState(PlannerInventorySnapshot inventory) {
-        inventory.initialize(stored);
+        this(inventory.newStoredCounter());
     }
 
     /** AE2-facing view. Callers must only use this after execution representability was checked. */
@@ -267,8 +270,8 @@ public final class SolveState {
     }
 
     public SolveState copy() {
-        SolveState copy = new SolveState(new KeyCounter());
-        copy.stored.replaceFrom(stored); copy.crafted.replaceFrom(crafted);
+        SolveState copy = new SolveState(stored.copy());
+        copy.crafted.replaceFrom(crafted);
         copy.used.replaceFrom(used); copy.emitted.replaceFrom(emitted);
         copy.missing.replaceFrom(missing);
         copy.demand.putAll(demand); copy.patternTimes.putAll(patternTimes); copy.demandProducers.putAll(demandProducers);

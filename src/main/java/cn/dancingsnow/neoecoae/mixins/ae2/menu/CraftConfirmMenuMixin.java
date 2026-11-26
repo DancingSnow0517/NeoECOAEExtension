@@ -27,6 +27,7 @@ import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.crafting.execution.ECOExternalCpuSupport;
+import cn.dancingsnow.neoecoae.command.CraftingPlanExport;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningService;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOPlanningStageLogger;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingServiceDiagnostics;
@@ -646,7 +647,8 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
             neoecoae$originalOptions = ECOPlannerOptions.from(settings);
             neoecoae$liteCraftingMode = neoecoae$originalOptions.ignorePatternSubstitutions();
             neoecoae$planningRequest = ECOPlanningService.begin(level, getGrid(), requester.getActionSource(), what,
-                amount, strategy, neoecoae$originalOptions);
+                amount, strategy, neoecoae$originalOptions,
+                ((CraftConfirmMenu) (Object) this).getPlayer() instanceof ServerPlayer player && CraftingPlanExport.isArmed(player));
             return neoecoae$planningRequest;
         }
         return service.beginCraftingCalculation(level, requester, what, amount, strategy);
@@ -797,22 +799,14 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
             neoecoae$planningStatusCode = planningResult.status().ordinal() + 1;
             neoecoae$exactPlanReady = planningResult.exactPlan() != null;
             neoecoae$provenInfeasible = planningResult.provenInfeasible();
-            neoecoae$planningDiagnostic = planningResult.trace().diagnostics().stream()
+            String diagnosticText = planningResult.trace().diagnostics().stream()
                 .map(diagnostic -> diagnostic.code() + ": " + diagnostic.message())
                 .collect(java.util.stream.Collectors.joining("\n"));
-            if (neoecoae$planningDiagnostic.length() > 4096)
-                neoecoae$planningDiagnostic = neoecoae$planningDiagnostic.substring(0, 4096);
-            if (planningResult.shouldUseNativeFallback()) {
-                neoecoae$planningDiagnostic = planningResult.trace().diagnostics().stream()
-                    .map(diagnostic -> diagnostic.code() + ": " + diagnostic.message())
-                    .collect(java.util.stream.Collectors.joining("\n"));
-                // Keep the complete failure evidence in the server log; only the UI payload is bounded.
-                if (NEConfig.ecoCraftSubmissionDebug) NEOECOAE_LOGGER.warn("[ECO-CRAFT-SUBMIT] ECO diagnostic: status={}, output={}, diagnostics={}",
-                    planningResult.status(), diagnosticPlan.finalOutput(), neoecoae$planningDiagnostic);
-                if (neoecoae$planningDiagnostic.length() > 4096) {
-                    neoecoae$planningDiagnostic = neoecoae$planningDiagnostic.substring(0, 4096);
-                }
+            if (planningResult.shouldUseNativeFallback() && NEConfig.ecoCraftSubmissionDebug) {
+                NEOECOAE_LOGGER.warn("[ECO-CRAFT-SUBMIT] ECO diagnostic: status={}, output={}, diagnostics={}",
+                    planningResult.status(), diagnosticPlan.finalOutput(), diagnosticText);
             }
+            neoecoae$planningDiagnostic = diagnosticText.length() > 4096 ? diagnosticText.substring(0, 4096) : diagnosticText;
             CraftingGraphSnapshot snapshot = CraftingGraphSnapshotFactory.create(planningResult);
             neoecoae$craftingGraph = snapshot;
             neoecoae$hasByteEstimate = snapshot.hasMaterialDetails();
@@ -905,10 +899,12 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode, CraftConf
             Operation<CraftingPlanSummary> original) {
         CraftingPlanSummary summary = original.call(grid, source, job);
         if (((CraftConfirmMenu) (Object) this).getPlayer() instanceof ServerPlayer player
-                && cn.dancingsnow.neoecoae.command.CraftingPlanExport.isArmed(player)) {
+                && CraftingPlanExport.isArmed(player)) {
             // Resolve diagnostics only for an armed export so ordinary confirmations keep their exact behavior.
-            cn.dancingsnow.neoecoae.command.CraftingPlanExport.onPlanReady(player, grid, job,
-                neoecoae$resolveOwnedPlanningResult(job), neoecoae$originalOptions);
+            var stock = neoecoae$planningRequest == null ? null : neoecoae$planningRequest.inventoryFor(job);
+            var owned = neoecoae$resolveOwnedPlanningResult(job);
+            CraftingPlanExport.onPlanReady(player, grid, job, owned != null && owned.plan() == job ? owned : null,
+                stock == null ? null : neoecoae$originalOptions, stock);
         }
         // Only an ECO plan may be re-described with AE2 stored/missing semantics. A foreign plan keeps the summary
         // its own planner published, so this wrap operation is order-independent against other projection mixins.

@@ -25,7 +25,6 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.CyclePlanningStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.result.CycleExternalDemandStatus;
 import cn.dancingsnow.neoecoae.crafting.planner.result.CycleExecutionDisposition;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
-import cn.dancingsnow.neoecoae.crafting.planner.route.AcyclicRoutePlan;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.ComponentTrace;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.CycleTrace;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
@@ -103,12 +102,6 @@ public final class ComponentPlanner {
     }
 
     /** Lite compilation fixes producers; enabled cycles use the existing solver without route search. */
-    public Outcome planLite(CompiledNetwork network, CondensationGraph condensation,
-            KeyCounter inventory, PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
-            ECOCancellation cancellation) throws InterruptedException {
-        return planLite(network, condensation, snapshot, amount, cyclePlanningEnabled, cancellation);
-    }
-
     public Outcome planLite(CompiledNetwork network, CondensationGraph condensation,
             PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
             ECOCancellation cancellation) throws InterruptedException {
@@ -201,7 +194,8 @@ public final class ComponentPlanner {
         if (!(cancellation instanceof ECOPlanningBudget)) cancellation = new ECOPlanningBudget(cancellation);
         ExternalDemandPlanner externalDemandPlanner = new ExternalDemandPlanner(acyclicSolver);
         SeedFloors seeds = seedFloors(network, seedScope, snapshot, cyclePlanningEnabled, cancellation);
-        Outcome outcome = plan(network, activeSelection, seeds.reduce(snapshot), seeds.reduce(snapshot), amount,
+        var reduced = seeds.reduce(snapshot);
+        Outcome outcome = plan(network, activeSelection, reduced, reduced, amount,
                 cyclePlanningEnabled, ignorePatternSubstitutions, cancellation, new CycleFailureCache(cycleSolver),
                 externalDemandPlanner, seeds, false);
         seeds.report(outcome.trace());
@@ -605,7 +599,7 @@ public final class ComponentPlanner {
                                     + "reservations={}",
                             cycle.componentId(), cycleStatus, disposition, requiredOutputs, stockReservations);
                 }
-                cycleDiagnostics.add(diagnostic(cycle, cycleInventory.toKeyCounter(), cycleResult, trace));
+                cycleDiagnostics.add(diagnostic(cycle, cycleInventory, cycleResult, trace));
                 ECOPlanningStageLogger.finish("cycle_calculation[" + cycle.componentId() + "]", cycleStartedNanos,
                         cycleStatus == CyclePlanningStatus.SOLVED || cycleStatus == CyclePlanningStatus.NOT_REQUIRED,
                         diagnostic == null ? cycleStatus.name() : cycleStatus + ":" + diagnostic);
@@ -729,20 +723,15 @@ public final class ComponentPlanner {
             PlannerInventorySnapshot snapshot, long amount, boolean ignorePatternSubstitutions,
             ECOCancellation cancellation) throws InterruptedException {
         cancellation.checkpoint();
-        CondensationGraph activeCondensation;
         AcyclicCraftingSolver.Outcome attempt;
         Set<Map<AEKey, Integer>> classifiedRoutes = new ObjectOpenHashSet<>();
         while (true) {
-            activeCondensation = activeSelection.condensation();
-            List<AEKey> dagOrder = activeCondensation.topologicalOrder().stream()
-                    .filter(AcyclicComponent.class::isInstance)
-                    .map(AcyclicComponent.class::cast).map(AcyclicComponent::key).toList();
             var cycleOwnedPatterns = activeSelection.cyclicComponents().stream()
                     .flatMap(cycle -> cycle.patterns().stream()).map(CompiledPattern::details)
                     .collect(java.util.stream.Collectors.toSet());
             long acyclicStartedNanos = ECOPlanningStageLogger.start();
             try {
-                attempt = acyclicSolver.solve(network, new AcyclicRoutePlan(dagOrder), snapshot, amount,
+                attempt = acyclicSolver.solve(network, snapshot, amount,
                         activeSelection.choices(), cycleOwnedPatterns, ignorePatternSubstitutions, cancellation);
                 ECOPlanningStageLogger.finish("non_cycle_calculation", acyclicStartedNanos,
                         attempt.status() == PlanningStatus.SUCCESS,
@@ -819,38 +808,22 @@ public final class ComponentPlanner {
             == cn.dancingsnow.neoecoae.crafting.planner.cycle.CycleSolveDiagnostic.Code.FULL_ORDER_MATERIAL_DEFICIT);
     }
 
-    /** Retry producer routes, including cyclic alternatives, when the preferred route cannot be supplied. */
-    public Outcome planWithCycleFallback(CompiledNetwork network, CondensationGraph universe,
-                        ActiveRouteSelector.Selection activeSelection, KeyCounter inventory,
-                        PlannerInventorySnapshot snapshot, long amount, boolean ignorePatternSubstitutions,
-                        ECOCancellation cancellation) throws InterruptedException {
-        return planWithRouteFallback(network, universe, activeSelection, inventory, snapshot, amount,
-                true, ignorePatternSubstitutions, cancellation);
-    }
-
-    /** Preserve supplied producer choices; recover unavailable combinations independently of cycle support. */
-    public Outcome planWithRouteFallback(CompiledNetwork network, CondensationGraph universe,
-                        ActiveRouteSelector.Selection activeSelection, KeyCounter inventory,
-                        PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
-                        boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
-        return planWithRouteFallback(network, universe, activeSelection, inventory, snapshot, amount,
-            cyclePlanningEnabled, ignorePatternSubstitutions, cancellation, null, false);
-    }
-
-    public Outcome planWithRouteFallback(CompiledNetwork network, CondensationGraph universe,
-                        ActiveRouteSelector.Selection activeSelection, KeyCounter inventory,
-                        PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
-                        boolean ignorePatternSubstitutions, ECOCancellation cancellation,
-                        @Nullable CandidateListener listener, boolean improvePublishedRoute) throws InterruptedException {
-        return planWithRouteFallback(network, universe, activeSelection, snapshot, amount,
-            cyclePlanningEnabled, ignorePatternSubstitutions, cancellation, listener, improvePublishedRoute);
-    }
-
     public Outcome planWithRouteFallback(CompiledNetwork network, CondensationGraph universe,
                         ActiveRouteSelector.Selection activeSelection,
                         PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
                         boolean ignorePatternSubstitutions, ECOCancellation cancellation,
                         @Nullable CandidateListener listener, boolean improvePublishedRoute) throws InterruptedException {
+        return planWithRouteFallback(network, universe, activeSelection, snapshot, amount,
+            cyclePlanningEnabled, ignorePatternSubstitutions, cancellation, listener, improvePublishedRoute, false);
+    }
+
+    /** Preserve supplied producer choices; recover unavailable combinations independently of cycle support. */
+    public Outcome planWithRouteFallback(CompiledNetwork network, CondensationGraph universe,
+                        ActiveRouteSelector.Selection activeSelection,
+                        PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
+                        boolean ignorePatternSubstitutions, ECOCancellation cancellation,
+                        @Nullable CandidateListener listener, boolean improvePublishedRoute, boolean captureQuantityProof)
+            throws InterruptedException {
         if (!(cancellation instanceof ECOPlanningBudget)) cancellation = new ECOPlanningBudget(cancellation);
         // Seeds of self-growing cycles are structural: route choice must not decide whether they survive. Every
         // route and joint model below plans with the stock without them; planned cycles borrow them back.
@@ -861,9 +834,10 @@ public final class ComponentPlanner {
             seeds.report(report.trace());
             return listener.accept(report);
         };
-        Outcome outcome = planWithRouteFallback(network, universe, activeSelection, seeds.reduce(snapshot),
-                seeds.reduce(snapshot), snapshot, amount, cyclePlanningEnabled, ignorePatternSubstitutions,
-                cancellation, seeds, reporting, improvePublishedRoute);
+        var reduced = seeds.reduce(snapshot);
+        Outcome outcome = planWithRouteFallback(network, universe, activeSelection, reduced,
+                reduced, snapshot, amount, cyclePlanningEnabled, ignorePatternSubstitutions,
+                cancellation, seeds, reporting, improvePublishedRoute, captureQuantityProof);
         seeds.report(outcome.trace());
         return outcome;
     }
@@ -877,7 +851,8 @@ public final class ComponentPlanner {
                         ActiveRouteSelector.Selection activeSelection, PlannerInventorySnapshot inventory,
                         PlannerInventorySnapshot snapshot, PlannerInventorySnapshot owned, long amount,
                         boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions, ECOCancellation cancellation,
-                        SeedFloors seeds, @Nullable CandidateListener listener, boolean improvePublishedRoute)
+                        SeedFloors seeds, @Nullable CandidateListener listener, boolean improvePublishedRoute,
+                        boolean captureQuantityProof)
             throws InterruptedException {
         RouteQuantityProof.Prepared supply = null;
         // A quantity bound can prune alternatives, but cannot identify a startup seed or the missing leaves.
@@ -909,8 +884,9 @@ public final class ComponentPlanner {
             }
             if (!executable) {
                 if (supply == null) supply = RouteQuantityProof.prepareBounded(network, owned, cancellation);
-                var bound = supply == null ? null : supply.insufficientOutput(amount, Map.of(), Set.of(), cancellation);
+                var bound = supply == null ? null : supply.insufficientOutput(amount, Map.of(), Set.of(), cancellation, captureQuantityProof);
                 if (bound != null) {
+                    if (supply.evidence() != null) preferred.trace().setQuantityBound(supply.evidence());
                     preferred.trace().addDiagnostic(new PlannerDiagnostic(PlannerDiagnostic.Code.ROUTE_QUANTITY_BOUND,
                         "Even optimistic supply across all producers yields at most " + bound
                             + " of the goal, below requested " + amount
@@ -1420,7 +1396,7 @@ public final class ComponentPlanner {
         };
     }
 
-    private static CycleDiagnostic diagnostic(CycleComponent cycle, KeyCounter inventory,
+    private static CycleDiagnostic diagnostic(CycleComponent cycle, PlannerInventorySnapshot inventory,
                                               CycleSolveResult cycleResult, ECOPlanTrace trace) {
         Map<AEKey, PlannerAmount> exactNet = new LinkedHashMap<>();
         java.util.LinkedHashSet<AEKey> diagnosticKeys = new java.util.LinkedHashSet<>(cycle.members());
@@ -1428,7 +1404,11 @@ public final class ComponentPlanner {
             for (var output : pattern.grossOutputs()) diagnosticKeys.add(output.what());
             for (CompiledInput input : pattern.inputs()) diagnosticKeys.add(input.key());
         }
-        for (AEKey key : diagnosticKeys) exactNet.put(key, PlannerAmount.ZERO);
+        Map<AEKey, Long> available = new LinkedHashMap<>();
+        for (AEKey key : diagnosticKeys) {
+            exactNet.put(key, PlannerAmount.ZERO);
+            available.put(key, Math.max(0L, inventory.storedAmount(key).longValueSaturated()));
+        }
         Set<IPatternDetails> countedPatterns = new ObjectOpenHashSet<>();
         for (var pattern : cycle.patterns()) {
             if (!countedPatterns.add(pattern.details())) continue;
@@ -1466,11 +1446,10 @@ public final class ComponentPlanner {
         addWideCycleDiagnostics(trace, exactTotal, "cycle total net output");
         return new CycleDiagnostic(new ArrayList<>(diagnosticKeys),
                 cycle.patterns().stream().map(p -> p.details()).toList(),
-                exactNet, exactTotal, Map.of(),
+                exactNet, exactTotal, available,
                 cycleResult == null ? cn.dancingsnow.neoecoae.crafting.planner.result.ExecutionCountKnowledge.UNKNOWN
                         : cycleResult.executionCountKnowledge(),
-                cycleResult == null ? CycleSolveStatus.NOT_IMPLEMENTED : cycleResult.status())
-                .withAvailableAmounts(inventory);
+                cycleResult == null ? CycleSolveStatus.NOT_IMPLEMENTED : cycleResult.status());
     }
 
     static Map<AEKey, Long> representable(Map<AEKey, PlannerAmount> exact) {

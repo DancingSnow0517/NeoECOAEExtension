@@ -12,8 +12,10 @@ import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionPlan;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOExecutionRequirement;
 import cn.dancingsnow.neoecoae.crafting.planner.result.PlanningStatus;
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectLinkedOpenHashMap;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
@@ -21,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.jetbrains.annotations.Nullable;
@@ -37,7 +40,12 @@ public final class ECOPlanningResultRegistry {
     private static final int MAX_ENTRIES = 4096;
     private static final long MAX_AGE_NANOS = Duration.ofMinutes(10).toNanos();
     private static final Object2ObjectLinkedOpenHashMap<Signature, Entry> RESULTS = new Object2ObjectLinkedOpenHashMap<>(64);
-    private static final Map<ICraftingPlan, ExactEntry> EXACT_RESULTS = new IdentityHashMap<>();
+    // RESULTS is access-ordered. Concurrent schedule inspections can finish out of registration order.
+    private static final TreeSet<Entry> BY_REGISTRATION = new TreeSet<>(Comparator.comparingLong(Entry::registrationOrder));
+    private static long nextRegistration;
+    // Exact-object reads never reorder this write-ordered identity map.
+    private static final Reference2ObjectLinkedOpenHashMap<ICraftingPlan, ExactEntry> EXACT_RESULTS =
+        new Reference2ObjectLinkedOpenHashMap<>();
     private static final ThreadLocal<SubmissionAlias> ACTIVE_SUBMISSION_ALIAS = new ThreadLocal<>();
 
     private ECOPlanningResultRegistry() {
@@ -59,39 +67,44 @@ public final class ECOPlanningResultRegistry {
 
     /** Store only metadata whose source result and registered plan have the same complete identity. */
     public static void register(ICraftingPlan plan, ECOPlanningResult result) {
-        long now = System.nanoTime();
-        if (plan != null && result != null && result.plan() == plan) {
-            synchronized (RESULTS) {
-                removeExpired(now);
-                EXACT_RESULTS.put(plan, new ExactEntry(result, now));
-                trimEntries();
+        if (plan == null || result == null || result.plan() == null) return;
+        long created, order;
+        synchronized (RESULTS) {
+            created = System.nanoTime();
+            order = ++nextRegistration;
+            removeExpired(created);
+            if (plan == result.plan()) {
+                EXACT_RESULTS.putAndMoveToLast(plan, new ExactEntry(result, created));
+                if (EXACT_RESULTS.size() > MAX_ENTRIES) EXACT_RESULTS.removeFirst();
             }
         }
 
-        RegistrationInspection inspection = inspectRegistration(plan, result);
+        Signature signature = PlanIdentity.of(plan);
+        if (signature == null) return; // Exact-object diagnostics above are still available.
+        boolean strictMatch = plan == result.plan() || PlanIdentity.matches(signature, result.plan());
+        RegistrationInspection inspection = inspectRegistration(plan, result, strictMatch);
         boolean validSchedule = inspection.reason() == null;
         boolean failClosedMetadata = inspection.canStoreFailClosedMetadata();
         if (!validSchedule && !failClosedMetadata) {
             return;
         }
-        Signature signature = PlanIdentity.of(plan);
-        if (signature == null) {
-            return;
-        }
-
         RecoveryState recoveryState = validSchedule
             ? RecoveryState.VALID_SCHEDULE
             : RecoveryState.MISSING_OR_INVALID_SCHEDULE;
         UUID planningId = result.planningId();
         synchronized (RESULTS) {
+            long now = System.nanoTime();
             removeExpired(now);
+            if (now - created > MAX_AGE_NANOS) return;
             // A complete plan signature is the execution identity. Keeping multiple planning IDs for the same
             // identity made a second identical calculation poison recovery for both submissions. Replace the
             // value atomically; the submitted pattern objects are rebound below before execution.
-            RESULTS.putAndMoveToLast(signature, new Entry(result, signature, plan.patternTimes(),
-                    inspection.executionPlan(), inspection.cycleExpected(), recoveryState,
-                    inspection.reason(), planningId, now));
-            trimEntries();
+            Entry entry = new Entry(result, signature, plan.patternTimes(), inspection.executionPlan(),
+                inspection.cycleExpected(), recoveryState, inspection.reason(), planningId, created, order);
+            Entry previous = RESULTS.putAndMoveToLast(signature, entry);
+            if (previous != null) BY_REGISTRATION.remove(previous);
+            BY_REGISTRATION.add(entry);
+            if (RESULTS.size() > MAX_ENTRIES) BY_REGISTRATION.remove(RESULTS.removeFirst());
         }
     }
 
@@ -274,6 +287,7 @@ public final class ECOPlanningResultRegistry {
     public static void clear() {
         synchronized (RESULTS) {
             RESULTS.clear();
+            BY_REGISTRATION.clear();
             EXACT_RESULTS.clear();
         }
         ACTIVE_SUBMISSION_ALIAS.remove();
@@ -298,17 +312,17 @@ public final class ECOPlanningResultRegistry {
         }
     }
 
+    /** Under RESULTS: discard exactly the expired prefixes, never the read-order prefix. */
     private static void removeExpired(long now) {
-        RESULTS.entrySet().removeIf(entry -> now - entry.getValue().createdNanos() > MAX_AGE_NANOS);
-        EXACT_RESULTS.entrySet().removeIf(entry -> now - entry.getValue().createdNanos() > MAX_AGE_NANOS);
-    }
-
-    private static void trimEntries() {
-        while (RESULTS.size() > MAX_ENTRIES) {
-            RESULTS.removeFirst();
+        while (!BY_REGISTRATION.isEmpty()) {
+            Entry first = BY_REGISTRATION.first();
+            if (now - first.createdNanos() <= MAX_AGE_NANOS) break;
+            BY_REGISTRATION.pollFirst();
+            RESULTS.remove(first.signature());
         }
-        while (EXACT_RESULTS.size() > MAX_ENTRIES) {
-            EXACT_RESULTS.remove(EXACT_RESULTS.keySet().iterator().next());
+        while (!EXACT_RESULTS.isEmpty()) {
+            if (now - EXACT_RESULTS.get(EXACT_RESULTS.firstKey()).createdNanos() <= MAX_AGE_NANOS) break;
+            EXACT_RESULTS.removeFirst();
         }
     }
 
@@ -378,19 +392,14 @@ public final class ECOPlanningResultRegistry {
         return matches.size() == 1 ? cn.dancingsnow.neoecoae.platform.JdkCompat.first(matches) : null;
     }
 
-    private static RegistrationInspection inspectRegistration(@Nullable ICraftingPlan plan,
-            @Nullable ECOPlanningResult result) {
-        PlanningStatus status = result == null ? null : result.status();
-        boolean planSimulation = plan != null && plan.simulation();
-        boolean resultPlanSimulation = result != null && result.plan() != null && result.plan().simulation();
-        boolean strictPlanMatch = plan != null && result != null && result.plan() != null
-            && PlanIdentity.matches(plan, result.plan());
+    private static RegistrationInspection inspectRegistration(ICraftingPlan plan, ECOPlanningResult result,
+            boolean strictPlanMatch) {
+        PlanningStatus status = result.status();
+        boolean planSimulation = plan.simulation();
+        boolean resultPlanSimulation = plan == result.plan() ? planSimulation : result.plan().simulation();
         ECOExecutionPlan executionPlan = null;
         String reason = null;
-        if (plan == null) reason = "PLAN_NULL";
-        else if (result == null) reason = "RESULT_NULL";
-        else if (result.plan() == null) reason = "RESULT_PLAN_NULL";
-        else if (!strictPlanMatch) reason = "PLAN_IDENTITY_MISMATCH";
+        if (!strictPlanMatch) reason = "PLAN_IDENTITY_MISMATCH";
         else if (status != PlanningStatus.SUCCESS) reason = "STATUS_NOT_SUCCESS";
         else if (planSimulation) reason = "PLAN_SIMULATION";
         else if (resultPlanSimulation) reason = "RESULT_PLAN_SIMULATION";
@@ -445,7 +454,7 @@ public final class ECOPlanningResultRegistry {
 
     private record Entry(ECOPlanningResult result, Signature signature, Map<IPatternDetails, Long> tasks,
             @Nullable ECOExecutionPlan executionPlan, boolean cycleExpected, RecoveryState recoveryState,
-            @Nullable String rejectionReason, UUID planningId, long createdNanos) {
+            @Nullable String rejectionReason, UUID planningId, long createdNanos, long registrationOrder) {
     }
 
     private record ExactEntry(ECOPlanningResult result, long createdNanos) {

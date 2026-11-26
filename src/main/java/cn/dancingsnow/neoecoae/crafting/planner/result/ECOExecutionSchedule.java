@@ -151,32 +151,21 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
      */
     private static OrderedSchedule orderByExecutableDependencies(List<ComponentExecutionPhase> phases,
             ExecutionProvenance provenance) {
-        Map<AEKey, Set<Integer>> producersByKey = new LinkedHashMap<>();
-        Map<AEKey, Set<Integer>> primaryProducersByKey = new LinkedHashMap<>();
-        PatternIndex phaseOfPattern = new PatternIndex();
-        Map<Integer, Integer> phaseOfComponent = new LinkedHashMap<>();
-        for (int phaseIndex = 0; phaseIndex < phases.size(); phaseIndex++) {
-            phaseOfComponent.put(phases.get(phaseIndex).componentId(), phaseIndex);
-            for (IPatternDetails pattern : phases.get(phaseIndex).patternSet()) {
-                phaseOfPattern.add(pattern, phaseIndex);
-                for (var output : producedOutputs(pattern)) {
-                    if (output == null || output.what() == null || output.amount() <= 0L) continue;
-                    producersByKey.computeIfAbsent(output.what(), ignored -> new LinkedHashSet<>())
-                        .add(phaseIndex);
-                }
-                GenericStack primary = primaryOutput(pattern);
-                if (primary != null && primary.what() != null && primary.amount() > 0L) {
-                    primaryProducersByKey.computeIfAbsent(primary.what(), ignored -> new LinkedHashSet<>())
-                        .add(phaseIndex);
-                }
-            }
-        }
-
         List<Set<Integer>> outgoing = new ArrayList<>(phases.size());
         int[] indegree = new int[phases.size()];
         Map<PhaseDependency, Set<String>> edgeKeys = new LinkedHashMap<>();
         for (int i = 0; i < phases.size(); i++) outgoing.add(new LinkedHashSet<>());
         if (provenance != null) {
+            PatternIndex phaseOfPattern = new PatternIndex();
+            Map<Integer, Integer> phaseOfComponent = new LinkedHashMap<>();
+            for (int phaseIndex = 0; phaseIndex < phases.size(); phaseIndex++) {
+                var phase = phases.get(phaseIndex);
+                phaseOfComponent.put(phase.componentId(), phaseIndex);
+                for (IPatternDetails pattern : phase.patternSet()) {
+                    phaseOfPattern.add(pattern, phaseIndex);
+                    semantic(pattern); // Even attributed plans must reject unsupported patterns.
+                }
+            }
             provenance.requireComplete();
             for (var allocation : provenance.allocations()) {
                 var demand = provenance.demands().get(allocation.demandId());
@@ -217,6 +206,21 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
             }
         } else {
             // Compatibility only for old callers without numeric provenance.
+            Map<AEKey, Set<Integer>> producersByKey = new LinkedHashMap<>();
+            Map<AEKey, Set<Integer>> primaryProducersByKey = new LinkedHashMap<>();
+            for (int i = 0; i < phases.size(); i++) {
+                for (IPatternDetails pattern : phases.get(i).patternSet()) {
+                    for (var output : semantic(pattern).producedOutputs()) {
+                        if (output != null && output.what() != null && output.amount() > 0L)
+                            producersByKey.computeIfAbsent(output.what(), ignored -> new LinkedHashSet<>()).add(i);
+                    }
+                    var primary = primaryOutput(pattern);
+                    if (primary != null && primary.what() != null && primary.amount() > 0L) {
+                        producersByKey.computeIfAbsent(primary.what(), ignored -> new LinkedHashSet<>()).add(i);
+                        primaryProducersByKey.computeIfAbsent(primary.what(), ignored -> new LinkedHashSet<>()).add(i);
+                    }
+                }
+            }
             for (int consumer = 0; consumer < phases.size(); consumer++) {
                 for (IPatternDetails pattern : phases.get(consumer).patternSet()) {
                     PatternSemantics semantics = semantic(pattern);
@@ -367,15 +371,6 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
                 + semantics.unsupportedReason() + " restriction=" + semantics.executionRestriction());
         }
         return semantics;
-    }
-
-    /** True recipe outputs only. Input remainders are deliberately not phase producers. */
-    private static List<GenericStack> producedOutputs(IPatternDetails pattern) {
-        PatternSemantics semantics = semantic(pattern);
-        List<GenericStack> result = new ArrayList<>(semantics.producedOutputs());
-        GenericStack primary = primaryOutput(pattern);
-        if (primary != null) result.add(primary);
-        return result;
     }
 
     private static GenericStack primaryOutput(IPatternDetails pattern) {

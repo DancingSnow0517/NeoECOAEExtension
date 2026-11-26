@@ -135,7 +135,7 @@ final class SeedFloors {
             PlannerInventorySnapshot snapshot, CycleSolver solver, ECOCancellation cancellation)
             throws InterruptedException {
         if (components.isEmpty()) return NONE;
-        SolveState stock = new SolveState(snapshot);
+        snapshot.requireValidStock();
         List<Floor> floors = new ArrayList<>();
         List<Set<AEKey>> undetermined = new ArrayList<>();
         var profiles = PROFILES.computeIfAbsent(network, ignored -> new ConcurrentHashMap<>());
@@ -146,7 +146,10 @@ final class SeedFloors {
             if (members.stream().anyMatch(snapshot::isUnbounded)) continue;
             boolean stocked = false;
             for (AEKey member : members) {
-                if (!member.equals(network.goal()) && stock.stored.get(member).signum() > 0) stocked = true;
+                if (!member.equals(network.goal()) && snapshot.amountOf(member).signum() > 0) {
+                    stocked = true;
+                    break;
+                }
             }
             if (!stocked) continue;
             Profile profile = profiles.get(members);
@@ -166,8 +169,7 @@ final class SeedFloors {
             for (AEKey member : component.members()) {
                 // AE2 crafts the requested amount anew, so a cycle never consumes the goal's own stored copies.
                 if (member.equals(network.goal())) continue;
-                if (stock.stored.isUnbounded(member)) continue;
-                PlannerAmount held = stock.stored.get(member);
+                PlannerAmount held = snapshot.amountOf(member);
                 if (held.signum() <= 0) continue;
                 PlannerAmount seed = profile.minimum(member, network, component, solver, cancellation);
                 if (seed.equals(BUDGET)) unknown = true;
@@ -175,7 +177,7 @@ final class SeedFloors {
                 Floor candidate = new Floor(member, seed, held.min(seed), Set.copyOf(members));
                 // Keep the form the stock can restart most often: compare held/minimum without division.
                 if (best == null || held.multiply(best.minimum()).compareTo(
-                        stock.stored.get(best.key()).multiply(seed)) > 0) {
+                        snapshot.amountOf(best.key()).multiply(seed)) > 0) {
                     best = candidate;
                 }
             }

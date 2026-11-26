@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.crafting.planner.solve;
 
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 
+import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.crafting.planner.ECOCancellation;
@@ -24,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
  * These optimistic contracts never authorize execution or cache another order's numeric result. */
 final class OptimisticSupplyModel {
     record Alternative(AEKey key, PlannerAmount units) {}
-    record InputGroup(List<Alternative> alternatives, PlannerAmount multiplier) {
+    record InputGroup(int slot, List<Alternative> alternatives, PlannerAmount multiplier) {
         boolean available(Set<AEKey> stock) {
             return alternatives.isEmpty() || alternatives.stream().anyMatch(a -> stock.contains(a.key()));
         }
@@ -41,7 +42,7 @@ final class OptimisticSupplyModel {
             return units.divide(multiplier);
         }
     }
-    record Recipe(Map<AEKey, Integer> owners, List<InputGroup> inputs, Map<AEKey, PlannerAmount> outputs) {
+    record Recipe(IPatternDetails pattern, Map<AEKey, Integer> owners, List<InputGroup> inputs, Map<AEKey, PlannerAmount> outputs) {
         boolean allowed(Map<AEKey, Integer> choices, Set<AEKey> fixed) {
             for (var owner : owners.entrySet()) {
                 if (owner.getValue() < 0 || !fixed.contains(owner.getKey())
@@ -103,13 +104,14 @@ final class OptimisticSupplyModel {
                 && semantics.executionRestriction() == PatternSemantics.ExecutionRestriction.NONE
                 && (semantics.matchingMode() == PatternSemantics.MatchingMode.EXACT
                     || semantics.matchingMode() == PatternSemantics.MatchingMode.SUBSTITUTION);
-            for (var input : pattern.inputs()) {
+            for (int slot = 0; slot < pattern.inputs().size(); slot++) {
+                var input = pattern.inputs().get(slot);
                 cancellation.checkpoint();
                 if (input.ignoresComponents()) return null;
                 boolean relaxed = !known || !input.fastSupported() || input.ignoresComponents()
                     || pattern.specialAnalysis().excludesFromCycleGraph(input) || input.reusable();
                 if (!relaxed && semantics.matchingMode() == PatternSemantics.MatchingMode.EXACT) {
-                    if (input.amountPerPattern().signum() > 0) inputs.add(new InputGroup(
+                    if (input.amountPerPattern().signum() > 0) inputs.add(new InputGroup(slot,
                         List.of(new Alternative(input.key(), input.amountPerPattern())), PlannerAmount.ONE));
                     continue;
                 }
@@ -140,10 +142,10 @@ final class OptimisticSupplyModel {
                     if (semantics.matchingMode() == PatternSemantics.MatchingMode.SUBSTITUTION) return null;
                     relaxed = true;
                 }
-                if (!relaxed) inputs.add(new InputGroup(List.copyOf(alternatives), PlannerAmount.of(multiplier)));
+                if (!relaxed) inputs.add(new InputGroup(slot, List.copyOf(alternatives), PlannerAmount.of(multiplier)));
             }
             if (!known) inputs.clear();
-            Recipe recipe = new Recipe(Map.copyOf(indexedEntry.getValue()), List.copyOf(inputs), Map.copyOf(outputs));
+            Recipe recipe = new Recipe(pattern.details(), Map.copyOf(indexedEntry.getValue()), List.copyOf(inputs), Map.copyOf(outputs));
             recipes.add(recipe);
             keys.addAll(outputs.keySet());
             for (InputGroup input : inputs) for (Alternative alternative : input.alternatives()) {

@@ -491,8 +491,8 @@ public final class SpecialPatternResolver {
         PlannerAmount remaining = requested;
         PlannerAmount consumed = PlannerAmount.ZERO;
         for (AEKey storedKey : state.stored.keysSnapshot()) {
-            if (remaining.isZero() || !(storedKey instanceof AEItemKey candidate)
-                    || candidate.getItem() != wanted.getItem()) continue;
+            if (remaining.isZero()) break;
+            if (!(storedKey instanceof AEItemKey candidate) || candidate.getItem() != wanted.getItem()) continue;
             if (!cn.dancingsnow.neoecoae.crafting.ECOProcessingComponentMatching
                     .isValid(demand.consumer(), input, key, storedKey, null)) continue;
             PlannerAmount take = state.stored.available(storedKey, remaining);

@@ -8,6 +8,7 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
 import cn.dancingsnow.neoecoae.crafting.planner.result.ECOPlanningResult;
+import cn.dancingsnow.neoecoae.crafting.planner.solve.PlannerInventorySnapshot;
 
 import java.util.concurrent.Future;
 import java.util.concurrent.CompletableFuture;
@@ -31,9 +32,14 @@ public final class ECOPlanningService {
 
     public static Request begin(Level level, IGrid grid, IActionSource source, AEKey goal,
                                               long amount, CalculationStrategy strategy, ECOPlannerOptions options) {
+        return begin(level, grid, source, goal, amount, strategy, options, false);
+    }
+
+    public static Request begin(Level level, IGrid grid, IActionSource source, AEKey goal, long amount,
+            CalculationStrategy strategy, ECOPlannerOptions options, boolean captureQuantityProof) {
         var inventory = ECOPlannerInventory.capture(grid);
         ECOCraftingPlannerService.Session session = PLANNER.createSession(grid.getCraftingService(), goal, inventory,
-                options.cyclePlanningEnabled(), options.ignorePatternSubstitutions(), options.fuzzyPlanningItemIds());
+                options, captureQuantityProof);
         return begin(session, goal, amount, strategy);
     }
 
@@ -116,6 +122,12 @@ public final class ECOPlanningService {
 
         private Request(ECOCraftingPlannerService.Session session) {
             this.session = session;
+        }
+
+        /** Equal task vectors from another calculation do not establish equal starting stock. */
+        public @Nullable PlannerInventorySnapshot inventoryFor(ICraftingPlan displayed) {
+            return displayed != null && completion.isDone() && !completion.isCompletedExceptionally()
+                && completion.getNow(null) == displayed ? session.inventorySnapshot() : null;
         }
 
         public boolean isConfirmationCurrent(ICraftingService service) {

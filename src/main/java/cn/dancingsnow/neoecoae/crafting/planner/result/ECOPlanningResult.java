@@ -2,12 +2,16 @@ package cn.dancingsnow.neoecoae.crafting.planner.result;
 
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.crafting.planner.identity.PlanIdentity;
 import cn.dancingsnow.neoecoae.crafting.planner.provenance.ExecutionProvenance;
 import cn.dancingsnow.neoecoae.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.crafting.planner.trace.ECOPlanTrace;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.Set;
 import java.math.BigInteger;
@@ -46,20 +50,40 @@ public final class ECOPlanningResult {
             List<CycleDiagnostic> cycles, List<ComponentPlanningResult> components,
             List<Integer> executionComponentOrder, long calculationNanos, UUID planningId,
             @Nullable ExecutionProvenance provenance) {
+        this(status, plan, trace, cycles, components, executionComponentOrder, calculationNanos, planningId,
+            provenance, new LinkedHashMap<>());
+        if (plan != null) {
+            plan.patternTimes().forEach((pattern, count) -> exactPatternTimes.put(pattern, PlannerAmount.of(count)));
+            setExactMaterials(projectedAmounts(plan.usedItems()), projectedAmounts(plan.emittedItems()),
+                projectedAmounts(plan.missingItems()));
+        }
+    }
+
+    private static Map<AEKey, PlannerAmount> projectedAmounts(KeyCounter counter) {
+        Map<AEKey, PlannerAmount> amounts = new LinkedHashMap<>();
+        for (var entry : counter) amounts.put(entry.getKey(), PlannerAmount.of(entry.getLongValue()));
+        return amounts;
+    }
+
+    /** Freeze the solver's exact totals; the AE2 projection is not their source of truth. */
+    public static ECOPlanningResult fromExact(PlanningStatus status, CraftingPlan plan, ECOPlanTrace trace,
+            List<CycleDiagnostic> cycles, List<ComponentPlanningResult> components, List<Integer> executionOrder,
+            long calculationNanos, @Nullable UUID planningId, @Nullable ExecutionProvenance provenance,
+            Map<IPatternDetails, PlannerAmount> firings, Map<AEKey, PlannerAmount> used,
+            Map<AEKey, PlannerAmount> emitted, Map<AEKey, PlannerAmount> missing) {
+        var result = new ECOPlanningResult(status, plan, trace, cycles, components, executionOrder,
+            calculationNanos, planningId, provenance, Map.copyOf(firings));
+        result.setExactMaterials(used, emitted, missing);
+        return result;
+    }
+
+    private ECOPlanningResult(PlanningStatus status, @Nullable CraftingPlan plan, ECOPlanTrace trace,
+            List<CycleDiagnostic> cycles, List<ComponentPlanningResult> components, List<Integer> executionComponentOrder,
+            long calculationNanos, @Nullable UUID planningId, @Nullable ExecutionProvenance provenance,
+            Map<IPatternDetails, PlannerAmount> ownedFirings) {
         this.status = status;
         this.plan = plan;
-        var firings = new java.util.LinkedHashMap<IPatternDetails, PlannerAmount>();
-        if (plan != null) plan.patternTimes().forEach((pattern, count) -> firings.put(pattern, PlannerAmount.of(count)));
-        this.exactPatternTimes = firings;
-        if (plan != null) {
-            var used = new java.util.LinkedHashMap<appeng.api.stacks.AEKey, PlannerAmount>();
-            var emitted = new java.util.LinkedHashMap<appeng.api.stacks.AEKey, PlannerAmount>();
-            var missing = new java.util.LinkedHashMap<appeng.api.stacks.AEKey, PlannerAmount>();
-            for (var entry : plan.usedItems()) used.put(entry.getKey(), PlannerAmount.of(entry.getLongValue()));
-            for (var entry : plan.emittedItems()) emitted.put(entry.getKey(), PlannerAmount.of(entry.getLongValue()));
-            for (var entry : plan.missingItems()) missing.put(entry.getKey(), PlannerAmount.of(entry.getLongValue()));
-            setExactMaterials(used, emitted, missing);
-        }
+        this.exactPatternTimes = ownedFirings;
         this.trace = trace;
         this.cycles = List.copyOf(cycles);
         this.components = List.copyOf(components);

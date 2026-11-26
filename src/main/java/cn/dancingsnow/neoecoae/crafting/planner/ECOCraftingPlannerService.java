@@ -6,6 +6,7 @@ import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.crafting.planner.bridge.AE2CraftingPlanBridge;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
+import cn.dancingsnow.neoecoae.api.me.planning.ECOPlannerOptions;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledNetwork;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CompiledStructureCache;
 import cn.dancingsnow.neoecoae.crafting.planner.compile.CraftingNetworkCompiler;
@@ -55,6 +56,7 @@ public final class ECOCraftingPlannerService {
         private final ICraftingService craftingService;
         private final AEKey goal;
         private final PlannerInventorySnapshot inventorySnapshot;
+        private final boolean captureQuantityProof;
         private final boolean cyclePlanningEnabled;
         private final boolean ignorePatternSubstitutions;
         private volatile boolean liteCraftingMode;
@@ -72,12 +74,13 @@ public final class ECOCraftingPlannerService {
                         boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
                         Set<ResourceLocation> fuzzyPlanningItemIds) {
             this(craftingService, goal, PlannerInventorySnapshot.of(inventory), cyclePlanningEnabled,
-                    ignorePatternSubstitutions, fuzzyPlanningItemIds);
+                    ignorePatternSubstitutions, fuzzyPlanningItemIds, false);
         }
 
         private Session(ICraftingService craftingService, AEKey goal, PlannerInventorySnapshot inventory,
                         boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
-                        Set<ResourceLocation> fuzzyPlanningItemIds) {
+                        Set<ResourceLocation> fuzzyPlanningItemIds, boolean captureQuantityProof) {
+            this.captureQuantityProof = captureQuantityProof;
             this.craftingService = craftingService;
             this.goal = goal;
             this.inventorySnapshot = Objects.requireNonNull(inventory);
@@ -126,6 +129,7 @@ public final class ECOCraftingPlannerService {
                                 }
                             }
                             budgetStage = "component_planning";
+                            // Failed intermediate CRAFT_LESS probes are never displayed; do not retain their proof DAGs.
                             solved = componentPlanner.planWithRouteFallback(compiled, condensation, activeSelection,
                                     inventorySnapshot, amount, cyclePlanningEnabled, ignorePatternSubstitutions, cancellation,
                                     candidate -> {
@@ -158,7 +162,7 @@ public final class ECOCraftingPlannerService {
                                             startedNanos, true, "backend=" + (ready.status() == PlanningStatus.SUCCESS
                                                 ? "AE2_LONG" : "ECO_EXACT"));
                                         return true;
-                                    }, onReady != null);
+                                    }, onReady != null, captureQuantityProof && (onReady != null || simulation));
                         }
                     } catch (InterruptedException | RuntimeException e) {
                         ECOPlanningStageLogger.finish("component_planning", componentStarted, false,
@@ -256,12 +260,11 @@ public final class ECOCraftingPlannerService {
             long provenanceStarted = ECOPlanningStageLogger.start();
             var provenance = solved.state().executionProvenance();
             ECOPlanningStageLogger.finish("provenance_freeze", provenanceStarted, true, null);
-            var result = new ECOPlanningResult(solved.status(), plan, solved.trace().copy(), solved.cycles(),
-                solved.components(), solved.executionComponentOrder(), elapsedSince(startedNanos), provenance);
-            result.setTheoreticalBytes(solved.state().plannerBytes());
-            result.setExactPatternTimes(solved.state().plannerPatternTimes());
-            result.setExactMaterials(solved.state().usedAmounts(), solved.state().emittedAmounts(),
-                solved.state().missingAmounts());
+            var state = solved.state();
+            var result = ECOPlanningResult.fromExact(solved.status(), plan, solved.trace().copy(), solved.cycles(),
+                solved.components(), solved.executionComponentOrder(), elapsedSince(startedNanos), null, provenance,
+                state.plannerPatternTimes(), state.usedAmounts(), state.emittedAmounts(), state.missingAmounts());
+            result.setTheoreticalBytes(state.plannerBytes());
             result.setFuzzyPlanningItemIds(fuzzyPlanningItemIds);
             long executionStarted = ECOPlanningStageLogger.start();
             String error = result.status() == PlanningStatus.SUCCESS ? result.executionPlanError()
@@ -338,6 +341,8 @@ public final class ECOCraftingPlannerService {
                         ignorePatternSubstitutions, fuzzyPlanningItemIds, new CompiledStructureCache.Structure(compiled, condensation, liteCraftingMode));
             }
         }
+
+        PlannerInventorySnapshot inventorySnapshot() { return inventorySnapshot; }
 
         boolean isConfirmationCurrent(ICraftingService service) {
             return service == craftingService && compiled != null && condensation != null
@@ -420,11 +425,17 @@ public final class ECOCraftingPlannerService {
         return new Session(service, goal, inventory, false, false, Set.of());
     }
 
+    Session createSession(ICraftingService service, AEKey goal, PlannerInventorySnapshot inventory,
+            ECOPlannerOptions options, boolean captureQuantityProof) {
+        return new Session(service, goal, inventory, options.cyclePlanningEnabled(), options.ignorePatternSubstitutions(),
+            options.fuzzyPlanningItemIds(), captureQuantityProof);
+    }
+
     public Session createSession(ICraftingService service, AEKey goal, PlannerInventorySnapshot inventory,
                                  boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
                                  Set<ResourceLocation> fuzzyPlanningItemIds) {
         return new Session(service, goal, inventory, cyclePlanningEnabled, ignorePatternSubstitutions,
-                fuzzyPlanningItemIds);
+                fuzzyPlanningItemIds, false);
     }
 
     /** @deprecated Planning logs are controlled by the global debug configuration. */

@@ -62,11 +62,10 @@ public final class ECOExactCraftingPlan implements ICraftingPlan {
         projection = new appeng.crafting.CraftingPlan(result.plan().finalOutput(), 0,
             false, result.plan().multiplePaths(), initial, initialEmitted, new KeyCounter(), counts);
         // Interpret the full selected graph once. Cycle witnesses and seed protections remain mandatory.
-        var interpreted = new ECOPlanningResult(PlanningStatus.SUCCESS,
+        var interpreted = ECOPlanningResult.fromExact(PlanningStatus.SUCCESS,
             (appeng.crafting.CraftingPlan) projection, result.trace(), result.cycles(), result.components(),
-            result.executionComponentOrder(), result.calculationNanos(), result.planningId(), result.provenance());
-        interpreted.setExactPatternTimes(result.exactPatternTimes());
-        interpreted.setExactMaterials(stockAmounts, result.exactEmittedItems(), Map.of());
+            result.executionComponentOrder(), result.calculationNanos(), result.planningId(), result.provenance(),
+            result.exactPatternTimes(), stockAmounts, result.exactEmittedItems(), Map.of());
         var contract = interpreted.executionContract();
         if (interpreted.executionPlanError() != null)
             throw new IllegalArgumentException(interpreted.executionPlanError());
