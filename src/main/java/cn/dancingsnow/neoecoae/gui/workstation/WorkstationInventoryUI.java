@@ -40,7 +40,7 @@ final class WorkstationInventoryUI {
             for (int columnIndex = 0; columnIndex < 3; columnIndex++) {
                 int slot = rowIndex * 3 + columnIndex;
                 row.addChild(new ItemSlot(new ItemHandlerSlot(itemHandler, slot))
-                    .slotStyle(style -> style
+                    .slotStyle(style -> style.isPlayerSlot(true).quickMovePriority(1)
                         .slotOverlay(AETextures.icon(ECOIcon.BACKGROUND_UPGRADE))
                         .showSlotOverlayOnlyEmpty(true))
                     .style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
@@ -98,7 +98,14 @@ final class WorkstationInventoryUI {
 
     private record NetworkToolItemHandler(NetworkToolMenuHost networkTool) implements IItemHandlerModifiable {
         private InternalInventory inventory() {
-            return (networkTool.getSlot()==null || net.minecraft.world.item.ItemStack.isSameItem(networkTool.getPlayer().getInventory().getItem(networkTool.getSlot()),networkTool.getItemStack())) ? networkTool.getInventory() : InternalInventory.empty();
+            Integer slot = networkTool.getSlot();
+            if (slot == null) return networkTool.getInventory();
+            var player = networkTool.getPlayer();
+            var current = player.getInventory().getItem(slot);
+            var opened = networkTool.getItemStack();
+            // Client inventory sync can replace a stack. Only the exact opened tool may receive server writes.
+            return current == opened || player.level().isClientSide && ItemStack.isSameItem(current, opened)
+                ? networkTool.getInventory() : InternalInventory.empty();
         }
 
         @Override

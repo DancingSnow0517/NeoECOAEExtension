@@ -21,7 +21,7 @@ public final class RealSlotQuickMove {
                 if (type != ClickType.QUICK_MOVE) return null;
                 if ((button == 0 || button == 1) && !player.level().isClientSide
                     && ui.getMenu().getCarried().isEmpty()) {
-                    move(player, element.getMenuSlot(), itemSlots);
+                    move(player, element, itemSlots);
                 }
                 return ItemStack.EMPTY;
             });
@@ -29,18 +29,40 @@ public final class RealSlotQuickMove {
         return ui;
     }
 
-    private static void move(Player player, Slot source, List<ItemSlot> itemSlots) {
+    private static boolean playerSide(ItemSlot element, Player player) {
+        return element.isPlayerSideSlot() || element.getMenuSlot().container == player.getInventory();
+    }
+
+    private static void move(Player player, ItemSlot sourceElement, List<ItemSlot> itemSlots) {
+        Slot source = sourceElement.getMenuSlot();
         if (!source.hasItem() || !source.mayPickup(player)) return;
 
-        boolean fromPlayer = source.container == player.getInventory();
-        Comparator<ItemSlot> menuOrder = Comparator.comparingInt(element -> element.getMenuSlot().index);
+        boolean fromPlayer = playerSide(sourceElement, player);
         var destinations = itemSlots.stream()
-            .filter(element -> (element.getMenuSlot().container == player.getInventory()) != fromPlayer)
-            .sorted(fromPlayer ? menuOrder.reversed() : menuOrder)
+            .filter(element -> playerSide(element, player) != fromPlayer)
+            .sorted(Comparator.comparingInt(ItemSlot::quickMovePriority).reversed()
+                .thenComparingInt(element -> fromPlayer && element.quickMovePriority() == 0
+                    ? -element.getMenuSlot().index : element.getMenuSlot().index))
             .toList();
 
         ItemStack original = source.getItem().copy();
         ItemStack remainder = original.copy();
+        // Finish both merge and empty-slot passes in a priority group before using a lower group.
+        for (int start = 0; start < destinations.size() && !remainder.isEmpty();) {
+            int priority = destinations.get(start).quickMovePriority();
+            int end = start + 1;
+            while (end < destinations.size() && destinations.get(end).quickMovePriority() == priority) end++;
+            remainder = insert(destinations.subList(start, end), remainder);
+            start = end;
+        }
+        int moved = original.getCount() - remainder.getCount();
+        if (moved > 0) {
+            source.setByPlayer(remainder);
+            source.onTake(player, original.copyWithCount(moved));
+        }
+    }
+
+    private static ItemStack insert(List<ItemSlot> destinations, ItemStack remainder) {
         for (int pass = 0; pass < 2 && !remainder.isEmpty(); pass++) {
             for (ItemSlot element : destinations) {
                 Slot destination = element.getMenuSlot();
@@ -53,11 +75,6 @@ public final class RealSlotQuickMove {
                 if (remainder.isEmpty()) break;
             }
         }
-
-        int moved = original.getCount() - remainder.getCount();
-        if (moved > 0) {
-            source.setByPlayer(remainder);
-            source.onTake(player, original.copyWithCount(moved));
-        }
+        return remainder;
     }
 }

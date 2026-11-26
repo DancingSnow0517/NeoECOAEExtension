@@ -119,7 +119,7 @@ public final class IntegratedWorkstationUI {
         List<UIElement> upgradeSlots = new ArrayList<>(4);
         for (int i = 0; i < 4; i++) {
             upgradeSlots.add(new ItemSlot(new ItemHandlerSlot(config.upgrades(), i))
-                .slotStyle(style -> style
+                .slotStyle(style -> style.quickMovePriority(1)
                     .slotOverlay(AETextures.icon(ECOIcon.BACKGROUND_UPGRADE))
                     .showSlotOverlayOnlyEmpty(true))
                 .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {

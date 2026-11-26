@@ -21,6 +21,8 @@ public class ItemSlot extends UIElement implements IBindable<ItemStack>{
         public IGuiTexture hover,overlay;public boolean player,overlayEmptyOnly;
         public SlotStyle showSlotOverlayOnlyEmpty(boolean value){overlayEmptyOnly=value;return this;}
         public boolean quickMove=true;
+        private int quickMovePriority;
+        public SlotStyle quickMovePriority(int value){quickMovePriority=value;return this;}
         public SlotStyle acceptQuickMove(boolean value){quickMove=value;return this;}
         public SlotStyle hoverOverlay(IGuiTexture v){hover=v;return this;}
         public SlotStyle slotOverlay(IGuiTexture v){overlay=v;return this;}
@@ -41,6 +43,8 @@ public class ItemSlot extends UIElement implements IBindable<ItemStack>{
     @Override public String getElementName(){return "item-slot";}
     public ItemSlot bind(Slot slot){this.slot=slot;widget.bindSlot(slot);return this;}
     public Slot getSlot(){return slot;}
+    public boolean isPlayerSideSlot(){return slotStyle.player;}
+    public int quickMovePriority(){return slotStyle.quickMovePriority;}
     public Slot getMenuSlot() { return widget.getHandler(); }
     public ItemSlot slotStyle(Consumer<SlotStyle> config){config.accept(slotStyle);widget.setLocationInfo(slotStyle.player,false);return this;}
     @Override public ItemStack getValue(){return slot.getItem();}
