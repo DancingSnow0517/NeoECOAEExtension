@@ -44,7 +44,7 @@ public class ECOFluidInputHatchBlockEntity extends cn.dancingsnow.neoecoae.block
         @Override
         public int getCapacity() {
             return upgrades != null && hasNetworkPullCard()
-                ? Integer.MAX_VALUE : NECraftingCluster.fluidHatchCapacity(cluster);
+                ? Integer.MAX_VALUE : super.getCapacity();
         }
 
         @Override
@@ -71,7 +71,14 @@ public class ECOFluidInputHatchBlockEntity extends cn.dancingsnow.neoecoae.block
 
     public ECOFluidInputHatchBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState, cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator::new);
+        tank.setCapacity(NECraftingCluster.fluidHatchCapacity(null));
         upgrades = UpgradeInventories.forMachine(blockState.getBlock(), 1, this::saveChanges);
+    }
+
+    @Override
+    public void updateCluster(@org.jetbrains.annotations.Nullable NECraftingCluster cluster) {
+        tank.setCapacity(NECraftingCluster.fluidHatchCapacity(cluster));
+        super.updateCluster(cluster);
     }
 
     /** Stable addon handler view, matching the 1.21.1 accessor. */
