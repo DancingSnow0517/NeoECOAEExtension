@@ -286,7 +286,7 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 
 `ICellHost` 的安装参数为恰好一张有效盘，移除参数为 null；`ItemStack.EMPTY` 不是移除请求。先查询 `isItemValid/canExtractCell`，调用 void 的 `setCellStack` 后重读槽位确认，再转移源/旧盘。不要直接修改 `getCellStack()` 返回的活栈。[IECOStoragePriorityHost.setStoragePriority](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStoragePriorityHost.java) 在服务端保存并刷新挂载。
 
-附属驱动器可实现 [IECOConfigurableCellDrive](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOConfigurableCellDrive.java)，无需继承 ECO 方块实体。`getCellInteractionId()` 标识一次安装，换盘或重新加载时更新，并同步到 `StorageHostUI.CellEntry.atDrive(position, stack, reason, interactionId)`。`setConfiguredCellPriority` 必须保存、同步设置并刷新受影响的 AE2 挂载；有效挂载优先级使用 `StoragePriority.mountPriority(hostPriority, cellPriority)`，按有符号 int 饱和相加。
+附属驱动器可实现 [IECOConfigurableCellDrive](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOConfigurableCellDrive.java)，无需继承 ECO 方块实体。`getCellInteractionId()` 标识一次安装，换盘或重新加载时更新，并同步到 `StorageHostUI.CellEntry.atDrive(position, stack, reason, interactionId)`。`setConfiguredCellPriority` 必须保存、同步设置并刷新受影响的 AE2 挂载；有效挂载优先级使用 [`StoragePriority.mountPriority(hostPriority, cellPriority)`](../src/main/java/cn/dancingsnow/neoecoae/api/storage/StoragePriority.java)，按有符号 int 饱和相加。旧 `gui.storage.StoragePriority` 保留为二进制兼容入口，转调此 API。
 
 要复用已安装盘的「配置」工作台，主机方块实体实现 [IECOConfigurableCellHost](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOConfigurableCellHost.java)，`getCellWorkbenchBlockEntity()` 返回自身，`getStorageDrivesForIntegration()` 仅返回当前所属驱动器；驱动器实现 [IECOCellWorkbenchDrive](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOCellWorkbenchDrive.java)，复用上述优先级接口和 `ICellHost`。`getCellInventory()` 返回当前挂载的库存，`getCellStack()` 必须返回同一活栈；`reloadCellConfiguration()` 保存内容、重建处理器并刷新挂载，不得更换活栈或安装 UUID。
 

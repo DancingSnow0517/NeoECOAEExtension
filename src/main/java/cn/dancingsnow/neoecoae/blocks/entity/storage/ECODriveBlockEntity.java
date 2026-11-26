@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOCellWorkbenchDrive;
+import cn.dancingsnow.neoecoae.api.storage.StoragePriority;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
@@ -396,7 +397,7 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
                 && !controller.isStorageInterfaceTransferMode()) {
             IECOStorageCell inventory = getCellInventory();
             if (inventory != null && controller.getTier().compareTo(inventory.getTier()) >= 0) {
-                int priority = cn.dancingsnow.neoecoae.gui.storage.StoragePriority.mountPriority(
+                int priority = StoragePriority.mountPriority(
                     controller.getStoragePriority(), getConfiguredCellPriority());
                 storageMounts.mount(inventory, priority);
                 mounted = true;
