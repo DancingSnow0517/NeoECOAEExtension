@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.grid.crafting.graph;
 
 import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.grid.crafting.graph.cycle.CycleClusterLayout;
 import cn.dancingsnow.neoecoae.grid.crafting.graph.cycle.RecursiveCycleLayout;
 import cn.dancingsnow.neoecoae.grid.crafting.graph.tree.CompactTreeLayout;
 import org.slf4j.LoggerFactory;
@@ -33,10 +32,9 @@ public final class GraphLayout implements GraphLayoutEngine {
     }
 
     private final Mode mode;
-    private final GraphLayoutEngine legacy;
-    private final GraphLayoutEngine circular;
-    private final GraphLayoutEngine cycleCluster;
-    private final GraphLayoutEngine compactTree;
+    private final GraphLayoutEngine layered = new LayeredGraphLayout();
+    private final GraphLayoutEngine cycleFocus = new RecursiveCycleLayout();
+    private final GraphLayoutEngine compactTree = new CompactTreeLayout();
     private boolean reportedCompactTreeFailure;
 
     public GraphLayout() {
@@ -44,23 +42,7 @@ public final class GraphLayout implements GraphLayoutEngine {
     }
 
     public GraphLayout(Mode mode) {
-        this(mode, new LayeredGraphLayout(), new RecursiveCycleLayout(), new LayeredGraphLayout(),
-            new CompactTreeLayout());
-    }
-
-    // Package-visible for backend selection tests without touching the screen.
-    GraphLayout(Mode mode, GraphLayoutEngine legacy, GraphLayoutEngine circular,
-            GraphLayoutEngine compactTree) {
-        this(mode, legacy, circular, new CycleClusterLayout(), compactTree);
-    }
-
-    GraphLayout(Mode mode, GraphLayoutEngine legacy, GraphLayoutEngine circular,
-            GraphLayoutEngine cycleCluster, GraphLayoutEngine compactTree) {
         this.mode = mode;
-        this.legacy = legacy;
-        this.circular = circular;
-        this.cycleCluster = cycleCluster;
-        this.compactTree = compactTree;
     }
 
     public Mode mode() {
@@ -70,20 +52,20 @@ public final class GraphLayout implements GraphLayoutEngine {
     @Override
     public GraphLayoutSnapshot layout(ClientCraftingGraph graph, long version) {
         if (graph.view() == ClientCraftingGraph.View.CYCLE_FOCUS) {
-            return circular.layout(graph, version);
+            return cycleFocus.layout(graph, version);
         }
         if (graph.view() == ClientCraftingGraph.View.CYCLE_CLUSTER) {
-            return cycleCluster.layout(graph, version);
+            return layered.layout(graph, version);
         }
         if (mode == Mode.COMPACT_TREE) {
             try {
                 return compactTree.layout(graph, version);
             } catch (RuntimeException | LinkageError | StackOverflowError exception) {
                 reportCompactTreeFailure(graph, exception);
-                return legacy.layout(graph, version);
+                return layered.layout(graph, version);
             }
         }
-        return legacy.layout(graph, version);
+        return layered.layout(graph, version);
     }
 
     private void reportCompactTreeFailure(ClientCraftingGraph graph, Throwable exception) {
