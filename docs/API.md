@@ -191,7 +191,7 @@ FastPath uses the separate `ECOFastPathDispatchProvider`:
 | `supportsExactInputs`, `exactInputTotal` | Explicit exact-input support, without truncation for legacy providers |
 | `eco$prepareExactFastPath(context, requested)` | Separate exact-count capability, unsupported by default |
 
-This branch resolves direct implementations and the built-in ExtendedAE Plus bridge only. Adapters registered with `ECOParallelCraftingProviders` are not discovered for FastPath. `prepareAllocated/prepareAllocatedExact` additionally require a directly implemented FastPath interface. `ECOBatchCapacityProvider` is deprecated; use the new contract.
+Register just the FastPath contract with `ECOParallelCraftingProviders.registerFastPath(type, factory)` without advertising ordinary parallel slots. The facade checks direct implementations, registered FastPath factories, then parallel adapters that also implement FastPath. Ordinary `prepare` can additionally use the built-in ExtendedAE Plus bridge. Use `ECOFastPathFacade.registerProvider` for dispatch precedence or a job-aware single-push callback.
 
 True means full acceptance. False or an ordinary exception guarantees no acceptance and permits CPU rollback. If acceptance is uncertain, throw [ECOIndeterminateBatchException](../src/main/java/cn/dancingsnow/neoecoae/api/me/provider/ECOIndeterminateBatchException.java) and stop for reconciliation; never refund then retry uncertain acceptance. Providers do not debit/refund CPU inputs or energy themselves.
 
@@ -241,6 +241,8 @@ Physical item storage returns no blank. When a container absorbs the recipe, `co
 
 Writable node services implement [IECOPatternStorage](../src/main/java/cn/dancingsnow/neoecoae/api/IECOPatternStorage.java); `KnownUnique` methods require proof of uniqueness. Directory hosts use [PatternStorageHost](../src/main/java/cn/dancingsnow/neoecoae/api/PatternStorageHost.java) and [AuxiliaryPatternHolder](../src/main/java/cn/dancingsnow/neoecoae/api/AuxiliaryPatternHolder.java) to expose real slots, revisions and stable content ordering. This branch has no `allowsPatternMigrationSource()` authorization method on the host interface.
 
+For an add-on pattern bus with its own inventory, call `IECOPatternStorageService.onPatternSlotsChanged` after updating the inventory on the server thread and before notifying preview viewers. Pass the pre-batch revision and all changed physical slots, or `{-1}` if the slot layout changed. The catalog also checks revisions for non-built-in hosts as a fallback.
+
 Claim external candidates under an owner UUID and release claims on every exit path. Remove candidates after clearing the source. An unfinished scan can still expose usable candidates; discard old slot references after topology changes.
 
 ## Storage cells and exact amounts
@@ -273,6 +275,14 @@ Modules are controlled by the fixed [LargeWorkstationModule](../src/main/java/cn
 
 ## Panels and models
 
+A block entity with a separate crafting interface at its own position can implement `CraftingPatternMenuHost`. Return the same interface instance for decoding, validity checks and preview sync. On the server, provide an immutable layout key that changes when slot addresses become stale. Open the interface with `BlockUIMenuType.openCraftingPatternInterface(player, delegate)`.
+
+Host subclasses can override `getCraftingControllerPanelState` or `getComputationControllerPanelState` to describe their members. `isCraftingPanelVirtualMode` and `getVirtualCraftingBlockedNotice` control the crafting capacity display and its tooltip. Internal drives can supply a read-only icon with `ICellHost.getBuiltInCellForDisplay`. Storage hosts can override `hasBuiltInInfiniteComponents` to make the infinite component slot read-only.
+
+Storage host subclasses can override `ECOStorageSystemBlockEntity#getBuiltInInfiniteComponentCount()` to declare a fixed component count. A positive count replaces the physical slot for qualification and read-only display; 64 meets the component requirement without creating items. Return the same count on the client and server. A count of zero keeps the physical slot, and this hook does not alter the drive or domain requirements.
+
+A detached internal storage drive may count toward infinite mode while its owning host is loaded and formed. Return the actual installed stack from `getBuiltInCellForDisplay`, not a copy, and deny extraction. Use a permanently empty cell that passes the usual tier and empty-cell checks. This does not mount the internal cell as ordinary storage or include it in legacy migration.
+
 During Forge registry events, register custom tiers and cell types with matching IDs on both sides in the synchronized registries exposed by [NERegistries.Keys](../src/main/java/cn/dancingsnow/neoecoae/all/NERegistries.java). Implement required `IECOTier` values and use `supportsComponentTier` for component compatibility. This interface has no `supportsFeature` or build-definition overload. Registry values are available after initialization, not during static initialization.
 
 `IECOTier.getPanelTierName()` supplies names, `getHostMarkerTexture()` supplies markers and `getPanelAtlas(String)` replaces full atlases for that tier. Null preserves defaults. Resolution is tier atlas, the global `ui-eco` provider in this branch's UI compatibility layer, then original image. Preserve atlas dimensions and crop layout.
@@ -302,6 +312,29 @@ Status indices 0–5 represent connection, lite crafting, cycles, fast planning,
 When constructing panels such as [StorageHostUI](../src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageHostUI.java), use overloads accepting `Supplier<IECOTier>` and `Supplier<BlockState>`. The server captures placed-state texture IDs for synchronization; old factory signatures remain available.
 
 Register `ECOCellModels.register` and `ECOComputationModels.registerCellModel/registerCableModel` on the client. Deferred item registration accepts `Supplier<? extends Item>`; the cable signature is `(IECOTier, ResourceLocation normalModel, ResourceLocation formedModel)`. This branch has no host-block cable overload, dynamic model provider or `registerAdditionalModel` entry point. Register extra models through Forge client model events. Panel providers change images, not button semantics.
+
+### Workstation color palettes
+
+An addon can reuse the large integrated workstation's screen and light masks without copying them or registering Java code. Add a `neoecoae:workstation_palette` source to the addon's `assets/minecraft/atlases/blocks.json`. Minecraft combines sources from that file across resource packs, so the addon only needs to list its own palette:
+
+```json
+{
+  "sources": [
+    {
+      "type": "neoecoae:workstation_palette",
+      "palettes": {
+        "addon:amber": "addon:block/workstation/colormap/amber"
+      }
+    }
+  ]
+}
+```
+
+The value in this example loads `assets/addon/textures/block/workstation/colormap/amber.png`. Supply a one-row PNG with at least seven swatches: screen dark, middle, light; lamp dark, light; and bright frames for the working dark and light lamps, in that order.
+
+The key chooses the generated sprite namespace and directory. For `addon:amber` the prefix is `addon:block/working_station/controller_formed/colored/amber/`. Append `controller_formed_screen_on/dark`, `controller_formed_screen_on/middle`, or `controller_formed_screen_on/light` for the screen; `controller_formed_light/dark` or `controller_formed_light/light` for the idle lamps; and `controller_formed_light/dark_working` or `controller_formed_light/light_working` for the animated lamps. Use the resulting sprite IDs directly as model texture values, without `textures/` or `.png`.
+
+Short keys such as `normal` still use the `neoecoae` namespace, regardless of the palette image's namespace. An explicit PNG at a generated sprite's texture path takes precedence over the generated sprite.
 
 ## Integration diagnostics
 

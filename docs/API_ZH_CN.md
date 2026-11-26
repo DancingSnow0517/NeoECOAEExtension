@@ -191,7 +191,7 @@ FastPath 使用独立的 `ECOFastPathDispatchProvider`：
 | `supportsExactInputs`、`exactInputTotal` | 显式启用精确输入，不向旧供应器截断 |
 | `eco$prepareExactFastPath(context, requested)` | 独立精确次数能力，默认不支持 |
 
-本分支的门面只解析直接实现与内置 ExtendedAE Plus 桥；`ECOParallelCraftingProviders` 注册的适配器不参与 FastPath 解析。`prepareAllocated/prepareAllocatedExact` 还要求供应器直接实现 FastPath 接口。`ECOBatchCapacityProvider` 为旧兼容入口，新接入使用上述接口。
+只声明 FastPath 能力可调用 `ECOParallelCraftingProviders.registerFastPath(type, factory)`，不占用普通并行槽。门面按直接实现、已注册的 FastPath 工厂、兼具 FastPath 的并行适配器顺序解析；普通 `prepare` 也可使用内置 ExtendedAE Plus 桥。需要派单优先级或单次订单 ID 回调时，使用 `ECOFastPathFacade.registerProvider`。
 
 FastPath true 表示整批接收；false 或普通异常保证未接收，可由 CPU 回滚。如果是否接收已不确定，抛出 [ECOIndeterminateBatchException](../src/main/java/cn/dancingsnow/neoecoae/api/me/provider/ECOIndeterminateBatchException.java)，停止任务核对，不能先退款再重试。供应器不自行扣减或退款 CPU 的输入与能量。
 
@@ -241,6 +241,8 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 
 可写节点服务实现 [IECOPatternStorage](../src/main/java/cn/dancingsnow/neoecoae/api/IECOPatternStorage.java)，`KnownUnique` 方法仅供已证明无重复的调用使用。目录宿主通过 [PatternStorageHost](../src/main/java/cn/dancingsnow/neoecoae/api/PatternStorageHost.java)、[AuxiliaryPatternHolder](../src/main/java/cn/dancingsnow/neoecoae/api/AuxiliaryPatternHolder.java) 提供真实槽位、修订号与稳定内容顺序。本分支的宿主接口没有 `allowsPatternMigrationSource()` 迁移来源授权方法。
 
+附属样板总线若使用自有库存，应在服务端线程更新库存后、通知预览界面前调用 `IECOPatternStorageService.onPatternSlotsChanged`。传入批次开始前的修订号和所有变动的物理槽位；槽位布局变化时传 `{-1}`。样板目录也会核对非内置宿主的修订号作为兜底。
+
 外部候选通过 owner UUID 认领；所有退出路径释放认领，源槽清空后删除候选。扫描未 ready 不阻止处理已发现候选；拓扑变化后丢弃旧槽位引用。
 
 ## 存储盘与精确数量
@@ -271,6 +273,14 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 
 ## 面板与模型
 
+在自身坐标托管独立合成接口的方块实体可实现 `CraftingPatternMenuHost`。菜单解码、有效性校验和预览同步共用同一个接口实例。服务端应提供不可变的布局键，原槽位地址失效时更新它。使用 `BlockUIMenuType.openCraftingPatternInterface(player, delegate)` 打开接口菜单。
+
+主机子类可覆盖 `getCraftingControllerPanelState` 或 `getComputationControllerPanelState` 描述面板成员。`isCraftingPanelVirtualMode` 和 `getVirtualCraftingBlockedNotice` 分别影响合成容量显示和阻塞提示。内置驱动器通过 `ICellHost.getBuiltInCellForDisplay` 提供只读盘图标。存储主机可覆盖 `hasBuiltInInfiniteComponents` 将无限组件槽设为只读。
+
+存储主机子类可覆盖 `ECOStorageSystemBlockEntity#getBuiltInInfiniteComponentCount()` 声明固定的内置数量。正数替代实体槽用于组件准入判断和只读显示；返回 64 即满足组件要求，不会生成物品。客户端和服务端必须返回相同数量。返回 0 保留原有实体槽，硬盘和存储域仍按原规则校验。
+
+不落世界的内置存储驱动器可在所属主机加载且成型时计入无限模式。`getBuiltInCellForDisplay` 必须返回实际安装的盘堆栈而非副本，并禁止取出。内置盘必须始终为空，且通过原有档位和空盘检查；它不会挂载为普通库存，也不会参与旧盘迁移。
+
 在 Forge 注册事件中，将自定义档位与盘类型注册到 [NERegistries.Keys](../src/main/java/cn/dancingsnow/neoecoae/all/NERegistries.java) 对应同步注册表中，以两端相同 ID 注册。实现 `IECOTier` 的必需参数，组件兼容用 `supportsComponentTier`。此接口没有 `supportsFeature` 或建造定义重载。注册表在初始化后才可用，不在静态初始化中读取。
 
 `IECOTier.getPanelTierName()` 提供名称，`getHostMarkerTexture()` 提供标记，`getPanelAtlas(String)` 为当前档位替换完整图集。返回 null 使用默认外观。图集优先级：档位 → 本分支 UI 兼容层的全局 `ui-eco` provider → 原图。替换图保持原尺寸与裁剪布局。
@@ -300,6 +310,29 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 自行创建 [StorageHostUI](../src/main/java/cn/dancingsnow/neoecoae/gui/storage/StorageHostUI.java) 等面板时，使用接收 `Supplier<IECOTier>` 和 `Supplier<BlockState>` 的重载；服务器捕获放置态纹理并同步到客户端。旧工厂签名保留。
 
 `ECOCellModels.register`、`ECOComputationModels.registerCellModel/registerCableModel` 在客户端注册模型。物品延迟注册使用 `Supplier<? extends Item>`；线缆注册签名为 `(IECOTier, ResourceLocation normalModel, ResourceLocation formedModel)`。本分支没有按宿主方块的线缆注册重载、动态模型 provider 或 `registerAdditionalModel` 入口。额外模型使用 Forge 客户端模型事件注册。面板 provider 只更换图片，不改变按钮或业务语义。
+
+### 工作站染色色板
+
+附属可以复用大型集成工作站的屏幕和灯光遮罩，不必复制遮罩或编写 Java 注册代码。在附属自己的 `assets/minecraft/atlases/blocks.json` 添加 `neoecoae:workstation_palette` 来源。Minecraft 会合并各资源包中此文件的来源列表，附属只需要声明自己的色板：
+
+```json
+{
+  "sources": [
+    {
+      "type": "neoecoae:workstation_palette",
+      "palettes": {
+        "addon:amber": "addon:block/workstation/colormap/amber"
+      }
+    }
+  ]
+}
+```
+
+示例中的值读取 `assets/addon/textures/block/workstation/colormap/amber.png`。提供一张单行 PNG，至少包含七个色样，依次为屏幕暗色、中间色、亮色，灯光暗层、亮层，以及工作时暗层、亮层各自的高亮帧。
+
+键决定生成 sprite 的命名空间和目录。`addon:amber` 的前缀为 `addon:block/working_station/controller_formed/colored/amber/`。屏幕追加 `controller_formed_screen_on/dark`、`controller_formed_screen_on/middle` 或 `controller_formed_screen_on/light`；非工作灯光追加 `controller_formed_light/dark` 或 `controller_formed_light/light`；工作动画灯光追加 `controller_formed_light/dark_working` 或 `controller_formed_light/light_working`。模型纹理值直接使用拼好的 sprite ID，不加 `textures/` 或 `.png`。
+
+`normal` 等短键仍使用 `neoecoae` 命名空间，与色板图片所属命名空间无关。在生成 sprite 对应的纹理路径提供实体 PNG 时，优先使用该 PNG。
 
 ## 接入诊断
 
