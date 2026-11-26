@@ -198,7 +198,7 @@ public final class PatternPreviewSync {
     public boolean isViewer(ServerPlayer player) {
         return player.containerMenu instanceof ModularUIContainer menu
                 && menu.getModularUI().holder instanceof BlockUIMenuType.BlockUIHolder holder
-                && holder.pos.equals(host.getBlockPos())
+                && holder.patternInterface() == host
                 && player.level() == host.getLevel()
                 && !holder.isInvalid();
     }
@@ -214,13 +214,16 @@ public final class PatternPreviewSync {
                 > SERVER_VIEWER_RETENTION_TICKS);
         if (active.isEmpty()) return;
         // Drain immutable pages every tick; refresh the live catalogue at the normal cadence.
-        boolean hasPendingOpen = viewers.values().stream().anyMatch(viewer -> viewer.openRequested);
-        if (level.getGameTime() < nextSyncTick && !building && !hasPendingOpen) {
+        boolean needsSync = active.stream().anyMatch(player -> {
+            var viewer = viewers.get(player.getUUID());
+            return viewer == null || viewer.openRequested || viewer.menu != player.containerMenu;
+        });
+        if (level.getGameTime() < nextSyncTick && !building && !needsSync) {
             for (ServerPlayer player : active) drain(player, viewers.get(player.getUUID()));
             return;
         }
         nextSyncTick = level.getGameTime() + MenuDataTransport.UPDATE_INTERVAL;
-        if (reset || !dirtySlots.isEmpty()) host.refreshPatternCatalog();
+        if (needsSync || reset || !dirtySlots.isEmpty()) host.refreshPatternCatalog();
         int size = host.getPatternInterfaceSlotCount();
         int revision = host.getPatternContentRevision();
         boolean full = reset || cachedEntries.size() != size;

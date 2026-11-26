@@ -16,6 +16,10 @@ public final class PatternMenuActions {
         ItemStack carried = oldMenu.getCarried();
         oldMenu.setCarried(ItemStack.EMPTY);
         try {
+            if (oldMenu instanceof ModularUIContainer menu && menu.getModularUI().holder instanceof BlockUIMenuType.BlockUIHolder holder
+                    && holder.isHostedPattern() && holder.pos.equals(pos)) {
+                return !holder.isInvalid() && BlockUIMenuType.openCraftingPatternInterface(player, holder.patternInterface());
+            }
             return BlockUIMenuType.openUI(player, pos);
         } finally {
             player.containerMenu.setCarried(carried);

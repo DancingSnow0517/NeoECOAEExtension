@@ -131,7 +131,7 @@ final class CraftingPatternPreviewState {
         // UI construction precedes assigning player.containerMenu. Probe only once the actual menu is ready.
         if (!player.level().isClientSide || !(player.containerMenu instanceof ModularUIContainer menu)
                 || !(menu.getModularUI().holder instanceof BlockUIMenuType.BlockUIHolder holder)
-                || !holder.pos.equals(craftingInterface.getBlockPos())) return;
+                || holder.patternInterface() != craftingInterface || holder.isInvalid()) return;
         menuId = menu.containerId;
         if (requestedMenuId != menu.containerId) {
             requestedMenuId = menu.containerId;

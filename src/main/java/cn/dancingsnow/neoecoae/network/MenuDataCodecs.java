@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.network;
 
 import appeng.menu.me.common.MEStorageMenu;
 import cn.dancingsnow.neoecoae.api.me.menu.ECOBigOrderStatusHost;
-import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.crafting.display.terminal.ExactAmountClientCache;
 import cn.dancingsnow.neoecoae.platform.ui.runtime.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUIContainer;
@@ -36,9 +35,8 @@ final class MenuDataCodecs {
                 var tag = cn.dancingsnow.neoecoae.gui.crafting.PatternPreviewCodec.read(buf);
                 if (menu instanceof ModularUIContainer modular
                         && modular.getModularUI().holder instanceof BlockUIMenuType.BlockUIHolder holder
-                        && holder.pos.equals(pos)
-                        && player.level().getBlockEntity(pos) instanceof ECOMachineInterfaceBlockEntity<?> host)
-                    host.getPatternPreviewSync().receive(tag);
+                        && holder.player == player && holder.pos.equals(pos) && !holder.isInvalid() && holder.patternInterface() != null)
+                    holder.patternInterface().getPatternPreviewSync().receive(tag);
             }
         }
     }

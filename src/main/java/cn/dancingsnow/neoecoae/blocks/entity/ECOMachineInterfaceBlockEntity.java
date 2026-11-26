@@ -952,7 +952,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         for (ServerPlayer player : serverLevel.players()) {
             if (!(player.containerMenu instanceof ModularUIContainer menu)
                     || !(menu.getModularUI().holder instanceof BlockUIMenuType.BlockUIHolder holder)
-                    || !holder.pos.equals(worldPosition)) {
+                    || holder.patternInterface() != this) {
                 continue;
             }
             player.closeContainer();
