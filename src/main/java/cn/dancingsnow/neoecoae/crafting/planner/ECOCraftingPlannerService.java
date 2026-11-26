@@ -31,6 +31,7 @@ import cn.dancingsnow.neoecoae.integration.ae2.AE2PatternIntrospection;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import net.minecraft.resources.ResourceLocation;
@@ -53,7 +54,6 @@ public final class ECOCraftingPlannerService {
     public final class Session {
         private final ICraftingService craftingService;
         private final AEKey goal;
-        private final KeyCounter inventory;
         private final PlannerInventorySnapshot inventorySnapshot;
         private final boolean cyclePlanningEnabled;
         private final boolean ignorePatternSubstitutions;
@@ -80,8 +80,7 @@ public final class ECOCraftingPlannerService {
                         Set<ResourceLocation> fuzzyPlanningItemIds) {
             this.craftingService = craftingService;
             this.goal = goal;
-            this.inventorySnapshot = inventory;
-            this.inventory = inventorySnapshot.toKeyCounter();
+            this.inventorySnapshot = Objects.requireNonNull(inventory);
             this.cyclePlanningEnabled = cyclePlanningEnabled;
             this.ignorePatternSubstitutions = ignorePatternSubstitutions;
             this.liteCraftingMode = ignorePatternSubstitutions;
@@ -117,7 +116,8 @@ public final class ECOCraftingPlannerService {
                     long componentStarted = ECOPlanningStageLogger.start();
                     try {
                         if (liteCraftingMode) {
-                            solved = componentPlanner.planLite(compiled, condensation, inventory, inventorySnapshot, amount, cyclePlanningEnabled, cancellation);
+                            solved = componentPlanner.planLite(compiled, condensation, inventorySnapshot, amount,
+                                    cyclePlanningEnabled, cancellation);
                         } else {
                             if (activeSelection == null) synchronized (initializationLock) {
                                 if (activeSelection == null) {
@@ -127,7 +127,7 @@ public final class ECOCraftingPlannerService {
                             }
                             budgetStage = "component_planning";
                             solved = componentPlanner.planWithRouteFallback(compiled, condensation, activeSelection,
-                                    inventory, inventorySnapshot, amount, cyclePlanningEnabled, ignorePatternSubstitutions, cancellation,
+                                    inventorySnapshot, amount, cyclePlanningEnabled, ignorePatternSubstitutions, cancellation,
                                     candidate -> {
                                         ECOCancellation candidateCancellation = accepted[0] == null
                                             ? callerCancellation : searchCancellation;
@@ -377,7 +377,7 @@ public final class ECOCraftingPlannerService {
 
         private ComponentPlanner.Outcome rejectUnclosedSuccess(ComponentPlanner.Outcome solved, long amount) {
             if (solved.status() != PlanningStatus.SUCCESS && !solved.completeCandidate()) return solved;
-            var issue = ECOPlanMaterialValidator.firstDeficit(solved.state(), goal, amount, inventory, compiled,
+            var issue = ECOPlanMaterialValidator.firstDeficit(solved.state(), goal, amount, compiled,
                 liteCraftingMode);
             if (issue == null) return solved;
 

@@ -29,11 +29,16 @@ public final class ECOPlanMaterialValidator {
      */
     public static @Nullable Issue firstDeficit(SolveState state, AEKey finalGoal, long finalAmount,
             KeyCounter initialInventory, @Nullable CompiledNetwork network) {
-        return firstDeficit(state, finalGoal, finalAmount, initialInventory, network, false);
+        return firstDeficit(state, finalGoal, finalAmount, network, false);
     }
 
     public static @Nullable Issue firstDeficit(SolveState state, AEKey finalGoal, long finalAmount,
             KeyCounter initialInventory, @Nullable CompiledNetwork network, boolean liteCrafting) {
+        return firstDeficit(state, finalGoal, finalAmount, network, liteCrafting);
+    }
+
+    public static @Nullable Issue firstDeficit(SolveState state, AEKey finalGoal, long finalAmount,
+            @Nullable CompiledNetwork network, boolean liteCrafting) {
         if (state == null || finalGoal == null || finalAmount <= 0L) {
             return new Issue(null, PlannerAmount.ZERO, PlannerAmount.ZERO, "INVALID_PLAN_ARGUMENT");
         }

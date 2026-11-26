@@ -106,9 +106,16 @@ public final class ComponentPlanner {
     public Outcome planLite(CompiledNetwork network, CondensationGraph condensation,
             KeyCounter inventory, PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
             ECOCancellation cancellation) throws InterruptedException {
+        return planLite(network, condensation, snapshot, amount, cyclePlanningEnabled, cancellation);
+    }
+
+    public Outcome planLite(CompiledNetwork network, CondensationGraph condensation,
+            PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
+            ECOCancellation cancellation) throws InterruptedException {
         if (cyclePlanningEnabled && !condensation.cycles().isEmpty()) {
             var fixedSelection = activeRouteSelector.select(condensation.source(), false, cancellation);
-            return plan(network, fixedSelection, inventory, snapshot, amount, true, true, cancellation);
+            return planWithSeedScope(network, fixedSelection, fixedSelection.cyclicComponents(), snapshot, amount,
+                    true, true, cancellation);
         }
         var solved = acyclicSolver.solveLite(network, condensation, snapshot, amount, cancellation);
         var physical = Set.copyOf(solved.state().plannerPatternTimes().keySet());
@@ -145,7 +152,7 @@ public final class ComponentPlanner {
                         boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
         ActiveRouteSelector.Selection activeSelection = selectRoutes(condensation, cyclePlanningEnabled,
                 cancellation);
-        return planWithSeedScope(network, activeSelection, condensation.cycles(), inventory, snapshot, amount,
+        return planWithSeedScope(network, activeSelection, condensation.cycles(), snapshot, amount,
                 cyclePlanningEnabled, ignorePatternSubstitutions, cancellation);
     }
 
@@ -183,12 +190,12 @@ public final class ComponentPlanner {
     public Outcome plan(CompiledNetwork network, ActiveRouteSelector.Selection activeSelection,
                         KeyCounter inventory, PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
                         boolean ignorePatternSubstitutions, ECOCancellation cancellation) throws InterruptedException {
-        return planWithSeedScope(network, activeSelection, activeSelection.cyclicComponents(), inventory, snapshot,
+        return planWithSeedScope(network, activeSelection, activeSelection.cyclicComponents(), snapshot,
                 amount, cyclePlanningEnabled, ignorePatternSubstitutions, cancellation);
     }
 
     private Outcome planWithSeedScope(CompiledNetwork network, ActiveRouteSelector.Selection activeSelection,
-                        List<CycleComponent> seedScope, KeyCounter inventory, PlannerInventorySnapshot snapshot,
+                        List<CycleComponent> seedScope, PlannerInventorySnapshot snapshot,
                         long amount, boolean cyclePlanningEnabled, boolean ignorePatternSubstitutions,
                         ECOCancellation cancellation) throws InterruptedException {
         if (!(cancellation instanceof ECOPlanningBudget)) cancellation = new ECOPlanningBudget(cancellation);
@@ -832,6 +839,15 @@ public final class ComponentPlanner {
 
     public Outcome planWithRouteFallback(CompiledNetwork network, CondensationGraph universe,
                         ActiveRouteSelector.Selection activeSelection, KeyCounter inventory,
+                        PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
+                        boolean ignorePatternSubstitutions, ECOCancellation cancellation,
+                        @Nullable CandidateListener listener, boolean improvePublishedRoute) throws InterruptedException {
+        return planWithRouteFallback(network, universe, activeSelection, snapshot, amount,
+            cyclePlanningEnabled, ignorePatternSubstitutions, cancellation, listener, improvePublishedRoute);
+    }
+
+    public Outcome planWithRouteFallback(CompiledNetwork network, CondensationGraph universe,
+                        ActiveRouteSelector.Selection activeSelection,
                         PlannerInventorySnapshot snapshot, long amount, boolean cyclePlanningEnabled,
                         boolean ignorePatternSubstitutions, ECOCancellation cancellation,
                         @Nullable CandidateListener listener, boolean improvePublishedRoute) throws InterruptedException {
