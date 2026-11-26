@@ -12,7 +12,7 @@ import java.util.IdentityHashMap;
 import java.util.Set;
 import org.jetbrains.annotations.Nullable;
 
-/** Delegates batch sizing and target selection to AE2LT's native dispatcher. */
+/** Forge AE2LT 2.1.4 routes both normal and wireless targets through OverloadedPatternProviderLogic.pushBatch. */
 public final class ECOAe2LtNativeBatch {
     private static final String LOGIC = "com.moakiee.ae2lt.logic.provider.OverloadedPatternProviderLogic";
     private static final @Nullable Access ACCESS = Access.find();

@@ -43,6 +43,7 @@ import net.minecraft.world.level.Level;
 
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOJobAwareCraftingProvider;
 import appeng.api.features.IPlayerRegistry;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingLink;
@@ -308,7 +309,11 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         // Useless 和 Thunderbolt 的集成可能针对其所属类、方法描述符或调用点进行包装。
         var registered = cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade.pushRegisteredProvider(
             provider, request.pattern(), request.inputs(), request.job().link.getCraftingID());
-        return registered != null ? registered : provider.pushPattern(request.pattern(), request.inputs());
+        if (registered != null) return registered;
+        if (provider instanceof ECOJobAwareCraftingProvider aware) {
+            return aware.pushPattern(request.pattern(), request.inputs(), request.job().link.getCraftingID());
+        }
+        return provider.pushPattern(request.pattern(), request.inputs());
     }
 
     /** 将尚待接收的产物存入 CPU 自有的实际库存。 */

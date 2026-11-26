@@ -1,17 +1,18 @@
 package cn.dancingsnow.neoecoae.api.me.provider;
 
-import cn.dancingsnow.neoecoae.config.NEConfig;
 import appeng.api.networking.crafting.ICraftingProvider;
-
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import cn.dancingsnow.neoecoae.api.me.ECOFastPathFacade;
+import cn.dancingsnow.neoecoae.config.NEConfig;
+import com.google.common.collect.MapMaker;
 import java.lang.ref.WeakReference;
 import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Resolves a provider's parallel intake contract, including providers owned by other mods.
@@ -65,6 +66,19 @@ public final class ECOParallelCraftingProviders {
      */
     public static void register(Class<? extends ICraftingProvider> providerType, Adapter adapter) {
         ADAPTERS.put(providerType, adapter);
+        RESOLVED.clear();
+    }
+
+    /** Registers a batch adapter without advertising ordinary parallel slots. */
+    public static <T extends ICraftingProvider> void registerFastPath(Class<T> type,
+            Function<? super T, ? extends ECOFastPathDispatchProvider> adapter) {
+        // A wrapper may retain its provider. Neither end should keep an unloaded machine alive.
+        Map<T, ECOFastPathDispatchProvider> resolved = new MapMaker().weakKeys().weakValues().makeMap();
+        ECOFastPathFacade.registerProvider(type, provider -> resolved.computeIfAbsent(provider, adapter));
+    }
+
+    public static @Nullable ECOFastPathDispatchProvider findFastPath(ICraftingProvider provider) {
+        return ECOFastPathFacade.resolveNativeProvider(provider);
     }
 
     /**

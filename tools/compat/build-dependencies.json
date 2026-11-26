@@ -42,19 +42,19 @@
     },
     {
       "mod_id": "ae2lt",
-      "version": "2.1.2-beta2-forge.1.20.1",
-      "filename": "ae2lt-forge-1.20.1-2.1.2-beta2.jar",
-      "url": "https://cdn.modrinth.com/data/ArHeh5Fz/versions/eS1qyjYH/ae2lt-forge-1.20.1-2.1.2-beta2.jar",
-      "sha512": "ba4c7f487f883c562feef407f1de6c94d7afbe3f12140dd0857ed4fa66552849351bb65b74cae57b67ce527bab26673c05eff9888d3df91e2493f7b0a7939e43",
-      "sha256": "654e9e8eb13249588b82e9e667f7d4fd18e6eceb8bd2eab821d4a539442b0695"
+      "version": "2.1.4-forge.1.20.1",
+      "filename": "ae2lt-forge-1.20.1-2.1.4.jar",
+      "url": "https://cdn.modrinth.com/data/ArHeh5Fz/versions/RoG4v66B/ae2lt-forge-1.20.1-2.1.4.jar",
+      "sha512": "0cb3e9311372059f0c3a8e16a0f41c0d6c64f5474c0b017d911e46c79300ed105983a4bf94bf3ae2977fe1f97ff6facac2e1f770d796dfbc46d68b649a0cdd6c",
+      "sha256": "5d3e94dfa4949876b653fbb8556e41c1063502154e643c5775d123ea4c28b283"
     },
     {
       "mod_id": "thunderbolt",
-      "version": "2.0.3-beta2-forge.1.20.1",
-      "filename": "thunderbolt-forge-1.20.1-2.0.3-beta2.jar",
-      "url": "https://cdn.modrinth.com/data/M5jhzZXH/versions/tqklE20T/thunderbolt-forge-1.20.1-2.0.3-beta2.jar",
-      "sha512": "917fa55a485bf5ad7f2c77f6ca18c1a0052851c151e3b700f00acae0907aafe05bf34e2aa448fd3cfe326008b2265d17273acb86f28d42c381beb7532889b44c",
-      "sha256": "f3b58a63ed6fad9149d8d85fba4cdd5036170369694aa8cec8f8785eb19bff51"
+      "version": "2.0.5-forge.1.20.1",
+      "filename": "thunderbolt-forge-1.20.1-2.0.5.jar",
+      "url": "https://cdn.modrinth.com/data/M5jhzZXH/versions/v6bJHg61/thunderbolt-forge-1.20.1-2.0.5.jar",
+      "sha512": "6d527e93c3b6af755c299d65909d9222c0867c8d2dd3c50dce1fbe8c3bdddc3ac13ec3c87e1ec9394acd9fb0ba24a8508df49de971059c8e15a18b4660c71fd8",
+      "sha256": "244ec0506f378df051a93552813b594d61cc3f46d849b99e79eea29003e4a979"
     },
     {
       "mod_id": "glodium",

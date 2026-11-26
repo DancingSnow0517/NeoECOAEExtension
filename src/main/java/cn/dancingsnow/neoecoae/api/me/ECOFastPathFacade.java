@@ -50,6 +50,14 @@ public final class ECOFastPathFacade {
         registerProvider(providerType, factory, takesPrecedenceOverScaling, null);
     }
 
+    /** Replace only the factory; a separately registered order-ID callback and dispatch priority are retained. */
+    public static <T extends ICraftingProvider> void registerProvider(Class<T> type,
+            Function<? super T, ? extends ECOFastPathDispatchProvider> factory) {
+        var old = PROVIDERS.get(type);
+        PROVIDERS.put(type, new ProviderRegistration(p -> factory.apply(type.cast(p)),
+            old != null && old.takesPrecedenceOverScaling(), old == null ? null : old.push()));
+    }
+
     @FunctionalInterface
     public interface JobAwarePush<T extends ICraftingProvider> {
         boolean push(T provider, IPatternDetails pattern, KeyCounter[] inputs, @Nullable UUID jobId);
@@ -128,7 +136,7 @@ public final class ECOFastPathFacade {
     }
 
     public static boolean supportsNativeProvider(ICraftingProvider provider) {
-        return provider instanceof ECOFastPathDispatchProvider || registeredProvider(provider) != null;
+        return resolveNativeProvider(provider) != null;
     }
 
     @Nullable
@@ -137,10 +145,22 @@ public final class ECOFastPathFacade {
         return nativeProvider != null ? nativeProvider : ECOExtendedAEPlusMatrixBridge.adapt(provider);
     }
 
-    private static @Nullable ECOFastPathDispatchProvider resolveNativeProvider(ICraftingProvider provider) {
+    public static @Nullable ECOFastPathDispatchProvider resolveNativeProvider(ICraftingProvider provider) {
+        if (provider == null) return null;
         if (provider instanceof ECOFastPathDispatchProvider nativeProvider) return nativeProvider;
         var registration = registeredProvider(provider);
-        return registration == null ? null : registration.factory().apply(provider);
+        if (registration != null) {
+            try {
+                var adapted = registration.factory().apply(provider);
+                if (adapted != null) return adapted;
+            } catch (RuntimeException failed) {
+                // Discovery has not submitted any inputs. A broken optional factory must not strand the job.
+                org.slf4j.LoggerFactory.getLogger(ECOFastPathFacade.class)
+                    .warn("FastPath provider adapter failed for {}", provider.getClass().getName(), failed);
+            }
+        }
+        return cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders.find(provider)
+                instanceof ECOFastPathDispatchProvider parallel ? parallel : null;
     }
 
     /** Null means no resources moved and ordinary dispatch is available. craftCount is the live upper bound. */

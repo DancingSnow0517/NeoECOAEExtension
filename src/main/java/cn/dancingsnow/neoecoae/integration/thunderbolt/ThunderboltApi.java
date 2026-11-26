@@ -3,19 +3,16 @@ package cn.dancingsnow.neoecoae.integration.thunderbolt;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-/** Resolves the relocated Thunderbolt contracts without linking against either version. */
+/** Public Thunderbolt 2.0.5 contracts, resolved only when this optional mod is present. */
 public final class ThunderboltApi {
     public static final Class<?> OVERLOAD = findType(
-            "com.moakiee.thunderbolt.core.crafting.overload.OverloadedPatternDetails",
-            "com.moakiee.thunderbolt.ae2.overload.pattern.OverloadedProviderOnlyPatternDetails");
+            "com.moakiee.thunderbolt.core.crafting.overload.OverloadedPatternDetails");
     public static final Class<?> WRAPPER = findType(
-            "com.moakiee.thunderbolt.core.crafting.pattern.IWrappedPatternDetails",
-            "com.moakiee.thunderbolt.ae2.overload.pattern.WrappedPatternDetails");
+            "com.moakiee.thunderbolt.core.crafting.pattern.IWrappedPatternDetails");
     public static final Class<?> PROVIDER_LOOKUP = findType(
             "com.moakiee.thunderbolt.core.crafting.pattern.IProviderLookupPattern");
     public static final Class<?> BATCH_PROVIDER = findType(
-            "com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider",
-            "com.moakiee.thunderbolt.ae2.api.crafting.IBatchCraftingProvider");
+            "com.moakiee.thunderbolt.api.crafting.batch.IBatchCraftingProvider");
 
     private ThunderboltApi() {}
 
@@ -44,14 +41,11 @@ public final class ThunderboltApi {
         }
     }
 
-    private static Class<?> findType(String... names) {
-        for (String name : names) {
-            try {
-                return Class.forName(name, false, ThunderboltApi.class.getClassLoader());
-            } catch (ClassNotFoundException | LinkageError unavailable) {
-                // Try the previous package layout, or leave this optional integration disabled.
-            }
+    private static Class<?> findType(String name) {
+        try {
+            return Class.forName(name, false, ThunderboltApi.class.getClassLoader());
+        } catch (ClassNotFoundException | LinkageError unavailable) {
+            return null;
         }
-        return null;
     }
 }

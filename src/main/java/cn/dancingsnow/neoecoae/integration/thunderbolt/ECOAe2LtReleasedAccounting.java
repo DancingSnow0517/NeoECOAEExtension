@@ -19,7 +19,7 @@ import java.util.function.BiFunction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 
-/** Loaded only when AE2LT is present; uses public contracts shipped in 2.1.2-beta3. */
+/** Loaded only when AE2LT is present; uses public contracts shipped in Forge 2.1.4. */
 final class ECOAe2LtReleasedAccounting {
     private static final OverloadCpuStateManager STATES = OverloadCpuStateManager.INSTANCE;
     private static final ECOOverloadCpuAccountingBridge.Registration ORDINARY = registration(true, null);
