@@ -5,6 +5,8 @@ import appeng.api.stacks.GenericStack;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import java.util.List;
+import java.util.Set;
+import net.minecraft.core.Direction;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.gen.Invoker;
@@ -17,6 +19,9 @@ public interface PatternProviderLogicAccessor {
 
     @Accessor("sendList")
     List<GenericStack> neoecoae$getSendList();
+
+    @Invoker("getActiveSides")
+    Set<Direction> neoecoae$getActiveSides();
 
     @Invoker("onPushPatternSuccess")
     void neoecoae$onPushPatternSuccess(IPatternDetails pattern);
