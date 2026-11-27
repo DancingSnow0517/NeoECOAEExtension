@@ -1,5 +1,4 @@
 {
-  "parent": "mixins/neoecoae.optional.mixins.json",
   "required": true,
   "minVersion": "0.8",
   "package": "cn.dancingsnow.neoecoae.mixins",
@@ -58,7 +57,33 @@
     "ldlib.AsyncThreadDataMixin",
     "minecraft.LightningBoltMixin",
     "minecraft.PlayerRemoteMachineReachMixin",
-    "fluxnetworks.ServerFluxNetworkMixin"
+    "fluxnetworks.ServerFluxNetworkMixin",
+    "ae2.keyreuse.MekanismKeyReuseMixin",
+    "ae2.keyreuse.MatterKeyReuseMixin",
+    "advanced_ae.accessor.AdvancedAeCraftingJobAccessor",
+    "advanced_ae.accessor.AdvancedAeElapsedTimeTrackerInvoker",
+    "advanced_ae.accessor.AdvancedAeTaskProgressAccessor",
+    "advanced_ae.crafting.AdvancedAeCraftingCpuLogicMixin",
+    "advanced_ae.crafting.AdvancedAeCraftingServiceMixin",
+    "extendedae.ExtendedAeIOPortBlockEntityMixin",
+    "extendedae.ExtendedAeIOPortMenuMixin",
+    "merequester.RequesterPlanningMixin",
+    "ae2omnicells.AEUniversalCellInventoryMixin",
+    "ae2omnicells.IAEUniversalCellMixin",
+    "ae2omnicells.OmniWasteCellRecognitionMixin",
+    "thunderbolt.Ae2LtTimeWheelCraftingCpuLogicMixin",
+    "thunderbolt.ECOThunderboltWorkstationProviderMixin",
+    "thunderbolt.Ae2LtIOPortBlockEntityMixin",
+    "thunderbolt.Ae2LtIOPortMenuMixin",
+    "thunderbolt.Ae2LtWorkstationWirelessMixin",
+    "thunderbolt.ThunderboltPlanningEngineMixin",
+    "thunderbolt.ECOProcessingPatternFuzzyMixin",
+    "appbot.BotaniaForgeCapabilitiesMixin",
+    "ae2_pattern_disk.PatternDiskProviderDiskSlotMixin",
+    "ae2_pattern_disk.BatchAssemblerDiskSlotMixin",
+    "ae2_pattern_disk.DiskHostSupportMixin",
+    "ae2_pattern_disk.BatchAssemblerBlockEntityMixin",
+    "ae2.terminalbigamount.MEStorageMenuExactAmountMixin"
   ],
   "client": [
     "jei.client.RecipeLayoutMixin",
@@ -76,7 +101,9 @@
     "ae2.client.PatternEncodingTermScreenMixin",
     "ae2.client.SetStockAmountScreenMixin",
     "ae2.client.FluidHatchNumberEntryWidgetMixin",
-    "minecraft.client.ModelBakeryMixin"
+    "minecraft.client.ModelBakeryMixin",
+    "ae2.client.terminalbigamount.MEStorageScreenExactAmountMixin",
+    "ae2.client.terminalbigamount.RepoExactAmountMixin"
   ],
   "server": [],
   "injectors": {

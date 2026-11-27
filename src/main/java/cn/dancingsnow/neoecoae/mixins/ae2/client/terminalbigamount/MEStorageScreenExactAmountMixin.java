@@ -34,13 +34,13 @@ public abstract class MEStorageScreenExactAmountMixin {
         }
     }
 
-    @Inject(method = "removed", at = @At("HEAD"))
+    @Inject(method = "removed", at = @At("HEAD"), require = 0)
     private void neoecoae$clearExactAmounts(CallbackInfo ci) {
         var self = (MEStorageScreen<?>) (Object) this;
         ExactAmountClientCache.clear(self.getMenu().containerId);
     }
 
-    @ModifyExpressionValue(method = "renderSlot", at = @At(value = "INVOKE", target =
+    @ModifyExpressionValue(method = "renderSlot", require = 0, at = @At(value = "INVOKE", target =
         "Lappeng/api/stacks/AEKey;formatAmount(JLappeng/api/stacks/AmountFormat;)Ljava/lang/String;"))
     private String neoecoae$renderExactSlotAmount(String original, @Local GridInventoryEntry entry) {
         MEStorageScreen<?> self = (MEStorageScreen<?>) (Object) this;
@@ -48,7 +48,7 @@ public abstract class MEStorageScreenExactAmountMixin {
         return exact == null ? original : ExactAmountFormatter.slot(entry.getWhat(), exact);
     }
 
-    @ModifyExpressionValue(method = "renderGridInventoryEntryTooltip", at = @At(value = "INVOKE", target =
+    @ModifyExpressionValue(method = "renderGridInventoryEntryTooltip", require = 0, at = @At(value = "INVOKE", target =
         "Lappeng/core/localization/Tooltips;getAmountTooltip(Lappeng/core/localization/ButtonToolTips;Lappeng/api/stacks/AEKey;J)Lnet/minecraft/network/chat/Component;"))
     private net.minecraft.network.chat.Component neoecoae$renderExactTooltip(
             net.minecraft.network.chat.Component original, @Local(argsOnly = true) GridInventoryEntry entry) {
