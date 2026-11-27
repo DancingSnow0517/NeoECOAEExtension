@@ -18,15 +18,12 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
-import java.util.ArrayList;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
@@ -154,18 +151,7 @@ public final class LargeWorkstationUI {
                 // A capacity query must not briefly remove the card and republish the pattern catalog.
                 return Math.min(getMaxStackSize(), stack.getMaxStackSize());
             }
-        }) {
-            @Override
-            protected void onHoverTooltips(UIEvent event) {
-                var lines = new ArrayList<Component>();
-                lines.add(Component.translatable("gui.neoecoae.workstation.module_slot").withStyle(ChatFormatting.YELLOW));
-                if (!getValue().isEmpty()) lines.addAll(getFullTooltipTexts());
-                else lines.add(Component.translatable("gui.neoecoae.workstation.module_slot_empty"));
-                lines.add(Component.translatable("gui.neoecoae.workstation.module_slot_hint").withStyle(ChatFormatting.GRAY));
-                lines.add(Component.translatable("gui.neoecoae.workstation.module_swap_hint").withStyle(ChatFormatting.GRAY));
-                event.hoverTooltips = new HoverTooltips(lines, null, null, getValue());
-            }
-        };
+        });
         slot.style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
         return slot;
     }
