@@ -1,14 +1,23 @@
 package cn.dancingsnow.neoecoae.api.me.bigorder;
 
+import cn.dancingsnow.neoecoae.grid.crafting.amount.PlannerAmount;
 import cn.dancingsnow.neoecoae.grid.crafting.planner.result.ECOPlanningResult;
 import cn.dancingsnow.neoecoae.grid.crafting.planner.result.PlanningStatus;
 import java.math.BigInteger;
-import cn.dancingsnow.neoecoae.grid.crafting.amount.PlannerAmount;
 import java.util.function.LongUnaryOperator;
 
 /** Submission allow-list: diagnostic shells never become execution plans. */
 public final class ECOBigOrderAdmission {
+    public static final int MAX_AMOUNT_DIGITS = 1024;
+
     private ECOBigOrderAdmission() {}
+
+    /** Shared bound for request, progress and persisted parent-order amounts; zero is valid for progress. */
+    public static BigInteger checkedAmount(BigInteger amount) {
+        if (amount == null || amount.signum() < 0 || amount.toString().length() > MAX_AMOUNT_DIGITS)
+            throw new IllegalArgumentException("Invalid exact order amount");
+        return amount;
+    }
 
     /** Check current access without narrowing a parent's exact reservation to long. */
     public static boolean hasStoredAmount(BigInteger required, boolean unbounded, LongUnaryOperator simulate) {

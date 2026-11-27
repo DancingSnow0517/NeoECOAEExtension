@@ -43,7 +43,7 @@ final class CraftingControllerSync {
         tag.putLong("energyUsage", config.energyUsage().getAsLong());
         tag.putBoolean("creativeEnergy", config.creativeEnergy().getAsBoolean());
         tag.putLong("performanceNanos", config.performanceAverageNanos().getAsLong());
-        tag.putLong("queuedCraftCount", config.queuedCraftCount().getAsLong());
+        tag.putString("queuedCraftCount", config.queuedCraftCount().get().toString());
         tag.putLong("batchCapacity", config.batchCapacity().getAsLong());
         tag.putLong("ftParallelCapacity", config.ftParallelCapacity().getAsLong());
         tag.putLong("overflowCapacity", config.overflowCapacity().getAsLong());
@@ -107,7 +107,9 @@ final class CraftingControllerSync {
         view.energyUsage = Math.max(0L, tag.getLong("energyUsage"));
         view.creativeEnergy = tag.getBoolean("creativeEnergy");
         view.performanceAverageNanos = Math.max(0L, tag.getLong("performanceNanos"));
-        view.queuedCraftCount = Math.max(0L, tag.getLong("queuedCraftCount"));
+        view.queuedCraftCount = tag.contains("queuedCraftCount", Tag.TAG_STRING)
+            ? new BigInteger(tag.getString("queuedCraftCount"))
+            : BigInteger.valueOf(Math.max(0L, tag.getLong("queuedCraftCount")));
         view.batchCapacity = Math.max(0L, tag.getLong("batchCapacity"));
         view.ftParallelCapacity = Math.max(0L, tag.getLong("ftParallelCapacity"));
         view.overflowCapacity = Math.max(0L, tag.getLong("overflowCapacity"));

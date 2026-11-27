@@ -72,6 +72,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.grid.crafting.execution.fastpath.ECOSingleCraftingExecutor;
+import cn.dancingsnow.neoecoae.api.me.provider.ECOJobAwareCraftingProvider;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOParallelCraftingProviders;
 import cn.dancingsnow.neoecoae.grid.crafting.planner.result.execution.ECOPhaseScheduler;
 import cn.dancingsnow.neoecoae.grid.storage.supply.ECOCreativeSupply;
@@ -317,7 +318,11 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         // Thunderbolt 的集成可能针对其所属类、方法描述符或调用点进行包装。
         var registered = ECOParallelCraftingProviders.pushForJob(provider, request.pattern(), request.inputs(),
             request.job().link.getCraftingID());
-        return registered != null ? registered : provider.pushPattern(request.pattern(), request.inputs());
+        if (registered != null) return registered;
+        if (provider instanceof ECOJobAwareCraftingProvider aware) {
+            return aware.pushPattern(request.pattern(), request.inputs(), request.job().link.getCraftingID());
+        }
+        return provider.pushPattern(request.pattern(), request.inputs());
     }
 
     /** 将尚待接收的产物存入 CPU 自有的实际库存。 */

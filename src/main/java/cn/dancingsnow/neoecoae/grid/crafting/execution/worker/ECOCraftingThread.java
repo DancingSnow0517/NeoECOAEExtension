@@ -402,7 +402,11 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     public java.math.BigInteger getExactCraftCount() {
-        return exactVirtual == null ? java.math.BigInteger.valueOf(getCraftCount()) : exactVirtual.crafts();
+        return getCraftQuantity().toBigInteger();
+    }
+
+    public PlannerAmount getCraftQuantity() {
+        return exactVirtual == null ? PlannerAmount.of(getCraftCount()) : exactVirtual.craftQuantity();
     }
 
     public boolean pushVirtualBatch(

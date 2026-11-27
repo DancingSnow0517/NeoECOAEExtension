@@ -112,17 +112,31 @@ public final class ECOInfiniteStorageDomains {
             return true;
         }
 
+        public boolean unbind(UUID id, GlobalPos expectedLocation) {
+            if (!readable || id == null || expectedLocation == null) return false;
+            if (!expectedLocation.equals(locations.get(id))) return false;
+            locations.remove(id);
+            domains.remove(expectedLocation);
+            if (id.equals(pendingDomain)) pendingDomain = null;
+            if (id.equals(displacedDomain)) displacedDomain = null;
+            setDirty();
+            write();
+            return true;
+        }
+
         public void retry() {
             if (readable && checkpoint.isCompletedExceptionally()) write();
         }
 
         private void write() {
+            if (!readable || file == null || registries == null) return;
             CompoundTag root = new CompoundTag();
             root.put("data", save(new CompoundTag(), registries));
             NbtUtils.addCurrentDataVersion(root);
+            var previousWrite = checkpoint;
             var result = new CompletableFuture<Void>();
             checkpoint = result;
-            IOUtilities.withIOWorker(() -> {
+            previousWrite.whenComplete((ignored, prevFailure) -> IOUtilities.withIOWorker(() -> {
                 try {
                     IOUtilities.writeNbtCompressed(root, file);
                     result.complete(null);
@@ -130,7 +144,7 @@ public final class ECOInfiniteStorageDomains {
                     LOGGER.error("Cannot checkpoint infinite storage host associations", failure);
                     result.completeExceptionally(failure);
                 }
-            });
+            }));
         }
 
         @Override

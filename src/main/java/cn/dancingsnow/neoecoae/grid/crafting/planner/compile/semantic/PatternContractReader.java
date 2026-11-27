@@ -40,6 +40,23 @@ public final class PatternContractReader {
     public record View(List<GenericStack> outputs, List<Input> inputs, boolean wellFormed) {
     }
 
+    public static View readFixedProcessingInputs(IPatternDetails pattern) {
+        try {
+            if (!pattern.supportsPushInputsToExternalInventory()) return EMPTY;
+        } catch (RuntimeException unavailable) {
+            if (NEConfig.ecoDispatchWatchdogDebug) LOGGER.debug(
+                "Pattern {} failed supportsPushInputsToExternalInventory; treating inputs as unfixed",
+                pattern.getClass().getName(), unavailable);
+            return EMPTY;
+        }
+        View view = read(pattern);
+        if (!view.wellFormed()) return EMPTY;
+        for (Input input : view.inputs()) {
+            if (input.possible().length != 1 || input.primary().amount() <= 0L || input.multiplier() <= 0L) return EMPTY;
+        }
+        return view;
+    }
+
     public static View read(IPatternDetails pattern) {
         Objects.requireNonNull(pattern, "pattern");
         try {

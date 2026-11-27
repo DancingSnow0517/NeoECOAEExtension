@@ -774,9 +774,6 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
     private static MutableComponent card(String key, Object... args) { return tr("card." + key, args); }
     private static Component title(String key) { return tr(key).withStyle(ChatFormatting.YELLOW); }
     private static Component hint(String key) { return tr(key).withStyle(ChatFormatting.GRAY); }
-    private static Component settingState(boolean enabled) {
-        return tr(enabled ? "enabled" : "disabled").withStyle(enabled ? ChatFormatting.GREEN : ChatFormatting.GRAY);
-    }
     private static String decimal(double value) { return DisplayNumbers.decimal(value, 1); }
     private static String precise(double value) { return DisplayNumbers.decimal(value, 2); }
     private static String signedRate(double value) {

@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.grid.crafting.execution.bigorder;
 
+import cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderAdmission;
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderProgress;
 import cn.dancingsnow.neoecoae.api.me.bigorder.ECOBigOrderState;
 
@@ -10,7 +11,7 @@ import java.util.UUID;
 
 /** Server-owned parent ledger. A child is credited only after its final delivery has completed. */
 public final class ECOBigCraftingOrder {
-    public static final int MAX_AMOUNT_DIGITS = 1024;
+    public static final int MAX_AMOUNT_DIGITS = ECOBigOrderAdmission.MAX_AMOUNT_DIGITS;
     private final UUID id;
     private final PlannerAmount requested;
     private PlannerAmount completed;
@@ -31,9 +32,7 @@ public final class ECOBigCraftingOrder {
     }
 
     public static BigInteger checked(BigInteger amount) {
-        if (amount == null || amount.signum() < 0 || amount.toString().length() > MAX_AMOUNT_DIGITS)
-            throw new IllegalArgumentException("Invalid exact order amount");
-        return amount;
+        return ECOBigOrderAdmission.checkedAmount(amount);
     }
 
     public static BigInteger decode(String value) {
