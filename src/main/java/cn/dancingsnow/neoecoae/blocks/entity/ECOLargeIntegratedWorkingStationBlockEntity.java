@@ -535,6 +535,12 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             : cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules.customFromCard(moduleInventory.getStackInSlot(0));
     }
 
+    public net.minecraft.resources.ResourceLocation getModuleAppearanceId() {
+        var custom = getInstalledModuleDescription();
+        return custom != null ? custom.id()
+            : cn.dancingsnow.neoecoae.NeoECOAE.id(getInstalledModule().getSerializedName());
+    }
+
     public IItemHandlerModifiable getModuleInventory() { return moduleInventory; }
 
     private void moduleChanged() {
