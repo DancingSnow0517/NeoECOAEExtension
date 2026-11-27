@@ -262,6 +262,11 @@ public class NELangGenerator {
         provider.add("item.neoecoae.eco_data_storage_cell_16m", "ECO - LE4 Storage Matrix (Data)");
         provider.add("item.neoecoae.eco_data_storage_cell_64m", "ECO - LE6 Storage Matrix (Data)");
         provider.add("item.neoecoae.eco_data_storage_cell_256m", "ECO - LE9 Storage Matrix (Data)");
+        provider.add("item.neoecoae.eco_pattern_disk_cell_l4", "ECO - LE4 Pattern Disk Matrix");
+        provider.add("item.neoecoae.eco_pattern_disk_cell_l6", "ECO - LE6 Pattern Disk Matrix");
+        provider.add("item.neoecoae.eco_pattern_disk_cell_l9", "ECO - LE9 Pattern Disk Matrix");
+        provider.add("cell_type.neoecoae.pattern_disk", "Patterns");
+        provider.add("gui.neoecoae.storage.cell_patterns", "Patterns: %s / %s");
         provider.add("cell_type.neoecoae.mega_mana", "MEGA Mana");
         provider.add("item.neoecoae.mega_mana_cell_housing", "ECO MEGA Storage Matrix Housing (Mana)");
         provider.add("item.neoecoae.eco_mega_mana_cell_4g", "ECO - LE9 Storage Matrix (Mega Mana)");

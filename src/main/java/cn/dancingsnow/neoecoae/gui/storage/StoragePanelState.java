@@ -58,10 +58,18 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
     static final StoragePanelState EMPTY = new StoragePanelState(Component.empty(), 0, false, false, false,
         0, 0, 0, "0", 0, 0, 0, List.of(), List.of(), "", 0, false);
 
+    /** @param countOnly the type holds a count, not bytes (see {@code ECOCellType#countOnly}); the panel shows the count alone */
     record TypeLine(int id, Component name, int color, long usedTypes, long totalTypes,
         long usedBytes, long totalBytes, String bytesText, int swatch, BigInteger exactUsedBytes,
         net.minecraft.resources.ResourceLocation channel, net.minecraft.resources.ResourceLocation icon,
-        net.minecraft.resources.ResourceLocation swatchTexture) {
+        net.minecraft.resources.ResourceLocation swatchTexture, boolean countOnly) {
+        TypeLine(int id, Component name, int color, long usedTypes, long totalTypes,
+            long usedBytes, long totalBytes, String bytesText, int swatch, BigInteger exactUsedBytes,
+            net.minecraft.resources.ResourceLocation channel, net.minecraft.resources.ResourceLocation icon,
+            net.minecraft.resources.ResourceLocation swatchTexture) {
+            this(id, name, color, usedTypes, totalTypes, usedBytes, totalBytes, bytesText, swatch, exactUsedBytes,
+                channel, icon, swatchTexture, false);
+        }
         TypeLine(int id, Component name, int color, long usedTypes, long totalTypes,
             long usedBytes, long totalBytes, String bytesText, int swatch, BigInteger exactUsedBytes) {
             this(id, name, color, usedTypes, totalTypes, usedBytes, totalBytes, bytesText, swatch, exactUsedBytes, null, null, null);
@@ -100,7 +108,8 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
                 usedTypes, totalTypes, usedBytes, totalBytes,
                 infinite || migrating || totalBytes < 0 ? line.infiniteBytesText().get() : HostText.ae2Amount(usedBytes),
                 swatch, line.exactUsedBytes().get().max(BigInteger.ZERO), display == null ? null : display.channel(),
-                display == null ? null : display.icon(), display == null ? null : display.swatch()));
+                display == null ? null : display.icon(), display == null ? null : display.swatch(),
+                line.type().countOnly()));
         }
         types.sort(java.util.Comparator.comparingInt(type -> orders.getOrDefault(type.id(), 0)));
         return new StoragePanelState(config.title().get(), config.tier().getAsInt(), config.formed().getAsBoolean(),
@@ -210,6 +219,7 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
             if (type.channel() != null) entry.putString("channel", type.channel().toString());
             if (type.icon() != null) entry.putString("icon", type.icon().toString());
             if (type.swatchTexture() != null) entry.putString("swatchTexture", type.swatchTexture().toString());
+            if (type.countOnly()) entry.putBoolean("countOnly", true);
         }
         tag.put("types", lines);
         return tag;
@@ -239,7 +249,8 @@ record StoragePanelState(Component title, int tier, boolean formed, boolean infi
                 new BigInteger(type.getString("exactBytes")),
                 type.contains("channel") ? net.minecraft.resources.ResourceLocation.tryParse(type.getString("channel")) : null,
                 type.contains("icon") ? net.minecraft.resources.ResourceLocation.tryParse(type.getString("icon")) : null,
-                type.contains("swatchTexture") ? net.minecraft.resources.ResourceLocation.tryParse(type.getString("swatchTexture")) : null));
+                type.contains("swatchTexture") ? net.minecraft.resources.ResourceLocation.tryParse(type.getString("swatchTexture")) : null,
+                type.getBoolean("countOnly")));
         }
         return new StoragePanelState(component(tag, "title"), tag.getInt("tier"), tag.getBoolean("formed"),
             tag.getBoolean("infinite"), tag.getBoolean("migrating"), tag.getLong("energy"), tag.getLong("maxEnergy"),
