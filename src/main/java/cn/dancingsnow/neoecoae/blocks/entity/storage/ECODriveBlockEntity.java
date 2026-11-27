@@ -38,7 +38,7 @@ import java.util.List;
 import java.util.UUID;
 
 public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity<cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster, ECODriveBlockEntity>
-    implements NEManagedBlockEntity, IStorageProvider, ICellHost, ISaveProvider {
+    implements NEManagedBlockEntity, IStorageProvider, ICellHost, ISaveProvider, cn.dancingsnow.neoecoae.storage.DeferredCellPersistence {
     private static final String RESTORE_RECEIPTS_TAG = "neoecoae_restore_receipts";
 
     @Getter
@@ -429,6 +429,16 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
             var supply = storage.neoecoae$activeRefillSupply();
             if (supply != null) supply.availabilityChanged(creative, online);
         }
+    }
+
+    @Override
+    public boolean neoecoae$canDeferCellPersistence() {
+        return level != null && !level.isClientSide && level.getServer() != null && level.getServer().isSameThread();
+    }
+
+    @Override
+    public void neoecoae$onCellContentsChanged(cn.dancingsnow.neoecoae.storage.ECOStorageCell cell) {
+        onStorageContentsChanged(cell);
     }
 
     public void onStorageContentsChanged(cn.dancingsnow.neoecoae.storage.ECOStorageCell cell) {

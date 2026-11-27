@@ -59,6 +59,7 @@ public final class ECOStorageLifecycleEvents {
         for (ServerLevel level : event.getServer().getAllLevels()) {
             NELogicalNetworkManager.tick(level);
         }
+        ECOCellMutationBatch.flushDeferred();
         ECOCellMutationBatch.retry();
         cn.dancingsnow.neoecoae.storage.persistence.ECOStorageRepository.tick(event.getServer(), event.getServer().getTickCount());
         PatternBusUpdateScheduler.tick(event.getServer());

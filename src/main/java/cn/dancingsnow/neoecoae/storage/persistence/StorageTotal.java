@@ -35,6 +35,11 @@ public final class StorageTotal {
         else add(HugeAmount.of(amount));
     }
 
+    public void subtract(BigInteger amount) {
+        if (amount.signum() < 0) add(HugeAmount.of(amount.negate()));
+        else subtract(HugeAmount.of(amount));
+    }
+
     public void add(HugeAmount amount) { set(exact().add(amount)); }
 
     public void subtract(HugeAmount amount) {
