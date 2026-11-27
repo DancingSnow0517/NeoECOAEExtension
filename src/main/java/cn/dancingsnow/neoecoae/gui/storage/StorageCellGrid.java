@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import java.util.function.Supplier;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
+import cn.dancingsnow.neoecoae.api.storage.IECODrivePatternCellItem;
 import cn.dancingsnow.neoecoae.gui.common.HostPanelTier;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.menu.HostDiskMenu.DiskSlot;
@@ -238,7 +239,12 @@ final class StorageCellGrid extends UIElement {
 
     private List<Component> tooltip(StorageHostUI.CellEntry cell) {
         List<Component> lines = new ArrayList<>();
-        if (!cell.stack().isEmpty()) {
+        if (!cell.stack().isEmpty() && cell.stack().getItem() instanceof IECODrivePatternCellItem) {
+            // A pattern matrix has no bytes and no storage priority: only how many patterns it holds.
+            lines.add(cell.stack().getHoverName().copy());
+            lines.add(patternCountLine(cell.usedTypes(), cell.totalTypes()));
+            if (cell.extractionBlockReason() != null) lines.add(cell.extractionBlockReason());
+        } else if (!cell.stack().isEmpty()) {
             lines.add(cell.stack().getHoverName().copy());
             long byteCapacity = cell.infinite() || cell.totalBytes() == Long.MAX_VALUE ? -1 : cell.totalBytes();
             lines.add(Component.translatable("gui.neoecoae.storage.legacy.cell_bytes",
@@ -259,6 +265,12 @@ final class StorageCellGrid extends UIElement {
     static Component pageText(StoragePanelState state, int pageSize) {
         return Component.translatable("gui.neoecoae.storage.ui.cell_page", state.cellCount(),
             state.cellOffset() / pageSize + 1, Math.max(1, (state.cellCount() + pageSize - 1) / pageSize));
+    }
+
+    /** The line a count-only cell shows in place of the byte and type lines: patterns held over capacity. */
+    static Component patternCountLine(long used, long total) {
+        return Component.translatable("gui.neoecoae.storage.cell_patterns",
+            HostText.usedPart(HostText.ae2Amount(used), used, total), HostText.totalPart(capacity(total)));
     }
 
     static String capacity(long value) { return value < 0 ? "\u221E" : HostText.ae2Amount(value); }

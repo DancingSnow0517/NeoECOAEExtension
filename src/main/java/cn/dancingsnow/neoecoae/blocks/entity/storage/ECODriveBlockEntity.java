@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IECOCellWorkbenchDrive;
+import cn.dancingsnow.neoecoae.api.storage.IECODrivePatternCellItem;
 import cn.dancingsnow.neoecoae.api.storage.StoragePriority;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.grid.storage.infinite.ECOInfiniteStorageMember;
@@ -253,7 +254,12 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     @Override
     public boolean isItemValid(ItemStack stack) {
-        return ECOStorageCells.isCellHandled(stack);
+        return ECOStorageCells.isCellHandled(stack) || isPatternCell(stack);
+    }
+
+    /** A pattern cell is held like a disk: it mounts no storage and, for now, offers nothing to autocrafting. */
+    private static boolean isPatternCell(@Nullable ItemStack stack) {
+        return stack != null && !stack.isEmpty() && stack.getItem() instanceof IECODrivePatternCellItem;
     }
 
     @Override
@@ -484,6 +490,10 @@ public class ECODriveBlockEntity extends cn.dancingsnow.neoecoae.blocks.entity.N
 
     private void updateCellState() {
         if (level == null || level.isClientSide) {
+            return;
+        }
+        if (cellStack != null && cellStack.getItem() instanceof IECODrivePatternCellItem patternCell) {
+            cellState = patternCell.getDriveCellState(cellStack);
             return;
         }
         IECOStorageCell cellInventory = getCellInventory();

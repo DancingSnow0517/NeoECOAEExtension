@@ -35,6 +35,12 @@ public class NECellTypeBuilder<P> extends AbstractBuilder<ECOCellType, ECOCellTy
         return this;
     }
 
+    /** @see ECOCellType#countOnly() */
+    public NECellTypeBuilder<P> countOnly(boolean countOnly) {
+        builder.countOnly(countOnly);
+        return this;
+    }
+
     @Override
     protected NECellTypeEntry createEntryWrapper(DeferredHolder<ECOCellType, ECOCellType> delegate) {
         return new NECellTypeEntry(getOwner(), delegate);

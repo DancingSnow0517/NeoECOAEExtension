@@ -20,6 +20,7 @@ public final class ECOMixinLoadConfig implements IMixinConfigPlugin {
     private static final String KEY_REUSE_MIXINS = "ae2.keyreuse.";
     private static final Map<String, List<String>> REQUIRED_MODS = Map.of(
         "advanced_ae.", List.of("advanced_ae"),
+        "ae2_pattern_disk.", List.of("ae2_pattern_disk"),
         "ae2omnicells.", List.of("ae2omnicells"),
         "appbot.", List.of("appbot", "botania"),
         "extendedae.", List.of("extendedae"),

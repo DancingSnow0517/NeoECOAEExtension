@@ -23,7 +23,7 @@ public abstract class MEStorageMenuExactAmountMixin {
     @Unique private KeyCounter neoecoae$comparedInventory;
     @Shadow private KeyCounter previousAvailableStacks;
 
-    @WrapOperation(method = "broadcastChanges", at = @At(value = "INVOKE", target =
+    @WrapOperation(method = "broadcastChanges", require = 0, at = @At(value = "INVOKE", target =
         "Lappeng/api/storage/MEStorage;getAvailableStacks()Lappeng/api/stacks/KeyCounter;"))
     private KeyCounter neoecoae$collectExactAmounts(MEStorage storage, Operation<KeyCounter> original) {
         return neoecoae$exactAmountSync.collect((MEStorageMenu) (Object) this, storage, () -> original.call(storage));

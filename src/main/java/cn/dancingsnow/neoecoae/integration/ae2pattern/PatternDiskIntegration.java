@@ -4,6 +4,8 @@ import appeng.api.inventories.InternalInventory;
 import appeng.api.util.IConfigManager;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 
+import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
 import cn.dancingsnow.neoecoae.config.NELogConfig;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationInterfaceBlockEntity;
@@ -84,6 +86,11 @@ public class PatternDiskIntegration {
                     missing);
             return;
         }
+        NEPatternDiskItems.register();
+        // The model a storage drive draws for an installed matrix; without it the drive falls back to its default.
+        ECOCellModels.register(NEPatternDiskItems.L4, NeoECOAE.id("block/cell/storage_cell_l4_pattern_disk"));
+        ECOCellModels.register(NEPatternDiskItems.L6, NeoECOAE.id("block/cell/storage_cell_l6_pattern_disk"));
+        ECOCellModels.register(NEPatternDiskItems.L9, NeoECOAE.id("block/cell/storage_cell_l9_pattern_disk"));
         if (NELogConfig.AUXILIARY_DEBUG) LOGGER.debug("[NEO ECO] AE2 Pattern Disk present; pattern-disk storage is available to hosts that opt in");
         // Hand the facade its backend. Until this runs, a host asking for one gets null and stays plain.
         PatternDiskSupport.install(new AepdPatternDiskBackend());
