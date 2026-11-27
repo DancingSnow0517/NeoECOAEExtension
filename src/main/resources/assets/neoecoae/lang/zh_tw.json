@@ -1265,7 +1265,7 @@
   "gui.neoecoae.workstation.power_priority.ae": "供能優先序：AE → FE",
   "gui.neoecoae.workstation.power_priority.fe": "供能優先序：FE → AE",
   "gui.neoecoae.workstation.power_priority.title": "供能優先序",
-  "gui.neoecoae.workstation.power_priority.peak": "峰值使用（最近一秒）",
+  "gui.neoecoae.workstation.power_priority.peak": "峰值使用",
   "gui.neoecoae.workstation.power_priority.network_fe": "網路 FE 總量",
   "gui.neoecoae.workstation.power_priority.network_ae": "網路 AE 總量",
   "gui.neoecoae.workstation.power_priority.primary": "優先",

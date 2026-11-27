@@ -1639,7 +1639,7 @@
   "gui.neoecoae.workstation.power_priority.ae": "供能优先级：AE → FE",
   "gui.neoecoae.workstation.power_priority.fe": "供能优先级：FE → AE",
   "gui.neoecoae.workstation.power_priority.title": "供能优先级",
-  "gui.neoecoae.workstation.power_priority.peak": "峰值使用（最近一秒）",
+  "gui.neoecoae.workstation.power_priority.peak": "峰值使用",
   "gui.neoecoae.workstation.power_priority.network_fe": "网络 FE 总量",
   "gui.neoecoae.workstation.power_priority.network_ae": "网络 AE 总量",
   "gui.neoecoae.workstation.power_priority.primary": "优先",
