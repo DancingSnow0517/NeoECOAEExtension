@@ -71,7 +71,7 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.workstation.power_priority.ae", "Power priority: AE, then FE");
         provider.add("gui.neoecoae.workstation.power_priority.fe", "Power priority: FE, then AE");
         provider.add("gui.neoecoae.workstation.power_priority.title", "Power priority");
-        provider.add("gui.neoecoae.workstation.power_priority.peak", "Peak usage (last second)");
+        provider.add("gui.neoecoae.workstation.power_priority.peak", "Peak usage");
         provider.add("gui.neoecoae.workstation.power_priority.network_fe", "Network FE total");
         provider.add("gui.neoecoae.workstation.power_priority.network_ae", "Network AE total");
         provider.add("gui.neoecoae.workstation.power_priority.primary", "Primary");

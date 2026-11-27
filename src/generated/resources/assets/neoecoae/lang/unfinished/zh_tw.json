@@ -1286,7 +1286,7 @@
   "gui.neoecoae.workstation.power_priority.hint": "左鍵切換。優先消耗所選能源，不足部分由另一種補足；頂部四個接口均接受 AE2 連接與 FE 輸入。",
   "gui.neoecoae.workstation.power_priority.network_ae": "網路 AE 總量",
   "gui.neoecoae.workstation.power_priority.network_fe": "網路 FE 總量",
-  "gui.neoecoae.workstation.power_priority.peak": "峰值使用（最近一秒）",
+  "gui.neoecoae.workstation.power_priority.peak": "峰值使用",
   "gui.neoecoae.workstation.power_priority.primary": "優先",
   "gui.neoecoae.workstation.power_priority.switch_hint": "左鍵切換",
   "gui.neoecoae.workstation.power_priority.title": "供能優先序",
