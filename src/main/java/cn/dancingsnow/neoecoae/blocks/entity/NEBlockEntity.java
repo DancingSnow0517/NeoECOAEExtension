@@ -287,6 +287,11 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         return !this.isRemoved();
     }
 
+    @Nullable
+    public cn.dancingsnow.neoecoae.api.IECOTier getTier() {
+        return null;
+    }
+
     public void breakCluster() {
         if (this.cluster != null) {
             cluster.breakCluster();

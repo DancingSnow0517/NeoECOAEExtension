@@ -529,6 +529,12 @@ public class ECOLargeIntegratedWorkingStationBlockEntity
             : LargeWorkstationModule.fromUpgradeCard(moduleInventory.getStackInSlot(0));
     }
 
+    @org.jetbrains.annotations.Nullable
+    public cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules.Module getInstalledModuleDescription() {
+        return moduleInventory == null ? null
+            : cn.dancingsnow.neoecoae.api.workstation.ECOWorkstationModules.customFromCard(moduleInventory.getStackInSlot(0));
+    }
+
     public IItemHandlerModifiable getModuleInventory() { return moduleInventory; }
 
     private void moduleChanged() {
