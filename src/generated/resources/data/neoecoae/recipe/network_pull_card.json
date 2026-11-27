@@ -1,28 +1,28 @@
 {
   "type": "minecraft:crafting_shaped",
   "category": "misc",
+  "key": {
+    "A": {
+      "item": "neoecoae:aluminum_alloy_ingot"
+    },
+    "C": {
+      "item": "ae2:wireless_receiver"
+    },
+    "P": {
+      "item": "neoecoae:superconducting_processor"
+    },
+    "S": {
+      "item": "ae2:singularity"
+    },
+    "W": {
+      "item": "ae2:advanced_card"
+    }
+  },
   "pattern": [
     "AWA",
     "CSC",
     "APA"
   ],
-  "key": {
-    "A": {
-      "item": "neoecoae:aluminum_alloy_ingot"
-    },
-    "W": {
-      "item": "ae2:advanced_card"
-    },
-    "C": {
-      "item": "ae2:wireless_receiver"
-    },
-    "S": {
-      "item": "ae2:singularity"
-    },
-    "P": {
-      "item": "neoecoae:superconducting_processor"
-    }
-  },
   "result": {
     "count": 1,
     "id": "neoecoae:network_pull_card"

@@ -439,6 +439,13 @@ final class StorageHostCharts {
                 // Mod-provided name styles can disagree with the resource icon's palette.
                 text(context, Component.literal(type.name().getString()), 10, row * 29 + 2,
                     nameWidth, nameFontScale, type.color());
+                if (type.countOnly()) {
+                    // A count with no bytes behind it: give the count both columns and skip the byte bar.
+                    text(context, usage(HostText.ae2Amount(type.usedTypes()), type.usedTypes(), type.totalTypes(),
+                        StorageCellGrid.capacity(type.totalTypes())), 3, row * 29 + 13, 62, valueFontScale, TEXT);
+                    bar(context, StoragePanelTextures.BLUE_BAR, type.usedTypes(), type.totalTypes(), 3, y + 21);
+                    continue;
+                }
                 text(context, usage(HostText.ae2Amount(type.usedTypes()), type.usedTypes(), type.totalTypes(),
                     StorageCellGrid.capacity(type.totalTypes())), 3, row * 29 + 13, 29, valueFontScale, TEXT);
                 long byteCapacity = byteCapacity(type);
@@ -476,6 +483,9 @@ final class StorageHostCharts {
             int index = currentOffset() + row;
             if (index >= state().types().size()) return List.of();
             StoragePanelState.TypeLine type = state().types().get(index);
+            if (type.countOnly()) {
+                return List.of(type.name(), StorageCellGrid.patternCountLine(type.usedTypes(), type.totalTypes()));
+            }
             long byteCapacity = byteCapacity(type);
             return List.of(type.name(),
                 Component.translatable("gui.neoecoae.storage.legacy.cell_types",

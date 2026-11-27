@@ -26,7 +26,11 @@
     "thunderbolt.Ae2LtWorkstationWirelessMixin",
     "thunderbolt.ThunderboltPlanningEngineMixin",
     "thunderbolt.ECOProcessingPatternFuzzyMixin",
-    "appbot.BotaniaForgeCapabilitiesMixin"
+    "appbot.BotaniaForgeCapabilitiesMixin",
+    "ae2_pattern_disk.PatternDiskProviderDiskSlotMixin",
+    "ae2_pattern_disk.BatchAssemblerDiskSlotMixin",
+    "ae2_pattern_disk.DiskHostSupportMixin",
+    "ae2_pattern_disk.BatchAssemblerBlockEntityMixin"
   ],
   "injectors": {
     "defaultRequire": 1

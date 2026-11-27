@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
+import cn.dancingsnow.neoecoae.api.storage.IECODrivePatternCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostUI;
@@ -194,11 +195,21 @@ final class ECOStorageHostStatistics {
                 cellEntries.add(StorageHostUI.CellEntry.EMPTY);
                 continue;
             }
+            var stack = drive.getCellStack();
+            if (stack != null && stack.getItem() instanceof IECODrivePatternCellItem patternCell) {
+                // No storage inventory to snapshot: the matrix reports its own pattern count, filed under its
+                // count-only type so the panel shows patterns rather than an empty byte figure.
+                driveUiSnapshots.remove(drive);
+                double appliedDrivePower = drive.appliedIdlePower().orElse(-1);
+                if (appliedDrivePower >= 0) energyConsumePerTick = NEMath.saturatingAdd(
+                    energyConsumePerTick, Math.max(0L, Math.round(appliedDrivePower)));
+                cellEntries.add(patternCellEntry(drive, stack, patternCell, storageTypes));
+                continue;
+            }
             DriveUiSnapshot view = driveUiSnapshot(drive);
             double appliedDrivePower = drive.appliedIdlePower().orElse(-1);
             if (appliedDrivePower >= 0) energyConsumePerTick = NEMath.saturatingAdd(
                 energyConsumePerTick, Math.max(0L, Math.round(appliedDrivePower)));
-            var stack = drive.getCellStack();
             if (view == null) {
                 cellEntries.add(StorageHostUI.CellEntry.EMPTY.atDrive(drive.getBlockPos(),
                     stack == null ? ItemStack.EMPTY : stack, occupiedTooltip(drive), drive.getCellInteractionId()));
@@ -266,6 +277,28 @@ final class ECOStorageHostStatistics {
             storageTypes,
             cellEntries
         );
+    }
+
+    /**
+     * The entry for a drive holding a pattern matrix: its pattern count in the type columns, no bytes.
+     *
+     * <p>The count is also added to the matrix's type total, which is what makes the panel's type list show a
+     * pattern line at all - that list is built from these totals.</p>
+     */
+    private StorageHostUI.CellEntry patternCellEntry(ECODriveBlockEntity drive, ItemStack stack,
+            IECODrivePatternCellItem patternCell, Map<Integer, StorageTypeTotals> storageTypes) {
+        long used = Math.max(0L, patternCell.getDriveUsedPatterns(stack));
+        long capacity = Math.max(0L, patternCell.getDrivePatternCapacity(stack));
+        var tier = patternCell.getDriveTier(stack);
+        int typeId = cellTypes.getId(patternCell.getDriveCellType(stack));
+        if (typeId >= 0) {
+            storageTypes.merge(typeId, new StorageTypeTotals(used, capacity, 0L, 0L, BigInteger.ZERO),
+                StorageTypeTotals::add);
+        }
+        return new StorageHostUI.CellEntry(typeId, tier.getTier(), StorageHostUI.CellEntry.KIND_OTHER,
+                used, capacity, 0L, 0L, false, patternCell.getDriveCellState(stack), drive.isOnline())
+            .withPanelTier(tier)
+            .atDrive(drive.getBlockPos(), stack, occupiedTooltip(drive), drive.getCellInteractionId());
     }
 
     private net.minecraft.network.chat.Component occupiedTooltip(ECODriveBlockEntity drive) {
