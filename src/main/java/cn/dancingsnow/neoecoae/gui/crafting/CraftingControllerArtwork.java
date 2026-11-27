@@ -381,13 +381,13 @@ final class CraftingControllerArtwork extends UIElement {
         }
     }
 
-    private Component statisticNumbers(int width, float scale, Function<String[], Component> formatter, long... numbers) {
+    private Component statisticNumbers(int width, float scale, Function<String[], Component> formatter, Number... numbers) {
         Font font = Minecraft.getInstance().font;
         String[] values = new String[numbers.length];
         Component text = Component.empty();
         for (int decimalPlaces = 2; decimalPlaces >= 0; decimalPlaces--) {
             for (int i = 0; i < numbers.length; i++) {
-                values[i] = decimalPlaces == 2 ? DisplayNumbers.grouped(numbers[i]) : DisplayNumbers.compact(Math.max(0L, numbers[i]), decimalPlaces);
+                values[i] = decimalPlaces == 2 ? DisplayNumbers.grouped(numbers[i]) : DisplayNumbers.compact(numbers[i], decimalPlaces);
             }
             text = formatter.apply(values);
             if (font.width(text) * scale <= width - 1) break;

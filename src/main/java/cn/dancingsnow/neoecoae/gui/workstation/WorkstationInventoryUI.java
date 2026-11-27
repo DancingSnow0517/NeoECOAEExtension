@@ -41,6 +41,7 @@ final class WorkstationInventoryUI {
                 int slot = rowIndex * 3 + columnIndex;
                 row.addChild(new ItemSlot(new ItemHandlerSlot(itemHandler, slot))
                     .slotStyle(style -> style
+                        .isPlayerSlot(true)
                         .quickMovePriority(1)
                         .slotOverlay(AETextures.icon(ECOIcon.BACKGROUND_UPGRADE))
                         .showSlotOverlayOnlyEmpty(true))

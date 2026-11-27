@@ -5,6 +5,7 @@ import appeng.api.orientation.OrientationStrategies;
 import appeng.block.AEBaseEntityBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOLargeIntegratedWorkingStationBlockEntity;
+import cn.dancingsnow.neoecoae.menu.IntegratedWorkstationMenu;
 import cn.dancingsnow.neoecoae.recipe.LargeWorkstationModule;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -120,6 +121,15 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
             case WEST -> WEST;
             default ->  NORTH;
         };
+    }
+
+    @Override
+    public BlockUIMenuType.BlockUIHolder createUIHolder(Player player, BlockPos pos, BlockState state) {
+        if (!player.level().isClientSide && !state.getValue(FORMED)
+            && player.level().getBlockEntity(pos) instanceof ECOIntegratedWorkingStationBlockEntity station) {
+            return IntegratedWorkstationMenu.holder(this, player, pos, state, station.getUpgrades());
+        }
+        return BlockUIMenuType.BlockUI.super.createUIHolder(player, pos, state);
     }
 
     @Override

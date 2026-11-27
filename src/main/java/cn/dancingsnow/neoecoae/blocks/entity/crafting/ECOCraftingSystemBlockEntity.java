@@ -933,7 +933,7 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
                 if (canPlayerInteract(player)) adjustNetworkFrequency(delta);
             },
             this::getCraftingControllerPanelState,
-            this::getDisplayedQueuedCraftCount,
+            () -> getDisplayedQueuedCraftQuantity().toBigInteger(),
             () -> {
                 CraftingCapabilitySnapshot.Capacity capacity = getCraftingPanelBatchCapacity(getCapabilitySnapshot());
                 return capacity.unlimited() ? Long.MAX_VALUE : capacity.finiteValue();
@@ -1041,9 +1041,13 @@ public class ECOCraftingSystemBlockEntity extends NEBlockEntity<NECraftingCluste
     }
 
     public long getDisplayedQueuedCraftCount() {
-        long total = 0L;
+        return getDisplayedQueuedCraftQuantity().longValueSaturated();
+    }
+
+    private PlannerAmount getDisplayedQueuedCraftQuantity() {
+        PlannerAmount total = PlannerAmount.ZERO;
         for (ECOCraftingWorkerBlockEntity worker : collectDisplayedWorkers()) {
-            total = NEMath.saturatingAdd(total, worker.getQueuedCraftCount());
+            total = total.add(worker.getQueuedCraftQuantity());
         }
         return total;
     }

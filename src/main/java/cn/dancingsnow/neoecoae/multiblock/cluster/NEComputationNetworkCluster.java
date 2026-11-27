@@ -116,7 +116,7 @@ public class NEComputationNetworkCluster {
             }
             topology.add(new EndgameHost(
                 controller.getTier().supportsFeature(ECOFeature.VIRTUAL_CRAFTING),
-                controller.getSelectedBuildLength() == controller.getMaxBuildLength(),
+                hasMaxBuildLength(member, controller),
                 controller.hasHighEnergyNetworkSwitch(),
                 hasAllDriveSlotsMaxTier(member)
             ));
@@ -162,6 +162,13 @@ public class NEComputationNetworkCluster {
         return areAllDriveSlotsMaxTier(driveStacks);
     }
 
+    private static boolean hasMaxBuildLength(
+        NEComputationCluster member,
+        ECOComputationSystemBlockEntity controller
+    ) {
+        return member.getThreadingCores().size() == controller.getMaxBuildLength();
+    }
+
     /**
      * Lang-key suffixes for every unmet endgame precondition, each at most once, in display order.
      */
@@ -175,7 +182,7 @@ public class NEComputationNetworkCluster {
             ECOComputationSystemBlockEntity controller = member.getController();
             if (controller != null) {
                 wrongTier |= !controller.getTier().supportsFeature(ECOFeature.VIRTUAL_CRAFTING);
-                wrongLength |= controller.getSelectedBuildLength() != controller.getMaxBuildLength();
+                wrongLength |= !hasMaxBuildLength(member, controller);
                 noHighEnergySwitch |= !controller.hasHighEnergyNetworkSwitch();
             }
             drivesMissing |= !hasAllDriveSlotsMaxTier(member);

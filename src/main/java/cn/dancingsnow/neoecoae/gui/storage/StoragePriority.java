@@ -1,27 +1,19 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+/** @deprecated Use {@link cn.dancingsnow.neoecoae.api.storage.StoragePriority}. */
+@Deprecated(forRemoval = false)
 public final class StoragePriority {
-    private StoragePriority() {
-    }
+    private StoragePriority() {}
 
-    /** Reserve the upper slot for marked bulk cells, including at the integer ceiling. */
     public static int mountPriority(int hostPriority, boolean markedBulk) {
-        return markedBulk ? adjust(hostPriority, 1) : Math.min(hostPriority, Integer.MAX_VALUE - 1);
+        return cn.dancingsnow.neoecoae.api.storage.StoragePriority.mountPriority(hostPriority, markedBulk);
     }
 
-    /** Adds a cell-local offset to the host baseline, with integer saturation. */
     public static int mountPriority(int hostPriority, int cellPriority) {
-        return adjust(hostPriority, cellPriority);
+        return cn.dancingsnow.neoecoae.api.storage.StoragePriority.mountPriority(hostPriority, cellPriority);
     }
 
     public static int adjust(int current, int delta) {
-        long adjusted = (long) current + delta;
-        if (adjusted > Integer.MAX_VALUE) {
-            return Integer.MAX_VALUE;
-        }
-        if (adjusted < Integer.MIN_VALUE) {
-            return Integer.MIN_VALUE;
-        }
-        return (int) adjusted;
+        return cn.dancingsnow.neoecoae.api.storage.StoragePriority.adjust(current, delta);
     }
 }

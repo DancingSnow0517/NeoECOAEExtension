@@ -161,7 +161,7 @@ public final class EcoApiExample {
 
 材料与图属于同一个 `neoecoae$getDisplayedPlanRevision()`。材料阶段由 `neoecoae$setMaterialReport(version, report, cycles)` 接收，完整图由 `neoecoae$setDiagnostics(version, graph, cycles)` 接收。提交前使用 `neoecoae$lockDisplayedPlan(revision)` 核对已显示的版本。拒绝时可通过 `neoecoae$getPlanRejection()` 获取重新规划或重新确认的提示翻译键。负版本号仅用于原生计划。`neoecoae$getReportSyncFailure()` 的 1、2 分别表示材料、图同步失败。
 
-[CraftingGraphSnapshot](../src/main/java/cn/dancingsnow/neoecoae/grid/crafting/planner/report/CraftingGraphSnapshot.java) 的 `materialReport()` 只提供材料阶段的数据。完整图中 `CycleGroup.recursion()` 提供初始库存和有界的精确检查点；`RecursionLayer` 的投入、库存和配方次数均使用 PlannerAmount，`folded` 表示折叠了重复步骤。`Recursion.complete()` 也可描述补足缺料后的条件执行过程，不代替提交合同的可执行判定。报告线协议现为 7，服务器与客户端必须使用匹配协议。
+[CraftingGraphSnapshot](../src/main/java/cn/dancingsnow/neoecoae/grid/crafting/planner/report/snapshot/CraftingGraphSnapshot.java) 的 `materialReport()` 只提供材料阶段的数据。完整图中 `CycleGroup.recursion()` 提供初始库存和有界的精确检查点；`RecursionLayer` 的投入、库存和配方次数均使用 PlannerAmount，`folded` 表示折叠了重复步骤。`Recursion.complete()` 也可描述补足缺料后的条件执行过程，不代替提交合同的可执行判定。报告线协议现为 7，服务器与客户端必须使用匹配协议。
 
 服务端分多个 tick 序列化菜单报告字段，只有大页生成后独立的字节数组在后台压缩。传输结束前，不要修改已提交的图和循环列表。客户端仍按完整版本接收结果；请使用就绪标志，不要假设报告在下一个 tick 就已到达。
 
@@ -170,6 +170,8 @@ public final class EcoApiExample {
 `ECOBigOrderRequest` 接受正 `BigInteger`，当前上限为 1024 位十进制数字。使用上例的 `submitBigOrder`，显式目标必须是合格 ECO CPU 或网络公布的空闲 ECO 占位 CPU。普通 AE2 CPU 不解释父订单载体。
 
 `request.submit(callback)` 在同步回调中把请求绑定到同一个载体对象。不能另取 `carrier()` 延后提交、复制载体或异步调用回调。载体的 long 数量是受限视图，不是精确总量。`fromPlanningResult` 从 long 计划投影读取数量，超 long 总量必须直接构造请求。
+
+`ECOBigOrderAdmission.allows` 接收的 `PlanningStatus` 和 `ECOPlanningResult` 是规划器实现类型，直接调用这些重载时请固定模组版本。使用明确的目标和精确数量构造并提交 `ECOBigOrderRequest` 不需要这两个类型。
 
 父订单按新库存规划有界子段。[ECOBigOrderPlanner.begin](../src/main/java/cn/dancingsnow/neoecoae/grid/crafting/planner/ECOBigOrderPlanner.java) 仅探测单个子段，不自行创建父订单。[ECOBigOrderAdmission.allows](../src/main/java/cn/dancingsnow/neoecoae/api/me/bigorder/ECOBigOrderAdmission.java) 检查诊断与强制模式准入；强制模式不生成材料，也不接受未知/不支持的路线。通过 `ECOCraftingProgressView.bigOrder()` 读取父订单状态与精确进度。
 
@@ -286,7 +288,7 @@ FastPath true 表示整批接收；false 或普通异常保证未接收，可由
 
 `ICellHost` 的安装参数为恰好一张有效盘，移除参数为 null；`ItemStack.EMPTY` 不是移除请求。先查询 `isItemValid/canExtractCell`，调用 void 的 `setCellStack` 后重读槽位确认，再转移源/旧盘。不要直接修改 `getCellStack()` 返回的活栈。[IECOStoragePriorityHost.setStoragePriority](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOStoragePriorityHost.java) 在服务端保存并刷新挂载。
 
-附属驱动器可实现 [IECOConfigurableCellDrive](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOConfigurableCellDrive.java)，无需继承 ECO 方块实体。`getCellInteractionId()` 标识一次安装，换盘或重新加载时更新，并同步到 `StorageHostUI.CellEntry.atDrive(position, stack, reason, interactionId)`。`setConfiguredCellPriority` 必须保存、同步设置并刷新受影响的 AE2 挂载；有效挂载优先级使用 `StoragePriority.mountPriority(hostPriority, cellPriority)`，按有符号 int 饱和相加。
+附属驱动器可实现 [IECOConfigurableCellDrive](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOConfigurableCellDrive.java)，无需继承 ECO 方块实体。`getCellInteractionId()` 标识一次安装，换盘或重新加载时更新，并同步到 `StorageHostUI.CellEntry.atDrive(position, stack, reason, interactionId)`。`setConfiguredCellPriority` 必须保存、同步设置并刷新受影响的 AE2 挂载；有效挂载优先级使用 [`StoragePriority.mountPriority(hostPriority, cellPriority)`](../src/main/java/cn/dancingsnow/neoecoae/api/storage/StoragePriority.java)，按有符号 int 饱和相加。旧 `gui.storage.StoragePriority` 保留为二进制兼容入口，转调此 API。
 
 要复用已安装盘的「配置」工作台，主机方块实体实现 [IECOConfigurableCellHost](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOConfigurableCellHost.java)，`getCellWorkbenchBlockEntity()` 返回自身，`getStorageDrivesForIntegration()` 仅返回当前所属驱动器；驱动器实现 [IECOCellWorkbenchDrive](../src/main/java/cn/dancingsnow/neoecoae/api/storage/IECOCellWorkbenchDrive.java)，复用上述优先级接口和 `ICellHost`。`getCellInventory()` 返回当前挂载的库存，`getCellStack()` 必须返回同一活栈；`reloadCellConfiguration()` 保存内容、重建处理器并刷新挂载，不得更换活栈或安装 UUID。
 

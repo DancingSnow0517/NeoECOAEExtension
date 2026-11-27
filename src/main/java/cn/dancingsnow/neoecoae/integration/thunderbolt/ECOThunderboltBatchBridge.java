@@ -12,26 +12,10 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Thunderbolt/time-wheel adapter. The caller already extracted a homogeneous batch and owns energy
- * accounting; this only reports how many of those copies the F-series host actually accepted.
+ * accounting; the drain returns the number of copies the F-series host did not accept.
  */
 public final class ECOThunderboltBatchBridge {
     private ECOThunderboltBatchBridge() {}
-
-    public static long capacity(ECOCraftingPatternBusBlockEntity bus, IPatternDetails pattern) {
-        if (!fastPathEligible(bus, pattern)) return 0L;
-        int slots = bus.getAvailableThreadSlots();
-        return slots > 1 ? slots : 0L;
-    }
-
-    public static long push(ECOCraftingPatternBusBlockEntity bus, IPatternDetails pattern,
-            KeyCounter[] oneCopy, long maxCraft, Level level, @Nullable UUID jobId) {
-        if (maxCraft <= 0L) return 0L;
-        long leftover = drainFastPath(bus, pattern, oneCopy, maxCraft, level, jobId);
-        if (leftover == maxCraft && bus.pushPattern(pattern, oneCopy, jobId)) {
-            leftover--;
-        }
-        return leftover;
-    }
 
     /**
      * Fills every currently free FX lane that can accept this pattern, not just the highest-ranked

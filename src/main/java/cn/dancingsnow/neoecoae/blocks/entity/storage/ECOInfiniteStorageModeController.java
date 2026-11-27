@@ -100,11 +100,20 @@ final class ECOInfiniteStorageModeController {
             if (eligible && saved == null && claims.ready()) createDomain(level, claims, location);
             if (creation != null && creation.isDone() && !creation.getNow(null).successful()
                     && level.getGameTime() % 100L == 0L) creation = engine.checkpoint();
+            if (engine != null && creation != null && creation.isDone() && creation.getNow(null).successful()) {
+                UUID pendingToken = host.pendingInfiniteClaimToken();
+                if (pendingToken != null) {
+                    engine.settleClaim(pendingToken);
+                    host.setInfiniteClaimTokens(pendingToken, null);
+                    creation = engine.checkpoint();
+                }
+            }
             if (engine != null && claims.locationOf(domain) == null && creation != null && creation.isDone()
                     && creation.getNow(null).successful() && claims.ready()) {
                 claims.bind(domain, location, false);
             }
             boolean active = eligible && engine != null && location.equals(claims.locationOf(domain)) && claims.readyFor(domain)
+                    && host.pendingInfiniteClaimToken() == null
                     && (creation == null || creation.isDone() && creation.getNow(null).successful())
                     && engine.canUseMountedStorage();
             publish(formed, active);
@@ -128,27 +137,45 @@ final class ECOInfiniteStorageModeController {
             reportClaim(level, id, "Saved domain is missing; no replacement was created");
             return;
         }
-        if (!(location.equals(claims.locationOf(id)) ? claims.readyFor(id) : claims.ready())
+        boolean alreadyBoundHere = location.equals(claims.locationOf(id));
+        if (!(alreadyBoundHere ? claims.readyFor(id) : claims.ready())
                 || ECOInfiniteStorageDomains.mountedHosts(level.getServer(), id) != 0) return;
         var loaded = (SavedDataInfiniteStorageEngine) ECOInfiniteStorageDomains.acquire(level, id);
-        if (claims.locationOf(id) == null) {
-            if (!loaded.acceptsClaim(host.infiniteClaimToken())
-                    && (host.pendingInfiniteClaimToken() == null || !loaded.acceptsClaim(host.pendingInfiniteClaimToken()))) {
+        if (!alreadyBoundHere) {
+            UUID current = host.infiniteClaimToken();
+            UUID pending = host.pendingInfiniteClaimToken();
+            if (!loaded.acceptsClaim(current) && (pending == null || !loaded.acceptsClaim(pending))) {
                 ECOInfiniteStorageDomains.release(level.getServer(), id);
-                reportClaim(level, id, "Legacy controller does not hold the saved claim");
+                reportClaim(level, id, "Host does not hold a valid claim for this infinite domain");
                 return;
             }
             hold(level, id, loaded);
+            if (pending == null) {
+                pending = UUID.randomUUID();
+                host.setInfiniteClaimTokens(current, pending);
+            }
+            loaded.rotateClaim(current, pending);
             ECOInfiniteStorageMember.recordRoster(loaded, host.legacyMigrationSources(), host.hasMalformedLegacyRoster());
             creation = loaded.checkpoint();
         } else {
             hold(level, id, loaded);
+            if (host.infiniteClaimToken() == null && host.pendingInfiniteClaimToken() == null) {
+                UUID next = UUID.randomUUID();
+                host.setInfiniteClaimTokens(null, next);
+                loaded.rotateClaim(null, next);
+                creation = loaded.checkpoint();
+            } else if (host.pendingInfiniteClaimToken() != null) {
+                loaded.rotateClaim(host.infiniteClaimToken(), host.pendingInfiniteClaimToken());
+                creation = loaded.checkpoint();
+            }
         }
     }
 
     private void createDomain(ServerLevel level, ECOInfiniteStorageDomains.HostClaims claims, GlobalPos location) {
         UUID id = UUID.randomUUID();
+        UUID token = UUID.randomUUID();
         var fresh = (SavedDataInfiniteStorageEngine) ECOInfiniteStorageDomains.acquire(level, id);
+        fresh.settleClaim(token);
         var initialSnapshot = fresh.checkpoint();
         if (!claims.bind(id, location, false)) {
             ECOInfiniteStorageDomains.release(level.getServer(), id);
@@ -156,6 +183,7 @@ final class ECOInfiniteStorageModeController {
         }
         hold(level, id, fresh);
         host.setInfiniteDomainId(id);
+        host.setInfiniteClaimTokens(token, null);
         creation = initialSnapshot;
     }
 
@@ -264,8 +292,13 @@ final class ECOInfiniteStorageModeController {
         try {
             if (!recovered.canUseMountedStorage()) return Component.translatable(prefix + "unhealthy");
             if (!claims.bind(id, location, true)) return Component.translatable(prefix + "unhealthy");
+            UUID nextToken = UUID.randomUUID();
+            recovered.settleClaim(nextToken);
+            var snapshot = recovered.checkpoint();
             release();
             host.setInfiniteDomainId(id);
+            host.setInfiniteClaimTokens(nextToken, null);
+            creation = snapshot;
         } finally {
             ECOInfiniteStorageDomains.release(level.getServer(), id);
         }

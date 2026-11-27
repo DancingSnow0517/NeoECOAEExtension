@@ -9,6 +9,7 @@
 - 接入以本仓实际依赖和目标实例 JAR 为准。最新版源码不等于编译/运行版本；必要时读取匹配 tag 或用 `javap` 核对签名、Mixin 目标。
 - 先用 `rg` 定位实际入口，再读取相关代码和测试。按任务查阅下表，不在每次开始时加载全部源码或文档。
 - 禁止发挥任何不必要的小巧思，任何涉及新功能/想法请发 issue 讨论而非直接提交相关新功能。
+- 未进行游戏内验证、提交携带 ai 签名的 pr 一律都会被关闭
 
 ## 任务路由
 
@@ -18,10 +19,10 @@ Java 包路径均相对于 `src/main/java/cn/dancingsnow/neoecoae/`。
 | --- | --- |
 | API 或附属接入 | [API](docs/API_ZH_CN.md)、`api/` 及对应调用点 |
 | 注册、依赖、可选联动 | `NeoECOAE.java`、`all/`、`api/integration/`、`integration/`、`mixins/`、`build.gradle`、`src/main/templates/META-INF/neoforge.mods.toml` |
-| 规划、循环、精确订单 | `api/me/planning/`、`api/me/bigorder/`、`crafting/planner/`、`crafting/adapter/` 和对应测试 |
-| CPU、发配、事务、产物 | `api/me/provider/`、`api/me/output/`、`crafting/execution/`；先区分准备、接收、记账与交付 |
-| 样板导入或迁移 | `api/IECOPatternStorage*.java`、`api/ECOPatternInsertion.java`、`api/PatternStorageHost.java` 及服务实现 |
-| 存储盘、精确数量、迁移 | `api/storage/`、`storage/`、`storage/bulk/` 和对应持久化/恢复测试 |
+| 规划、循环、精确订单 | `api/me/planning/`、`api/me/bigorder/`、`grid/crafting/planner/`；AE2 计划适配在 `grid/crafting/planner/ae2/` |
+| CPU、发配、事务、产物 | `api/me/provider/`、`api/me/output/`、`grid/crafting/execution/`；先区分准备、接收、记账与交付 |
+| 样板导入或迁移 | `api/IECOPatternStorage*.java`、`api/ECOPatternInsertion.java`、`api/PatternStorageHost.java`、`grid/pattern/` |
+| 存储盘、精确数量、迁移 | `api/storage/`、`grid/storage/cell/`、`grid/storage/bulk/`；无限存储的持久化与恢复在 `grid/storage/infinite/persist/` |
 | 多方块、档位、模型 | `api/IECOTier.java`、`api/multiblock/`、`multiblock/`、`blocks/entity/` 与客户端模型实现 |
 | 工作站、配方、温控 | `recipe/`、`api/workstation/`、`blocks/entity/ECOLargeIntegratedWorkingStationBlockEntity.java`、`config/NEConfig.java` |
 | UI、同步、面板贴图 | `gui/`、`menu/`、`network/`、`src/main/resources/assets/neoecoae/screens/`；面板扩展见 [API](docs/API_ZH_CN.md#面板与模型) |

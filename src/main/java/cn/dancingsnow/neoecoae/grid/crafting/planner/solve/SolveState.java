@@ -7,6 +7,7 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.grid.crafting.planner.compile.CompiledPattern;
+import cn.dancingsnow.neoecoae.grid.crafting.planner.compile.semantic.PatternContractReader;
 import cn.dancingsnow.neoecoae.grid.crafting.planner.result.provenance.ExecutionProvenance;
 import cn.dancingsnow.neoecoae.grid.crafting.planner.result.provenance.MaterialProvenance;
 import cn.dancingsnow.neoecoae.grid.crafting.planner.result.provenance.MaterialSource;
@@ -121,9 +122,7 @@ public final class SolveState {
     }
 
     /**
-     * Finds quantities that are eventually passed through AE2's long-valued CraftingPlan fields.
-     * Intermediate demand is intentionally not included: it may exceed long and still collapse to a
-     * representable firing count/output plan.
+     * Finds quantities that need exact execution because they exceed AE2's long-valued plan or batch fields.
      */
     public List<ExecutionAmountIssue> executionAmountIssues() {
         List<ExecutionAmountIssue> issues = new ArrayList<>();
@@ -131,8 +130,19 @@ public final class SolveState {
         collectExecutionIssues(issues, emitted, "emitted items");
         collectExecutionIssues(issues, missing, "missing items");
         for (var entry : patternTimes.entrySet()) {
-            if (!entry.getValue().fitsLong()) {
-                issues.add(new ExecutionAmountIssue(null, entry.getKey(), entry.getValue(), "pattern firing count"));
+            IPatternDetails pattern = entry.getKey();
+            PlannerAmount count = entry.getValue();
+            if (!count.fitsLong()) {
+                issues.add(new ExecutionAmountIssue(null, pattern, count, "pattern firing count"));
+            } else if (count.compareTo(PlannerAmount.ONE) > 0) {
+                var outputs = PatternContractReader.read(pattern).outputs();
+                if (outputs.size() == 1) {
+                    var output = outputs.getFirst();
+                    addBatchOutputIssue(issues, pattern, output.what(), count.multiply(output.amount()));
+                } else if (!outputs.isEmpty()) {
+                    SolveWorkspace.outputAmounts(outputs, count).forEach((key, amount) ->
+                        addBatchOutputIssue(issues, pattern, key, amount));
+                }
             }
         }
         if (!bytes.fitsLong()) issues.add(new ExecutionAmountIssue(null, null, bytes, "plan bytes"));
@@ -140,6 +150,13 @@ public final class SolveState {
     }
 
     public record ExecutionAmountIssue(AEKey key, IPatternDetails producer, PlannerAmount amount, String stage) {}
+
+    private static void addBatchOutputIssue(List<ExecutionAmountIssue> issues, IPatternDetails pattern,
+            AEKey key, PlannerAmount amount) {
+        if (!amount.fitsLong()) {
+            issues.add(new ExecutionAmountIssue(key, pattern, amount, "pattern batch output"));
+        }
+    }
 
     /** Exposes a disabled cycle as a normal AE2 missing entry without inventing missing internal SCC members. */
     void markCycleMissing(Map<AEKey, Long> requiredOutputs) {

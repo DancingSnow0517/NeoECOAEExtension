@@ -409,7 +409,6 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
      * must retain the original instance-only matching semantics.
      */
     private static final class PatternIndex {
-        private final boolean plannedTaskIndex;
         private final List<IPatternDetails> entries = new ArrayList<>();
         private final IdentityHashMap<IPatternDetails, IPatternDetails> byInstance = new IdentityHashMap<>();
         private final Map<PlanIdentity.PatternIdentity, IdentityBucket> byIdentity = new LinkedHashMap<>();
@@ -418,16 +417,6 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
         private final IdentityHashMap<IPatternDetails, Integer> phaseByInstance = new IdentityHashMap<>();
         private final Map<PlanIdentity.PatternIdentity, Integer> phaseByIdentity = new LinkedHashMap<>();
         private final Set<PlanIdentity.PatternIdentity> ambiguousPhaseOwnership = new HashSet<>();
-        private final IdentityHashMap<IPatternDetails, Long> plannedCountsByInstance = new IdentityHashMap<>();
-        private final Map<PlanIdentity.PatternIdentity, Long> plannedCountsByIdentity = new LinkedHashMap<>();
-
-        private PatternIndex() {
-            this(false);
-        }
-
-        private PatternIndex(boolean plannedTaskIndex) {
-            this.plannedTaskIndex = plannedTaskIndex;
-        }
 
         private static PatternIndex from(Iterable<IPatternDetails> patterns) {
             PatternIndex index = new PatternIndex();
@@ -436,10 +425,10 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
         }
 
         private static PatternIndex fromPlannedTasks(Map<IPatternDetails, Long> plannedTasks) {
-            PatternIndex index = new PatternIndex(true);
+            PatternIndex index = new PatternIndex();
             for (var entry : plannedTasks.entrySet()) {
                 Long count = entry.getValue();
-                if (count != null && count > 0L) index.addPlanned(entry.getKey(), count);
+                if (count != null && count > 0L) index.add(entry.getKey());
             }
             return index;
         }
@@ -469,17 +458,6 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
             if (!containsPhysicalPattern(pattern)) add(pattern);
         }
 
-        private void addPlanned(IPatternDetails pattern, long count) {
-            add(pattern);
-            PlanIdentity.PatternIdentity identity = identityOf(pattern);
-            if (identity == null) {
-                plannedCountsByInstance.put(pattern, addCounts(plannedCountsByInstance.get(pattern), count));
-            } else {
-                Long previous = plannedCountsByIdentity.get(identity);
-                plannedCountsByIdentity.put(identity, addCounts(previous, count));
-            }
-        }
-
         private boolean containsPhysicalPattern(IPatternDetails candidate) {
             if (byInstance.containsKey(candidate)) return true;
             return lookupByIdentity(identityOf(candidate)) != null;
@@ -503,21 +481,6 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
             return phaseByIdentity.get(identity);
         }
 
-        /** Planned-task coverage with the same physical identity rules as schedule construction. */
-        private long plannedCount(IPatternDetails pattern) {
-            PlanIdentity.PatternIdentity identity = identityOf(pattern);
-            if (identity == null) {
-                Long count = plannedCountsByInstance.get(pattern);
-                return count == null ? 0L : count;
-            }
-            Long count = plannedCountsByIdentity.get(identity);
-            return count == null ? 0L : count;
-        }
-
-        private boolean hasPlannedTask(IPatternDetails pattern) {
-            return plannedTaskIndex ? plannedCount(pattern) > 0L : containsPhysicalPattern(pattern);
-        }
-
         private IdentityBucket lookupByIdentity(PlanIdentity.PatternIdentity identity) {
             return identity == null ? null : byIdentity.get(identity);
         }
@@ -527,11 +490,6 @@ public record ECOExecutionSchedule(List<ComponentExecutionPhase> phases, List<Ph
             PlanIdentity.PatternIdentity identity = pattern == null ? null : PlanIdentity.patternIdentityFor(pattern);
             identityByInstance.put(pattern, identity);
             return identity;
-        }
-
-        private static long addCounts(Long previous, long count) {
-            return previous == null ? count
-                : Long.MAX_VALUE - previous < count ? Long.MAX_VALUE : previous + count;
         }
 
         private static final class IdentityBucket {
