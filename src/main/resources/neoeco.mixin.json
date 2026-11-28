@@ -37,6 +37,7 @@
     "ae2.menu.CraftingStatusMenuMixin",
     "ae2.menu.IOPortMenuMixin",
     "ae2.menu.MenuOpenerMixin",
+    "ae2.menu.MenuTypeBuilderMixin",
     "ae2.menu.PatternAccessTermMenuMixin",
     "ae2.menu.PatternEncodingTermMenuMixin",
     "ae2.menu.SetStockAmountMenuMixin",

@@ -7,23 +7,28 @@ import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.api.storage.ISubMenuHost;
 import appeng.api.storage.ITerminalHost;
 import appeng.menu.ISubMenu;
+import appeng.menu.AEBaseMenu;
 import appeng.menu.locator.MenuHostLocator;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.grid.crafting.execution.cpu.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.integration.ae2lt.ECOAe2LtCpuStatus;
 import cn.dancingsnow.neoecoae.gui.common.ECOModularUI;
 import cn.dancingsnow.neoecoae.integration.ae2.ECOGridMachineFinder;
+import com.lowdragmc.lowdraglib2.gui.factory.LDMenuTypes;
 import com.lowdragmc.lowdraglib2.gui.factory.PlayerUIMenuType;
+import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerMenu;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.TickTask;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -33,13 +38,16 @@ import org.jetbrains.annotations.Nullable;
 public final class ECOCraftingStatusUI {
     public static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath("neoecoae", "crafting_status");
     private static final int VALIDATION_INTERVAL = 10;
-    // Only populated for the duration of a synchronous PlayerUIMenuType.openUI call on the server thread.
-    private static final Map<UUID, Context> OPENING = new ConcurrentHashMap<>();
 
     private ECOCraftingStatusUI() {}
 
     public static void register() {
         PlayerUIMenuType.register(ID, ECOCraftingStatusUI::holder);
+    }
+
+    /** Returns true when {@code menu} is an open ECO crafting status screen container. */
+    public static boolean isCraftingStatusMenu(@Nullable AbstractContainerMenu menu) {
+        return menu instanceof ModularUIContainerMenu modular && modular.uiHolder instanceof Holder;
     }
 
     /** Opens the ECO page for a terminal's crafting status request; false lets AE2 open its own menu. */
@@ -48,12 +56,29 @@ public final class ECOCraftingStatusUI {
         if (host == null) return false;
         IGrid grid = grid(host);
         if (grid == null || !hasFunctionalHost(grid)) return false;
-        OPENING.put(player.getUUID(), new Context(host, locator));
-        try {
-            return PlayerUIMenuType.openUI(player, ID);
-        } finally {
-            OPENING.remove(player.getUUID());
-        }
+        Holder holder = new Holder(new Context(host, locator));
+        return player.openMenu(new MenuProvider() {
+            @Override
+            public Component getDisplayName() {
+                return Component.translatable(ID.toLanguageKey());
+            }
+
+            @Override
+            public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player menuPlayer) {
+                return new ModularUIContainerMenu(LDMenuTypes.PLAYER_UI.get(), containerId, playerInventory, holder);
+            }
+
+            @Override
+            public void writeClientSideData(AbstractContainerMenu menu, RegistryFriendlyByteBuf buffer) {
+                buffer.writeResourceLocation(ID);
+            }
+
+            @Override
+            public boolean shouldTriggerClientSideContainerClosingOnOpen() {
+                // Keep AE2's screen transition seamless so the cursor does not re-center.
+                return !(player.containerMenu instanceof AEBaseMenu);
+            }
+        }).isPresent();
     }
 
     /** A formed, online computation host whose cluster is active can serve crafting jobs. */
@@ -94,8 +119,7 @@ public final class ECOCraftingStatusUI {
             // The client mirrors the widget tree; all data and actions stay on the server.
             return new Holder(null);
         }
-        Context context = OPENING.get(player.getUUID());
-        return context == null ? null : new Holder(context);
+        return null;
     }
 
     private record Holder(@Nullable Context context) implements PlayerUIMenuType.PlayerUIHolder {
