@@ -127,7 +127,11 @@ public final class ECOPlanningService {
         }
 
         public boolean isConfirmationCurrent(ICraftingService service) {
-            return session.isConfirmationCurrent(service);
+            return session.isConfirmationCurrent(service, candidateResult != null ? candidateResult.plan() : candidate);
+        }
+
+        public boolean isConfirmationCurrent(ICraftingService service, @Nullable ICraftingPlan plan) {
+            return session.isConfirmationCurrent(service, plan);
         }
 
         private synchronized void attach(Future<?> task) {

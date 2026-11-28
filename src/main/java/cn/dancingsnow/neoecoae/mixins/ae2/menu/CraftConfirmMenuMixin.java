@@ -157,7 +157,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
             neoecoae$rejectPreview("plan_changed");
             return false;
         }
-        if (!neoecoae$checkPlanningSnapshot()) return false;
+        if (!neoecoae$checkPlanningSnapshot(displayed)) return false;
         if (displayed != result) {
             result = displayed;
             neoecoae$applyPlannerDiagnostics(result);
@@ -177,10 +177,10 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         neoecoae$planRejection = "";
     }
 
-    @Unique private boolean neoecoae$checkPlanningSnapshot() {
+    @Unique private boolean neoecoae$checkPlanningSnapshot(@Nullable ICraftingPlan planToCheck) {
         if (neoecoae$planningRequest == null) return true;
         var grid = getGrid();
-        if (grid != null && neoecoae$planningRequest.isConfirmationCurrent(grid.getCraftingService())) return true;
+        if (grid != null && neoecoae$planningRequest.isConfirmationCurrent(grid.getCraftingService(), planToCheck)) return true;
         neoecoae$rejectPreview("plan_stale");
         return false;
     }
@@ -219,7 +219,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
     @Inject(method = "startJob", at = @At("HEAD"), cancellable = true, order = 900)
     private void neoecoae$freezeSubmittedPreview(CallbackInfo ci) {
         if (((CraftConfirmMenu) (Object) this).isClientSide()) return;
-        if (result != null && !neoecoae$checkPlanningSnapshot()) {
+        if (result != null && !neoecoae$checkPlanningSnapshot(result)) {
             ci.cancel();
             return;
         }
@@ -401,7 +401,7 @@ public class CraftConfirmMenuMixin implements ECOCraftConfirmMenuMode {
         var menu = (CraftConfirmMenu) (Object) this;
         if (menu.isClientSide()) return;
         menu.clearError();
-        if (!neoecoae$checkPlanningSnapshot()) return;
+        if (!neoecoae$checkPlanningSnapshot(result)) return;
         neoecoae$stopOptimization();
         if (result == null || neoecoae$originalOptions == null) {
             neoecoae$rejectBigOrder(result == null ? "NO_PLAN" : "NO_PLANNER_OPTIONS",

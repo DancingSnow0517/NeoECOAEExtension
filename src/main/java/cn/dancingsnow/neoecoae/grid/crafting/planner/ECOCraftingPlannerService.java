@@ -3,9 +3,12 @@ package cn.dancingsnow.neoecoae.grid.crafting.planner;
 import cn.dancingsnow.neoecoae.grid.crafting.planner.control.ECOCancellation;
 import cn.dancingsnow.neoecoae.grid.crafting.planner.control.ECOPlanningBudget;
 import cn.dancingsnow.neoecoae.grid.crafting.planner.control.ECOPlanningStageLogger;
+import appeng.api.crafting.IPatternDetails;
+import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
+import org.jetbrains.annotations.Nullable;
 import cn.dancingsnow.neoecoae.grid.crafting.planner.ae2.AE2CraftingPlanBridge;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.planning.ECOPlanningResultRegistry;
@@ -349,11 +352,56 @@ public final class ECOCraftingPlannerService {
             return isStructureCurrent(structure);
         }
 
-        boolean isConfirmationCurrent(ICraftingService service) {
+        boolean isConfirmationCurrent(ICraftingService service, @Nullable ICraftingPlan plan) {
             var current = structure;
-            return belongsTo(service) && current != null
-                    && current.providerRevision() == CompiledStructureCache.providerRevision(service)
-                    && current.contractGeneration() == AE2PatternIntrospection.reloadGeneration();
+            if (!belongsTo(service) || current == null
+                    || current.contractGeneration() != AE2PatternIntrospection.reloadGeneration()) {
+                return false;
+            }
+            if (current.providerRevision() == CompiledStructureCache.providerRevision(service)) {
+                return true;
+            }
+            return plan != null && isPlanStillValid(service, plan);
+        }
+
+        private static boolean isPlanStillValid(ICraftingService service, ICraftingPlan plan) {
+            for (IPatternDetails pattern : plan.patternTimes().keySet()) {
+                if (!hasProvider(service, pattern)) {
+                    return false;
+                }
+            }
+            for (var entry : plan.emittedItems()) {
+                if (entry.getLongValue() > 0 && !service.canEmitFor(entry.getKey())) {
+                    return false;
+                }
+            }
+            var exact = ECOPlanningResultRegistry.findExact(plan);
+            if (exact != null) {
+                for (IPatternDetails pattern : exact.exactPatternTimes().keySet()) {
+                    if (!hasProvider(service, pattern)) {
+                        return false;
+                    }
+                }
+                for (var entry : exact.exactEmittedItems().entrySet()) {
+                    if (entry.getValue().signum() > 0 && !service.canEmitFor(entry.getKey())) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        private static boolean hasProvider(ICraftingService service, @Nullable IPatternDetails pattern) {
+            if (pattern == null) {
+                return false;
+            }
+            if (service instanceof appeng.me.service.CraftingService craftingService) {
+                return craftingService.getProviders(pattern).iterator().hasNext();
+            }
+            IPatternDetails physical = pattern instanceof cn.dancingsnow.neoecoae.grid.crafting.pattern.ECOComponentInsensitiveProcessingPattern policy
+                    ? policy.ecoProviderPattern() : pattern;
+            var primary = physical.getPrimaryOutput();
+            return primary != null && service.getCraftingFor(primary.what()).contains(physical);
         }
 
         private boolean isStructureCurrent(CompiledStructureCache.Structure current) {

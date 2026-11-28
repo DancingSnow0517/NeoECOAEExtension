@@ -26,6 +26,8 @@
     "ae2.crafting.CraftingPlanMixin",
     "ae2.crafting.CraftingServiceMixin",
     "ae2.crafting.MultiCraftingTrackerMixin",
+    "ae2.crafting.NetworkCraftingProvidersMixin",
+    "ae2.crafting.ProviderStateMixin",
     "ae2.crafting.CraftingTreeNodeMixin",
     "ae2.crafting.PatternsForKeyMixin",
     "ae2.crafting.PatternProviderDiagnosticsMixin",

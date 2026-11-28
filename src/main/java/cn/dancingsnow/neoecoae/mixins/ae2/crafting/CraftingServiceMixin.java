@@ -8,6 +8,7 @@ import appeng.api.networking.IGridServiceProvider;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingLink;
 import appeng.api.networking.crafting.ICraftingPlan;
+import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
 import appeng.crafting.execution.CraftingSubmitResult;
@@ -21,6 +22,7 @@ import appeng.crafting.pattern.AECraftingPattern;
 import appeng.me.service.CraftingService;
 import appeng.me.service.helpers.NetworkCraftingProviders;
 import cn.dancingsnow.neoecoae.grid.crafting.execution.cpu.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.grid.crafting.execution.dispatch.ECOProviderStateSnapshot;
 import cn.dancingsnow.neoecoae.api.me.provider.ECOCraftingProviderRevision;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingPlanDiagnostics;
 import cn.dancingsnow.neoecoae.api.me.diagnostics.ECOCraftingServiceDiagnostics;
@@ -83,6 +85,8 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     private static final Logger NEOECOAE_SUBMISSION_LOGGER = LoggerFactory.getLogger("neoecoae.submit");
     @Unique
     private volatile long neoecoae$providerRevision;
+    @Unique
+    private volatile int neoecoae$providerMutationDepth;
 
     @Inject(method = "beginCraftingCalculation", at = @At("HEAD"))
     private void neoecoae$publishBulkBeforePlanning(net.minecraft.world.level.Level level,
@@ -101,15 +105,70 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
 
     @Override
     public boolean neoecoae$isProviderSnapshotStable() {
-        return !updateList;
+        return !updateList && neoecoae$providerMutationDepth == 0;
     }
 
-    @Inject(method = {
-            "addNode", "removeNode", "refreshNodeCraftingProvider",
-            "addGlobalCraftingProvider", "removeGlobalCraftingProvider", "refreshGlobalCraftingProvider"
-    }, at = @At("HEAD"))
-    private void neoecoae$invalidateProviderCursors(CallbackInfo ci) {
-        neoecoae$providerRevision++;
+    @WrapMethod(method = "addNode")
+    private void neoecoae$trackNodeAddition(IGridNode gridNode, CompoundTag savedData, Operation<Void> original) {
+        var container = (ECOProviderStateSnapshot.Container) (Object) craftingProviders;
+        var before = container.neoecoae$nodeState(gridNode);
+        neoecoae$providerMutationDepth++;
+        boolean completed = false;
+        try {
+            original.call(gridNode, savedData);
+            completed = true;
+            neoecoae$finishProviderMutation(before, container.neoecoae$nodeState(gridNode));
+        } finally {
+            if (!completed) {
+                neoecoae$providerRevision++;
+            }
+            neoecoae$providerMutationDepth--;
+        }
+    }
+
+    @WrapMethod(method = {"removeNode", "refreshNodeCraftingProvider"})
+    private void neoecoae$trackNodeProviderMutation(IGridNode gridNode, Operation<Void> original) {
+        var container = (ECOProviderStateSnapshot.Container) (Object) craftingProviders;
+        var before = container.neoecoae$nodeState(gridNode);
+        neoecoae$providerMutationDepth++;
+        boolean completed = false;
+        try {
+            original.call(gridNode);
+            completed = true;
+            neoecoae$finishProviderMutation(before, container.neoecoae$nodeState(gridNode));
+        } finally {
+            if (!completed) {
+                neoecoae$providerRevision++;
+            }
+            neoecoae$providerMutationDepth--;
+        }
+    }
+
+    @WrapMethod(method = {"addGlobalCraftingProvider", "removeGlobalCraftingProvider", "refreshGlobalCraftingProvider"})
+    private void neoecoae$trackGlobalProviderMutation(ICraftingProvider provider, Operation<Void> original) {
+        var container = (ECOProviderStateSnapshot.Container) (Object) craftingProviders;
+        var before = container.neoecoae$globalState(provider);
+        neoecoae$providerMutationDepth++;
+        boolean completed = false;
+        try {
+            original.call(provider);
+            completed = true;
+            neoecoae$finishProviderMutation(before, container.neoecoae$globalState(provider));
+        } finally {
+            if (!completed) {
+                neoecoae$providerRevision++;
+            }
+            neoecoae$providerMutationDepth--;
+        }
+    }
+
+    @Unique
+    private void neoecoae$finishProviderMutation(
+            @Nullable ECOProviderStateSnapshot before,
+            @Nullable ECOProviderStateSnapshot after) {
+        if (!ECOProviderStateSnapshot.equivalent(before, after)) {
+            neoecoae$providerRevision++;
+        }
     }
 
     @Unique
