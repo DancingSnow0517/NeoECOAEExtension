@@ -34,13 +34,13 @@ final class LargeWorkstationPowerPriorityCard {
     CraftingListCard.Builder builder(CompoundTag state) {
         return CraftingListCard.builder().minimumWidth(240)
             .header(CraftingListCard.Glyph.BOLT, tr("title"), card("energy_monitor"), CraftingTooltipCard.MUTED)
-            .divider().space(3)
+            .space(3)
             .row(null, FE, tr("peak"), amount(state, "energyPeak", "ae_rate"), FE)
             .space(5)
             .row(null, FE, tr("network_fe"), amount(state, "networkFE", "fe_amount"), FE)
             .space(5)
             .row(null, AE, tr("network_ae"), amount(state, "networkAE", "ae_amount"), AE)
-            .space(5).divider()
+            .space(5)
             .row(null, CraftingTooltipCard.MUTED, tr("title"),
                 Component.literal(fePreferred ? "FE → AE" : "AE → FE"), fePreferred ? FE : AE);
     }

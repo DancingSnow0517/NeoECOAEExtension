@@ -1375,7 +1375,7 @@
   "gui.neoecoae.workstation.thermal_mode": "温度模式",
   "gui.neoecoae.workstation.coolant_mode": "冷却液模式",
   "gui.neoecoae.workstation.thermal_short": "温度",
-  "gui.neoecoae.workstation.energy_short": "耗能",
+  "gui.neoecoae.workstation.energy_short": "储能",
   "gui.neoecoae.workstation.energy_hint": "显示最近一秒的平均实际耗能，包含加工和预热。",
   "gui.neoecoae.workstation.overclock_thermal_hint": "并行上限随当前温度自动变化；仅开启超频且实际加工时产热。",
   "gui.neoecoae.workstation.overclock_coolant_hint": "同时开启超频与主动冷却后，按冷却液档位提高并行上限。",

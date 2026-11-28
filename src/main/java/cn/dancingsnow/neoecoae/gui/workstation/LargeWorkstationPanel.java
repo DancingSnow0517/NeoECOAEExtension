@@ -355,17 +355,19 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         return CraftingListCard.hover(energyCardBuilder().build());
     }
 
-    /** Energy card: AE-equivalent usage and physical FE consumption. */
+    /** Energy card: internal storage, AE-equivalent usage and physical FE consumption. */
     CraftingListCard.Builder energyCardBuilder() {
+        long stored = (long) state.getDouble("energyStored"), capacity = (long) state.getDouble("energyCapacity");
         return CraftingListCard.builder()
             .header(CraftingListCard.Glyph.BATTERY, card("energy_monitor"), Component.empty(), CraftingTooltipCard.MUTED)
-            .metricUnit(card("actual_energy"), Component.literal(DisplayNumbers.compact(state.getDouble("energyUsage"))),
-                CraftingTooltipCard.PRIMARY, Component.literal("AE/t"), CraftingTooltipCard.WARN)
-            .panel(null, Component.empty(), Component.empty(), CraftingTooltipCard.MUTED, List.of(
-                new CraftingListCard.PanelLine(null, card("fe_usage"), CraftingTooltipCard.PRIMARY,
-                    card("fe_rate", DisplayNumbers.compact(state.getDouble("feUsage"))), CraftingTooltipCard.PRIMARY),
-                new CraftingListCard.PanelLine(null, card("fe_pending"), CraftingTooltipCard.PRIMARY,
-                    card("fe_amount", DisplayNumbers.compact(state.getLong("feBuffer"))), CraftingTooltipCard.PRIMARY)));
+            .row(null, CraftingTooltipCard.MUTED, card("internal_storage"),
+                card("ae_stored", HostText.ae2Amount(stored), HostText.ae2Amount(capacity)), CraftingTooltipCard.ACCENT)
+            .row(null, CraftingTooltipCard.MUTED, card("actual_energy"),
+                card("ae_rate", DisplayNumbers.compact(state.getDouble("energyUsage"))), CraftingTooltipCard.WARN)
+            .row(null, CraftingTooltipCard.MUTED, card("fe_usage"),
+                card("fe_rate", DisplayNumbers.compact(state.getDouble("feUsage"))), CraftingTooltipCard.PRIMARY)
+            .row(null, CraftingTooltipCard.MUTED, card("fe_pending"),
+                card("fe_amount", DisplayNumbers.compact(state.getLong("feBuffer"))), CraftingTooltipCard.PRIMARY);
     }
 
     private HoverTooltips overclockCard(boolean toggle) {
@@ -416,7 +418,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             .metrics(card("current_temperature"), Component.literal(precise(temperature) + "%"),
                 overheated ? CraftingListCard.DANGER : CraftingTooltipCard.ACCENT,
                 card("current_parallel"), Component.literal(CraftingTooltipCard.group(limit)), CraftingTooltipCard.PRIMARY)
-            .divider()
+            .space(2)
             .row(null, CraftingTooltipCard.MUTED, card("net_change"),
                 card("rate", signedRate(state.getDouble("temperatureChangePerSecond"))), CraftingTooltipCard.PRIMARY);
         rateRow(card, "processing", "+", state.getDouble("processingHeatPerSecond"), CraftingTooltipCard.WARN, true);
@@ -454,11 +456,10 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
             int target = state.getInt("coolingTarget");
             card.metric(card("target_temperature"), Component.literal(target + "%"), CraftingTooltipCard.CYAN,
                     card("smart_constant"), CraftingTooltipCard.MUTED)
-                .bar(target / 100.0, CraftingTooltipCard.CYAN);
+                .space(2);
         }
         boolean supplied = state.getInt("coolantTier") > 0;
-        card.divider()
-            .row(null, CraftingTooltipCard.MUTED, tr("coolant"), supplied ? coolantTitle() : card("coolant_unsupplied"),
+        card.row(null, CraftingTooltipCard.MUTED, tr("coolant"), supplied ? coolantTitle() : card("coolant_unsupplied"),
                 supplied ? CraftingTooltipCard.CYAN : CraftingTooltipCard.WARN);
         if (temperatureEnabled()) {
             double circulation = smart
@@ -470,7 +471,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
                     CraftingTooltipCard.PRIMARY);
         }
         if (smart || toggle) {
-            card.divider();
+            card.space(2);
         }
         if (smart) {
             card.row(null, CraftingTooltipCard.MUTED,
@@ -584,7 +585,7 @@ final class LargeWorkstationPanel extends BindableValue<Tag> {
         centeredText(context, tr("output_short"), 226, 70, 20, 0.7f, TEXT);
         int heatHeight = 7 + (int) Math.round(39 * ratio(temperatureEnabled() ? state.getDouble("temperature") : 0, 100));
         sprite(context, WorkstationTextures.widget(8, 207 - heatHeight, 10, heatHeight), 175, 124 - heatHeight, 10, heatHeight);
-        int energyHeight = (int) Math.round(46 * ratio(state.getDouble("energyUsage"), state.getDouble("energyScale")));
+        int energyHeight = (int) Math.round(46 * ratio(state.getDouble("energyStored"), state.getDouble("energyScale")));
         if (energyHeight > 0) sprite(context, WorkstationTextures.widget(0, 207 - energyHeight, 8, energyHeight),
             192, 124 - energyHeight, 8, energyHeight);
         sprite(context, WorkstationTextures.temperatureIcon(temperatureEnabled() ? state.getDouble("temperature") : 0), 180, 136, 12, 12);

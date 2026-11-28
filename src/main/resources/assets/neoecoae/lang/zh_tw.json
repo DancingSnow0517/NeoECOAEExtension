@@ -1018,7 +1018,7 @@
   "gui.neoecoae.workstation.thermal_mode": "溫度模式",
   "gui.neoecoae.workstation.coolant_mode": "冷卻液模式",
   "gui.neoecoae.workstation.thermal_short": "溫度",
-  "gui.neoecoae.workstation.energy_short": "耗能",
+  "gui.neoecoae.workstation.energy_short": "儲能",
   "gui.neoecoae.workstation.energy_value": "實時耗能：%s AE/t",
   "gui.neoecoae.workstation.energy_stored": "儲能：%s / %s AE",
   "gui.neoecoae.workstation.energy_hint": "顯示最近一秒的平均實際耗能，包含加工和預熱。",
