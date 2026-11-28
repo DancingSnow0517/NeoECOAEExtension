@@ -38,6 +38,11 @@ public interface ECOCraftingNetworkSettings {
     default void neoecoae$setSmartDoublingEnabled(boolean enabled) {
     }
 
+    /** Unique runtime identifier for this grid's crafting service within the current server session. */
+    default long neoecoae$getNetworkId() {
+        return 0L;
+    }
+
     /** @deprecated Logging is controlled by the global Calculating debug configuration now. */
     @Deprecated
     default boolean neoecoae$isPlanningLogEnabled() {
@@ -89,5 +94,10 @@ public interface ECOCraftingNetworkSettings {
             return settings;
         }
         return null;
+    }
+
+    static long networkId(@Nullable IGrid grid) {
+        var settings = of(grid);
+        return settings == null ? 0L : settings.neoecoae$getNetworkId();
     }
 }

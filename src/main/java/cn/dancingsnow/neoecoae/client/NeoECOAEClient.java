@@ -62,6 +62,8 @@ public class NeoECOAEClient {
 
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
+        cn.dancingsnow.neoecoae.network.ECOCraftingJobNetworkS2CPacket.setClientHandler(
+            cn.dancingsnow.neoecoae.client.gui.crafting.ECONetworkPinnedJobs::bindJobNetwork);
         NeoECOAE.getIntegrationManager().loadAllClientIntegrations();
         NEItemColors.clearCache();
         ECOCellModels.runDeferredRegistration();
@@ -82,13 +84,18 @@ public class NeoECOAEClient {
 
     @SubscribeEvent
     public static void onClientTick(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
-        var player = net.minecraft.client.Minecraft.getInstance().player;
+        var minecraft = net.minecraft.client.Minecraft.getInstance();
+        var player = minecraft.player;
         cn.dancingsnow.neoecoae.network.MenuDataTransport.retainClientMenu(player == null ? null : player.containerMenu);
+        if (minecraft.screen == null) {
+            cn.dancingsnow.neoecoae.client.gui.crafting.ECONetworkPinnedJobs.prune();
+        }
     }
 
     @SubscribeEvent
     public static void onKeyReuseDisconnect(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
         cn.dancingsnow.neoecoae.integration.ae2.keyreuse.KeyReuse.invalidate();
+        cn.dancingsnow.neoecoae.client.gui.crafting.ECONetworkPinnedJobs.clear();
     }
 
     @SubscribeEvent

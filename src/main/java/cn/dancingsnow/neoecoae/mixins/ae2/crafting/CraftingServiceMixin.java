@@ -204,6 +204,11 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
     }
 
     @Unique
+    private static final java.util.concurrent.atomic.AtomicLong NEOECOAE_NEXT_NETWORK_ID =
+            new java.util.concurrent.atomic.AtomicLong(1L);
+    @Unique
+    private final long neoecoae$networkId = NEOECOAE_NEXT_NETWORK_ID.getAndIncrement();
+    @Unique
     private boolean neoecoae$liteCraftingMode = true;
     @Unique
     private boolean neoecoae$planningModeInitialized;
@@ -433,6 +438,11 @@ public abstract class CraftingServiceMixin implements ECOCraftingNetworkSettings
         for (ECOComputationSystemBlockEntity host : ECOGridMachineFinder.getMachines(grid, ECOComputationSystemBlockEntity.class)) {
             host.applyNetworkSmartDoublingEnabled(enabled);
         }
+    }
+
+    @Override
+    public long neoecoae$getNetworkId() {
+        return neoecoae$networkId;
     }
 
     @Override

@@ -23,6 +23,7 @@ import cn.dancingsnow.neoecoae.api.me.dispatch.ECOCraftingCpuContext;
 import cn.dancingsnow.neoecoae.api.me.dispatch.ECOCraftingDispatchPolicyRegistry;
 import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingJobContext;
 import cn.dancingsnow.neoecoae.api.me.lifecycle.ECOCraftingLifecycle;
+import cn.dancingsnow.neoecoae.api.me.network.ECOCraftingNetworkSettings;
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputClaimRequest;
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputClaimResult;
 import cn.dancingsnow.neoecoae.api.me.output.ECOCraftingOutputClaimSink;
@@ -47,6 +48,7 @@ import org.slf4j.LoggerFactory;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
@@ -851,9 +853,6 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
 
     public void notifyJobOwner(ExecutingCraftingJob job, CraftingJobStatusPacket.Status status) {
         this.lastModifiedOnTick = TickHandler.instance().getCurrentTick();
-        if (status == CraftingJobStatusPacket.Status.STARTED) {
-            return;
-        }
 
         var playerId = job.playerId;
         if (playerId == null || job.finalOutput == null) {
@@ -869,6 +868,13 @@ public class ECOCraftingCPULogic extends cn.dancingsnow.neoecoae.api.me.ECOCraft
         var connectedPlayer = IPlayerRegistry.getConnected(server, playerId);
         if (connectedPlayer != null) {
             var jobId = job.link.getCraftingID();
+            if (status == CraftingJobStatusPacket.Status.STARTED) {
+                long networkId = ECOCraftingNetworkSettings.networkId(cpu.getGrid());
+                if (networkId > 0L) {
+                    PacketDistributor.sendToPlayer(connectedPlayer,
+                            new cn.dancingsnow.neoecoae.network.ECOCraftingJobNetworkS2CPacket(jobId, networkId));
+                }
+            }
             ClientboundPacket message = new CraftingJobStatusPacket(
                     jobId, job.finalOutput.what(), job.finalOutput.amount(), job.remainingAmount, status);
             connectedPlayer.connection.send(message);

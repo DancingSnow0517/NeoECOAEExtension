@@ -25,10 +25,12 @@ public final class ECONetwork {
             ECOForceCraftStartFlagC2SPacket.STREAM_CODEC, ECOForceCraftStartFlagC2SPacket::handle);
         registrar.playToServer(ECOImportJeiBookmarksC2SPacket.TYPE,
             ECOImportJeiBookmarksC2SPacket.STREAM_CODEC, ECOImportJeiBookmarksC2SPacket::handle);
+        registrar.playToClient(ECOCraftingJobNetworkS2CPacket.TYPE,
+            ECOCraftingJobNetworkS2CPacket.STREAM_CODEC, ECOCraftingJobNetworkS2CPacket::handle);
     }
 
     static String protocolVersion(String modVersion) {
-        // Includes exact live graph amounts and graph-context item actions.
-        return "9/" + modVersion;
+        // Includes exact live graph amounts, graph-context item actions, and network-scoped crafting pins.
+        return "10/" + modVersion;
     }
 }
